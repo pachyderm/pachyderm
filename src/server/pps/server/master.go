@@ -127,9 +127,12 @@ func (a *apiServer) master() {
 					}
 
 					// If the pipeline has been stopped, delete workers
-					if pipelineStateToStopped(pipelinePtr.State) {
+					if pipelineInfo.Stopped {
 						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
-						if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
+						if err := a.deleteWorkersForPipeline(pipelineName); err != nil {
+							return err
+						}
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED, ""); err != nil {
 							return err
 						}
 					}
@@ -143,8 +146,8 @@ func (a *apiServer) master() {
 
 					// True if the pipeline has been restarted (regardless of any change
 					// to the pipeline spec)
-					pipelineRestarted := !pipelineStateToStopped(pipelinePtr.State) &&
-						event.PrevKey != nil && pipelineStateToStopped(prevPipelinePtr.State)
+					pipelineRestarted := !pipelineInfo.Stopped &&
+						event.PrevKey != nil && prevPipelineInfo.Stopped
 					// True if auth has been activated or deactivated
 					authActivationChanged := (pipelinePtr.AuthToken == "") !=
 						(prevPipelinePtr.AuthToken == "")
@@ -155,11 +158,11 @@ func (a *apiServer) master() {
 							prevSpecCommit = prevPipelinePtr.SpecCommit.ID
 						}
 						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
-							!pipelineStateToStopped(pipelinePtr.State)
+							!pipelineInfo.Stopped
 					}()
 					if pipelineRestarted || authActivationChanged || pipelineUpserted {
 						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
-							if err := a.deleteWorkersForPipeline(prevPipelineInfo); err != nil {
+							if err := a.deleteWorkersForPipeline(prevPipelineInfo.Pipeline.Name); err != nil {
 								return err
 							}
 						}
@@ -170,10 +173,16 @@ func (a *apiServer) master() {
 						}
 						log.Infof("PPS master: creating/updating workers for pipeline %s", pipelineName)
 						if err := a.upsertWorkersForPipeline(pipelineInfo); err != nil {
-							if err := a.setPipelineFailure(ctx, pipelineName, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
+							if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STARTING, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
-							continue
+							// We return the error here, this causes us to go
+							// into backoff and try again from scratch. This
+							// means that we'll try creating this pipeline
+							// again and also gives a chance for another node,
+							// which might actually be able to talk to k8s, to
+							// get a chance at creating the workers.
+							return err
 						}
 					}
 					if pipelineInfo.State == pps.PipelineState_PIPELINE_RUNNING {
@@ -229,6 +238,10 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		for _, c := range a.monitorCancels {
+			c()
+		}
+		a.monitorCancels = make(map[string]func())
 		log.Errorf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
@@ -307,7 +320,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			}
 		}
 		if workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
-			if err := a.deleteWorkersForPipeline(pipelineInfo); err != nil {
+			if err := a.deleteWorkersForPipeline(pipelineInfo.Pipeline.Name); err != nil {
 				return err
 			}
 		}
@@ -351,36 +364,37 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	return nil
 }
 
-func (a *apiServer) deleteWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	cancel, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]
+func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
+	cancel, ok := a.monitorCancels[pipelineName]
 	if ok {
 		cancel()
-		delete(a.monitorCancels, pipelineInfo.Pipeline.Name)
+		delete(a.monitorCancels, pipelineName)
 	}
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
-		rcName, &metav1.DeleteOptions{},
-	); err != nil {
-		if !isNotFoundErr(err) {
-			return err
-		}
+	selector := fmt.Sprintf("pipelineName=%s", pipelineName)
+	falseVal := false
+	opts := &metav1.DeleteOptions{
+		OrphanDependents: &falseVal,
 	}
-	if pipelineInfo.Service != nil {
-		if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(
-			rcName+"-user", &metav1.DeleteOptions{},
-		); err != nil {
+	services, err := a.kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return err
+	}
+	for _, service := range services.Items {
+		if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return err
 			}
 		}
 	}
-	falseVal := false
-	deleteOptions := &metav1.DeleteOptions{
-		OrphanDependents: &falseVal,
+	rcs, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return err
 	}
-	if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rcName, deleteOptions); err != nil {
-		if !isNotFoundErr(err) {
-			return err
+	for _, rc := range rcs.Items {
+		if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
+			if !isNotFoundErr(err) {
+				return err
+			}
 		}
 	}
 	return nil
@@ -429,22 +443,24 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 	}
 }
 
-func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
-	setPipelineState := func(state pps.PipelineState) error {
-		log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-		_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-			pipelines := a.pipelines.ReadWrite(stm)
-			pipelinePtr := &pps.EtcdPipelineInfo{}
-			return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
-				if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED || pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
-					return nil
-				}
-				pipelinePtr.State = state
+func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState, reason string) error {
+	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
+	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+		pipelines := a.pipelines.ReadWrite(stm)
+		pipelinePtr := &pps.EtcdPipelineInfo{}
+		return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
+			if pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
 				return nil
-			})
+			}
+			pipelinePtr.State = state
+			pipelinePtr.Reason = reason
+			return nil
 		})
-		return err
-	}
+	})
+	return err
+}
+
+func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
@@ -462,7 +478,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		// good reason to do it concurrently.
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				return setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+				return a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING, "")
 			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "set running (Standby = false)"))
 		})
 	} else {
@@ -479,7 +495,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+				if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 					return err
 				}
 				for {
@@ -490,7 +506,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							continue
 						}
 
-						if err := setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
 							return err
 						}
 
@@ -513,7 +529,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							}
 						}
 
-						if err := setPipelineState(pps.PipelineState_PIPELINE_STANDBY); err != nil {
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STANDBY, ""); err != nil {
 							return err
 						}
 					case <-pachClient.Ctx().Done():

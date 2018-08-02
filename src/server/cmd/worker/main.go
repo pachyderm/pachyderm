@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
@@ -30,9 +31,6 @@ import (
 type appEnv struct {
 	// Address of etcd, so that worker can write its own IP there for discoverh
 	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
-
-	// Address for connecting to pachd (so this can download input data)
-	PachdAddress string `env:"PACHD_PORT_650_TCP_ADDR,required"`
 
 	// Prefix in etcd for all pachd-related records
 	PPSPrefix string `env:"PPS_ETCD_PREFIX,required"`
@@ -55,48 +53,64 @@ type appEnv struct {
 }
 
 func main() {
-	// Copy the contents of /pach-bin/certs into /etc/ssl/certs
-	if info, err := os.Stat("/etc/ssl/certs"); err != nil || !info.IsDir() {
-		os.MkdirAll("/etc/ssl/certs", 0755)
-	}
+	// Copy the contents of /pach-bin/certs into /etc/ssl/certs. Don't return an
+	// error (which would cause 'Walk()' to exit early) but do record if any certs
+	// are known to be missing so we can inform the user
+	copyErr := false
 	if err := filepath.Walk("/pach-bin/certs", func(inPath string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err // Don't try and fix any errors encountered by Walk() itself
+			log.Warnf("skipping \"%s\", could not stat path: %v", inPath, err)
+			copyErr = true
+			return nil // Don't try and fix any errors encountered by Walk() itself
 		}
 		if info.IsDir() {
 			return nil // We'll just copy the children of any directories when we traverse them
 		}
 
-		// Create output file (dest)
-		outRelPath, err := filepath.Rel("/pach-bin/certs", inPath)
-		if err != nil {
-			return fmt.Errorf("could not extract relative path: %v", err)
-		}
-		outPath := filepath.Join("/etc/ssl/certs", outRelPath)
-		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, info.Mode())
-		if err != nil {
-			if os.IsExist(err) {
-				// File already exists, nothing to do
-				return nil
-			}
-			return fmt.Errorf("could not create %s: %v", outPath, err)
-		}
-		defer out.Close()
-
 		// Open input file (src)
 		in, err := os.OpenFile(inPath, os.O_RDONLY, 0)
 		if err != nil {
-			return fmt.Errorf("could not read %s: %v", inPath, err)
+			log.Warnf("could not read \"%s\": %v", inPath, err)
+			copyErr = true
+			return nil
 		}
 		defer in.Close()
 
+		// Create output file (dest) and open for writing
+		outRelPath, err := filepath.Rel("/pach-bin/certs", inPath)
+		if err != nil {
+			log.Warnf("skipping \"%s\", could not extract relative path: %v", inPath, err)
+			copyErr = true
+			return nil
+		}
+		outPath := filepath.Join("/etc/ssl/certs", outRelPath)
+		outDir := filepath.Dir(outPath)
+		if err := os.MkdirAll(outDir, 0755); err != nil {
+			log.Warnf("skipping \"%s\", could not create directory \"%s\": %v", inPath, outDir, err)
+			copyErr = true
+			return nil
+		}
+		out, err := os.OpenFile(outPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, info.Mode())
+		if err != nil {
+			log.Warnf("skipping \"%s\", could not create output file \"%s\": %v", inPath, outPath, err)
+			copyErr = true
+			return nil
+		}
+		defer out.Close()
+
 		// Copy src -> dest
 		if _, err := io.Copy(out, in); err != nil {
-			return fmt.Errorf("could not copy %s to %s: %v", inPath, outPath, err)
+			log.Warnf("could not copy \"%s\" to \"%s\": %v", inPath, outPath, err)
+			copyErr = true
+			return nil
 		}
 		return nil
 	}); err != nil {
-		panic(fmt.Sprintf("could not copy /pach-bin/certs to /etc/ssl/certs: %v", err))
+		// Should never happen
+		log.Warnf("could not copy /pach-bin/certs to /etc/ssl/certs: %v", err)
+	}
+	if copyErr {
+		log.Warnf("Errors were encountered while copying /pach-bin/certs to /etc/ssl/certs (see above--might result in subsequent SSL/TLS errors)")
 	}
 	cmdutil.Main(do, &appEnv{})
 }
@@ -136,7 +150,7 @@ func do(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
 
 	// Construct a client that connects to the sidecar.
-	pachClient, err := client.NewFromAddress("localhost:650")
+	pachClient, err := client.NewFromAddress("localhost:653")
 	if err != nil {
 		return fmt.Errorf("error constructing pachClient: %v", err)
 	}
@@ -144,7 +158,7 @@ func do(appEnvObj interface{}) error {
 	// Get etcd client, so we can register our IP (so pachd can discover us)
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{fmt.Sprintf("%s:2379", appEnv.EtcdAddress)},
-		DialOptions: client.EtcdDialOptions(),
+		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {
 		return fmt.Errorf("error constructing etcdClient: %v", err)
@@ -167,16 +181,15 @@ func do(appEnvObj interface{}) error {
 	ready := make(chan error)
 	eg.Go(func() error {
 		return grpcutil.Serve(
-			func(s *grpc.Server) {
-				worker.RegisterWorkerServer(s, apiServer)
-				close(ready)
-			},
-			grpcutil.ServeOptions{
-				Version:    version.Version,
+			grpcutil.ServerOptions{
 				MaxMsgSize: grpcutil.MaxMsgSize,
-			},
-			grpcutil.ServeEnv{
-				GRPCPort: client.PPSWorkerPort,
+				Port:       client.PPSWorkerPort,
+				RegisterFunc: func(s *grpc.Server) error {
+					defer close(ready)
+					worker.RegisterWorkerServer(s, apiServer)
+					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+					return nil
+				},
 			},
 		)
 	})

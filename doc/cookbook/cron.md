@@ -7,7 +7,7 @@ Pachyderm pipelines are triggered by changes to their input data repositories (a
 - Query a database
 - Retrieve a file from S3 or FTP
 
-You can schedule pipelines like these to run regularly with Pachyderm's built-in `cron` input type. You can find an example pipeline that queries MongoDB periodically [here](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/cron).
+You can schedule pipelines like these to run regularly with Pachyderm's built-in `cron` input type. You can find an example pipeline that queries MongoDB periodically [here](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/db).
 
 There are two types of cron inputs:
 

@@ -13,12 +13,12 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
+	"github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -34,19 +34,8 @@ type apiServer struct {
 	driver *driver
 }
 
-func newLocalAPIServer(address string, etcdPrefix string) (*apiServer, error) {
-	d, err := newLocalDriver(address, etcdPrefix)
-	if err != nil {
-		return nil, err
-	}
-	return &apiServer{
-		Logger: log.NewLogger("pfs.API"),
-		driver: d,
-	}, nil
-}
-
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (*apiServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, cacheSize)
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *lru.Cache) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, treeCache)
 	if err != nil {
 		return nil, err
 	}
@@ -156,9 +145,7 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	ctx := auth.In2Out(respServer.Context())
-
-	return a.driver.listCommitF(ctx, req.Repo, req.To, req.From, req.Number, func(ci *pfs.CommitInfo) error {
+	return a.driver.listCommitF(respServer.Context(), req.Repo, req.To, req.From, req.Number, func(ci *pfs.CommitInfo) error {
 		sent++
 		return respServer.Send(ci)
 	})
@@ -439,7 +426,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.listFile(auth.In2Out(ctx), request.File, request.Full)
+	fileInfos, err := a.driver.listFile(ctx, request.File, request.Full)
 	if err != nil {
 		return nil, err
 	}
@@ -454,7 +441,7 @@ func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	fileInfos, err := a.driver.listFile(auth.In2Out(respServer.Context()), request.File, request.Full)
+	fileInfos, err := a.driver.listFile(respServer.Context(), request.File, request.Full)
 	if err != nil {
 		return err
 	}
@@ -478,7 +465,7 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 		}
 	}(time.Now())
 
-	fileInfos, err := a.driver.globFile(auth.In2Out(ctx), request.Commit, request.Pattern)
+	fileInfos, err := a.driver.globFile(ctx, request.Commit, request.Pattern)
 	if err != nil {
 		return nil, err
 	}
@@ -493,7 +480,7 @@ func (a *apiServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	fileInfos, err := a.driver.globFile(auth.In2Out(respServer.Context()), request.Commit, request.Pattern)
+	fileInfos, err := a.driver.globFile(respServer.Context(), request.Commit, request.Pattern)
 	if err != nil {
 		return err
 	}

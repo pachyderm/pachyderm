@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	golog "log"
 	"os"
 	"path"
 	"strings"
@@ -13,13 +14,12 @@ import (
 	"text/tabwriter"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/facebookgo/pidfile"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
@@ -158,7 +158,12 @@ Environment variables:
 				l := log.New()
 				l.Level = log.FatalLevel
 				grpclog.SetLogger(l)
+			} else {
+				// etcd overrides grpc's logs--there's no way to enable one without
+				// enabling both
+				etcd.SetLogger(golog.New(os.Stderr, "[etcd/grpc] ", golog.LstdFlags|golog.Lshortfile))
 			}
+
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
@@ -231,23 +236,18 @@ Environment variables:
 				}
 			}
 
-			cfg, err := config.Read()
-			if err != nil {
-				log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
-			}
-			pachdAddress := client.GetAddressFromUserMachine(cfg)
-			versionClient, err := getVersionAPIClient(pachdAddress)
+			pachClient, err := client.NewOnUserMachine(false, "user")
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
-			version, err := versionClient.GetVersion(ctx, &types.Empty{})
+			version, err := pachClient.GetVersion(ctx, &types.Empty{})
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachdAddress, grpcutil.ScrubGRPC(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -452,14 +452,6 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 	rootCmd.AddCommand(garbageCollect)
 	rootCmd.AddCommand(completion)
 	return rootCmd, nil
-}
-
-func getVersionAPIClient(address string) (versionpb.APIClient, error) {
-	clientConn, err := grpc.Dial(address, client.PachDialOptions()...)
-	if err != nil {
-		return nil, err
-	}
-	return versionpb.NewAPIClient(clientConn), nil
 }
 
 func printVersionHeader(w io.Writer) {

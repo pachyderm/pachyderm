@@ -12,21 +12,28 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 )
 
-// renew renews the caller's credentials (and extends the TTL of their Pachyderm
+// Renew renews the caller's credentials (and extends the TTL of their Pachyderm
 // token by sending a request to Pachyderm). Unlike other handlers, it doesn't
-// get assigned to a path; instead it's placed in Backend.AuthRenew in
-// backend.go
-func (b *backend) renew(ctx context.Context, req *logical.Request, d *framework.FieldData) (resp *logical.Response, retErr error) {
+// get assigned to a path; instead it's called by the vault lease API when a
+// token's lease is renewed. It's set in Backend.Secrets[0].Revoke in backend.go
+func (b *backend) Renew(ctx context.Context, req *logical.Request, d *framework.FieldData) (resp *logical.Response, retErr error) {
 	// renew seems to be handled specially, and req.ID doesn't seem to be set
 	b.Logger().Debug(fmt.Sprintf("%s received at %s", req.Operation, req.Path))
 	defer func() {
 		b.Logger().Debug(fmt.Sprintf("%s finished at %s (success=%t)", req.Operation, req.Path, retErr == nil && !resp.IsError()))
 	}()
 
-	if req.Auth == nil {
-		return nil, errors.New("request auth was nil")
+	// Extract pachyderm token from vault secret
+	tokenIface, ok := req.Secret.InternalData["user_token"]
+	if !ok {
+		return nil, fmt.Errorf("secret is missing user_token")
+	}
+	userToken, ok := tokenIface.(string)
+	if !ok {
+		return nil, fmt.Errorf("secret.user_token has wrong type (expected string but was %T)", tokenIface)
 	}
 
+	// Get pach address and admin token from config
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -38,24 +45,22 @@ func (b *backend) renew(ctx context.Context, req *logical.Request, d *framework.
 		return nil, errors.New("plugin is missing pachd_address")
 	}
 
-	userTokenIface, ok := req.Auth.InternalData["user_token"]
-	if !ok {
-		return nil, errors.New("no internal user token found in the store")
-	}
-	userToken, ok := userTokenIface.(string)
-	if !ok {
-		return nil, errors.New("stored user token is not a string")
+	// Extract TTL from request first, and then config (if unset)
+	ttl, maxTTL := req.Secret.LeaseOptions.Increment, b.System().MaxLeaseTTL()
+	if ttl == 0 {
+		ttl, maxTTL, err = b.SanitizeTTLStr(config.TTL, maxTTL.String())
+		if err != nil {
+			return nil, fmt.Errorf("%v: could not sanitize config TTL", err)
+		}
 	}
 
-	ttl, maxTTL, err := b.SanitizeTTLStr(config.TTL, b.System().MaxLeaseTTL().String())
-	if err != nil {
-		return nil, fmt.Errorf("%v: could not sanitize config TTL", err)
-	}
+	// Renew creds in Pachyderm
 	err = renewUserCredentials(ctx, config.PachdAddress, config.AdminToken, userToken, ttl)
 	if err != nil {
 		return nil, err
 	}
 
+	// Renew vault lease
 	return framework.LeaseExtend(ttl, maxTTL, b.System())(ctx, req, d)
 }
 
@@ -69,6 +74,8 @@ func renewUserCredentials(ctx context.Context, pachdAddress string, adminToken s
 	if err != nil {
 		return err
 	}
+	defer client.Close() // avoid leaking connections
+
 	client = client.WithCtx(ctx)
 	client.SetAuthToken(adminToken)
 

@@ -47,7 +47,7 @@ const (
 	PPSInputPrefix = "/pfs"
 	// PPSScratchSpace is where pps workers store data while it's waiting to be
 	// processed.
-	PPSScratchSpace = "/scratch"
+	PPSScratchSpace = "/pfs/.scratch"
 	// PPSWorkerPort is the port that workers use for their gRPC server
 	PPSWorkerPort = 80
 	// PPSWorkerVolume is the name of the volume in which workers store
@@ -542,11 +542,12 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 }
 
 // DeletePipeline deletes a pipeline along with its output Repo.
-func (c APIClient) DeletePipeline(name string) error {
+func (c APIClient) DeletePipeline(name string, force bool) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
 		c.Ctx(),
 		&pps.DeletePipelineRequest{
 			Pipeline: NewPipeline(name),
+			Force:    force,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)

@@ -1,13 +1,20 @@
 package client
 
 import (
+	"crypto/x509"
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/net/context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
@@ -69,6 +76,9 @@ type APIClient struct {
 	// addr is a "host:port" string pointing at a pachd endpoint
 	addr string
 
+	// The trusted CAs, for authenticating a pachd server over TLS
+	caCerts *x509.CertPool
+
 	// clientConn is a cached grpc connection to 'addr'
 	clientConn *grpc.ClientConn
 
@@ -106,12 +116,26 @@ func (c *APIClient) GetAddress() string {
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
 const DefaultMaxConcurrentStreams uint = 100
 
-// NewFromAddressWithConcurrency constructs a new APIClient and sets the max
-// concurrency of streaming requests (GetFile / PutFile)
-func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*APIClient, error) {
+type clientSettings struct {
+	maxConcurrentStreams uint
+	caCerts              *x509.CertPool
+}
+
+// NewFromAddress constructs a new APIClient for the server at addr.
+func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
+	// Apply creation options
+	settings := clientSettings{
+		maxConcurrentStreams: DefaultMaxConcurrentStreams,
+	}
+	for _, option := range options {
+		if err := option(&settings); err != nil {
+			return nil, err
+		}
+	}
 	c := &APIClient{
 		addr:            addr,
-		streamSemaphore: make(chan struct{}, maxConcurrentStreams),
+		caCerts:         settings.caCerts,
+		streamSemaphore: make(chan struct{}, settings.maxConcurrentStreams),
 	}
 	if err := c.connect(); err != nil {
 		return nil, err
@@ -119,24 +143,130 @@ func NewFromAddressWithConcurrency(addr string, maxConcurrentStreams uint) (*API
 	return c, nil
 }
 
-// NewFromAddress constructs a new APIClient for the server at addr.
-func NewFromAddress(addr string) (*APIClient, error) {
-	return NewFromAddressWithConcurrency(addr, DefaultMaxConcurrentStreams)
+// Option is a client creation option that may be passed to NewOnUserMachine(), or NewInCluster()
+type Option func(*clientSettings) error
+
+// WithMaxConcurrentStreams instructs the New* functions to create client that
+// can have at most 'streams' concurrent streams open with pachd at a time
+func WithMaxConcurrentStreams(streams uint) Option {
+	return func(settings *clientSettings) error {
+		settings.maxConcurrentStreams = streams
+		return nil
+	}
 }
 
-// GetAddressFromUserMachine interprets the Pachyderm config in 'cfg' in the
-// context of local environment variables and returns a "host:port" string
-// pointing at a Pachd target.
-func GetAddressFromUserMachine(cfg *config.Config) string {
-	address := "0.0.0.0:30650"
+func addCertFromFile(pool *x509.CertPool, path string) error {
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("could not read x509 cert from \"%s\": %v", path, err)
+	}
+	if ok := pool.AppendCertsFromPEM(bytes); !ok {
+		return fmt.Errorf("could not add %s to cert pool as PEM", path)
+	}
+	return nil
+}
+
+// WithRootCAs instructs the New* functions to create client that uses the
+// given signed x509 certificates as the trusted root certificates (instead of
+// the system certs). Introduced to pass certs provided via command-line flags
+func WithRootCAs(path string) Option {
+	return func(settings *clientSettings) error {
+		settings.caCerts = x509.NewCertPool()
+		return addCertFromFile(settings.caCerts, path)
+	}
+}
+
+// WithAdditionalRootCAs instructs the New* functions to additionally trust the
+// given base64-encoded, signed x509 certificates as root certificates.
+// Introduced to pass certs in the Pachyderm config
+func WithAdditionalRootCAs(pemBytes []byte) Option {
+	return func(settings *clientSettings) error {
+		// append certs from config
+		if settings.caCerts == nil {
+			settings.caCerts = x509.NewCertPool()
+		}
+		if ok := settings.caCerts.AppendCertsFromPEM(pemBytes); !ok {
+			return fmt.Errorf("server CA certs are present in Pachyderm config, but could not be added to client")
+		}
+		return nil
+	}
+}
+
+// WithAdditionalPachdCert instructs the New* functions to additionally trust
+// the signed cert mounted in Pachd's cert volume. This is used by Pachd
+// when connecting to itself (if no cert is present, the clients cert pool
+// will not be modified, so that if no other options have been passed, pachd
+// will connect to itself over an insecure connection)
+func WithAdditionalPachdCert() Option {
+	return func(settings *clientSettings) error {
+		if _, err := os.Stat(grpcutil.TLSVolumePath); err == nil {
+			if settings.caCerts == nil {
+				settings.caCerts = x509.NewCertPool()
+			}
+			return addCertFromFile(settings.caCerts, path.Join(grpcutil.TLSVolumePath, grpcutil.TLSCertFile))
+		}
+		return nil
+	}
+}
+
+func getCertOptionsFromEnv() ([]Option, error) {
+	var options []Option
+	if certPaths, ok := os.LookupEnv("PACH_CA_CERTS"); ok {
+		paths := strings.Split(certPaths, ",")
+		for _, p := range paths {
+			// Try to read all certs under 'p'--skip any that we can't read/stat
+			if err := filepath.Walk(p, func(p string, info os.FileInfo, err error) error {
+				if err != nil {
+					log.Warnf("skipping \"%s\", could not stat path: %v", p, err)
+					return nil // Don't try and fix any errors encountered by Walk() itself
+				}
+				if info.IsDir() {
+					return nil // We'll just read the children of any directories when we traverse them
+				}
+				pemBytes, err := ioutil.ReadFile(p)
+				if err != nil {
+					log.Warnf("could not read server CA certs at %s: %v", p, err)
+					return nil
+				}
+				options = append(options, WithAdditionalRootCAs(pemBytes))
+				return nil
+			}); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return options, nil
+}
+
+func getAddrAndExtraOptionsOnUserMachine(cfg *config.Config) (string, []Option, error) {
+	// 1) ADDRESS environment variable (shell-local) overrides global config
+	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
+		options, err := getCertOptionsFromEnv()
+		if err != nil {
+			return "", nil, err
+		}
+		return envAddr, options, nil
+	}
+
+	// 2) Get target address from global config if possible
 	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
-		address = cfg.V1.PachdAddress
+		// Also get cert info from config (if set)
+		if cfg.V1.ServerCAs != "" {
+			pemBytes, err := base64.StdEncoding.DecodeString(cfg.V1.ServerCAs)
+			if err != nil {
+				return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+			}
+			return cfg.V1.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+		}
+		return cfg.V1.PachdAddress, nil, nil
 	}
-	// ADDRESS environment variable (shell-local) overrides global config
-	if envAddr := os.Getenv("ADDRESS"); envAddr != "" {
-		address = envAddr
+
+	// 3) Use default address (broadcast) if nothing else works
+	options, err := getCertOptionsFromEnv()
+	if err != nil {
+		return "", nil, err
 	}
-	return address
+	return "0.0.0.0:30650", options, nil
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -148,14 +278,7 @@ func GetAddressFromUserMachine(cfg *config.Config) string {
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func NewOnUserMachine(reportMetrics bool, prefix string) (*APIClient, error) {
-	return NewOnUserMachineWithConcurrency(reportMetrics, prefix, DefaultMaxConcurrentStreams)
-}
-
-// NewOnUserMachineWithConcurrency is identical to NewOnUserMachine, but
-// explicitly sets a limit on the number of RPC streams that may be open
-// simultaneously
-func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcurrentStreams uint) (*APIClient, error) {
+func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
@@ -163,7 +286,11 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 	}
 
 	// create new pachctl client
-	client, err := NewFromAddress(GetAddressFromUserMachine(cfg))
+	addr, cfgOptions, err := getAddrAndExtraOptionsOnUserMachine(cfg)
+	if err != nil {
+		return nil, err
+	}
+	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -182,11 +309,13 @@ func NewOnUserMachineWithConcurrency(reportMetrics bool, prefix string, maxConcu
 // NewInCluster constructs a new APIClient using env vars that Kubernetes creates.
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
-func NewInCluster() (*APIClient, error) {
-	if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
-		return NewFromAddress(fmt.Sprintf("%v:650", addr))
+func NewInCluster(options ...Option) (*APIClient, error) {
+	addr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
+	if addr == "" {
+		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
 	}
-	return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
+	// create new pachctl client
+	return NewFromAddress(addr, options...)
 }
 
 // Close the connection to gRPC
@@ -225,10 +354,10 @@ func (c APIClient) SetMaxConcurrentStreams(n int) {
 	c.streamSemaphore = make(chan struct{}, n)
 }
 
-// EtcdDialOptions is a helper returning a slice of grpc.Dial options
+// DefaultDialOptions is a helper returning a slice of grpc.Dial options
 // such that grpc.Dial() is synchronous: the call doesn't return until
 // the connection has been established and it's safe to send RPCs
-func EtcdDialOptions() []grpc.DialOption {
+func DefaultDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// Don't return from Dial() until the connection has been established
 		grpc.WithBlock(),
@@ -243,27 +372,24 @@ func EtcdDialOptions() []grpc.DialOption {
 	}
 }
 
-// PachDialOptions is a helper returning a slice of grpc.Dial options
-// such that
-// - TLS is disabled
-// - Dial is synchronous: the call doesn't return until the connection has been
-//                        established and it's safe to send RPCs
-//
-// This is primarily useful for Pachd and Worker clients
-func PachDialOptions() []grpc.DialOption {
-	return append(EtcdDialOptions(), grpc.WithInsecure())
-}
-
 func (c *APIClient) connect() error {
 	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
 		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
 		PermitWithoutStream: true,             // send ping even if no active RPCs
 	})
-	dialOptions := append(PachDialOptions(), keepaliveOpt)
+	var dialOptions []grpc.DialOption
+	if c.caCerts == nil {
+		dialOptions = append(DefaultDialOptions(), grpc.WithInsecure(), keepaliveOpt)
+	} else {
+		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
+		dialOptions = append(DefaultDialOptions(),
+			grpc.WithTransportCredentials(tlsCreds),
+			keepaliveOpt)
+	}
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
-		return grpcutil.ScrubGRPC(err)
+		return err
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)

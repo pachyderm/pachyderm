@@ -35,13 +35,6 @@ vault write $PLUGIN_PATH/config \
 	pachd_address="${ADDRESS:-127.0.0.1}:30650"
 go build -o /tmp/vault-plugins/$PLUGIN_NAME src/plugin/vault/main.go
 
-
-# Test login before admin token is set
-# vault write $PLUGIN_PATH/login username=tweetybird || true
-
 # Test login (failure/success):
-vault write $PLUGIN_PATH/login username=bogusgithubusername || true
-vault write $PLUGIN_PATH/login username=daffyduck ttl=125s
-
-# To renew, use the 'token' field
-# vault token renew ee9ab3ef-e398-3437-d382-b7aaf02f32e1
+vault write -f $PLUGIN_PATH/login/github:jdoliner
+vault write -f $PLUGIN_PATH/login/github:JoeyZwicker ttl=125s

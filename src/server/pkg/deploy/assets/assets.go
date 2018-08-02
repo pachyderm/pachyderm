@@ -2,14 +2,15 @@ package assets
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
-	"github.com/pachyderm/pachyderm/src/server/http"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
@@ -27,7 +28,7 @@ var (
 	// Using our own etcd image for now because there's a fix we need
 	// that hasn't been released, and which has been manually applied
 	// to the official v3.2.7 release.
-	etcdImage      = "pachyderm/etcd:v3.2.7"
+	etcdImage      = "quay.io/coreos/etcd:v3.3.5"
 	grpcProxyImage = "pachyderm/grpc-proxy:0.4.2"
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"
@@ -38,17 +39,43 @@ var (
 	// It's public because it's needed by pps.APIServer to create the RCs for
 	// workers.
 	ServiceAccountName      = "pachyderm"
-	clusterRoleName         = "pachyderm"
-	clusterRoleBindingName  = "pachyderm"
 	etcdHeadlessServiceName = "etcd-headless"
 	etcdName                = "etcd"
 	etcdVolumeName          = "etcd-volume"
 	etcdVolumeClaimName     = "etcd-storage"
-	etcdStorageClassName    = "etcd-storage-class"
-	grpcProxyName           = "grpc-proxy"
-	pachdName               = "pachd"
+	// The storage class name to use when creating a new StorageClass for etcd.
+	defaultEtcdStorageClassName = "etcd-storage-class"
+	grpcProxyName               = "grpc-proxy"
+	pachdName                   = "pachd"
 	// PrometheusPort hosts the prometheus stats for scraping
 	PrometheusPort = 9091
+
+	// Role & binding names, used for Roles or ClusterRoles and their associated
+	// bindings.
+	roleName        = "pachyderm"
+	roleBindingName = "pachyderm"
+	// Policy rules to use for Pachyderm's Role or ClusterRole.
+	rolePolicyRules = []rbacv1.PolicyRule{{
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch"},
+		Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
+	}, {
+		APIGroups: []string{""},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
+		Resources: []string{"replicationcontrollers", "services"},
+	}, {
+		APIGroups:     []string{""},
+		Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+		Resources:     []string{"secrets"},
+		ResourceNames: []string{client.StorageSecretName},
+	}}
+
+	// The name of the local volume (mounted kubernetes secret) where pachd
+	// should read a TLS cert and private key for authenticating with clients
+	tlsVolumeName = "pachd-tls-cert"
+	// The name of the kubernetes secret mount in the TLS volume (see
+	// tlsVolumeName)
+	tlsSecretName = "pachd-tls-cert"
 )
 
 type backend int
@@ -61,6 +88,13 @@ const (
 	minioBackend
 	s3CustomArgs = 6
 )
+
+// TLSOpts indicates the cert and key file that Pachd should use to
+// authenticate with clients
+type TLSOpts struct {
+	ServerCert string
+	ServerKey  string
+}
 
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
@@ -110,6 +144,11 @@ type AssetOpts struct {
 	// empty, assets.go will choose a default size.
 	EtcdMemRequest string
 
+	// EtcdStorageClassName is the name of an existing StorageClass to use when
+	// creating a StatefulSet for dynamic etcd storage. If unset, a new
+	// StorageClass will be created for the StatefulSet.
+	EtcdStorageClassName string
+
 	// IAM role that the Pachyderm deployment should assume when talking to AWS
 	// services (if using kube2iam + metadata service + IAM role to delegate
 	// permissions to pachd via its instance).
@@ -125,11 +164,25 @@ type AssetOpts struct {
 	// NoRBAC, if true, will disable creation of RBAC assets.
 	NoRBAC bool
 
+	// LocalRoles, if true, uses Role and RoleBinding instead of ClusterRole and
+	// ClusterRoleBinding.
+	LocalRoles bool
+
 	// Namespace is the kubernetes namespace to deploy to.
 	Namespace string
 
 	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
 	NoExposeDockerSocket bool
+
+	// ExposeObjectAPI, if set, causes pachd to serve Object/Block API requests on
+	// its public port. This should generally be false in production (it breaks
+	// auth) but is needed by tests
+	ExposeObjectAPI bool
+
+	// If set, the files indictated by 'TLS.ServerCert' and 'TLS.ServerKey' are
+	// placed into a Kubernetes secret and used by pachd nodes to authenticate
+	// during TLS
+	TLS *TLSOpts
 }
 
 // Encoder is the interface for writing out assets. This is assumed to wrap an output writer.
@@ -214,21 +267,8 @@ func ClusterRole(opts *AssetOpts) *rbacv1.ClusterRole {
 			Kind:       "ClusterRole",
 			APIVersion: "rbac.authorization.k8s.io/v1",
 		},
-		ObjectMeta: objectMeta(clusterRoleName, labels(""), nil, opts.Namespace),
-		Rules: []rbacv1.PolicyRule{{
-			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch"},
-			Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
-		}, {
-			APIGroups: []string{""},
-			Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
-			Resources: []string{"replicationcontrollers", "services"},
-		}, {
-			APIGroups:     []string{""},
-			Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
-			Resources:     []string{"secrets"},
-			ResourceNames: []string{client.StorageSecretName},
-		}},
+		ObjectMeta: objectMeta(roleName, labels(""), nil, opts.Namespace),
+		Rules:      rolePolicyRules,
 	}
 }
 
@@ -240,7 +280,7 @@ func ClusterRoleBinding(opts *AssetOpts) *rbacv1.ClusterRoleBinding {
 			Kind:       "ClusterRoleBinding",
 			APIVersion: "rbac.authorization.k8s.io/v1",
 		},
-		ObjectMeta: objectMeta(clusterRoleBindingName, labels(""), nil, opts.Namespace),
+		ObjectMeta: objectMeta(roleBindingName, labels(""), nil, opts.Namespace),
 		Subjects: []rbacv1.Subject{{
 			Kind:      "ServiceAccount",
 			Name:      ServiceAccountName,
@@ -248,15 +288,48 @@ func ClusterRoleBinding(opts *AssetOpts) *rbacv1.ClusterRoleBinding {
 		}},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
-			Name: clusterRoleName,
+			Name: roleName,
 		},
 	}
 }
 
-// GetSecretVolumeAndMount returns a properly configured Volume and
+// Role returns a Role that should be bound to the Pachyderm service account.
+func Role(opts *AssetOpts) *rbacv1.Role {
+	return &rbacv1.Role{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Role",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: objectMeta(roleName, labels(""), nil, opts.Namespace),
+		Rules:      rolePolicyRules,
+	}
+}
+
+// RoleBinding returns a RoleBinding that binds Pachyderm's Role to its
+// ServiceAccount.
+func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RoleBinding",
+			APIVersion: "rbac.authorization.k8s.io/v1",
+		},
+		ObjectMeta: objectMeta(roleBindingName, labels(""), nil, opts.Namespace),
+		Subjects: []rbacv1.Subject{{
+			Kind:      "ServiceAccount",
+			Name:      ServiceAccountName,
+			Namespace: opts.Namespace,
+		}},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "Role",
+			Name: roleName,
+		},
+	}
+}
+
+// GetBackendSecretVolumeAndMount returns a properly configured Volume and
 // VolumeMount object given a backend.  The backend needs to be one of the
 // constants defined in pfs/server.
-func GetSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
+func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
 	return v1.Volume{
 			Name: client.StorageSecretName,
 			VolumeSource: v1.VolumeSource{
@@ -329,9 +402,23 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	case microsoftBackend:
 		backendEnvVar = pfs.MicrosoftBackendEnvVar
 	}
-	volume, mount := GetSecretVolumeAndMount(backendEnvVar)
+	volume, mount := GetBackendSecretVolumeAndMount(backendEnvVar)
 	volumes = append(volumes, volume)
 	volumeMounts = append(volumeMounts, mount)
+	if opts.TLS != nil {
+		volumes = append(volumes, v1.Volume{
+			Name: tlsVolumeName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: tlsSecretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, v1.VolumeMount{
+			Name:      tlsVolumeName,
+			MountPath: grpcutil.TLSVolumePath,
+		})
+	}
 	resourceRequirements := v1.ResourceRequirements{
 		Requests: v1.ResourceList{
 			v1.ResourceCPU:    cpu,
@@ -389,21 +476,27 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 										},
 									},
 								},
+								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
 							},
 							Ports: []v1.ContainerPort{
 								{
-									ContainerPort: 650,
+									ContainerPort: 650, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "api-grpc-port",
 								},
 								{
-									ContainerPort: 651,
+									ContainerPort: 651, // also set in cmd/pachd/main.go
 									Name:          "trace-port",
 								},
 								{
-									ContainerPort: http.HTTPPort,
+									ContainerPort: 652, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "api-http-port",
+								},
+								{
+									ContainerPort: 653, // also set in cmd/pachd/main.go
+									Protocol:      "TCP",
+									Name:          "peer-port",
 								},
 								{
 									ContainerPort: githook.GitHookPort,
@@ -436,7 +529,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 func PachdService(opts *AssetOpts) *v1.Service {
 	prometheusAnnotations := map[string]string{
 		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   string(PrometheusPort),
+		"prometheus.io/port":   strconv.Itoa(PrometheusPort),
 	}
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -451,19 +544,19 @@ func PachdService(opts *AssetOpts) *v1.Service {
 			},
 			Ports: []v1.ServicePort{
 				{
-					Port:     650,
+					Port:     650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
 					NodePort: 30650,
 				},
 				{
-					Port:     651,
+					Port:     651, // also set in cmd/pachd/main.go
 					Name:     "trace-port",
 					NodePort: 30651,
 				},
 				{
-					Port:     http.HTTPPort,
+					Port:     652, // also set in cmd/pachd/main.go
 					Name:     "api-http-port",
-					NodePort: 30000 + http.HTTPPort,
+					NodePort: 30652,
 				},
 				{
 					Port:     githook.GitHookPort,
@@ -540,6 +633,12 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 			v1.ResourceMemory: mem,
 		}
 	}
+	// Don't want to strip the registry out of etcdImage since it's from quay
+	// not docker hub.
+	image := etcdImage
+	if opts.Registry != "" {
+		image = AddRegistry(opts.Registry, etcdImage)
+	}
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -557,7 +656,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 					Containers: []v1.Container{
 						{
 							Name:  etcdName,
-							Image: AddRegistry(opts.Registry, etcdImage),
+							Image: image,
 							//TODO figure out how to get a cluster of these to talk to each other
 							Command: []string{
 								"/usr/local/bin/etcd",
@@ -565,6 +664,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 								"--advertise-client-urls=http://0.0.0.0:2379",
 								"--data-dir=/var/data/etcd",
 								"--auto-compaction-retention=1",
+								"--max-txn-ops=5000",
 							},
 							Ports: []v1.ContainerPort{
 								{
@@ -602,7 +702,7 @@ func EtcdStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
 		"apiVersion": "storage.k8s.io/v1beta1",
 		"kind":       "StorageClass",
 		"metadata": map[string]interface{}{
-			"name":      etcdStorageClassName,
+			"name":      defaultEtcdStorageClassName,
 			"labels":    labels(etcdName),
 			"namespace": opts.Namespace,
 		},
@@ -780,6 +880,7 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380",
 		"--initial-cluster=" + strings.Join(initialCluster, ","),
 		"--auto-compaction-retention=1",
+		"--max-txn-ops=5000",
 	}
 	for i, str := range etcdCmd {
 		etcdCmd[i] = fmt.Sprintf("\"%s\"", str) // quote all arguments, for shell
@@ -788,13 +889,17 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	var pvcTemplates []interface{}
 	switch backend {
 	case googleBackend, amazonBackend:
+		storageClassName := opts.EtcdStorageClassName
+		if storageClassName == "" {
+			storageClassName = defaultEtcdStorageClassName
+		}
 		pvcTemplates = []interface{}{
 			map[string]interface{}{
 				"metadata": map[string]interface{}{
 					"name":   etcdVolumeClaimName,
 					"labels": labels(etcdName),
 					"annotations": map[string]string{
-						"volume.beta.kubernetes.io/storage-class": etcdStorageClassName,
+						"volume.beta.kubernetes.io/storage-class": storageClassName,
 					},
 					"namespace": opts.Namespace,
 				},
@@ -835,6 +940,10 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	// Stateful Set, so we generate the kubernetes manifest using raw json.
 	// TODO(msteffen): we're now upgrading our kubernetes client, so we should be
 	// abe to rewrite this spec using k8s client structs
+	image := etcdImage
+	if opts.Registry != "" {
+		image = AddRegistry(opts.Registry, etcdImage)
+	}
 	return map[string]interface{}{
 		"apiVersion": "apps/v1beta1",
 		"kind":       "StatefulSet",
@@ -859,10 +968,11 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 					"namespace": opts.Namespace,
 				},
 				"spec": map[string]interface{}{
+					"imagePullSecrets": imagePullSecrets,
 					"containers": []interface{}{
 						map[string]interface{}{
 							"name":    etcdName,
-							"image":   AddRegistry(opts.Registry, etcdImage),
+							"image":   image,
 							"command": []string{"/bin/sh", "-c"},
 							"args":    []string{strings.Join(etcdCmd, " ")},
 							// Use the downward API to pass the pod name to etcd. This sets
@@ -912,7 +1022,6 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 				},
 			},
 			"volumeClaimTemplates": pvcTemplates,
-			"imagePullSecrets":     imagePullSecrets,
 		},
 	}
 }
@@ -1136,11 +1245,20 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 		return err
 	}
 	if !opts.NoRBAC {
-		if err := encoder.Encode(ClusterRole(opts)); err != nil {
-			return err
-		}
-		if err := encoder.Encode(ClusterRoleBinding(opts)); err != nil {
-			return err
+		if opts.LocalRoles {
+			if err := encoder.Encode(Role(opts)); err != nil {
+				return err
+			}
+			if err := encoder.Encode(RoleBinding(opts)); err != nil {
+				return err
+			}
+		} else {
+			if err := encoder.Encode(ClusterRole(opts)); err != nil {
+				return err
+			}
+			if err := encoder.Encode(ClusterRoleBinding(opts)); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -1157,19 +1275,22 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 			return err
 		}
 	} else if opts.EtcdNodes > 0 {
-		sc, err := EtcdStorageClass(opts, persistentDiskBackend)
-		if err != nil {
-			return err
-		}
-		if sc != nil {
-			if err = encoder.Encode(sc); err != nil {
+		// Create a StorageClass, if the user didn't provide one.
+		if opts.EtcdStorageClassName == "" {
+			sc, err := EtcdStorageClass(opts, persistentDiskBackend)
+			if err != nil {
 				return err
 			}
+			if sc != nil {
+				if err = encoder.Encode(sc); err != nil {
+					return err
+				}
+			}
 		}
-		if err = encoder.Encode(EtcdHeadlessService(opts)); err != nil {
+		if err := encoder.Encode(EtcdHeadlessService(opts)); err != nil {
 			return err
 		}
-		if err = encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
+		if err := encoder.Encode(EtcdStatefulSet(opts, persistentDiskBackend, volumeSize)); err != nil {
 			return err
 		}
 	} else if opts.EtcdVolume != "" || persistentDiskBackend == localBackend {
@@ -1200,9 +1321,59 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 		return err
 	}
 	if !opts.NoDash {
-		return WriteDashboardAssets(encoder, opts)
+		if err := WriteDashboardAssets(encoder, opts); err != nil {
+			return err
+		}
+	}
+	if opts.TLS != nil {
+		if err := WriteTLSSecret(encoder, opts); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// WriteTLSSecret creates a new TLS secret in the kubernetes manifest
+// (equivalent to one generate by 'kubectl create secret tls'). This will be
+// mounted by the pachd pod and used as its TLS public certificate and private
+// key
+func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
+	// Validate arguments
+	if opts.DashOnly {
+		return nil
+	}
+	if opts.TLS == nil {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS is nil")
+	}
+	if opts.TLS.ServerKey == "" {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
+	}
+	if opts.TLS.ServerCert == "" {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
+	}
+
+	// Attempt to copy server cert and key files into config (kubernetes client
+	// does the base64-encoding)
+	certBytes, err := ioutil.ReadFile(opts.TLS.ServerCert)
+	if err != nil {
+		return fmt.Errorf("could not open server cert at \"%s\": %v", opts.TLS.ServerCert, err)
+	}
+	keyBytes, err := ioutil.ReadFile(opts.TLS.ServerKey)
+	if err != nil {
+		return fmt.Errorf("could not open server key at \"%s\": %v", opts.TLS.ServerKey, err)
+	}
+	secret := &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: objectMeta(tlsSecretName, labels(tlsSecretName), nil, opts.Namespace),
+		Data: map[string][]byte{
+			grpcutil.TLSCertFile: certBytes,
+			grpcutil.TLSKeyFile:  keyBytes,
+		},
+	}
+	return encoder.Encode(secret)
 }
 
 // WriteLocalAssets writes assets to a local backend.

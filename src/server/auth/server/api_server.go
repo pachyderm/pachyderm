@@ -47,7 +47,7 @@ const (
 	membersPrefix = "/members"
 	groupsPrefix  = "/groups"
 
-	defaultTokenTTLSecs = 14 * 24 * 60 * 60 // two weeks
+	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -138,7 +138,7 @@ func (a *apiServer) getPachClient() *client.APIClient {
 func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
+		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error constructing etcdClient: %v", err)
@@ -342,6 +342,12 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, fmt.Errorf("already activated")
 	}
 
+	// The Pachyderm token that Activate() returns will have the TTL
+	// - 'defaultTokenTTLSecs' if the initial admin is a GitHub user (who can get
+	//   a new token by re-authenticating via GitHub after this token expires)
+	// - 0 (no TTL, indefinite lifetime) if the initial admin is a robot user
+	//   (who has no way to acquire a new token once this token expires)
+	ttlSecs := int64(defaultTokenTTLSecs)
 	// Authenticate the caller (or generate a new auth token if req.Subject is a
 	// robot user)
 	if req.Subject != "" {
@@ -363,8 +369,9 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		}
 		req.Subject = username
 	case strings.HasPrefix(req.Subject, authclient.RobotPrefix):
-		// pass - req.Subject will be used verbatim, and the resulting code will
+		// req.Subject will be used verbatim, and the resulting code will
 		// authenticate the holder as the robot account therein
+		ttlSecs = 0 // no expiration for robot tokens -- see above
 	default:
 		return nil, fmt.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
 	}
@@ -417,7 +424,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 				Subject: req.Subject,
 				Source:  authclient.TokenInfo_AUTHENTICATE,
 			},
-			defaultTokenTTLSecs,
+			ttlSecs,
 		)
 	}); err != nil {
 		return nil, err
@@ -587,21 +594,11 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 		delete(m, u)
 	}
 
-	// Confirm that there will be at least one GitHub user admin.
+	// Confirm that there will be at least one admin.
 	//
-	// This is required so that a person can get the cluster out of any broken
-	// state that it may enter. If all admins are robot users or pipelines, and
-	// the only way to authenticate as a non-human user is for another admin to
-	// call GetAuthToken, then there will be no way to authenticate as an admin
-	// and fix a broken cluster.
-	hasHumanAdmin := false
-	for user := range m {
-		if strings.HasPrefix(user, authclient.GitHubPrefix) {
-			hasHumanAdmin = true
-			break
-		}
-	}
-	if !hasHumanAdmin {
+	// This is required so that the admin can get the cluster out of any broken
+	// state that it may enter.
+	if len(m) == 0 {
 		return fmt.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
 	}
 	return nil
@@ -794,13 +791,25 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 		return nil, authclient.ErrNotActivated
 	}
 
+	token, err := getAuthToken(ctx)
+	if err != nil {
+		return nil, err
+	}
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
+	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
+	if callerInfo.Subject != magicUser {
+		ttl, err = a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
+		if err != nil {
+			return nil, fmt.Errorf("error looking up TTL for token: %v", err)
+		}
+	}
 	return &authclient.WhoAmIResponse{
 		Username: callerInfo.Subject,
 		IsAdmin:  a.isAdmin(callerInfo.Subject),
+		TTL:      ttl,
 	}, nil
 }
 
@@ -1214,7 +1223,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		}
 	}
 
-	// Only let people extend tokens by up to two weeks (the equivalent of logging
+	// Only let people extend tokens by up to 30 days (the equivalent of logging
 	// in again)
 	if req.TTL > defaultTokenTTLSecs {
 		return nil, fmt.Errorf("can only extend tokens by at most %d seconds", defaultTokenTTLSecs)
@@ -1238,6 +1247,10 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		if err != nil {
 			return fmt.Errorf("Error looking up TTL for token: %v", err)
 		}
+		// TODO(msteffen): ttl may be -1 if the token has no TTL. We deliberately do
+		// not check this case so that admins can put TTLs on tokens that don't have
+		// them (otherwise any attempt to do so would get ErrTooShortTTL), but that
+		// decision may be revised
 		if req.TTL < ttl {
 			return authclient.ErrTooShortTTL{
 				RequestTTL:  req.TTL,
@@ -1570,20 +1583,28 @@ func hashToken(token string) string {
 	return fmt.Sprintf("%x", sum)
 }
 
+// getAuthToken extracts the auth token embedded in 'ctx', if there is on
+func getAuthToken(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", authclient.ErrNoMetadata
+	}
+	if len(md[authclient.ContextTokenKey]) > 1 {
+		return "", fmt.Errorf("multiple authentication token keys found in context")
+	} else if len(md[authclient.ContextTokenKey]) == 0 {
+		return "", authclient.ErrNotSignedIn
+	}
+	return md[authclient.ContextTokenKey][0], nil
+}
+
 func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.TokenInfo, error) {
 	// TODO(msteffen) cache these lookups, especially since users always authorize
 	// themselves at the beginning of a request. Don't want to look up the same
 	// token -> username entry twice.
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, authclient.ErrNoMetadata
+	token, err := getAuthToken(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if len(md[authclient.ContextTokenKey]) > 1 {
-		return nil, fmt.Errorf("multiple authentication token keys found in context")
-	} else if len(md[authclient.ContextTokenKey]) == 0 {
-		return nil, authclient.ErrNotSignedIn
-	}
-	token := md[authclient.ContextTokenKey][0]
 	if token == a.ppsToken {
 		// TODO(msteffen): This is a hack. The idea is that there is a logical user
 		// entry mapping ppsToken to magicUser. Soon, magicUser will go away and

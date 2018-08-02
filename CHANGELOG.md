@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.7.4
+
+- Fixes a bug that prevented image pull secrets from propagating through `pachctl deploy`. (#2956, thanks to @jkinkead)
+- Fixes a bug that made `get-file` fail on empty files. (#2960)
+- `ListFile` and `GlobFile` now return results leixcographically sorted. (#2972)
+- Fixes a bug that caused `Extract` to crash. (#2973)
+- Fixes a bug that caused pachd to crash when given a pipeline without a name field. (#2974)
+- Adds dial options to the Go client's connect methods. (#2978)
+- `pachctl get-logs` now accepts `-p` as a synonym for `--pipeline`. (#3009, special thanks to @jdelfino)
+- Fixes a bug that caused connections to leak in the vault plugin. (#3016)
+- Fixes a bug that caused incremental pipelines that are downstream from other pipelines to not run incrementally. (#3023)
+- Updates monitoring deployments to use the latest versions of Influx, Prometheus and Grafana. (#3026)
+- Fixes a bug that caused `update-pipeline` to modify jobs that had already run. (#3028)
+
+## 1.7.3
+
+- Fixes an issue that caused etcd deployment to fail when using a StatefulSet. (#2929, #2937)
+- Fixes an issue that prevented pipelines from starting up. (#2949)
+
+## 1.7.2
+
+- Pachyderm now exposes metrics via Prometheus. (#2856)
+- File commands now all support globbing syntax. I.e. you can do pachctl list-file ... foo/*. (#2870)
+- garbage-collect is now safer and less error prone. (#2912)
+- put-file no longer requires starting (or finishing) a commit. Similar to put-file -c, but serverside. (#2890)
+- pachctl deploy --dry-run can now output YAML as well as JSON. Special thanks to @jkinkead. (#2872)
+- Requirements on pipeline container images have been removed. (#2897)
+- Pachyderm no longer requires privileged pods. (#2887)
+- Fixes several issues that prevented deleting objects in degraded states. (#2912)
+- Fixes bugs that could cause stats branches to not be cleaned up. (#2855)
+- Fixes 2 bugs related to auth services not coming up completely. (#2843)
+- Fixes a bug that prevented pachctl deploy storage amazon from working. (#2863)
+- Fixes a class of bugs that occurred due to misuse of our collections package. (#2865)
+- Fixes a bug that caused list-job to delete old jobs if you weren't logged in. (#2879)
+- Fixes a bug that caused put-file --split to create too many goroutines. (#2906)
+- Fixes a bug that prevent deploying to AWS using an IAM role. (#2913)
+- Pachyderm now deploys and uses the latest version of etcd. (#2914)
+
 ## 1.7.1
 
 - Introduces a new model for scaling up and down pipeline workers. [Read more](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#standby-optional).

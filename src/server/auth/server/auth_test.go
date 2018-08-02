@@ -204,6 +204,9 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 			}
 			modifyRequest.Remove = append(modifyRequest.Remove, a)
 		}
+		if curAdminClient == nil {
+			tb.Fatal("cluster has no GitHub admins; no way for auth test to grant itself admin access")
+		}
 		_, err := curAdminClient.ModifyAdmins(curAdminClient.Ctx(), modifyRequest)
 		require.NoError(tb, err)
 
@@ -1149,7 +1152,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
-	require.NoError(t, aliceClient.DeletePipeline(pipeline))
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, false))
 	require.ElementsEqual(t, entries(), GetACL(t, aliceClient, pipeline))
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
@@ -1178,7 +1181,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	err := bobClient.StopPipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1197,7 +1200,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	err = bobClient.StopPipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1226,7 +1229,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	err = bobClient.StopPipeline(pipeline)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1246,7 +1249,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 	err = bobClient.StartPipeline(pipeline)
 	require.NoError(t, err)
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -1264,7 +1267,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// finally bob can stop and delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
 	require.NoError(t, err)
-	err = bobClient.DeletePipeline(pipeline)
+	err = bobClient.DeletePipeline(pipeline, false)
 	require.NoError(t, err)
 }
 
@@ -1500,26 +1503,6 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	err := anonClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
-}
-
-// TestDeleteRepoDoesntExistError tests that if a client calls DeleteRepo on a
-// repo that doesn't exist, they get an error notifying them that the repo
-// doesn't exist, rather than an auth error
-func TestDeleteRepoDoesntExistError(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	deleteAll(t)
-	alice := tu.UniqueString("alice")
-	aliceClient := getPachClient(t, alice)
-
-	err := aliceClient.DeleteRepo("dOeSnOtExIsT", false)
-	require.YesError(t, err)
-	require.Matches(t, "does not exist", err.Error())
-
-	err = aliceClient.DeleteRepo("dOeSnOtExIsT", true)
-	require.YesError(t, err)
-	require.Matches(t, "does not exist", err.Error())
 }
 
 // Creating a pipeline when the output repo already exists gives you an error to
