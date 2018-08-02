@@ -1920,6 +1920,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				value = jsonValue
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
+				fmt.Printf("read bytes w err %v\n", err)
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
 				if err == io.EOF {
@@ -1969,39 +1970,38 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 			}
 			if EOF {
+				fmt.Printf("EOF found ... reading off h/f\n")
 				if headerReader != nil {
-					headerBuffer := &bytes.Buffer{}
-					_, err := io.Copy(headerBuffer, headerReader)
-					if err != nil {
-						return err
-					}
+					fmt.Printf("header non nil ... writing object + creating putfilerecord\n")
 					limiter.Acquire()
 					eg.Go(func() error {
 						defer limiter.Release()
-						object, size, err := pachClient.PutObject(headerBuffer)
+						object, size, err := pachClient.PutObject(headerReader)
 						if err != nil {
+							fmt.Printf("error reading from header reader %v\n", err)
 							return err
 						}
+						fmt.Printf("trying to lock mu\n")
 						mu.Lock()
 						defer mu.Unlock()
+						fmt.Printf("acquired lock mu\n")
 						records.Header = &pfs.PutFileRecord{
 							SizeBytes:  size,
 							ObjectHash: object.Hash,
 						}
+						fmt.Printf("set header record to: %v\n", records.Header)
 						return nil
 					})
 				}
+				fmt.Printf("footerReader (%v)\n", footerReader)
 				if footerReader != nil {
-					footerBuffer := &bytes.Buffer{}
-					_, err := io.Copy(footerBuffer, footerReader)
-					if err != nil {
-						return err
-					}
+					fmt.Printf("footer non nil ... writing object + creating putfilerecord\n")
 					limiter.Acquire()
 					eg.Go(func() error {
 						defer limiter.Release()
-						object, size, err := pachClient.PutObject(footerBuffer)
+						object, size, err := pachClient.PutObject(footerReader)
 						if err != nil {
+							fmt.Printf("error reading from footer reader %v\n", err)
 							return err
 						}
 						mu.Lock()
@@ -2054,6 +2054,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, indexToRecord[i])
 		}
 	}
+	fmt.Printf("driver ... writing records %v\n", records)
 
 	if oneOff {
 		// oneOff puts only work on branches, so we know branch != "". We pass
@@ -2658,18 +2659,22 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 			indexOffset++ // start writing to the file after the last file
 		}
+		fmt.Printf("applywrite ... has records %v\n", records)
 		for i, record := range records.Records {
 			var header *pfs.Object
 			var footer *pfs.Object
 			headerFooterSize := int64(0)
 			if records.Header != nil {
+				fmt.Printf("header non nil, supplying to tree.PutFileSplit\n")
 				header = &pfs.Object{Hash: records.Header.ObjectHash}
 				headerFooterSize += records.Header.SizeBytes
 			}
 			if records.Footer != nil {
+				fmt.Printf("footer non nil, supplying to tree.PutFileSplit\n")
 				footer = &pfs.Object{Hash: records.Footer.ObjectHash}
 				headerFooterSize += records.Footer.SizeBytes
 			}
+			fmt.Printf("calling tree.putfilesplit w header (%v) footer (%v)\n", header, footer)
 			if err := tree.PutFileSplit(
 				path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
 				[]*pfs.Object{{Hash: record.ObjectHash}},
@@ -2681,6 +2686,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				return err
 			}
 		}
+		fmt.Printf("called tree.putfilesplit()\n")
 	}
 	return nil
 }
