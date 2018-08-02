@@ -272,6 +272,43 @@ func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
 	return res, nil
 }
 
+func Glob(trees []HashTree, pattern string, f func(string, *NodeProto) error) (retErr error) {
+	pattern = clean(pattern)
+	g, err := globlib.Compile(pattern, '/')
+	if err != nil {
+		// TODO this should be a MalformedGlob error like the hashtree returns
+		return err
+	}
+	var srcs []Mergeable
+	for _, tree := range trees {
+		t, ok := tree.(*dbHashTree)
+		if !ok {
+			return errorf(Internal, "failed type assertion from HashTree to dbHashTree")
+		}
+		src, err := NewMergeCursor(t)
+		if err != nil {
+			return err
+		}
+		if err := src.NextBucket(FsBucket); err != nil {
+			return err
+		}
+		srcs = append(srcs, src)
+	}
+	defer func() {
+		for _, src := range srcs {
+			if err := src.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}
+	}()
+	return nodes(srcs, func(path string, node *NodeProto) error {
+		if g.Match(path) {
+			return f(path, node)
+		}
+		return nil
+	})
+}
+
 func (h *dbHashTree) FSSize() int64 {
 	rootNode, err := h.Get("/")
 	if err != nil {
@@ -1207,6 +1244,16 @@ func Merge(srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
 	}
 	fmt.Printf("(mergefilter) Time spent getting next in stream: %v\nTime spent merging and writing: %v\n", total, total2)
 	return nil
+}
+
+func nodes(srcs []Mergeable, f func(path string, node *NodeProto) error) error {
+	return Merge(srcs, func(k []byte, vs [][]byte) error {
+		node := &NodeProto{}
+		if err := node.Unmarshal(vs[0]); err != nil {
+			return err
+		}
+		return f(s(k), node)
+	})
 }
 
 func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
