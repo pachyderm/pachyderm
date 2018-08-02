@@ -2135,6 +2135,40 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	return h, nil
 }
 
+func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitInfo) ([]hashtree.HashTree, error) {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	trees := make([]hashtree.HashTree, len(commitInfo.Trees))
+	var eg errgroup.Group
+	for i, object := range commitInfo.Trees {
+		i := i
+		object := object
+		eg.Go(func() error {
+			tree, ok := d.treeCache.Get(commitInfo.Commit.ID)
+			if ok {
+				h, ok := tree.(hashtree.HashTree)
+				if !ok {
+					return fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
+				}
+				trees[i] = h
+				return nil
+			}
+			// read the tree from the block store
+			h, err := hashtree.GetHashTreeObject(pachClient, d.storageRoot, object)
+			if err != nil {
+				return err
+			}
+			d.treeCache.Add(commitInfo.Commit.ID, h)
+			trees[i] = h
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return trees, nil
+}
+
 // getTreeForFile is like getTreeForCommit except that it can handle open commits.
 // It takes a file instead of a commit so that it can apply the changes for
 // that path to the tree before it returns it.
@@ -2196,78 +2230,79 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
-
-	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO this should use the Glob method and a callback
-	paths, err := tree.GlobAll(file.Path)
-	if err != nil {
-		return nil, err
-	}
-	for path, node := range paths {
-		if node.FileNode == nil {
-			delete(paths, path)
-		}
-	}
-	if len(paths) <= 0 {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
-	}
-
-	var totalSize int64
-
-	// TODO(bryce): This will become the default path once we make the changes to put
-	// file to store the block refs in the hash tree. Also, checking if an object is in
-	// the hashtree will no longer be needed.
-	var checkNode *hashtree.NodeProto
-	for _, node := range paths {
-		checkNode = node
-		break
-	}
-	if checkNode.FileNode.Objects == nil {
-		blockRefs := []*pfs.BlockRef{}
-		for _, node := range paths {
-			blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
-			totalSize += node.SubtreeSize
-		}
-
-		getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
-			ctx,
-			&pfs.GetBlocksRequest{
-				BlockRefs:   blockRefs,
-				OffsetBytes: uint64(offset),
-				SizeBytes:   uint64(size),
-				TotalSize:   uint64(totalSize),
-			},
-		)
+	// Handle commits to input repos
+	if commitInfo.Provenance == nil {
+		tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return nil, err
 		}
-
-		return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
+		// TODO this should use the Glob method and a callback
+		paths, err := tree.GlobAll(file.Path)
+		if err != nil {
+			return nil, err
+		}
+		if len(paths) <= 0 {
+			return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+		}
+		var objects []*pfs.Object
+		var totalSize uint64
+		for _, node := range paths {
+			objects = append(objects, node.FileNode.Objects...)
+			totalSize += uint64(node.SubtreeSize)
+		}
+		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
+			ctx,
+			&pfs.GetObjectsRequest{
+				Objects:     objects,
+				OffsetBytes: uint64(offset),
+				SizeBytes:   uint64(size),
+				TotalSize:   uint64(totalSize),
+			})
+		if err != nil {
+			return nil, err
+		}
+		return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
 	}
-
-	var objects []*pfs.Object
-	for _, node := range paths {
-		objects = append(objects, node.FileNode.Objects...)
-		totalSize += node.SubtreeSize
+	// Handle commits to output repos
+	if commitInfo.Finished == nil {
+		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
-
-	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
-		ctx,
-		&pfs.GetObjectsRequest{
-			Objects:     objects,
-			OffsetBytes: uint64(offset),
-			SizeBytes:   uint64(size),
-			TotalSize:   uint64(totalSize),
-		})
+	trees, err := d.getTreesForCommit(ctx, commitInfo)
 	if err != nil {
 		return nil, err
 	}
-
-	return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
+	blockRefs := []*pfs.BlockRef{}
+	var totalSize int64
+	if err := hashtree.Glob(trees, file.Path, func(path string, node *hashtree.NodeProto) error {
+		if node.FileNode == nil {
+			return nil
+		}
+		blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
+		totalSize += node.SubtreeSize
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	//if len(paths) <= 0 {
+	//	return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+	//}
+	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
+		ctx,
+		&pfs.GetBlocksRequest{
+			BlockRefs:   blockRefs,
+			OffsetBytes: uint64(offset),
+			SizeBytes:   uint64(size),
+			TotalSize:   uint64(totalSize),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
 }
 
 // If full is false, exclude potentially large fields such as `Objects`
@@ -2315,13 +2350,13 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func(*pfs.FileInfo) error) error {
+func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func(*pfs.FileInfo) error) (retErr error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -2330,18 +2365,47 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 		// TODO this should be a MalformedGlob error like the hashtree returns
 		return err
 	}
-	return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
-		if rootNode.DirNode == nil {
+	// Handle commits to input repos
+	if commitInfo.Provenance == nil {
+		tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
+		if err != nil {
+			return err
+		}
+		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
+			if rootNode.DirNode == nil {
+				return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
+			}
+			return tree.List(rootPath, func(node *hashtree.NodeProto) error {
+				path := filepath.Join(rootPath, node.Name)
+				if g.Match(path) {
+					// Don't return the file now, it will be returned later by Glob
+					return nil
+				}
+				return f(nodeToFileInfo(file.Commit, path, node, full))
+			})
+		})
+	}
+	// Handle commits to output repos
+	if commitInfo.Finished == nil {
+		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+	}
+	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	if err != nil {
+		return err
+	}
+	return hashtree.Glob(trees, file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
+		//if rootNode.DirNode == nil {
+		//	return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
+		//}
+		//return tree.List(rootPath, func(node *hashtree.NodeProto) error {
+		//	path := filepath.Join(rootPath, node.Name)
+		if g.Match(rootPath) {
+			// Don't return the file now, it will be returned later by Glob
 			return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
 		}
-		return tree.List(rootPath, func(node *hashtree.NodeProto) error {
-			path := filepath.Join(rootPath, node.Name)
-			if g.Match(path) {
-				// Don't return the file now, it will be returned later by Glob
-				return nil
-			}
-			return f(nodeToFileInfo(file.Commit, path, node, full))
-		})
+		//	return f(nodeToFileInfo(file.Commit, path, node, full))
+		//})
+		return nil
 	})
 }
 
