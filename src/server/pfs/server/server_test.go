@@ -4329,18 +4329,17 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 
 	commit, err = c.StartCommit(repo, "")
 	require.NoError(t, err)
-	_, h, f, err := c.PutFileSplitWriter(repo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
+	_, h, f, err := c.PutFileSplitWriter(repo, "master", "a", pfs.Delimiter_LINE, 0, 0, false)
 	require.NoError(t, err)
 	_, err = h.Write([]byte("header\n"))
 	require.NoError(t, err)
-	require.NoError(t, h.Close())
 	_, err = f.Write([]byte("footer"))
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
+	//require.NoError(t, h.Close())
+	h.Close()
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
-	require.NoError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
-
 	buf.Reset()
-	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "a", 0, 0, &buf))
+	require.NoError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 	require.Equal(t, "header\nfooter", buf.String())
 }

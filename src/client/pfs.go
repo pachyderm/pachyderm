@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 
@@ -768,30 +769,39 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 		return 0, grpcutil.ScrubGRPC(err)
 	}
 	defer func() {
+		fmt.Printf("closing writers %v\n", retErr)
 		if err := writer.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
 		if headerReader != nil {
+			fmt.Printf("closing header writer\n")
 			if err := headerWriter.Close(); err != nil && retErr == nil {
 				retErr = err
 			}
 		}
 		if footerReader != nil {
+			fmt.Printf("closing footer writer\n")
 			if err := footerWriter.Close(); err != nil && retErr == nil {
 				retErr = err
 			}
 		}
+		fmt.Printf("end of pfs ... err %v\n", retErr)
 	}()
+	fmt.Printf("copying content reader\n")
 	written, err := io.Copy(writer, reader)
 	if headerReader != nil {
+		fmt.Printf("copying header reader\n")
 		_, err = io.Copy(headerWriter, reader)
 		if err != nil {
+			fmt.Printf("err writing header %v\n", err)
 			return int(written), err
 		}
 	}
 	if footerReader != nil {
+		fmt.Printf("copying footer reader\n")
 		_, err = io.Copy(footerWriter, reader)
 		if err != nil {
+			fmt.Printf("err writing footer %v\n", err)
 			return int(written), err
 		}
 	}
