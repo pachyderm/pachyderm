@@ -771,23 +771,30 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 		if err := writer.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
-		if err := headerWriter.Close(); err != nil && retErr == nil {
-			retErr = err
+		if headerReader != nil {
+			if err := headerWriter.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
 		}
-		if err := footerWriter.Close(); err != nil && retErr == nil {
-			retErr = err
+		if footerReader != nil {
+			if err := footerWriter.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
 		}
 	}()
 	written, err := io.Copy(writer, reader)
-	_, err = io.Copy(headerWriter, reader)
-	if err != nil {
-		return int(written), err
+	if headerReader != nil {
+		_, err = io.Copy(headerWriter, reader)
+		if err != nil {
+			return int(written), err
+		}
 	}
-	_, err = io.Copy(footerWriter, reader)
-	if err != nil {
-		return int(written), err
+	if footerReader != nil {
+		_, err = io.Copy(footerWriter, reader)
+		if err != nil {
+			return int(written), err
+		}
 	}
-
 	return int(written), grpcutil.ScrubGRPC(err)
 }
 
