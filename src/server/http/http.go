@@ -20,7 +20,6 @@ import (
 )
 
 // HTTPPort specifies the port the server will listen on
-const HTTPPort = 652
 const apiVersion = "v1"
 
 func versionPath(p string) string {

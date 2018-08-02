@@ -20,7 +20,10 @@ import (
 
 // defaultLimit was experimentally determined to be the highest value that could work
 // (It gets scaled down for specific collections if they trip the max-message size.)
-const defaultLimit int64 = 262144
+const (
+	defaultLimit  int64  = 262144
+	DefaultPrefix string = "pachyderm/1.7.0"
+)
 
 type collection struct {
 	etcdClient *etcd.Client
@@ -470,6 +473,22 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 		}
 		return e.Unmarshal(&key, val)
 	}
+}
+
+func (c *readonlyCollection) TTL(key string) (int64, error) {
+	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
+	if err != nil {
+		return 0, err
+	}
+	if len(resp.Kvs) == 0 {
+		return 0, ErrNotFound{c.prefix, key}
+	}
+	leaseID := etcd.LeaseID(resp.Kvs[0].Lease)
+	leaseTTLResp, err := c.etcdClient.TimeToLive(c.ctx, leaseID)
+	if err != nil {
+		return 0, fmt.Errorf("could not fetch lease TTL: %v", err)
+	}
+	return leaseTTLResp.TTL, nil
 }
 
 // ListPrefix returns keys (and values) that begin with prefix, f will be

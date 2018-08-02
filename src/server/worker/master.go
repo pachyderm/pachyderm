@@ -9,7 +9,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -131,7 +130,7 @@ func (a *APIServer) serviceMaster() {
 			if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
 				return err
 			}
-			if pipelinePtr.State == pps.PipelineState_PIPELINE_PAUSED {
+			if a.pipelineInfo.Stopped {
 				paused = true
 				return nil
 			}
@@ -219,6 +218,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 	defer commitIter.Close()
 	var serviceCtx context.Context
 	var serviceCancel func()
+	var dir string
 	for {
 		commitInfo, err := commitIter.Next()
 		if err != nil {
@@ -244,18 +244,24 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 		data := df.Datum(0)
 		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
 		puller := filesync.NewPuller()
-		dir, err := a.downloadData(pachClient, logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
+		// If this is our second time through the loop cleanup the old data.
+		if dir != "" {
+			if err := a.unlinkData(data); err != nil {
+				return fmt.Errorf("unlinkData: %v", err)
+			}
+			if err := os.RemoveAll(dir); err != nil {
+				return fmt.Errorf("os.RemoveAll: %v", err)
+			}
+		}
+		dir, err = a.downloadData(pachClient, logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
 		if err != nil {
 			return err
 		}
 		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
 			return err
 		}
-		if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil {
-			logger.Logf("error unmounting %+v", err)
-		}
-		if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
-			return err
+		if err := a.linkData(data, dir); err != nil {
+			return fmt.Errorf("linkData: %v", err)
 		}
 		if serviceCancel != nil {
 			serviceCancel()
@@ -667,8 +673,19 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			if err != nil {
 				return err
 			}
-			statsCommit, err = pachClient.BuildCommit(jobInfo.OutputRepo.Name, "stats", "", statsObject.Hash)
+			ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 			if err != nil {
+				return err
+			}
+			for _, commitRange := range ci.Subvenance {
+				if commitRange.Lower.Repo.Name == jobInfo.OutputRepo.Name && commitRange.Upper.Repo.Name == jobInfo.OutputRepo.Name {
+					statsCommit = commitRange.Lower
+				}
+			}
+			if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+				Commit: statsCommit,
+				Tree:   statsObject,
+			}); err != nil {
 				return err
 			}
 		}

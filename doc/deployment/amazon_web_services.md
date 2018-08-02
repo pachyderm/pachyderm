@@ -1,11 +1,18 @@
 # Amazon Web Services
 
+## Advanced
+
+- [Deploy within an existing VPC](amazon_web_services/existing_vpc.html)
+- [Connect to your Pachyderm Cluster](amazon_web_services/connecting_to_your_cluster.html)
+
+## Standard Deployment
+
 We recommend one of the following two methods for deploying Pachyderm on AWS:
 
 2. [By manually deploying Kubernetes and Pachyderm.](amazon_web_services.html#manual-pachyderm-deploy)
     - This is appropriate if you (i) already have a kubernetes deployment, (ii) if you would like to customize the types of instances, size of volumes, etc. in your cluster, (iii) if you're setting up a production cluster, or (iv) if you are processing a lot of data or have computationally expensive workloads.
 1. [By executing a one shot deploy script that will both deploy Kubernetes and Pachyderm.](amazon_web_services.html#one-shot-script)
-    - This option is appropriate if you are just experimenting with Pachyderm. The one-shot script will get you up and running in no time! 
+    - This option is appropriate if you are just experimenting with Pachyderm. The one-shot script will get you up and running in no time!
 
 In addition, we recommend setting up AWS CloudFront for any production deployments. AWS puts S3 rate limits in place that can limit the data throughput for your cluster, and CloudFront helps mitigate this issue. Follow these instructions to deploy with CloudFront
 
@@ -22,7 +29,7 @@ In addition, we recommend setting up AWS CloudFront for any production deploymen
 
 ### Deploy Kubernetes
 
-The easiest way to install Kubernetes on AWS (currently) is with kops. You can follow [this step-by-step guide from Kuberenetes](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy. Note, we recommend using at `r4.xlarge` or larger instances in the cluster.  
+The easiest way to install Kubernetes on AWS (currently) is with kops. You can follow [this step-by-step guide from Kubernetes](https://github.com/kubernetes/kops/blob/master/docs/aws.md) for the deploy. Note, we recommend using at `r4.xlarge` or larger instances in the cluster.  
 
 Once, you have a Kubernetes cluster up and running in AWS, you should be able to see the following output from `kubectl`:
 
@@ -50,7 +57,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, Pachyderm's comm
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.7
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.1/pachctl_1.7.1_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.4/pachctl_1.7.4_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version --client-only` to verify that `pachctl` has been successfully installed.
@@ -197,7 +204,7 @@ Run the following command to deploy your Pachyderm cluster:
 $ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --credentials "${AWS_ACCESS_KEY_ID},${AWS_SECRET_ACCESS_KEY},"
 ```
 
-Note, the `,` at the end of the `credentials` flag in the deploy command is for an optional temporary AWS token. You might utilize this sort of temporary token if you are just experimenting with a deploy. However, such a token should NOT be used for a production deploy. 
+Note, the `,` at the end of the `credentials` flag in the deploy command is for an optional temporary AWS token. You might utilize this sort of temporary token if you are just experimenting with a deploy. However, such a token should NOT be used for a production deploy.
 
 It may take a few minutes for Pachyderm to start running on the cluster, but you you should eventually see the following running pods:
 
@@ -283,4 +290,4 @@ You can delete your Pachyderm cluster using `kops`:
 $ kops delete cluster
 ```
 
-In addition, there is the entry in `/etc/hosts` pointing to the cluster that will need to be manually removed.
+In addition, there is the entry in `/etc/hosts` pointing to the cluster that will need to be manually removed. Similarly, kubernetes state s3 bucket and pachyderm storage bucket will need to be manually removed.

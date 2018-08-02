@@ -141,6 +141,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var isS3V2 bool
 	var etcdNodes int
 	var etcdVolume string
+	var etcdStorageClassName string
 	var pachdCPURequest string
 	var pachdNonCacheMemRequest string
 	var blockCacheSize string
@@ -157,8 +158,11 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var imagePullSecret string
 	var noGuaranteed bool
 	var noRBAC bool
+	var localRoles bool
 	var namespace string
 	var noExposeDockerSocket bool
+	var exposeObjectAPI bool
+	var tlsCertKey string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -185,6 +189,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 
 				// Disable authentication, for tests
 				opts.DisableAuthentication = true
+
+				// Serve the Pachyderm object/block API locally, as this is needed by
+				// our tests (and authentication is disabled anyway)
+				opts.ExposeObjectAPI = true
 			}
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
@@ -193,7 +201,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
-	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd built locally, disable metrics, and use insecure authentication")
+	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")
 
 	deployGoogle := &cobra.Command{
 		Use:   "google <GCS bucket> <size of disk(s) (in GB)> [<service account creds file>]",
@@ -509,14 +517,30 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				EtcdMemRequest:          etcdMemRequest,
 				EtcdNodes:               etcdNodes,
 				EtcdVolume:              etcdVolume,
+				EtcdStorageClassName:    etcdStorageClassName,
 				DashOnly:                dashOnly,
 				NoDash:                  noDash,
 				DashImage:               dashImage,
 				Registry:                registry,
+				ImagePullSecret:         imagePullSecret,
 				NoGuaranteed:            noGuaranteed,
 				NoRBAC:                  noRBAC,
+				LocalRoles:              localRoles,
 				Namespace:               namespace,
 				NoExposeDockerSocket:    noExposeDockerSocket,
+				ExposeObjectAPI:         exposeObjectAPI,
+			}
+			if tlsCertKey != "" {
+				// TODO(msteffen): If either the cert path or the key path contains a
+				// comma, this doesn't work
+				certKey := strings.Split(tlsCertKey, ",")
+				if len(certKey) != 2 {
+					return fmt.Errorf("could not split TLS certificate and key correctly; must have two parts but got: %#v", certKey)
+				}
+				opts.TLS = &assets.TLSOpts{
+					ServerCert: certKey[0],
+					ServerKey:  certKey[1],
+				}
 			}
 			return nil
 		}),
@@ -524,6 +548,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().IntVar(&pachdShards, "shards", 16, "(rarely set) The maximum number of pachd nodes allowed in the cluster; increasing this number blindly can result in degraded performance.")
 	deploy.PersistentFlags().IntVar(&etcdNodes, "dynamic-etcd-nodes", 0, "Deploy etcd as a StatefulSet with the given number of pods.  The persistent volumes used by these pods are provisioned dynamically.  Note that StatefulSet is currently a beta kubernetes feature, which might be unavailable in older versions of kubernetes.")
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
+	deploy.PersistentFlags().StringVar(&etcdStorageClassName, "etcd-storage-class", "", "If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
 	deploy.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output formmat. One of: json|yaml")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
@@ -534,8 +559,11 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().StringVar(&dashImage, "dash-image", "", "Image URL for pachyderm dashboard")
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
 	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
+	deploy.PersistentFlags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
+	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
+	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 
 	deploy.AddCommand(
 		deployLocal,
@@ -613,7 +641,6 @@ Are you sure you want to proceed? yN
 				Stderr: os.Stderr,
 			}
 			assets := []string{
-				"job",
 				"service",
 				"replicationcontroller",
 				"deployment",
