@@ -134,7 +134,7 @@ func doReadinessCheck(appEnvObj interface{}) error {
 func doSidecarMode(appEnvObj interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
 	appEnv := appEnvObj.(*appEnv)
@@ -260,7 +260,7 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 func doFullMode(appEnvObj interface{}) (retErr error) {
 	defer func() {
 		if retErr != nil {
-			pprof.Lookup("goroutine").WriteTo(os.Stdout, 2)
+			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
 	appEnv := appEnvObj.(*appEnv)
