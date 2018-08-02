@@ -531,6 +531,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(kubeClient, kubeNamespace))
 					healthclient.RegisterHealthServer(s, peerHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID}))
 					return nil
 				},
 			},
@@ -540,9 +541,6 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 		}
 		return err
 	})
-	if err := migrate(address, kubeClient); err != nil {
-		return fmt.Errorf("migrate: %v", err)
-	}
 	// TODO(msteffen): Is it really necessary to indicate that the peer service is
 	// healthy? Presumably migrate() will call the peer service no matter what.
 	publicHealthServer.Ready()
