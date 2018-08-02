@@ -1609,10 +1609,10 @@ func mergeStats(x, y *pps.ProcessStats) error {
 // USER <UID>[:<GID>]
 func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 	userParts := strings.Split(userArg, ":")
-	userOrUid := userParts[0]
-	groupOrGid := ""
+	userOrUID := userParts[0]
+	groupOrGID := ""
 	if len(userParts) > 1 {
-		groupOrGid = userParts[1]
+		groupOrGID = userParts[1]
 	}
 	passwd, err := os.Open("/etc/passwd")
 	if err != nil {
@@ -1626,7 +1626,7 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 	scanner := bufio.NewScanner(passwd)
 	for scanner.Scan() {
 		parts := strings.Split(scanner.Text(), ":")
-		if parts[0] == userOrUid || parts[2] == userOrUid {
+		if parts[0] == userOrUID || parts[2] == userOrUID {
 			result := &user.User{
 				Username: parts[0],
 				Uid:      parts[2],
@@ -1634,17 +1634,17 @@ func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
 				Name:     parts[4],
 				HomeDir:  parts[5],
 			}
-			if groupOrGid != "" {
-				if parts[0] == userOrUid {
+			if groupOrGID != "" {
+				if parts[0] == userOrUID {
 					// groupOrGid is a group
-					group, err := lookupGroup(groupOrGid)
+					group, err := lookupGroup(groupOrGID)
 					if err != nil {
 						return nil, err
 					}
 					result.Gid = group.Gid
 				} else {
 					// groupOrGid is a gid
-					result.Gid = groupOrGid
+					result.Gid = groupOrGID
 				}
 			}
 			return result, nil
