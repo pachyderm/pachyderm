@@ -515,9 +515,9 @@ func doFullMode(appEnvObj interface{}) error {
 		}
 		return err
 	})
-	if err := migrate(address, kubeClient); err != nil {
-		return err
-	}
+	//if err := migrate(address, kubeClient); err != nil {
+	//	return err
+	//}
 	// TODO(msteffen): Is it really necessary to indicate that the peer service is
 	// healthy? Presumably migrate() will call the peer service no matter what.
 	publicHealthServer.Ready()
