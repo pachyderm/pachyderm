@@ -2430,12 +2430,30 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	tree, err := d.getTreeForFile(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""))
+	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
-	return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
-		return f(nodeToFileInfo(commit, path, node, false))
+	// Handle commits to input repos
+	if commitInfo.Provenance == nil {
+		tree, err := d.getTreeForFile(ctx, client.NewFile(commit.Repo.Name, commit.ID, ""))
+		if err != nil {
+			return err
+		}
+		return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
+			return f(nodeToFileInfo(commit, path, node, false))
+		})
+	}
+	// Handle commits to output repos
+	if commitInfo.Finished == nil {
+		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+	}
+	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	if err != nil {
+		return err
+	}
+	return hashtree.Glob(trees, pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
+		return f(nodeToFileInfo(commit, rootPath, rootNode, false))
 	})
 }
 
