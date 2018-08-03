@@ -4341,7 +4341,33 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 	require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
 	require.Equal(t, header+footer, buf.String())
 
+	// Test only putting header/footer from scratch
+	commit, err = c.StartCommit(repo, "")
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "c/d", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), []byte(footer))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	fileInfos, err = c.ListFile(repo, commit.ID, "/c/d")
+	fmt.Printf("list of files: %v err %v\n", fileInfos, err)
+	require.Equal(t, 0, len(fileInfos))
+	fileInfos, err = c.ListFile(repo, commit.ID, "/c")
+	fmt.Printf("list of files: %v err %v\n", fileInfos, err)
+	require.Equal(t, 1, len(fileInfos))
+	buf.Reset()
+	fmt.Printf("file: %v\n", fileInfos[0].File.Path)
+	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	require.Equal(t, header+footer, buf.String())
+	buf.Reset()
+	require.YesError(t, c.GetFile(repo, commit.ID, "c", 0, 0, &buf))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, "c/d", 0, 0, &buf))
+	require.Equal(t, header+footer, buf.String())
+
+	// Test only putting header/footer on existing directory
+
 	// Test normal use case w NONE delimiter
+	/* TODO: pachctl doesn't support NONE ... not sure if this code path is used anywhere
+	fmt.Printf("------------------ NONE DELIM\n")
 	commit, err = c.StartCommit(repo, "")
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_NONE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
@@ -4357,4 +4383,5 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 	require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 	require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
 	require.Equal(t, header+footer, buf.String())
+	*/
 }

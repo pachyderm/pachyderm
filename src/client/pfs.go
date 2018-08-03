@@ -775,8 +775,11 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 		fmt.Printf("end of pfs ... err %v\n", retErr)
 	}()
 	fmt.Printf("copying content reader\n")
-	written, err := io.Copy(writer, reader)
-	return int(written), grpcutil.ScrubGRPC(err)
+	if reader != nil {
+		written, err := io.Copy(writer, reader)
+		return int(written), grpcutil.ScrubGRPC(err)
+	}
+	return 0, nil
 }
 
 // PutFileURL puts a file using the content found at a URL.
