@@ -764,6 +764,7 @@ func (c APIClient) PutFileOverwrite(repoName string, commitID string, path strin
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
 func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader, headerReader io.Reader, footerReader io.Reader) (_ int, retErr error) {
+	fmt.Printf("w %v, h %v, f %v\n", reader, headerReader, footerReader)
 	writer, headerWriter, footerWriter, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
@@ -791,7 +792,8 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 	written, err := io.Copy(writer, reader)
 	if headerReader != nil {
 		fmt.Printf("copying header reader\n")
-		_, err = io.Copy(headerWriter, reader)
+		n, err := io.Copy(headerWriter, headerReader)
+		fmt.Printf("wrote %v bytes\n", n)
 		if err != nil {
 			fmt.Printf("err writing header %v\n", err)
 			return int(written), err
@@ -799,7 +801,8 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 	}
 	if footerReader != nil {
 		fmt.Printf("copying footer reader\n")
-		_, err = io.Copy(footerWriter, reader)
+		n, err := io.Copy(footerWriter, footerReader)
+		fmt.Printf("wrote %v bytes\n", n)
 		if err != nil {
 			fmt.Printf("err writing footer %v\n", err)
 			return int(written), err
@@ -1103,6 +1106,7 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 }
 
 func (w *putFileWriteCloser) Write(p []byte) (int, error) {
+	fmt.Printf("!!! in pfwritecloser\n")
 	bytesWritten := 0
 	for {
 		// Buffer the write so that we don't exceed the grpc
@@ -1141,6 +1145,7 @@ func (w *putFileWriteCloser) Close() error {
 	return grpcutil.ScrubGRPC(err)
 }
 func (w *putFileHeaderWriteCloser) Write(p []byte) (int, error) {
+	fmt.Printf("in pfheaderwritecloser\n")
 	bytesWritten := 0
 	for {
 		// Buffer the write so that we don't exceed the grpc
@@ -1155,11 +1160,12 @@ func (w *putFileHeaderWriteCloser) Write(p []byte) (int, error) {
 			break
 		}
 		w.request.HeaderValue = actualP
+		fmt.Printf("sending PFRequest w header: %v\n", w.request)
 		if err := w.putFileClient.Send(w.request); err != nil {
 			return 0, grpcutil.ScrubGRPC(err)
 		}
 		w.sent = true
-		w.request.Value = nil
+		w.request.HeaderValue = nil
 		// File is only needed on the first request
 		w.request.File = nil
 		bytesWritten += len(actualP)
@@ -1171,6 +1177,7 @@ func (w *putFileHeaderWriteCloser) Close() error {
 	// we always send at least one request, otherwise it's impossible to create
 	// an empty file
 	if !w.sent {
+		fmt.Printf("sending in close() PFRequest w header: %v\n", w.request)
 		if err := w.putFileClient.Send(w.request); err != nil {
 			return err
 		}
@@ -1179,6 +1186,7 @@ func (w *putFileHeaderWriteCloser) Close() error {
 	return grpcutil.ScrubGRPC(err)
 }
 func (w *putFileFooterWriteCloser) Write(p []byte) (int, error) {
+	fmt.Printf("in pffooterwritecloser\n")
 	bytesWritten := 0
 	for {
 		// Buffer the write so that we don't exceed the grpc
@@ -1193,11 +1201,12 @@ func (w *putFileFooterWriteCloser) Write(p []byte) (int, error) {
 			break
 		}
 		w.request.FooterValue = actualP
+		fmt.Printf("sending PFRequest w footer: %v\n", w.request)
 		if err := w.putFileClient.Send(w.request); err != nil {
 			return 0, grpcutil.ScrubGRPC(err)
 		}
 		w.sent = true
-		w.request.Value = nil
+		w.request.FooterValue = nil
 		// File is only needed on the first request
 		w.request.File = nil
 		bytesWritten += len(actualP)
@@ -1209,6 +1218,7 @@ func (w *putFileFooterWriteCloser) Close() error {
 	// we always send at least one request, otherwise it's impossible to create
 	// an empty file
 	if !w.sent {
+		fmt.Printf("sending in close() PFRequest w footer: %v\n", w.request)
 		if err := w.putFileClient.Send(w.request); err != nil {
 			return err
 		}
