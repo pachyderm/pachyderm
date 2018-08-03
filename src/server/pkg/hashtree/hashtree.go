@@ -573,22 +573,23 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		fmt.Printf("error visiting nodes: %v\n", err)
 		return err
 	} else {
+		fmt.Printf("hashtree putfile writing directly to existing dir node\n")
 		// Get/Create dir node to which we'll add header/footer
 		node, ok := h.fs[path]
+		fmt.Printf("node (%v), ok (%v)\n", node, ok)
 		if !ok {
 			node = &NodeProto{
-				Name: base(path),
-				DirNode: &DirectoryNodeProto{
-					Header: header,
-					Footer: footer,
-				},
-				SubtreeSize: headerFooterSize,
+				Name:    base(path),
+				DirNode: &DirectoryNodeProto{},
 			}
 			h.fs[path] = node
 		} else if node.nodetype() != directory {
 			return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
 				"type %s is already there", path, node.nodetype().tostring())
 		}
+		node.DirNode.Header = header
+		node.DirNode.Footer = footer
+		node.SubtreeSize += headerFooterSize
 		fmt.Printf("created node %v\n", node)
 		h.changed[path] = true
 		fmt.Printf("in tree putFile() .... going to set parent\n")

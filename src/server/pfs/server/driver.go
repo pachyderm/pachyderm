@@ -451,6 +451,7 @@ func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
 func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
+	fmt.Printf("in makecommit()\n")
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
@@ -488,6 +489,7 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 		if err != nil {
 			return nil, err
 		}
+		fmt.Printf("got tree object: %v\n", tree)
 	}
 
 	// Txn: create the actual commit in etcd and update the branch + parent/child
@@ -2309,12 +2311,15 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	footers := stack.New()
 	directories := stack.New()
 	for _, path := range sortedPaths {
+		fmt.Printf("traversing path %v\n", path)
 		node := paths[path]
+		fmt.Printf("node %v\n", node)
 		thisDir := directories.Peek()
 		if thisDir != nil && !strings.HasPrefix(path, thisDir.(string)) {
 			// We've proceeded past the current directory
 			footer := footers.Pop().(*pfs.Object)
 			if footer != nil {
+				fmt.Printf("appending footer to obj list\n")
 				objects = append(objects, footer)
 			}
 			directories.Pop()
@@ -2323,11 +2328,13 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		if node.DirNode != nil {
 			header := node.DirNode.Header
 			if header != nil {
+				fmt.Printf("appending header to obj list\n")
 				objects = append(objects, header)
 			}
 			footers.Push(node.DirNode.Footer)
 			directories.Push(path + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
 		} else {
+			fmt.Printf("appending objs to obj list\n")
 			objects = append(objects, node.FileNode.Objects...)
 		}
 
@@ -2337,6 +2344,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	for footers.Len() > 0 {
 		footer := footers.Pop().(*pfs.Object)
 		if footer != nil {
+			fmt.Printf("draining footers ... adding to obj list\n")
 			objects = append(objects, footer)
 		}
 	}
@@ -2422,7 +2430,9 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 		return nil, err
 	}
 
+	fmt.Printf("driver listfile got tree (%v)\n", tree)
 	rootPaths, err := tree.Glob(file.Path)
+	fmt.Printf("rootpaths %v\n", rootPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -2448,6 +2458,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 			}
 		}
 	}
+	fmt.Printf("listfile got fileinfos (%v)\n", fileInfos)
 	return fileInfos, nil
 }
 
