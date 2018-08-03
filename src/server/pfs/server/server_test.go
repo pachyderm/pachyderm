@@ -4320,16 +4320,22 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 
 	commit, err := c.StartCommit(repo, "")
 	require.NoError(t, err)
-	var buf bytes.Buffer
 
 	commit, err = c.StartCommit(repo, "")
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_NONE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), []byte("header\n"), []byte("footer\n"))
+	content := []string{"foo\n", "bar\n", "baz\n"}
+	header := "header\n"
+	footer := "footer\n"
+	_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
-	fileInfos, err := c.ListFile(repo, commit.ID, "")
+	fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
 	fmt.Printf("list of files: %v err %v\n", fileInfos, err)
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	require.Equal(t, header+content[0]+footer, buf.String())
 	buf.Reset()
-	require.NoError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
-	require.Equal(t, "header\nfooter\n", buf.String())
+	require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+	require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+	require.Equal(t, header+footer, buf.String())
 }
