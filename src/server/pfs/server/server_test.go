@@ -4324,7 +4324,7 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 
 	commit, err = c.StartCommit(repo, "")
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), []byte("header\n"), []byte("footer\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_NONE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), []byte("header\n"), []byte("footer\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	fileInfos, err := c.ListFile(repo, commit.ID, "")
