@@ -526,52 +526,91 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		return err
 	}
 
-	fmt.Printf("creating node\n")
-	// Get/Create file node to which we'll append 'objects'
-	node, ok := h.fs[path]
-	if !ok {
-		node = &NodeProto{
-			Name:     base(path),
-			FileNode: &FileNodeProto{},
-		}
-		h.fs[path] = node
-	} else if node.nodetype() != file {
-		return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
-			"type %s is already there", path, node.nodetype().tostring())
-	}
-	fmt.Printf("created node %v\n", node)
-
-	// Append new objects.  Remove existing objects if overwriting.
-	if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
-		node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
-	}
-	node.SubtreeSize += sizeDelta + headerFooterSize
-	node.FileNode.Objects = append(node.FileNode.Objects, objects...)
-	h.changed[path] = true
-
-	fmt.Printf("in tree putFile() .... going to set parent\n")
-	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
-	err := h.visit(path, func(node *NodeProto, parent, child string) error {
-		if node == nil {
+	if len(objects) > 0 {
+		fmt.Printf("creating node\n")
+		// Get/Create file node to which we'll append 'objects'
+		node, ok := h.fs[path]
+		if !ok {
 			node = &NodeProto{
-				Name:    base(parent),
-				DirNode: &DirectoryNodeProto{},
+				Name:     base(path),
+				FileNode: &FileNodeProto{},
 			}
-			if parent == filepath.Dir(path) {
-				node.SubtreeSize = headerFooterSize
-				node.DirNode.Header = header
-				node.DirNode.Footer = footer
-			}
-			fmt.Printf("set parent (%v) to %v\n", parent, node)
-			h.fs[parent] = node
+			h.fs[path] = node
+		} else if node.nodetype() != file {
+			return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
+				"type %s is already there", path, node.nodetype().tostring())
 		}
-		insertStr(&node.DirNode.Children, child)
-		node.SubtreeSize += sizeDelta
-		h.changed[parent] = true
-		return nil
-	})
-	fmt.Printf("error visiting nodes: %v\n", err)
-	return err
+		fmt.Printf("created node %v\n", node)
+
+		// Append new objects.  Remove existing objects if overwriting.
+		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
+			node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
+		}
+		node.SubtreeSize += sizeDelta + headerFooterSize
+		node.FileNode.Objects = append(node.FileNode.Objects, objects...)
+		h.changed[path] = true
+		fmt.Printf("in tree putFile() .... going to set parent\n")
+		// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
+		err := h.visit(path, func(node *NodeProto, parent, child string) error {
+			if node == nil {
+				node = &NodeProto{
+					Name:    base(parent),
+					DirNode: &DirectoryNodeProto{},
+				}
+				if parent == filepath.Dir(path) {
+					node.SubtreeSize = headerFooterSize
+					node.DirNode.Header = header
+					node.DirNode.Footer = footer
+				}
+				fmt.Printf("set parent (%v) to %v\n", parent, node)
+				h.fs[parent] = node
+			}
+			insertStr(&node.DirNode.Children, child)
+			node.SubtreeSize += sizeDelta
+			h.changed[parent] = true
+			return nil
+		})
+		fmt.Printf("error visiting nodes: %v\n", err)
+		return err
+	} else {
+		// Get/Create dir node to which we'll add header/footer
+		node, ok := h.fs[path]
+		if !ok {
+			node = &NodeProto{
+				Name: base(path),
+				DirNode: &DirectoryNodeProto{
+					Header: header,
+					Footer: footer,
+				},
+				SubtreeSize: headerFooterSize,
+			}
+			h.fs[path] = node
+		} else if node.nodetype() != directory {
+			return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
+				"type %s is already there", path, node.nodetype().tostring())
+		}
+		fmt.Printf("created node %v\n", node)
+		h.changed[path] = true
+		fmt.Printf("in tree putFile() .... going to set parent\n")
+		// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
+		err := h.visit(path, func(node *NodeProto, parent, child string) error {
+			if node == nil {
+				node = &NodeProto{
+					Name:    base(parent),
+					DirNode: &DirectoryNodeProto{},
+				}
+				fmt.Printf("set dir parent (%v) to %v\n", parent, node)
+				h.fs[parent] = node
+			}
+			insertStr(&node.DirNode.Children, child)
+			node.SubtreeSize += headerFooterSize
+			h.changed[parent] = true
+			return nil
+		})
+		return err
+	}
+
+	return nil
 }
 
 // PutDir creates a directory (or does nothing if one exists).
