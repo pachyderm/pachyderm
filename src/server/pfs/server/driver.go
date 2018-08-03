@@ -2136,6 +2136,14 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 }
 
 func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitInfo) ([]hashtree.HashTree, error) {
+	hs, ok := d.treeCache.Get(commitInfo.Commit.ID)
+	if ok {
+		trees, ok := hs.([]hashtree.HashTree)
+		if !ok {
+			return nil, fmt.Errorf("corrupted cache: expected slice of hashtree.Hashtree, found %v", trees)
+		}
+		return trees, nil
+	}
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	trees := make([]hashtree.HashTree, len(commitInfo.Trees))
@@ -2144,21 +2152,11 @@ func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitIn
 		i := i
 		object := object
 		eg.Go(func() error {
-			tree, ok := d.treeCache.Get(commitInfo.Commit.ID)
-			if ok {
-				h, ok := tree.(hashtree.HashTree)
-				if !ok {
-					return fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
-				}
-				trees[i] = h
-				return nil
-			}
 			// read the tree from the block store
 			h, err := hashtree.GetHashTreeObject(pachClient, d.storageRoot, object)
 			if err != nil {
 				return err
 			}
-			d.treeCache.Add(commitInfo.Commit.ID, h)
 			trees[i] = h
 			return nil
 		})
@@ -2166,6 +2164,7 @@ func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitIn
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
+	d.treeCache.Add(commitInfo.Commit.ID, trees)
 	return trees, nil
 }
 
