@@ -717,7 +717,7 @@ func (c APIClient) Compact() error {
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c APIClient) PutFileWriter(repoName string, commitID string, path string) (io.WriteCloser, error) {
-	w, _, _, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, nil)
+	w, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, nil, nil, nil)
 	return w, err
 }
 
@@ -726,12 +726,12 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string) 
 // NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path string,
-	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool) (io.WriteCloser, io.WriteCloser, io.WriteCloser, error) {
+	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, header []byte, footer []byte) (io.WriteCloser, error) {
 	var overwriteIndex *pfs.OverwriteIndex
 	if overwrite {
 		overwriteIndex = &pfs.OverwriteIndex{0}
 	}
-	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwriteIndex)
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwriteIndex, header, footer)
 }
 
 // PutFile writes a file to PFS from a reader.
@@ -748,7 +748,7 @@ func (c APIClient) PutFile(repoName string, commitID string, path string, reader
 // object starting from which you'd like to overwrite.  If you want to
 // overwrite the entire file, specify an index of 0.
 func (c APIClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error) {
-	writer, _, _, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, &pfs.OverwriteIndex{overwriteIndex})
+	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, &pfs.OverwriteIndex{overwriteIndex}, nil, nil)
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
 	}
@@ -763,51 +763,19 @@ func (c APIClient) PutFileOverwrite(repoName string, commitID string, path strin
 
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
-func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader, headerReader io.Reader, footerReader io.Reader) (_ int, retErr error) {
-	fmt.Printf("w %v, h %v, f %v\n", reader, headerReader, footerReader)
-	writer, headerWriter, footerWriter, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
+func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader, header []byte, footer []byte) (_ int, retErr error) {
+	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite, header, footer)
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
 	}
 	defer func() {
-		fmt.Printf("closing writers %v\n", retErr)
 		if err := writer.Close(); err != nil && retErr == nil {
 			retErr = err
-		}
-		if headerReader != nil {
-			fmt.Printf("closing header writer\n")
-			if err := headerWriter.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}
-		if footerReader != nil {
-			fmt.Printf("closing footer writer\n")
-			if err := footerWriter.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
 		}
 		fmt.Printf("end of pfs ... err %v\n", retErr)
 	}()
 	fmt.Printf("copying content reader\n")
 	written, err := io.Copy(writer, reader)
-	if headerReader != nil {
-		fmt.Printf("copying header reader\n")
-		n, err := io.Copy(headerWriter, headerReader)
-		fmt.Printf("wrote %v bytes\n", n)
-		if err != nil {
-			fmt.Printf("err writing header %v\n", err)
-			return int(written), err
-		}
-	}
-	if footerReader != nil {
-		fmt.Printf("copying footer reader\n")
-		n, err := io.Copy(footerWriter, footerReader)
-		fmt.Printf("wrote %v bytes\n", n)
-		if err != nil {
-			fmt.Printf("err writing footer %v\n", err)
-			return int(written), err
-		}
-	}
 	return int(written), grpcutil.ScrubGRPC(err)
 }
 
@@ -1070,21 +1038,11 @@ type putFileWriteCloser struct {
 	putFileClient pfs.API_PutFileClient
 	sent          bool
 }
-type putFileHeaderWriteCloser struct {
-	request       *pfs.PutFileRequest
-	putFileClient pfs.API_PutFileClient
-	sent          bool
-}
-type putFileFooterWriteCloser struct {
-	request       *pfs.PutFileRequest
-	putFileClient pfs.API_PutFileClient
-	sent          bool
-}
 
-func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, *putFileHeaderWriteCloser, *putFileFooterWriteCloser, error) {
+func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, header []byte, footer []byte) (*putFileWriteCloser, error) {
 	putFileClient, err := c.PfsAPIClient.PutFile(c.Ctx())
 	if err != nil {
-		return nil, nil, nil, grpcutil.ScrubGRPC(err)
+		return nil, grpcutil.ScrubGRPC(err)
 	}
 	request := &pfs.PutFileRequest{
 		File:             NewFile(repoName, commitID, path),
@@ -1092,17 +1050,13 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 		TargetFileDatums: targetFileDatums,
 		TargetFileBytes:  targetFileBytes,
 		OverwriteIndex:   overwriteIndex,
+		HeaderValue:      header,
+		FooterValue:      footer,
 	}
 	return &putFileWriteCloser{
-			request:       request,
-			putFileClient: putFileClient,
-		}, &putFileHeaderWriteCloser{
-			request:       request,
-			putFileClient: putFileClient,
-		}, &putFileFooterWriteCloser{
-			request:       request,
-			putFileClient: putFileClient,
-		}, nil
+		request:       request,
+		putFileClient: putFileClient,
+	}, nil
 }
 
 func (w *putFileWriteCloser) Write(p []byte) (int, error) {
@@ -1137,88 +1091,6 @@ func (w *putFileWriteCloser) Close() error {
 	// we always send at least one request, otherwise it's impossible to create
 	// an empty file
 	if !w.sent {
-		if err := w.putFileClient.Send(w.request); err != nil {
-			return err
-		}
-	}
-	_, err := w.putFileClient.CloseAndRecv()
-	return grpcutil.ScrubGRPC(err)
-}
-func (w *putFileHeaderWriteCloser) Write(p []byte) (int, error) {
-	fmt.Printf("in pfheaderwritecloser\n")
-	bytesWritten := 0
-	for {
-		// Buffer the write so that we don't exceed the grpc
-		// MaxMsgSize. This value includes the whole payload
-		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + grpcutil.MaxMsgSize/2
-		if ceil > len(p) {
-			ceil = len(p)
-		}
-		actualP := p[bytesWritten:ceil]
-		if len(actualP) == 0 {
-			break
-		}
-		w.request.HeaderValue = actualP
-		fmt.Printf("sending PFRequest w header: %v\n", w.request)
-		if err := w.putFileClient.Send(w.request); err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
-		}
-		w.sent = true
-		w.request.HeaderValue = nil
-		// File is only needed on the first request
-		w.request.File = nil
-		bytesWritten += len(actualP)
-	}
-	return bytesWritten, nil
-}
-
-func (w *putFileHeaderWriteCloser) Close() error {
-	// we always send at least one request, otherwise it's impossible to create
-	// an empty file
-	if !w.sent {
-		fmt.Printf("sending in close() PFRequest w header: %v\n", w.request)
-		if err := w.putFileClient.Send(w.request); err != nil {
-			return err
-		}
-	}
-	_, err := w.putFileClient.CloseAndRecv()
-	return grpcutil.ScrubGRPC(err)
-}
-func (w *putFileFooterWriteCloser) Write(p []byte) (int, error) {
-	fmt.Printf("in pffooterwritecloser\n")
-	bytesWritten := 0
-	for {
-		// Buffer the write so that we don't exceed the grpc
-		// MaxMsgSize. This value includes the whole payload
-		// including headers, so we're conservative and halve it
-		ceil := bytesWritten + grpcutil.MaxMsgSize/2
-		if ceil > len(p) {
-			ceil = len(p)
-		}
-		actualP := p[bytesWritten:ceil]
-		if len(actualP) == 0 {
-			break
-		}
-		w.request.FooterValue = actualP
-		fmt.Printf("sending PFRequest w footer: %v\n", w.request)
-		if err := w.putFileClient.Send(w.request); err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
-		}
-		w.sent = true
-		w.request.FooterValue = nil
-		// File is only needed on the first request
-		w.request.File = nil
-		bytesWritten += len(actualP)
-	}
-	return bytesWritten, nil
-}
-
-func (w *putFileFooterWriteCloser) Close() error {
-	// we always send at least one request, otherwise it's impossible to create
-	// an empty file
-	if !w.sent {
-		fmt.Printf("sending in close() PFRequest w footer: %v\n", w.request)
 		if err := w.putFileClient.Send(w.request); err != nil {
 			return err
 		}

@@ -1833,7 +1833,7 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader, headerReader io.Reader, footerReader io.Reader) error {
+	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader, header []byte, footer []byte) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
@@ -1970,13 +1970,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 			}
 			if EOF {
-				fmt.Printf("EOF found ... reading off h/f (%v)/(%v)\n", headerReader, footerReader)
-				if headerReader != nil {
+				fmt.Printf("EOF found ... reading off h/f (%v)/(%v)\n", header, footer)
+				if header != nil {
 					fmt.Printf("header non nil ... writing object + creating putfilerecord\n")
 					limiter.Acquire()
 					eg.Go(func() error {
 						defer limiter.Release()
-						object, size, err := pachClient.PutObject(headerReader)
+						object, size, err := pachClient.PutObject(bytes.NewReader(header))
 						if err != nil {
 							fmt.Printf("error reading from header reader %v\n", err)
 							return err
@@ -1993,13 +1993,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 						return nil
 					})
 				}
-				fmt.Printf("footerReader (%v)\n", footerReader)
-				if footerReader != nil {
+				fmt.Printf("footerReader (%v)\n", footer)
+				if footer != nil {
 					fmt.Printf("footer non nil ... writing object + creating putfilerecord\n")
 					limiter.Acquire()
 					eg.Go(func() error {
 						defer limiter.Release()
-						object, size, err := pachClient.PutObject(footerReader)
+						object, size, err := pachClient.PutObject(bytes.NewReader(footer))
 						if err != nil {
 							fmt.Printf("error reading from footer reader %v\n", err)
 							return err

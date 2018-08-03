@@ -2019,7 +2019,7 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
-	w, _, _, err := client.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, false)
+	w, err := client.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, false, nil, nil)
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -2645,7 +2645,7 @@ func TestPutFileSplitBig(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	w, _, _, err := c.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false)
+	w, err := c.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false, nil, nil)
 	require.NoError(t, err)
 	for i := 0; i < 1000; i++ {
 		_, err = w.Write([]byte("foo\n"))
@@ -4346,12 +4346,12 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 		require.NoError(t, w.Close())
 	*/
 	//w, _, _, err := c.PutFileSplitWriter(repo, "master", "a", pfs.Delimiter_LINE, 0, 0, false)
-	_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), strings.NewReader("header\n"), strings.NewReader("footer\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), []byte("header\n"), []byte("footer\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	fileInfos, err := c.ListFile(repo, commit.ID, "")
 	fmt.Printf("list of files: %v err %v\n", fileInfos, err)
 	buf.Reset()
 	require.NoError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
-	require.Equal(t, "header\nfooter", buf.String())
+	require.Equal(t, "header\nfooter\n", buf.String())
 }
