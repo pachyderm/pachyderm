@@ -247,7 +247,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	// not cleaning the path can result in weird effects like files called
 	// ./foo which won't display correctly when the filesystem is mounted
 	request.File.Path = path.Clean(request.File.Path)
-	var r, rHeader, rFooter io.Reader
+	var r io.Reader
 	if request.Url != "" {
 		url, err := url.Parse(request.Url)
 		if err != nil {
@@ -281,40 +281,16 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			return a.putFileObj(ctx, objClient, request, url.Object)
 		}
 	} else {
-		if request.Value != nil {
-			reader := putFileReader{
-				server: putFileServer,
-			}
-			_, err = reader.buffer.Write(request.Value)
-			if err != nil {
-				return err
-			}
-			r = &reader
+		reader := putFileReader{
+			server: putFileServer,
 		}
-		if request.HeaderValue != nil {
-			fmt.Printf("apiserv: setting header reader\n")
-			headerReader := putFileHeaderReader{
-				server: putFileServer,
-			}
-			_, err = headerReader.buffer.Write(request.HeaderValue)
-			if err != nil {
-				return err
-			}
-			rHeader = &headerReader
+		_, err = reader.buffer.Write(request.Value)
+		if err != nil {
+			return err
 		}
-		if request.FooterValue != nil {
-			fmt.Printf("apiserv: setting footer reader\n")
-			footerReader := putFileFooterReader{
-				server: putFileServer,
-			}
-			_, err = footerReader.buffer.Write(request.FooterValue)
-			if err != nil {
-				return err
-			}
-			rFooter = &footerReader
-		}
+		r = &reader
 	}
-	return a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r, rHeader, rFooter)
+	return a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r, request.HeaderValue, request.FooterValue)
 }
 
 func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest, url *url.URL) error {
@@ -575,40 +551,6 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 		}
 		//buffer.Write cannot error
 		r.buffer.Write(request.Value)
-	}
-	return r.buffer.Read(p)
-}
-
-type putFileHeaderReader struct {
-	server pfs.API_PutFileServer
-	buffer bytes.Buffer
-}
-
-func (r *putFileHeaderReader) Read(p []byte) (int, error) {
-	if r.buffer.Len() == 0 {
-		request, err := r.server.Recv()
-		if err != nil {
-			return 0, err
-		}
-		//buffer.Write cannot error
-		r.buffer.Write(request.HeaderValue)
-	}
-	return r.buffer.Read(p)
-}
-
-type putFileFooterReader struct {
-	server pfs.API_PutFileServer
-	buffer bytes.Buffer
-}
-
-func (r *putFileFooterReader) Read(p []byte) (int, error) {
-	if r.buffer.Len() == 0 {
-		request, err := r.server.Recv()
-		if err != nil {
-			return 0, err
-		}
-		//buffer.Write cannot error
-		r.buffer.Write(request.FooterValue)
 	}
 	return r.buffer.Read(p)
 }
