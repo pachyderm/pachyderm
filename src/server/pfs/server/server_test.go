@@ -4318,27 +4318,39 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 
-	content := "foo"
+	//content := "foo"
 	commit, err := c.StartCommit(repo, "")
 	require.NoError(t, err)
-	_, err = c.PutFile(repo, commit.ID, "a/b", strings.NewReader(content))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	/*
+		_, err = c.PutFile(repo, commit.ID, "a/b", strings.NewReader(content))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+	*/
 	var buf bytes.Buffer
-	require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+	//require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 
 	commit, err = c.StartCommit(repo, "")
 	require.NoError(t, err)
-	_, h, f, err := c.PutFileSplitWriter(repo, "master", "a", pfs.Delimiter_LINE, 0, 0, false)
+	//w, h, f, err := c.PutFileSplitWriter(repo, "master", "a", pfs.Delimiter_LINE, 0, 0, false)
+	/*
+		w, _, _, err := c.PutFileSplitWriter(repo, "master", "a", pfs.Delimiter_LINE, 0, 0, false)
+		require.NoError(t, err)
+		_, err = w.Write([]byte("content\n"))
+		require.NoError(t, err)
+				_, err = h.Write([]byte("header\n"))
+				require.NoError(t, err)
+				_, err = f.Write([]byte("footer"))
+				require.NoError(t, err)
+			f.Close()
+			h.Close()
+		require.NoError(t, w.Close())
+	*/
+	//w, _, _, err := c.PutFileSplitWriter(repo, "master", "a", pfs.Delimiter_LINE, 0, 0, false)
+	_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), strings.NewReader("header\n"), strings.NewReader("footer\n"))
 	require.NoError(t, err)
-	_, err = h.Write([]byte("header\n"))
-	require.NoError(t, err)
-	_, err = f.Write([]byte("footer"))
-	require.NoError(t, err)
-	require.NoError(t, f.Close())
-	//require.NoError(t, h.Close())
-	h.Close()
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	fileInfos, err := c.ListFile(repo, commit.ID, "")
+	fmt.Printf("list of files: %v err %v\n", fileInfos, err)
 	buf.Reset()
 	require.NoError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 	require.Equal(t, "header\nfooter", buf.String())

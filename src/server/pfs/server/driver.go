@@ -1970,7 +1970,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				}
 			}
 			if EOF {
-				fmt.Printf("EOF found ... reading off h/f\n")
+				fmt.Printf("EOF found ... reading off h/f (%v)/(%v)\n", headerReader, footerReader)
 				if headerReader != nil {
 					fmt.Printf("header non nil ... writing object + creating putfilerecord\n")
 					limiter.Acquire()
@@ -2660,21 +2660,36 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			indexOffset++ // start writing to the file after the last file
 		}
 		fmt.Printf("applywrite ... has records %v\n", records)
-		for i, record := range records.Records {
-			var header *pfs.Object
-			var footer *pfs.Object
-			headerFooterSize := int64(0)
-			if records.Header != nil {
-				fmt.Printf("header non nil, supplying to tree.PutFileSplit\n")
-				header = &pfs.Object{Hash: records.Header.ObjectHash}
-				headerFooterSize += records.Header.SizeBytes
-			}
-			if records.Footer != nil {
-				fmt.Printf("footer non nil, supplying to tree.PutFileSplit\n")
-				footer = &pfs.Object{Hash: records.Footer.ObjectHash}
-				headerFooterSize += records.Footer.SizeBytes
-			}
+		var header *pfs.Object
+		var footer *pfs.Object
+		headerFooterSize := int64(0)
+		if records.Header != nil {
+			fmt.Printf("header non nil, supplying to tree.PutFileSplit\n")
+			header = &pfs.Object{Hash: records.Header.ObjectHash}
+			headerFooterSize += records.Header.SizeBytes
+		}
+		if records.Footer != nil {
+			fmt.Printf("footer non nil, supplying to tree.PutFileSplit\n")
+			footer = &pfs.Object{Hash: records.Footer.ObjectHash}
+			headerFooterSize += records.Footer.SizeBytes
+		}
+		if header != nil || footer != nil {
 			fmt.Printf("calling tree.putfilesplit w header (%v) footer (%v)\n", header, footer)
+			if err := tree.PutFileSplit(
+				path.Join(key, fmt.Sprintf(splitSuffixFmt, 1)),
+				[]*pfs.Object{{Hash: records.Header.ObjectHash}}, //try setting an obj
+				records.Header.SizeBytes,
+				header,
+				footer,
+				headerFooterSize,
+			); err != nil {
+				fmt.Printf("error setting header %v\n", err)
+				return err
+			}
+			nodes, err = tree.List(key)
+			fmt.Printf("nodes (%v) err (%v)\n", nodes, err)
+		}
+		for i, record := range records.Records {
 			if err := tree.PutFileSplit(
 				path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
 				[]*pfs.Object{{Hash: record.ObjectHash}},
@@ -2687,6 +2702,8 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 		fmt.Printf("called tree.putfilesplit()\n")
+		v, err := tree.Glob(key)
+		fmt.Printf("tree.glob path %v : %v w err %v\n", key, v, err)
 	}
 	return nil
 }

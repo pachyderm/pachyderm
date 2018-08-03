@@ -223,6 +223,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}()
 	request, err := putFileServer.Recv()
+	fmt.Printf("received putfilerequest (%v)\n", request)
 	if err != nil && err != io.EOF {
 		return err
 	}
@@ -280,15 +281,18 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			return a.putFileObj(ctx, objClient, request, url.Object)
 		}
 	} else {
-		reader := putFileReader{
-			server: putFileServer,
+		if request.Value != nil {
+			reader := putFileReader{
+				server: putFileServer,
+			}
+			_, err = reader.buffer.Write(request.Value)
+			if err != nil {
+				return err
+			}
+			r = &reader
 		}
-		_, err = reader.buffer.Write(request.Value)
-		if err != nil {
-			return err
-		}
-		r = &reader
 		if request.HeaderValue != nil {
+			fmt.Printf("apiserv: setting header reader\n")
 			headerReader := putFileHeaderReader{
 				server: putFileServer,
 			}
@@ -299,6 +303,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 			rHeader = &headerReader
 		}
 		if request.FooterValue != nil {
+			fmt.Printf("apiserv: setting footer reader\n")
 			footerReader := putFileFooterReader{
 				server: putFileServer,
 			}
