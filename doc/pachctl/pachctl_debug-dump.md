@@ -1,16 +1,14 @@
-## ./pachctl repo
+## ./pachctl debug-dump
 
-Docs for repos.
+Return a dump of running goroutines.
 
 ### Synopsis
 
 
-Repos, short for repository, are the top level data object in Pachyderm.
-
-	Repos are created with create-repo.
+Return a dump of running goroutines.
 
 ```
-./pachctl repo
+./pachctl debug-dump
 ```
 
 ### Options inherited from parent commands
