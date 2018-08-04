@@ -4374,7 +4374,6 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 	buf.Reset()
 	require.YesError(t, c.GetFile(repo, commit.ID, "e", 0, 0, &buf))
 	require.YesError(t, c.GetFile(repo, commit.ID, "e/f", 0, 0, &buf))
-
 	commit, err = c.StartCommit(repo, "a")
 	require.NoError(t, err)
 	_, err = c.PutFileSplit(repo, commit.ID, "e/f", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), []byte(footer))
@@ -4389,6 +4388,54 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 	buf.Reset()
 	require.NoError(t, c.GetFile(repo, commit.ID, "e/f", 0, 0, &buf))
 	require.Equal(t, header+footer, buf.String())
+
+	// Test only putting header/footer on existing directory / same commit
+	commit, err = c.StartCommit(repo, "a")
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "g/h", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), nil, nil)
+	require.NoError(t, err)
+	fileInfos, err = c.ListFile(repo, commit.ID, "/g/h")
+	require.Equal(t, 3, len(fileInfos))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	require.Equal(t, content[0], buf.String())
+	buf.Reset()
+	require.YesError(t, c.GetFile(repo, commit.ID, "g", 0, 0, &buf))
+	require.YesError(t, c.GetFile(repo, commit.ID, "g/h", 0, 0, &buf))
+	_, err = c.PutFileSplit(repo, commit.ID, "g/h", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), []byte(footer))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	fileInfos, err = c.ListFile(repo, commit.ID, "/g/h")
+	require.Equal(t, 3, len(fileInfos))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	require.Equal(t, header+content[0]+footer, buf.String())
+	require.YesError(t, c.GetFile(repo, commit.ID, "g", 0, 0, &buf))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, "g/h", 0, 0, &buf))
+	require.Equal(t, header+footer, buf.String())
+
+	// Test overwriting header/footer
+	commit, err = c.StartCommit(repo, "a")
+	require.NoError(t, err)
+	newHeader := "new\n"
+	_, err = c.PutFileSplit(repo, commit.ID, "i/j", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "i/j", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(newHeader), nil)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	fileInfos, err = c.ListFile(repo, commit.ID, "/i/j")
+	require.Equal(t, 3, len(fileInfos))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	require.Equal(t, newHeader+content[0]+footer, buf.String())
+	require.YesError(t, c.GetFile(repo, commit.ID, "i", 0, 0, &buf))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, "i/j", 0, 0, &buf))
+	require.Equal(t, newHeader+footer, buf.String())
+
+	// Test just writing header
+	// Test just writing footer
 
 	// Test normal use case w NONE delimiter
 	/* TODO: pachctl doesn't support NONE ... not sure if this code path is used anywhere
