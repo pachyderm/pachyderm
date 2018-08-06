@@ -1463,7 +1463,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	deleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+	anonClient, aliceClient, adminClient := getPachClient(t, ""), getPachClient(t, alice), getPachClient(t, admin)
 
 	// Confirm that the auth config starts out empty
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
@@ -1494,19 +1494,30 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &auth.AuthConfiguration{}, configResp.Configuration)
 
-	// Modify the configuration and make sure alice can't read it
+	// Modify the configuration and make sure anon can't read it, but alice and
+	// admin can
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{
 			Configuration: conf,
 		})
 
-	// Confirm that alice can't read the config
-	_, err = aliceClient.GetConfiguration(aliceClient.Ctx(),
+	// Confirm that anon can't read the config
+	_, err = anonClient.GetConfiguration(aliceClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.YesError(t, err)
-	require.Matches(t, "not authorized", err.Error())
-	require.Matches(t, "admin", err.Error())
-	require.Matches(t, "GetConfiguration", err.Error())
+	require.Matches(t, "no authentication token", err.Error())
+
+	// Confirm that alice and admin can read the config
+	configResp, err = aliceClient.GetConfiguration(aliceClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	conf.LiveConfigVersion = 1 // increment version
+	require.Equal(t, conf, configResp.Configuration)
+
+	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	require.Equal(t, conf, configResp.Configuration)
 }
 
 // TestRMWConfigConflict does two conflicting R+M+W operation on a config
