@@ -1736,16 +1736,10 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 		return nil, authclient.ErrPartiallyActivated
 	}
 
-	// Get calling user. The user must be an admin to get the cluster config
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	// Get calling user. The user must be logged in to get the cluster config
+	_, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if !a.isAdmin(callerInfo.Subject) {
-		return nil, &authclient.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "GetConfiguration",
-		}
 	}
 
 	// Retrieve & return configuration
