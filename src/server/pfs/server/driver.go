@@ -2018,47 +2018,51 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	// NOTE: i dont use limiters here for simplicity...
 	var mu sync.Mutex
 	var eg errgroup.Group
-	if header != nil {
-		fmt.Printf("header non nil ... writing object + creating putfilerecord\n")
-		eg.Go(func() error {
-			object, size, err := pachClient.PutObject(bytes.NewReader(header.Value))
-			if err != nil {
-				fmt.Printf("error reading from header reader %v\n", err)
-				return err
-			}
-			fmt.Printf("trying to lock mu\n")
-			mu.Lock()
-			defer mu.Unlock()
-			fmt.Printf("acquired lock mu\n")
-			records.Header = &pfs.PutFileRecord{
-				SizeBytes:  size,
-				ObjectHash: object.Hash,
-			}
-			fmt.Printf("set header record to: %v\n", records.Header)
-			return nil
-		})
-	}
-	fmt.Printf("footerReader (%v)\n", footer)
-	if footer != nil {
-		fmt.Printf("footer non nil ... writing object + creating putfilerecord\n")
-		eg.Go(func() error {
-			object, size, err := pachClient.PutObject(bytes.NewReader(footer.Value))
-			if err != nil {
-				fmt.Printf("error reading from footer reader %v\n", err)
-				return err
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			records.Footer = &pfs.PutFileRecord{
-				SizeBytes:  size,
-				ObjectHash: object.Hash,
-			}
-			return nil
-		})
-	}
-	// Wait for header/footer writes to complete
-	if err := eg.Wait(); err != nil {
-		return err
+	if header != nil && len(header.Value) == 0 && footer != nil && len(footer.Value) == 0 {
+		records.MetadataTombstone = true
+	} else {
+		if header != nil {
+			fmt.Printf("header non nil ... writing object + creating putfilerecord\n")
+			eg.Go(func() error {
+				object, size, err := pachClient.PutObject(bytes.NewReader(header.Value))
+				if err != nil {
+					fmt.Printf("error reading from header reader %v\n", err)
+					return err
+				}
+				fmt.Printf("trying to lock mu\n")
+				mu.Lock()
+				defer mu.Unlock()
+				fmt.Printf("acquired lock mu\n")
+				records.Header = &pfs.PutFileRecord{
+					SizeBytes:  size,
+					ObjectHash: object.Hash,
+				}
+				fmt.Printf("set header record to: %v\n", records.Header)
+				return nil
+			})
+		}
+		fmt.Printf("footerReader (%v)\n", footer)
+		if footer != nil {
+			fmt.Printf("footer non nil ... writing object + creating putfilerecord\n")
+			eg.Go(func() error {
+				object, size, err := pachClient.PutObject(bytes.NewReader(footer.Value))
+				if err != nil {
+					fmt.Printf("error reading from footer reader %v\n", err)
+					return err
+				}
+				mu.Lock()
+				defer mu.Unlock()
+				records.Footer = &pfs.PutFileRecord{
+					SizeBytes:  size,
+					ObjectHash: object.Hash,
+				}
+				return nil
+			})
+		}
+		// Wait for header/footer writes to complete
+		if err := eg.Wait(); err != nil {
+			return err
+		}
 	}
 
 	if oneOff {
@@ -2611,8 +2615,14 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			}
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
-			existingRecords.Header = newRecords.Header
-			existingRecords.Footer = newRecords.Footer
+			if newRecords.MetadataTombstone {
+				existingRecords.MetadataTombstone = newRecords.MetadataTombstone
+				existingRecords.Header = nil
+				existingRecords.Footer = nil
+			} else {
+				existingRecords.Header = newRecords.Header
+				existingRecords.Footer = newRecords.Footer
+			}
 			return nil
 		})
 	})
@@ -2677,31 +2687,48 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 		var header *pfs.Object
 		var footer *pfs.Object
 		headerFooterSize := int64(0)
-		if records.Header != nil {
-			fmt.Printf("header non nil, supplying to tree.PutFileSplit\n")
-			header = &pfs.Object{Hash: records.Header.ObjectHash}
-			headerFooterSize += records.Header.SizeBytes
-		}
-		if records.Footer != nil {
-			fmt.Printf("footer non nil, supplying to tree.PutFileSplit\n")
-			footer = &pfs.Object{Hash: records.Footer.ObjectHash}
-			headerFooterSize += records.Footer.SizeBytes
-		}
-		if header != nil || footer != nil {
-			fmt.Printf("calling tree.putfilesplit w header (%v) footer (%v)\n", header, footer)
+		fmt.Printf("applywrite() sees metadatatombstone (%v)\n", records.MetadataTombstone)
+		if records.MetadataTombstone {
 			if err := tree.PutFileSplit(
 				key,
 				nil,
 				0,
-				header,
-				footer,
-				headerFooterSize,
+				nil,
+				nil,
+				0,
+				true,
 			); err != nil {
-				fmt.Printf("error setting header %v\n", err)
+				fmt.Printf("error deleting header/footer %v\n", err)
 				return err
 			}
-			nodes, err = tree.List(key)
-			fmt.Printf("nodes (%v) err (%v)\n", nodes, err)
+		} else {
+			if records.Header != nil {
+				fmt.Printf("header non nil, supplying to tree.PutFileSplit\n")
+				header = &pfs.Object{Hash: records.Header.ObjectHash}
+				headerFooterSize += records.Header.SizeBytes
+			}
+			if records.Footer != nil {
+				fmt.Printf("footer non nil, supplying to tree.PutFileSplit\n")
+				footer = &pfs.Object{Hash: records.Footer.ObjectHash}
+				headerFooterSize += records.Footer.SizeBytes
+			}
+			if header != nil || footer != nil {
+				fmt.Printf("calling tree.putfilesplit w header (%v) footer (%v)\n", header, footer)
+				if err := tree.PutFileSplit(
+					key,
+					nil,
+					0,
+					header,
+					footer,
+					headerFooterSize,
+					false,
+				); err != nil {
+					fmt.Printf("error setting header %v\n", err)
+					return err
+				}
+				nodes, err = tree.List(key)
+				fmt.Printf("nodes (%v) err (%v)\n", nodes, err)
+			}
 		}
 		for i, record := range records.Records {
 			fmt.Printf("driver -> applywrite -> tree.putfilesplit() w real records at path %v\n", fmt.Sprintf(splitSuffixFmt, i+int(indexOffset)))
@@ -2712,6 +2739,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				header,
 				footer,
 				headerFooterSize,
+				false,
 			); err != nil {
 				return err
 			}

@@ -505,19 +505,19 @@ func (h *hashtree) Finish() (HashTree, error) {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size, nil, nil, 0)
+	return h.putFile(path, objects, nil, size, nil, nil, 0, false)
 }
 
 func (h *hashtree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
-	return h.putFile(path, objects, overwriteIndex, sizeDelta, nil, nil, 0)
+	return h.putFile(path, objects, overwriteIndex, sizeDelta, nil, nil, 0, false)
 }
 
-func (h *hashtree) PutFileSplit(path string, objects []*pfs.Object, size int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
-	return h.putFile(path, objects, nil, size, header, footer, headerFooterSize)
+func (h *hashtree) PutFileSplit(path string, objects []*pfs.Object, size int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64, metadataTombstone bool) error {
+	return h.putFile(path, objects, nil, size, header, footer, headerFooterSize, metadataTombstone)
 }
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
-func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
+func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64, metadataTombstone bool) error {
 	path = clean(path)
 
 	fmt.Printf("in tree putFile() modifying path %v\n", path)
@@ -591,13 +591,18 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 			return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
 				"type %s is already there", path, node.nodetype().tostring())
 		}
-		if header != nil {
-			node.DirNode.Header = header
+		if metadataTombstone {
+			node.DirNode.Header = nil
+			node.DirNode.Footer = nil
+		} else {
+			if header != nil {
+				node.DirNode.Header = header
+			}
+			if footer != nil {
+				node.DirNode.Footer = footer
+			}
+			node.SubtreeSize += headerFooterSize
 		}
-		if footer != nil {
-			node.DirNode.Footer = footer
-		}
-		node.SubtreeSize += headerFooterSize
 		fmt.Printf("created node %v\n", node)
 		h.changed[path] = true
 		fmt.Printf("in tree putFile() .... going to set parent\n")
