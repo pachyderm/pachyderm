@@ -79,6 +79,7 @@ func (s *streamingBytesReader) Read(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		s.buffer.Reset()
 		if _, err := s.buffer.Write(value.Value); err != nil {
 			return 0, err
 		}
