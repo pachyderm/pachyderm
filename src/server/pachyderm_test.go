@@ -8002,6 +8002,102 @@ func TestPachdPrometheusStats(t *testing.T) {
 
 }
 
+func TestRapidUpdatePipelines(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	pipeline := tu.UniqueString("TestRapidUpdatePipelines")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
+		nil,
+		nil,
+		client.NewCronInput("time", "@every 5s"),
+		"",
+		false,
+	))
+
+	time.Sleep(10 * time.Second)
+
+	for i := 0; i < 20; i++ {
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"cp", "/pfs/time/time", "/pfs/out/time"},
+				},
+				Input:     client.NewCronInput("time", "@every 5s"),
+				Update:    true,
+				Reprocess: true,
+			})
+		require.NoError(t, err)
+	}
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		jis, err := c.ListJob(pipeline, nil, nil)
+		if err != nil {
+			return err
+		}
+		if len(jis) < 10 {
+			return fmt.Errorf("should have more than 10 jobs in 2 minutes")
+		}
+		for i := 0; i < 5; i++ {
+			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
+			if difference < 4 {
+				return fmt.Errorf("jobs too close together")
+			} else if difference > 6 {
+				return fmt.Errorf("jobs too far apart")
+			}
+		}
+		return nil
+	})
+}
+
+func TestDatumTries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestDatumTries_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	tries := int64(5)
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"unknown"}, // Cmd fails because "unknown" isn't a known command.
+			},
+			Input:      client.NewAtomInput(dataRepo, "/"),
+			DatumTries: tries,
+		})
+	require.NoError(t, err)
+	jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	iter := c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
+	var observedTries int64
+	for iter.Next() {
+		if strings.Contains(iter.Message().Message, "errored running user code after") {
+			observedTries++
+		}
+	}
+	require.Equal(t, tries, observedTries)
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
