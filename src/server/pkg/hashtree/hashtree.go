@@ -559,8 +559,12 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 				}
 				if parent == filepath.Dir(path) {
 					node.SubtreeSize = headerFooterSize
-					node.DirNode.Header = header
-					node.DirNode.Footer = footer
+					if header != nil {
+						node.DirNode.Header = header
+					}
+					if footer != nil {
+						node.DirNode.Footer = footer
+					}
 				}
 				fmt.Printf("set parent (%v) to %v\n", parent, node)
 				h.fs[parent] = node
@@ -587,8 +591,12 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 			return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
 				"type %s is already there", path, node.nodetype().tostring())
 		}
-		node.DirNode.Header = header
-		node.DirNode.Footer = footer
+		if header != nil {
+			node.DirNode.Header = header
+		}
+		if footer != nil {
+			node.DirNode.Footer = footer
+		}
 		node.SubtreeSize += headerFooterSize
 		fmt.Printf("created node %v\n", node)
 		h.changed[path] = true
