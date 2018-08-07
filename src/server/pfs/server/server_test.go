@@ -4473,6 +4473,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 	buf.Reset()
 	require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+
 	// test deletion / diff commits
 	commit, err = c.StartCommit(repo, "c")
 	require.NoError(t, err)
@@ -4488,7 +4489,6 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
 	require.Equal(t, header+footer, buf.String())
 	commit, err = c.StartCommit(repo, "c")
-	fmt.Printf("--------------------- deleting header/footer\n")
 	_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(""), []byte(""))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -4500,26 +4500,25 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 	buf.Reset()
 	require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
-	// Test just writing header
-	// Test just writing footer
 
-	// Test normal use case w NONE delimiter
-	/* TODO: pachctl doesn't support NONE ... not sure if this code path is used anywhere
-	fmt.Printf("------------------ NONE DELIM\n")
-	commit, err = c.StartCommit(repo, "")
+	// test glob pattern reads
+	commit, err = c.StartCommit(repo, "d")
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_NONE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+	_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+	require.NoError(t, err)
+	contentB := "zoo"
+	_, err = c.PutFile(repo, commit.ID, "a/c", strings.NewReader(contentB))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "a/d", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	fileInfos, err = c.ListFile(repo, commit.ID, "/a/b")
-	fmt.Printf("list of files: %v err %v\n", fileInfos, err)
-	require.Equal(t, 1, len(fileInfos))
+	require.Equal(t, 3, len(fileInfos))
+	fileInfos, err = c.ListFile(repo, commit.ID, "/a/d")
+	require.Equal(t, 3, len(fileInfos))
+	fileInfos, err = c.ListFile(repo, commit.ID, "/**")
+	require.Equal(t, 9, len(fileInfos))
 	buf.Reset()
-	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
-	require.Equal(t, header+strings.Join(content, "")+footer, buf.String())
-	buf.Reset()
-	require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
-	require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
-	require.Equal(t, header+footer, buf.String())
-	*/
+	require.NoError(t, c.GetFile(repo, commit.ID, "/**", 0, 0, &buf))
+	require.Equal(t, header+strings.Join(content, "")+footer+contentB+header+strings.Join(content, "")+footer, buf.String())
 }
