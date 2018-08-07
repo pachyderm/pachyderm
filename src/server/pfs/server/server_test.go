@@ -4457,6 +4457,21 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	require.Equal(t, newHeader+footer, buf.String())
 
 	// test deletion / same commit
+	commit, err = c.StartCommit(repo, "b")
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(), []byte())
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	fileInfos, err = c.ListFile(repo, commit.ID, "/a/b")
+	require.Equal(t, 3, len(fileInfos))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	require.Equal(t, content[0], buf.String())
+	require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+	buf.Reset()
+	require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
 	// test deletion / diff commits
 	// Test just writing header
 	// Test just writing footer
