@@ -8098,6 +8098,30 @@ func TestDatumTries(t *testing.T) {
 	require.Equal(t, tries, observedTries)
 }
 
+func TestInspectJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	_, err := pachClient.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{})
+	require.YesError(t, err)
+	require.True(t, strings.Contains(err.Error(), "must specify either a Job or an OutputCommit"))
+
+	repo := tu.UniqueString("TestInspectJob")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err = c.PutFile(repo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+	ci, err := c.InspectCommit(repo, "master")
+	require.NoError(t, err)
+
+	_, err = c.InspectJobOutputCommit(repo, ci.Commit.ID, false)
+	require.YesError(t, err)
+	require.True(t, strings.Contains(err.Error(), "not found"))
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
