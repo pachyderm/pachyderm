@@ -1047,14 +1047,23 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
+	var headerValue, footerValue *pfs.Metadata
+	if header != nil {
+		fmt.Printf("pfsclient ... header non nil (%v), so setting headervalue\n", string(header))
+		headerValue = &pfs.Metadata{Value: header}
+	}
+	if footer != nil {
+		fmt.Printf("pfsclient ... footer non nil (%v), so setting footervalue\n", string(footer))
+		footerValue = &pfs.Metadata{Value: footer}
+	}
 	request := &pfs.PutFileRequest{
 		File:             NewFile(repoName, commitID, path),
 		Delimiter:        delimiter,
 		TargetFileDatums: targetFileDatums,
 		TargetFileBytes:  targetFileBytes,
 		OverwriteIndex:   overwriteIndex,
-		HeaderValue:      header,
-		FooterValue:      footer,
+		Header:           headerValue,
+		Footer:           footerValue,
 	}
 	return &putFileWriteCloser{
 		request:       request,

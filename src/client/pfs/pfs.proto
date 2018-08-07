@@ -300,6 +300,12 @@ message OverwriteIndex {
   int64 index = 1;
 }
 
+// Create separate pb object so we can distinguish between cases where header/footer
+// are not specified vs explicitly empty
+message Metadata {
+	bytes value = 1;
+
+}
 message PutFileRequest {
   reserved 2;
   File file = 1;
@@ -320,8 +326,8 @@ message PutFileRequest {
   // overwrite_index is the object index where the write starts from.  All
   // existing objects starting from the index are deleted.
   OverwriteIndex overwrite_index = 10;
-  bytes header_value = 11;
-  bytes footer_value = 12;
+  Metadata header = 11;
+  Metadata footer = 12;
 }
 
 // PutFileRecord is used to record PutFile requests in etcd temporarily.
