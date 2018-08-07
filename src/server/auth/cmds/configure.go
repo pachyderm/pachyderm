@@ -47,7 +47,7 @@ func GetConfig() *cobra.Command {
 			case "yaml":
 				output, err = yaml.JSONToYAML(output)
 				if err != nil {
-					return fmt.Errorf("could not convert json to yaml: %v", resp.Configuration, err)
+					return fmt.Errorf("could not convert json to yaml: %v", err)
 				}
 			default:
 				return fmt.Errorf("invalid output format: %v", format)
