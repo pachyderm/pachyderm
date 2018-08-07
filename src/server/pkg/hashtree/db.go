@@ -515,12 +515,12 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 						bucket = kv.v
 						continue
 					}
-					if count >= batchSize {
-						return nil
-					}
-					count++
 					if err := tx.Bucket(bucket).Put(kv.k, kv.v); err != nil {
 						return err
+					}
+					count++
+					if count >= batchSize {
+						return nil
 					}
 				}
 				return nil
