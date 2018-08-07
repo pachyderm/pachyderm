@@ -1476,7 +1476,7 @@ func (a *APIServer) worker() {
 				if jobCtx.Err() == context.Canceled {
 					continue NextJob // job cancelled--don't restart, just wait for next job
 				}
-				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
+				return fmt.Errorf("merge datums for job %s exited with err: %v", jobID, err)
 			}
 		}
 		return fmt.Errorf("worker: jobs.WatchByIndex(pipeline = %s) closed unexpectedly", a.pipelineInfo.Pipeline.Name)
