@@ -1502,7 +1502,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 		})
 
 	// Confirm that anon can't read the config
-	_, err = anonClient.GetConfiguration(aliceClient.Ctx(),
+	_, err = anonClient.GetConfiguration(anonClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
