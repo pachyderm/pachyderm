@@ -4312,7 +4312,7 @@ func TestStartCommitOutputBranch(t *testing.T) {
 	require.YesError(t, err)
 }
 
-func TestPutFileSplitAdvanced(t *testing.T) {
+func TestPutFileSplitHeaderFooter(t *testing.T) {
 	c := getPachClient(t)
 
 	repo := "repo"
@@ -4415,7 +4415,8 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 	require.NoError(t, c.GetFile(repo, commit.ID, "g/h", 0, 0, &buf))
 	require.Equal(t, header+footer, buf.String())
 
-	// Test overwriting header/footer
+	// Test overwriting header/footer when the overwrite flag is not set, within the same commit
+	// We expect all new values to take effect, even empty ones
 	commit, err = c.StartCommit(repo, "a")
 	require.NoError(t, err)
 	newHeader := "new\n"
@@ -4428,12 +4429,35 @@ func TestPutFileSplitAdvanced(t *testing.T) {
 	require.Equal(t, 3, len(fileInfos))
 	buf.Reset()
 	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
-	require.Equal(t, newHeader+content[0]+footer, buf.String())
+	require.Equal(t, newHeader+content[0], buf.String())
 	require.YesError(t, c.GetFile(repo, commit.ID, "i", 0, 0, &buf))
 	buf.Reset()
 	require.NoError(t, c.GetFile(repo, commit.ID, "i/j", 0, 0, &buf))
+	require.Equal(t, newHeader, buf.String())
+
+	// Test overwriting header/footer in separate commits
+	// We expect only new non nil values to take effect
+	commit, err = c.StartCommit(repo, "a")
+	require.NoError(t, err)
+	_, err = c.PutFileSplit(repo, commit.ID, "k/l", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	commit, err = c.StartCommit(repo, "a")
+	_, err = c.PutFileSplit(repo, commit.ID, "k/l", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(newHeader), nil)
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	fileInfos, err = c.ListFile(repo, commit.ID, "/k/l")
+	require.Equal(t, 3, len(fileInfos))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+	require.Equal(t, newHeader+content[0]+footer, buf.String())
+	require.YesError(t, c.GetFile(repo, commit.ID, "k", 0, 0, &buf))
+	buf.Reset()
+	require.NoError(t, c.GetFile(repo, commit.ID, "k/l", 0, 0, &buf))
 	require.Equal(t, newHeader+footer, buf.String())
 
+	// test deletion / same commit
+	// test deletion / diff commits
 	// Test just writing header
 	// Test just writing footer
 
