@@ -1837,7 +1837,7 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader, header []byte, footer []byte) error {
+	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader, header *pfs.Metadata, footer *pfs.Metadata) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
@@ -2021,7 +2021,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if header != nil {
 		fmt.Printf("header non nil ... writing object + creating putfilerecord\n")
 		eg.Go(func() error {
-			object, size, err := pachClient.PutObject(bytes.NewReader(header))
+			object, size, err := pachClient.PutObject(bytes.NewReader(header.Value))
 			if err != nil {
 				fmt.Printf("error reading from header reader %v\n", err)
 				return err
@@ -2042,7 +2042,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	if footer != nil {
 		fmt.Printf("footer non nil ... writing object + creating putfilerecord\n")
 		eg.Go(func() error {
-			object, size, err := pachClient.PutObject(bytes.NewReader(footer))
+			object, size, err := pachClient.PutObject(bytes.NewReader(footer.Value))
 			if err != nil {
 				fmt.Printf("error reading from footer reader %v\n", err)
 				return err

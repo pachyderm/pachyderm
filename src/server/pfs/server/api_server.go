@@ -290,7 +290,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 		r = &reader
 	}
-	return a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r, request.HeaderValue, request.FooterValue)
+	return a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r, request.Header, request.Footer)
 }
 
 func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest, url *url.URL) error {
