@@ -129,12 +129,9 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		},
 		Containers: []v1.Container{
 			{
-				Name:    client.PPSWorkerUserContainerName,
-				Image:   options.userImage,
-				Command: []string{"/pach-bin/worker"},
-				SecurityContext: &v1.SecurityContext{
-					Privileged: &trueVal, // god is this dumb
-				},
+				Name:            client.PPSWorkerUserContainerName,
+				Image:           options.userImage,
+				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
 				Resources: v1.ResourceRequirements{
@@ -288,7 +285,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	})
 	volumeMounts = append(volumeMounts, v1.VolumeMount{
 		Name:      client.PPSWorkerVolume,
-		MountPath: client.PPSScratchSpace,
+		MountPath: client.PPSInputPrefix,
 	})
 	if resourceLimits != nil && resourceLimits.NvidiaGPU() != nil && !resourceLimits.NvidiaGPU().IsZero() {
 		volumes = append(volumes, v1.Volume{
