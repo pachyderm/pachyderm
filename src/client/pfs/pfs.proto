@@ -343,7 +343,6 @@ message PutFileRecords {
   bool tombstone = 3;
   PutFileRecord header = 4;
   PutFileRecord footer = 5;
-  bool metadata_tombstone = 6;
 }
 
 message CopyFileRequest {
