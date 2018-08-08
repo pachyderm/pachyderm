@@ -16,9 +16,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+// Mount pfs to mountPoint, opts may be left nil.
 func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
-	nfs := pathfs.NewPathNodeFs(newFileSystem(c, opts.GetCommits()), nil)
-	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), opts.GetFuse())
+	nfs := pathfs.NewPathNodeFs(newFileSystem(c, opts.getCommits()), nil)
+	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), opts.getFuse())
 	if err != nil {
 		return fmt.Errorf("nodefs.MountRoot: %v", err)
 	}
@@ -27,7 +28,7 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 	go func() {
 		select {
 		case <-sigChan:
-		case <-opts.GetUnmount():
+		case <-opts.getUnmount():
 		}
 		server.Unmount()
 	}()

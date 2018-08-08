@@ -2,6 +2,9 @@ package fuse
 
 import "github.com/hanwen/go-fuse/fuse/nodefs"
 
+// Options is for configuring fuse mounts. Any of the fields may be left nil
+// and `nil` itself is a valid set of Options which uses the default for
+// everything.
 type Options struct {
 	Fuse *nodefs.Options
 	// commits is a map from repos to commits, if a repo is unspecified then
@@ -12,21 +15,21 @@ type Options struct {
 	Unmount chan struct{}
 }
 
-func (o *Options) GetFuse() *nodefs.Options {
+func (o *Options) getFuse() *nodefs.Options {
 	if o == nil {
 		return nil
 	}
 	return o.Fuse
 }
 
-func (o *Options) GetCommits() map[string]string {
+func (o *Options) getCommits() map[string]string {
 	if o == nil {
 		return nil
 	}
 	return o.Commits
 }
 
-func (o *Options) GetUnmount() chan struct{} {
+func (o *Options) getUnmount() chan struct{} {
 	if o == nil {
 		return nil
 	}
