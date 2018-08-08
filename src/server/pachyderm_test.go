@@ -5213,9 +5213,15 @@ func TestSkippedDatums(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitInfoIter)
 	require.Equal(t, 2, len(commitInfos))
-	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buffer))
-	require.Equal(t, "foo\n", buffer.String())
+	for _, commitInfo := range commitInfos {
+		var buffer bytes.Buffer
+		err := c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, &buffer)
+		if err != nil {
+			require.Matches(t, "not found", err.Error()) // stats commit
+		} else {
+			require.Equal(t, "foo\n", buffer.String())
+		}
+	}
 	// Do second commit to repo
 	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
