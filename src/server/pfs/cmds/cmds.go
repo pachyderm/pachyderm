@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -605,6 +606,8 @@ $ pachctl set-branch foo test master` + codeend,
 	var targetFileBytes uint
 	var putFileCommit bool
 	var overwrite bool
+	var headerFile string
+	var footerFile string
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name branch [path/to/file/in/pfs]",
 		Short: "Put a file into the filesystem.",
@@ -724,19 +727,19 @@ want to consider using commit IDs directly.
 						return fmt.Errorf("must specify filename when reading data from stdin")
 					}
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(cli, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, headerFile, footerFile, targetFileDatums, targetFileBytes, filesPut)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, split, headerFile, footerFile, targetFileDatums, targetFileBytes, filesPut)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(cli, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, headerFile, footerFile, targetFileDatums, targetFileBytes, filesPut)
 					})
 				}
 			}
@@ -754,6 +757,8 @@ want to consider using commit IDs directly.
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
 	putFile.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (only allowed with -c)")
 	putFile.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
+	putFile.Flags().StringVar(&headerFile, "header", "", "Specify a file for the header content. Requires 'split' flag")
+	putFile.Flags().StringVar(&footerFile, "footer", "", "Specify a file for the footer content. Requires 'split' flag")
 
 	copyFile := &cobra.Command{
 		Use:   "copy-file src-repo src-commit src-path dst-repo dst-commit dst-path",
@@ -1160,11 +1165,34 @@ func parseCommitMounts(args []string) []*fuse.CommitMount {
 
 func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
+	headerFile string, footerFile string,
 	targetFileDatums uint, targetFileBytes uint, filesPut *gosync.Map) (retErr error) {
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
 			"some files may already have been put and should be cleaned up with "+
 			"delete-file or delete-commit", path)
+	}
+	var header []byte
+	var footer []byte
+	if headerFile != "" {
+		if split == "" {
+			return fmt.Errorf("cannot specify header without also setting --split flag")
+		}
+		content, err := ioutil.ReadFile(headerFile)
+		if err != nil {
+			return err
+		}
+		header = content
+	}
+	if footerFile != "" {
+		if split == "" {
+			return fmt.Errorf("cannot specify footer without also setting --split flag")
+		}
+		content, err := ioutil.ReadFile(footerFile)
+		if err != nil {
+			return err
+		}
+		footer = content
 	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
@@ -1192,7 +1220,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 		default:
 			return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json', 'line', or 'sql'", split)
 		}
-		_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader)
+		_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader, header, footer)
 		return err
 	}
 
@@ -1222,7 +1250,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, headerFile, footerFile, targetFileDatums, targetFileBytes, filesPut)
 			})
 			return nil
 		}); err != nil {
