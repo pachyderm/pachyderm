@@ -4538,10 +4538,10 @@ func TestGarbageCollection(t *testing.T) {
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
-		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, 1, len(jobInfos))
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfos[0].State)
 	}
 	createInputAndPipeline()
 
@@ -4600,7 +4600,8 @@ func TestGarbageCollection(t *testing.T) {
 	tagsAfter = getAllTags(t, c)
 
 	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
-	require.Equal(t, 3, len(objectsBefore)-len(objectsAfter))
+	require.True(t, len(objectsAfter) < len(objectsBefore))
+	require.Equal(t, 7, len(objectsAfter))
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
@@ -5209,29 +5210,25 @@ func TestSkippedDatums(t *testing.T) {
 	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
-	commitInfoIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, commit1.ID)}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitInfoIter)
-	require.Equal(t, 2, len(commitInfos))
-	for _, commitInfo := range commitInfos {
-		var buffer bytes.Buffer
-		err := c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "file", 0, 0, &buffer)
-		if err != nil {
-			require.Matches(t, "not found", err.Error()) // stats commit
-		} else {
-			require.Equal(t, "foo\n", buffer.String())
-		}
-	}
+	require.Equal(t, 1, len(jis))
+	ji := jis[0]
+	require.Equal(t, ji.State, pps.JobState_JOB_SUCCESS)
+	var buffer bytes.Buffer
+	require.NoError(t, c.GetFile(ji.OutputCommit.Repo.Name, ji.OutputCommit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "foo\n", buffer.String())
 	// Do second commit to repo
 	commit2, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(dataRepo, commit2.ID, "file2", strings.NewReader("bar\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
-	commitInfoIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	jis, err = c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitInfoIter)
-	require.Equal(t, 2, len(commitInfos))
+	require.Equal(t, 1, len(jis))
+	ji = jis[0]
+	require.Equal(t, ji.State, pps.JobState_JOB_SUCCESS)
 	/*
 		jobs, err := c.ListJob(pipelineName, nil, nil)
 		require.NoError(t, err)
