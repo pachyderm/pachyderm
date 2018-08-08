@@ -21,7 +21,7 @@ func NewPGDumpReader(r *bufio.Reader) *PGDumpReader {
 	}
 }
 
-// ReadRows parses the pgdump file and populates the header and the footer
+// ReadRow parses the pgdump file and populates the header and the footer
 // It returns EOF when done, and at that time both the Header and Footer will
 // be populated. Both header and footer are required. If either are missing, an
 // error is returned
