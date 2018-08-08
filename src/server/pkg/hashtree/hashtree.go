@@ -559,11 +559,20 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 				}
 				if parent == filepath.Dir(path) {
 					node.SubtreeSize = headerFooterSize
+					emptyObject := pfs.Object{}
 					if header != nil {
-						node.DirNode.Header = header
+						if *header == emptyObject {
+							node.DirNode.Header = nil
+						} else {
+							node.DirNode.Header = header
+						}
 					}
 					if footer != nil {
-						node.DirNode.Footer = footer
+						if *footer == emptyObject {
+							node.DirNode.Footer = nil
+						} else {
+							node.DirNode.Footer = footer
+						}
 					}
 				}
 				fmt.Printf("set parent (%v) to %v\n", parent, node)
@@ -595,11 +604,20 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 			node.DirNode.Header = nil
 			node.DirNode.Footer = nil
 		} else {
+			emptyObject := pfs.Object{}
 			if header != nil {
-				node.DirNode.Header = header
+				if *header == emptyObject {
+					node.DirNode.Header = nil
+				} else {
+					node.DirNode.Header = header
+				}
 			}
 			if footer != nil {
-				node.DirNode.Footer = footer
+				if *footer == emptyObject {
+					node.DirNode.Footer = nil
+				} else {
+					node.DirNode.Footer = footer
+				}
 			}
 			node.SubtreeSize += headerFooterSize
 		}
