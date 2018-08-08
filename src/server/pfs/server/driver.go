@@ -2008,7 +2008,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, indexToRecord[i])
 		}
 	}
-	// NOTE: i dont use limiters here for simplicity...
 	var mu sync.Mutex
 	var eg errgroup.Group
 	if header != nil {
