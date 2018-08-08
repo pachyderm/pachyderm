@@ -451,7 +451,6 @@ func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
 func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
-	fmt.Printf("in makecommit()\n")
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
@@ -489,7 +488,6 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("got tree object: %v\n", tree)
 	}
 
 	// Txn: create the actual commit in etcd and update the branch + parent/child
@@ -568,10 +566,8 @@ func (d *driver) makeCommit(ctx context.Context, ID string, parent *pfs.Commit, 
 						return err
 					}
 				}
-				fmt.Printf("!! Makecommit ... applied write ... now finishing tree\n")
 				tree, err = openTree.Finish()
 				if err != nil {
-					fmt.Printf("error finishing tree %v\n", err)
 					return err
 				}
 				data, err := hashtree.Serialize(tree)
@@ -1924,7 +1920,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				value = jsonValue
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
-				fmt.Printf("read bytes w err %v\n", err)
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
 				if err == io.EOF {
@@ -2013,50 +2008,35 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, indexToRecord[i])
 		}
 	}
-	fmt.Printf("driver ... writing records %v\n", records)
-	fmt.Printf("EOF found ... reading off h/f (%v)/(%v)\n", header, footer)
 	// NOTE: i dont use limiters here for simplicity...
 	var mu sync.Mutex
 	var eg errgroup.Group
-	// Here the header is a *pfs.Metadata
 	if header != nil {
-		fmt.Printf("header non nil ... writing object + creating putfilerecord\n")
 		if len(header.Value) == 0 {
-			fmt.Printf("empty header ... creating empty PFR\n")
 			records.Header = &pfs.PutFileRecord{}
 		} else {
-			fmt.Printf("nonempty header ... creating real PFS\n")
 			eg.Go(func() error {
 				object, size, err := pachClient.PutObject(bytes.NewReader(header.Value))
 				if err != nil {
-					fmt.Printf("error reading from header reader %v\n", err)
 					return err
 				}
-				fmt.Printf("trying to lock mu\n")
 				mu.Lock()
 				defer mu.Unlock()
-				fmt.Printf("acquired lock mu\n")
 				records.Header = &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
 				}
-				fmt.Printf("set header record to: %v\n", records.Header)
 				return nil
 			})
 		}
 	}
-	fmt.Printf("footerReader (%v)\n", footer)
 	if footer != nil {
-		fmt.Printf("footer non nil ... writing object + creating putfilerecord\n")
 		if len(footer.Value) == 0 {
-			fmt.Printf("empty footer ... creating empty PFR\n")
 			records.Footer = &pfs.PutFileRecord{}
 		} else {
-			fmt.Printf("nonempty footer ... creating real PFS\n")
 			eg.Go(func() error {
 				object, size, err := pachClient.PutObject(bytes.NewReader(footer.Value))
 				if err != nil {
-					fmt.Printf("error reading from footer reader %v\n", err)
 					return err
 				}
 				mu.Lock()
@@ -2069,13 +2049,10 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			})
 		}
 	}
-	// Wait for header/footer writes to complete
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	//}
 
-	fmt.Printf("final PFRs: %v header (%v) footer (%v)\n", records, records.Header, records.Footer)
 	if oneOff {
 		// oneOff puts only work on branches, so we know branch != "". We pass
 		// a commit with no ID, that ID will be filled in with the head of
@@ -2326,15 +2303,12 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	footers := stack.New()
 	directories := stack.New()
 	for _, path := range sortedPaths {
-		fmt.Printf("traversing path %v\n", path)
 		node := paths[path]
-		fmt.Printf("node %v\n", node)
 		thisDir := directories.Peek()
 		if thisDir != nil && !strings.HasPrefix(path, thisDir.(string)) {
 			// We've proceeded past the current directory
 			footer := footers.Pop().(*pfs.Object)
 			if footer != nil {
-				fmt.Printf("appending footer to obj list\n")
 				objects = append(objects, footer)
 			}
 			directories.Pop()
@@ -2343,13 +2317,11 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		if node.DirNode != nil {
 			header := node.DirNode.Header
 			if header != nil {
-				fmt.Printf("appending header to obj list\n")
 				objects = append(objects, header)
 			}
 			footers.Push(node.DirNode.Footer)
 			directories.Push(path + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
 		} else {
-			fmt.Printf("appending objs to obj list\n")
 			objects = append(objects, node.FileNode.Objects...)
 		}
 
@@ -2359,7 +2331,6 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	for footers.Len() > 0 {
 		footer := footers.Pop().(*pfs.Object)
 		if footer != nil {
-			fmt.Printf("draining footers ... adding to obj list\n")
 			objects = append(objects, footer)
 		}
 	}
@@ -2445,9 +2416,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 		return nil, err
 	}
 
-	fmt.Printf("driver listfile got tree (%v)\n", tree)
 	rootPaths, err := tree.Glob(file.Path)
-	fmt.Printf("rootpaths %v\n", rootPaths)
 	if err != nil {
 		return nil, err
 	}
@@ -2473,7 +2442,6 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool) ([]*pf
 			}
 		}
 	}
-	fmt.Printf("listfile got fileinfos (%v)\n", fileInfos)
 	return fileInfos, nil
 }
 
@@ -2688,7 +2656,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 			indexOffset++ // start writing to the file after the last file
 		}
-		fmt.Printf("applywrite ... has records %v\n", records)
 		var header *pfs.Object
 		var footer *pfs.Object
 		headerFooterSize := int64(0)
@@ -2697,8 +2664,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			if *records.Header == emptyRecord {
 				header = &pfs.Object{}
 			} else {
-				fmt.Printf("records header (%v) empty record (%v)\n", *records.Header, emptyRecord)
-				fmt.Printf("header non nil, supplying to tree.PutFileSplit\n")
 				header = &pfs.Object{Hash: records.Header.ObjectHash}
 				headerFooterSize += records.Header.SizeBytes
 			}
@@ -2707,13 +2672,10 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			if *records.Footer == emptyRecord {
 				footer = &pfs.Object{}
 			} else {
-				fmt.Printf("footer non nil, supplying to tree.PutFileSplit\n")
 				footer = &pfs.Object{Hash: records.Footer.ObjectHash}
 				headerFooterSize += records.Footer.SizeBytes
 			}
 		}
-		fmt.Printf("calling tree.putfilesplit w header (%v) footer (%v)\n", header, footer)
-		fmt.Printf("header == nil? %v\n", header == nil)
 		if err := tree.PutFileSplit(
 			key,
 			nil,
@@ -2723,13 +2685,10 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			headerFooterSize,
 			false,
 		); err != nil {
-			fmt.Printf("error setting header %v\n", err)
 			return err
 		}
 		nodes, err = tree.List(key)
-		fmt.Printf("nodes (%v) err (%v)\n", nodes, err)
 		for i, record := range records.Records {
-			fmt.Printf("driver -> applywrite -> tree.putfilesplit() w real records at path %v\n", fmt.Sprintf(splitSuffixFmt, i+int(indexOffset)))
 			if err := tree.PutFileSplit(
 				path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
 				[]*pfs.Object{{Hash: record.ObjectHash}},
@@ -2742,11 +2701,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				return err
 			}
 		}
-		fmt.Printf("called tree.putfilesplit()\n")
-		v, err := tree.Glob(key)
-		fmt.Printf("tree.glob path %v : %v w err %v\n", key, v, err)
 	}
-	fmt.Printf("!!! applywrite() completed no error\n")
 	return nil
 }
 

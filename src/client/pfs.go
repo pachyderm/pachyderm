@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"path/filepath"
 
@@ -772,9 +771,7 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 		if err := writer.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
-		fmt.Printf("end of pfs ... err %v\n", retErr)
 	}()
-	fmt.Printf("copying content reader\n")
 	if reader != nil {
 		written, err := io.Copy(writer, reader)
 		return int(written), grpcutil.ScrubGRPC(err)
@@ -1049,11 +1046,9 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 	}
 	var headerValue, footerValue *pfs.Metadata
 	if header != nil {
-		fmt.Printf("pfsclient ... header non nil (%v), so setting headervalue\n", string(header))
 		headerValue = &pfs.Metadata{Value: header}
 	}
 	if footer != nil {
-		fmt.Printf("pfsclient ... footer non nil (%v), so setting footervalue\n", string(footer))
 		footerValue = &pfs.Metadata{Value: footer}
 	}
 	request := &pfs.PutFileRequest{
@@ -1072,7 +1067,6 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 }
 
 func (w *putFileWriteCloser) Write(p []byte) (int, error) {
-	fmt.Printf("!!! in pfwritecloser\n")
 	bytesWritten := 0
 	for {
 		// Buffer the write so that we don't exceed the grpc

@@ -105,11 +105,7 @@ func get(fs map[string]*NodeProto, path string) (*NodeProto, error) {
 	path = clean(path)
 
 	node, ok := fs[path]
-	for k, v := range fs {
-		fmt.Printf("path (%v) value (%v)\n", k, v)
-	}
 	if !ok {
-		fmt.Printf("couldnt find path %v in fs %v\n", path, fs)
 		return nil, errorf(PathNotFound, "file \"%s\" not found", path)
 	}
 	return node, nil
@@ -151,7 +147,6 @@ func (h *HashTreeProto) List(path string) ([]*NodeProto, error) {
 }
 
 func glob(fs map[string]*NodeProto, pattern string) (map[string]*NodeProto, error) {
-	fmt.Printf("in glob()\n")
 	if !isGlob(pattern) {
 		node, err := get(fs, pattern)
 		if err != nil {
@@ -171,9 +166,7 @@ func glob(fs map[string]*NodeProto, pattern string) (map[string]*NodeProto, erro
 
 	res := make(map[string]*NodeProto)
 	for path, node := range fs {
-		fmt.Printf("glob walking over path: %v\n", path)
 		if g.Match(path) {
-			fmt.Printf("path %v matched pattern %v\n", path, pattern)
 			res[path] = node
 		}
 	}
@@ -520,14 +513,12 @@ func (h *hashtree) PutFileSplit(path string, objects []*pfs.Object, size int64, 
 func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64, metadataTombstone bool) error {
 	path = clean(path)
 
-	fmt.Printf("in tree putFile() modifying path %v\n", path)
 	// Detect any path conflicts before modifying 'h'
 	if err := h.visit(path, nop); err != nil {
 		return err
 	}
 
 	if len(objects) > 0 {
-		fmt.Printf("creating node\n")
 		// Get/Create file node to which we'll append 'objects'
 		node, ok := h.fs[path]
 		if !ok {
@@ -540,7 +531,6 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 			return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
 				"type %s is already there", path, node.nodetype().tostring())
 		}
-		fmt.Printf("created node %v\n", node)
 
 		// Append new objects.  Remove existing objects if overwriting.
 		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
@@ -549,7 +539,6 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		node.SubtreeSize += sizeDelta + headerFooterSize
 		node.FileNode.Objects = append(node.FileNode.Objects, objects...)
 		h.changed[path] = true
-		fmt.Printf("in tree putFile() .... going to set parent\n")
 		// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
 		err := h.visit(path, func(node *NodeProto, parent, child string) error {
 			if node == nil {
@@ -575,7 +564,6 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 						}
 					}
 				}
-				fmt.Printf("set parent (%v) to %v\n", parent, node)
 				h.fs[parent] = node
 			}
 			insertStr(&node.DirNode.Children, child)
@@ -583,13 +571,10 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 			h.changed[parent] = true
 			return nil
 		})
-		fmt.Printf("error visiting nodes: %v\n", err)
 		return err
 	} else {
-		fmt.Printf("hashtree putfile writing directly to existing dir node\n")
 		// Get/Create dir node to which we'll add header/footer
 		node, ok := h.fs[path]
-		fmt.Printf("node (%v), ok (%v)\n", node, ok)
 		if !ok {
 			node = &NodeProto{
 				Name:    base(path),
@@ -621,9 +606,7 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 			}
 			node.SubtreeSize += headerFooterSize
 		}
-		fmt.Printf("created node %v\n", node)
 		h.changed[path] = true
-		fmt.Printf("in tree putFile() .... going to set parent\n")
 		// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
 		err := h.visit(path, func(node *NodeProto, parent, child string) error {
 			if node == nil {
@@ -631,7 +614,6 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 					Name:    base(parent),
 					DirNode: &DirectoryNodeProto{},
 				}
-				fmt.Printf("set dir parent (%v) to %v\n", parent, node)
 				h.fs[parent] = node
 			}
 			insertStr(&node.DirNode.Children, child)

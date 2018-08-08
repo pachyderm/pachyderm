@@ -223,7 +223,6 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 		}
 	}()
 	request, err := putFileServer.Recv()
-	fmt.Printf("received putfilerequest (%v)\n", request)
 	if err != nil && err != io.EOF {
 		return err
 	}
