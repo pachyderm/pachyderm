@@ -1869,6 +1869,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		return err
 	}
 
+	limiter := limit.New(putObjectConcurrency)
 	if delimiter == pfs.Delimiter_NONE {
 		objects, size, err := pachClient.PutObjectSplit(reader)
 		if err != nil {
@@ -1909,7 +1910,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 
 		indexToRecord := make(map[int]*pfs.PutFileRecord)
 		var mu sync.Mutex
-		limiter := limit.New(putObjectConcurrency)
 		for !EOF {
 			var err error
 			var value []byte
@@ -1932,8 +1932,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 						if err != nil {
 							return err
 						}
-						mu.Lock()
-						defer mu.Unlock()
 						records.Header = &pfs.PutFileRecord{
 							SizeBytes:  size,
 							ObjectHash: object.Hash,
@@ -1949,8 +1947,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 						if err != nil {
 							return err
 						}
-						mu.Lock()
-						defer mu.Unlock()
 						records.Footer = &pfs.PutFileRecord{
 							SizeBytes:  size,
 							ObjectHash: object.Hash,
@@ -2008,19 +2004,18 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, indexToRecord[i])
 		}
 	}
-	var mu sync.Mutex
 	var eg errgroup.Group
 	if header != nil {
 		if len(header.Value) == 0 {
 			records.Header = &pfs.PutFileRecord{}
 		} else {
+			limiter.Acquire()
 			eg.Go(func() error {
+				defer limiter.Release()
 				object, size, err := pachClient.PutObject(bytes.NewReader(header.Value))
 				if err != nil {
 					return err
 				}
-				mu.Lock()
-				defer mu.Unlock()
 				records.Header = &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
@@ -2033,13 +2028,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		if len(footer.Value) == 0 {
 			records.Footer = &pfs.PutFileRecord{}
 		} else {
+			limiter.Acquire()
 			eg.Go(func() error {
+				defer limiter.Release()
 				object, size, err := pachClient.PutObject(bytes.NewReader(footer.Value))
 				if err != nil {
 					return err
 				}
-				mu.Lock()
-				defer mu.Unlock()
 				records.Footer = &pfs.PutFileRecord{
 					SizeBytes:  size,
 					ObjectHash: object.Hash,
