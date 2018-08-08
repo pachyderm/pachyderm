@@ -92,7 +92,7 @@ func SetConfig() *cobra.Command {
 			}
 
 			// Try to parse config as YAML (JSON is a subset of YAML)
-			var config auth.AuthConfiguration
+			var config auth.AuthConfig
 			if err := yaml.Unmarshal(configBytes, &config); err != nil {
 				return fmt.Errorf("could not parse config: %v", err)
 			}
