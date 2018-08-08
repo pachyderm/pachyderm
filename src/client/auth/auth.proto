@@ -68,17 +68,17 @@ message IDProvider {
   // configuring Pachyderm's auth system.
   string description = 2;
 
-  // SAMLOptions describe a SAML-based identity provider
+  // SAMLOptions describes a SAML-based identity provider
   message SAMLOptions {
-    // idp_metadata is the URL of the SAML ID provider's metadata service
-    // (which Pachd can query to get info about a SAML ID provider)
-    string idp_metadata = 2 [(gogoproto.customname) = "IDPMetadata"];
+    // metadata_url is the URL of the SAML ID provider's metadata service
+    // (which Pachd can query to get more info about the SAML ID provider)
+    string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
   }
-  SAMLOptions saml_options = 3 [(gogoproto.customname) = "SAMLOptions"];
+  SAMLOptions saml = 3 [(gogoproto.customname) = "SAML"];
 }
 
 // Configure Pachyderm's auth system (particularly authentication backends
-message AuthConfiguration {
+message AuthConfig {
   // live_config_version identifies the version of a given pachyderm cluster's
   // current auth configuration; if a user tries to write an auth configuration
   // where live_config_version doesn't match the version of the cluster's
@@ -90,14 +90,14 @@ message AuthConfiguration {
   // Pachyderm users (e.g. GitHub, Okta, etc)
   repeated IDProvider id_providers = 2 [(gogoproto.customname) = "IDProviders"];
 
-  // saml_sp_options configures the SAML services (Assertion Consumer Service
+  // saml_svc_options configures the SAML services (Assertion Consumer Service
   // and Metadata Service) that Pachd can export.
-  message SAMLSPOptions {
+  message SAMLServiceOptions {
     // acs is the URL of Pachd's Assertion Consumer Service (i.e. where SAML ID
     // providers can send SAMLResponses to Pachd). If Pachyderm is running in a
     // private cluster, the cluster admin would be responsible for setting up a
     // domain name/proxy to resolve to pachd:654/acs
-    string acs = 1 [(gogoproto.customname) = "ACS"];
+    string acs_url = 1 [(gogoproto.customname) = "ACSURL"];
 
     // sp_metadata is the URL of Pachd's SAML metadata service (Okta, and any
     // other SAML ID provider, will query this for info about Pachyderm's
@@ -105,17 +105,17 @@ message AuthConfiguration {
     // Pachyderm is running in a private cluster, the cluster admin would be
     // responsible for setting up this URL (which must resolve to
     // pachd:654/meta)
-    string sp_metadata = 2 [(gogoproto.customname) = "SPMetadata"];
+    string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
   }
-  SAMLSPOptions saml_sp_options = 3 [(gogoproto.customname) = "SAMLSPOptions"];
+  SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
 }
 
 message GetConfigurationRequest {}
 message GetConfigurationResponse {
-  AuthConfiguration configuration = 1;
+  AuthConfig configuration = 1;
 }
 message SetConfigurationRequest {
-  AuthConfiguration configuration = 1;
+  AuthConfig configuration = 1;
 }
 message SetConfigurationResponse {}
 
