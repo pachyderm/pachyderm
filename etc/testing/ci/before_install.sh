@@ -22,10 +22,10 @@ curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${K
 kubectl version --client
 
 # Install minikube
-# Latest as of 5/30/2018
+# Latest as of 8/7/2018
 # To get the latest minikube version:
 # curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort | tail -n1
-MINIKUBE_VERSION=v0.27.0
+MINIKUBE_VERSION=v0.28.2
 curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
     chmod +x ./minikube && \
     sudo mv ./minikube /usr/local/bin/minikube
