@@ -2680,7 +2680,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 		); err != nil {
 			return err
 		}
-		nodes, err = tree.List(key)
 		for i, record := range records.Records {
 			if err := tree.PutFileSplit(
 				path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
