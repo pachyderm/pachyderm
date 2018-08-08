@@ -4538,10 +4538,10 @@ func TestGarbageCollection(t *testing.T) {
 			"",
 			false,
 		))
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
 		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
-		require.Equal(t, 1, len(commitInfos))
+		require.Equal(t, 1, len(jobInfos))
+		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfos[0].State)
 	}
 	createInputAndPipeline()
 
@@ -4600,7 +4600,8 @@ func TestGarbageCollection(t *testing.T) {
 	tagsAfter = getAllTags(t, c)
 
 	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
-	require.Equal(t, 3, len(objectsBefore)-len(objectsAfter))
+	require.True(t, len(objectsAfter) < len(objectsBefore))
+	require.Equal(t, 7, len(objectsAfter))
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
