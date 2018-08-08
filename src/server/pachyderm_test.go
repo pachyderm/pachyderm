@@ -4293,7 +4293,7 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 	for i := 0; i <= 150; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
-		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false)
+		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false, nil, nil)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(fmt.Sprintf("%d\n", i)))
 		require.NoError(t, err)
@@ -4363,7 +4363,7 @@ func TestIncrementalDownstream(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		_, err := c.StartCommit(dataRepo, "master")
 		require.NoError(t, err)
-		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false)
+		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_LINE, 0, 0, false, nil, nil)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(fmt.Sprintf("%d\n", i)))
 		require.NoError(t, err)
@@ -8023,14 +8023,14 @@ ALTER TABLE ONLY public.sprockets
 	// Test Invalid pgdumps
 	commit, err := c.StartCommit(dataRepo, "invalid")
 	require.NoError(t, err)
-	w, err := c.PutFileSplitWriter(dataRepo, "invalid", "data", pfs.Delimiter_SQL, 0, 0, false)
+	w, err := c.PutFileSplitWriter(dataRepo, "invalid", "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
 	require.NoError(t, err)
 	_, err = w.Write([]byte(pgDumpHeader + strings.Join(rows, "")))
 	require.NoError(t, err)
 	require.YesError(t, w.Close())
 	commit, err = c.StartCommit(dataRepo, "invalid2")
 	require.NoError(t, err)
-	w, err = c.PutFileSplitWriter(dataRepo, "invalid2", "data", pfs.Delimiter_SQL, 0, 0, false)
+	w, err = c.PutFileSplitWriter(dataRepo, "invalid2", "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
 	require.NoError(t, err)
 	_, err = w.Write([]byte(strings.Join(rows, "") + pgDumpFooter))
 	require.NoError(t, err)
@@ -8039,13 +8039,13 @@ ALTER TABLE ONLY public.sprockets
 	// Test Valid pgdump
 	commit, err = c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	w, err = c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false)
+	w, err = c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
 	require.NoError(t, err)
 	fullPGDump := pgDumpHeader + strings.Join(rows, "") + pgDumpFooter
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
-	w, err = c.PutFileSplitWriter(dataRepo, "master", "data2", pfs.Delimiter_SQL, 0, 0, false)
+	w, err = c.PutFileSplitWriter(dataRepo, "master", "data2", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
 	fullPGDump2 := pgDumpHeader2 + strings.Join(rows2, "") + pgDumpFooter2
 	_, err = w.Write([]byte(fullPGDump2))
 	require.NoError(t, err)
@@ -8113,7 +8113,7 @@ ALTER TABLE ONLY public.sprockets
 	// Test target-file-datums flag
 	commit, err = c.StartCommit(dataRepo, "beta")
 	require.NoError(t, err)
-	w, err = c.PutFileSplitWriter(dataRepo, "beta", "data", pfs.Delimiter_SQL, 2, 0, false)
+	w, err = c.PutFileSplitWriter(dataRepo, "beta", "data", pfs.Delimiter_SQL, 2, 0, false, nil, nil)
 	require.NoError(t, err)
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
@@ -8146,7 +8146,7 @@ ALTER TABLE ONLY public.sprockets
 	commit, err = c.StartCommit(dataRepo, "gamma")
 	require.NoError(t, err)
 	// This byte threshold should yield the same results as --target-file-datums=2 :
-	w, err = c.PutFileSplitWriter(dataRepo, "gamma", "data", pfs.Delimiter_SQL, 0, 80, false)
+	w, err = c.PutFileSplitWriter(dataRepo, "gamma", "data", pfs.Delimiter_SQL, 0, 80, false, nil, nil)
 	require.NoError(t, err)
 	_, err = w.Write([]byte(fullPGDump))
 	require.NoError(t, err)
