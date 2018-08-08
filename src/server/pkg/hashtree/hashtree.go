@@ -572,59 +572,56 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 			return nil
 		})
 		return err
+	}
+	// Get/Create dir node to which we'll add header/footer
+	node, ok := h.fs[path]
+	if !ok {
+		node = &NodeProto{
+			Name:    base(path),
+			DirNode: &DirectoryNodeProto{},
+		}
+		h.fs[path] = node
+	} else if node.nodetype() != directory {
+		return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
+			"type %s is already there", path, node.nodetype().tostring())
+	}
+	if metadataTombstone {
+		node.DirNode.Header = nil
+		node.DirNode.Footer = nil
 	} else {
-		// Get/Create dir node to which we'll add header/footer
-		node, ok := h.fs[path]
-		if !ok {
+		emptyObject := pfs.Object{}
+		if header != nil {
+			if *header == emptyObject {
+				node.DirNode.Header = nil
+			} else {
+				node.DirNode.Header = header
+			}
+		}
+		if footer != nil {
+			if *footer == emptyObject {
+				node.DirNode.Footer = nil
+			} else {
+				node.DirNode.Footer = footer
+			}
+		}
+		node.SubtreeSize += headerFooterSize
+	}
+	h.changed[path] = true
+	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
+	err := h.visit(path, func(node *NodeProto, parent, child string) error {
+		if node == nil {
 			node = &NodeProto{
-				Name:    base(path),
+				Name:    base(parent),
 				DirNode: &DirectoryNodeProto{},
 			}
-			h.fs[path] = node
-		} else if node.nodetype() != directory {
-			return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
-				"type %s is already there", path, node.nodetype().tostring())
+			h.fs[parent] = node
 		}
-		if metadataTombstone {
-			node.DirNode.Header = nil
-			node.DirNode.Footer = nil
-		} else {
-			emptyObject := pfs.Object{}
-			if header != nil {
-				if *header == emptyObject {
-					node.DirNode.Header = nil
-				} else {
-					node.DirNode.Header = header
-				}
-			}
-			if footer != nil {
-				if *footer == emptyObject {
-					node.DirNode.Footer = nil
-				} else {
-					node.DirNode.Footer = footer
-				}
-			}
-			node.SubtreeSize += headerFooterSize
-		}
-		h.changed[path] = true
-		// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
-		err := h.visit(path, func(node *NodeProto, parent, child string) error {
-			if node == nil {
-				node = &NodeProto{
-					Name:    base(parent),
-					DirNode: &DirectoryNodeProto{},
-				}
-				h.fs[parent] = node
-			}
-			insertStr(&node.DirNode.Children, child)
-			node.SubtreeSize += headerFooterSize
-			h.changed[parent] = true
-			return nil
-		})
-		return err
-	}
-
-	return nil
+		insertStr(&node.DirNode.Children, child)
+		node.SubtreeSize += headerFooterSize
+		h.changed[parent] = true
+		return nil
+	})
+	return err
 }
 
 // PutDir creates a directory (or does nothing if one exists).
