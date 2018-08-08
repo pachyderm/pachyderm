@@ -201,7 +201,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			etcdClient,
 			path.Join(etcdPrefix, configKey),
 			nil,
-			&authclient.AuthConfiguration{},
+			&authclient.AuthConfig{},
 			nil,
 			nil,
 		),
@@ -1747,7 +1747,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	defer cancel()
 	authConfigRO := a.authConfig.ReadOnly(ctx)
 
-	var currentConfig authclient.AuthConfiguration
+	var currentConfig authclient.AuthConfig
 	if err := authConfigRO.Get(configKey, &currentConfig); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
@@ -1801,7 +1801,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 
 	// upsert new config
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		var currentConfig authclient.AuthConfiguration
+		var currentConfig authclient.AuthConfig
 		return a.authConfig.ReadWrite(stm).Upsert(configKey, &currentConfig, func() error {
 			if currentConfig.LiveConfigVersion != req.Configuration.LiveConfigVersion {
 				return fmt.Errorf("expected config version %d, but live config has version %d",

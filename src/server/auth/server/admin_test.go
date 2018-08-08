@@ -1437,7 +1437,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Set a configuration
-	conf := &auth.AuthConfiguration{
+	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{
 			{Name: "idp_1", Description: "fake IdP for testing"},
@@ -1469,10 +1469,10 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	require.Equal(t, &auth.AuthConfiguration{}, configResp.Configuration)
+	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
 
 	// Alice tries to set the current configuration and fails
-	conf := &auth.AuthConfiguration{
+	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{
 			{Name: "idp_1", Description: "fake IdP for testing"},
@@ -1492,7 +1492,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	require.Equal(t, &auth.AuthConfiguration{}, configResp.Configuration)
+	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
 
 	// Modify the configuration and make sure anon can't read it, but alice and
 	// admin can
@@ -1531,7 +1531,7 @@ func TestRMWConfigConflict(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Set a configuration
-	conf := &auth.AuthConfiguration{
+	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{
 			{Name: "idp_1", Description: "fake IdP for testing"},
@@ -1587,7 +1587,7 @@ func TestGetEmptyConfig(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// Set a configuration
-	conf := &auth.AuthConfiguration{
+	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{
 			{Name: "idp_1", Description: "fake IdP for testing"},
@@ -1646,7 +1646,7 @@ func TestGetEmptyConfig(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	require.Equal(t, &auth.AuthConfiguration{}, configResp.Configuration)
+	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
 
 	// Set the configuration (again)
 	conf.LiveConfigVersion = 0 // reset to 0 (since config is empty)
