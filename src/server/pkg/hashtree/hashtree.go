@@ -498,19 +498,19 @@ func (h *hashtree) Finish() (HashTree, error) {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size, nil, nil, 0, false)
+	return h.putFile(path, objects, nil, size, nil, nil, 0)
 }
 
 func (h *hashtree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
-	return h.putFile(path, objects, overwriteIndex, sizeDelta, nil, nil, 0, false)
+	return h.putFile(path, objects, overwriteIndex, sizeDelta, nil, nil, 0)
 }
 
-func (h *hashtree) PutFileSplit(path string, objects []*pfs.Object, size int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64, metadataTombstone bool) error {
-	return h.putFile(path, objects, nil, size, header, footer, headerFooterSize, metadataTombstone)
+func (h *hashtree) PutFileSplit(path string, objects []*pfs.Object, size int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
+	return h.putFile(path, objects, nil, size, header, footer, headerFooterSize)
 }
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
-func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64, metadataTombstone bool) error {
+func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -585,27 +585,22 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
 			"type %s is already there", path, node.nodetype().tostring())
 	}
-	if metadataTombstone {
-		node.DirNode.Header = nil
-		node.DirNode.Footer = nil
-	} else {
-		emptyObject := pfs.Object{}
-		if header != nil {
-			if *header == emptyObject {
-				node.DirNode.Header = nil
-			} else {
-				node.DirNode.Header = header
-			}
+	emptyObject := pfs.Object{}
+	if header != nil {
+		if *header == emptyObject {
+			node.DirNode.Header = nil
+		} else {
+			node.DirNode.Header = header
 		}
-		if footer != nil {
-			if *footer == emptyObject {
-				node.DirNode.Footer = nil
-			} else {
-				node.DirNode.Footer = footer
-			}
-		}
-		node.SubtreeSize += headerFooterSize
 	}
+	if footer != nil {
+		if *footer == emptyObject {
+			node.DirNode.Footer = nil
+		} else {
+			node.DirNode.Footer = footer
+		}
+	}
+	node.SubtreeSize += headerFooterSize
 	h.changed[path] = true
 	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
 	err := h.visit(path, func(node *NodeProto, parent, child string) error {

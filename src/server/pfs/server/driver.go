@@ -2677,7 +2677,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			header,
 			footer,
 			headerFooterSize,
-			false,
 		); err != nil {
 			return err
 		}
@@ -2690,7 +2689,6 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				header,
 				footer,
 				headerFooterSize,
-				false,
 			); err != nil {
 				return err
 			}
