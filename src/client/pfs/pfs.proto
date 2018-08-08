@@ -300,12 +300,12 @@ message OverwriteIndex {
   int64 index = 1;
 }
 
-// Create separate pb object so we can distinguish between cases where header/footer
+// Metadata struct allows us to distinguish between cases where header/footer
 // are not specified vs explicitly empty
 message Metadata {
 	bytes value = 1;
-
 }
+
 message PutFileRequest {
   reserved 2;
   File file = 1;
