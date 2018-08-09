@@ -494,10 +494,11 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		if request.Job != nil {
 			return nil, fmt.Errorf("can't set both Job and OutputCommit")
 		}
-		if _, err := pachClient.InspectCommit(request.OutputCommit.Repo.Name, request.OutputCommit.ID); err != nil {
+		ci, err := pachClient.InspectCommit(request.OutputCommit.Repo.Name, request.OutputCommit.ID)
+		if err != nil {
 			return nil, err
 		}
-		if err := a.listJob(pachClient, nil, request.OutputCommit, nil, func(ji *pps.JobInfo) error {
+		if err := a.listJob(pachClient, nil, ci.Commit, nil, func(ji *pps.JobInfo) error {
 			if request.Job != nil {
 				return fmt.Errorf("internal error, more than 1 Job has output commit: %v (this is likely a bug)", request.OutputCommit)
 			}
