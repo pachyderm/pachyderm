@@ -57,6 +57,68 @@ message ActivateResponse {
 message DeactivateRequest {}
 message DeactivateResponse {}
 
+// IDProvider configures a single ID provider that can authenticate Pachyderm
+// users
+message IDProvider {
+  // Name identifies this authentication backend in Pachyderm.
+  string name = 1;
+
+  // Description is a human-readable description of this authentication
+  // backend. It's ignored by Pachyderm, but exists for the benefit of users
+  // configuring Pachyderm's auth system.
+  string description = 2;
+
+  // SAMLOptions describes a SAML-based identity provider
+  message SAMLOptions {
+    // metadata_url is the URL of the SAML ID provider's metadata service
+    // (which Pachd can query to get more info about the SAML ID provider)
+    string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
+  }
+  SAMLOptions saml = 3 [(gogoproto.customname) = "SAML"];
+}
+
+// Configure Pachyderm's auth system (particularly authentication backends
+message AuthConfig {
+  // live_config_version identifies the version of a given pachyderm cluster's
+  // current auth configuration; if a user tries to write an auth configuration
+  // where live_config_version doesn't match the version of the cluster's
+  // current config, the write will fail. This allows for safe
+  // read+modify+write config changes.
+  int64 live_config_version = 1;
+
+  // id_providers describes external ID providers that can authenticate
+  // Pachyderm users (e.g. GitHub, Okta, etc)
+  repeated IDProvider id_providers = 2 [(gogoproto.customname) = "IDProviders"];
+
+  // saml_svc_options configures the SAML services (Assertion Consumer Service
+  // and Metadata Service) that Pachd can export.
+  message SAMLServiceOptions {
+    // acs is the URL of Pachd's Assertion Consumer Service (i.e. where SAML ID
+    // providers can send SAMLResponses to Pachd). If Pachyderm is running in a
+    // private cluster, the cluster admin would be responsible for setting up a
+    // domain name/proxy to resolve to pachd:654/acs
+    string acs_url = 1 [(gogoproto.customname) = "ACSURL"];
+
+    // sp_metadata is the URL of Pachd's SAML metadata service (Okta, and any
+    // other SAML ID provider, will query this for info about Pachyderm's
+    // ACS, and use it to idenfity Pachyderm as a service provider). If
+    // Pachyderm is running in a private cluster, the cluster admin would be
+    // responsible for setting up this URL (which must resolve to
+    // pachd:654/meta)
+    string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
+  }
+  SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
+}
+
+message GetConfigurationRequest {}
+message GetConfigurationResponse {
+  AuthConfig configuration = 1;
+}
+message SetConfigurationRequest {
+  AuthConfig configuration = 1;
+}
+message SetConfigurationResponse {}
+
 // Get the current list of cluster admins
 message GetAdminsRequest{}
 message GetAdminsResponse{
@@ -77,7 +139,7 @@ message ModifyAdminsResponse {}
 message TokenInfo {
   // Subject (i.e. Pachyderm account) that a given token authorizes. Prefixed
   // with "github:" or "robot:" to distinguish the two classes of
-	// Subject in Pachyderm
+  // Subject in Pachyderm
   string subject = 1;
 
   enum TokenSource {
@@ -310,6 +372,9 @@ service API {
   // admins from the Pachyderm cluster, making all data publicly accessable
   rpc Activate(ActivateRequest) returns (ActivateResponse) {}
   rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
+
+  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
+  rpc SetConfiguration(SetConfigurationRequest) returns (SetConfigurationResponse) {}
 
   // GetAdmins returns the current list of cluster admins
   rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
