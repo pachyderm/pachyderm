@@ -1108,7 +1108,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 	return nil
 }
 
-func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory) error {
+func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, tags []*pfs.Tag, useParentHashTree bool) error {
 	complete := false
 	for !complete {
 		// func to defer cancel in
@@ -1173,71 +1173,8 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 						}
 					}
 				}()
-				r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit, merge)
-				if err != nil {
-					return err
-				}
-				skip := make(map[string]struct{})
-				var useParentHashTree bool
-				//var statsTree hashtree.HashTree
-				if r != nil {
-					var count int
-					pbr := pbutil.NewReader(snappy.NewReader(r))
-					hdr := &hashtree.BucketHeader{}
-					if err := pbr.Read(hdr); err != nil {
-						return err
-					}
-					for {
-						k, err := pbr.ReadBytes()
-						if err != nil {
-							return err
-						}
-						if bytes.Equal(k, hashtree.SentinelByte) {
-							break
-						}
-						skip[string(k)] = struct{}{}
-						if _, err := pbr.ReadBytes(); err != nil {
-							return err
-						}
-					}
-					if err := r.Close(); err != nil {
-						return err
-					}
-					for i := 0; i < df.Len(); i++ {
-						files := df.Datum(i)
-						datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-						if _, ok := skip[datumHash]; ok {
-							count++
-						}
-					}
-					if len(skip) == count {
-						useParentHashTree = true
-						if jobInfo.EnableStats {
-							//statsTree, err = a.getParentCommitHashTree(ctx, pachClient, jobInfo.StatsCommit)
-							//if err != nil {
-							//	return err
-							//}
-						}
-					} else if jobInfo.EnableStats {
-						// (bryce) Stats tree needs to be made compatible with changes
-						//statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage)
-						//if err != nil {
-						//	return err
-						//}
-					}
-				}
-				var tags []*pfs.Tag
-				for i := 0; i < df.Len(); i++ {
-					files := df.Datum(int(i))
-					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-					if _, ok := skip[datumHash]; ok && useParentHashTree {
-						continue
-					}
-					tags = append(tags, &pfs.Tag{datumHash})
-				}
-				// Stats needs to be changed to fit this new model
-				//statsTag := &pfs.Tag{datumHash + statsTagSuffix}
 
+				// Streaming merge
 				t := time.Now()
 				var rs []io.ReadCloser
 				for _, tag := range tags {
@@ -1269,6 +1206,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 					return err
 				}
 				fmt.Printf("(mergefilter) Time spent merging: %v\n", time.Since(t))
+
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					merges := a.merges(jobID).ReadWrite(stm)
 					// TODO handle failures
@@ -1453,6 +1391,60 @@ func (a *APIServer) worker() {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
 
+			ctx := pachClient.Ctx()
+			r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit, 0)
+			if err != nil {
+				return err
+			}
+			skip := make(map[string]struct{})
+			var useParentHashTree bool
+			//var statsTree hashtree.HashTree
+			if r != nil {
+				var count int
+				pbr := pbutil.NewReader(snappy.NewReader(r))
+				hdr := &hashtree.BucketHeader{}
+				if err := pbr.Read(hdr); err != nil {
+					return err
+				}
+				for {
+					k, err := pbr.ReadBytes()
+					if err != nil {
+						return err
+					}
+					if bytes.Equal(k, hashtree.SentinelByte) {
+						break
+					}
+					skip[string(k)] = struct{}{}
+					if _, err := pbr.ReadBytes(); err != nil {
+						return err
+					}
+				}
+				if err := r.Close(); err != nil {
+					return err
+				}
+				for i := 0; i < df.Len(); i++ {
+					files := df.Datum(i)
+					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+					if _, ok := skip[datumHash]; ok {
+						count++
+					}
+				}
+				if len(skip) == count {
+					useParentHashTree = true
+					if jobInfo.EnableStats {
+						//statsTree, err = a.getParentCommitHashTree(ctx, pachClient, jobInfo.StatsCommit)
+						//if err != nil {
+						//	return err
+						//}
+					}
+				} else if jobInfo.EnableStats {
+					// (bryce) Stats tree needs to be made compatible with changes
+					//statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage)
+					//if err != nil {
+					//	return err
+					//}
+				}
+			}
 			// If a datum fails, acquireDatums updates the relevant lock in
 			// etcd, which causes the master to fail the job (which is
 			// handled above in the JOB_FAILURE case). There's no need to
@@ -1460,7 +1452,7 @@ func (a *APIServer) worker() {
 			if err := a.acquireDatums(
 				jobCtx, jobID, plan, logger,
 				func(low, high int64) (*processResult, error) {
-					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
+					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip)
 					if err != nil {
 						return nil, err
 					}
@@ -1472,7 +1464,19 @@ func (a *APIServer) worker() {
 				}
 				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
 			}
-			if err := a.mergeDatums(jobCtx, pachClient, jobInfo, jobID, plan, logger, df); err != nil {
+			var tags []*pfs.Tag
+			for i := 0; i < df.Len(); i++ {
+				files := df.Datum(int(i))
+				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+				if _, ok := skip[datumHash]; ok && useParentHashTree {
+					continue
+				}
+				tags = append(tags, &pfs.Tag{datumHash})
+			}
+			// Stats needs to be changed to fit this new model
+			//statsTag := &pfs.Tag{datumHash + statsTagSuffix}
+			skip = nil
+			if err := a.mergeDatums(jobCtx, pachClient, jobInfo, jobID, plan, logger, tags, useParentHashTree); err != nil {
 				if jobCtx.Err() == context.Canceled {
 					continue NextJob // job cancelled--don't restart, just wait for next job
 				}
@@ -1489,7 +1493,7 @@ func (a *APIServer) worker() {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (*processResult, error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64, skip map[string]struct{}) (*processResult, error) {
 	ctx := pachClient.Ctx()
 	stats := &pps.ProcessStats{}
 	var statsMu sync.Mutex
@@ -1512,7 +1516,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+			if _, ok := skip[tag]; ok {
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
