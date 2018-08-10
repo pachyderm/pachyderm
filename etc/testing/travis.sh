@@ -29,6 +29,7 @@ echo "Running test suite based on BUCKET=$BUCKET"
 
 PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
 
+make install
 make docker-build
 make clean-launch-dev
 make launch-dev
