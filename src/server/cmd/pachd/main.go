@@ -100,6 +100,7 @@ type appEnv struct {
 	ImagePullSecret       string `env:"IMAGE_PULL_SECRET,default="`
 	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
+	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 }
 
 func main() {
@@ -205,7 +206,11 @@ func doSidecarMode(appEnvObj interface{}) error {
 				}
 				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 
-				pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot)
+				memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
+				if err != nil {
+					return err
+				}
+				pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
 				if err != nil {
 					return err
 				}
@@ -357,7 +362,11 @@ func doFullMode(appEnvObj interface{}) error {
 				Port:       appEnv.Port,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
-					pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot)
+					memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
+					if err != nil {
+						return err
+					}
+					pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
 					if err != nil {
 						return err
 					}
@@ -460,8 +469,12 @@ func doFullMode(appEnvObj interface{}) error {
 					}
 					pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 
+					memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
+					if err != nil {
+						return err
+					}
 					pfsAPIServer, err := pfs_server.NewAPIServer(
-						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot)
+						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
 					if err != nil {
 						return err
 					}

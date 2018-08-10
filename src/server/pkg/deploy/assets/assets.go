@@ -441,6 +441,15 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 										},
 									},
 								},
+								{
+									Name: "PACHD_MEMORY_REQUEST",
+									ValueFrom: &v1.EnvVarSource{
+										ResourceFieldRef: &v1.ResourceFieldSelector{
+											ContainerName: "pachd",
+											Resource:      "requests.memory",
+										},
+									},
+								},
 								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
 							},
 							Ports: []v1.ContainerPort{
