@@ -34,8 +34,8 @@ type apiServer struct {
 	driver *driver
 }
 
-func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string) (*apiServer, error) {
-	d, err := newDriver(address, etcdAddresses, etcdPrefix, treeCache, storageRoot)
+func newAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*apiServer, error) {
+	d, err := newDriver(address, etcdAddresses, etcdPrefix, treeCache, storageRoot, memoryRequest)
 	if err != nil {
 		return nil, err
 	}

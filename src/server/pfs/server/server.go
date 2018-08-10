@@ -25,8 +25,8 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string) (APIServer, error) {
-	return newAPIServer(address, etcdAddresses, etcdPrefix, treeCache, storageRoot)
+func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (APIServer, error) {
+	return newAPIServer(address, etcdAddresses, etcdPrefix, treeCache, storageRoot, memoryRequest)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in
