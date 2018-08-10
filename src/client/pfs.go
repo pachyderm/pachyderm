@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"path/filepath"
+	"sync"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -713,7 +714,8 @@ func (c APIClient) Compact() error {
 }
 
 type PutFileClient struct {
-	c pfs.API_PutFileClient
+	c  pfs.API_PutFileClient
+	mu sync.Mutex
 }
 
 func (c APIClient) NewPutFileClient() (*PutFileClient, error) {
@@ -721,13 +723,13 @@ func (c APIClient) NewPutFileClient() (*PutFileClient, error) {
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return &PutFileClient{putFileClient}, nil
+	return &PutFileClient{c: putFileClient}, nil
 }
 
 // PutFileWriter writes a file to PFS.
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
-func (c PutFileClient) PutFileWriter(repoName, commitID, path string) (io.WriteCloser, error) {
+func (c *PutFileClient) PutFileWriter(repoName, commitID, path string) (io.WriteCloser, error) {
 	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, nil)
 }
 
@@ -735,7 +737,7 @@ func (c PutFileClient) PutFileWriter(repoName, commitID, path string) (io.WriteC
 // that is written to it.
 // NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
-func (c PutFileClient) PutFileSplitWriter(repoName string, commitID string, path string,
+func (c *PutFileClient) PutFileSplitWriter(repoName string, commitID string, path string,
 	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool) (io.WriteCloser, error) {
 	var overwriteIndex *pfs.OverwriteIndex
 	if overwrite {
@@ -745,7 +747,7 @@ func (c PutFileClient) PutFileSplitWriter(repoName string, commitID string, path
 }
 
 // PutFile writes a file to PFS from a reader.
-func (c PutFileClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
+func (c *PutFileClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
 	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, false, reader)
 }
 
@@ -753,7 +755,9 @@ func (c PutFileClient) PutFile(repoName string, commitID string, path string, re
 // appending to it.  overwriteIndex allows you to specify the index of the
 // object starting from which you'd like to overwrite.  If you want to
 // overwrite the entire file, specify an index of 0.
-func (c PutFileClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error) {
+func (c *PutFileClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, &pfs.OverwriteIndex{overwriteIndex})
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
@@ -769,7 +773,9 @@ func (c PutFileClient) PutFileOverwrite(repoName string, commitID string, path s
 
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
-func (c PutFileClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
+func (c *PutFileClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
@@ -786,7 +792,9 @@ func (c PutFileClient) PutFileSplit(repoName string, commitID string, path strin
 // PutFileURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
 // recursive allow for recursive scraping of some types URLs for example on s3:// urls.
-func (c PutFileClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) error {
+func (c *PutFileClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	var overwriteIndex *pfs.OverwriteIndex
 	if overwrite {
 		overwriteIndex = &pfs.OverwriteIndex{0}
@@ -927,7 +935,7 @@ func (c APIClient) GetFileReadSeeker(repoName string, commitID string, path stri
 		return nil, err
 	}
 	return &getFileReadSeeker{
-		reader: reader,
+		Reader: reader,
 		file:   NewFile(repoName, commitID, path),
 		offset: 0,
 		size:   int64(fileInfo.SizeBytes),
@@ -1095,12 +1103,13 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 }
 
 type putFileWriteCloser struct {
-	request       *pfs.PutFileRequest
-	putFileClient pfs.API_PutFileClient
-	sent          bool
+	request *pfs.PutFileRequest
+	sent    bool
+	c       *PutFileClient
 }
 
-func (c PutFileClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
+func (c *PutFileClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
+	c.mu.Lock() // Unlocked in Close()
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{
 			File:             NewFile(repoName, commitID, path),
@@ -1109,7 +1118,7 @@ func (c PutFileClient) newPutFileWriteCloser(repoName string, commitID string, p
 			TargetFileBytes:  targetFileBytes,
 			OverwriteIndex:   overwriteIndex,
 		},
-		putFileClient: c.c,
+		c: c,
 	}, nil
 }
 
@@ -1128,7 +1137,7 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 			break
 		}
 		w.request.Value = actualP
-		if err := w.putFileClient.Send(w.request); err != nil {
+		if err := w.c.c.Send(w.request); err != nil {
 			return 0, grpcutil.ScrubGRPC(err)
 		}
 		w.sent = true
@@ -1141,14 +1150,15 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 }
 
 func (w *putFileWriteCloser) Close() error {
+	defer w.c.mu.Unlock()
 	// we always send at least one request, otherwise it's impossible to create
 	// an empty file
 	if !w.sent {
-		if err := w.putFileClient.Send(w.request); err != nil {
+		if err := w.c.c.Send(w.request); err != nil {
 			return err
 		}
 	}
-	_, err := w.putFileClient.CloseAndRecv()
+	_, err := w.c.c.CloseAndRecv()
 	return grpcutil.ScrubGRPC(err)
 }
 
@@ -1223,10 +1233,8 @@ func (w *putObjectSplitWriteCloser) Close() error {
 	return nil
 }
 
-type reader = io.Reader
-
 type getFileReadSeeker struct {
-	reader
+	io.Reader
 	file   *pfs.File
 	offset int64
 	size   int64
@@ -1244,21 +1252,21 @@ func (r *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 			return r.offset, err
 		}
 		r.offset = offset
-		r.reader = reader
+		r.Reader = reader
 	case io.SeekCurrent:
 		reader, err := getFileReader(r.offset + offset)
 		if err != nil {
 			return r.offset, err
 		}
 		r.offset += offset
-		r.reader = reader
+		r.Reader = reader
 	case io.SeekEnd:
 		reader, err := getFileReader(r.size - offset)
 		if err != nil {
 			return r.offset, err
 		}
 		r.offset = r.size - offset
-		r.reader = reader
+		r.Reader = reader
 	}
 	return r.offset, nil
 }
