@@ -238,6 +238,10 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		for _, c := range a.monitorCancels {
+			c()
+		}
+		a.monitorCancels = make(map[string]func())
 		log.Errorf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
