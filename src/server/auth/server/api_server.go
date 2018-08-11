@@ -86,7 +86,10 @@ type apiServer struct {
 	pachClientOnce sync.Once         // used to initialize pachClient
 
 	adminCache map[string]struct{} // cache of current cluster admins
-	adminMu    sync.Mutex          // synchronize ontrol access to adminCache
+	adminMu    sync.Mutex          // guard 'adminCache'
+
+	configCache *authclient.AuthConfig // cache of auth config in etcd
+	configMu    sync.Mutex             // guard 'configCache'
 
 	// tokens is a collection of hashedToken -> User mappings. These tokens are
 	// returned to users by Authenticate()
@@ -279,6 +282,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 }
 
 func (a *apiServer) watchAdmins(fullAdminPrefix string) {
+	b := backoff.NewTestingBackOff()
 	backoff.RetryNotify(func() error {
 		// Watch for the addition/removal of new admins. Note that this will return
 		// any existing admins, so if the auth service is already activated, it will
@@ -295,6 +299,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 			if !ok {
 				return errors.New("admin watch closed unexpectedly")
 			}
+			b.Reset() // event successfully received
 
 			if err := func() error {
 				// Lock a.adminMu in case we need to modify a.adminCache
@@ -319,8 +324,59 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 				return err
 			}
 		}
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logrus.Printf("error from activation check: %v; retrying in %v", err, d)
+	}, b, func(err error, d time.Duration) error {
+		logrus.Printf("error watching admin collection: %v; retrying in %v", err, d)
+		return nil
+	})
+}
+
+func (a *apiServer) watchConfig() {
+	b := backoff.NewTestingBackOff()
+	backoff.RetryNotify(func() error {
+		// Watch for the addition/removal of new admins. Note that this will return
+		// any existing admins, so if the auth service is already activated, it will
+		// stay activated.
+		watcher, err := a.authConfig.ReadOnly(context.Background()).Watch()
+		if err != nil {
+			return err
+		}
+		defer watcher.Close()
+		// Wait for new config events to arrive
+		for {
+			ev, ok := <-watcher.Watch()
+			if !ok {
+				return errors.New("admin watch closed unexpectedly")
+			}
+			b.Reset() // event successfully received
+
+			if a.activationState() != full {
+				return fmt.Errorf("received config event while auth not fully " +
+					"activated (should be impossible), restarting")
+			}
+			if err := func() error {
+				// Lock a.configMu in case we need to modify a.configCache
+				a.configMu.Lock()
+				defer a.configMu.Unlock()
+
+				// Parse event data and potentially update configCache
+				var key string // always configKey, just need to put it somewhere
+				var configProto authclient.AuthConfig
+				ev.Unmarshal(&key, &configProto)
+				switch ev.Type {
+				case watch.EventPut:
+					a.configCache = &configProto
+				case watch.EventDelete:
+					a.configCache.Reset()
+				case watch.EventError:
+					return ev.Err
+				}
+				return nil // unlock mu
+			}(); err != nil {
+				return err
+			}
+		}
+	}, b, func(err error, d time.Duration) error {
+		logrus.Printf("error watching auth config: %v; retrying in %v", err, d)
 		return nil
 	})
 }
