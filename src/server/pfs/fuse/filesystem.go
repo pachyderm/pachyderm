@@ -182,9 +182,9 @@ func repoDirEntry(ri *pfs.RepoInfo) fuse.DirEntry {
 func fileMode(fi *pfs.FileInfo) uint32 {
 	switch fi.FileType {
 	case pfs.FileType_FILE:
-		return fuse.S_IFREG | 0644
+		return fuse.S_IFREG | 0444 // everyone can read, no one can do anything else
 	case pfs.FileType_DIR:
-		return fuse.S_IFDIR | 0644
+		return fuse.S_IFDIR | 0555 // everyone can read and execute, no one can do anything else
 	default:
 		return 0
 	}
