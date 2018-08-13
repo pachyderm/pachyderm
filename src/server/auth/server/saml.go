@@ -27,7 +27,11 @@ func validateConfig() error {
 // parses the result, and returns it as a struct the crewjam/saml library can
 // use
 // This code is heavily based on the crewjam/saml/samlsp.Middleware constructor
-func lookupIDPMetadata(name string, mdURL *url.URL) (*saml.EntityDescriptor, error) {
+// >>> remove names from return values
+func lookupIDPMetadata(name string, mdURL *url.URL) (retDesc *saml.EntityDescriptor, retErr error) {
+	defer func() {
+		fmt.Printf(">>> lookupIDPMetadata -> _, %v\n", retErr)
+	}()
 	c := http.DefaultClient
 	req, err := http.NewRequest("GET", mdURL.String(), nil)
 	if err != nil {
@@ -39,6 +43,7 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (*saml.EntityDescriptor, err
 	b := backoff.NewInfiniteBackOff()
 	b.MaxElapsedTime = 15 * time.Second
 	backoff.RetryNotify(func() error {
+		fmt.Printf(">>> (apiServer.lookupIDPMetadata) sending req to %v\n", mdURL)
 		resp, err := c.Do(req)
 		if err != nil {
 			return err
@@ -94,12 +99,14 @@ func (a *apiServer) updateSAMLSP() error {
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
 
+	fmt.Printf(">>> (apiServer.updateSAMLSP) checking config for SAML options\n")
 	if a.configCache.SAMLServiceOptions == nil {
 		return nil // no config options to copy
 	}
 	sso := a.configCache.SAMLServiceOptions
 
 	// parse ACS URL
+	fmt.Printf(">>> (apiServer.updateSAMLSP) parsing ACS URL\n")
 	if sso.ACSURL == "" {
 		return errors.New("invalid SAML service options: must set ACS URL")
 	}
@@ -112,6 +119,7 @@ func (a *apiServer) updateSAMLSP() error {
 	}
 
 	// parse Metadata URL
+	fmt.Printf(">>> (apiServer.updateSAMLSP) parsing Metadata URL\n")
 	if sso.MetadataURL == "" {
 		return errors.New("invalid SAML service options: must set Metadata URL")
 	}
@@ -126,6 +134,7 @@ func (a *apiServer) updateSAMLSP() error {
 	var samlProvider string
 	var idpMetadataURL *url.URL
 	for _, idp := range a.configCache.IDProviders {
+		fmt.Printf(">>> (apiServer.updateSAMLSP) analyzing IdP %v\n", idp.Name)
 		// Check if the IDP is a known type (right now the only type of IdP is SAML)
 		if idp.SAML == nil {
 			idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
@@ -145,6 +154,7 @@ func (a *apiServer) updateSAMLSP() error {
 
 		var err error
 		idpMetadataURL, err = url.Parse(idp.SAML.MetadataURL)
+		fmt.Printf(">>> (apiServer.updateSAMLSP) Parsing IdP metadata URL\n")
 		if err != nil {
 			return fmt.Errorf("could not parse SAML IdP Metadata URL: %v", err)
 		}
@@ -152,10 +162,11 @@ func (a *apiServer) updateSAMLSP() error {
 			return fmt.Errorf("invalid SAML IdP Metadata URL (no scheme): %v", err)
 		}
 	}
+	fmt.Printf(">>> (apiServer.updateSAMLSP) Creating samlSP\n")
 	// Create a.samlSP
 	if a.samlSP == nil {
 		// Lookup full IdP metadata from URL
-		fmt.Printf(">>> looking up IdPMetdata")
+		fmt.Printf(">>> looking up IdPMetdata\n")
 		idpMeta, err := lookupIDPMetadata(samlProvider, idpMetadataURL)
 		if err != nil {
 			return err
