@@ -1835,7 +1835,7 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 }
 
 func (d *driver) putFiles(server pfs.API_PutFileServer) error {
-	s := NewPutFileServer(server)
+	s := newPutFileServer(server)
 	ctx := server.Context()
 	req, err := s.Peek()
 	if err != nil {
@@ -1888,11 +1888,10 @@ func (d *driver) putFiles(server pfs.API_PutFileServer) error {
 		// branch (if it exists).
 		_, err := d.makeCommit(ctx, "", client.NewCommit(commit.Repo.Name, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
 		return err
-	} else {
-		for i, file := range files {
-			if err := d.upsertPutFileRecords(ctx, file, putFileRecords[i]); err != nil {
-				return err
-			}
+	}
+	for i, file := range files {
+		if err := d.upsertPutFileRecords(ctx, file, putFileRecords[i]); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -2725,7 +2724,7 @@ type putFileServer struct {
 	req *pfs.PutFileRequest
 }
 
-func NewPutFileServer(s pfs.API_PutFileServer) *putFileServer {
+func newPutFileServer(s pfs.API_PutFileServer) *putFileServer {
 	return &putFileServer{API_PutFileServer: s}
 }
 

@@ -2310,7 +2310,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit1,
 		Path:   "file",
 	}, strings.NewReader(content1)))
@@ -2324,7 +2324,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit2,
 		Path:   "file",
 	}, strings.NewReader(content2)))
@@ -2338,7 +2338,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit3,
 		Path:   "file",
 	}, strings.NewReader(content3)))

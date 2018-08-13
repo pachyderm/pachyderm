@@ -713,6 +713,9 @@ func (c APIClient) Compact() error {
 	return err
 }
 
+// PutFileClient is a client interface for putting files. There are 2
+// implementations, 1 that does each file as a seperate request and one that
+// does them all together in the same request.
 type PutFileClient interface {
 	// PutFileWriter writes a file to PFS.
 	// NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
