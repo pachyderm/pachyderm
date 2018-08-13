@@ -37,7 +37,7 @@ func GetConfig() *cobra.Command {
 				fmt.Println("no auth config set")
 				return nil
 			}
-			output, err := json.Marshal(resp.Configuration)
+			output, err := json.MarshalIndent(resp.Configuration, "", "  ")
 			if err != nil {
 				return fmt.Errorf("could not marshal response:\n%v\ndue to: %v", resp.Configuration, err)
 			}
