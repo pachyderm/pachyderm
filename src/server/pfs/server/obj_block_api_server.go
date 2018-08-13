@@ -902,7 +902,7 @@ func (s *objBlockAPIServer) blockGetter(ctx groupcache.Context, key string, dest
 	if err != nil {
 		return err
 	}
-	return s.readObj(s.blockPath(client.NewBlock(fields[0])), lower, upper, dest)
+	return s.readObj(s.blockPath(client.NewBlock(fields[0])), lower, upper-lower, dest)
 }
 
 func (s *objBlockAPIServer) objectGetter(ctx groupcache.Context, key string, dest groupcache.Sink) error {
