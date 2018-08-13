@@ -2294,9 +2294,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}); err != nil {
 		return nil, err
 	}
-	//if len(paths) <= 0 {
-	//	return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
-	//}
+	if len(blockRefs) <= 0 {
+		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+	}
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
 		ctx,
 		&pfs.GetBlocksRequest{
@@ -2422,11 +2422,29 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
-	return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
+	// Handle commits to input repos
+	if commitInfo.Provenance == nil {
+		tree, err := d.getTreeForFile(ctx, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
+		if err != nil {
+			return err
+		}
+		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
+			return f(nodeToFileInfo(file.Commit, path, node, false))
+		})
+	}
+	// Handle commits to output repos
+	if commitInfo.Finished == nil {
+		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+	}
+	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	if err != nil {
+		return err
+	}
+	return hashtree.Walk(trees, file.Path, func(path string, node *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(file.Commit, path, node, false))
 	})
 }
