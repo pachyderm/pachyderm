@@ -41,7 +41,7 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (*saml.EntityDescriptor, err
 	backoff.RetryNotify(func() error {
 		resp, err := c.Do(req)
 		if err != nil {
-			return nil
+			return err
 		}
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
@@ -49,7 +49,7 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (*saml.EntityDescriptor, err
 		rawMetadata, err = ioutil.ReadAll(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not read IdP metadata response body: %v", err)
 		}
 		return nil
 	}, b, func(err error, d time.Duration) error {
@@ -58,18 +58,19 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (*saml.EntityDescriptor, err
 	})
 
 	// Successfully retrieved metadata--try parsing it
+	fmt.Printf(">>> (apiServer.lookupIDPMetadata) about to parse metadata\n")
 	entity := &saml.EntityDescriptor{}
 	err = xml.Unmarshal(rawMetadata, entity)
 	if err != nil {
 		// this comparison is ugly, but it is how the error is generated in
 		// encoding/xml
 		if err.Error() != "expected element type <EntityDescriptor> but have <EntitiesDescriptor>" {
-			return nil, err
+			return nil, fmt.Errorf("could not unmarshal EntityDescriptor from IdP metadata: %v", err)
 		}
 		// Search through <EntitiesDescriptor> & find IdP entity
 		entities := &saml.EntitiesDescriptor{}
 		if err := xml.Unmarshal(rawMetadata, entities); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not unmarshal EntitiesDescriptor from IdP metadata: %v", err)
 		}
 		for i, e := range entities.EntityDescriptors {
 			if len(e.IDPSSODescriptors) > 0 {
