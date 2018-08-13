@@ -23,6 +23,7 @@ import (
 	globlib "github.com/gobwas/glob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
@@ -54,6 +55,8 @@ const (
 var (
 	// Memory limiter (Useful for limiting operations that could use a lot of memory)
 	memoryLimiter *semaphore.Weighted
+	// Limit the number of outstanding put object requests
+	putObjectLimiter = limit.New(500)
 )
 
 // validateRepoName determines if a repo name is valid
@@ -1955,7 +1958,9 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				_buffer := buffer
 				index := filesPut
 				memoryLimiter.Acquire(ctx, int64(_buffer.Len()))
+				putObjectLimiter.Acquire()
 				eg.Go(func() error {
+					defer putObjectLimiter.Release()
 					defer memoryLimiter.Release(int64(_buffer.Len()))
 					object, size, err := pachClient.PutObject(_buffer)
 					if err != nil {
