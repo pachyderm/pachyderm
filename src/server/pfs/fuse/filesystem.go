@@ -96,7 +96,11 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 }
 
 func (fs *filesystem) Open(name string, flags uint32, context *fuse.Context) (nodefs.File, fuse.Status) {
-	// TODO use flags
+	f := int(flags)
+	writeFlags := os.O_WRONLY | os.O_RDWR
+	if f&writeFlags != 0 {
+		return nil, fuse.EROFS
+	}
 	return newFile(fs, name), fuse.OK
 }
 
