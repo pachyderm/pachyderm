@@ -447,7 +447,7 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 				commit.Repo.Name, commit.ID, err)
 			return
 		}
-		if ci.Tree == nil {
+		if ci.Tree == nil && ci.Trees == nil {
 			failedInputs = append(failedInputs, name)
 		}
 	}

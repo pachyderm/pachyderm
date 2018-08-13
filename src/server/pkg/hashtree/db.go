@@ -276,32 +276,9 @@ func Glob(trees []HashTree, pattern string, f func(string, *NodeProto) error) (r
 	pattern = clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
-		// TODO this should be a MalformedGlob error like the hashtree returns
-		return err
+		return errorf(MalformedGlob, err.Error())
 	}
-	var srcs []Mergeable
-	for _, tree := range trees {
-		t, ok := tree.(*dbHashTree)
-		if !ok {
-			return errorf(Internal, "failed type assertion from HashTree to dbHashTree")
-		}
-		src, err := NewMergeCursor(t)
-		if err != nil {
-			return err
-		}
-		if err := src.NextBucket(FsBucket); err != nil {
-			return err
-		}
-		srcs = append(srcs, src)
-	}
-	defer func() {
-		for _, src := range srcs {
-			if err := src.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}
-	}()
-	return nodes(srcs, func(path string, node *NodeProto) error {
+	return nodes(trees, func(path string, node *NodeProto) error {
 		if g.Match(path) {
 			return f(path, node)
 		}
@@ -335,6 +312,24 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 				continue
 			}
 			if err := f(nodePath, node); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func Walk(trees []HashTree, root string, f func(path string, node *NodeProto) error) error {
+	root = clean(root)
+	return nodes(trees, func(path string, node *NodeProto) error {
+		if strings.HasPrefix(path, root) {
+			if path != root && !strings.HasPrefix(path, root+"/") {
+				return nil
+			}
+			if err := f(path, node); err != nil {
 				if err == errutil.ErrBreak {
 					return nil
 				}
@@ -1246,7 +1241,18 @@ func Merge(srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
 	return nil
 }
 
-func nodes(srcs []Mergeable, f func(path string, node *NodeProto) error) error {
+func nodes(trees []HashTree, f func(path string, node *NodeProto) error) (retErr error) {
+	srcs, err := treesToSrcs(trees)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for _, src := range srcs {
+			if err := src.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}
+	}()
 	return Merge(srcs, func(k []byte, vs [][]byte) error {
 		node := &NodeProto{}
 		if err := node.Unmarshal(vs[0]); err != nil {
@@ -1254,6 +1260,25 @@ func nodes(srcs []Mergeable, f func(path string, node *NodeProto) error) error {
 		}
 		return f(s(k), node)
 	})
+}
+
+func treesToSrcs(trees []HashTree) ([]Mergeable, error) {
+	var srcs []Mergeable
+	for _, tree := range trees {
+		t, ok := tree.(*dbHashTree)
+		if !ok {
+			return nil, errorf(Internal, "failed type assertion from HashTree to dbHashTree")
+		}
+		src, err := NewMergeCursor(t)
+		if err != nil {
+			return nil, err
+		}
+		if err := src.NextBucket(FsBucket); err != nil {
+			return nil, err
+		}
+		srcs = append(srcs, src)
+	}
+	return srcs, nil
 }
 
 func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
