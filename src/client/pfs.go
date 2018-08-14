@@ -795,8 +795,6 @@ func (c *putFileClient) PutFile(repoName string, commitID string, path string, r
 // object starting from which you'd like to overwrite.  If you want to
 // overwrite the entire file, specify an index of 0.
 func (c *putFileClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, &pfs.OverwriteIndex{overwriteIndex})
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
@@ -813,8 +811,6 @@ func (c *putFileClient) PutFileOverwrite(repoName string, commitID string, path 
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
 func (c *putFileClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite)
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
