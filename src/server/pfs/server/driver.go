@@ -2143,36 +2143,28 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	return h, nil
 }
 
-func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitInfo) ([]hashtree.HashTree, error) {
-	hs, ok := d.treeCache.Get(commitInfo.Commit.ID)
-	if ok {
-		trees, ok := hs.([]hashtree.HashTree)
-		if !ok {
-			return nil, fmt.Errorf("corrupted cache: expected slice of hashtree.Hashtree, found %v", trees)
-		}
-		return trees, nil
-	}
+func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitInfo) ([]hashtree.Mergeable, error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
-	trees := make([]hashtree.HashTree, len(commitInfo.Trees))
+	trees := make([]hashtree.Mergeable, len(commitInfo.Trees))
 	var eg errgroup.Group
 	for i, object := range commitInfo.Trees {
 		i := i
 		object := object
 		eg.Go(func() error {
-			// read the tree from the block store
-			h, err := hashtree.GetHashTreeObject(pachClient, d.storageRoot, object)
+			r, err := pachClient.GetObjectReader(object.Hash)
 			if err != nil {
 				return err
 			}
-			trees[i] = h
-			return nil
+			trees[i], err = hashtree.NewMergeStream(r, func(path []byte) (bool, error) {
+				return true, nil
+			})
+			return err
 		})
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
-	d.treeCache.Add(commitInfo.Commit.ID, trees)
 	return trees, nil
 }
 
