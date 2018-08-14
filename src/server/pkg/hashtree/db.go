@@ -272,7 +272,7 @@ func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
 	return res, nil
 }
 
-func Glob(trees []HashTree, pattern string, f func(string, *NodeProto) error) (retErr error) {
+func Glob(trees []Mergeable, pattern string, f func(string, *NodeProto) error) (retErr error) {
 	pattern = clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
@@ -322,7 +322,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 	})
 }
 
-func Walk(trees []HashTree, root string, f func(path string, node *NodeProto) error) error {
+func Walk(trees []Mergeable, root string, f func(path string, node *NodeProto) error) error {
 	root = clean(root)
 	return nodes(trees, func(path string, node *NodeProto) error {
 		if strings.HasPrefix(path, root) {
@@ -903,8 +903,20 @@ func (m *mergeStream) NextBucket(bucket string) error {
 	if err := m.pbr.Read(m.hdr); err != nil {
 		return err
 	}
-	if m.hdr.Bucket != bucket {
-		return errorf(Internal, "Merge stream reader is in the wrong bucket")
+	for m.hdr.Bucket != bucket {
+		k, err := m.pbr.ReadBytes()
+		if err != nil {
+			return err
+		}
+		for !bytes.Equal(k, SentinelByte) {
+			k, err = m.pbr.ReadBytes()
+			if err != nil {
+				return err
+			}
+		}
+		if err := m.pbr.Read(m.hdr); err != nil {
+			return err
+		}
 	}
 	m.done = false
 	// Creating goroutine that handles getting the next key/values in a stream
@@ -1241,44 +1253,26 @@ func Merge(srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
 	return nil
 }
 
-func nodes(trees []HashTree, f func(path string, node *NodeProto) error) (retErr error) {
-	srcs, err := treesToSrcs(trees)
-	if err != nil {
-		return err
+func nodes(trees []Mergeable, f func(path string, node *NodeProto) error) (retErr error) {
+	for _, tree := range trees {
+		if err := tree.NextBucket(FsBucket); err != nil {
+			return err
+		}
 	}
 	defer func() {
-		for _, src := range srcs {
-			if err := src.Close(); err != nil && retErr == nil {
+		for _, tree := range trees {
+			if err := tree.Close(); err != nil && retErr == nil {
 				retErr = err
 			}
 		}
 	}()
-	return Merge(srcs, func(k []byte, vs [][]byte) error {
+	return Merge(trees, func(k []byte, vs [][]byte) error {
 		node := &NodeProto{}
 		if err := node.Unmarshal(vs[0]); err != nil {
 			return err
 		}
 		return f(s(k), node)
 	})
-}
-
-func treesToSrcs(trees []HashTree) ([]Mergeable, error) {
-	var srcs []Mergeable
-	for _, tree := range trees {
-		t, ok := tree.(*dbHashTree)
-		if !ok {
-			return nil, errorf(Internal, "failed type assertion from HashTree to dbHashTree")
-		}
-		src, err := NewMergeCursor(t)
-		if err != nil {
-			return nil, err
-		}
-		if err := src.NextBucket(FsBucket); err != nil {
-			return nil, err
-		}
-		srcs = append(srcs, src)
-	}
-	return srcs, nil
 }
 
 func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
