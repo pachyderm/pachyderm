@@ -206,13 +206,22 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
+	s := newPutFileServer(putFileServer)
+	r, err := s.Peek()
+	if err != nil {
+		return err
+	}
+	request := *r
+	request.Value = nil
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	defer drainFileServer(putFileServer)
 	defer func() {
 		if err := putFileServer.SendAndClose(&types.Empty{}); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	return a.driver.putFiles(putFileServer)
+	return a.driver.putFiles(s)
 }
 
 // func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
