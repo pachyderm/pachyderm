@@ -1834,9 +1834,8 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	return path.Join(split[4:]...)
 }
 
-func (d *driver) putFiles(server pfs.API_PutFileServer) error {
-	s := newPutFileServer(server)
-	ctx := server.Context()
+func (d *driver) putFiles(s *putFileServer) error {
+	ctx := s.Context()
 	req, err := s.Peek()
 	if err != nil {
 		return err
