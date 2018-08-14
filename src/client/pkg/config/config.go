@@ -33,10 +33,7 @@ func Read() (*Config, error) {
 	if c.UserID == "" {
 		fmt.Printf("No UserID present in config. Generating new UserID and "+
 			"updating config at %s\n", configPath)
-		uuid, err := uuid.NewV4()
-		if err != nil {
-			return nil, err
-		}
+		uuid := uuid.NewV4()
 		c.UserID = uuid.String()
 		if err := c.Write(); err != nil {
 			return nil, err
