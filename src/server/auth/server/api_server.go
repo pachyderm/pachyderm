@@ -1807,6 +1807,15 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	if err := authConfigRO.Get(configKey, &currentConfig); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	if a.configCache.LiveConfigVersion < currentConfig.LiveConfigVersion {
+		logrus.Println("current config (v.%d) is newer than cache (v.%d); updating cache",
+			currentConfig.LiveConfigVersion, a.configCache.LiveConfigVersion)
+		a.configCache = currentConfig
+	} else if a.configCache.LiveConfigVersion > currentConfig.LiveConfigVersion {
+		logrus.Warnln("config cache is NEWER than live config; this shouldn't happen")
+	}
 	return &authclient.GetConfigurationResponse{
 		Configuration: &currentConfig,
 	}, nil
