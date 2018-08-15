@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"time"
 
 	"github.com/crewjam/saml"
@@ -41,13 +42,16 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (retDesc *saml.EntityDescrip
 
 	var rawMetadata []byte
 	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = 15 * time.Second
+	b.MaxElapsedTime = 90 * time.Second
+	b.MaxInterval = 2 * time.Second
 	backoff.RetryNotify(func() error {
 		fmt.Printf(">>> (apiServer.lookupIDPMetadata) sending req to %v\n", mdURL)
 		resp, err := c.Do(req)
 		if err != nil {
 			return err
 		}
+		fmt.Printf(">>> (apiServer.lookupIDPMetadata) got response:\n%+v\n", resp)
+
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 		}
@@ -56,6 +60,9 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (retDesc *saml.EntityDescrip
 		if err != nil {
 			return fmt.Errorf("could not read IdP metadata response body: %v", err)
 		}
+		if len(rawMetadata) == 0 {
+			return fmt.Errorf("empty metadata from IdP")
+		}
 		return nil
 	}, b, func(err error, d time.Duration) error {
 		logrus.Printf("error retrieving IdP metadata: %v; retrying in %v", err, d)
@@ -63,7 +70,7 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (retDesc *saml.EntityDescrip
 	})
 
 	// Successfully retrieved metadata--try parsing it
-	fmt.Printf(">>> (apiServer.lookupIDPMetadata) about to parse metadata\n")
+	fmt.Printf(">>> (apiServer.lookupIDPMetadata) about to parse metadata:\n%s\n", string(rawMetadata))
 	entity := &saml.EntityDescriptor{}
 	err = xml.Unmarshal(rawMetadata, entity)
 	if err != nil {
@@ -200,6 +207,64 @@ func (a *apiServer) updateSAMLSP() error {
 	return nil
 }
 
+// func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
+// 	a.samlSPMu.Lock()
+// 	defer a.samlSPMu.Unlock()
+// 	if a.samlSP == nil {
+// 		fmt.Printf(">>> (apiServer.handleSAMLResponse) samlSP is nil\n")
+// 		http.Error(w, "SAML ACS has not been configured", http.StatusConflict)
+// 		return
+// 	}
+// 	sp := a.samlSP
+//
+// 	// stat := statReadCloser{
+// 	// 	ReadCloser: req.Body,
+// 	// }
+// 	// req.Body = &stat
+// 	out := io.MultiWriter(w, os.Stdout)
+// 	possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
+// 	fmt.Printf(">>> (apiServer.handleSAMLResponse) req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
+// 	assertion, err := sp.ParseResponse(req, possibleRequestIDs)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		out.Write([]byte("<html><head></head><body>"))
+// 		out.Write([]byte("Error parsing SAML response: "))
+// 		out.Write([]byte(err.Error()))
+// 		ie := err.(*saml.InvalidResponseError)
+// 		out.Write([]byte("\nPrivate error: " + ie.PrivateErr.Error()))
+// 		out.Write([]byte("\n"))
+// 	}
+// 	if assertion == nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		out.Write([]byte("<html><head></head><body>"))
+// 		out.Write([]byte("Nil assertion\n"))
+// 	}
+// 	out.Write([]byte("Would've authenticated as:\n"))
+// 	fmt.Printf(">>> (apiServer.handleSAMLResponse) This is a test\n")
+// 	if assertion != nil {
+// 		out.Write([]byte(fmt.Sprintf("assertion: %v\n", assertion)))
+// 		if assertion.Subject != nil {
+// 			out.Write([]byte(fmt.Sprintf("assertion.Subject: %v\n", assertion.Subject)))
+// 			if assertion.Subject.NameID != nil {
+// 				out.Write([]byte(fmt.Sprintf("assertion.Subject.NameID.Value: %v\n", assertion.Subject.NameID.Value)))
+// 			}
+// 		}
+// 		if assertion.Element() != nil {
+// 			xmlBytes, err := xml.MarshalIndent(assertion.Element(), "", "  ")
+// 			if err != nil {
+// 				out.Write([]byte(fmt.Sprintf("could not marshall assertion: %v\n", err)))
+// 			} else {
+// 				out.Write([]byte(fmt.Sprintf("<pre>\n%s\n</pre>", xmlBytes)))
+// 			}
+// 		} else {
+// 			out.Write([]byte("assertion.Element() was nil"))
+// 		}
+// 	} else {
+// 		out.Write([]byte("assertion was nil"))
+// 	}
+// 	out.Write([]byte("</body></html>"))
+// }
+
 func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
@@ -218,44 +283,52 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 	possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
 	fmt.Printf(">>> (apiServer.handleSAMLResponse) req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
 	assertion, err := sp.ParseResponse(req, possibleRequestIDs)
-	if err != nil {
+	healthyResponse := err == nil && assertion != nil &&
+		assertion.Subject != nil && assertion.Subject.NameID != nil
+	fmt.Printf(">>> (apiServer.handleSAMLResponse) healthyResponse: %t\n", healthyResponse)
+	if !healthyResponse {
 		w.WriteHeader(http.StatusInternalServerError)
 		out.Write([]byte("<html><head></head><body>"))
-		out.Write([]byte("Error parsing SAML response: "))
-		out.Write([]byte(err.Error()))
-		ie := err.(*saml.InvalidResponseError)
-		out.Write([]byte("\nPrivate error: " + ie.PrivateErr.Error()))
-		out.Write([]byte("\n"))
-	}
-	if assertion == nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		out.Write([]byte("<html><head></head><body>"))
-		out.Write([]byte("Nil assertion\n"))
-	}
-	out.Write([]byte("Would've authenticated as:\n"))
-	fmt.Printf(">>> (apiServer.handleSAMLResponse) This is a test\n")
-	if assertion != nil {
-		out.Write([]byte(fmt.Sprintf("assertion: %v\n", assertion)))
-		if assertion.Subject != nil {
-			out.Write([]byte(fmt.Sprintf("assertion.Subject: %v\n", assertion.Subject)))
-			if assertion.Subject.NameID != nil {
-				out.Write([]byte(fmt.Sprintf("assertion.Subject.NameID.Value: %v\n", assertion.Subject.NameID.Value)))
+		switch {
+		case err != nil:
+			out.Write([]byte("Error parsing SAML response: "))
+			out.Write([]byte(err.Error()))
+			if invalidRespErr, ok := err.(*saml.InvalidResponseError); ok {
+				out.Write([]byte("\nPrivate error: " + invalidRespErr.PrivateErr.Error()))
 			}
+		case assertion == nil:
+			out.Write([]byte("Error parsing SAML response: assertion is nil"))
+		case assertion.Subject == nil:
+			out.Write([]byte("Error parsing SAML response: assertion.Subject is nil"))
+		case assertion.Subject.NameID == nil:
+			out.Write([]byte("Error parsing SAML response: assertion.Subject.NameID is nil"))
+		default:
+			out.Write([]byte("Something went wrong"))
+			out.Write([]byte(fmt.Sprintf("<p>healthyResponse: %t", healthyResponse)))
+			out.Write([]byte(fmt.Sprintf("<p>err: %v", err)))
+			out.Write([]byte(fmt.Sprintf("<p>assertion: %v", assertion)))
 		}
-		if assertion.Element() != nil {
-			xmlBytes, err := xml.MarshalIndent(assertion.Element(), "", "  ")
-			if err != nil {
-				out.Write([]byte(fmt.Sprintf("could not marshall assertion: %v\n", err)))
-			} else {
-				out.Write([]byte(fmt.Sprintf("<pre>\n%s\n</pre>", xmlBytes)))
-			}
-		} else {
-			out.Write([]byte("assertion.Element() was nil"))
-		}
-	} else {
-		out.Write([]byte("assertion was nil"))
+		out.Write([]byte("\n</body></html>"))
+		return
 	}
-	out.Write([]byte("</body></html>"))
+
+	// Print debug info for when we're adding groups
+	for _, attribute := range assertion.AttributeStatements {
+		fmt.Printf(">>> attribute statement: %v\n", attribute.Element())
+		// attribute.Attributes[0].
+	}
+
+	// Success
+	fmt.Printf(">>> Success\n")
+	authCode, err := a.getAuthenticationCode(req.Context(), "saml:"+assertion.Subject.NameID.Value)
+	var u url.URL
+	u.Scheme = "http"
+	u.Host = "localhost:30080" // TODO get from config
+	u.Path = path.Join("auth", "autologin")
+	u.RawQuery = url.Values{"auth_code": []string{authCode}}.Encode()
+	fmt.Printf(">>> Location: %s\n", u.String())
+	w.Header().Set("Location", u.String())
+	w.WriteHeader(http.StatusFound) // Send redirect
 }
 
 func (a *apiServer) handleMetadata(w http.ResponseWriter, req *http.Request) {
