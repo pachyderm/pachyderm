@@ -282,7 +282,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 }
 
 func (a *apiServer) watchAdmins(fullAdminPrefix string) {
-	b := backoff.NewTestingBackOff()
+	b := backoff.NewExponentialBackOff()
 	backoff.RetryNotify(func() error {
 		// Watch for the addition/removal of new admins. Note that this will return
 		// any existing admins, so if the auth service is already activated, it will
@@ -331,7 +331,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 }
 
 func (a *apiServer) watchConfig() {
-	b := backoff.NewTestingBackOff()
+	b := backoff.NewExponentialBackOff()
 	backoff.RetryNotify(func() error {
 		// Watch for the addition/removal of new admins. Note that this will return
 		// any existing admins, so if the auth service is already activated, it will
