@@ -360,7 +360,7 @@ kubectl %s port-forward "$pod" %d:650
 					Stdin:  stdin,
 					Stderr: os.Stderr,
 				}, "sh"); err != nil {
-					fmt.Println("Could not forward Pachd port")
+					fmt.Fprintln(os.Stderr, "Could not forward Pachd port")
 					return fmt.Errorf("Could not forward Pachd port")
 				}
 				return nil
@@ -376,6 +376,7 @@ kubectl %s port-forward "$pod" %d:654
 					Stdin:  stdin,
 					Stderr: os.Stderr,
 				}, "sh"); err != nil {
+					fmt.Fprintln(os.Stderr, "Could not forward Pachyderm SAML ACS port")
 					return fmt.Errorf("Could not forward Pachyderm SAML ACS port")
 				}
 				return nil
@@ -389,7 +390,7 @@ kubectl %s port-forward "$pod" %d:8080
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
-					fmt.Fprintf(os.Stderr, "Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
+					fmt.Fprintln(os.Stderr, "Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
 					return fmt.Errorf("Could not forward dash UI port")
 				}
 				return nil
@@ -404,6 +405,7 @@ kubectl %v port-forward "$pod" %d:8081
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
+					fmt.Fprintln(os.Stderr, "Could not forward dash websocket port")
 					return fmt.Errorf("Could not forward dash websocket port")
 				}
 				return nil
