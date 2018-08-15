@@ -153,7 +153,7 @@ message TokenInfo {
 //// Authentication API
 
 message AuthenticateRequest {
-  // Exactly one of the following must be set:
+  // Exactly one of 'github_token' or 'pach_authentication_code' must be set:
 
   // This is the token returned by GitHub and used to authenticate the caller.
   // When Pachyderm is deployed locally, setting this value to a given string
