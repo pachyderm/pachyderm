@@ -876,24 +876,26 @@ func (m *mergeCursor) Close() error {
 }
 
 type mergeStream struct {
-	r       io.ReadCloser
-	pbr     pbutil.Reader
-	hdr     *BucketHeader
-	done    bool
-	k, v    []byte
-	filter  func(path []byte) (bool, error)
-	next    chan *keyValue
-	errChan chan error
+	r         io.ReadCloser
+	pbr       pbutil.Reader
+	hdr       *BucketHeader
+	done      bool
+	k, v      []byte
+	filter    func(path []byte) (bool, error)
+	nextChan  chan *keyValue
+	errChan   chan error
+	closeChan chan struct{}
 }
 
 func NewMergeStream(r io.ReadCloser, filter func(path []byte) (bool, error)) (*mergeStream, error) {
 	m := &mergeStream{
-		r:       r,
-		pbr:     pbutil.NewReader(snappy.NewReader(r)),
-		hdr:     &BucketHeader{},
-		filter:  filter,
-		next:    make(chan *keyValue, 10),
-		errChan: make(chan error, 1),
+		r:         r,
+		pbr:       pbutil.NewReader(snappy.NewReader(r)),
+		hdr:       &BucketHeader{},
+		filter:    filter,
+		nextChan:  make(chan *keyValue, 10),
+		errChan:   make(chan error, 1),
+		closeChan: make(chan struct{}, 1),
 	}
 	return m, nil
 }
@@ -928,7 +930,7 @@ func (m *mergeStream) NextBucket(bucket string) error {
 				return
 			}
 			if bytes.Equal(_k, SentinelByte) {
-				m.next <- &keyValue{nil, nil}
+				m.nextChan <- &keyValue{nil, nil}
 				return
 			}
 			if m.hdr.Bucket == FsBucket {
@@ -955,7 +957,16 @@ func (m *mergeStream) NextBucket(bucket string) error {
 			}
 			v := make([]byte, len(_v))
 			copy(v, _v)
-			m.next <- &keyValue{k, v}
+			select {
+			case <-m.closeChan:
+				close(m.nextChan)
+				close(m.errChan)
+				if err := m.r.Close(); err != nil {
+					fmt.Println("Error closing merge stream")
+				}
+				return
+			case m.nextChan <- &keyValue{k, v}:
+			}
 		}
 	}()
 	if err := m.Next(); err != nil {
@@ -969,7 +980,7 @@ func (m *mergeStream) Next() error {
 		return nil
 	}
 	select {
-	case kv := <-m.next:
+	case kv := <-m.nextChan:
 		m.k = kv.k
 		m.v = kv.v
 		if m.k == nil {
@@ -990,9 +1001,8 @@ func (m *mergeStream) V() []byte {
 }
 
 func (m *mergeStream) Close() error {
-	close(m.next)
-	close(m.errChan)
-	return m.r.Close()
+	m.closeChan <- struct{}{}
+	return nil
 }
 
 func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (bool, error)) (size uint64, retErr error) {
@@ -1105,27 +1115,27 @@ func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (
 }
 
 type mergePriorityQueue struct {
-	queue []Mergeable
-	size  int
-	next  chan Mergeable
-	count int
-	mu    *sync.Mutex
-	done  chan error
+	queue    []Mergeable
+	size     int
+	nextChan chan Mergeable
+	count    int
+	mu       *sync.Mutex
+	done     chan error
 }
 
 func NewMergePriorityQueue(srcs []Mergeable, numWorkers int) *mergePriorityQueue {
 	mq := &mergePriorityQueue{
-		queue: make([]Mergeable, len(srcs)+1),
-		next:  make(chan Mergeable, len(srcs)),
-		mu:    &sync.Mutex{},
-		done:  make(chan error, 1)}
+		queue:    make([]Mergeable, len(srcs)+1),
+		nextChan: make(chan Mergeable, len(srcs)),
+		mu:       &sync.Mutex{},
+		done:     make(chan error, 1)}
 	for _, src := range srcs {
 		mq.Insert(src)
 	}
 	// Creating goroutines that handle getting the next key/values in a set of streams
 	for i := 0; i < numWorkers; i++ {
 		go func() {
-			for src := range mq.next {
+			for src := range mq.nextChan {
 				if err := src.Next(); err != nil {
 					mq.done <- err
 				}
@@ -1163,7 +1173,7 @@ func (mq *mergePriorityQueue) Insert(src Mergeable) {
 
 func (mq *mergePriorityQueue) Next() ([]byte, [][]byte, error) {
 	if err := <-mq.done; err != nil || mq.size <= 0 {
-		close(mq.next)
+		close(mq.nextChan)
 		return nil, nil, err
 	}
 	// Get next streams to be merged
@@ -1179,7 +1189,7 @@ func (mq *mergePriorityQueue) Next() ([]byte, [][]byte, error) {
 	// Create value slice, and request next key/value in streams
 	for _, src := range srcs {
 		vs = append(vs, src.V())
-		mq.next <- src
+		mq.nextChan <- src
 	}
 	return k, vs, nil
 }
