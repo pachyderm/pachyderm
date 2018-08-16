@@ -1210,9 +1210,11 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 func (w *putFileWriteCloser) Close() (retErr error) {
 	defer w.c.mu.Unlock()
 	if w.c.oneoff {
-		if err := w.c.Close(); err != nil && retErr == nil {
-			retErr = grpcutil.ScrubGRPC(err)
-		}
+		defer func() {
+			if err := w.c.Close(); err != nil && retErr == nil {
+				retErr = grpcutil.ScrubGRPC(err)
+			}
+		}()
 	}
 	// we always send at least one request, otherwise it's impossible to create
 	// an empty file
