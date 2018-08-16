@@ -49,7 +49,10 @@ const (
 	groupsPrefix              = "/groups"
 	configPrefix              = "/config"
 
-	defaultTokenTTLSecs    = 30 * 24 * 60 * 60 // 30 days
+	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
+
+	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
+	// GetAuthenticationCode
 	defaultAuthCodeTTLSecs = 30
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
@@ -1983,7 +1986,4 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 		return nil, err
 	}
 	return &authclient.SetConfigurationResponse{}, nil
-}
-
-func TestAuthenticationCode(t *testing.T) {
 }
