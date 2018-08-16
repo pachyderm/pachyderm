@@ -88,8 +88,8 @@ type apiServer struct {
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // guard 'adminCache'
 
-	configCache *authclient.AuthConfig // cache of auth config in etcd
-	configMu    sync.Mutex             // guard 'configCache'
+	configCache authclient.AuthConfig // cache of auth config in etcd
+	configMu    sync.Mutex            // guard 'configCache'
 
 	// tokens is a collection of hashedToken -> User mappings. These tokens are
 	// returned to users by Authenticate()
@@ -364,7 +364,7 @@ func (a *apiServer) watchConfig() {
 				ev.Unmarshal(&key, &configProto)
 				switch ev.Type {
 				case watch.EventPut:
-					a.configCache = &configProto
+					a.configCache = configProto
 				case watch.EventDelete:
 					a.configCache.Reset()
 				case watch.EventError:
