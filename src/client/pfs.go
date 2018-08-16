@@ -836,12 +836,19 @@ func (c *putFileClient) PutFileSplit(repoName string, commitID string, path stri
 // PutFileURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
 // recursive allow for recursive scraping of some types URLs for example on s3:// urls.
-func (c *putFileClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) error {
+func (c *putFileClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) (retErr error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var overwriteIndex *pfs.OverwriteIndex
 	if overwrite {
 		overwriteIndex = &pfs.OverwriteIndex{0}
+	}
+	if c.oneoff {
+		defer func() {
+			if err := grpcutil.ScrubGRPC(c.Close()); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
 	}
 	if err := c.c.Send(&pfs.PutFileRequest{
 		File:           NewFile(repoName, commitID, path),
@@ -850,9 +857,6 @@ func (c *putFileClient) PutFileURL(repoName string, commitID string, path string
 		OverwriteIndex: overwriteIndex,
 	}); err != nil {
 		return grpcutil.ScrubGRPC(err)
-	}
-	if c.oneoff {
-		return grpcutil.ScrubGRPC(c.Close())
 	}
 	return nil
 }
@@ -1203,17 +1207,17 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 	return bytesWritten, nil
 }
 
-func (w *putFileWriteCloser) Close() error {
+func (w *putFileWriteCloser) Close() (retErr error) {
 	defer w.c.mu.Unlock()
+	if w.c.oneoff {
+		if err := w.c.Close(); err != nil && retErr == nil {
+			retErr = grpcutil.ScrubGRPC(err)
+		}
+	}
 	// we always send at least one request, otherwise it's impossible to create
 	// an empty file
 	if !w.sent {
 		if err := w.c.c.Send(w.request); err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-	}
-	if w.c.oneoff {
-		if err := w.c.Close(); err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 	}
