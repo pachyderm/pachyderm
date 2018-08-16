@@ -12,10 +12,8 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"regexp"
 )
@@ -38,11 +36,14 @@ func main() {
 	re := regexp.MustCompile(flag.Args()[0])
 
 	// Read through input looking for match
-	prefix := &bytes.Buffer{}
 	s := bufio.NewScanner(os.Stdin)
+	exit := -1
 	for s.Scan() {
-		prefix.Write(s.Bytes())
-		prefix.Write([]byte{'\n'})
+		os.Stdout.Write(s.Bytes())
+		os.Stdout.Write([]byte{'\n'})
+		if exit >= 0 {
+			continue
+		}
 		switch {
 		case !re.Match(s.Bytes()): // No match, continue
 		case *invert: // Failure -- matched with -v
@@ -52,14 +53,13 @@ func main() {
 				flag.Args()[0],
 				s.Text(),
 			)
-			io.Copy(os.Stderr, prefix)
-			io.Copy(os.Stderr, os.Stdin)
-			os.Exit(1)
+			exit = 1
 		default: // Success, match -- copy input to output
-			io.Copy(os.Stdout, prefix)
-			io.Copy(os.Stdout, os.Stdin)
-			os.Exit(0)
+			exit = 0
 		}
+	}
+	if exit >= 0 {
+		os.Exit(0)
 	}
 	if !*invert {
 		// Failure -- no match
@@ -68,9 +68,7 @@ func main() {
 			"failed to find\n  \"%s\"\nin the text:\n",
 			flag.Args()[0],
 		)
-		io.Copy(os.Stderr, prefix)
 		os.Exit(1)
 	}
 	// Success -- no match with -v
-	io.Copy(os.Stdout, prefix)
 }
