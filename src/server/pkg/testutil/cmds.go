@@ -3,7 +3,6 @@ package testutil
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -60,7 +59,6 @@ func dedent(cmd string) string {
 			return cmd // no common prefix--break early
 		}
 	}
-	fmt.Printf("(dedentedCmd)---\n%s---\n", dedentedCmd.String())
 	return dedentedCmd.String()
 }
 
@@ -82,7 +80,6 @@ func Cmd(name string, args ...string) *exec.Cmd {
 // 1. Performs a Go template substitution on 'cmd' using the strings in 'subs'
 // 2. Ruturns a command that runs the result string from 1 as a Bash script
 func BashCmd(cmd string, subs ...string) *TestCmd {
-	fmt.Printf(">>> %s\n", cmd)
 	if len(subs)%2 == 1 {
 		panic("some variable does not have a corresponding value")
 	}

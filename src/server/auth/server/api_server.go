@@ -1810,7 +1810,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	if a.configCache.LiveConfigVersion < currentConfig.LiveConfigVersion {
-		logrus.Println("current config (v.%d) is newer than cache (v.%d); updating cache",
+		logrus.Printf("current config (v.%d) is newer than cache (v.%d); updating cache",
 			currentConfig.LiveConfigVersion, a.configCache.LiveConfigVersion)
 		a.configCache = currentConfig
 	} else if a.configCache.LiveConfigVersion > currentConfig.LiveConfigVersion {
