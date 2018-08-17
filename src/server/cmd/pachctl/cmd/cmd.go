@@ -320,6 +320,7 @@ This resets the cluster to its initial state.`,
 		}),
 	}
 	var port int
+	var samlPort int
 	var uiPort int
 	var uiWebsocketPort int
 	var kubeCtlFlags string
@@ -366,6 +367,21 @@ kubectl %s port-forward "$pod" %d:650
 			})
 
 			eg.Go(func() error {
+				fmt.Println("Forwarding the SAML ACS port...")
+				stdin := strings.NewReader(fmt.Sprintf(`
+pod=$(kubectl %s get pod -l suite=pachyderm,app=pachd  --output='jsonpath={.items[0].metadata.name}')
+kubectl %s port-forward "$pod" %d:654
+`, kubeCtlFlags, kubeCtlFlags, samlPort))
+				if err := cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh"); err != nil {
+					return fmt.Errorf("Could not forward Pachd port")
+				}
+				return nil
+			})
+
+			eg.Go(func() error {
 				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %s get pod -l app=dash --output='jsonpath={.items[0].metadata.name}')
 kubectl %s port-forward "$pod" %d:8080
@@ -373,7 +389,8 @@ kubectl %s port-forward "$pod" %d:8080
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
-					return fmt.Errorf("Could not forward dash websocket port")
+					fmt.Printf("Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
+					return fmt.Errorf("Could not forward dash UI port")
 				}
 				return nil
 			})
@@ -387,8 +404,7 @@ kubectl %v port-forward "$pod" %d:8081
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
-					fmt.Printf("Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
-					return fmt.Errorf("Could not forward dash UI port")
+					return fmt.Errorf("Could not forward dash websocket port")
 				}
 				return nil
 			})
@@ -399,9 +415,10 @@ kubectl %v port-forward "$pod" %d:8081
 			return eg.Wait()
 		}),
 	}
-	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind to.")
+	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
+	portForward.Flags().IntVar(&samlPort, "saml-port", 30654, "The local port to bind pachd's SAML ACS to.")
+	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
+	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
 

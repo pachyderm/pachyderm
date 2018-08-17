@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-github/github"
 	logrus "github.com/sirupsen/logrus"
@@ -65,6 +66,9 @@ const (
 	// auth configuration. This is the only key in that collection (due to
 	// implemenation details of our config library, we can't use an empty key)
 	configKey = "x"
+
+	// SamlPort is the port where SAML ID Providers can send auth assertions
+	SamlPort = 654
 )
 
 // githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
@@ -96,6 +100,9 @@ type apiServer struct {
 	configCache authclient.AuthConfig // cache of auth config in etcd
 	configMu    sync.Mutex            // guard 'configCache'
 
+	samlSP   *saml.ServiceProvider // object for parsing saml responses
+	samlSPMu sync.Mutex            // guard 'samlSP'
+
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
 	tokens col.Collection
@@ -118,6 +125,13 @@ type apiServer struct {
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
 	ppsToken string
+
+	// public addresses the fact that pachd in full mode initializes two auth
+	// servers: one that exposes a public API, possibly over TLS, and one that
+	// exposes a private API, for internal services. Only the public-facing auth
+	// service should export the SAML ACS and Metadata services, so if public
+	// is true and auth is active, this may export those SAML services
+	public bool
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -155,7 +169,7 @@ func (a *apiServer) getPachClient() *client.APIClient {
 }
 
 // NewAuthServer returns an implementation of authclient.APIServer.
-func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
+func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, public bool) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.DefaultDialOptions(),
@@ -225,10 +239,16 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			nil,
 		),
+		public: public,
 	}
+	go s.retrieveOrGeneratePPSToken()
 	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
-	go s.retrieveOrGeneratePPSToken()
+
+	// Watch config for new SAML options, and start SAML service (won't respond to
+	// anything until config is set)
+	go s.watchConfig()
+	go s.serveSAML()
 	return s, nil
 }
 
@@ -386,6 +406,9 @@ func (a *apiServer) watchConfig() {
 					a.configCache.Reset()
 				case watch.EventError:
 					return ev.Err
+				}
+				if err := a.updateSAMLSP(); err != nil {
+					logrus.Warnf("could not update SAML service with new config: %v", err)
 				}
 				return nil // unlock mu
 			}(); err != nil {
