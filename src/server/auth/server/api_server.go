@@ -870,6 +870,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 }
 
 func (a *apiServer) GetAuthenticationCode(ctx context.Context, req *authclient.GetAuthenticationCodeRequest) (resp *authclient.GetAuthenticationCodeResponse, retErr error) {
+	// We don't want to actually log the request/response since they contain
+	// credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {
 	case none:
 		// PPS is authenticated by a token read from etcd. It never calls or needs
@@ -879,9 +882,6 @@ func (a *apiServer) GetAuthenticationCode(ctx context.Context, req *authclient.G
 	case partial:
 		return nil, authclient.ErrPartiallyActivated
 	}
-	// We don't want to actually log the request/response since they contain
-	// credentials.
-	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
