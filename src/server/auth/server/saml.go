@@ -135,7 +135,7 @@ func (a *apiServer) updateSAMLSP() error {
 			idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
 			idpConfigMsg := string(idpConfigAsJSON)
 			if err != nil {
-				idpConfigMsg = fmt.Sprint("(could not marshal config json: %v)", err)
+				idpConfigMsg = fmt.Sprintf("(could not marshal config json: %v)", err)
 			}
 			return fmt.Errorf("unrecognized ID provider: %v", idpConfigMsg)
 		}

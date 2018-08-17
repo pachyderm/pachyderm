@@ -6,8 +6,14 @@ package server
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/xml"
 	"errors"
 	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +21,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
+	"github.com/crewjam/saml"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -1660,4 +1667,136 @@ func TestGetEmptyConfig(t *testing.T) {
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 1 // increment version
 	require.Equal(t, conf, configResp.Configuration)
+}
+
+func TestSAMLBasic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	// Guess Pachyderm's SAML service address based on client address
+	host, portStr, err := net.SplitHostPort(adminClient.GetAddress())
+	require.NoError(t, err)
+	port, err := strconv.Atoi(portStr)
+	require.NoError(t, err)
+	samlPort := strconv.Itoa(port + 4) //  hack: relies on saml service being on :654 and :30654
+	ACSURL := fmt.Sprintf("http://%s/saml/acs", net.JoinHostPort(host, samlPort))
+	MetadataURL := fmt.Sprintf("http://%s/saml/metadata", net.JoinHostPort(host, samlPort))
+
+	// Serve IdP metadata (since our SAML implementation will query the IdP
+	// endpoint as part of handling the SAML response)
+	var server *http.Server
+	var idpMetadataChan chan int
+	go func() {
+		idp := saml.IdentityProvider{}
+		l, err := net.Listen("tcp", "") // pick unused port on all IPs
+		require.NoError(t, err)
+		fmt.Printf(">>> addr: %#v\n", l.Addr())
+		idpMetadataChan <- l.Addr().(*net.TCPAddr).Port
+		server = &http.Server{Handler: http.HandlerFunc(idp.ServeMetadata)}
+		server.Serve(l)
+	}()
+	defer func() {
+		server.Shutdown(context.Background())
+	}()
+	idpMetadataPort := <-idpMetadataChan
+	fmt.Printf(">>> idpMetadataPort: %#v\n", idpMetadataPort)
+
+	// Set a configuration
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+			Configuration: &auth.AuthConfig{
+				LiveConfigVersion: 0,
+				IDProviders: []*auth.IDProvider{
+					{
+						Name:        "idp_1",
+						Description: "fake IdP for testing",
+						SAML: &auth.IDProvider_SAMLOptions{
+							MetadataURL: fmt.Sprintf("http://localhost:%d/", idpMetadataPort),
+						},
+					},
+				},
+				SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+					ACSURL:      ACSURL,
+					MetadataURL: MetadataURL,
+				},
+			},
+		})
+		return err
+	})
+
+	// Send SAML response (simulated IdP) to SAML endpoint & expect redirect
+	// response
+	var resp *http.Response
+	require.NoErrorWithinT(t, 30*time.Second, func() (retErr error) {
+		// Create SAMLResponse & xml writer
+		expires := time.Now().Add(time.Hour)
+		authCred := saml.Response{
+			Issuer: &saml.Issuer{},
+			Status: saml.Status{
+				StatusCode: saml.StatusCode{Value: "urn:oasis:names:tc:SAML:2.0:status:Success"},
+			},
+			Assertion: &saml.Assertion{
+				Issuer: saml.Issuer{Value: "urn:example:idp"},
+				Subject: &saml.Subject{
+					NameID: &saml.NameID{
+						Format: "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
+						Value:  "jane.doe@example.com",
+					},
+					SubjectConfirmations: []saml.SubjectConfirmation{{
+						Method: "urn:oasis:names:tc:SAML:2.0:cm:bearer",
+						SubjectConfirmationData: &saml.SubjectConfirmationData{
+							NotBefore:    time.Now().Add(-1 * time.Hour),
+							NotOnOrAfter: expires,
+							Recipient:    ACSURL,
+						},
+					}},
+				},
+				AuthnStatements: []saml.AuthnStatement{{
+					AuthnInstant:        time.Now(),
+					SessionNotOnOrAfter: &expires,
+					AuthnContext: saml.AuthnContext{
+						AuthnContextClassRef: &saml.AuthnContextClassRef{
+							Value: "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified",
+						},
+					},
+				}},
+			},
+		}
+		buf := bytes.Buffer{}
+		xmlWriter := xml.NewEncoder(base64.NewEncoder(base64.URLEncoding, &buf))
+
+		// begin writing XML data to pipe http request body (via pipe)
+		var writeErr error
+		go func() {
+			writeErr = authCred.MarshalXML(xmlWriter, xml.StartElement{})
+		}()
+		defer func() {
+			if retErr == nil {
+				retErr = writeErr
+			}
+		}()
+		var err error
+		resp, err = http.DefaultClient.Do(&http.Request{
+			Method: "POST",
+			URL: &url.URL{
+				Scheme: "http",
+				Host:   net.JoinHostPort(host, samlPort),
+				Path:   "saml/acs",
+			},
+			PostForm: url.Values{
+				"SAMLResponse": []string{buf.String()},
+				"RelayState":   []string{},
+			},
+		})
+		return err
+	})
+	buf := bytes.Buffer{}
+	buf.ReadFrom(resp.Body)
+	require.Equal(t, http.StatusFound, resp.StatusCode, "response body:\n"+buf.String())
+	redirectLocation, err := resp.Location()
+	require.NoError(t, err)
+	require.Equal(t, "http://localhost:30080", redirectLocation)
 }
