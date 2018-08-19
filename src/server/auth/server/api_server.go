@@ -292,84 +292,84 @@ func (a *apiServer) activationState() activationState {
 // 	return n, err
 // }
 
-func (a *apiServer) serveSaml() {
-	fmt.Printf(">>> About to enter a.serveSamlOnce.Do()\n")
-	a.serveSamlOnce.Do(func() {
-		fmt.Printf(">>> (once) Start SAML ACS\n")
-		fmt.Printf(">>> (once) SAML ACS should now be started\n")
-		sp := saml.ServiceProvider{
-
-			// These need to be set from the config that I'm adding
-			AcsURL: mustParseURL(a.configCache.SAMLServiceOptions.ACSURL),
-			// MetadataURL: /* config value */
-
-			Logger: logrus.New(),
-
-			// Not set:
-			// Key: Private key for Pachyderm ACS. Unclear if needed
-			// Certificate: Public key for Pachyderm ACS. Unclear if needed
-			// ForceAuthn (whether users need to re-authenticate with the IdP, even if
-			//            they already have a session—leaving this false)
-			// AuthnNameIDFormat (format the ACS expects the AuthnName to be in)
-			// MetadataValidDuration (how long the SP endpoints are valid? Returned by
-			//                       the Metadata service)
-		}
-		samlMux := http.NewServeMux()
-		samlMux.HandleFunc("/saml/acs", func(w http.ResponseWriter, req *http.Request) {
-			// stat := statReadCloser{
-			// 	ReadCloser: req.Body,
-			// }
-			// req.Body = &stat
-			out := io.MultiWriter(w, os.Stdout)
-			possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
-			fmt.Printf(">>> req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
-			assertion, err := sp.ParseResponse(req, possibleRequestIDs)
-			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				out.Write([]byte("<html><head></head><body>"))
-				out.Write([]byte("Error parsing SAML response: "))
-				out.Write([]byte(err.Error()))
-				ie := err.(*saml.InvalidResponseError)
-				out.Write([]byte("\nPrivate error: " + ie.PrivateErr.Error()))
-				out.Write([]byte("\n"))
-			}
-			if assertion == nil {
-				w.WriteHeader(http.StatusInternalServerError)
-				out.Write([]byte("<html><head></head><body>"))
-				out.Write([]byte("Nil assertion\n"))
-			}
-			out.Write([]byte("Would've authenticated as:\n"))
-			fmt.Printf(">>> This is a test\n")
-			if assertion != nil {
-				out.Write([]byte(fmt.Sprintf("assertion: %v\n", assertion)))
-				if assertion.Subject != nil {
-					out.Write([]byte(fmt.Sprintf("assertion.Subject: %v\n", assertion.Subject)))
-					if assertion.Subject.NameID != nil {
-						out.Write([]byte(fmt.Sprintf("assertion.Subject.NameID.Value: %v\n", assertion.Subject.NameID.Value)))
-					}
-				}
-				if assertion.Element() != nil {
-					xmlBytes, err := xml.MarshalIndent(assertion.Element(), "", "  ")
-					if err != nil {
-						out.Write([]byte(fmt.Sprintf("could not marshall assertion: %v\n", err)))
-					} else {
-						out.Write([]byte(fmt.Sprintf("<pre>\n%s\n</pre>", xmlBytes)))
-					}
-				} else {
-					out.Write([]byte("assertion.Element() was nil"))
-				}
-			} else {
-				out.Write([]byte("assertion was nil"))
-			}
-			out.Write([]byte("</body></html>"))
-		})
-		samlMux.HandleFunc("/*", func(w http.ResponseWriter, req *http.Request) {
-			fmt.Printf(">>> received request to %s\n", req.URL.Path)
-			w.WriteHeader(http.StatusTeapot)
-		})
-		http.ListenAndServe(fmt.Sprintf(":%d", SamlPort), samlMux)
-	})
-}
+// func (a *apiServer) serveSaml() {
+// 	fmt.Printf(">>> About to enter a.serveSamlOnce.Do()\n")
+// 	a.serveSamlOnce.Do(func() {
+// 		fmt.Printf(">>> (once) Start SAML ACS\n")
+// 		fmt.Printf(">>> (once) SAML ACS should now be started\n")
+// 		sp := saml.ServiceProvider{
+//
+// 			// These need to be set from the config that I'm adding
+// 			AcsURL: mustParseURL(a.configCache.SAMLServiceOptions.ACSURL),
+// 			// MetadataURL: /* config value */
+//
+// 			Logger: logrus.New(),
+//
+// 			// Not set:
+// 			// Key: Private key for Pachyderm ACS. Unclear if needed
+// 			// Certificate: Public key for Pachyderm ACS. Unclear if needed
+// 			// ForceAuthn (whether users need to re-authenticate with the IdP, even if
+// 			//            they already have a session—leaving this false)
+// 			// AuthnNameIDFormat (format the ACS expects the AuthnName to be in)
+// 			// MetadataValidDuration (how long the SP endpoints are valid? Returned by
+// 			//                       the Metadata service)
+// 		}
+// 		samlMux := http.NewServeMux()
+// 		samlMux.HandleFunc("/saml/acs", func(w http.ResponseWriter, req *http.Request) {
+// 			// stat := statReadCloser{
+// 			// 	ReadCloser: req.Body,
+// 			// }
+// 			// req.Body = &stat
+// 			out := io.MultiWriter(w, os.Stdout)
+// 			possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
+// 			fmt.Printf(">>> req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
+// 			assertion, err := sp.ParseResponse(req, possibleRequestIDs)
+// 			if err != nil {
+// 				w.WriteHeader(http.StatusInternalServerError)
+// 				out.Write([]byte("<html><head></head><body>"))
+// 				out.Write([]byte("Error parsing SAML response: "))
+// 				out.Write([]byte(err.Error()))
+// 				ie := err.(*saml.InvalidResponseError)
+// 				out.Write([]byte("\nPrivate error: " + ie.PrivateErr.Error()))
+// 				out.Write([]byte("\n"))
+// 			}
+// 			if assertion == nil {
+// 				w.WriteHeader(http.StatusInternalServerError)
+// 				out.Write([]byte("<html><head></head><body>"))
+// 				out.Write([]byte("Nil assertion\n"))
+// 			}
+// 			out.Write([]byte("Would've authenticated as:\n"))
+// 			fmt.Printf(">>> This is a test\n")
+// 			if assertion != nil {
+// 				out.Write([]byte(fmt.Sprintf("assertion: %v\n", assertion)))
+// 				if assertion.Subject != nil {
+// 					out.Write([]byte(fmt.Sprintf("assertion.Subject: %v\n", assertion.Subject)))
+// 					if assertion.Subject.NameID != nil {
+// 						out.Write([]byte(fmt.Sprintf("assertion.Subject.NameID.Value: %v\n", assertion.Subject.NameID.Value)))
+// 					}
+// 				}
+// 				if assertion.Element() != nil {
+// 					xmlBytes, err := xml.MarshalIndent(assertion.Element(), "", "  ")
+// 					if err != nil {
+// 						out.Write([]byte(fmt.Sprintf("could not marshall assertion: %v\n", err)))
+// 					} else {
+// 						out.Write([]byte(fmt.Sprintf("<pre>\n%s\n</pre>", xmlBytes)))
+// 					}
+// 				} else {
+// 					out.Write([]byte("assertion.Element() was nil"))
+// 				}
+// 			} else {
+// 				out.Write([]byte("assertion was nil"))
+// 			}
+// 			out.Write([]byte("</body></html>"))
+// 		})
+// 		samlMux.HandleFunc("/*", func(w http.ResponseWriter, req *http.Request) {
+// 			fmt.Printf(">>> received request to %s\n", req.URL.Path)
+// 			w.WriteHeader(http.StatusTeapot)
+// 		})
+// 		http.ListenAndServe(fmt.Sprintf(":%d", SamlPort), samlMux)
+// 	})
+// }
 
 // Retrieve the PPS master token, or generate it and put it in etcd.
 // TODO This is a hack. It avoids the need to return superuser tokens from

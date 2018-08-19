@@ -19,6 +19,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
 
+import ( /*>>>*/
+	"github.com/beevik/etree" /*>>>*/
+) /*>>>*/
+
 func validateConfig() error {
 	// TODO - take the validation stuff below (that's called by watchConfig) and move it in here (called by setConfig
 	return nil
@@ -207,64 +211,6 @@ func (a *apiServer) updateSAMLSP() error {
 	return nil
 }
 
-// func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
-// 	a.samlSPMu.Lock()
-// 	defer a.samlSPMu.Unlock()
-// 	if a.samlSP == nil {
-// 		fmt.Printf(">>> (apiServer.handleSAMLResponse) samlSP is nil\n")
-// 		http.Error(w, "SAML ACS has not been configured", http.StatusConflict)
-// 		return
-// 	}
-// 	sp := a.samlSP
-//
-// 	// stat := statReadCloser{
-// 	// 	ReadCloser: req.Body,
-// 	// }
-// 	// req.Body = &stat
-// 	out := io.MultiWriter(w, os.Stdout)
-// 	possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
-// 	fmt.Printf(">>> (apiServer.handleSAMLResponse) req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
-// 	assertion, err := sp.ParseResponse(req, possibleRequestIDs)
-// 	if err != nil {
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		out.Write([]byte("<html><head></head><body>"))
-// 		out.Write([]byte("Error parsing SAML response: "))
-// 		out.Write([]byte(err.Error()))
-// 		ie := err.(*saml.InvalidResponseError)
-// 		out.Write([]byte("\nPrivate error: " + ie.PrivateErr.Error()))
-// 		out.Write([]byte("\n"))
-// 	}
-// 	if assertion == nil {
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		out.Write([]byte("<html><head></head><body>"))
-// 		out.Write([]byte("Nil assertion\n"))
-// 	}
-// 	out.Write([]byte("Would've authenticated as:\n"))
-// 	fmt.Printf(">>> (apiServer.handleSAMLResponse) This is a test\n")
-// 	if assertion != nil {
-// 		out.Write([]byte(fmt.Sprintf("assertion: %v\n", assertion)))
-// 		if assertion.Subject != nil {
-// 			out.Write([]byte(fmt.Sprintf("assertion.Subject: %v\n", assertion.Subject)))
-// 			if assertion.Subject.NameID != nil {
-// 				out.Write([]byte(fmt.Sprintf("assertion.Subject.NameID.Value: %v\n", assertion.Subject.NameID.Value)))
-// 			}
-// 		}
-// 		if assertion.Element() != nil {
-// 			xmlBytes, err := xml.MarshalIndent(assertion.Element(), "", "  ")
-// 			if err != nil {
-// 				out.Write([]byte(fmt.Sprintf("could not marshall assertion: %v\n", err)))
-// 			} else {
-// 				out.Write([]byte(fmt.Sprintf("<pre>\n%s\n</pre>", xmlBytes)))
-// 			}
-// 		} else {
-// 			out.Write([]byte("assertion.Element() was nil"))
-// 		}
-// 	} else {
-// 		out.Write([]byte("assertion was nil"))
-// 	}
-// 	out.Write([]byte("</body></html>"))
-// }
-
 func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
@@ -294,7 +240,7 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 			out.Write([]byte("Error parsing SAML response: "))
 			out.Write([]byte(err.Error()))
 			if invalidRespErr, ok := err.(*saml.InvalidResponseError); ok {
-				out.Write([]byte("\nPrivate error: " + invalidRespErr.PrivateErr.Error()))
+				out.Write([]byte("\n(" + invalidRespErr.PrivateErr.Error() + ")"))
 			}
 		case assertion == nil:
 			out.Write([]byte("Error parsing SAML response: assertion is nil"))
@@ -311,10 +257,58 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 		out.Write([]byte("\n</body></html>"))
 		return
 	}
+	func() {
+		d := etree.NewDocument()
+		d.Element = *assertion.Element()
+		xml, err := d.WriteToString()
+		if err != nil {
+			fmt.Printf(">>> could not marshall assertion: %v\n", err)
+		} else {
+			fmt.Printf(">>> assertion: %s\n", string(xml))
+		}
+	}()
 
 	// Print debug info for when we're adding groups
 	for _, attribute := range assertion.AttributeStatements {
-		fmt.Printf(">>> attribute statement: %v\n", attribute.Element())
+		d := etree.NewDocument()
+		if attribute.Element().Parent() != nil {
+			d.Element = *attribute.Element().Parent()
+			xml, err := d.WriteToString()
+			if err != nil {
+				fmt.Printf(">>> could not marshall attribute statement parent: %v\n", err)
+			} else {
+				fmt.Printf(">>> attribute statement parent: %s\n", string(xml))
+			}
+		} else {
+			fmt.Printf(">>> could not marshall attribute statement parent: nil\n")
+		}
+		d.Element = *attribute.Element()
+		xml, err := d.WriteToString()
+		if err != nil {
+			fmt.Printf(">>> could not marshall attribute statement: %v\n", err)
+		} else {
+			fmt.Printf(">>> attribute statement: %s\n", string(xml))
+		}
+		for _, attr := range attribute.Attributes {
+			d := etree.NewDocument()
+			d.Element = *attr.Element()
+			xml, err := d.WriteToString()
+			if err != nil {
+				fmt.Printf(">>> could not marshall attribute: %v\n", err)
+			} else {
+				fmt.Printf(">>> attribute: %s\n", string(xml))
+			}
+			if attr.Name != "memberOf" {
+				continue
+			}
+			var groups []string
+			for _, v := range attr.Values {
+				groups = append(groups, v.Value)
+			}
+			// TODO maek this internal and call it
+			fmt.Printf(">>> a.SetGroupsForUser(ctx, %#v)", groups)
+			// a.SetGroupsForUser(context.Background
+		}
 		// attribute.Attributes[0].
 	}
 
