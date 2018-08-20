@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -554,7 +555,7 @@ func (c APIClient) PutObject(_r io.Reader, tags ...string) (object *pfs.Object, 
 // be able to resume upload.
 func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64, retErr error) {
 	r := grpcutil.ReaderWrapper{_r}
-	w, err := c.newPutObjectSplitWriteCloser()
+	w, err := bufio.NewWriterSize(c.newPutObjectSplitWriteCloser(), grpcutil.MaxMsgSize/2)
 	if err != nil {
 		return nil, 0, grpcutil.ScrubGRPC(err)
 	}
