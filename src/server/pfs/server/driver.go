@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/http"
+	"net/url"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -28,10 +30,12 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/sirupsen/logrus"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -1830,22 +1834,22 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	return path.Join(split[4:]...)
 }
 
-func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, reader io.Reader) error {
-	pachClient := d.getPachClient(ctx)
-	ctx = pachClient.Ctx()
-	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+func (d *driver) putFiles(s *putFileServer) error {
+	ctx := s.Context()
+	req, err := s.Peek()
+	if err != nil {
 		return err
 	}
+	commit := req.File.Commit
 	// oneOff is true if we're creating the commit as part of this put-file
 	oneOff := false
 	// inspectCommit will replace file.Commit.ID with an actual commit ID if
 	// it's a branch. So we want to save it first.
 	branch := ""
-	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
-		branch = file.Commit.ID
+	if !uuid.IsUUIDWithoutDashes(commit.ID) {
+		branch = commit.ID
 	}
-	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
+	commitInfo, err := d.inspectCommit(ctx, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
 			return err
@@ -1854,23 +1858,64 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	}
 	if commitInfo != nil && commitInfo.Finished != nil {
 		if branch == "" {
-			return pfsserver.ErrCommitFinished{file.Commit}
+			return pfsserver.ErrCommitFinished{commit}
 		}
 		oneOff = true
 	}
 
+	var files []*pfs.File
+	var putFilePaths []string
+	var putFileRecords []*pfs.PutFileRecords
+	var mu sync.Mutex
+	if err := forEachPutFile(s, func(req *pfs.PutFileRequest, r io.Reader) error {
+		records, err := d.putFile(ctx, req.File, req.Delimiter, req.TargetFileDatums, req.TargetFileBytes, req.OverwriteIndex, r)
+		if err != nil {
+			return err
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		files = append(files, req.File)
+		putFilePaths = append(putFilePaths, req.File.Path)
+		putFileRecords = append(putFileRecords, records)
+		return nil
+	}); err != nil {
+		return err
+	}
+	if oneOff {
+		// oneOff puts only work on branches, so we know branch != "". We pass
+		// a commit with no ID, that ID will be filled in with the head of
+		// branch (if it exists).
+		_, err := d.makeCommit(ctx, "", client.NewCommit(commit.Repo.Name, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
+		return err
+	}
+	for i, file := range files {
+		if err := d.upsertPutFileRecords(ctx, file, putFileRecords[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
+	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex,
+	reader io.Reader) (*pfs.PutFileRecords, error) {
+	pachClient := d.getPachClient(ctx)
+	ctx = pachClient.Ctx()
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+		return nil, err
+	}
 	records := &pfs.PutFileRecords{}
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
 	}
 	if err := hashtree.ValidatePath(file.Path); err != nil {
-		return err
+		return nil, err
 	}
 
 	if delimiter == pfs.Delimiter_NONE {
 		objects, size, err := pachClient.PutObjectSplit(reader)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// Here we use the invariant that every one but the last object
@@ -1918,13 +1963,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
 			default:
-				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
+				return nil, fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
 			if err != nil {
 				if err == io.EOF {
 					EOF = true
 				} else {
-					return err
+					return nil, err
 				}
 			}
 			buffer.Write(value)
@@ -1959,7 +2004,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			}
 		}
 		if err := eg.Wait(); err != nil {
-			return err
+			return nil, err
 		}
 
 		records.Split = true
@@ -1967,15 +2012,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, indexToRecord[i])
 		}
 	}
-
-	if oneOff {
-		// oneOff puts only work on branches, so we know branch != "". We pass
-		// a commit with no ID, that ID will be filled in with the head of
-		// branch (if it exists).
-		_, err := d.makeCommit(ctx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{records}, "")
-		return err
-	}
-	return d.upsertPutFileRecords(ctx, file, records)
+	return records, nil
 }
 
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
@@ -2635,4 +2672,198 @@ func (b *branchSet) has(branch *pfs.Branch) bool {
 
 func has(bs *[]*pfs.Branch, branch *pfs.Branch) bool {
 	return (*branchSet)(bs).has(branch)
+}
+
+type putFileReader struct {
+	server pfs.API_PutFileServer
+	buffer *bytes.Buffer
+	// request is the request that contains the File and other meaningful
+	// information
+	request *pfs.PutFileRequest
+}
+
+func newPutFileReader(server pfs.API_PutFileServer) (*putFileReader, error) {
+	result := &putFileReader{
+		server: server,
+		buffer: &bytes.Buffer{}}
+	if _, err := result.Read(nil); err != nil && err != io.EOF {
+		return nil, err
+	}
+	if result.request == nil {
+		return nil, io.EOF
+	}
+	return result, nil
+}
+
+func (r *putFileReader) Read(p []byte) (int, error) {
+	eof := false
+	if r.buffer.Len() == 0 {
+		request, err := r.server.Recv()
+		if err != nil {
+			if err == io.EOF {
+				r.request = nil
+			}
+			return 0, err
+		}
+		//buffer.Write cannot error
+		r.buffer = bytes.NewBuffer(request.Value)
+		if request.File != nil {
+			eof = true
+			r.request = request
+		}
+	}
+	if eof {
+		return 0, io.EOF
+	}
+	return r.buffer.Read(p)
+}
+
+type putFileServer struct {
+	pfs.API_PutFileServer
+	req *pfs.PutFileRequest
+}
+
+func newPutFileServer(s pfs.API_PutFileServer) *putFileServer {
+	return &putFileServer{API_PutFileServer: s}
+}
+
+func (s *putFileServer) Recv() (*pfs.PutFileRequest, error) {
+	if s.req != nil {
+		req := s.req
+		s.req = nil
+		return req, nil
+	}
+	return s.API_PutFileServer.Recv()
+}
+
+func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
+	if s.req != nil {
+		return s.req, nil
+	}
+	req, err := s.Recv()
+	if err != nil {
+		return nil, err
+	}
+	s.req = req
+	return req, nil
+}
+
+func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) error {
+	limiter := limit.New(client.DefaultMaxConcurrentStreams)
+	var pr *io.PipeReader
+	var pw *io.PipeWriter
+	var req *pfs.PutFileRequest
+	var err error
+	var eg errgroup.Group
+	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
+		req := req
+		if req.File != nil {
+			if req.Url != "" {
+				url, err := url.Parse(req.Url)
+				if err != nil {
+					return err
+				}
+				switch url.Scheme {
+				case "http":
+					fallthrough
+				case "https":
+					resp, err := http.Get(req.Url)
+					if err != nil {
+						return err
+					}
+					limiter.Acquire()
+					eg.Go(func() (retErr error) {
+						defer limiter.Release()
+						defer func() {
+							if err := resp.Body.Close(); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+						return f(req, resp.Body)
+					})
+				default:
+					url, err := obj.ParseURL(req.Url)
+					if err != nil {
+						return fmt.Errorf("error parsing url %v: %v", req.Url, err)
+					}
+					objClient, err := obj.NewClientFromURLAndSecret(server.Context(), url)
+					if err != nil {
+						return err
+					}
+					if req.Recursive {
+						path := strings.TrimPrefix(url.Object, "/")
+						if err := objClient.Walk(path, func(name string) error {
+							if strings.HasSuffix(name, "/") {
+								// Creating a file with a "/" suffix breaks
+								// pfs' directory model, so we don't
+								logrus.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
+							}
+							req := *req // copy req so we can make changes
+							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
+							r, err := objClient.Reader(name, 0, 0)
+							if err != nil {
+								return err
+							}
+							limiter.Acquire()
+							eg.Go(func() (retErr error) {
+								defer limiter.Release()
+								defer func() {
+									if err := r.Close(); err != nil && retErr == nil {
+										retErr = err
+									}
+								}()
+								return f(&req, r)
+							})
+							return nil
+						}); err != nil {
+							return err
+						}
+					} else {
+						r, err := objClient.Reader(url.Object, 0, 0)
+						if err != nil {
+							return err
+						}
+						limiter.Acquire()
+						eg.Go(func() (retErr error) {
+							defer limiter.Release()
+							defer func() {
+								if err := r.Close(); err != nil && retErr == nil {
+									retErr = err
+								}
+							}()
+							return f(req, r)
+						})
+					}
+				}
+				continue
+			}
+			// Close the previous put-file if there is one
+			if pw != nil {
+				pw.Close() // can't error
+			}
+			pr, pw = io.Pipe()
+			pr := pr
+			limiter.Acquire()
+			eg.Go(func() error {
+				defer limiter.Release()
+				if err := f(req, pr); err != nil {
+					// needed so the parent goroutine doesn't block
+					pr.CloseWithError(err)
+					return err
+				}
+				return nil
+			})
+		}
+		if _, err := pw.Write(req.Value); err != nil {
+			return err
+		}
+	}
+	if pw != nil {
+		// This may pass io.EOF to CloseWithError but that's equivalent to simply calling Close()
+		pw.CloseWithError(err) // can't error
+	}
+	if err != io.EOF {
+		return err
+	}
+	return eg.Wait()
 }

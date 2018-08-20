@@ -3271,63 +3271,6 @@ func testGetLogs(t *testing.T, enableStats bool) {
 	require.NoError(t, iter.Err())
 }
 
-func TestPfsPutFile(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	// create repos
-	repo1 := tu.UniqueString("TestPfsPutFile1")
-	require.NoError(t, c.CreateRepo(repo1))
-	repo2 := tu.UniqueString("TestPfsPutFile2")
-	require.NoError(t, c.CreateRepo(repo2))
-
-	commit1, err := c.StartCommit(repo1, "")
-	require.NoError(t, err)
-	_, err = c.PutFile(repo1, commit1.ID, "file1", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	_, err = c.PutFile(repo1, commit1.ID, "file2", strings.NewReader("bar\n"))
-	require.NoError(t, err)
-	_, err = c.PutFile(repo1, commit1.ID, "dir1/file3", strings.NewReader("fizz\n"))
-	require.NoError(t, err)
-	for i := 0; i < 100; i++ {
-		_, err = c.PutFile(repo1, commit1.ID, fmt.Sprintf("dir1/dir2/file%d", i), strings.NewReader(fmt.Sprintf("content%d\n", i)))
-		require.NoError(t, err)
-	}
-	require.NoError(t, c.FinishCommit(repo1, commit1.ID))
-
-	commit2, err := c.StartCommit(repo2, "")
-	require.NoError(t, err)
-	err = c.PutFileURL(repo2, commit2.ID, "file", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s/file1", repo1, commit1.ID), false, false)
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(repo2, commit2.ID))
-	var buf bytes.Buffer
-	require.NoError(t, c.GetFile(repo2, commit2.ID, "file", 0, 0, &buf))
-	require.Equal(t, "foo\n", buf.String())
-
-	commit3, err := c.StartCommit(repo2, "")
-	require.NoError(t, err)
-	err = c.PutFileURL(repo2, commit3.ID, "", fmt.Sprintf("pfs://0.0.0.0:650/%s/%s", repo1, commit1.ID), true, false)
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(repo2, commit3.ID))
-	buf = bytes.Buffer{}
-	require.NoError(t, c.GetFile(repo2, commit3.ID, "file1", 0, 0, &buf))
-	require.Equal(t, "foo\n", buf.String())
-	buf = bytes.Buffer{}
-	require.NoError(t, c.GetFile(repo2, commit3.ID, "file2", 0, 0, &buf))
-	require.Equal(t, "bar\n", buf.String())
-	buf = bytes.Buffer{}
-	require.NoError(t, c.GetFile(repo2, commit3.ID, "dir1/file3", 0, 0, &buf))
-	require.Equal(t, "fizz\n", buf.String())
-	for i := 0; i < 100; i++ {
-		buf = bytes.Buffer{}
-		require.NoError(t, c.GetFile(repo2, commit3.ID, fmt.Sprintf("dir1/dir2/file%d", i), 0, 0, &buf))
-		require.Equal(t, fmt.Sprintf("content%d\n", i), buf.String())
-	}
-}
-
 func TestAllDatumsAreProcessed(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

@@ -599,7 +599,7 @@ $ pachctl set-branch foo test master` + codeend,
 	var filePaths []string
 	var recursive bool
 	var inputFile string
-	var parallelism uint
+	var parallelism int
 	var split string
 	var targetFileDatums uint
 	var targetFileBytes uint
@@ -654,16 +654,25 @@ negligible, but if you are putting a large number of small files, you might
 want to consider using commit IDs directly.
 `,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			cli, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
+			c, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
+			pfc, err := c.NewPutFileClient()
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := pfc.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 			repoName := args[0]
 			branch := args[1]
 			var path string
 			if len(args) == 3 {
 				path = args[2]
-				if _, err := url.Parse(path); err == nil {
+				if url, err := url.Parse(path); err == nil && url.Scheme != "" {
 					fmt.Fprintf(os.Stderr, "warning: PFS destination \"%s\" looks like a URL; did you mean -f %s?\n", path, path)
 				}
 			}
@@ -724,19 +733,19 @@ want to consider using commit IDs directly.
 						return fmt.Errorf("must specify filename when reading data from stdin")
 					}
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
 					})
 				}
 			}
@@ -746,7 +755,7 @@ want to consider using commit IDs directly.
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
+	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
@@ -795,7 +804,7 @@ $ pachctl get-file foo master^2 XXX
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
-				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, false, int(parallelism), nil, "")
+				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, false, parallelism, nil, "")
 			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
@@ -814,7 +823,7 @@ $ pachctl get-file foo master^2 XXX
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
-	getFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
+	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -1152,7 +1161,7 @@ func parseCommits(args []string) (map[string]string, error) {
 	return result, nil
 }
 
-func putFileHelper(client *client.APIClient, repo, commit, path, source string,
+func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, path, source string,
 	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
 	targetFileDatums uint, targetFileBytes uint, filesPut *gosync.Map) (retErr error) {
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
@@ -1163,15 +1172,9 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
 			if overwrite {
-				return sync.PushFile(client, &pfsclient.File{
-					Commit: &pfsclient.Commit{
-						Repo: &pfsclient.Repo{repo},
-						ID:   commit,
-					},
-					Path: path,
-				}, reader)
+				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
 			}
-			_, err := client.PutFile(repo, commit, path, reader)
+			_, err := pfc.PutFile(repo, commit, path, reader)
 			return err
 		}
 
@@ -1184,7 +1187,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 		default:
 			return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json' or 'line'", split)
 		}
-		_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader)
+		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader)
 		return err
 	}
 
@@ -1201,7 +1204,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
 		limiter.Acquire()
 		defer limiter.Release()
-		return client.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
+		return pfc.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
 	}
 	if recursive {
 		var eg errgroup.Group
@@ -1214,7 +1217,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+				return putFileHelper(c, pfc, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
 			})
 			return nil
 		}); err != nil {

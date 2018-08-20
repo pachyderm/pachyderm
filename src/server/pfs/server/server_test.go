@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -2217,7 +2218,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit1,
 		Path:   "file",
 	}, strings.NewReader(content1)))
@@ -2231,7 +2232,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit2,
 		Path:   "file",
 	}, strings.NewReader(content2)))
@@ -2245,7 +2246,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit3,
 		Path:   "file",
 	}, strings.NewReader(content3)))
@@ -4233,4 +4234,111 @@ func TestReadSizeLimited(t *testing.T) {
 	b.Reset()
 	require.NoError(t, c.GetFile("test", "master", "file", 2*MB, 2*MB, &b))
 	require.Equal(t, 2*MB, b.Len())
+}
+
+func TestPutFiles(t *testing.T) {
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	paths := []string{"foo", "bar", "fizz", "buzz"}
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File:  pclient.NewFile("repo", "master", path),
+			Value: []byte(path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
+		require.Equal(t, path, b.String())
+	}
+}
+
+func TestPutFilesURL(t *testing.T) {
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	paths := []string{"README.md", "CHANGELOG.md", "CONTRIBUTING.md"}
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File: pclient.NewFile("repo", "master", path),
+			Url:  fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/%s", path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		fileInfo, err := c.InspectFile("repo", "master", path)
+		require.NoError(t, err)
+		require.True(t, fileInfo.SizeBytes > 0)
+	}
+}
+
+func writeObj(t *testing.T, c obj.Client, path, content string) {
+	w, err := c.Writer(path)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, w.Close())
+	}()
+	_, err = w.Write([]byte(content))
+	require.NoError(t, err)
+}
+
+func TestPutFilesObjURL(t *testing.T) {
+	paths := []string{"files/foo", "files/bar", "files/fizz"}
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	objC, err := obj.NewLocalClient(wd)
+	require.NoError(t, err)
+	for _, path := range paths {
+		writeObj(t, objC, path, path)
+	}
+	defer func() {
+		for _, path := range paths {
+			// ignored error, this is just cleanup, not actually part of the test
+			objC.Delete(path)
+		}
+	}()
+
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File: pclient.NewFile("repo", "master", path),
+			Url:  fmt.Sprintf("local://%s/%s", wd, path),
+		}))
+	}
+	require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+		File:      pclient.NewFile("repo", "master", "recursive"),
+		Url:       fmt.Sprintf("local://%s/files", wd),
+		Recursive: true,
+	}))
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
+		require.Equal(t, path, b.String())
+		b.Reset()
+		require.NoError(t, c.GetFile("repo", "master", filepath.Join("recursive", filepath.Base(path)), 0, 0, &b))
+		require.Equal(t, path, b.String())
+	}
 }
