@@ -272,14 +272,32 @@ func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
 	return res, nil
 }
 
-func Glob(trees []Mergeable, pattern string, f func(string, *NodeProto) error) (retErr error) {
+func Glob(mq *MergePriorityQueue, root string, pattern string, f func(string, *NodeProto) error) (retErr error) {
+	root = clean(root)
 	pattern = clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
 		return errorf(MalformedGlob, err.Error())
 	}
-	return nodes(trees, func(path string, node *NodeProto) error {
+	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
 		if g.Match(path) {
+			return f(path, node)
+		}
+		return nil
+	})
+}
+
+func List(mq *MergePriorityQueue, root string, pattern string, f func(string, *NodeProto) error) (retErr error) {
+	root = clean(root)
+	if pattern != "/" {
+		pattern = clean(pattern)
+	}
+	g, err := globlib.Compile(pattern, '/')
+	if err != nil {
+		return errorf(MalformedGlob, err.Error())
+	}
+	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
+		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
 			return f(path, node)
 		}
 		return nil
@@ -322,19 +340,14 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 	})
 }
 
-func Walk(trees []Mergeable, root string, f func(path string, node *NodeProto) error) error {
+func Walk(mq *MergePriorityQueue, root string, f func(path string, node *NodeProto) error) error {
 	root = clean(root)
-	return nodes(trees, func(path string, node *NodeProto) error {
-		if strings.HasPrefix(path, root) {
-			if path != root && !strings.HasPrefix(path, root+"/") {
+	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
+		if err := f(path, node); err != nil {
+			if err == errutil.ErrBreak {
 				return nil
 			}
-			if err := f(path, node); err != nil {
-				if err == errutil.ErrBreak {
-					return nil
-				}
-				return err
-			}
+			return err
 		}
 		return nil
 	})
@@ -1114,47 +1127,48 @@ func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (
 	return size, nil
 }
 
-type mergePriorityQueue struct {
+type MergePriorityQueue struct {
 	queue    []Mergeable
 	size     int
 	nextChan chan Mergeable
 	count    int
 	mu       *sync.Mutex
-	done     chan error
+	errChan  chan error
 }
 
-func NewMergePriorityQueue(srcs []Mergeable, numWorkers int) *mergePriorityQueue {
-	mq := &mergePriorityQueue{
+func NewMergePriorityQueue(srcs []Mergeable, numWorkers int) *MergePriorityQueue {
+	mq := &MergePriorityQueue{
 		queue:    make([]Mergeable, len(srcs)+1),
 		nextChan: make(chan Mergeable, len(srcs)),
 		mu:       &sync.Mutex{},
-		done:     make(chan error, 1)}
+		errChan:  make(chan error, 1),
+	}
 	for _, src := range srcs {
 		mq.Insert(src)
 	}
+	// First set of streams are ready
+	mq.errChan <- nil
 	// Creating goroutines that handle getting the next key/values in a set of streams
 	for i := 0; i < numWorkers; i++ {
 		go func() {
 			for src := range mq.nextChan {
 				if err := src.Next(); err != nil {
-					mq.done <- err
+					mq.errChan <- err
 				}
 				mq.mu.Lock()
 				mq.Insert(src)
 				mq.count--
 				if mq.count <= 0 {
-					mq.done <- nil
+					mq.errChan <- nil
 				}
 				mq.mu.Unlock()
 			}
 		}()
 	}
-	// First set of streams are ready
-	mq.done <- nil
 	return mq
 }
 
-func (mq *mergePriorityQueue) Insert(src Mergeable) {
+func (mq *MergePriorityQueue) Insert(src Mergeable) {
 	// Streams with a nil key are at the end
 	if src.K() == nil {
 		return
@@ -1171,8 +1185,8 @@ func (mq *mergePriorityQueue) Insert(src Mergeable) {
 	}
 }
 
-func (mq *mergePriorityQueue) Next() ([]byte, [][]byte, error) {
-	if err := <-mq.done; err != nil || mq.size <= 0 {
+func (mq *MergePriorityQueue) Next() ([]byte, [][]byte, error) {
+	if err := <-mq.errChan; err != nil || mq.size <= 0 {
 		close(mq.nextChan)
 		return nil, nil, err
 	}
@@ -1194,13 +1208,13 @@ func (mq *mergePriorityQueue) Next() ([]byte, [][]byte, error) {
 	return k, vs, nil
 }
 
-func (mq *mergePriorityQueue) Swap(i, j int) {
+func (mq *MergePriorityQueue) Swap(i, j int) {
 	tmp := mq.queue[i]
 	mq.queue[i] = mq.queue[j]
 	mq.queue[j] = tmp
 }
 
-func (mq *mergePriorityQueue) Fill(idx int) {
+func (mq *MergePriorityQueue) Fill(idx int) {
 	mq.queue[idx] = mq.queue[mq.size]
 	mq.size--
 	var next int
@@ -1230,7 +1244,8 @@ func MergeBucket(bucket string, w pbutil.Writer, srcs []Mergeable, f func(k []by
 	if err := w.Write(&BucketHeader{Bucket: bucket}); err != nil {
 		return err
 	}
-	if err := Merge(srcs, f); err != nil {
+	mq := NewMergePriorityQueue(srcs, 10)
+	if err := Merge(mq, f); err != nil {
 		return err
 	}
 	if err := w.WriteBytes(SentinelByte); err != nil {
@@ -1239,8 +1254,7 @@ func MergeBucket(bucket string, w pbutil.Writer, srcs []Mergeable, f func(k []by
 	return nil
 }
 
-func Merge(srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
-	mq := NewMergePriorityQueue(srcs, 10)
+func Merge(mq *MergePriorityQueue, f func(k []byte, vs [][]byte) error) error {
 	var total, total2 time.Duration
 	t := time.Now()
 	for {
@@ -1263,26 +1277,27 @@ func Merge(srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
 	return nil
 }
 
-func nodes(trees []Mergeable, f func(path string, node *NodeProto) error) (retErr error) {
-	for _, tree := range trees {
-		if err := tree.NextBucket(FsBucket); err != nil {
+func Nodes(mq *MergePriorityQueue, root []byte, f func(path string, node *NodeProto) error) (retErr error) {
+	prefix := root
+	if !bytes.Equal(prefix, nullByte) {
+		prefix = append(prefix, nullByte...)
+	}
+	for {
+		k, vs, err := mq.Next()
+		if k == nil || (!bytes.HasPrefix(k, prefix) && !bytes.Equal(k, root)) {
+			return nil
+		}
+		if err != nil {
 			return err
 		}
-	}
-	defer func() {
-		for _, tree := range trees {
-			if err := tree.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}
-	}()
-	return Merge(trees, func(k []byte, vs [][]byte) error {
 		node := &NodeProto{}
 		if err := node.Unmarshal(vs[0]); err != nil {
 			return err
 		}
-		return f(s(k), node)
-	})
+		if err := f(s(k), node); err != nil {
+			return err
+		}
+	}
 }
 
 func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
