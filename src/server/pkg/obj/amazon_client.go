@@ -211,6 +211,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 }
 
 func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
+	name = reverse(name)
 	return newBackoffWriteCloser(c, newWriter(c, name)), nil
 }
 
@@ -219,13 +220,14 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	if err := c.s3.ListObjectsPages(
 		&s3.ListObjectsInput{
 			Bucket: aws.String(c.bucket),
-			Prefix: aws.String(name),
 		},
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, object := range listObjectsOutput.Contents {
-				if err := fn(*object.Key); err != nil {
-					fnErr = err
-					return false
+				if strings.HasPrefix(reverse(*object.Key), name) {
+					if err := fn(*object.Key); err != nil {
+						fnErr = err
+						return false
+					}
 				}
 			}
 			return true
@@ -237,6 +239,7 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 }
 
 func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
+	name = reverse(name)
 	byteRange := byteRange(offset, size)
 	if byteRange != "" {
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
@@ -293,6 +296,7 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 }
 
 func (c *amazonClient) Delete(name string) error {
+	name = reverse(name)
 	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
@@ -301,6 +305,7 @@ func (c *amazonClient) Delete(name string) error {
 }
 
 func (c *amazonClient) Exists(name string) bool {
+	name = reverse(name)
 	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
@@ -356,6 +361,7 @@ type amazonWriter struct {
 }
 
 func newWriter(client *amazonClient, name string) *amazonWriter {
+	name = reverse(name)
 	reader, writer := io.Pipe()
 	w := &amazonWriter{
 		errChan: make(chan error),
@@ -383,4 +389,12 @@ func (w *amazonWriter) Close() error {
 		return err
 	}
 	return <-w.errChan
+}
+
+func reverse(s string) string {
+	runes := []rune(s)
+	for i, j := 0, len(runes)-1; i < j; i, j = i+1, j-1 {
+		runes[i], runes[j] = runes[j], runes[i]
+	}
+	return string(runes)
 }
