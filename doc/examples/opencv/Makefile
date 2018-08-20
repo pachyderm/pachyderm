@@ -20,22 +20,33 @@ delete:
 
 minikube:
 	minikube start
-	@WHEEL="-\|/"; \
+	@echo -n "Waiting for minikube to start"; \
 	until minikube ip 2>/dev/null; do \
-	    WHEEL=$${WHEEL:1}$${WHEEL:0:1}; \
-	    echo -en "\e[G\e[K$${WHEEL:0:1} waiting for minikube to start..."; \
+	    echo -n "."; \
 	    sleep 1; \
-	done
+	done; \
+	echo
 	pachctl deploy local
-	@until "$$(
-	    kc get po \
+	@echo -n "Waiting for pachyderm to start"; \
+	until \
+	    kubectl get po \
 	      -l suite=pachyderm,app=dash \
-	      -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}')" = True; \
+	      -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}' >/dev/null 2>&1; \
 	do \
-	    WHEEL=$${WHEEL:1}$${WHEEL:0:1}; \
-	    echo -en "\e[G\e[K$${WHEEL:0:1} waiting for pachyderm to start..."; \
+	    echo -n "."; \
 	    sleep 1; \
-	done
+	done; \
+	echo; \
+	echo -n "Waiting for the dash to be ready (may take a minute or two)"; \
+	until [ "$$( \
+	    kubectl get po \
+	      -l suite=pachyderm,app=dash \
+	      -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}')" = True ]; \
+	do \
+	    echo -n "."; \
+	    sleep 1; \
+	done; \
+	echo
 	pachctl port-forward &
 
 .PHONY: \
