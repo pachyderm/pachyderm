@@ -361,7 +361,6 @@ type amazonWriter struct {
 }
 
 func newWriter(client *amazonClient, name string) *amazonWriter {
-	name = reverse(name)
 	reader, writer := io.Pipe()
 	w := &amazonWriter{
 		errChan: make(chan error),
