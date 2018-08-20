@@ -2143,7 +2143,7 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	return h, nil
 }
 
-func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitInfo) ([]hashtree.Mergeable, error) {
+func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitInfo) (*hashtree.MergePriorityQueue, error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	trees := make([]hashtree.Mergeable, len(commitInfo.Trees))
@@ -2156,16 +2156,18 @@ func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitIn
 			if err != nil {
 				return err
 			}
-			trees[i], err = hashtree.NewMergeStream(r, func(path []byte) (bool, error) {
+			if trees[i], err = hashtree.NewMergeStream(r, func(path []byte) (bool, error) {
 				return true, nil
-			})
-			return err
+			}); err != nil {
+				return err
+			}
+			return trees[i].NextBucket(hashtree.FsBucket)
 		})
 	}
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
-	return trees, nil
+	return hashtree.NewMergePriorityQueue(trees, 10), nil
 }
 
 // getTreeForFile is like getTreeForCommit except that it can handle open commits.
@@ -2276,7 +2278,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}
 	blockRefs := []*pfs.BlockRef{}
 	var totalSize int64
-	if err := hashtree.Glob(trees, file.Path, func(path string, node *hashtree.NodeProto) error {
+	if err := hashtree.Glob(trees, "/", file.Path, func(path string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
 		}
@@ -2392,19 +2394,8 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 	if err != nil {
 		return err
 	}
-	return hashtree.Glob(trees, file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
-		//if rootNode.DirNode == nil {
-		//	return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
-		//}
-		//return tree.List(rootPath, func(node *hashtree.NodeProto) error {
-		//	path := filepath.Join(rootPath, node.Name)
-		if g.Match(rootPath) {
-			// Don't return the file now, it will be returned later by Glob
-			return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
-		}
-		//	return f(nodeToFileInfo(file.Commit, path, node, full))
-		//})
-		return nil
+	return hashtree.List(trees, "/", file.Path, func(path string, node *hashtree.NodeProto) error {
+		return f(nodeToFileInfo(file.Commit, path, node, full))
 	})
 }
 
@@ -2469,7 +2460,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	if err != nil {
 		return err
 	}
-	return hashtree.Glob(trees, pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
+	return hashtree.Glob(trees, "/", pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(commit, rootPath, rootNode, false))
 	})
 }
