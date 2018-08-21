@@ -716,8 +716,7 @@ func (c APIClient) Compact() error {
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c APIClient) PutFileWriter(repoName string, commitID string, path string) (io.WriteCloser, error) {
-	w, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, nil, nil, nil)
-	return w, err
+	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, nil, nil, nil)
 }
 
 // PutFileSplitWriter writes a multiple files to PFS by splitting up the data
@@ -1051,17 +1050,16 @@ func (c APIClient) newPutFileWriteCloser(repoName string, commitID string, path 
 	if footer != nil {
 		footerValue = &pfs.Metadata{Value: footer}
 	}
-	request := &pfs.PutFileRequest{
-		File:             NewFile(repoName, commitID, path),
-		Delimiter:        delimiter,
-		TargetFileDatums: targetFileDatums,
-		TargetFileBytes:  targetFileBytes,
-		OverwriteIndex:   overwriteIndex,
-		Header:           headerValue,
-		Footer:           footerValue,
-	}
 	return &putFileWriteCloser{
-		request:       request,
+		request: &pfs.PutFileRequest{
+			File:             NewFile(repoName, commitID, path),
+			Delimiter:        delimiter,
+			TargetFileDatums: targetFileDatums,
+			TargetFileBytes:  targetFileBytes,
+			OverwriteIndex:   overwriteIndex,
+			Header:           headerValue,
+			Footer:           footerValue,
+		},
 		putFileClient: putFileClient,
 	}, nil
 }
