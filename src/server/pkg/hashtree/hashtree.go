@@ -540,7 +540,7 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		node.FileNode.Objects = append(node.FileNode.Objects, objects...)
 		h.changed[path] = true
 		// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
-		err := h.visit(path, func(node *NodeProto, parent, child string) error {
+		return h.visit(path, func(node *NodeProto, parent, child string) error {
 			if node == nil {
 				node = &NodeProto{
 					Name:    base(parent),
@@ -571,7 +571,6 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 			h.changed[parent] = true
 			return nil
 		})
-		return err
 	}
 	// Get/Create dir node to which we'll add header/footer
 	node, ok := h.fs[path]
