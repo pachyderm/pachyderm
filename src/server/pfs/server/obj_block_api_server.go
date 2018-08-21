@@ -387,18 +387,18 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
 				return err
 			}
-			continue
-		}
-		var data []byte
-		sink := groupcache.AllocatingByteSliceSink(&data)
-		if err := s.objectCache.Get(getObjectsServer.Context(), s.splitKey(object.Hash), sink); err != nil {
-			return err
-		}
-		if uint64(len(data)) < offset+readSize {
-			return fmt.Errorf("undersized object (this is likely a bug)")
-		}
-		if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getObjectsServer); err != nil {
-			return err
+		} else {
+			var data []byte
+			sink := groupcache.AllocatingByteSliceSink(&data)
+			if err := s.objectCache.Get(getObjectsServer.Context(), s.splitKey(object.Hash), sink); err != nil {
+				return err
+			}
+			if uint64(len(data)) < offset+readSize {
+				return fmt.Errorf("undersized object (this is likely a bug)")
+			}
+			if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getObjectsServer); err != nil {
+				return err
+			}
 		}
 		// We've hit the offset so we set it to 0
 		offset = 0

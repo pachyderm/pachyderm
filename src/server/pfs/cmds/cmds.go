@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	gosync "sync"
@@ -18,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -1035,7 +1035,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 
 	var debug bool
-	var allCommits bool
+	var commits cmdutil.RepeatedStringArg
 	mount := &cobra.Command{
 		Use:   "mount path/to/mount/point",
 		Short: "Mount pfs locally. This command blocks.",
@@ -1045,22 +1045,22 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
-			mounter := fuse.NewMounter(client.GetAddress(), client)
 			mountPoint := args[0]
-			ready := make(chan bool)
-			go func() {
-				<-ready
-				fmt.Println("Filesystem mounted, CTRL-C to exit.")
-			}()
-			err = mounter.Mount(mountPoint, nil, ready, debug, false)
+			commits, err := parseCommits(commits)
 			if err != nil {
 				return err
 			}
-			return nil
+			opts := &fuse.Options{
+				Fuse: &nodefs.Options{
+					Debug: debug,
+				},
+				Commits: commits,
+			}
+			return fuse.Mount(client, mountPoint, opts)
 		}),
 	}
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().BoolVarP(&allCommits, "all-commits", "a", false, "Show archived and cancelled commits.")
+	mount.Flags().VarP(&commits, "commits", "c", "Commits to mount for repos, arguments should be of the form \"repo:commit\"")
 
 	unmount := &cobra.Command{
 		Use:   "unmount path/to/mount/point",
@@ -1149,22 +1149,16 @@ $ pachctl diff-file foo master path1 bar master path2
 	return result
 }
 
-func parseCommitMounts(args []string) []*fuse.CommitMount {
-	var result []*fuse.CommitMount
+func parseCommits(args []string) (map[string]string, error) {
+	result := make(map[string]string)
 	for _, arg := range args {
-		commitMount := &fuse.CommitMount{Commit: client.NewCommit("", "")}
-		repo, commitAlias := path.Split(arg)
-		commitMount.Commit.Repo.Name = path.Clean(repo)
-		split := strings.Split(commitAlias, ":")
-		if len(split) > 0 {
-			commitMount.Commit.ID = split[0]
+		split := strings.Split(arg, ":")
+		if len(split) != 2 {
+			return nil, fmt.Errorf("malformed input %s, must be of the form repo:commit", args)
 		}
-		if len(split) > 1 {
-			commitMount.Alias = split[1]
-		}
-		result = append(result, commitMount)
+		result[split[0]] = split[1]
 	}
-	return result
+	return result, nil
 }
 
 func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, path, source string,
