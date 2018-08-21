@@ -28,6 +28,12 @@ func validateConfig() error {
 	return nil
 }
 
+var defaultRedirectURL = &url.URL{
+	Scheme: "http",
+	Host:   "localhost:30080",
+	Path:   path.Join("auth", "autologin"),
+}
+
 // lookupIDPMetadata takes the URL of a SAML IdP's Metadata service, queries it,
 // parses the result, and returns it as a struct the crewjam/saml library can
 // use
@@ -142,6 +148,15 @@ func (a *apiServer) updateSAMLSP() error {
 		return fmt.Errorf("Metadata URL %q is invalid (no scheme)", metadataURL)
 	}
 
+	// parse Dash URL
+	var dashURL *url.URL
+	if sso.DashURL != "" {
+		dashURL, err = url.Parse(sso.DashURL)
+		if err != nil {
+			return fmt.Errorf("could not parse dash URL \"%s\": %v", sso.DashURL, err)
+		}
+	}
+
 	var samlProvider string
 	var idpMetadataURL *url.URL
 	for _, idp := range a.configCache.IDProviders {
@@ -207,6 +222,7 @@ func (a *apiServer) updateSAMLSP() error {
 	a.samlSP.AcsURL = *acsURL
 	a.samlSP.MetadataURL = *metadataURL
 	// a.samlSP.IDPMetadata
+	a.redirectAddress = dashURL
 
 	return nil
 }
@@ -315,10 +331,10 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 	// Success
 	fmt.Printf(">>> Success\n")
 	authCode, err := a.getAuthenticationCode(req.Context(), "saml:"+assertion.Subject.NameID.Value)
-	var u url.URL
-	u.Scheme = "http"
-	u.Host = "localhost:30080" // TODO get from config
-	u.Path = path.Join("auth", "autologin")
+	u := *defaultRedirectURL
+	if a.redirectAddress != nil {
+		u = *a.redirectAddress
+	}
 	u.RawQuery = url.Values{"auth_code": []string{authCode}}.Encode()
 	fmt.Printf(">>> Location: %s\n", u.String())
 	w.Header().Set("Location", u.String())

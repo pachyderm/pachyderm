@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -100,8 +101,9 @@ type apiServer struct {
 	configCache authclient.AuthConfig // cache of auth config in etcd
 	configMu    sync.Mutex            // guard 'configCache'
 
-	samlSP   *saml.ServiceProvider // object for parsing saml responses
-	samlSPMu sync.Mutex            // guard 'samlSP'
+	samlSP          *saml.ServiceProvider // object for parsing saml responses
+	redirectAddress *url.URL              // address where users will be redirected after authenticating
+	samlSPMu        sync.Mutex            // guard 'samlSP'
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()

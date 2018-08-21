@@ -106,6 +106,11 @@ message AuthConfig {
     // responsible for setting up this URL (which must resolve to
     // pachd:654/meta)
     string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
+
+    // If pachyderm's dash service has a domain name or other
+    // externally-configured address, this option determines where users will
+    // be redirected after successfully authenticating
+    string dash_url = 3 [(gogoproto.customname) = "DashURL"];
   }
   SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
 }
