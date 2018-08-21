@@ -250,14 +250,15 @@ func (m *IDProvider) GetSAML() *IDProvider_SAMLOptions {
 // SAMLOptions describes a SAML-based identity provider
 type IDProvider_SAMLOptions struct {
 	// metadata_url is the URL of the SAML ID provider's metadata service
-	// (which Pachd can query to get more info about the SAML ID provider).
-	// Exactly one of metadata_url and idp_metadata should be set.
+	// (which Pachd can query to get more info about the SAML ID provider)
 	MetadataURL string `protobuf:"bytes,1,opt,name=metadata_url,json=metadataUrl,proto3" json:"metadata_url,omitempty"`
 	// idp_metadata is a direct reproduction of the ID provider's metadata.
-	// This may be useful if the ID provider can't be reached from pachd (e.g.
-	// because it's on a separate network to which Pachyderm users also have
-	// access) or for testing.
-	// Exactly one of metadata_url and idp_metadata should be set
+	// Users can set this field in the argument to SetConfig if the ID provider
+	// can't be reached from pachd (e.g. because it's on a separate network to
+	// which Pachyderm users also have access) or for testing.  Exactly one of
+	// metadata_url and idp_metadata should be set in calls to SetConfig, but
+	// internally, if metadata_url is set, the result of scraping the metadata
+	// URL will be placed here in the result from GetConfig().
 	IDPMetadata []byte `protobuf:"bytes,2,opt,name=idp_metadata,json=idpMetadata,proto3" json:"idp_metadata,omitempty"`
 }
 
