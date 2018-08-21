@@ -170,8 +170,9 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
+	chunkSize := int(pfs.ChunkSize / 32) // We used to use a full ChunkSize, but it was increased which caused this test to take too long.
 	for i := 0; i < numFiles; i++ {
-		fileContent := workload.RandString(r, int(pfs.ChunkSize)+i*MB)
+		fileContent := workload.RandString(r, chunkSize+i*MB)
 		_, err = c.PutFile(dataRepo, commit1.ID, fmt.Sprintf("file-%d", i),
 			strings.NewReader(fileContent))
 		require.NoError(t, err)
@@ -204,7 +205,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 
 		fileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, fileName)
 		require.NoError(t, err)
-		require.Equal(t, int(pfs.ChunkSize)+i*MB, int(fileInfo.SizeBytes))
+		require.Equal(t, chunkSize+i*MB, int(fileInfo.SizeBytes))
 
 		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileName, 0, 0, &buf))
 		// we don't wanna use the `require` package here since it prints
