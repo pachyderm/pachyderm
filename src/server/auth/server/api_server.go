@@ -989,8 +989,28 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
 	}
 
+	if req.Scope <= acl.Entries[callerInfo.Subject] {
+		return &authclient.AuthorizeResponse{
+			Authorized: true,
+		}, nil
+	}
+
+	groupsResp, err := a.GetGroups(ctx, &authclient.GetGroupsRequest{
+		Username: callerInfo.Subject,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not retrieve caller's group memberships: %v", err)
+	}
+	for _, g := range groupsResp.Groups {
+		if req.Scope <= acl.Entries[g] {
+			return &authclient.AuthorizeResponse{
+				Authorized: true,
+			}, nil
+		}
+	}
+
 	return &authclient.AuthorizeResponse{
-		Authorized: req.Scope <= acl.Entries[callerInfo.Subject],
+		Authorized: false,
 	}, nil
 }
 
@@ -1688,11 +1708,16 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 	if err != nil {
 		return nil, err
 	}
+	// An empty GetGroups() call gets the caller's groups
+	if req.Username == "" {		
+		req.Username = callerInfo.Subject
+	}
 
-	if !a.isAdmin(callerInfo.Subject) {
+	// must be admin or user getting your own groups
+	if req.Username != callerInfo.Subject && !a.isAdmin(callerInfo.Subject) {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
-			AdminOp: "GetGroups",
+			AdminOp: "GetGroups for another user",
 		}
 	}
 
@@ -2003,16 +2028,16 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 
 	// upsert new config
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		var currentConfig authclient.AuthConfig
-		return a.authConfig.ReadWrite(stm).Upsert(configKey, &currentConfig, func() error {
-			currentConfigVersion := currentConfig.LiveConfigVersion
-			if currentConfigVersion != req.Configuration.LiveConfigVersion {
+		var liveConfig authclient.AuthConfig
+		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
+			liveConfigVersion := liveConfig.LiveConfigVersion
+			if liveConfigVersion != req.Configuration.LiveConfigVersion {
 				return fmt.Errorf("expected config version %d, but live config has version %d",
-					req.Configuration.LiveConfigVersion, currentConfig.LiveConfigVersion)
+					req.Configuration.LiveConfigVersion, liveConfigVersion)
 			}
-			currentConfig.Reset()
-			currentConfig = *canonicalConfig.ToProto()
-			currentConfig.LiveConfigVersion = currentConfigVersion + 1
+			liveConfig.Reset()
+			liveConfig = *canonicalConfig.ToProto()
+			liveConfig.LiveConfigVersion = liveConfigVersion + 1
 			return nil
 		})
 	}); err != nil {
