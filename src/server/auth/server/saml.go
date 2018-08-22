@@ -405,9 +405,9 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, 
 		d.Element = *assertion.Element()
 		xml, err := d.WriteToString()
 		if err != nil {
-			fmt.Printf(">>> could not marshall assertion: %v\n", err)
+			dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall assertion: %v\n", err)
 		} else {
-			fmt.Printf(">>> assertion: %s\n", string(xml))
+			dbgLog.Printf("(apiServer.handleSAMLResponse) assertion: %s\n", string(xml))
 		}
 	}()
 
@@ -418,39 +418,40 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, 
 			d.Element = *attribute.Element().Parent()
 			xml, err := d.WriteToString()
 			if err != nil {
-				fmt.Printf(">>> could not marshall attribute statement parent: %v\n", err)
+				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: %v\n", err)
 			} else {
-				fmt.Printf(">>> attribute statement parent: %s\n", string(xml))
+				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement parent: %s\n", string(xml))
 			}
 		} else {
-			fmt.Printf(">>> could not marshall attribute statement parent: nil\n")
+			dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: nil\n")
 		}
 		d.Element = *attribute.Element()
 		xml, err := d.WriteToString()
 		if err != nil {
-			fmt.Printf(">>> could not marshall attribute statement: %v\n", err)
+			dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement: %v\n", err)
 		} else {
-			fmt.Printf(">>> attribute statement: %s\n", string(xml))
+			dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement: %s\n", string(xml))
 		}
 		for _, attr := range attribute.Attributes {
 			d := etree.NewDocument()
 			d.Element = *attr.Element()
 			xml, err := d.WriteToString()
 			if err != nil {
-				fmt.Printf(">>> could not marshall attribute: %v\n", err)
+				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute: %v\n", err)
 			} else {
-				fmt.Printf(">>> attribute: %s\n", string(xml))
+				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute: %s\n", string(xml))
 			}
 			if attr.Name != "memberOf" {
 				continue
 			}
+
 			var groups []string
 			for _, v := range attr.Values {
-				groups = append(groups, v.Value)
+				groups = append(groups, path.Join("group", auth.SAMLPrefix)+v.Value)
 			}
-			// TODO maek this internal and call it
-			fmt.Printf(">>> a.SetGroupsForUser(ctx, %#v)", groups)
-			// a.SetGroupsForUser(context.Background
+			// TODO make this internal and call it
+			dbgLog.Printf("(apiServer.handleSAMLResponse) a.setGroupsForUser(ctx, %#v)", groups)
+			a.setGroupsForUser(context.Background(), username, groups)
 		}
 		// attribute.Attributes[0].
 	}

@@ -32,6 +32,11 @@ const (
 	// (with this prefix) is a logical PPS pipeline (even though the pipeline may
 	// not exist).
 	PipelinePrefix = "pipeline:"
+
+	// SAMLPrefix indicates that a given user has an account with a configured
+	// SAML ID provider (currently Pachyderm only supports one SAML ID provider at
+	// a time)
+	SAMLPrefix = "saml:"
 )
 
 // ParseScope parses the string 's' to a scope (for example, parsing a command-
