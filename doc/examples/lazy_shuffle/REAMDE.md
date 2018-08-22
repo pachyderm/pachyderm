@@ -27,6 +27,7 @@ pachctl create-pipeline -f lazy_shuffle.json
 
 ### List-job
 `pachctl  list-job` indicates no data download or upload was performed
+
 | ID                               | OUTPUT COMMIT                                 | STARTED        | DURATION  | RESTART | PROGRESS  | DL | UL | STATE   |
 |----------------------------------|-----------------------------------------------|----------------|-----------|---------|-----------|----|----|---------|
 | 60617fd06155451d8358cc714bf9b670 | lazy_shuffle/f56e97fa9e234eb6ad902640d4fba2ac | 10 seconds ago | 4 seconds | 0       | 4 + 0 / 4 | 0B | 0B | success |
