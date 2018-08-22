@@ -137,28 +137,63 @@ func DeactivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
+	var authCode string
+	var useOTP bool
 	login := &cobra.Command{
 		Use:   "login",
-		Short: "Login to Pachyderm with your GitHub account",
-		Long: "Login to Pachyderm with your GitHub account. Any resources that " +
-			"have been restricted to the email address registered with your GitHub " +
+		Short: "Log in to Pachyderm",
+		Long: "Login to Pachyderm. Any resources that have been restricted to " +
+			"the account you have with your ID provider (e.g. GitHub, Okta) " +
 			"account will subsequently be accessible.",
 		Run: cmdutil.Run(func([]string) error {
-			token, err := githubLogin()
-			if err != nil {
-				return err
-			}
-			fmt.Println("Retrieving Pachyderm token...")
-
-			// Exchange GitHub token for Pachyderm token
 			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
-			resp, err := c.Authenticate(
-				c.Ctx(),
-				&auth.AuthenticateRequest{GitHubToken: token})
-			if err != nil {
+
+			// Issue authentication request to Pachyderm and get response
+			var resp *auth.AuthenticateResponse
+			var authErr error
+			if useOTP || authCode != "" {
+				var code string
+				if authCode == "" {
+					// Exhange short-lived Pachyderm auth code for long-lived Pachyderm token
+					fmt.Println("Please enter your Pachyderm One-Time Password:")
+					var err error
+					code, err = bufio.NewReader(os.Stdin).ReadString('\n')
+					if err != nil {
+						return fmt.Errorf("error reading One-Time Password: %v", err)
+					}
+					code = strings.TrimSpace(code) // drop trailing newline
+				} else {
+					code = authCode
+				}
+				resp, authErr = c.Authenticate(
+					c.Ctx(),
+					&auth.AuthenticateRequest{PachAuthenticationCode: code})
+			} else {
+				// Exchange GitHub token for Pachyderm token
+				token, err := githubLogin()
+				if err != nil {
+					return err
+				}
+				fmt.Println("Retrieving Pachyderm token...")
+				resp, authErr = c.Authenticate(
+					c.Ctx(),
+					&auth.AuthenticateRequest{GitHubToken: token})
+				if authErr != nil {
+					if auth.IsErrPartiallyActivated(err) {
+						return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
+							"can revert by running 'pachctl auth deactivate' or retry by "+
+							"running 'pachctl auth activate' again", err)
+					}
+					return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
+						grpcutil.ScrubGRPC(err))
+				}
+			}
+
+			// Write new Pachyderm token to config
+			if authErr != nil {
 				if auth.IsErrPartiallyActivated(err) {
 					return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
 						"can revert by running 'pachctl auth deactivate' or retry by "+
@@ -170,6 +205,14 @@ func LoginCmd() *cobra.Command {
 			return writePachTokenToCfg(resp.PachToken)
 		}),
 	}
+	login.PersistentFlags().BoolVarP(&useOTP, "otp", "o", false, "If set, "+
+		"authenticate with a Dash-provided One-Time Password, rather than via "+
+		"GitHub(similar to --code, one will be removed in the next point "+
+		"release, but we're not sure which)")
+	login.PersistentFlags().StringVar(&authCode, "code", "", "If set, "+
+		"authenticate with the given Dash-provided One-Time Password, rather "+
+		"than via GitHub (similar to --otp, one will be removed in the next "+
+		"point release, but we're not sure which)")
 	return login
 }
 

@@ -107,10 +107,15 @@ message AuthConfig {
     // pachd:654/meta)
     string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
 
-    // If pachyderm's dash service has a domain name or other
-    // externally-configured address, this option determines where users will
-    // be redirected after successfully authenticating
+    // dash_url is the public address of this cluster's Pachyderm
+    // dashboard, if one exists; this option determines where users will be
+    // redirected after successfully authenticating
     string dash_url = 3 [(gogoproto.customname) = "DashURL"];
+
+    // insecure_logging determines whether pachd logs SAML credentials as it receives them,
+    // which is insecure, but may be helpful for debugging. This will not be present in any
+    // official releases.
+    bool insecure_logging = 4;
   }
   SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
 }
