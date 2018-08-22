@@ -49,6 +49,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "gpu": double
   },
   "datum_timeout": string,
+  "datum_tries": int,
   "job_timeout": string,
   "input": {
     <"atom", "cross", "union", "cron", or "git" see below>
@@ -290,6 +291,11 @@ worker can consume. If a worker exceeds this value, it will be evicted.
 `datum_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the 
 maximum execution time allowed per datum. So no matter what your parallelism
 or number of datums, no single datum is allowed to exceed this value.
+
+### Datum Tries (optional)
+
+`datum_tries` is a int (e.g. `1`, `2`, or `3`) that determines the number of retries that a job should attempt given failure was observed. Only failed datums are retries in retry attempt. The the operation succeeds in retry attempts then job is successful, otherwise the job is marked as failure.
+
 
 ### Job Timeout (optional)
 

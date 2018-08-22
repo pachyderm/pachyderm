@@ -18,6 +18,12 @@ This example pipeline executes a query periodically against a MongoDB database o
 
 [Periodic Ingress from MongoDB](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/db)
 
+## Lazy Shuffle pipeline
+
+This example demonstrates how lazy shuffle pipeline i.e. a pipeline that shuffles, combines files without downloading/uploading can be created. These types of pipelines are useful for intermediate processing step that aggregates or rearranges data from one or many sources. For more information [see](https://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)
+
+[Lazy Shuffle pipeline ](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/lazy_shuffle)
+
 ## Variant Calling and Joint Genotyping with GATK
 
 This example illustrates the use of GATK in Pachyderm for Germline variant calling and joint genotyping. Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
