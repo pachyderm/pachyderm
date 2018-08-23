@@ -99,11 +99,11 @@ type apiServer struct {
 	adminMu    sync.Mutex          // guard 'adminCache'
 
 	configCache authclient.AuthConfig // cache of auth config in etcd
-	configMu    sync.Mutex            // guard 'configCache'
+	configMu    sync.Mutex            // guard 'configCache'. Always lock before 'samlSPMu' (if using both)
 
 	samlSP          *saml.ServiceProvider // object for parsing saml responses
 	redirectAddress *url.URL              // address where users will be redirected after authenticating
-	samlSPMu        sync.Mutex            // guard 'samlSP'
+	samlSPMu        sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
@@ -1270,7 +1270,9 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 
 	// For now, we don't return OWNER if the user is an admin, even though that's
 	// their effective access scope for all repos--the caller may want to know
-	// what will happen if the user's admin privileges are revoked
+	// what will happen if the user's admin privileges are revoked. Note that
+	// pfs.ListRepo overrides this logic—the auth info it returns for listed repo
+	// indicates that a user is OWNER of all repos if they are an admin
 
 	// Read repo ACL from etcd
 	acls := a.acls.ReadOnly(ctx)
@@ -1283,11 +1285,13 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		}
 
 		// ACL read is authorized
+		var principal string
 		if req.Username == "" {
-			resp.Scopes = append(resp.Scopes, acl.Entries[callerInfo.Subject])
+			principal = callerInfo.Subject
 		} else {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
+			// TODO bug fix: should account groups for caller
 			if !a.isAdmin(callerInfo.Subject) && acl.Entries[callerInfo.Subject] < authclient.Scope_READER {
 				return nil, &authclient.ErrNotAuthorized{
 					Subject:  callerInfo.Subject,
@@ -1295,12 +1299,33 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 					Required: authclient.Scope_READER,
 				}
 			}
-			principal, err := a.lenientCanonicalizeSubject(ctx, req.Username)
+			principal, err = a.lenientCanonicalizeSubject(ctx, req.Username)
 			if err != nil {
 				return nil, err
 			}
-			resp.Scopes = append(resp.Scopes, acl.Entries[principal])
 		}
+
+		// Get scope based on user's direct access
+		scope := acl.Entries[principal]
+
+		// Get scope based on based on group access
+		groupsResp, err := a.GetGroups(ctx, &authclient.GetGroupsRequest{
+			Username: principal,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("could not retrieve caller's group memberships: %v", err)
+		}
+		// fmt.Printf(">>> repo: %s\n", repo)
+		for _, g := range groupsResp.Groups {
+			// fmt.Printf(">>> group: %s", g)
+			groupScope := acl.Entries[g]
+			// fmt.Printf(" | scope: %s | groupScope: %s", scope, groupScope)
+			if scope < groupScope {
+				scope = groupScope
+			}
+			// fmt.Printf(" | scope: %s\n", scope)
+		}
+		resp.Scopes = append(resp.Scopes, scope)
 	}
 	return resp, nil
 }
@@ -1800,47 +1825,36 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 		return nil, err
 	}
 
-	// must be admin or user getting your own groups
-	if req.Username != callerInfo.Subject {
+	// must be admin or user getting your own groups (default value of
+	// req.Username is the caller)
+	var rawUsername string
+	if req.Username == "" || req.Username == callerInfo.Subject {
+		rawUsername = callerInfo.Subject
+	} else {
 		if !a.isAdmin(callerInfo.Subject) {
 			return nil, &authclient.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
 				AdminOp: "GetGroups",
 			}
 		}
+		rawUsername = req.Username
 	}
 
-	// Filter by username
-	if req.Username != "" {
-		username, err := a.lenientCanonicalizeSubject(ctx, req.Username)
-		if err != nil {
-			return nil, err
-		}
-
-		var groupsProto authclient.Groups
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			members := a.members.ReadWrite(stm)
-			if err := members.Get(username, &groupsProto); err != nil {
-				return err
-			}
-			return nil
-		}); err != nil {
-			return nil, err
-		}
-
-		return &authclient.GetGroupsResponse{Groups: setToList(groupsProto.Groups)}, nil
-	}
-
-	groupsCol := a.groups.ReadOnly(ctx)
-	var groups []string
-	users := &authclient.Users{}
-	if err := groupsCol.List(users, col.DefaultOptions, func(group string) error {
-		groups = append(groups, group)
-		return nil
-	}); err != nil {
+	username, err := a.lenientCanonicalizeSubject(ctx, rawUsername)
+	if err != nil {
 		return nil, err
 	}
-	return &authclient.GetGroupsResponse{Groups: groups}, nil
+
+	members := a.members.ReadOnly(ctx)
+	var groupsProto authclient.Groups
+	if err := members.Get(username, &groupsProto); err != nil {
+		if col.IsErrNotFound(err) {
+			// Return a healthy response indicating that the user is in no groups
+			return &authclient.GetGroupsResponse{Groups: []string{}}, nil
+		}
+		return nil, err
+	}
+	return &authclient.GetGroupsResponse{Groups: setToList(groupsProto.Groups)}, nil
 }
 
 func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {

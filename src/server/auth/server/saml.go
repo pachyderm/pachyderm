@@ -131,7 +131,7 @@ func (a *apiServer) updateSAMLSP() error {
 	}
 	sso := a.configCache.SAMLServiceOptions
 
-	if sso.InsecureLogging {
+	if sso.DebugLogging {
 		dbgLog = log.New(os.Stdout, "[saml] ", log.Lshortfile|log.LstdFlags|log.Lmicroseconds)
 	}
 	dbgLog.Printf("(apiServer.updateSAMLSP) updating server SAML options\n")
@@ -180,7 +180,7 @@ func (a *apiServer) updateSAMLSP() error {
 			idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
 			idpConfigMsg := string(idpConfigAsJSON)
 			if err != nil {
-				idpConfigMsg = fmt.Sprint("(could not marshal config json: %v)", err)
+				idpConfigMsg = fmt.Sprintf("(could not marshal config json: %v)", err)
 			}
 			return fmt.Errorf("unrecognized ID provider: %v", idpConfigMsg)
 		}
@@ -242,6 +242,7 @@ func (a *apiServer) updateSAMLSP() error {
 }
 
 func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
+	a.configMu.Lock()
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
 	if a.samlSP == nil {
@@ -299,47 +300,56 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 	username := auth.SAMLPrefix + assertion.Subject.NameID.Value
 	authCode, err := a.getAuthenticationCode(req.Context(), username)
 
-	// Print debug info for when we're adding groups
-	for _, attribute := range assertion.AttributeStatements {
-		d := etree.NewDocument()
-		if attribute.Element().Parent() != nil {
-			d.Element = *attribute.Element().Parent()
-			xml, err := d.WriteToString()
-			if err != nil {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: %v\n", err)
-			} else {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement parent: %s\n", string(xml))
-			}
-		} else {
-			dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: nil\n")
+	// Update group memberships
+	var samlIDPConfig *auth.IDProvider_SAMLOptions
+	for _, i := range a.configCache.IDProviders {
+		if i.SAML != nil {
+			samlIDPConfig = i.SAML
+			break
 		}
-		d.Element = *attribute.Element()
-		xml, err := d.WriteToString()
-		if err != nil {
-			dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement: %v\n", err)
-		} else {
-			dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement: %s\n", string(xml))
-		}
-		for _, attr := range attribute.Attributes {
+	}
+	if samlIDPConfig != nil && samlIDPConfig.GroupAttribute != "" {
+		for _, attribute := range assertion.AttributeStatements {
 			d := etree.NewDocument()
-			d.Element = *attr.Element()
+			if attribute.Element().Parent() != nil {
+				d.Element = *attribute.Element().Parent()
+				xml, err := d.WriteToString()
+				if err != nil {
+					dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: %v\n", err)
+				} else {
+					dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement parent: %s\n", string(xml))
+				}
+			} else {
+				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: nil\n")
+			}
+			d.Element = *attribute.Element()
 			xml, err := d.WriteToString()
 			if err != nil {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute: %v\n", err)
+				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement: %v\n", err)
 			} else {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute: %s\n", string(xml))
+				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement: %s\n", string(xml))
 			}
-			if attr.Name != "memberOf" {
-				continue
-			}
+			for _, attr := range attribute.Attributes {
+				d := etree.NewDocument()
+				d.Element = *attr.Element()
+				xml, err := d.WriteToString()
+				if err != nil {
+					dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute: %v\n", err)
+				} else {
+					dbgLog.Printf("(apiServer.handleSAMLResponse) attribute: %s\n", string(xml))
+				}
+				if attr.Name != samlIDPConfig.GroupAttribute {
+					continue
+				}
 
-			var groups []string
-			for _, v := range attr.Values {
-				groups = append(groups, path.Join("group", auth.SAMLPrefix)+v.Value)
+				var groups []string
+				for _, v := range attr.Values {
+					groups = append(groups, path.Join("group", auth.SAMLPrefix)+v.Value)
+				}
+				// TODO make this internal and call it
+				dbgLog.Printf("(apiServer.handleSAMLResponse) a.setGroupsForUser(ctx, %#v)", groups)
+				a.setGroupsForUser(context.Background(), username, groups)
 			}
-			// TODO make this internal and call it
-			dbgLog.Printf("(apiServer.handleSAMLResponse) a.setGroupsForUser(ctx, %#v)", groups)
-			a.setGroupsForUser(context.Background(), username, groups)
 		}
 	}
 
