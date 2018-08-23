@@ -370,11 +370,11 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, 
 
 	out := io.MultiWriter(w, os.Stdout)
 	possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
-	fmt.Printf(">>> (apiServer.handleSAMLResponse) req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
+	dbgLog.Printf("(apiServer.handleSAMLResponse) req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
 	assertion, err := sp.ParseResponse(req, possibleRequestIDs)
 	healthyResponse := err == nil && assertion != nil &&
 		assertion.Subject != nil && assertion.Subject.NameID != nil
-	fmt.Printf(">>> (apiServer.handleSAMLResponse) healthyResponse: %t\n", healthyResponse)
+	dbgLog.Printf("(apiServer.handleSAMLResponse) healthyResponse: %t\n", healthyResponse)
 	if !healthyResponse {
 		w.WriteHeader(http.StatusInternalServerError)
 		out.Write([]byte("<html><head></head><body>"))
@@ -411,53 +411,62 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, 
 		}
 	}()
 
-	// Print debug info for when we're adding groups
-	for _, attribute := range assertion.AttributeStatements {
-		d := etree.NewDocument()
-		if attribute.Element().Parent() != nil {
-			d.Element = *attribute.Element().Parent()
-			xml, err := d.WriteToString()
-			if err != nil {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: %v\n", err)
-			} else {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement parent: %s\n", string(xml))
-			}
-		} else {
-			dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: nil\n")
-		}
-		d.Element = *attribute.Element()
-		xml, err := d.WriteToString()
-		if err != nil {
-			dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement: %v\n", err)
-		} else {
-			dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement: %s\n", string(xml))
-		}
-		for _, attr := range attribute.Attributes {
-			d := etree.NewDocument()
-			d.Element = *attr.Element()
-			xml, err := d.WriteToString()
-			if err != nil {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute: %v\n", err)
-			} else {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute: %s\n", string(xml))
-			}
-			if attr.Name != "memberOf" {
-				continue
-			}
-
-			var groups []string
-			for _, v := range attr.Values {
-				groups = append(groups, path.Join("group", auth.SAMLPrefix)+v.Value)
-			}
-			// TODO make this internal and call it
-			dbgLog.Printf("(apiServer.handleSAMLResponse) a.setGroupsForUser(ctx, %#v)", groups)
-			a.setGroupsForUser(context.Background(), username, groups)
-		}
-		// attribute.Attributes[0].
-	}
-
 	// Success
 	username := fmt.Sprintf("%s:%s", a.configCache.IDPName, assertion.Subject.NameID.Value)
+
+	// Update group memberships
+	var samlIDPConfig *auth.IDProvider_SAMLOptions
+	for _, i := range a.configCache.IDProviders {
+		if i.SAML != nil {
+			samlIDPConfig = i.SAML
+			break
+		}
+	}
+	if samlIDPConfig != nil && samlIDPConfig.GroupAttribute != "" {
+		for _, attribute := range assertion.AttributeStatements {
+			d := etree.NewDocument()
+			if attribute.Element().Parent() != nil {
+				d.Element = *attribute.Element().Parent()
+				xml, err := d.WriteToString()
+				if err != nil {
+					dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: %v\n", err)
+				} else {
+					dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement parent: %s\n", string(xml))
+				}
+			} else {
+				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: nil\n")
+			}
+			d.Element = *attribute.Element()
+			xml, err := d.WriteToString()
+			if err != nil {
+				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement: %v\n", err)
+			} else {
+				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement: %s\n", string(xml))
+			}
+			for _, attr := range attribute.Attributes {
+				d := etree.NewDocument()
+				d.Element = *attr.Element()
+				xml, err := d.WriteToString()
+				if err != nil {
+					dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute: %v\n", err)
+				} else {
+					dbgLog.Printf("(apiServer.handleSAMLResponse) attribute: %s\n", string(xml))
+				}
+				if attr.Name != samlIDPConfig.GroupAttribute {
+					continue
+				}
+
+				var groups []string
+				for _, v := range attr.Values {
+					groups = append(groups, path.Join("group", auth.SAMLPrefix)+v.Value)
+				}
+				// TODO make this internal and call it
+				dbgLog.Printf("(apiServer.handleSAMLResponse) a.setGroupsForUser(ctx, %#v)", groups)
+				a.setGroupsForUser(context.Background(), username, groups)
+			}
+		}
+	}
+
 	return username, 0, nil
 
 }
