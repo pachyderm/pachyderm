@@ -1195,8 +1195,9 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		}
 
 		// ACL read is authorized
+		var principal string
 		if req.Username == "" {
-			resp.Scopes = append(resp.Scopes, acl.Entries[callerInfo.Subject])
+			principal = callerInfo.Subject
 		} else {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
@@ -1212,8 +1213,25 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 			if err != nil {
 				return nil, err
 			}
-			resp.Scopes = append(resp.Scopes, acl.Entries[principal])
 		}
+
+		// Get scope based on user's direct access
+		scope := acl.Entries[principal]
+
+		// Get scope based on based on group access
+		groupsResp, err := a.GetGroups(ctx, &authclient.GetGroupsRequest{
+			Username: principal,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("could not retrieve caller's group memberships: %v", err)
+		}
+		for _, g := range groupsResp.Groups {
+			groupScope := acl.Entries[g]
+			if scope < groupScope {
+				scope = groupScope
+			}
+		}
+		resp.Scopes = append(resp.Scopes, scope)
 	}
 	return resp, nil
 }
@@ -1708,50 +1726,37 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 	if err != nil {
 		return nil, err
 	}
-	// An empty GetGroups() call gets the caller's groups
-	if req.Username == "" {		
-		req.Username = callerInfo.Subject
-	}
 
-	// must be admin or user getting your own groups
-	if req.Username != callerInfo.Subject && !a.isAdmin(callerInfo.Subject) {
-		return nil, &authclient.ErrNotAuthorized{
-			Subject: callerInfo.Subject,
-			AdminOp: "GetGroups for another user",
-		}
-	}
-
-	// Filter by username
-	if req.Username != "" {
-		username, err := a.canonicalizeSubject(ctx, req.Username)
-		if err != nil {
-			return nil, err
-		}
-
-		var groupsProto authclient.Groups
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			members := a.members.ReadWrite(stm)
-			if err := members.Get(username, &groupsProto); err != nil {
-				return err
+	// must be admin or user getting your own groups (default value of
+	// req.Username is the caller)
+	var rawUsername string
+	if req.Username == "" || req.Username == callerInfo.Subject {
+		rawUsername = callerInfo.Subject
+	} else {
+		if !a.isAdmin(callerInfo.Subject) {
+			return nil, &authclient.ErrNotAuthorized{
+				Subject: callerInfo.Subject,
+				AdminOp: "GetGroups",
 			}
-			return nil
-		}); err != nil {
-			return nil, err
 		}
-
-		return &authclient.GetGroupsResponse{Groups: setToList(groupsProto.Groups)}, nil
+		rawUsername = req.Username
 	}
 
-	groupsCol := a.groups.ReadOnly(ctx)
-	var groups []string
-	users := &authclient.Users{}
-	if err := groupsCol.List(users, col.DefaultOptions, func(group string) error {
-		groups = append(groups, group)
-		return nil
-	}); err != nil {
+	username, err := a.lenientCanonicalizeSubject(ctx, rawUsername)
+	if err != nil {
 		return nil, err
 	}
-	return &authclient.GetGroupsResponse{Groups: groups}, nil
+
+	members := a.members.ReadOnly(ctx)
+	var groupsProto authclient.Groups
+	if err := members.Get(username, &groupsProto); err != nil {
+		if col.IsErrNotFound(err) {
+			// Return a healthy response indicating that the user is in no groups
+			return &authclient.GetGroupsResponse{Groups: []string{}}, nil
+		}
+		return nil, err
+	}
+	return &authclient.GetGroupsResponse{Groups: setToList(groupsProto.Groups)}, nil
 }
 
 func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
@@ -1904,6 +1909,7 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 	prefix := subject[:colonIdx]
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
+
 	// check prefix against config cache
 	if a.configCache != nil {
 		if prefix == a.configCache.IDPName {
