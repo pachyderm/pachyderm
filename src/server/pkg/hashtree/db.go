@@ -1282,19 +1282,36 @@ func Nodes(mq *MergePriorityQueue, root []byte, f func(path string, node *NodePr
 	if !bytes.Equal(prefix, nullByte) {
 		prefix = append(prefix, nullByte...)
 	}
+	var k []byte
+	var vs [][]byte
+	var err error
+	// Skip to the root (this will be replaced by the object storage indexing later)
 	for {
-		k, vs, err := mq.Next()
-		if k == nil || (!bytes.HasPrefix(k, prefix) && !bytes.Equal(k, root)) {
-			return nil
-		}
+		k, vs, err = mq.Next()
 		if err != nil {
 			return err
+		}
+		if k == nil {
+			return nil
+		}
+		if bytes.Equal(k, root) {
+			break
+		}
+	}
+	// Iterate through paths under root
+	for {
+		if k == nil || (!bytes.HasPrefix(k, prefix) && !bytes.Equal(k, root)) {
+			return nil
 		}
 		node := &NodeProto{}
 		if err := node.Unmarshal(vs[0]); err != nil {
 			return err
 		}
 		if err := f(s(k), node); err != nil {
+			return err
+		}
+		k, vs, err = mq.Next()
+		if err != nil {
 			return err
 		}
 	}
