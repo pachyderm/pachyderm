@@ -2,6 +2,9 @@ package fuse
 
 import (
 	"bytes"
+	"context"
+	"io"
+	"sync"
 	"syscall"
 	"time"
 
@@ -12,14 +15,27 @@ import (
 )
 
 type file struct {
-	fs   *filesystem
-	name string
+	fs     *filesystem
+	name   string
+	c      *client.APIClient
+	cancel func()
+	// r is a reader for the file that we keep open, this allows us to optimize
+	// the common case of reading the entire file from beginning to end.
+	// Without r we would have to open a new connection every time someone
+	// wanted to read a chunk of the file.
+	r      io.Reader
+	offset int64
+	mu     sync.Mutex
 }
 
 func newFile(fs *filesystem, name string) *file {
+	ctx, cancel := context.WithCancel(fs.c.Ctx())
+	c := fs.c.WithCtx(ctx)
 	return &file{
-		fs:   fs,
-		name: name,
+		fs:     fs,
+		name:   name,
+		c:      c,
+		cancel: cancel,
 	}
 }
 
@@ -46,7 +62,7 @@ func (f *file) Read(dest []byte, offset int64) (fuse.ReadResult, fuse.Status) {
 	case repo != nil:
 		return nil, fuse.Status(syscall.EISDIR)
 	case file != nil:
-		return newReadResult(f.fs.c, file, offset, len(dest)), fuse.OK
+		return f.newReadResult(file, offset, len(dest)), fuse.OK
 	default:
 		return nil, fuse.Status(syscall.EISDIR)
 	}
@@ -94,29 +110,73 @@ func (f *file) Allocate(off uint64, size uint64, mode uint32) fuse.Status {
 }
 
 type readResult struct {
-	c      *client.APIClient
+	f      *file
 	file   *pfs.File
 	offset int64
 	size   int
 }
 
-func newReadResult(c *client.APIClient, file *pfs.File, offset int64, size int) *readResult {
+func (f *file) newReadResult(file *pfs.File, offset int64, size int) *readResult {
 	return &readResult{
-		c:      c,
+		f:      f,
 		file:   file,
 		offset: offset,
 		size:   size,
 	}
 }
 
-func (r *readResult) Bytes(buf []byte) (_ []byte, status fuse.Status) {
+// readFull is like read but always fills up the buffer
+func readFull(r io.Reader, p []byte) error {
+	n := 0
+	for n < len(p) {
+		_n, err := r.Read(p[n:])
+		if err != nil {
+			return err
+		}
+		n += _n
+	}
+	return nil
+}
+
+func (r *readResult) Bytes(buf []byte) ([]byte, fuse.Status) {
 	size := r.size
 	if len(buf) < size {
 		size = len(buf)
 	}
+	if size < len(buf) {
+		buf = buf[0:size]
+	}
+
+	res, err := func() ([]byte, error) {
+		r.f.mu.Lock()
+		defer r.f.mu.Unlock()
+		if r.f.r == nil {
+			reader, err := r.f.c.GetFileReader(r.file.Commit.Repo.Name, r.file.Commit.ID, r.file.Path, r.offset, 0)
+			if err != nil {
+				return nil, err
+			}
+			r.f.r = reader
+			r.f.offset = r.offset
+		}
+		if r.f.offset == r.offset {
+			if err := readFull(r.f.r, buf); err != nil {
+				r.f.r = nil
+				return nil, err
+			}
+			r.f.offset += int64(size)
+			return buf, nil
+		}
+		return nil, nil
+	}()
+	if err != nil {
+		return nil, fuse.ToStatus(err)
+	}
+	if res != nil {
+		return res, fuse.OK
+	}
 
 	buffer := bytes.NewBuffer(buf[:0])
-	if err := r.c.GetFile(r.file.Commit.Repo.Name, r.file.Commit.ID, r.file.Path, r.offset, int64(size), buffer); err != nil {
+	if err := r.f.c.GetFile(r.file.Commit.Repo.Name, r.file.Commit.ID, r.file.Path, r.offset, int64(size), buffer); err != nil {
 		return nil, fuse.ToStatus(err)
 	}
 	return buffer.Bytes(), fuse.OK
