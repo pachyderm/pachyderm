@@ -8082,33 +8082,13 @@ ALTER TABLE ONLY public.sprockets
 	// Validate glob read behavior
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "/data/*", 0, 0, &buf))
-	// glob file is non deterministic ... so we need to check against all permutations of the rows:
-	validDumps := []string{
-		pgDumpHeader + strings.Join(rows, "") + pgDumpFooter,
-		pgDumpHeader + strings.Join([]string{rows[0], rows[2], rows[1]}, "") + pgDumpFooter,
-		pgDumpHeader + strings.Join([]string{rows[1], rows[0], rows[2]}, "") + pgDumpFooter,
-		pgDumpHeader + strings.Join([]string{rows[1], rows[2], rows[0]}, "") + pgDumpFooter,
-		pgDumpHeader + strings.Join([]string{rows[2], rows[0], rows[1]}, "") + pgDumpFooter,
-		pgDumpHeader + strings.Join([]string{rows[2], rows[1], rows[0]}, "") + pgDumpFooter,
-	}
-	require.EqualOneOf(t, validDumps, buf.String())
+	validDump := pgDumpHeader + strings.Join(rows, "") + pgDumpFooter
+	require.Equal(t, validDump, buf.String())
 
 	buf.Reset()
 	require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "/**", 0, 0, &buf))
-	foundEqualPermutation := false
-	validDumps2 := []string{
-		pgDumpHeader2 + strings.Join(rows2, "") + pgDumpFooter2,
-		pgDumpHeader2 + strings.Join([]string{rows2[1], rows2[0]}, "") + pgDumpFooter2,
-	}
-	for _, validDump := range validDumps {
-		for _, validDump2 := range validDumps2 {
-			fmt.Printf("comparing\n[%v]\n[%v]\n", buf.String(), validDump+validDump2)
-			if buf.String() == validDump+validDump2 {
-				foundEqualPermutation = true
-			}
-		}
-	}
-	require.Equal(t, true, foundEqualPermutation)
+	validDump2 := pgDumpHeader2 + strings.Join(rows2, "") + pgDumpFooter2
+	require.Equal(t, validDump+validDump2, buf.String())
 
 	// Test target-file-datums flag
 	commit, err = c.StartCommit(dataRepo, "beta")
