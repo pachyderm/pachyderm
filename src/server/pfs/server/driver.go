@@ -1923,36 +1923,8 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
 				if err == io.EOF {
-					headerBuffer := &bytes.Buffer{}
-					headerBuffer.Write(sqlReader.Header)
-					limiter.Acquire()
-					eg.Go(func() error {
-						defer limiter.Release()
-						object, size, err := pachClient.PutObject(headerBuffer)
-						if err != nil {
-							return err
-						}
-						records.Header = &pfs.PutFileRecord{
-							SizeBytes:  size,
-							ObjectHash: object.Hash,
-						}
-						return nil
-					})
-					footerBuffer := &bytes.Buffer{}
-					footerBuffer.Write(sqlReader.Footer)
-					limiter.Acquire()
-					eg.Go(func() error {
-						defer limiter.Release()
-						object, size, err := pachClient.PutObject(footerBuffer)
-						if err != nil {
-							return err
-						}
-						records.Footer = &pfs.PutFileRecord{
-							SizeBytes:  size,
-							ObjectHash: object.Hash,
-						}
-						return nil
-					})
+					header = &pfs.Metadata{Value: sqlReader.Header}
+					footer = &pfs.Metadata{Value: sqlReader.Footer}
 				}
 			default:
 				return fmt.Errorf("unrecognized delimiter %s", delimiter.String())
