@@ -2273,9 +2273,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		thisDir := directories.Peek()
 		if thisDir != nil && !strings.HasPrefix(path, thisDir.(string)) {
 			// We've proceeded past the current directory
-			footer := footers.Pop().(*pfs.Object)
+			footer := footers.Pop()
 			if footer != nil {
-				objects = append(objects, footer)
+				objects = append(objects, footer.(*pfs.Object))
 			}
 			directories.Pop()
 		}
@@ -2285,7 +2285,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 			if header != nil {
 				objects = append(objects, header)
 			}
-			footers.Push(node.DirNode.Footer)
+			if node.DirNode.Footer != nil {
+				footers.Push(node.DirNode.Footer)
+			}
 			directories.Push(path + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
 		} else {
 			objects = append(objects, node.FileNode.Objects...)
@@ -2296,9 +2298,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}
 	for footers.Len() > 0 {
 		footer := footers.Pop().(*pfs.Object)
-		if footer != nil {
-			objects = append(objects, footer)
-		}
+		objects = append(objects, footer)
 	}
 
 	if len(paths) <= 0 {
