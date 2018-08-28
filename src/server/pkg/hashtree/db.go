@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	pathlib "path"
@@ -1114,11 +1115,6 @@ func MergeTrees(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (
 	}); err != nil {
 		return 0, err
 	}
-	if err := MergeBucket(ChangedBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
-		return out(k, vs[0])
-	}); err != nil {
-		return 0, err
-	}
 	if err := MergeBucket(ObjectBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
 		return out(k, vs[0])
 	}); err != nil {
@@ -1628,4 +1624,115 @@ func compare(a, b *childCursor) int {
 	default:
 		return bytes.Compare(bytes.TrimPrefix(a.k, a.dir), bytes.TrimPrefix(b.k, b.dir))
 	}
+}
+
+// DatumHashTree is an in memory version of the hashtree that is optimized and only works for sequential inserts followed by serialization.
+// This data structure is useful for datum output because a datum's hashtree is created by walking the local filesystem then is uploaded.
+type DatumHashTree struct {
+	fs       []*node
+	dirStack []*node
+}
+
+type node struct {
+	path     string
+	protoBuf *NodeProto
+	hash     hash.Hash
+}
+
+func NewDatumHashTree(path string) *DatumHashTree {
+	path = clean(path)
+	n := &node{
+		path: path,
+		protoBuf: &NodeProto{
+			Name:    base(path),
+			DirNode: &DirectoryNodeProto{},
+		},
+		hash: sha256.New(),
+	}
+	return &DatumHashTree{
+		fs:       []*node{n},
+		dirStack: []*node{n},
+	}
+}
+
+func (d *DatumHashTree) PutDir(path string) {
+	path = clean(path)
+	d.handleEndOfDirectory(path)
+	n := &node{
+		path: path,
+		protoBuf: &NodeProto{
+			Name:    base(path),
+			DirNode: &DirectoryNodeProto{},
+		},
+		hash: sha256.New(),
+	}
+	d.fs = append(d.fs, n)
+	d.dirStack = append(d.dirStack, n)
+}
+
+func (d *DatumHashTree) PutFile(path string, hash []byte, size int64, fileNode *FileNodeProto) {
+	path = clean(path)
+	d.handleEndOfDirectory(path)
+	n := &node{
+		path: path,
+		protoBuf: &NodeProto{
+			Name:        base(path),
+			Hash:        hash,
+			SubtreeSize: size,
+			FileNode:    fileNode,
+		},
+	}
+	d.fs = append(d.fs, n)
+	d.dirStack[len(d.dirStack)-1].hash.Write([]byte(fmt.Sprintf("%s:%s:", n.protoBuf.Name, n.protoBuf.Hash)))
+	d.dirStack[len(d.dirStack)-1].protoBuf.SubtreeSize += size
+}
+
+func (d *DatumHashTree) handleEndOfDirectory(path string) {
+	parent, _ := split(path)
+	if parent != d.dirStack[len(d.dirStack)-1].path {
+		child := d.dirStack[len(d.dirStack)-1]
+		child.protoBuf.Hash = child.hash.Sum(nil)
+		d.dirStack = d.dirStack[:len(d.dirStack)-1]
+		parent := d.dirStack[len(d.dirStack)-1]
+		parent.hash.Write([]byte(fmt.Sprintf("%s:%s:", child.protoBuf.Name, child.protoBuf.Hash)))
+		parent.protoBuf.SubtreeSize += child.protoBuf.SubtreeSize
+	}
+}
+
+func (d *DatumHashTree) Serialize(_w io.Writer, datum string) error {
+	w := pbutil.NewWriter(snappy.NewWriter(_w))
+	if err := w.Write(&BucketHeader{Bucket: DatumBucket}); err != nil {
+		return err
+	}
+	if err := w.WriteBytes([]byte(datum)); err != nil {
+		return err
+	}
+	if err := w.WriteBytes(exists); err != nil {
+		return err
+	}
+	if err := w.WriteBytes(SentinelByte); err != nil {
+		return err
+	}
+	if err := w.Write(&BucketHeader{Bucket: FsBucket}); err != nil {
+		return err
+	}
+	d.fs[0].protoBuf.Hash = d.fs[0].hash.Sum(nil)
+	for _, n := range d.fs {
+		if err := w.WriteBytes(b(n.path)); err != nil {
+			return err
+		}
+		if err := w.Write(n.protoBuf); err != nil {
+			return err
+		}
+	}
+	if err := w.WriteBytes(SentinelByte); err != nil {
+		return err
+	}
+	if err := w.Write(&BucketHeader{Bucket: ObjectBucket}); err != nil {
+		return err
+	}
+	if err := w.WriteBytes(SentinelByte); err != nil {
+		return err
+	}
+	return nil
 }

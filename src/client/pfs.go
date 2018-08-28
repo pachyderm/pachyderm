@@ -501,8 +501,8 @@ func (c APIClient) SubscribeCommitF(repo, branch, from string, state pfs.CommitS
 }
 
 // PutObjectAsync puts a value into the object store asynchronously.
-func (c APIClient) PutObjectAsync() (*PutObjectWriteCloserAsync, error) {
-	w, err := c.newPutObjectWriteCloserAsync()
+func (c APIClient) PutObjectAsync(tags []*pfs.Tag) (*PutObjectWriteCloserAsync, error) {
+	w, err := c.newPutObjectWriteCloserAsync(tags)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
@@ -1180,14 +1180,16 @@ type PutObjectWriteCloserAsync struct {
 	object    *pfs.Object
 }
 
-func (c APIClient) newPutObjectWriteCloserAsync() (*PutObjectWriteCloserAsync, error) {
+func (c APIClient) newPutObjectWriteCloserAsync(tags []*pfs.Tag) (*PutObjectWriteCloserAsync, error) {
 	client, err := c.ObjectAPIClient.PutObject(c.Ctx())
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
 	w := &PutObjectWriteCloserAsync{
-		client:    client,
-		request:   &pfs.PutObjectRequest{},
+		client: client,
+		request: &pfs.PutObjectRequest{
+			Tags: tags,
+		},
 		buf:       grpcutil.GetBuffer()[:0],
 		writeChan: make(chan []byte, 5),
 		errChan:   make(chan error),
@@ -1199,6 +1201,7 @@ func (c APIClient) newPutObjectWriteCloserAsync() (*PutObjectWriteCloserAsync, e
 				w.errChan <- err
 				break
 			}
+			w.request.Tags = nil
 			grpcutil.PutBuffer(buf[:cap(buf)])
 		}
 		close(w.errChan)
