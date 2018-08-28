@@ -4516,6 +4516,9 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	t.Run("GlobRead", func(t *testing.T) {
 		commit, err = c.StartCommit(repo, "h")
 		require.NoError(t, err)
+		contentA := "aaa"
+		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
+		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 		require.NoError(t, err)
 		contentB := "zoo"
@@ -4532,9 +4535,37 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		require.Equal(t, 3, len(fileInfos))
 		fileInfos, err = c.ListFile(repo, commit.ID, "/**")
 		require.NoError(t, err)
-		require.Equal(t, 9, len(fileInfos))
+		require.Equal(t, 10, len(fileInfos))
 		buf.Reset()
 		require.NoError(t, c.GetFile(repo, commit.ID, "/**", 0, 0, &buf))
-		require.Equal(t, header+strings.Join(content, "")+footer+contentB+header+strings.Join(content, "")+footer, buf.String())
+		require.Equal(t, contentA+header+strings.Join(content, "")+footer+contentB+header+strings.Join(content, "")+footer, buf.String())
+	})
+
+	t.Run("GlobRead2", func(t *testing.T) {
+		commit, err = c.StartCommit(repo, "i")
+		require.NoError(t, err)
+		contentA := "aaa"
+		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), nil)
+		require.NoError(t, err)
+		contentB := "zoo"
+		_, err = c.PutFile(repo, commit.ID, "a/c", strings.NewReader(contentB))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/d", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a/d")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/**")
+		require.NoError(t, err)
+		require.Equal(t, 10, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "/**", 0, 0, &buf))
+		require.Equal(t, contentA+header+strings.Join(content, "")+contentB+header+strings.Join(content, "")+footer, buf.String())
 	})
 }
