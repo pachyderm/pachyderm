@@ -658,14 +658,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			logger.Logf("finished uploading output after %v", time.Since(start))
 		}
 	}(time.Now())
-	// hashtree is not thread-safe--guard with 'lock'
-	var lock sync.Mutex
-	tree, err := hashtree.NewDBHashTree(a.hashtreeStorage)
-	if err != nil {
-		return err
-	}
-	outputPath := filepath.Join(dir, "out")
-
+	// Setup client for writing file data
 	putObjsClient, err := pachClient.ObjectAPIClient.PutObjects(pachClient.Ctx())
 	if err != nil {
 		return err
@@ -676,198 +669,177 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	}); err != nil {
 		return err
 	}
+	outputPath := filepath.Join(dir, "out")
 	buf := grpcutil.GetBuffer()
 	defer grpcutil.PutBuffer(buf)
 	var offset uint64
-	limiter := limit.New(concurrency)
-	var eg errgroup.Group
-	var putLock sync.Mutex
-
+	var tree *hashtree.DatumHashTree
 	// Upload all files in output directory
 	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		limiter.Acquire()
-		eg.Go(func() error {
-			defer limiter.Release()
-			if filePath == outputPath {
-				return nil
-			}
-
-			relPath, err := filepath.Rel(outputPath, filePath)
-			if err != nil {
-				return err
-			}
-
-			// Put directory. Even if the directory is empty, that may be useful to
-			// users
-			// TODO(msteffen) write a test pipeline that outputs an empty directory and
-			// make sure it's preserved
-			if info.IsDir() {
-				lock.Lock()
-				defer lock.Unlock()
-				tree.PutDir(relPath)
-				return nil
-			}
-
-			// Under some circumstances, the user might have copied
-			// some pipes from the input directory to the output directory.
-			// Reading from these files will result in job blocking.  Thus
-			// we preemptively detect if the file is a named pipe.
-			if (info.Mode() & os.ModeNamedPipe) > 0 {
-				logger.Logf("cannot upload named pipe: %v", relPath)
-				return errSpecialFile
-			}
-
-			// If the output file is a symlink to an input file, we can skip
-			// the uploading.
-			// TODO(bryce) Make sure this is consistent with the new hash tree implementation.
-			if (info.Mode() & os.ModeSymlink) > 0 {
-				realPath, err := os.Readlink(filePath)
-				if err != nil {
-					return err
-				}
-				pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
-				if err == nil {
-					// We can only skip the upload if the real path is
-					// under /pfs, meaning that it's a file that already
-					// exists in PFS.
-
-					// The name of the input
-					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-					var input *Input
-					for _, i := range inputs {
-						if i.Name == inputName {
-							input = i
-						}
-					}
-					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
-					realPath = filepath.Join(dir, pathWithInput)
-					if input != nil {
-						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
-							if err != nil {
-								return err
-							}
-							rel, err := filepath.Rel(realPath, filePath)
-							if err != nil {
-								return err
-							}
-							subRelPath := filepath.Join(relPath, rel)
-							// The path of the input file
-							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
-							if err != nil {
-								return err
-							}
-
-							if info.IsDir() {
-								lock.Lock()
-								defer lock.Unlock()
-								tree.PutDir(subRelPath)
-								return nil
-							}
-
-							fc := input.FileInfo.File.Commit
-							fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
-							if err != nil {
-								return err
-							}
-
-							lock.Lock()
-							defer lock.Unlock()
-							if statsTree != nil {
-								if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
-									return err
-								}
-							}
-							return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
-						})
-					}
-				}
-			}
-
-			f, err := os.Open(filePath)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-
-			var size int
-			hash := pfs.NewHash()
-			r := io.TeeReader(f, hash)
-
-			putLock.Lock()
-			for {
-				n, err := r.Read(buf)
-				if n == 0 && err != nil {
-					if err == io.EOF {
-						break
-					}
-					return err
-				}
-				if err := putObjsClient.Send(&pfs.PutObjectRequest{
-					Value: buf[:n],
-				}); err != nil {
-					return err
-				}
-				size += n
-			}
-			blockRef := &pfs.BlockRef{
-				Block: block,
-				Range: &pfs.ByteRange{
-					Lower: offset,
-					Upper: offset + uint64(size),
-				},
-			}
-			offset += uint64(size)
-			stats.UploadBytes += uint64(size)
-			putLock.Unlock()
-
-			// (bryce) Make stats work with performance changes
-			//object := &pfs.Object{Hash: pfs.EncodeHash(hash.Sum(nil))}
-			if statsTree != nil {
-				//if err := statsTree.PutObject(object, blockRef); err != nil {
-				//	return err
-				//}
-				//if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(blockRef.Range.Upper-blockRef.Range.Lower)); err != nil {
-				//	return err
-				//}
-			}
-			//if err := tree.PutObject(object, blockRef); err != nil {
-			//	return err
-			//}
-			if err := tree.PutFileBlockRefs(relPath, []*pfs.BlockRef{blockRef}, int64(blockRef.Range.Upper-blockRef.Range.Lower)); err != nil {
-				return err
-			}
+		if filePath == outputPath {
+			tree = hashtree.NewDatumHashTree("/")
 			return nil
-		})
+		}
+		relPath, err := filepath.Rel(outputPath, filePath)
+		if err != nil {
+			return err
+		}
+		// Put directory. Even if the directory is empty, that may be useful to
+		// users
+		// TODO(msteffen) write a test pipeline that outputs an empty directory and
+		// make sure it's preserved
+		if info.IsDir() {
+			tree.PutDir(relPath)
+			return nil
+		}
+		// Under some circumstances, the user might have copied
+		// some pipes from the input directory to the output directory.
+		// Reading from these files will result in job blocking.  Thus
+		// we preemptively detect if the file is a named pipe.
+		if (info.Mode() & os.ModeNamedPipe) > 0 {
+			logger.Logf("cannot upload named pipe: %v", relPath)
+			return errSpecialFile
+		}
+		// If the output file is a symlink to an input file, we can skip
+		// the uploading.
+		// (bryce) Symlink will not work unless we re-visit impedance mismatch between input and output repos.
+		//if (info.Mode() & os.ModeSymlink) > 0 {
+		//	realPath, err := os.Readlink(filePath)
+		//	if err != nil {
+		//		return err
+		//	}
+		//	pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
+		//	if err == nil {
+		//		// We can only skip the upload if the real path is
+		//		// under /pfs, meaning that it's a file that already
+		//		// exists in PFS.
+
+		//		// The name of the input
+		//		inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
+		//		var input *Input
+		//		for _, i := range inputs {
+		//			if i.Name == inputName {
+		//				input = i
+		//			}
+		//		}
+		//		// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
+		//		realPath = filepath.Join(dir, pathWithInput)
+		//		if input != nil {
+		//			return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+		//				if err != nil {
+		//					return err
+		//				}
+		//				rel, err := filepath.Rel(realPath, filePath)
+		//				if err != nil {
+		//					return err
+		//				}
+		//				subRelPath := filepath.Join(relPath, rel)
+		//				// The path of the input file
+		//				pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
+		//				if err != nil {
+		//					return err
+		//				}
+
+		//				if info.IsDir() {
+		//					tree.PutDir(subRelPath)
+		//					return nil
+		//				}
+
+		//				fc := input.FileInfo.File.Commit
+		//				fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
+		//				if err != nil {
+		//					return err
+		//				}
+		//				n := &FileNodeProto{
+		//					Objects: fileInfo.Objects,
+		//				}
+		//				if statsTree != nil {
+		//					if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Hash, &FileNodeProto{
+		//							Objects: fileInfo.Objects,
+		//						},
+		//						int64(fileInfo.SizeBytes),
+		//					); err != nil {
+		//						return err
+		//					}
+		//				}
+		//				return tree.PutFile(subRelPath, fileInfo.Hash, ,
+		//					int64(fileInfo.SizeBytes),
+		//				)
+		//			})
+		//		}
+		//	}
+		//}
+		// Open local file that is being uploaded
+		f, err := os.Open(filePath)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		var size int64
+		h := pfs.NewHash()
+		r := io.TeeReader(f, h)
+		// Write local file to object storage block
+		for {
+			n, err := r.Read(buf)
+			if n == 0 && err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			if err := putObjsClient.Send(&pfs.PutObjectRequest{
+				Value: buf[:n],
+			}); err != nil {
+				return err
+			}
+			size += int64(n)
+		}
+		n := &hashtree.FileNodeProto{
+			BlockRefs: []*pfs.BlockRef{
+				&pfs.BlockRef{
+					Block: block,
+					Range: &pfs.ByteRange{
+						Lower: offset,
+						Upper: offset + uint64(size),
+					},
+				},
+			},
+		}
+		hash := h.Sum(nil)
+		//if statsTree != nil {
+		//	if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{hash}, size); err != nil {
+		//		return err
+		//	}
+		//}
+		tree.PutFile(relPath, hash, size, n)
+		offset += uint64(size)
+		stats.UploadBytes += uint64(size)
 		return nil
 	}); err != nil {
-		return err
-	}
-	if err := eg.Wait(); err != nil {
 		return err
 	}
 	if err := putObjsClient.CloseSend(); err != nil {
 		return err
 	}
-	if err := tree.PutDatum(tag); err != nil {
+	w, err := pachClient.PutObjectAsync([]*pfs.Tag{&pfs.Tag{tag}})
+	if err != nil {
 		return err
 	}
-	if err := tree.Hash(); err != nil {
+	defer func() {
+		if err := w.Close(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	if err := tree.Serialize(w, tag); err != nil {
 		return err
 	}
-	if _, err := hashtree.PutHashTree(pachClient, tree, tag); err != nil {
-		return err
-	}
-	if err := tree.Destroy(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -1191,7 +1163,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 					}
 					rs = append(rs, r)
 				}
-				w, err := pachClient.PutObjectAsync()
+				w, err := pachClient.PutObjectAsync(nil)
 				var size uint64
 				if size, err = hashtree.MergeTrees(w, rs, func(path []byte) (bool, error) {
 					if xxhash.Checksum64(path)%uint64(plan.Merges) == uint64(merge) {
