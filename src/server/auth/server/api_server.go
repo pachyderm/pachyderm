@@ -66,7 +66,7 @@ const (
 	// configKey is a key (in etcd, in the config collection) that maps to the
 	// auth configuration. This is the only key in that collection (due to
 	// implemenation details of our config library, we can't use an empty key)
-	configKey = "x"
+	configKey = "config"
 
 	// SamlPort is the port where SAML ID Providers can send auth assertions
 	SamlPort = 654

@@ -245,6 +245,7 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 	a.configMu.Lock()
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
+	defer a.configMu.Unlock()
 	if a.samlSP == nil {
 		dbgLog.Printf("(apiServer.handleSAMLResponse) samlSP is nil\n")
 		http.Error(w, "SAML ACS has not been configured", http.StatusConflict)
