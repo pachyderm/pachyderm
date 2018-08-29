@@ -4568,4 +4568,34 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		require.NoError(t, c.GetFile(repo, commit.ID, "/**", 0, 0, &buf))
 		require.Equal(t, contentA+header+strings.Join(content, "")+contentB+header+strings.Join(content, "")+footer, buf.String())
 	})
+
+	t.Run("GlobRead3", func(t *testing.T) {
+		commit, err = c.StartCommit(repo, "j")
+		require.NoError(t, err)
+		contentA := "aaa"
+		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "zoo"
+		_, err = c.PutFile(repo, commit.ID, "a/c", strings.NewReader(contentB))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/d", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a/d")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		glob := "/a/*/0000000000000000"
+		fileInfos, err = c.ListFile(repo, commit.ID, glob)
+		require.NoError(t, err)
+		fmt.Printf("files: %v\n", fileInfos)
+		require.Equal(t, 2, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, glob, 0, 0, &buf))
+		require.Equal(t, header+content[0]+footer+header+content[0]+footer, buf.String())
+	})
 }

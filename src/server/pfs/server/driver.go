@@ -2243,27 +2243,22 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}
 	var objects []*pfs.Object
 	var totalSize int64
-	var sortedPaths []string
-	foundDirectoryNode := false
+	// Add directory path/nodes to unique set of paths
+	// so we can collect and header/footer objects as we traverse the
+	// paths below
 	for path, node := range paths {
-		sortedPaths = append(sortedPaths, path)
-		if node.DirNode != nil {
-			foundDirectoryNode = true
+		if node.FileNode != nil {
+			dirPath := filepath.Dir(path)
+			dirNode, err := tree.Get(dirPath)
+			if err != nil {
+				return nil, err
+			}
+			paths[dirPath] = dirNode
 		}
 	}
-	if !foundDirectoryNode {
-		// e.g. this was a request for a single file e.g. /foo/bar.txt
-		dirNodePaths, err := tree.Glob(filepath.Dir(file.Path))
-		if err != nil {
-			return nil, err
-		}
-		if len(dirNodePaths) != 1 {
-			return nil, fmt.Errorf("invalid set of directory node paths - found %v expected 1 - this is probably a bug", len(dirNodePaths))
-		}
-		for key, node := range dirNodePaths {
-			paths[key] = node
-			sortedPaths = append(sortedPaths, key)
-		}
+	var sortedPaths []string
+	for path, _ := range paths {
+		sortedPaths = append(sortedPaths, path)
 	}
 	sort.Strings(sortedPaths)
 	footers := stack.New()
@@ -2305,7 +2300,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 
-	if foundDirectoryNode && len(objects) == 0 {
+	if len(objects) == 0 {
 		// Dir has no header/footer, return err
 		return nil, fmt.Errorf("cannot read directory, no header or footer")
 	}
