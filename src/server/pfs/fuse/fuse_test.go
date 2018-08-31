@@ -2,6 +2,7 @@ package fuse
 
 import (
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 )
 
 const (
@@ -68,14 +70,17 @@ func TestLargeFile(t *testing.T) {
 func BenchmarkLargeFile(b *testing.B) {
 	c := server.GetPachClient(b)
 	require.NoError(b, c.CreateRepo("repo"))
-	_, err := c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("p", GB)))
+	src := workload.RandString(rand.New(rand.NewSource(123)), GB+17)
+	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
 	require.NoError(b, err)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		mount(b, c, nil, func(mountPoint string) {
 			data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
 			require.NoError(b, err)
-			require.Equal(b, GB, len(data))
+			b.StopTimer()
+			require.Equal(b, src, string(data))
+			b.StartTimer()
 		})
 	}
 }

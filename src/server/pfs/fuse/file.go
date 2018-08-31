@@ -25,6 +25,7 @@ type file struct {
 	// wanted to read a chunk of the file.
 	r      io.Reader
 	offset int64
+	m      map[int64]chan struct{}
 	mu     sync.Mutex
 }
 
@@ -36,6 +37,7 @@ func newFile(fs *filesystem, name string) *file {
 		name:   name,
 		c:      c,
 		cancel: cancel,
+		m:      make(map[int64]chan struct{}),
 	}
 }
 
@@ -158,12 +160,29 @@ func (r *readResult) Bytes(buf []byte) ([]byte, fuse.Status) {
 			r.f.r = reader
 			r.f.offset = r.offset
 		}
+		if r.offset > r.f.offset {
+			ch := make(chan struct{})
+			r.f.m[r.offset] = ch
+			r.f.mu.Unlock()
+			select {
+			case <-ch:
+			case <-time.After(time.Second):
+			}
+			r.f.mu.Lock()
+			delete(r.f.m, r.offset)
+		}
 		if r.f.offset == r.offset {
 			if err := readFull(r.f.r, buf); err != nil {
 				r.f.r = nil
+				if err == io.EOF {
+					return nil, nil
+				}
 				return nil, err
 			}
 			r.f.offset += int64(size)
+			if ch, ok := r.f.m[r.f.offset]; ok {
+				close(ch)
+			}
 			return buf, nil
 		}
 		return nil, nil
