@@ -204,6 +204,7 @@ func (fs *filesystem) fileAttr(f *pfs.File) (*fuse.Attr, fuse.Status) {
 	if err != nil {
 		return nil, toStatus(err)
 	}
+	fmt.Printf("Size: %d\n", fi.SizeBytes)
 	return &fuse.Attr{
 		Mode: fileMode(fi),
 		Size: fi.SizeBytes,
