@@ -278,7 +278,7 @@ a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 9 mi
 Let's say that one or more observations in our training data set were corrupt or unwanted.  Thus, we want to update our training data set.  To simulate this, go ahead and open up `iris.csv` (e.g., with `vim`) and remove a couple of the rows (non-header rows).  Then, let's replace our training set (`-o` tells Pachyderm to overwrite the file):
 
 ```
-$ pachctl put-file training master -o -f iris.csv
+$ pachctl put-file training master -o -f ./data/iris.csv
 ```
 
 Immediately, Pachyderm "knows" that the data has been updated, and it starts new jobs to update the model and inferences.
