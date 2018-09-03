@@ -317,7 +317,8 @@ The `Provenance` tells us exactly which model and training set was used (along w
 ```
 $ pachctl list-file model adb293f8a4604ed7b081c1ff030c0480
 NAME                TYPE                SIZE
-model.jld           file                70.34 KiB
+model.pkl           file                3.448KiB
+model.txt           file                226B
 ```
 
 We could get this model to examine it, rerun it, revert to a different model, etc.
