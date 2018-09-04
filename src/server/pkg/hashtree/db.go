@@ -163,6 +163,24 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
+// (bryce) This get implementation is very naive and will be changed later.
+func Get(mq *MergePriorityQueue, filePath string) (*NodeProto, error) {
+	filePath = clean(filePath)
+	var fileNode *NodeProto
+	if err := Nodes(mq, b(filePath), func(path string, node *NodeProto) error {
+		if path == filePath {
+			fileNode = node
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if fileNode == nil {
+		return nil, errorf(PathNotFound, "file \"%s\" not found", filePath)
+	}
+	return fileNode, nil
+}
+
 // dirPrefix returns the prefix that keys must have to be considered under the
 // directory at path
 func dirPrefix(path string) string {
@@ -224,6 +242,23 @@ func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 	return result, nil
 }
 
+func List(mq *MergePriorityQueue, root string, pattern string, f func(string, *NodeProto) error) (retErr error) {
+	root = clean(root)
+	if pattern != "/" {
+		pattern = clean(pattern)
+	}
+	g, err := globlib.Compile(pattern, '/')
+	if err != nil {
+		return errorf(MalformedGlob, err.Error())
+	}
+	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
+		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
+			return f(path, node)
+		}
+		return nil
+	})
+}
+
 func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 	if !isGlob(pattern) {
 		node, err := get(tx, pattern)
@@ -282,23 +317,6 @@ func Glob(mq *MergePriorityQueue, root string, pattern string, f func(string, *N
 	}
 	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
 		if g.Match(path) {
-			return f(path, node)
-		}
-		return nil
-	})
-}
-
-func List(mq *MergePriorityQueue, root string, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	root = clean(root)
-	if pattern != "/" {
-		pattern = clean(pattern)
-	}
-	g, err := globlib.Compile(pattern, '/')
-	if err != nil {
-		return errorf(MalformedGlob, err.Error())
-	}
-	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
-		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
 			return f(path, node)
 		}
 		return nil
@@ -1273,15 +1291,11 @@ func Merge(mq *MergePriorityQueue, f func(k []byte, vs [][]byte) error) error {
 	return nil
 }
 
-func Nodes(mq *MergePriorityQueue, root []byte, f func(path string, node *NodeProto) error) (retErr error) {
-	prefix := root
-	if !bytes.Equal(prefix, nullByte) {
-		prefix = append(prefix, nullByte...)
-	}
+func Nodes(mq *MergePriorityQueue, prefix []byte, f func(path string, node *NodeProto) error) error {
 	var k []byte
 	var vs [][]byte
 	var err error
-	// Skip to the root (this will be replaced by the object storage indexing later)
+	// Skip to the prefix (this will be replaced by the object storage indexing later)
 	for {
 		k, vs, err = mq.Next()
 		if err != nil {
@@ -1290,13 +1304,13 @@ func Nodes(mq *MergePriorityQueue, root []byte, f func(path string, node *NodePr
 		if k == nil {
 			return nil
 		}
-		if bytes.Equal(k, root) {
+		if bytes.HasPrefix(k, prefix) {
 			break
 		}
 	}
-	// Iterate through paths under root
+	// Iterate through paths with prefix
 	for {
-		if k == nil || (!bytes.HasPrefix(k, prefix) && !bytes.Equal(k, root)) {
+		if k == nil || !bytes.HasPrefix(k, prefix) {
 			return nil
 		}
 		node := &NodeProto{}
