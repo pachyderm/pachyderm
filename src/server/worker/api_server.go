@@ -705,73 +705,73 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		}
 		// If the output file is a symlink to an input file, we can skip
 		// the uploading.
-		// (bryce) Symlink will not work unless we re-visit impedance mismatch between input and output repos.
-		//if (info.Mode() & os.ModeSymlink) > 0 {
-		//	realPath, err := os.Readlink(filePath)
-		//	if err != nil {
-		//		return err
-		//	}
-		//	pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
-		//	if err == nil {
-		//		// We can only skip the upload if the real path is
-		//		// under /pfs, meaning that it's a file that already
-		//		// exists in PFS.
+		if (info.Mode() & os.ModeSymlink) > 0 {
+			realPath, err := os.Readlink(filePath)
+			if err != nil {
+				return err
+			}
+			pathWithInput, err := filepath.Rel(client.PPSInputPrefix, realPath)
+			if err == nil {
+				// We can only skip the upload if the real path is
+				// under /pfs, meaning that it's a file that already
+				// exists in PFS.
 
-		//		// The name of the input
-		//		inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-		//		var input *Input
-		//		for _, i := range inputs {
-		//			if i.Name == inputName {
-		//				input = i
-		//			}
-		//		}
-		//		// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
-		//		realPath = filepath.Join(dir, pathWithInput)
-		//		if input != nil {
-		//			return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
-		//				if err != nil {
-		//					return err
-		//				}
-		//				rel, err := filepath.Rel(realPath, filePath)
-		//				if err != nil {
-		//					return err
-		//				}
-		//				subRelPath := filepath.Join(relPath, rel)
-		//				// The path of the input file
-		//				pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
-		//				if err != nil {
-		//					return err
-		//				}
-
-		//				if info.IsDir() {
-		//					tree.PutDir(subRelPath)
-		//					return nil
-		//				}
-
-		//				fc := input.FileInfo.File.Commit
-		//				fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
-		//				if err != nil {
-		//					return err
-		//				}
-		//				n := &FileNodeProto{
-		//					Objects: fileInfo.Objects,
-		//				}
-		//				if statsTree != nil {
-		//					if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Hash, &FileNodeProto{
-		//							Objects: fileInfo.Objects,
-		//						},
-		//						int64(fileInfo.SizeBytes),
-		//					); err != nil {
-		//						return err
-		//					}
-		//				}
-		//				return tree.PutFile(subRelPath, fileInfo.Hash, ,
-		//					int64(fileInfo.SizeBytes),
-		//				)
-		//			})
-		//		}
-		//	}
-		//}
+				// The name of the input
+				inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
+				var input *Input
+				for _, i := range inputs {
+					if i.Name == inputName {
+						input = i
+					}
+				}
+				// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
+				realPath = filepath.Join(dir, pathWithInput)
+				if input != nil {
+					return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+						if err != nil {
+							return err
+						}
+						rel, err := filepath.Rel(realPath, filePath)
+						if err != nil {
+							return err
+						}
+						subRelPath := filepath.Join(relPath, rel)
+						// The path of the input file
+						pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
+						if err != nil {
+							return err
+						}
+						if info.IsDir() {
+							tree.PutDir(subRelPath)
+							return nil
+						}
+						fc := input.FileInfo.File.Commit
+						fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
+						if err != nil {
+							return err
+						}
+						var blockRefs []*pfs.BlockRef
+						for _, object := range fileInfo.Objects {
+							objectInfo, err := pachClient.InspectObject(object.Hash)
+							if err != nil {
+								return err
+							}
+							blockRefs = append(blockRefs, objectInfo.BlockRef)
+						}
+						n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
+						//if statsTree != nil {
+						//	if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Hash, &FileNodeProto{},
+						//		int64(fileInfo.SizeBytes),
+						//	); err != nil {
+						//		return err
+						//	}
+						//}
+						tree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+						return nil
+					})
+				}
+			}
+		}
 		// Open local file that is being uploaded
 		f, err := os.Open(filePath)
 		if err != nil {
