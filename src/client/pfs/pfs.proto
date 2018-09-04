@@ -138,6 +138,7 @@ message FileInfo {
   // the children
   repeated string children = 6;
   repeated Object objects = 8;
+  repeated BlockRef blockRefs = 9;
   bytes hash = 7;
 }
 

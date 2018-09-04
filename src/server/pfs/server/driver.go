@@ -2321,6 +2321,7 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 		fileInfo.FileType = pfs.FileType_FILE
 		if full {
 			fileInfo.Objects = node.FileNode.Objects
+			fileInfo.BlockRefs = node.FileNode.BlockRefs
 		}
 	} else if node.DirNode != nil {
 		fileInfo.FileType = pfs.FileType_DIR
@@ -2337,17 +2338,34 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
-	tree, err := d.getTreeForFile(ctx, file)
+	commitInfo, err := d.inspectCommit(ctx, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return nil, err
 	}
-
-	node, err := tree.Get(file.Path)
+	// Handle commits to input repos
+	if commitInfo.Provenance == nil {
+		tree, err := d.getTreeForFile(ctx, file)
+		if err != nil {
+			return nil, err
+		}
+		node, err := tree.Get(file.Path)
+		if err != nil {
+			return nil, pfsserver.ErrFileNotFound{file}
+		}
+		return nodeToFileInfo(file.Commit, file.Path, node, true), nil
+	}
+	// Handle commits to output repos
+	if commitInfo.Finished == nil {
+		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+	}
+	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	if err != nil {
+		return nil, err
+	}
+	node, err := hashtree.Get(trees, file.Path)
 	if err != nil {
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
-
-	// TODO(bryce) Add file path cleaning to this return
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
