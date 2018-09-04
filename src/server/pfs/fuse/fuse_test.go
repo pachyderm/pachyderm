@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"crypto/sha256"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -58,19 +59,20 @@ func TestChunkSize(t *testing.T) {
 func TestLargeFile(t *testing.T) {
 	c := server.GetPachClient(t)
 	require.NoError(t, c.CreateRepo("repo"))
-	_, err := c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("p", GB)))
+	src := workload.RandString(rand.New(rand.NewSource(123)), GB+17)
+	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
 	require.NoError(t, err)
 	mount(t, c, nil, func(mountPoint string) {
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
 		require.NoError(t, err)
-		require.Equal(t, GB, len(data))
+		require.Equal(t, sha256.Sum256([]byte(src)), sha256.Sum256(data))
 	})
 }
 
 func BenchmarkLargeFile(b *testing.B) {
 	c := server.GetPachClient(b)
 	require.NoError(b, c.CreateRepo("repo"))
-	src := workload.RandString(rand.New(rand.NewSource(123)), GB+17)
+	src := workload.RandString(rand.New(rand.NewSource(123)), GB)
 	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
 	require.NoError(b, err)
 	b.ResetTimer()
@@ -78,9 +80,8 @@ func BenchmarkLargeFile(b *testing.B) {
 		mount(b, c, nil, func(mountPoint string) {
 			data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
 			require.NoError(b, err)
-			b.StopTimer()
-			require.Equal(b, src, string(data))
-			b.StartTimer()
+			require.Equal(b, GB, len(data))
+			b.SetBytes(GB)
 		})
 	}
 }
