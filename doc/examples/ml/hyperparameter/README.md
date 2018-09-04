@@ -44,7 +44,7 @@ Then, we can put our iris data set into `raw-data`.  We are going to use a versi
 
 ```sh
 $ cd data 
-$ pachctl put-file raw_data master iris.csv -c -f noisy_iris.csv 
+$ pachctl put-file raw_data master iris.csv -f noisy_iris.csv 
 $ pachctl list-file raw_data master
 NAME                TYPE                SIZE                
 iris.csv            file                10.29KiB
@@ -54,8 +54,8 @@ The *C* and *Gamma* parameters that we will be searching over are included in [d
 
 ```sh
 $ cd parameters 
-$ pachctl put-file parameters master -c -f c_parameters.txt --split line --target-file-datums 1 
-$ pachctl put-file parameters master -c -f gamma_parameters.txt --split line --target-file-datums 1
+$ pachctl put-file parameters master -f c_parameters.txt --split line --target-file-datums 1 
+$ pachctl put-file parameters master -f gamma_parameters.txt --split line --target-file-datums 1
 $ pachctl list-file parameters master
 NAME                   TYPE                SIZE                
 c_parameters.txt       dir                 81B                 
