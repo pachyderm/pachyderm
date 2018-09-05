@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"sync"
 	"syscall"
@@ -21,6 +22,7 @@ type file struct {
 	pfsFile *pfs.File
 	file    *os.File
 	counter *counter
+	err     error
 }
 
 func newFile(fs *filesystem, name string) (*file, fuse.Status) {
@@ -50,18 +52,20 @@ func newFile(fs *filesystem, name string) (*file, fuse.Status) {
 	// tell us conclusively at least (but not at most) a certain number of
 	// bytes has been written to f.
 	w := io.MultiWriter(f, counter)
-	go func() {
-		if err := c.GetFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, 0, 0, w); err != nil {
-			// Do something with this error
-		}
-	}()
-	return &file{
+	result := &file{
 		attr:    attr,
 		cancel:  cancel,
 		pfsFile: pfsFile,
 		file:    f,
 		counter: counter,
-	}, fuse.OK
+	}
+	go func() {
+		if err := c.GetFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, 0, 0, w); err != nil {
+			result.err = err
+			counter.cancel()
+		}
+	}()
+	return result, fuse.OK
 }
 
 func (f *file) Write(data []byte, off int64) (written uint32, code fuse.Status) {
@@ -84,6 +88,10 @@ func (f *file) Read(dest []byte, offset int64) (fuse.ReadResult, fuse.Status) {
 		waitn = int64(f.attr.Size)
 	}
 	f.counter.wait(waitn)
+	// check if there was an error reading the file
+	if f.err != nil {
+		return nil, toStatus(f.err)
+	}
 	if err := f.file.Sync(); err != nil {
 		return nil, toStatus(err)
 	}
@@ -99,7 +107,9 @@ func (f *file) Flush() fuse.Status {
 	return fuse.OK
 }
 
-func (f *file) Release() {}
+func (f *file) Release() {
+	f.cancel()
+}
 
 func (f *file) Fsync(flags int) (code fuse.Status) {
 	return fuse.EROFS
@@ -157,4 +167,12 @@ func (c *counter) wait(n int64) {
 	for c.n < n {
 		c.cond.Wait()
 	}
+}
+
+// cancel indicates that an error has occurred which will prevent any further
+// calls to Write, it causes all calls to wait() to return
+func (c *counter) cancel() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.n = math.MaxInt64
 }
