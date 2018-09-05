@@ -72,7 +72,7 @@ message IDProvider {
   message SAMLOptions {
     // metadata_url is the URL of the SAML ID provider's metadata service
     // (which Pachd can query to get more info about the SAML ID provider)
-    string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
+    string metadata_url = 1 [(gogoproto.customname) = "MetadataURL"];
   }
   SAMLOptions saml = 3 [(gogoproto.customname) = "SAML"];
 }
@@ -106,6 +106,16 @@ message AuthConfig {
     // responsible for setting up this URL (which must resolve to
     // pachd:654/meta)
     string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
+
+    // dash_url is the public address of this cluster's Pachyderm
+    // dashboard, if one exists; this option determines where users will be
+    // redirected after successfully authenticating
+    string dash_url = 3 [(gogoproto.customname) = "DashURL"];
+
+    // debug_logging determines whether pachd emits verbose logs (including
+    // SAML credentials) as it receives them, which may be helpful for
+    // debugging. This will probably not be present in any official releases.
+    bool debug_logging = 4;
   }
   SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
 }

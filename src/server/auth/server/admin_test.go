@@ -1687,14 +1687,22 @@ func TestSAMLBasic(t *testing.T) {
 
 	// Serve IdP metadata (since our SAML implementation will query the IdP
 	// endpoint as part of handling the SAML response)
+	idpMetadataChan := make(chan int)
 	var server *http.Server
-	var idpMetadataChan chan int
+		idp := &saml.IdentityProvider{}
+		idp.Certificate =
 	go func() {
-		idp := saml.IdentityProvider{}
+		idp := &saml.IdentityProvider{}
 		l, err := net.Listen("tcp", "") // pick unused port on all IPs
 		require.NoError(t, err)
 		fmt.Printf(">>> addr: %#v\n", l.Addr())
-		idpMetadataChan <- l.Addr().(*net.TCPAddr).Port
+		port := l.Addr().(*net.TCPAddr).Port
+		idpMetadataChan <- port
+		idp.MetadataURL = url.URL{
+			Scheme: "http",
+			Host:   fmt.Sprintf("localhost:%d", port),
+		}
+		idp.Certificate = ???
 		server = &http.Server{Handler: http.HandlerFunc(idp.ServeMetadata)}
 		server.Serve(l)
 	}()
@@ -1702,7 +1710,11 @@ func TestSAMLBasic(t *testing.T) {
 		server.Shutdown(context.Background())
 	}()
 	idpMetadataPort := <-idpMetadataChan
-	fmt.Printf(">>> idpMetadataPort: %#v\n", idpMetadataPort)
+	// Check that the metadata service is available
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := http.Get(fmt.Sprintf("http://localhost:%d", idpMetadataPort))
+		return err
+	}, backoff.New10sBackOff()))
 
 	// Set a configuration
 	require.NoErrorWithinT(t, 30*time.Second, func() error {

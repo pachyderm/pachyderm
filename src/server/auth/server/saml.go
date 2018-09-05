@@ -24,6 +24,12 @@ func validateConfig() error {
 	return nil
 }
 
+var defaultRedirectURL = &url.URL{
+	Scheme: "http",
+	Host:   "localhost:30080",
+	Path:   path.Join("auth", "autologin"),
+}
+
 // lookupIDPMetadata takes the URL of a SAML IdP's Metadata service, queries it,
 // parses the result, and returns it as a struct the crewjam/saml library can
 // use
@@ -127,6 +133,15 @@ func (a *apiServer) updateSAMLSP() error {
 		return fmt.Errorf("Metadata URL %q is invalid (no scheme)", metadataURL)
 	}
 
+	// parse Dash URL
+	var dashURL *url.URL
+	if sso.DashURL != "" {
+		dashURL, err = url.Parse(sso.DashURL)
+		if err != nil {
+			return fmt.Errorf("could not parse dash URL \"%s\": %v", sso.DashURL, err)
+		}
+	}
+
 	var samlProvider string
 	var idpMetadataURL *url.URL
 	for _, idp := range a.configCache.IDProviders {
@@ -186,24 +201,22 @@ func (a *apiServer) updateSAMLSP() error {
 	// Set ACS URL and metadata URL from config
 	a.samlSP.AcsURL = *acsURL
 	a.samlSP.MetadataURL = *metadataURL
-	// a.samlSP.IDPMetadata
+	a.redirectAddress = dashURL
 
 	return nil
 }
 
 func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
+	a.configMu.Lock()
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
+	defer a.configMu.Unlock()
 	if a.samlSP == nil {
 		http.Error(w, "SAML ACS has not been configured", http.StatusConflict)
 		return
 	}
 	sp := a.samlSP
 
-	// stat := statReadCloser{
-	// 	ReadCloser: req.Body,
-	// }
-	// req.Body = &stat
 	out := io.MultiWriter(w, os.Stdout)
 	possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
 	assertion, err := sp.ParseResponse(req, possibleRequestIDs)
@@ -217,7 +230,7 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 			out.Write([]byte("Error parsing SAML response: "))
 			out.Write([]byte(err.Error()))
 			if invalidRespErr, ok := err.(*saml.InvalidResponseError); ok {
-				out.Write([]byte("\nPrivate error: " + invalidRespErr.PrivateErr.Error()))
+				out.Write([]byte("\n(" + invalidRespErr.PrivateErr.Error() + ")"))
 			}
 		case assertion == nil:
 			out.Write([]byte("Error parsing SAML response: assertion is nil"))
@@ -236,17 +249,23 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 	}
 
 	// Success
-	authCode, err := a.getAuthenticationCode(req.Context(), "saml:"+assertion.Subject.NameID.Value)
-	var u url.URL
-	u.Scheme = "http"
-	u.Host = "localhost:30080" // TODO get from config
-	u.Path = path.Join("auth", "autologin")
+	username := "FIx me"
+	// username := auth.SAMLPrefix + assertion.Subject.NameID.Value
+	authCode, err := a.getAuthenticationCode(req.Context(), username)
+
+	// Redirect caller back to dash with auth code
+	u := *defaultRedirectURL
+	if a.redirectAddress != nil {
+		u = *a.redirectAddress
+	}
 	u.RawQuery = url.Values{"auth_code": []string{authCode}}.Encode()
 	w.Header().Set("Location", u.String())
 	w.WriteHeader(http.StatusFound) // Send redirect
 }
 
 func (a *apiServer) handleMetadata(w http.ResponseWriter, req *http.Request) {
+	a.samlSPMu.Lock()
+	defer a.samlSPMu.Unlock()
 	buf, _ := xml.MarshalIndent(a.samlSP.Metadata(), "", "  ")
 	w.Header().Set("Content-Type", "application/samlmetadata+xml")
 	w.Write(buf)

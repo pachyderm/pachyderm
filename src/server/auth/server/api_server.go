@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -54,7 +55,7 @@ const (
 
 	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
 	// GetAuthenticationCode
-	defaultAuthCodeTTLSecs = 30
+	defaultAuthCodeTTLSecs = 60
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -65,7 +66,7 @@ const (
 	// configKey is a key (in etcd, in the config collection) that maps to the
 	// auth configuration. This is the only key in that collection (due to
 	// implemenation details of our config library, we can't use an empty key)
-	configKey = "x"
+	configKey = "config"
 
 	// SamlPort is the port where SAML ID Providers can send auth assertions
 	SamlPort = 654
@@ -98,10 +99,11 @@ type apiServer struct {
 	adminMu    sync.Mutex          // guard 'adminCache'
 
 	configCache authclient.AuthConfig // cache of auth config in etcd
-	configMu    sync.Mutex            // guard 'configCache'
+	configMu    sync.Mutex            // guard 'configCache'. Always lock before 'samlSPMu' (if using both)
 
-	samlSP   *saml.ServiceProvider // object for parsing saml responses
-	samlSPMu sync.Mutex            // guard 'samlSP'
+	samlSP          *saml.ServiceProvider // object for parsing saml responses
+	redirectAddress *url.URL              // address where users will be redirected after authenticating
+	samlSPMu        sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
@@ -465,7 +467,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// Authenticate the caller (or generate a new auth token if req.Subject is a
 	// robot user)
 	if req.Subject != "" {
-		req.Subject, err = lenientCanonicalizeSubject(ctx, req.Subject)
+		req.Subject, err = a.lenientCanonicalizeSubject(ctx, req.Subject)
 		if err != nil {
 			return nil, err
 		}
@@ -749,7 +751,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	for i, user := range req.Add {
 		i, user := i, user
 		eg.Go(func() error {
-			user, err = lenientCanonicalizeSubject(ctx, user)
+			user, err = a.lenientCanonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -761,7 +763,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	for i, user := range req.Remove {
 		i, user := i, user
 		eg.Go(func() error {
-			user, err = lenientCanonicalizeSubject(ctx, user)
+			user, err = a.lenientCanonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -1108,7 +1110,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 
 		// Scope change is authorized. Make the change
-		principal, err := lenientCanonicalizeSubject(ctx, req.Username)
+		principal, err := a.lenientCanonicalizeSubject(ctx, req.Username)
 		if err != nil {
 			return err
 		}
@@ -1153,7 +1155,9 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 
 	// For now, we don't return OWNER if the user is an admin, even though that's
 	// their effective access scope for all repos--the caller may want to know
-	// what will happen if the user's admin privileges are revoked
+	// what will happen if the user's admin privileges are revoked. Note that
+	// pfs.ListRepo overrides this logic--the auth info it returns for listed
+	// repo indicates that a user is OWNER of all repos if they are an admin
 
 	// Read repo ACL from etcd
 	acls := a.acls.ReadOnly(ctx)
@@ -1171,6 +1175,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		} else {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
+			// TODO(msteffen) bug fix: should account groups for caller
 			if !a.isAdmin(callerInfo.Subject) && acl.Entries[callerInfo.Subject] < authclient.Scope_READER {
 				return nil, &authclient.ErrNotAuthorized{
 					Subject:  callerInfo.Subject,
@@ -1178,7 +1183,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 					Required: authclient.Scope_READER,
 				}
 			}
-			principal, err := lenientCanonicalizeSubject(ctx, req.Username)
+			principal, err := a.lenientCanonicalizeSubject(ctx, req.Username)
 			if err != nil {
 				return nil, err
 			}
@@ -1265,7 +1270,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	for _, entry := range req.Entries {
 		user, scope := entry.Username, entry.Scope
 		eg.Go(func() error {
-			principal, err := lenientCanonicalizeSubject(ctx, user)
+			principal, err := a.lenientCanonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -1379,7 +1384,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 			AdminOp: "GetAuthToken on behalf of another user",
 		}
 	}
-	subject, err := lenientCanonicalizeSubject(ctx, req.Subject)
+	subject, err := a.lenientCanonicalizeSubject(ctx, req.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1522,7 +1527,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		}
 	}
 
-	username, err := lenientCanonicalizeSubject(ctx, req.Username)
+	username, err := a.lenientCanonicalizeSubject(ctx, req.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -1598,12 +1603,12 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 		}
 	}
 
-	add, err := lenientCanonicalizeSubjects(ctx, req.Add)
+	add, err := a.lenientCanonicalizeSubjects(ctx, req.Add)
 	if err != nil {
 		return nil, err
 	}
 	// TODO(bryce) Skip canonicalization if the users can be found.
-	remove, err := lenientCanonicalizeSubjects(ctx, req.Remove)
+	remove, err := a.lenientCanonicalizeSubjects(ctx, req.Remove)
 	if err != nil {
 		return nil, err
 	}
@@ -1688,7 +1693,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 
 	// Filter by username
 	if req.Username != "" {
-		username, err := lenientCanonicalizeSubject(ctx, req.Username)
+		username, err := a.lenientCanonicalizeSubject(ctx, req.Username)
 		if err != nil {
 			return nil, err
 		}
@@ -1830,7 +1835,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 }
 
 // lenientCanonicalizeSubjects applies lenientCanonicalizeSubject to a list
-func lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
+func (a *apiServer) lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
 	if subjects == nil {
 		return []string{}, nil
 	}
@@ -1840,7 +1845,7 @@ func lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]stri
 	for i, subject := range subjects {
 		i, subject := i, subject
 		eg.Go(func() error {
-			subject, err := lenientCanonicalizeSubject(ctx, subject)
+			subject, err := a.lenientCanonicalizeSubject(ctx, subject)
 			if err != nil {
 				return err
 			}
@@ -1857,35 +1862,49 @@ func lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]stri
 
 // lenientCanonicalizeSubject is like 'canonicalizeSubject', except that if
 // 'subject' has no prefix, they are assumed to be a GitHub user.
-func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
+func (a *apiServer) lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	if strings.Index(subject, ":") < 0 {
 		// assume default 'github:' prefix (then canonicalize the GitHub username in
 		// canonicalizeSubject)
 		subject = authclient.GitHubPrefix + subject
 	}
-	return canonicalizeSubject(ctx, subject)
+	return a.canonicalizeSubject(ctx, subject)
 }
 
 // canonicalizeSubject establishes the type of 'subject' by looking for one of
 // pachyderm's subject prefixes, and then canonicalizes the subject based on
 // that.
-func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	colonIdx := strings.Index(subject, ":")
-	switch {
-	case strings.HasPrefix(subject, authclient.GitHubPrefix):
+	if colonIdx < 0 {
+		return "", fmt.Errorf("subject must have a type prefix (e.g. \"github:\" or \"pachyderm_robot:\") but had none")
+	}
+	prefix := subject[:colonIdx]
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	// TODO(msteffen): check prefix against config cache
+	for _, idp := range a.configCache.IDProviders {
+		if prefix == idp.Name {
+			return subject, nil
+		}
+		if prefix == path.Join("group", idp.Name) {
+			return subject, nil // TODO(msteffen): check if this IdP supports groups
+		}
+	}
+
+	// check against fixed prefixes
+	prefix += ":" // append ":" to match constants
+	switch prefix {
+	case authclient.GitHubPrefix:
 		var err error
 		subject, err = canonicalizeGitHubUsername(ctx, subject[len(authclient.GitHubPrefix):])
 		if err != nil {
 			return "", err
 		}
-	case strings.HasPrefix(subject, authclient.PipelinePrefix):
-		fallthrough
-	case strings.HasPrefix(subject, authclient.RobotPrefix):
+	case authclient.PipelinePrefix, authclient.RobotPrefix:
 		break
-	case colonIdx > 0:
-		return "", fmt.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
 	default:
-		return "", fmt.Errorf("subject must have one of the prefixes \"github:\" or \"pachyderm_robot:\"")
+		return "", fmt.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
 	}
 	return subject, nil
 }

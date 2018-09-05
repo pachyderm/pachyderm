@@ -376,7 +376,7 @@ kubectl %s port-forward "$pod" %d:654
 					Stdin:  stdin,
 					Stderr: os.Stderr,
 				}, "sh"); err != nil {
-					return fmt.Errorf("Could not forward Pachd port")
+					return fmt.Errorf("Could not forward Pachyderm SAML ACS port")
 				}
 				return nil
 			})
