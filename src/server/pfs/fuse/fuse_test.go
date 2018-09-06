@@ -1,7 +1,9 @@
 package fuse
 
 import (
+	"crypto/sha256"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,8 +11,10 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 )
 
 const (
@@ -40,16 +44,46 @@ func TestBasic(t *testing.T) {
 	})
 }
 
-func TestLargeFile(t *testing.T) {
+func TestChunkSize(t *testing.T) {
 	c := server.GetPachClient(t)
 	require.NoError(t, c.CreateRepo("repo"))
-	_, err := c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("p", GB)))
+	_, err := c.PutFile("repo", "master", "file", strings.NewReader(strings.Repeat("p", int(pfs.ChunkSize))))
 	require.NoError(t, err)
 	mount(t, c, nil, func(mountPoint string) {
 		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
 		require.NoError(t, err)
-		require.Equal(t, GB, len(data))
+		require.Equal(t, int(pfs.ChunkSize), len(data))
 	})
+}
+
+func TestLargeFile(t *testing.T) {
+	c := server.GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	src := workload.RandString(rand.New(rand.NewSource(123)), GB+17)
+	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
+	require.NoError(t, err)
+	mount(t, c, nil, func(mountPoint string) {
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
+		require.NoError(t, err)
+		require.Equal(t, sha256.Sum256([]byte(src)), sha256.Sum256(data))
+	})
+}
+
+func BenchmarkLargeFile(b *testing.B) {
+	c := server.GetPachClient(b)
+	require.NoError(b, c.CreateRepo("repo"))
+	src := workload.RandString(rand.New(rand.NewSource(123)), GB)
+	_, err := c.PutFile("repo", "master", "file", strings.NewReader(src))
+	require.NoError(b, err)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		mount(b, c, nil, func(mountPoint string) {
+			data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
+			require.NoError(b, err)
+			require.Equal(b, GB, len(data))
+			b.SetBytes(GB)
+		})
+	}
 }
 
 func TestSeek(t *testing.T) {
@@ -80,9 +114,9 @@ func TestSeek(t *testing.T) {
 	})
 }
 
-func mount(t *testing.T, c *client.APIClient, commits map[string]string, f func(mountPoint string)) {
+func mount(tb testing.TB, c *client.APIClient, commits map[string]string, f func(mountPoint string)) {
 	dir, err := ioutil.TempDir("", "pfs")
-	require.NoError(t, err)
+	require.NoError(tb, err)
 	defer os.RemoveAll(dir)
 	opts := &Options{
 		Commits: commits,
