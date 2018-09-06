@@ -402,7 +402,7 @@ pretest:
 	git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
-local-test: docker-build launch-dev test-pfs clean-launch-dev
+local-test: docker-build launch-dev test-pfs-server clean-launch-dev
 
 test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-libs test-vault test-auth test-enterprise test-worker
 
@@ -431,6 +431,7 @@ test-pfs-server:
 	fi
 	@# don't run this in verbose mode, as it produces a huge amount of logs
 	go test ./src/server/pfs/server -timeout $(TIMEOUT)
+	go test ./src/server/pfs/fuse -timeout $(TIMEOUT)
 
 test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
