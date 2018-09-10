@@ -34,7 +34,7 @@ make docker-build
 make clean-launch-dev
 make launch-dev
 
-go install ./src/server/cmd/match
+go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC" ]]; then
 	echo "Running misc test suite"
@@ -48,7 +48,7 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 	BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS ))
 	MIN=$(( $BUCKET_SIZE * $(( $PART - 1 )) ))
 	#The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
-	MAX=$COUNT 
+	MAX=$COUNT
 	if [[ $PART -ne $NUM_BUCKETS ]]; then
 		MAX=$(( $MIN + $BUCKET_SIZE ))
     fi
