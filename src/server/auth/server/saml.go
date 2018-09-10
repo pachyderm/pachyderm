@@ -296,10 +296,16 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 		}
 	}()
 
+	// Extract expiration from assertion
+	var expiration time.Time
+	if assertion.Conditions != nil {
+		expiration = assertion.Conditions.NotOnOrAfter.Add(-1 * time.Second)
+	}
+
 	// Success
 	dbgLog.Printf("(apiServer.handleSAMLResponse) Success\n")
 	username := auth.SAMLPrefix + assertion.Subject.NameID.Value
-	authCode, err := a.getAuthenticationCode(req.Context(), username)
+	authCode, err := a.getAuthenticationCode(req.Context(), username, expiration)
 
 	// Update group memberships
 	var samlIDPConfig *auth.IDProvider_SAMLOptions

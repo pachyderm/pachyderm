@@ -2,6 +2,7 @@ syntax = "proto3";
 package auth;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
 
 /* A note on users
  *
@@ -147,6 +148,21 @@ message ModifyAdminsRequest {
 message ModifyAdminsResponse {}
 
 //// Authentication data structures
+
+// OTPInfo is the analogue of 'TokenInfo' for Authentication Codes (short-lived,
+// one-time-use codes that are passed to the frontend and then exchanged for
+// longer-lived tokens)
+message OTPInfo {
+  // Subject (i.e. Pachyderm account) that a given OTP authenticates. This may
+  // be copied into the 'subject' field of a TokenInfo, and therefore has the
+  // same format, with the same prefixes.
+  string subject = 1;
+
+  // session_expiration indicates when the subject's session expires, a.k.a.
+  // when the Token to which this OTP converts expires (likely later than this
+  // OTP expires, but never earlier).
+  google.protobuf.Timestamp session_expiration = 2;
+}
 
 // TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
 message TokenInfo {

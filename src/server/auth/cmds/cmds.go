@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -181,26 +182,17 @@ func LoginCmd() *cobra.Command {
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{GitHubToken: token})
-				if authErr != nil {
-					if auth.IsErrPartiallyActivated(err) {
-						return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
-							"can revert by running 'pachctl auth deactivate' or retry by "+
-							"running 'pachctl auth activate' again", err)
-					}
-					return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
-						grpcutil.ScrubGRPC(err))
-				}
 			}
 
 			// Write new Pachyderm token to config
 			if authErr != nil {
-				if auth.IsErrPartiallyActivated(err) {
+				if auth.IsErrPartiallyActivated(authErr) {
 					return fmt.Errorf("%v: if pachyderm is stuck in this state, you "+
 						"can revert by running 'pachctl auth deactivate' or retry by "+
-						"running 'pachctl auth activate' again", err)
+						"running 'pachctl auth activate' again", authErr)
 				}
 				return fmt.Errorf("error authenticating with Pachyderm cluster: %v",
-					grpcutil.ScrubGRPC(err))
+					grpcutil.ScrubGRPC(authErr))
 			}
 			return writePachTokenToCfg(resp.PachToken)
 		}),
@@ -261,6 +253,9 @@ func WhoamiCmd() *cobra.Command {
 				return fmt.Errorf("error: %v", grpcutil.ScrubGRPC(err))
 			}
 			fmt.Printf("You are \"%s\"\n", resp.Username)
+			if resp.TTL > 0 {
+				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
+			}
 			return nil
 		}),
 	}
