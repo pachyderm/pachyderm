@@ -38,7 +38,7 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (*saml.EntityDescriptor, err
 
 	var rawMetadata []byte
 	b := backoff.NewInfiniteBackOff()
-	b.MaxElapsedTime = 90 * time.Second
+	b.MaxElapsedTime = 30 * time.Second
 	b.MaxInterval = 2 * time.Second
 	backoff.RetryNotify(func() error {
 		resp, err := c.Do(req)
@@ -93,7 +93,7 @@ func lookupIDPMetadata(name string, mdURL *url.URL) (*saml.EntityDescriptor, err
 
 // updateSAMLSP Updates the saml SP library object in 'apiServer' after a new
 // config update has been observed
-// CAUTION: the caller should already hold a lock on a.configCache
+// CAUTION: the caller should already hold a.configMu
 func (a *apiServer) updateSAMLSP() error {
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
