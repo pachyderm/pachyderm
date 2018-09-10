@@ -411,6 +411,12 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, 
 		}
 	}()
 
+	// Extract expiration from assertion
+	var expiration time.Time
+	if assertion.Conditions != nil {
+		expiration = assertion.Conditions.NotOnOrAfter.Add(-1 * time.Second)
+	}
+
 	// Success
 	username := fmt.Sprintf("%s:%s", a.configCache.IDPName, assertion.Subject.NameID.Value)
 
