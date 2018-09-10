@@ -256,6 +256,9 @@ func WhoamiCmd() *cobra.Command {
 			if resp.TTL > 0 {
 				fmt.Printf("session expires: %v\n", time.Now().Add(time.Duration(resp.TTL)*time.Second).Format(time.RFC822))
 			}
+			if resp.IsAdmin {
+				fmt.Println("You are an administrator of this Pachyderm cluster")
+			}
 			return nil
 		}),
 	}

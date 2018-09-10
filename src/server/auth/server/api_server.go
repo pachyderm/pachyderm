@@ -693,7 +693,11 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(callerInfo.Subject) {
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "DeactivateAuth",
@@ -831,7 +835,11 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(callerInfo.Subject) {
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "ModifyAdmins",
@@ -897,12 +905,17 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 
 // expiredClusterAdminCheck enforces that if the cluster's enterprise token is
 // expired, only admins may log in.
-func (a *apiServer) expiredClusterAdminCheck(username string) error {
+func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username string) error {
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
 		return fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(username) {
+
+	isAdmin, err := a.isAdmin(ctx, username)
+	if err != nil {
+		return err
+	}
+	if state != enterpriseclient.State_ACTIVE && !isAdmin {
 		return errors.New("Pachyderm Enterprise is not active in this " +
 			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
 			"auth is deactivated, only cluster admins can perform any operations)")
@@ -937,7 +950,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 		}
 
 		// If the cluster's enterprise token is expired, only admins may log in
-		if err := a.expiredClusterAdminCheck(username); err != nil {
+		if err := a.expiredClusterAdminCheck(ctx, username); err != nil {
 			return nil, err
 		}
 
@@ -967,7 +980,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 			codes.Delete(key)
 
 			// If the cluster's enterprise token is expired, only admins may log in
-			if err := a.expiredClusterAdminCheck(otpInfo.Subject); err != nil {
+			if err := a.expiredClusterAdminCheck(ctx, otpInfo.Subject); err != nil {
 				return err
 			}
 
@@ -1105,9 +1118,13 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	if err != nil {
 		return nil, err
 	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
 
 	// admins are always authorized
-	if a.isAdmin(callerInfo.Subject) {
+	if isAdmin {
 		return &authclient.AuthorizeResponse{Authorized: true}, nil
 	}
 
@@ -1138,28 +1155,12 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
 	}
 
-	if req.Scope <= acl.Entries[callerInfo.Subject] {
-		return &authclient.AuthorizeResponse{
-			Authorized: true,
-		}, nil
-	}
-
-	groupsResp, err := a.GetGroups(ctx, &authclient.GetGroupsRequest{
-		Username: callerInfo.Subject,
-	})
+	scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
 	if err != nil {
-		return nil, fmt.Errorf("could not retrieve caller's group memberships: %v", err)
+		return nil, err
 	}
-	for _, g := range groupsResp.Groups {
-		if req.Scope <= acl.Entries[g] {
-			return &authclient.AuthorizeResponse{
-				Authorized: true,
-			}, nil
-		}
-	}
-
 	return &authclient.AuthorizeResponse{
-		Authorized: false,
+		Authorized: scope >= req.Scope,
 	}, nil
 }
 
@@ -1174,6 +1175,12 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 	if err != nil {
 		return nil, err
 	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get TTL of user's token
 	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
 	if callerInfo.Subject != magicUser {
 		token, err := getAuthToken(ctx)
@@ -1185,9 +1192,11 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 			return nil, fmt.Errorf("error looking up TTL for token: %v", err)
 		}
 	}
+
+	// return final result
 	return &authclient.WhoAmIResponse{
 		Username: callerInfo.Subject,
-		IsAdmin:  a.isAdmin(callerInfo.Subject),
+		IsAdmin:  isAdmin,
 		TTL:      ttl,
 	}, nil
 }
@@ -1202,14 +1211,27 @@ func validateSetScopeRequest(ctx context.Context, req *authclient.SetScopeReques
 	return nil
 }
 
-func (a *apiServer) isAdmin(user string) bool {
-	if user == magicUser {
-		return true
+func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
+	if subject == magicUser {
+		return true, nil
 	}
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
-	_, ok := a.adminCache[user]
-	return ok
+	if _, ok := a.adminCache[subject]; ok {
+		return true, nil
+	}
+
+	// Get scope based on based on group access
+	groups, err := a.getGroups(ctx, subject)
+	if err != nil {
+		return false, fmt.Errorf("could not retrieve caller's group memberships: %v", err)
+	}
+	for _, g := range groups {
+		if _, ok := a.adminCache[g]; ok {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
@@ -1225,6 +1247,10 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		return nil, err
 	}
 	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1251,7 +1277,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 
 		// Check if the caller is authorized
 		authorized, err := func() (bool, error) {
-			if a.isAdmin(callerInfo.Subject) {
+			if isAdmin {
 				// admins are automatically authorized
 				return true, nil
 			}
@@ -1267,7 +1293,11 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 			}
 
 			// Check if the user is on the ACL directly
-			if acl.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
+			scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+			if err != nil {
+				return false, err
+			}
+			if scope == authclient.Scope_OWNER {
 				return true, nil
 			}
 			return false, nil
@@ -1305,6 +1335,28 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	return &authclient.SetScopeResponse{}, nil
 }
 
+// getScope is a helper function for the GetScope GRPC API, as well is
+// Authorized() and other authorization checks (e.g. checking if a user is an
+// OWNER to determine if they can modify an ACL).
+func (a *apiServer) getScope(ctx context.Context, subject string, acl *authclient.ACL) (authclient.Scope, error) {
+	// Get scope based on user's direct access
+	scope := acl.Entries[subject]
+
+	// Expand scope based on based on group access
+	groups, err := a.getGroups(ctx, subject)
+	if err != nil {
+		return authclient.Scope_NONE, fmt.Errorf("could not retrieve caller's "+
+			"group memberships: %v", err)
+	}
+	for _, g := range groups {
+		groupScope := acl.Entries[g]
+		if scope < groupScope {
+			scope = groupScope
+		}
+	}
+	return scope, nil
+}
+
 func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1316,76 +1368,76 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	if err != nil {
 		return nil, err
 	}
+	callerIsAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
 
 	// Check if the cluster's enterprise token is expired (fail if so)
+	// Note: this is duplicated from a.expiredClusterAdminCheck, but we need the
+	// admin information elsewhere, so the code is copied here
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
 		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(callerInfo.Subject) {
-		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
-			"cluster (only a cluster admin can perform any operations)")
+	if state != enterpriseclient.State_ACTIVE && !callerIsAdmin {
+		return nil, errors.New("Pachyderm Enterprise is not active in this " +
+			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
+			"auth is deactivated, only cluster admins can perform any operations)")
 	}
 
-	// For now, we don't return OWNER if the user is an admin, even though that's
-	// their effective access scope for all repos--the caller may want to know
-	// what will happen if the user's admin privileges are revoked. Note that
-	// pfs.ListRepo overrides this logic—the auth info it returns for listed repo
-	// indicates that a user is OWNER of all repos if they are an admin
+	// Determine if the caller must have READER access to every repo in the
+	// request
+	targetSubject := callerInfo.Subject
+	mustHaveReadAccess := false
+	if req.Username != "" {
+		targetSubject, err = a.lenientCanonicalizeSubject(ctx, req.Username)
+		if err != nil {
+			return nil, err
+		}
+		mustHaveReadAccess = true
+	}
 
-	// Read repo ACL from etcd
+	// Read repo ACLs from etcd & compute result
+	// Note: for now, we don't return OWNER if the user is an admin, even though
+	// that's their effective access scope for all repos--the caller may want to
+	// know what will happen if the user's admin privileges are revoked. Note
+	// that pfs.ListRepo overrides this logic—the auth info it returns for listed
+	// repo indicates that a user is OWNER of all repos if they are an admin
 	acls := a.acls.ReadOnly(ctx)
 	resp = new(authclient.GetScopeResponse)
-
 	for _, repo := range req.Repos {
+		// Read ACL from repo
 		var acl authclient.ACL
 		if err := acls.Get(repo, &acl); err != nil && !col.IsErrNotFound(err) {
 			return nil, err
 		}
 
-		// ACL read is authorized
-		var principal string
-		if req.Username == "" {
-			principal = callerInfo.Subject
-		} else {
+		// determine if ACL read is authorized
+		if mustHaveReadAccess && !callerIsAdmin {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
-			// TODO bug fix: should account groups for caller
-			if !a.isAdmin(callerInfo.Subject) && acl.Entries[callerInfo.Subject] < authclient.Scope_READER {
+			callerScope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+			if err != nil {
+				return nil, err
+			}
+			if callerScope < authclient.Scope_READER {
 				return nil, &authclient.ErrNotAuthorized{
 					Subject:  callerInfo.Subject,
 					Repo:     repo,
 					Required: authclient.Scope_READER,
 				}
 			}
-			principal, err = a.lenientCanonicalizeSubject(ctx, req.Username)
-			if err != nil {
-				return nil, err
-			}
 		}
 
-		// Get scope based on user's direct access
-		scope := acl.Entries[principal]
-
-		// Get scope based on based on group access
-		groupsResp, err := a.GetGroups(ctx, &authclient.GetGroupsRequest{
-			Username: principal,
-		})
+		// compute target's access scope to this repo
+		targetScope, err := a.getScope(ctx, targetSubject, &acl)
 		if err != nil {
-			return nil, fmt.Errorf("could not retrieve caller's group memberships: %v", err)
+			return nil, err
 		}
-		// fmt.Printf(">>> repo: %s\n", repo)
-		for _, g := range groupsResp.Groups {
-			// fmt.Printf(">>> group: %s", g)
-			groupScope := acl.Entries[g]
-			// fmt.Printf(" | scope: %s | groupScope: %s", scope, groupScope)
-			if scope < groupScope {
-				scope = groupScope
-			}
-			// fmt.Printf(" | scope: %s\n", scope)
-		}
-		resp.Scopes = append(resp.Scopes, scope)
+		resp.Scopes = append(resp.Scopes, targetScope)
 	}
+
 	return resp, nil
 }
 
@@ -1406,15 +1458,8 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	if err != nil {
 		return nil, err
 	}
-
-	// Check if the cluster's enterprise token is expired (fail if so)
-	state, err := a.getEnterpriseTokenState()
-	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
-	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(callerInfo.Subject) {
-		return nil, fmt.Errorf("Pachyderm Enterprise is not active in this " +
-			"cluster (only a cluster admin can perform any operations)")
+	if err := a.expiredClusterAdminCheck(ctx, callerInfo.Subject); err != nil {
+		return nil, err
 	}
 
 	// Read repo ACL from etcd
@@ -1453,6 +1498,10 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	if err != nil {
 		return nil, err
 	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
 
 	// Canonicalize entries in the request (must have canonical request before we
 	// can authorize, as we inspect the ACL contents during authorization in the
@@ -1486,7 +1535,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 
 		// determine if the caller is authorized to set this repo's ACL
 		authorized, err := func() (bool, error) {
-			if a.isAdmin(callerInfo.Subject) {
+			if isAdmin {
 				// admins are automatically authorized
 				return true, nil
 			}
@@ -1509,7 +1558,11 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 			if len(acl.Entries) > 0 {
 				// ACL is present; caller must be authorized directly
-				if acl.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
+				scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+				if err != nil {
+					return false, err
+				}
+				if scope == authclient.Scope_OWNER {
 					return true, nil
 				}
 				return false, nil
@@ -1574,7 +1627,11 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	if err != nil {
 		return nil, err
 	}
-	if req.Subject != callerInfo.Subject && !a.isAdmin(callerInfo.Subject) {
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+	if req.Subject != callerInfo.Subject && !isAdmin {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "GetAuthToken on behalf of another user",
@@ -1620,7 +1677,11 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(callerInfo.Subject) {
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "ExtendAuthToken",
@@ -1681,6 +1742,10 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 	if err != nil {
 		return nil, err
 	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
 
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
@@ -1691,7 +1756,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 			}
 			return err
 		}
-		if !a.isAdmin(callerInfo.Subject) && tokenInfo.Subject != callerInfo.Subject {
+		if !isAdmin && tokenInfo.Subject != callerInfo.Subject {
 			return &authclient.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
 				AdminOp: "RevokeAuthToken on another user's token",
@@ -1765,8 +1830,12 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 	if err != nil {
 		return nil, err
 	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
 
-	if !a.isAdmin(callerInfo.Subject) {
+	if !isAdmin {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "SetGroupsForUser",
@@ -1795,8 +1864,12 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 	if err != nil {
 		return nil, err
 	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
 
-	if !a.isAdmin(callerInfo.Subject) {
+	if !isAdmin {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "ModifyMembers",
@@ -1872,6 +1945,20 @@ func removeFromSet(set map[string]bool, elems ...string) map[string]bool {
 	return set
 }
 
+// getGroups is a helper function used primarily by the GRPC API GetGroups, but
+// also by Authorize() and isAdmin().
+func (a *apiServer) getGroups(ctx context.Context, subject string) ([]string, error) {
+	members := a.members.ReadOnly(ctx)
+	var groupsProto authclient.Groups
+	if err := members.Get(subject, &groupsProto); err != nil {
+		if col.IsErrNotFound(err) {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	return setToList(groupsProto.Groups), nil
+}
+
 func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequest) (resp *authclient.GetGroupsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1885,35 +1972,33 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 	}
 
 	// must be admin or user getting your own groups (default value of
-	// req.Username is the caller)
-	var rawUsername string
-	if req.Username == "" || req.Username == callerInfo.Subject {
-		rawUsername = callerInfo.Subject
-	} else {
-		if !a.isAdmin(callerInfo.Subject) {
+	// req.Username is the caller).
+	// Note: isAdmin(subject) calls getGroups(subject), so we must only call it
+	// when req.Username != callerInfo.Subject, or else we'll have infinite
+	// recursion
+	subject := callerInfo.Subject
+	if req.Username != "" && req.Username != callerInfo.Subject {
+		isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+		if err != nil {
+			return nil, err
+		}
+		if !isAdmin {
 			return nil, &authclient.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
 				AdminOp: "GetGroups",
 			}
 		}
-		rawUsername = req.Username
+		subject, err = a.lenientCanonicalizeSubject(ctx, req.Username)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	username, err := a.lenientCanonicalizeSubject(ctx, rawUsername)
+	groups, err := a.getGroups(ctx, subject)
 	if err != nil {
 		return nil, err
 	}
-
-	members := a.members.ReadOnly(ctx)
-	var groupsProto authclient.Groups
-	if err := members.Get(username, &groupsProto); err != nil {
-		if col.IsErrNotFound(err) {
-			// Return a healthy response indicating that the user is in no groups
-			return &authclient.GetGroupsResponse{Groups: []string{}}, nil
-		}
-		return nil, err
-	}
-	return &authclient.GetGroupsResponse{Groups: setToList(groupsProto.Groups)}, nil
+	return &authclient.GetGroupsResponse{Groups: groups}, nil
 }
 
 func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
@@ -1927,8 +2012,12 @@ func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersReques
 	if err != nil {
 		return nil, err
 	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
 
-	if !a.isAdmin(callerInfo.Subject) {
+	if !isAdmin {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "GetUsers",
@@ -2167,7 +2256,11 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 	if err != nil {
 		return nil, err
 	}
-	if !a.isAdmin(callerInfo.Subject) {
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+	if !isAdmin {
 		return nil, &authclient.ErrNotAuthorized{
 			Subject: callerInfo.Subject,
 			AdminOp: "SetConfiguration",
