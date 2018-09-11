@@ -55,3 +55,8 @@ Based on [this Tensorflow example](https://www.tensorflow.org/tutorials/recurren
 This example demonstrates how you can evaluate a model or function in a distributed manner on multiple sets of parameters.  In this particular case, we will evaluate many machine learning models, each configured uses different sets of parameters (aka hyperparameters), and we will output only the best performing model or models.
 
 [Hyperparameter Tuning](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/hyperparameter)
+
+### Spark Example
+This example demonstrates integration of Spark with Pachyderm by launching a Spark job on an existing cluster from within a Pachyderm Job. The job uses configuration info that is versioned within Pachyderm, and stores it's reduced result back into a Pachyderm output repo, maintaining full provenance and version history within Pachyderm, while taking advantage of Spark for computation.
+
+[Spark Example](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/spark/pi)
