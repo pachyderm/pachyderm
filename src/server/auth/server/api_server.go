@@ -247,10 +247,13 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
 
-	// Watch config for new SAML options, and start SAML service (won't respond to
-	// anything until config is set)
+	if public {
+		// start SAML service (won't respond to
+		// anything until config is set)
+		go s.serveSAML()
+	}
+	// Watch config for new SAML options
 	go s.watchConfig()
-	go s.serveSAML()
 	return s, nil
 }
 
