@@ -146,6 +146,17 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 	return 0, fmt.Errorf("Unable to interpret ParallelismSpec %+v", spec)
 }
 
+// GetExpectedNumHashtrees computes the expected number of hashtrees that
+// Pachyderm will create given the HashtreeSpec 'spec'.
+func GetExpectedNumHashtrees(spec *ppsclient.HashtreeSpec) (int64, error) {
+	if spec == nil || spec.Constant == 0 {
+		return 1, nil
+	} else if spec.Constant > 0 {
+		return int64(spec.Constant), nil
+	}
+	return 0, fmt.Errorf("unable to interpret HashtreeSpec %+v", spec)
+}
+
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
 func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {

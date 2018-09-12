@@ -402,7 +402,7 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	return nil
 }
 
-func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Plan {
+func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *Plan {
 	if spec == nil {
 		spec = &pps.ChunkSpec{}
 	}
@@ -429,7 +429,7 @@ func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int) *Plan {
 		}
 	}
 	plan.Chunks = append(plan.Chunks, int64(df.Len()))
-	plan.Merges = int64(parallelism)
+	plan.Merges = numHashtrees
 	return plan
 }
 
@@ -586,6 +586,10 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err != nil {
 			return fmt.Errorf("error from GetExpectedNumWorkers: %v", err)
 		}
+		numHashtrees, err := ppsutil.GetExpectedNumHashtrees(a.pipelineInfo.HashtreeSpec)
+		if err != nil {
+			return fmt.Errorf("error from GetExpectedNumHashtrees: %v", err)
+		}
 		plan := &Plan{}
 
 		// Read the job document, and either resume (if we're recovering from a
@@ -608,7 +612,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			if err := chunksCol.Get(jobID, plan); err == nil {
 				return nil
 			}
-			plan = newPlan(df, jobInfo.ChunkSpec, parallelism)
+			plan = newPlan(df, jobInfo.ChunkSpec, parallelism, numHashtrees)
 			return chunksCol.Put(jobID, plan)
 		}); err != nil {
 			return err
