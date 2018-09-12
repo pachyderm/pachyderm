@@ -982,17 +982,14 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 		if err := func() error {
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
-			var low int64
-			var high int64
 			var found bool
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				// Reinitialize closed upon variables.
-				low, high = 0, 0
-				found = false
-				chunks := a.chunks(jobID).ReadWrite(stm)
-				// we set complete to true and then unset it if we find an incomplete chunk
-				complete = true
-				for _, high = range plan.Chunks {
+			low, high := int64(0), int64(0)
+			// we set complete to true and then unset it if we find an incomplete chunk
+			complete = true
+			for _, high = range plan.Chunks {
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					found = false
+					chunks := a.chunks(jobID).ReadWrite(stm)
 					var chunkState ChunkState
 					if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
 						if col.IsErrNotFound(err) {
@@ -1007,16 +1004,16 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 						complete = false
 					}
 					if found {
-						break
+						return chunks.PutTTL(fmt.Sprint(high), &ChunkState{State: State_RUNNING}, ttl)
 					}
-					low = high
+					return nil
+				}); err != nil {
+					return err
 				}
 				if found {
-					return chunks.PutTTL(fmt.Sprint(high), &ChunkState{State: State_RUNNING}, ttl)
+					break
 				}
-				return nil
-			}); err != nil {
-				return err
+				low = high
 			}
 			if found {
 				go func() {
