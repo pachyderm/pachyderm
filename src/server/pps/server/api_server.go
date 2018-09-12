@@ -1413,6 +1413,11 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 			return fmt.Errorf("services can only be run with a constant parallelism of 1")
 		}
 	}
+	if pipelineInfo.HashtreeSpec != nil {
+		if pipelineInfo.HashtreeSpec.Constant <= 0 {
+			return fmt.Errorf("HashtreeSpec.Constant must be > 0")
+		}
+	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
@@ -1717,6 +1722,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Version:          1,
 		Transform:        request.Transform,
 		ParallelismSpec:  request.ParallelismSpec,
+		HashtreeSpec:     request.HashtreeSpec,
 		Input:            request.Input,
 		OutputBranch:     request.OutputBranch,
 		Egress:           request.Egress,

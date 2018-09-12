@@ -117,6 +117,10 @@ message ParallelismSpec {
   double coefficient = 3;
 }
 
+message HashtreeSpec {
+  uint64 constant = 1;
+}
+
 message InputFile {
   // This file's absolute path within its pfs repo.
   string path = 4;
@@ -326,6 +330,7 @@ message PipelineInfo {
   uint64 version = 11;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
+  HashtreeSpec hashtree_spec = 39;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
 
@@ -503,6 +508,7 @@ message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
+  HashtreeSpec hashtree_spec = 28;
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
