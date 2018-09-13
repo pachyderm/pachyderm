@@ -945,6 +945,18 @@
 			"revisionTime": "2018-03-26T15:30:58Z"
 		},
 		{
+			"checksumSHA1": "K6exl2ouL7d8cR2i378EzZOdRVI=",
+			"path": "github.com/howeyc/gopass",
+			"revision": "bf9dde6d0d2c004a008c27aaee91170c786f6db8",
+			"revisionTime": "2017-01-09T16:22:49Z"
+		},
+		{
+			"checksumSHA1": "3LWNcQT7yTaLpEmjhI/3fi8puv0=",
+			"path": "github.com/imdario/mergo",
+			"revision": "9f23e2d6bd2a77f959b2bf6acdbefd708a83a4a4",
+			"revisionTime": "2018-07-30T21:26:40Z"
+		},
+		{
 			"checksumSHA1": "40vJyUB4ezQSn/NSadsKEOrudMc=",
 			"path": "github.com/inconshreveable/mousetrap",
 			"revision": "76626ae9c91c4f2a10f34cad8ce83ea42c93bb75",
@@ -1350,10 +1362,10 @@
 			"revisionTime": "2016-06-07T12:43:46Z"
 		},
 		{
-			"checksumSHA1": "s0GYwa3YNJJXON/b+6ci2Sz9mEw=",
+			"checksumSHA1": "WVKhLVXQFxXwmuRX+IRzebUmxjE=",
 			"path": "github.com/spf13/pflag",
-			"revision": "cb88ea77998c3f024757528e3305022ab50b43be",
-			"revisionTime": "2016-03-17T00:02:28Z"
+			"revision": "298182f68c66c05229eb03ac171abe6e309ee79a",
+			"revisionTime": "2018-08-31T15:14:32Z"
 		},
 		{
 			"checksumSHA1": "8QeSG127zQqbA+YfkO1WkKx/iUI=",
@@ -3143,8 +3155,38 @@
 			"versionExact": "kubernetes-1.10.5"
 		},
 		{
+			"checksumSHA1": "/QeKYX2M+m1OFCDyH9PHYp6w510=",
+			"path": "k8s.io/client-go/tools/auth",
+			"revision": "37c3c02ec96533daec0dbda1f39a6b1d68505c79",
+			"revisionTime": "2018-09-04T18:41:34Z"
+		},
+		{
+			"checksumSHA1": "RJjmJrUw9mBwwLILsbsOnqTS3D8=",
+			"path": "k8s.io/client-go/tools/clientcmd",
+			"revision": "b0722d92a7c1f91106a7cb0f5437821b5cd51a41",
+			"revisionTime": "2018-06-21T15:29:33Z",
+			"version": "kubernetes-1.10.5",
+			"versionExact": "kubernetes-1.10.5"
+		},
+		{
 			"checksumSHA1": "MKwB6bvy1UmdDGx3jfx0+g3ezpA=",
 			"path": "k8s.io/client-go/tools/clientcmd/api",
+			"revision": "b0722d92a7c1f91106a7cb0f5437821b5cd51a41",
+			"revisionTime": "2018-06-21T15:29:33Z",
+			"version": "kubernetes-1.10.5",
+			"versionExact": "kubernetes-1.10.5"
+		},
+		{
+			"checksumSHA1": "6cVFBhDYvRiAwBf0QYbmUoLi5lQ=",
+			"path": "k8s.io/client-go/tools/clientcmd/api/latest",
+			"revision": "b0722d92a7c1f91106a7cb0f5437821b5cd51a41",
+			"revisionTime": "2018-06-21T15:29:33Z",
+			"version": "kubernetes-1.10.5",
+			"versionExact": "kubernetes-1.10.5"
+		},
+		{
+			"checksumSHA1": "U3tqKLSc9QQgn3FiELnkROCSH9s=",
+			"path": "k8s.io/client-go/tools/clientcmd/api/v1",
 			"revision": "b0722d92a7c1f91106a7cb0f5437821b5cd51a41",
 			"revisionTime": "2018-06-21T15:29:33Z",
 			"version": "kubernetes-1.10.5",
@@ -3189,6 +3231,12 @@
 			"revisionTime": "2018-06-21T15:29:33Z",
 			"version": "kubernetes-1.10.5",
 			"versionExact": "kubernetes-1.10.5"
+		},
+		{
+			"checksumSHA1": "WRb0rXGx56fwcCisVW7GoI6gO/A=",
+			"path": "k8s.io/client-go/util/homedir",
+			"revision": "37c3c02ec96533daec0dbda1f39a6b1d68505c79",
+			"revisionTime": "2018-09-04T18:41:34Z"
 		},
 		{
 			"checksumSHA1": "W6bJiNAwgNwNJC+y+TPtacgUGlY=",
