@@ -13,15 +13,14 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
-	"github.com/crewjam/saml"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -29,7 +28,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	_ "github.com/pachyderm/pachyderm/src/server/pkg/cert"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	_ "k8s.io/client-go/kubernetes"
+	kubecmd "k8s.io/client-go/tools/clientcmd"
 )
 
 func RepoInfoToName(repoInfo interface{}) interface{} {
@@ -1676,63 +1678,48 @@ func TestSAMLBasic(t *testing.T) {
 	deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
-	// Guess Pachyderm's SAML service address based on client address
-	host, portStr, err := net.SplitHostPort(adminClient.GetAddress())
-	require.NoError(t, err)
-	port, err := strconv.Atoi(portStr)
-	require.NoError(t, err)
-	samlPort := strconv.Itoa(port + 4) //  hack: relies on saml service being on :654 and :30654
-	ACSURL := fmt.Sprintf("http://%s/saml/acs", net.JoinHostPort(host, samlPort))
-	MetadataURL := fmt.Sprintf("http://%s/saml/metadata", net.JoinHostPort(host, samlPort))
+	// TODO(start SAML metadata service in k8s cluster)
+	_ = kubecmd.NewDefaultConfigLoadingRules()
+	// _ = kube.NewForConfig()
 
-	// Serve IdP metadata (since our SAML implementation will query the IdP
-	// endpoint as part of handling the SAML response)
-	idpMetadataChan := make(chan int)
-	var server *http.Server
-		idp := &saml.IdentityProvider{}
-		idp.Certificate =
-	go func() {
-		idp := &saml.IdentityProvider{}
-		l, err := net.Listen("tcp", "") // pick unused port on all IPs
-		require.NoError(t, err)
-		fmt.Printf(">>> addr: %#v\n", l.Addr())
-		port := l.Addr().(*net.TCPAddr).Port
-		idpMetadataChan <- port
-		idp.MetadataURL = url.URL{
-			Scheme: "http",
-			Host:   fmt.Sprintf("localhost:%d", port),
-		}
-		idp.Certificate = ???
-		server = &http.Server{Handler: http.HandlerFunc(idp.ServeMetadata)}
-		server.Serve(l)
-	}()
-	defer func() {
-		server.Shutdown(context.Background())
-	}()
-	idpMetadataPort := <-idpMetadataChan
 	// Check that the metadata service is available
 	require.NoError(t, backoff.Retry(func() error {
-		_, err := http.Get(fmt.Sprintf("http://localhost:%d", idpMetadataPort))
-		return err
+		// req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", idpMetadataPort), nil)
+		// fmt.Printf(">>> fetching metadata with request: %v\n", req)
+		// resp, err := http.DefaultClient.Do(req)
+		// if err != nil {
+		// 	fmt.Printf(">>> metadata fetch error: %v\n", err)
+		// 	return err
+		// }
+		// body, err := ioutil.ReadAll(resp.Body)
+		// if err != nil {
+		// 	fmt.Printf(">>> metadata fetch read body error: %v\n", err)
+		// 	return err
+		// }
+		// fmt.Printf(">>> -------------\nmetadata response body:\n%s\n---------------\n", body)
+		// return err
+		return nil
 	}, backoff.New10sBackOff()))
 
-	// Set a configuration
+	// Get current configuration, and then set a configuration
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
 	require.NoErrorWithinT(t, 30*time.Second, func() error {
 		_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
 			Configuration: &auth.AuthConfig{
-				LiveConfigVersion: 0,
+				LiveConfigVersion: configResp.Configuration.LiveConfigVersion,
 				IDProviders: []*auth.IDProvider{
 					{
 						Name:        "idp_1",
 						Description: "fake IdP for testing",
-						SAML: &auth.IDProvider_SAMLOptions{
-							MetadataURL: fmt.Sprintf("http://localhost:%d/", idpMetadataPort),
+						SAML:        &auth.IDProvider_SAMLOptions{
+							// MetadataURL: fmt.Sprintf("http://localhost:%d/", idpMetadataPort),
 						},
 					},
 				},
 				SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
-					ACSURL:      ACSURL,
-					MetadataURL: MetadataURL,
+					// ACSURL:      ACSURL,
+					// MetadataURL: MetadataURL,
 				},
 			},
 		})
@@ -1762,7 +1749,7 @@ func TestSAMLBasic(t *testing.T) {
 						SubjectConfirmationData: &saml.SubjectConfirmationData{
 							NotBefore:    time.Now().Add(-1 * time.Hour),
 							NotOnOrAfter: expires,
-							Recipient:    ACSURL,
+							// Recipient:    ACSURL,
 						},
 					}},
 				},
@@ -1795,8 +1782,9 @@ func TestSAMLBasic(t *testing.T) {
 			Method: "POST",
 			URL: &url.URL{
 				Scheme: "http",
-				Host:   net.JoinHostPort(host, samlPort),
-				Path:   "saml/acs",
+				// Host:   net.JoinHostPort(host, samlPort),
+				Host: net.JoinHostPort("host", "0"),
+				// Path:   "saml/acs",
 			},
 			PostForm: url.Values{
 				"SAMLResponse": []string{buf.String()},
