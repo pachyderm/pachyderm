@@ -202,33 +202,33 @@ func (a *apiServer) updateSAMLSP() error {
 			return fmt.Errorf("invalid SAML IdP Metadata URL (no scheme): %v", err)
 		}
 	}
+
+	// Update a.samlSP (do this every time, in case metadata URL is new)
+	// TODO(msteffen) maybe we can skip this if metadata URL isn't new?
 	dbgLog.Printf("(apiServer.updateSAMLSP) Creating samlSP\n")
-	// Create a.samlSP
-	if a.samlSP == nil {
-		// Lookup full IdP metadata from URL
-		dbgLog.Printf("looking up IdPMetdata\n")
-		idpMeta, err := lookupIDPMetadata(samlProvider, idpMetadataURL)
-		if err != nil {
-			return err
-		}
+	// Lookup full IdP metadata from URL
+	dbgLog.Printf("looking up IdPMetdata\n")
+	idpMeta, err := lookupIDPMetadata(samlProvider, idpMetadataURL)
+	if err != nil {
+		return err
+	}
 
-		// construct SAML handler
-		a.samlSP = &saml.ServiceProvider{
-			Logger:      logrus.New(),
-			IDPMetadata: idpMeta,
+	// construct SAML handler
+	a.samlSP = &saml.ServiceProvider{
+		Logger:      logrus.New(),
+		IDPMetadata: idpMeta,
 
-			// Not set:
-			// AcsURL: set below (derived from config)
-			// MetadataURL: set below (derived from config)
-			//
-			// Key: Private key for Pachyderm ACS. Unclear if needed
-			// Certificate: Public key for Pachyderm ACS. Unclear if needed
-			// ForceAuthn: (whether users need to re-authenticate with the IdP, even
-			//             if they already have a session--leaving this false)
-			// AuthnNameIDFormat: (format the ACS expects the AuthnName to be in)
-			// MetadataValidDuration: (how long the SP endpoints are valid? Returned
-			//                        by the Metadata service)
-		}
+		// Not set:
+		// AcsURL: set below (derived from config)
+		// MetadataURL: set below (derived from config)
+		//
+		// Key: Private key for Pachyderm ACS. Unclear if needed
+		// Certificate: Public key for Pachyderm ACS. Unclear if needed
+		// ForceAuthn: (whether users need to re-authenticate with the IdP, even
+		//             if they already have a session--leaving this false)
+		// AuthnNameIDFormat: (format the ACS expects the AuthnName to be in)
+		// MetadataValidDuration: (how long the SP endpoints are valid? Returned
+		//                        by the Metadata service)
 	}
 	dbgLog.Printf("(apiServer.updateSAMLSP) a.samlSP: %+v\n", a.samlSP)
 
@@ -296,10 +296,16 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 		}
 	}()
 
-	// Extract expiration from assertion
-	var expiration time.Time
-	if assertion.Conditions != nil {
-		expiration = assertion.Conditions.NotOnOrAfter.Add(-1 * time.Second)
+	// Extract expiration from config (or use default session duration)
+	expiration := time.Now().Add(time.Duration(defaultSAMLTTLSecs) * time.Second)
+	cfgDur := a.configCache.SAMLServiceOptions.SessionDuration
+	if cfgDur != "" {
+		dur, err := time.ParseDuration(cfgDur)
+		if err != nil {
+			logrus.Errorf("could not parse session duration in config (session will be 24h instead): %v", err)
+		} else {
+			expiration = time.Now().Add(dur)
+		}
 	}
 
 	// Success
@@ -365,7 +371,10 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 	if a.redirectAddress != nil {
 		u = *a.redirectAddress
 	}
-	u.RawQuery = url.Values{"auth_code": []string{authCode}}.Encode()
+	// add auth_code to the query parameters (but preserve existing params)
+	queryParams := u.Query()
+	queryParams["auth_code"] = []string{authCode}
+	u.RawQuery = queryParams.Encode()
 	dbgLog.Printf("(apiServer.handleSAMLResponse) Location: %s\n", u.String())
 	w.Header().Set("Location", u.String())
 	w.WriteHeader(http.StatusFound) // Send redirect

@@ -52,10 +52,11 @@ const (
 	configPrefix              = "/config"
 
 	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
+	defaultSAMLTTLSecs  = 24 * 60 * 60      // 24 hours
 
 	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
 	// GetAuthenticationCode
-	defaultAuthCodeTTLSecs = 60
+	defaultAuthCodeTTLSecs = 120
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -456,7 +457,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
-		logrus.Printf("error watching admin collection: %v; retrying in %v", err, d)
+		logrus.Errorf("error watching admin collection: %v; retrying in %v", err, d)
 		return nil
 	})
 }
@@ -513,7 +514,7 @@ func (a *apiServer) watchConfig() {
 			}
 		}
 	}, b, func(err error, d time.Duration) error {
-		logrus.Printf("error watching auth config: %v; retrying in %v", err, d)
+		logrus.Errorf("error watching auth config: %v; retrying in %v", err, d)
 		return nil
 	})
 }

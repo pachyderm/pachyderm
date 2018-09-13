@@ -116,10 +116,16 @@ message AuthConfig {
     // redirected after successfully authenticating
     string dash_url = 3 [(gogoproto.customname) = "DashURL"];
 
+    // session_duration determines the duration of SAML-IdP-authenticated user
+    // sessions. If unset, user sessions last 24 hours (a short default, as
+    // SAML assertions may contain group memberships that need to be refreshed)
+    string session_duration = 4;
+
     // debug_logging determines whether pachd emits verbose logs (including
     // SAML credentials) as it receives them, which may be helpful for
     // debugging. This will probably not be present in any official releases.
-    bool debug_logging = 4;
+    bool debug_logging = 5;
+
   }
   SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
 }
