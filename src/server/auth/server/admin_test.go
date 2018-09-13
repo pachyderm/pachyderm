@@ -1679,11 +1679,11 @@ func TestSAMLBasic(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	// TODO(start SAML metadata service in k8s cluster)
-	_ = kubecmd.NewDefaultConfigLoadingRules()
-	// _ = kube.NewForConfig()
+	_ = kubecmd.
+		// _ = kube.NewForConfig()
 
-	// Check that the metadata service is available
-	require.NoError(t, backoff.Retry(func() error {
+		// Check that the metadata service is available
+		require.NoError(t, backoff.Retry(func() error {
 		// req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", idpMetadataPort), nil)
 		// fmt.Printf(">>> fetching metadata with request: %v\n", req)
 		// resp, err := http.DefaultClient.Do(req)
