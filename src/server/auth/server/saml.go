@@ -411,10 +411,16 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, 
 		}
 	}()
 
-	// Extract expiration from assertion
-	var expiration time.Time
-	if assertion.Conditions != nil {
-		expiration = assertion.Conditions.NotOnOrAfter.Add(-1 * time.Second)
+	// Extract expiration from config (or use default session duration)
+	expiration := time.Now().Add(time.Duration(defaultSAMLTTLSecs) * time.Second)
+	cfgDur := a.configCache.SAMLServiceOptions.SessionDuration
+	if cfgDur != "" {
+		dur, err := time.ParseDuration(cfgDur)
+		if err != nil {
+			logrus.Errorf("could not parse session duration in config (session will be 24h instead): %v", err)
+		} else {
+			expiration = time.Now().Add(dur)
+		}
 	}
 
 	// Success
