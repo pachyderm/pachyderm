@@ -956,9 +956,12 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, blockSta
 	if commit == nil {
 		return nil, fmt.Errorf("cannot inspect nil commit")
 	}
-	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
-		return nil, err
-	}
+	// TODO(msteffen): re-enable this auth check, potentially. Currently inspect-commit
+	// is called by ListJob, and if users can't call ListJob and get back sensible
+	// responses from repos they can't access,
+	// if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
+	// 	return nil, err
+	// }
 
 	// Check if the commitID is a branch name
 	var commitInfo *pfs.CommitInfo
