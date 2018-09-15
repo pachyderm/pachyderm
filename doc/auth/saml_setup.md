@@ -65,28 +65,24 @@ live_config_version="${live_config_version:-0}"
 # Set the Pachyderm config
 pachctl auth set-config <<EOF
 {
-  # prevent read-modify-write conflicts by explicitly specifying live version
   "live_config_version": ${live_config_version},
 
   "id_providers": [
     {
-      "name": "okta",
-      "description": "Okta test app",
+      "name": "saml",
+      "description": "Okta test app metadata",
       "saml": {
         "metadata_url": <okta app metadata URL>,
-        "group_attribute": "memberOf" # optional: enable experimental group support
+        "group_attribute": "memberOf"
       }
     }
   ],
 
   "saml_svc_options": {
-    # These URLs work if using pachctl port-forward
     "acs_url": "http://localhost:30654/saml/acs",
     "metadata_url": "http://localhost:30654/saml/metadata",
-    "dash_url": "http://localhost:30080/auth/autologin",
-
-    # optional: enable verbose logging from auth, to fix bugs
-    "debug_logging": true
+    "dash_url": "http://localhost:30080/auth/autologin?lol=wut",
+    "session_duration": "8h",
   }
 }
 EOF

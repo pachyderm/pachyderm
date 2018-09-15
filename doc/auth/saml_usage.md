@@ -3,7 +3,7 @@
 This guide will walk through an example of using Pachyderm's experimental SAML
 support. We'll describe:
 
-1. Authenticating via a SAML IdP in Pachyderm
+1. Authenticating via a SAML ID Provider
 1. Authenticating in the CLI
 1. Authorizing a user or group to access data
 
@@ -14,108 +14,123 @@ Pachyderm cluster and connect it to a SAML ID provider. Then, we'll authenticate
 as a cluster admin in one console and set up our [open CV
 demo](../examples/opencv/README.md).
 
-## Create IdP test app
-Here is the configuration I used for an Okta test app that authenticates Okta users
-with Pachyderm:
-![Okta test app config](images/okta_form.png)
-
-Once created, I was able to get the IdP Metadata URL associated with this app here:
-![Metadata image](images/IdPMetadata_highlight.png)
-
-## Write Pachyderm config
-This is what enables Pachyderm ACS. See inline comments
-
+In the CLI, that would look like:
 ```
-# Lookup current config version--pachyderm config has a barrier to prevent
-# read-modify-write conflicts between admins
-live_config_version="$(pachctl auth get-config | jq .live_config_version)"
-live_config_version="${live_config_version:-0}"
+(admin)$ pachctl auth use-auth-token
+Please paste your Pachyderm auth token:
+<auth token>
 
-# Set the Pachyderm config
-pachctl auth set-config <<EOF
-{
-  # prevent read-modify-write conflicts by explicitly specifying live version
-  "live_config_version": ${live_config_version},
+(admin)$ pachctl auth whoami
+You are "robot:admin"
+You are an administrator of this Pachyderm cluster
 
-  "id_providers": [
-    {
-      "name": "okta",
-      "description": "Okta test app",
-      "saml": {
-        "metadata_url": <okta app metadata URL>,
-        "group_attribute": "memberOf" # optional: enable experimental group support
-      }
-    }
-  ],
+(admin)$ pachctl create-repo images
+(admin)$ pachctl create-pipeline -f doc/examples/opencv/edges.json
+(admin)$ pachctl create-pipeline -f doc/examples/opencv/montage.json
+(admin)$ pachctl put-file images master -i doc/examples/opencv/images.txt
+(admin)$ pachctl put-file images master -i doc/examples/opencv/images2.txt
 
-  "saml_svc_options": {
-    # These URLs work if using pachctl port-forward
-    "acs_url": "http://localhost:30654/saml/acs",
-    "metadata_url": "http://localhost:30654/saml/metadata",
-    "dash_url": "http://localhost:30080/auth/autologin",
+(admin)$ pachctl list-repo
+NAME    CREATED       SIZE     ACCESS LEVEL
+montage 2 minutes ago 1.653MiB OWNER
+edges   2 minutes ago 133.6KiB OWNER
+images  2 minutes ago 238.3KiB OWNER
 
-    # optional: enable verbose logging from auth, to fix bugs
-    "debug_logging": true
-  }
-}
-EOF
+(admin)$ pachctl list-job
+ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
+023a478b16e849b4996c19632fee6782 montage/e3dd7e9cacc5450c92e0e62ab844bd26 2 minutes ago 8 seconds 0       1 + 0 / 1 371.9KiB 1.283MiB success
+fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minutes ago 5 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success
+152cb8a0b0854d44affb4bf4bd57228f montage/82a49260595246fe8f6a7d381e092650 2 minutes ago 5 seconds 0       1 + 0 / 1 79.49KiB 378.6KiB success
+86e6eb4ae1e74745b993c2e47eba05e9 edges/ee7ebdddd31d46d1af10cee25f17870b   2 minutes ago 4 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 ```
 
-## Logging In
-Currently Pachyderm only supports IdP-initiated authentication. Configure
-an Okta app to point to the Pachyderm ACS
-(`http://localhost:30654/saml/acs` if using `pachctl port-forward`), then
-sign in via the new Okta app
+## Authenticating via a SAML ID Provider (in the dashboard)
+Before authenticating, navigating to the dash will yield a blank screen:
 
-This should allow you to log in at the Pachyderm dash. To log in with the
-Pachyderm CLI, get a One-Time Password from the Pachyderm dash, and then
-run `pachctl auth login --code=<one-time password>` in your terminal.
+**Blocked-out dash**
 
-## Other features
-### Debug Logging
-If we run into issues while deploying this, it may be useful to enable
-a collection of debug logs that we added during development. To do so,
-add the option `"debug_logging": true` to `"saml_svc_options"`:
-```
-pachctl auth set-config <<EOF
-{
-  ...
-  "saml_svc_options": {
-    ...
-    "debug_logging": true
-  }
-}
-EOF
-```
+To see your Pachyderm DAG, navigate to your SAML ID provider and sign in to your
+Pachyderm cluster there (currently Pachyderm only supports IdP-initiate SAML
+authentication).
 
-### Groups
-Pachyderm has very preliminary, experimental support for groups. While they won't
-appear in ACLs in the dash (and may have other issues), you can experiment using
-the CLI by setting `"group_attribute"` in the IDProvider field of the auth config:
+**SSO image**
+
+Once you've authenticated, you'll be redirected to the Pachyderm dash (the
+redirect URL is configured in the Pachyderm auth system). You'll be given the
+opportunity to generate a one-time password (OTP), though you can always do this
+later from the settings panel.
+
+After closing the OTP panel, you'll be able to see the Pachyderm DAG, but you
+may not have access to any of the repos inside (a repo that you cannot read is
+indicated by a lock symbol):
+
+**Dash with locked repos**
+
+## Authenticating in the CLI
+After authenticating in the dash, you'll be given the opportunity to generate a
+one-time password (OTP) and sign in on the CLI. You can also generate an OTP
+from the settings panel:
+
+**OTP Image**
+
 ```
-pachctl auth set-config <<EOF
-{
-  ...
-  "id_providers": [
-    {
-      ...
-      "saml": {
-        "group_attribute": "memberOf"
-      }
-    }
-  ],
-}
-EOF
-```
-Then, try:
-```
-pachctl create-repo group-test
-pachctl put-file group-test master -f some-data.txt
-pachctl auth set group/saml:"Test Group" reader group-test
-```
-Elsewhere:
-```
-pachctl auth login --code=<auth code>
-pachctl get-file group-test master /some-data.txt # should work for members of "Test Group"
+(user)$ pachctl auth login --code auth_code:73db4686e3e142508fa74aae920cc58b
+(user)$ pachctl auth whoami
+You are "saml:msteffen@pachyderm.io"
+session expires: 14 Sep 18 20:55 PDT
 ```
 
+Note that this session expires after 8 hours. The duration of sessions is
+configurable in the Pachyderm auth config, but it's important that they be
+relatively short, as SAML group memberships are only updated when users sign in.
+If a user is removed from a group, they'll still be able to access the group's
+resources until their session expires.
+
+## Authorizing a user or group to access data
+
+First, we'll give the example of an admin granting a user access. This can be
+accomplished on the CLI like so:
+
+```
+(admin)$ pachctl auth set saml:msteffen@pachyderm.io reader images
+```
+
+Now, the images repo is no longer locked when that user views the DAG:
+
+**Unlocked images repo image**
+
+Likewise, you can grant access to repos via groups. You'll need a SAML ID
+provider that supports group attributes, and you'll need to put the name of that
+attribute in the Pachyderm auth config. Here, we'll grant access to the Everyone
+group:
+
+```
+(admin)$ pachctl auth set group/saml:Everyone owner edges
+```
+
+Now, the edges repo is also not locked:
+
+**Unlocked edges repo**
+
+Also, as is visible in the above screenshot, becase `msteffen@pachyderm.io` has
+OWNER provileges in the `edges` repo (via the Everyone group), the ACL for
+`edges` can be edited. `msteffen@pachyderm.io` will use OWNER privileges gained
+via the Everyone group to add `msteffen@pachyderm.io` directly to that ACL:
+
+**Adding user to ACL image**
+
+this change is reflected in the CLI as well:
+```
+(admin)$ pachctl auth get edges
+pipeline:edges: WRITER
+pipeline:montage: READER
+group/saml:Everyone: OWNER
+saml:msteffen@pachyderm.io: READER
+robot:admin: OWNER
+```
+
+## Conclusion
+
+This is just an example of Pachyderm's auth system, meant to illustrate the
+general nature of available features. Hopefully, it clarifies whether Pachyderm
+can meet your requirements.
