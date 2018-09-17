@@ -651,7 +651,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	var specCommit *pfs.Commit
 	for i, provCommit := range commitInfo.Provenance {
 		provBranch := commitInfo.BranchProvenance[i]
-		if provBranch.Repo.Name == ppsconsts.SpecRepo {
+		if provBranch.Repo.Name == ppsconsts.SpecRepo && provBranch.Name == jobPtr.Pipeline.Name {
 			specCommit = provCommit
 			break
 		}
@@ -663,6 +663,10 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
 	}
+	// Override the SpecCommit for the pipeline to be what it was when this job
+	// was created, this prevents races between updating a pipeline and
+	// previous jobs running.
+	pipelinePtr.SpecCommit = specCommit
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 	if err != nil {
 		return nil, err
