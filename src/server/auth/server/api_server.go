@@ -46,6 +46,7 @@ const (
 	adminsPrefix  = "/admins"
 	membersPrefix = "/members"
 	groupsPrefix  = "/groups"
+	configPrefix  = "/config"
 
 	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
 
@@ -54,6 +55,11 @@ const (
 	// magicUser when auth is activated. This string is not secret, but is long
 	// and random to avoid collisions with real usernames
 	magicUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
+
+	// configKey is a key (in etcd, in the config collection) that maps to the
+	// auth configuration. This is the only key in that collection (due to
+	// implemenation details of our config library, we can't use an empty key)
+	configKey = "x"
 )
 
 // githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
@@ -94,6 +100,8 @@ type apiServer struct {
 	members col.Collection
 	// groups is a collection of group -> usernames mappings.
 	groups col.Collection
+	// collection containing the auth config (under the key configKey)
+	authConfig col.Collection
 
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
@@ -189,6 +197,14 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			nil,
 		),
+		authConfig: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, configKey),
+			nil,
+			&authclient.AuthConfig{},
+			nil,
+			nil,
+		),
 	}
 	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
@@ -237,6 +253,8 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
+			// TODO(msteffen): Don't use an empty key, as it will not be erased by
+			// superUserTokenCol.DeleteAll()
 			err := superUserTokenCol.Get("", &tokenProto)
 			if err == nil {
 				return nil
@@ -494,6 +512,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 		a.members.ReadWrite(stm).DeleteAll()
 		a.groups.ReadWrite(stm).DeleteAll()
+		a.authConfig.ReadWrite(stm).DeleteAll()
 		return nil
 	})
 	if err != nil {
@@ -1705,4 +1724,96 @@ func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error
 		return "", fmt.Errorf("error canonicalizing \"%s\": %v", user, err)
 	}
 	return authclient.GitHubPrefix + u.GetLogin(), nil
+}
+
+func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetConfigurationRequest) (resp *authclient.GetConfigurationResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	switch a.activationState() {
+	case none:
+		return nil, authclient.ErrNotActivated
+	case partial:
+		return nil, authclient.ErrPartiallyActivated
+	}
+
+	// Get calling user. The user must be logged in to get the cluster config
+	_, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Retrieve & return configuration
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	authConfigRO := a.authConfig.ReadOnly(ctx)
+
+	var currentConfig authclient.AuthConfig
+	if err := authConfigRO.Get(configKey, &currentConfig); err != nil && !col.IsErrNotFound(err) {
+		return nil, err
+	}
+	return &authclient.GetConfigurationResponse{
+		Configuration: &currentConfig,
+	}, nil
+}
+
+func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetConfigurationRequest) (resp *authclient.SetConfigurationResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	switch a.activationState() {
+	case none:
+		return nil, authclient.ErrNotActivated
+	case partial:
+		return nil, authclient.ErrPartiallyActivated
+	}
+
+	// Get calling user. The user must be an admin to set the cluster config
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !a.isAdmin(callerInfo.Subject) {
+		return nil, &authclient.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "SetConfiguration",
+		}
+	}
+
+	// Validate new config
+	for _, idp := range req.Configuration.IDProviders {
+		if idp.Name == "" {
+			return nil, errors.New("All ID providers must have a name specified " +
+				"(for use during authorization)")
+		}
+		// TODO(msteffen): make sure we don't have to extend this every time we add
+		// a new built-in backend.
+		switch idp.Name {
+		case authclient.GitHubPrefix:
+			return nil, errors.New("cannot configure auth backend with reserved prefix " +
+				authclient.GitHubPrefix)
+		case authclient.RobotPrefix:
+			return nil, errors.New("cannot configure auth backend with reserved prefix " +
+				authclient.RobotPrefix)
+		case authclient.PipelinePrefix:
+			return nil, errors.New("cannot configure auth backend with reserved prefix " +
+				authclient.PipelinePrefix)
+		}
+	}
+
+	// upsert new config
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		var currentConfig authclient.AuthConfig
+		return a.authConfig.ReadWrite(stm).Upsert(configKey, &currentConfig, func() error {
+			if currentConfig.LiveConfigVersion != req.Configuration.LiveConfigVersion {
+				return fmt.Errorf("expected config version %d, but live config has version %d",
+					req.Configuration.LiveConfigVersion, currentConfig.LiveConfigVersion)
+			}
+			currentConfig.Reset()
+			currentConfig = *req.Configuration
+			currentConfig.LiveConfigVersion++
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return &authclient.SetConfigurationResponse{}, nil
 }
