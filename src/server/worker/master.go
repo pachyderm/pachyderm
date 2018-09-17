@@ -8,7 +8,6 @@ import (
 	"path"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
@@ -217,6 +216,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 	defer commitIter.Close()
 	var serviceCtx context.Context
 	var serviceCancel func()
+	var dir string
 	for {
 		commitInfo, err := commitIter.Next()
 		if err != nil {
@@ -242,18 +242,24 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 		data := df.Datum(0)
 		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
 		puller := filesync.NewPuller()
-		dir, err := a.downloadData(pachClient, logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
+		// If this is our second time through the loop cleanup the old data.
+		if dir != "" {
+			if err := a.unlinkData(data); err != nil {
+				return fmt.Errorf("unlinkData: %v", err)
+			}
+			if err := os.RemoveAll(dir); err != nil {
+				return fmt.Errorf("os.RemoveAll: %v", err)
+			}
+		}
+		dir, err = a.downloadData(pachClient, logger, data, puller, nil, &pps.ProcessStats{}, nil, "")
 		if err != nil {
 			return err
 		}
 		if err := os.MkdirAll(client.PPSInputPrefix, 0666); err != nil {
 			return err
 		}
-		if err := syscall.Unmount(client.PPSInputPrefix, syscall.MNT_DETACH); err != nil {
-			logger.Logf("error unmounting %+v", err)
-		}
-		if err := syscall.Mount(dir, client.PPSInputPrefix, "", syscall.MS_BIND, ""); err != nil {
-			return err
+		if err := a.linkData(data, dir); err != nil {
+			return fmt.Errorf("linkData: %v", err)
 		}
 		if serviceCancel != nil {
 			serviceCancel()
