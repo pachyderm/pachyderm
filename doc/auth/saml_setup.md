@@ -5,14 +5,15 @@ These features aren't integrated into mainline Pachyderm yet and aren't
 available in any official releases. This will describe the process of:
 
 1. Activating Pachyderm enterprise and Pachyderm auth
-1. Configuring Pachyderm's auth system to enable its SAML ACS and receive SAML
-    assertions
+1. Configuring Pachyderm's auth system and enabling its SAML ACS (Assertion
+   Consumer Service—the HTTP endpoint to which users will forward SAML
+   assertions).
 1. Logging in to both the dash and CLI
 1. Enabling debug logging in case anything goes wrong
 
 ## Activation
 
-For testing, we **highly** recomment running Pachyderm in Minikube, in case any
+For testing, we **highly** recommend running Pachyderm in Minikube, in case any
 early bugs make it necessary to restart the cluster.
 
 To activate Pachyderm enterprise and Pachyderm auth:
@@ -22,19 +23,24 @@ pachctl enterprise activate <enterprise code>
 pachctl auth activate --initial-admin=robot:admin
 ```
 
-At this point, Pachyderm is ready to authenticate & authorize users.
+These commands cause Pachyderm's auth system to start verifying attempts to
+read and write Pachyderm data and blocking unauthorized users. Whichever user
+ran this command automatically authenticates as `robot:admin` and has admin
+privileges in the cluster (run `pachctl auth whoami`, as shown below, to
+confirm)
 
-What the `--initial-admin` flag does is:
+Users will either need to set the `--initial-admin` admin flag or have one
+GitHub-based user in the system. The reason:
 1. Pachyderm requires there to be at least one cluster admin if auth is
    activated
-1. Pachyderm's authentication is build around GitHub by default. Without this
-   flag, Pachyderm asks the caller to go through an OAuth flow with GitHub, and
-   then at the conclusion, makes the caller the cluster admin. Then whoever
-   activated Pachyderm's auth system can modify it by re-authenticating via
-   GitHub and performing any necessary actions
+1. Pachyderm uses GitHub for authentication by default. Without this flag,
+   Pachyderm asks the caller to go through an OAuth flow with GitHub, and then
+   at the conclusion, makes the caller the cluster admin. Then whoever
+   activated Pachyderm's auth system can assume admin status by
+   re-authenticating via GitHub and performing any necessary actions
 1. To avoid the OAuth flow, though, it's also possible to make the initial
-   cluster admin a "robot user". This is what
-   `--initial-admin=robot:<something>` does.
+   cluster admin a "robot user". Setting `--initial-admin=robot:<something>`
+   does this.
 1. Pachyderm will print out a Pachyderm token that authenticates the holder as
    this robot user. At any point, you can authenticate as this robot user by
    running
@@ -42,19 +48,24 @@ What the `--initial-admin` flag does is:
    $ pachctl auth use-auth-token
    Please paste your Pachyderm auth token:
    <paste robot token emitted by "pachctl auth activate --initial-admin=robot:admin">
-   $ # you are now robot:admin, cluster administrator
+
+   $ pachctl auth whoami
+   You are "robot:admin"
+   You are an administrator of this Pachyderm cluster
    ```
 
 ## Create IdP test app
-Here is the configuration I used for an Okta test app that authenticates Okta users
-with Pachyderm:
+This image shows an example configuration for an Okta test app that
+authenticates Okta users with Pachyderm:
 ![Okta test app config](images/okta_form.png)
 
-Once created, I was able to get the IdP Metadata URL associated with this app here:
+Pachyderm also needs a URL where it can scrape SAML metadata from the ID
+provider. All SAML ID providers should provide such a URL; the Okta metadata
+URL, for example, can be retrieved here:
 ![Metadata image](images/IdPMetadata_highlight.png)
 
 ## Write Pachyderm config
-This is what enables Pachyderm ACS. See inline comments
+This enables the Pachyderm ACS. See inline comments
 
 ```
 # Lookup current config version--pachyderm config has a barrier to prevent
