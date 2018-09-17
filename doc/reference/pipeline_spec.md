@@ -22,6 +22,11 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "secrets": [ {
         "name": string,
         "mount_path": string
+    },
+    {
+        "name": string,
+        "env_var": string,
+        "key": string
     } ],
     "image_pull_secrets": [ string ],
     "accept_return_code": [ int ],
@@ -182,10 +187,14 @@ Lines need not end in newline characters.
 `transform.env` is a map from key to value of environment variables that will be
 injected into the container
 
-`transform.secrets` is an array of secrets, secrets reference Kubernetes
-secrets by name and specify a path that the secrets should be mounted to.
-Secrets are useful for embedding sensitive data such as credentials. Read more
-about secrets in Kubernetes
+`transform.secrets` is an array of secrets, they are useful for embedding
+sensitive data such as credentials. Secrets reference Kubernetes secrets by
+name and specify a path that the secrets should be mounted to, or an
+environment variable (`env_var`) that the value should be bound to. Secrets
+must set `name` which should be the name of a secret in Kubernetes. Secrets
+must also specify either `mount_path` or `env_var` and `key`.
+
+
 [here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.image_pull_secrets` is an array of image pull secrets, image pull
