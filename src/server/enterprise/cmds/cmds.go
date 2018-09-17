@@ -67,7 +67,7 @@ func ActivateCmd() *cobra.Command {
 					"convert token expiration time to a timestamp: %s", err.Error())
 			}
 			fmt.Printf("Activation succeeded. Your Pachyderm Enterprise token "+
-				"expires %s", ts.String())
+				"expires %s\n", ts.String())
 			return nil
 		}),
 	}
