@@ -587,21 +587,11 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 		delete(m, u)
 	}
 
-	// Confirm that there will be at least one GitHub user admin.
+	// Confirm that there will be at least one admin.
 	//
-	// This is required so that a person can get the cluster out of any broken
-	// state that it may enter. If all admins are robot users or pipelines, and
-	// the only way to authenticate as a non-human user is for another admin to
-	// call GetAuthToken, then there will be no way to authenticate as an admin
-	// and fix a broken cluster.
-	hasHumanAdmin := false
-	for user := range m {
-		if strings.HasPrefix(user, authclient.GitHubPrefix) {
-			hasHumanAdmin = true
-			break
-		}
-	}
-	if !hasHumanAdmin {
+	// This is required so that the admin can get the cluster out of any broken
+	// state that it may enter.
+	if len(m) == 0 {
 		return fmt.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
 	}
 	return nil
