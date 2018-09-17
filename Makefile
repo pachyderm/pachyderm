@@ -437,7 +437,7 @@ test: clean-launch-dev launch-dev test-misc test-pps
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
-	if grep --files-with-matches --exclude=Makefile --exclude-from=.gitignore -r -e 'eyJ0b2tl' . ; \
+	if grep --files-with-matches --exclude=Makefile --exclude-from=.gitignore -r -e 'RM2o1Qit6YlZhS1RGdXVac' . ; \
 	then \
 	  $$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
 	  false; \
