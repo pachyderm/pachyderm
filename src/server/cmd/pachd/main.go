@@ -265,6 +265,7 @@ func doFullMode(appEnvObj interface{}) error {
 		log.Errorf("Unrecognized log level %s, falling back to default of \"info\"", appEnv.LogLevel)
 		log.SetLevel(log.InfoLevel)
 	}
+
 	if appEnv.EtcdPrefix == "" {
 		appEnv.EtcdPrefix = col.DefaultPrefix
 	}
@@ -359,8 +360,9 @@ func doFullMode(appEnvObj interface{}) error {
 	eg.Go(func() error {
 		err := grpcutil.Serve(
 			grpcutil.ServerOptions{
-				Port:       appEnv.Port,
-				MaxMsgSize: grpcutil.MaxMsgSize,
+				Port:                 appEnv.Port,
+				MaxMsgSize:           grpcutil.MaxMsgSize,
+				PublicPortTLSAllowed: true,
 				RegisterFunc: func(s *grpc.Server) error {
 					memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
 					if err != nil {

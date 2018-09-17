@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	golog "log"
 	"os"
 	"path"
 	"strings"
@@ -13,12 +14,12 @@ import (
 	"text/tabwriter"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/facebookgo/pidfile"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
@@ -34,6 +35,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 )
 
@@ -156,7 +158,12 @@ Environment variables:
 				l := log.New()
 				l.Level = log.FatalLevel
 				grpclog.SetLogger(l)
+			} else {
+				// etcd overrides grpc's logs--there's no way to enable one without
+				// enabling both
+				etcd.SetLogger(golog.New(os.Stderr, "[etcd/grpc] ", golog.LstdFlags|golog.Lshortfile))
 			}
+
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
@@ -240,7 +247,7 @@ Environment variables:
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpcutil.ScrubGRPC(err))
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
