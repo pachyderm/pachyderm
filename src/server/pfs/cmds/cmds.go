@@ -663,7 +663,7 @@ want to consider using commit IDs directly.
 			var path string
 			if len(args) == 3 {
 				path = args[2]
-				if _, err := url.Parse(path); err == nil {
+				if url, err := url.Parse(path); err == nil && url.Scheme != "" {
 					fmt.Fprintf(os.Stderr, "warning: PFS destination \"%s\" looks like a URL; did you mean -f %s?\n", path, path)
 				}
 			}
