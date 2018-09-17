@@ -8002,6 +8002,47 @@ func TestPachdPrometheusStats(t *testing.T) {
 
 }
 
+func TestDatumTries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestDatumTries_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	tries := int64(5)
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"unknown"}, // Cmd fails because "unknown" isn't a known command.
+			},
+			Input:      client.NewAtomInput(dataRepo, "/"),
+			DatumTries: tries,
+		})
+	require.NoError(t, err)
+	jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+
+	iter := c.GetLogs("", jobInfos[0].Job.ID, nil, "", false, false, 0)
+	var observedTries int64
+	for iter.Next() {
+		if strings.Contains(iter.Message().Message, "errored running user code after") {
+			observedTries++
+		}
+	}
+	require.Equal(t, tries, observedTries)
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
