@@ -1145,7 +1145,7 @@ func parseCommits(args []string) (map[string]string, error) {
 	for _, arg := range args {
 		split := strings.Split(arg, ":")
 		if len(split) != 2 {
-			return nil, fmt.Errorf("malformed input %s, must be of the form repo:commit")
+			return nil, fmt.Errorf("malformed input %s, must be of the form repo:commit", args)
 		}
 		result[split[0]] = split[1]
 	}
