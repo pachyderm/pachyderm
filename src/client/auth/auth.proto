@@ -111,6 +111,7 @@ message WhoAmIRequest {}
 message WhoAmIResponse {
   string username = 1;
   bool is_admin = 2;
+  int64 ttl = 3 [(gogoproto.customname) = "TTL"];
 }
 
 //// Authorization data structures
@@ -283,7 +284,6 @@ message ModifyMembersRequest {
   string group = 1;
   repeated string add = 2;
   repeated string remove = 3;
-  
 }
 
 message ModifyMembersResponse {}

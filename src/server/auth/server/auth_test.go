@@ -204,6 +204,9 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 			}
 			modifyRequest.Remove = append(modifyRequest.Remove, a)
 		}
+		if curAdminClient == nil {
+			tb.Fatal("cluster has no GitHub admins; no way for auth test to grant itself admin access")
+		}
 		_, err := curAdminClient.ModifyAdmins(curAdminClient.Ctx(), modifyRequest)
 		require.NoError(tb, err)
 
