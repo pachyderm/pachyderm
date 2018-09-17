@@ -503,6 +503,11 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 									Name:          "api-http-port",
 								},
 								{
+									ContainerPort: 653, // also set in cmd/pachd/main.go
+									Protocol:      "TCP",
+									Name:          "peer-port",
+								},
+								{
 									ContainerPort: githook.GitHookPort,
 									Protocol:      "TCP",
 									Name:          "api-git-port",
