@@ -2,12 +2,14 @@ package assets
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
@@ -67,6 +69,13 @@ var (
 		Resources:     []string{"secrets"},
 		ResourceNames: []string{client.StorageSecretName},
 	}}
+
+	// The name of the local volume (mounted kubernetes secret) where pachd
+	// should read a TLS cert and private key for authenticating with clients
+	tlsVolumeName = "pachd-tls-cert"
+	// The name of the kubernetes secret mount in the TLS volume (see
+	// tlsVolumeName)
+	tlsSecretName = "pachd-tls-cert"
 )
 
 type backend int
@@ -79,6 +88,13 @@ const (
 	minioBackend
 	s3CustomArgs = 6
 )
+
+// TLSOpts indicates the cert and key file that Pachd should use to
+// authenticate with clients
+type TLSOpts struct {
+	ServerCert string
+	ServerKey  string
+}
 
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
@@ -162,6 +178,11 @@ type AssetOpts struct {
 	// its public port. This should generally be false in production (it breaks
 	// auth) but is needed by tests
 	ExposeObjectAPI bool
+
+	// If set, the files indictated by 'TLS.ServerCert' and 'TLS.ServerKey' are
+	// placed into a Kubernetes secret and used by pachd nodes to authenticate
+	// during TLS
+	TLS *TLSOpts
 }
 
 // Encoder is the interface for writing out assets. This is assumed to wrap an output writer.
@@ -305,10 +326,10 @@ func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
 	}
 }
 
-// GetSecretVolumeAndMount returns a properly configured Volume and
+// GetBackendSecretVolumeAndMount returns a properly configured Volume and
 // VolumeMount object given a backend.  The backend needs to be one of the
 // constants defined in pfs/server.
-func GetSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
+func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
 	return v1.Volume{
 			Name: client.StorageSecretName,
 			VolumeSource: v1.VolumeSource{
@@ -381,9 +402,23 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	case microsoftBackend:
 		backendEnvVar = pfs.MicrosoftBackendEnvVar
 	}
-	volume, mount := GetSecretVolumeAndMount(backendEnvVar)
+	volume, mount := GetBackendSecretVolumeAndMount(backendEnvVar)
 	volumes = append(volumes, volume)
 	volumeMounts = append(volumeMounts, mount)
+	if opts.TLS != nil {
+		volumes = append(volumes, v1.Volume{
+			Name: tlsVolumeName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: tlsSecretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, v1.VolumeMount{
+			Name:      tlsVolumeName,
+			MountPath: grpcutil.TLSVolumePath,
+		})
+	}
 	resourceRequirements := v1.ResourceRequirements{
 		Requests: v1.ResourceList{
 			v1.ResourceCPU:    cpu,
@@ -1290,9 +1325,59 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 		return err
 	}
 	if !opts.NoDash {
-		return WriteDashboardAssets(encoder, opts)
+		if err := WriteDashboardAssets(encoder, opts); err != nil {
+			return err
+		}
+	}
+	if opts.TLS != nil {
+		if err := WriteTLSSecret(encoder, opts); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// WriteTLSSecret creates a new TLS secret in the kubernetes manifest
+// (equivalent to one generate by 'kubectl create secret tls'). This will be
+// mounted by the pachd pod and used as its TLS public certificate and private
+// key
+func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
+	// Validate arguments
+	if opts.DashOnly {
+		return nil
+	}
+	if opts.TLS == nil {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS is nil")
+	}
+	if opts.TLS.ServerKey == "" {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
+	}
+	if opts.TLS.ServerCert == "" {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
+	}
+
+	// Attempt to copy server cert and key files into config (kubernetes client
+	// does the base64-encoding)
+	certBytes, err := ioutil.ReadFile(opts.TLS.ServerCert)
+	if err != nil {
+		return fmt.Errorf("could not open server cert at \"%s\": %v", opts.TLS.ServerCert, err)
+	}
+	keyBytes, err := ioutil.ReadFile(opts.TLS.ServerKey)
+	if err != nil {
+		return fmt.Errorf("could not open server key at \"%s\": %v", opts.TLS.ServerKey, err)
+	}
+	secret := &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: objectMeta(tlsSecretName, labels(tlsSecretName), nil, opts.Namespace),
+		Data: map[string][]byte{
+			grpcutil.TLSCertFile: certBytes,
+			grpcutil.TLSKeyFile:  keyBytes,
+		},
+	}
+	return encoder.Encode(secret)
 }
 
 // WriteLocalAssets writes assets to a local backend.

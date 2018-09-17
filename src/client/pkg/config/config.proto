@@ -28,6 +28,10 @@ message ConfigV1 {
     // ADDRESS environment variable, though ADDRESS overrides this.
     string pachd_address = 2;
 
+    // Trusted root certificates (overrides installed certificates), formatted
+    // as base64-encoded PEM
+    string server_cas = 3 [(gogoproto.customname) = "ServerCAs"];
+
     // A secret token identifying the current pachctl user within their
     // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
     // to determine if pachctl actions are authorized.
