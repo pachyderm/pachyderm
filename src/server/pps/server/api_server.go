@@ -51,12 +51,12 @@ import (
 )
 
 const (
-	// MaxPodsPerChunk is the maximum number of pods we can schedule for each
-	// chunk in case of failures.
-	MaxPodsPerChunk = 3
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
+	// DefaultDatumTries is the default number of times a datum will be tried
+	// before we give up and consider the job failed.
+	DefaultDatumTries = 3
 )
 
 var (
@@ -687,6 +687,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.ChunkSpec = pipelineInfo.ChunkSpec
 	result.DatumTimeout = pipelineInfo.DatumTimeout
 	result.JobTimeout = pipelineInfo.JobTimeout
+	result.DatumTries = pipelineInfo.DatumTries
 	return result, nil
 }
 
@@ -1744,6 +1745,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		DatumTimeout:     request.DatumTimeout,
 		JobTimeout:       request.JobTimeout,
 		Standby:          request.Standby,
+		DatumTries:       request.DatumTries,
 	}
 	setPipelineDefaults(pipelineInfo)
 
@@ -1974,6 +1976,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	}
 	if pipelineInfo.MaxQueueSize < 1 {
 		pipelineInfo.MaxQueueSize = 1
+	}
+	if pipelineInfo.DatumTries == 0 {
+		pipelineInfo.DatumTries = DefaultDatumTries
 	}
 }
 

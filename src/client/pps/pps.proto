@@ -261,6 +261,7 @@ message JobInfo {
   ChunkSpec chunk_spec = 37;
   google.protobuf.Duration datum_timeout = 38;
   google.protobuf.Duration job_timeout = 39;
+  int64 datum_tries = 41;
 }
 
 enum WorkerState {
@@ -330,7 +331,7 @@ message PipelineInfo {
   uint64 version = 11;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
-  HashtreeSpec hashtree_spec = 39;
+  HashtreeSpec hashtree_spec = 41;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
 
@@ -368,6 +369,7 @@ message PipelineInfo {
   string githook_url = 35 [(gogoproto.customname) = "GithookURL"];
   pfs.Commit spec_commit = 36;
   bool standby = 37;
+  int64 datum_tries = 39;
 }
 
 message PipelineInfos {
@@ -508,7 +510,7 @@ message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
-  HashtreeSpec hashtree_spec = 28;
+  HashtreeSpec hashtree_spec = 29;
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
@@ -531,6 +533,7 @@ message CreatePipelineRequest {
   google.protobuf.Duration job_timeout = 25;
   string salt = 26;
   bool standby = 27;
+  int64 datum_tries = 28;
 }
 
 message InspectPipelineRequest {
