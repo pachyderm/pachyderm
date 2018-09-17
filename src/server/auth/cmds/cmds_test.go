@@ -240,7 +240,7 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	// We need a custom 'activate' command, so reproduce 'activateAuth' minus the
+	// We need a custom 'activate' command, to reproduce 'activateAuth' minus the
 	// actual call
 	activateMut.Lock()
 	defer activateMut.Unlock()
@@ -255,6 +255,32 @@ func TestActivateMismatchedUsernames(t *testing.T) {
 	require.YesError(t, activate.Run())
 	require.Matches(t, "github:alice", errorMsg.String())
 	require.Matches(t, "github:bob", errorMsg.String())
+}
+
+func TestConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	activateAuth(t)
+	defer deactivateAuth(t)
+	require.NoError(t, tu.BashCmd(`
+		echo "admin" | pachctl auth login
+		pachctl auth set-config <<EOF
+		{
+		  "live_config_version": 0,
+		  "saml_svc_options": {
+		    "acs_url": "http://www.example.com",
+		    "metadata_url": "http://www.example.com"
+		  }
+		}
+		EOF
+		pachctl auth get-config \
+		  | match '"live_config_version": 1,' \
+		  | match '"saml_svc_options": {' \
+		  | match '"acs_url": "http://www.example.com",' \
+		  | match '"metadata_url": "http://www.example.com"' \
+		  | match '}'
+		`).Run())
 }
 
 func TestMain(m *testing.M) {
