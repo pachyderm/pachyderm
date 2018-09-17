@@ -23,6 +23,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/deploy"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/health"
@@ -62,6 +63,9 @@ type VersionAPIClient versionpb.APIClient
 // AdminAPIClient is an alias of admin.APIClient
 type AdminAPIClient admin.APIClient
 
+// DebugClient is an alias of debug.DebugClient
+type DebugClient debug.DebugClient
+
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
@@ -71,6 +75,7 @@ type APIClient struct {
 	DeployAPIClient
 	VersionAPIClient
 	AdminAPIClient
+	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
 	// addr is a "host:port" string pointing at a pachd endpoint
@@ -399,6 +404,7 @@ func (c *APIClient) connect() error {
 	c.DeployAPIClient = deploy.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
+	c.DebugClient = debug.NewDebugClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)
 	return nil

@@ -546,7 +546,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		return jobInfo, nil
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
+	workerStatus, err := workerpkg.Status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
@@ -828,7 +828,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 		return nil, err
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerpkg.Cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
