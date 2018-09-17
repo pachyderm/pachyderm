@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:saml-v10"
+var defaultDashImage = "pachyderm/dash:saml-v10.2"
 
 // BytesEncoder is an Encoder with bytes content.
 type BytesEncoder interface {
