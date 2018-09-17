@@ -48,8 +48,8 @@ func KeyToPEM(cert *tls.Certificate) []byte {
 	}
 }
 
-// GenerateSelfSignedCert generates a self-signed TLS cert with private key
-// the domain name 'address'. Other attributes of the subject can be set in
+// GenerateSelfSignedCert generates a self-signed TLS cert for the domain name
+// 'address', with a private key. Other attributes of the subject can be set in
 // 'name' and ip addresses can be set in 'ipAddresses'
 func GenerateSelfSignedCert(address string, name *pkix.Name, ipAddresses ...string) (*tls.Certificate, error) {
 	// Generate Subject Distinguished Name
