@@ -753,13 +753,13 @@ func (c APIClient) Compact() error {
 // does them all together in the same request.
 type PutFileClient interface {
 	// PutFileWriter writes a file to PFS.
-	// NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
+	// NOTE: PutFileWriter returns an io.WriteCloser that you must call Close on when
 	// you are done writing.
 	PutFileWriter(repoName, commitID, path string) (io.WriteCloser, error)
 
-	// PutFileSplitWriter writes a multiple files to PFS by splitting up the data
+	// PutFileSplitWriter writes multiple files to PFS by splitting up the data
 	// that is written to it.
-	// NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
+	// NOTE: PutFileSplitWriter returns an io.WriteCloser that you must call Close on when
 	// you are done writing.
 	PutFileSplitWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool) (io.WriteCloser, error)
 
@@ -767,21 +767,21 @@ type PutFileClient interface {
 	PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error)
 
 	// PutFileOverwrite is like PutFile but it overwrites the file rather than
-	// appending to it.  overwriteIndex allows you to specify the index of the
-	// object starting from which you'd like to overwrite.  If you want to
+	// appending to it. overwriteIndex allows you to specify the index of the
+	// object starting from which you'd like to overwrite. If you want to
 	// overwrite the entire file, specify an index of 0.
 	PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error)
 
-	//PutFileSplit writes a file to PFS from a reader
-	// delimiter is used to tell PFS how to break the input into blocks
+	// PutFileSplit writes a file to PFS from a reader.
+	// delimiter is used to tell PFS how to break the input into blocks.
 	PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader) (_ int, retErr error)
 
 	// PutFileURL puts a file using the content found at a URL.
 	// The URL is sent to the server which performs the request.
-	// recursive allow for recursive scraping of some types URLs for example on s3:// urls.
+	// recursive allows for recursive scraping of some types URLs. For example on s3:// urls.
 	PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) error
 
-	// Close must be called after you're done using a putFileClient.
+	// Close must be called after you're done using a PutFileClient.
 	// Further requests will throw errors.
 	Close() error
 }
@@ -871,12 +871,19 @@ func (c *putFileClient) PutFileSplit(repoName string, commitID string, path stri
 // PutFileURL puts a file using the content found at a URL.
 // The URL is sent to the server which performs the request.
 // recursive allow for recursive scraping of some types URLs for example on s3:// urls.
-func (c *putFileClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) error {
+func (c *putFileClient) PutFileURL(repoName string, commitID string, path string, url string, recursive bool, overwrite bool) (retErr error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	var overwriteIndex *pfs.OverwriteIndex
 	if overwrite {
 		overwriteIndex = &pfs.OverwriteIndex{0}
+	}
+	if c.oneoff {
+		defer func() {
+			if err := grpcutil.ScrubGRPC(c.Close()); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
 	}
 	if err := c.c.Send(&pfs.PutFileRequest{
 		File:           NewFile(repoName, commitID, path),
@@ -885,9 +892,6 @@ func (c *putFileClient) PutFileURL(repoName string, commitID string, path string
 		OverwriteIndex: overwriteIndex,
 	}); err != nil {
 		return grpcutil.ScrubGRPC(err)
-	}
-	if c.oneoff {
-		return grpcutil.ScrubGRPC(c.Close())
 	}
 	return nil
 }
@@ -1245,17 +1249,17 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 	return bytesWritten, nil
 }
 
-func (w *putFileWriteCloser) Close() error {
+func (w *putFileWriteCloser) Close() (retErr error) {
 	defer w.c.mu.Unlock()
+	if w.c.oneoff {
+		if err := w.c.Close(); err != nil && retErr == nil {
+			retErr = grpcutil.ScrubGRPC(err)
+		}
+	}
 	// we always send at least one request, otherwise it's impossible to create
 	// an empty file
 	if !w.sent {
 		if err := w.c.c.Send(w.request); err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-	}
-	if w.c.oneoff {
-		if err := w.c.Close(); err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
 	}
