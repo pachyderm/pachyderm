@@ -125,7 +125,6 @@ message AuthConfig {
     // SAML credentials) as it receives them, which may be helpful for
     // debugging. This will probably not be present in any official releases.
     bool debug_logging = 5;
-
   }
   SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
 }
