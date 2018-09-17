@@ -49,9 +49,8 @@ func (c *localClient) Reader(path string, offset uint64, size uint64) (io.ReadCl
 			return nil, err
 		}
 		return file, nil
-	} else {
-		return newSectionReadCloser(file, offset, size), nil
 	}
+	return newSectionReadCloser(file, offset, size), nil
 }
 
 func (c *localClient) Delete(path string) error {

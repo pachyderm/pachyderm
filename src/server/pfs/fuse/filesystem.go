@@ -16,9 +16,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+const (
+	modeFile = fuse.S_IFREG | 0444 // everyone can read, no one can do anything else
+	modeDir  = fuse.S_IFDIR | 0555 // everyone can read and execute, no one can do anything else
+)
+
+// Mount pfs to mountPoint, opts may be left nil.
 func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
-	nfs := pathfs.NewPathNodeFs(newFileSystem(c, opts.GetCommits()), nil)
-	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), opts.GetFuse())
+	nfs := pathfs.NewPathNodeFs(newFileSystem(c, opts.getCommits()), nil)
+	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), opts.getFuse())
 	if err != nil {
 		return fmt.Errorf("nodefs.MountRoot: %v", err)
 	}
@@ -27,7 +33,7 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 	go func() {
 		select {
 		case <-sigChan:
-		case <-opts.GetUnmount():
+		case <-opts.getUnmount():
 		}
 		server.Unmount()
 	}()
@@ -95,7 +101,11 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 }
 
 func (fs *filesystem) Open(name string, flags uint32, context *fuse.Context) (nodefs.File, fuse.Status) {
-	// TODO use flags
+	f := int(flags)
+	writeFlags := os.O_WRONLY | os.O_RDWR
+	if f&writeFlags != 0 {
+		return nil, fuse.EROFS
+	}
 	return newFile(fs, name), fuse.OK
 }
 
@@ -152,7 +162,7 @@ func (fs *filesystem) getAttr(name string) (*fuse.Attr, fuse.Status) {
 		return fs.fileAttr(f)
 	default:
 		return &fuse.Attr{
-			Mode: fuse.S_IFDIR | 0755,
+			Mode: modeDir,
 		}, fuse.OK
 	}
 }
@@ -163,7 +173,7 @@ func (fs *filesystem) repoAttr(r *pfs.Repo) (*fuse.Attr, fuse.Status) {
 		return nil, toStatus(err)
 	}
 	return &fuse.Attr{
-		Mode:      fuse.S_IFDIR | 0755,
+		Mode:      modeDir,
 		Ctime:     uint64(ri.Created.Seconds),
 		Ctimensec: uint32(ri.Created.Nanos),
 		Mtime:     uint64(ri.Created.Seconds),
@@ -174,16 +184,16 @@ func (fs *filesystem) repoAttr(r *pfs.Repo) (*fuse.Attr, fuse.Status) {
 func repoDirEntry(ri *pfs.RepoInfo) fuse.DirEntry {
 	return fuse.DirEntry{
 		Name: ri.Repo.Name,
-		Mode: fuse.S_IFDIR | 0755,
+		Mode: modeDir,
 	}
 }
 
 func fileMode(fi *pfs.FileInfo) uint32 {
 	switch fi.FileType {
 	case pfs.FileType_FILE:
-		return fuse.S_IFREG | 0644
+		return modeFile
 	case pfs.FileType_DIR:
-		return fuse.S_IFDIR | 0644
+		return modeDir
 	default:
 		return 0
 	}
