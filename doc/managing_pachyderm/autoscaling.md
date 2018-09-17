@@ -33,7 +33,7 @@ The goals of Pachyderm worker autoscaling are:
 Thus, to accomplish both of these goals, we recommend:
 
 - Setting a `constant`, high level of parallelism.  Specifically, setting the constant parallelism to the number of workers you will need when your pipeline is active.
-- Setting the `cpu` and/or `mem` resource requirements [in the `resource_spec` field on your pipeline](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#resource-spec-optional). 
+- Setting the `cpu` and/or `mem` resource requirements [in the `resource_requests` field on your pipeline](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#resource-requests-optional). 
 
 To determine the right values for `cpu` / `mem`, first set these values rather high.  Then use the monitoring tools that come with your cloud provider (or [try out our monitoring deployment](https://github.com/pachyderm/pachyderm/blob/master/Makefile#L330)) so you can see the actual CPU/mem utilization per pod.
 
