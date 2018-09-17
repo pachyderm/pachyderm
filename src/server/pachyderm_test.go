@@ -2010,6 +2010,13 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 
+	// Inspect the first job to make sure it hasn't changed
+	jis, err := c.ListJob(pipelineName, nil, nil)
+	require.Equal(t, 3, len(jis))
+	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Transform.Stdin[0])
+	require.Equal(t, "echo bar >/pfs/out/file", jis[1].Transform.Stdin[0])
+	require.Equal(t, "echo foo >/pfs/out/file", jis[2].Transform.Stdin[0])
+
 	// Update the pipeline again, this time with Reprocess: true set. Now we
 	// should see a different output file
 	_, err = c.PpsAPIClient.CreatePipeline(
