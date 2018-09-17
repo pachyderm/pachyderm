@@ -386,7 +386,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 			return iter.Err()
 		}),
 	}
-	getLogs.Flags().StringVar(&pipelineName, "pipeline", "", "Filter the log "+
+	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
