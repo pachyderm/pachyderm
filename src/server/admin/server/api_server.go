@@ -37,8 +37,8 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *types.Empty) (*
 func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.API_ExtractServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.getPachClient()
-	pachClient = pachClient.WithCtx(extractServer.Context())
+	ctx := extractServer.Context()
+	pachClient := a.getPachClient().WithCtx(ctx)
 	handleOp := extractServer.Send
 	if request.URL != "" {
 		url, err := obj.ParseURL(request.URL)
@@ -157,8 +157,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractPipelineRequest) (response *admin.Op, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	pachClient := a.getPachClient()
-	pachClient = pachClient.WithCtx(ctx)
+	pachClient := a.getPachClient().WithCtx(ctx)
 	pi, err := pachClient.InspectPipeline(request.Pipeline.Name)
 	if err != nil {
 		return nil, err
@@ -279,7 +278,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := restoreServer.Context()
-	pachClient := a.getPachClient()
+	pachClient := a.getPachClient().WithCtx(ctx)
 	defer func() {
 		for {
 			_, err := restoreServer.Recv()
