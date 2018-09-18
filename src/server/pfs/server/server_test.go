@@ -4253,7 +4253,7 @@ func TestReadSizeLimited(t *testing.T) {
 }
 
 func TestPutFiles(t *testing.T) {
-	c := getPachClient(t)
+	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("repo"))
 	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
 	require.NoError(t, err)
@@ -4278,7 +4278,7 @@ func TestPutFiles(t *testing.T) {
 }
 
 func TestPutFilesURL(t *testing.T) {
-	c := getPachClient(t)
+	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("repo"))
 	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
 	require.NoError(t, err)
@@ -4328,7 +4328,7 @@ func TestPutFilesObjURL(t *testing.T) {
 		}
 	}()
 
-	c := getPachClient(t)
+	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("repo"))
 	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
 	require.NoError(t, err)
