@@ -658,7 +658,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 		return err
 	}
 	if commitInfo.Finished != nil {
-		return fmt.Errorf("commit %s has already been finished", commit.FullID())
+		return pfsserver.ErrCommitFinished{commit}
 	}
 	if description != "" {
 		commitInfo.Description = description

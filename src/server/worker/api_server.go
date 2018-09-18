@@ -1369,7 +1369,7 @@ func (a *APIServer) worker() {
 			// Inspect the job and make sure it's relevant, as this worker may be old
 			jobInfo, err := pachClient.InspectJob(jobID, false)
 			if err != nil {
-				if !col.IsErrNotFound(err) {
+				if col.IsErrNotFound(err) {
 					continue NextJob // job was deleted--no sense retrying
 				}
 				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
