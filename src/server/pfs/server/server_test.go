@@ -4592,11 +4592,39 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		glob := "/a/*/0000000000000000"
 		fileInfos, err = c.ListFile(repo, commit.ID, glob)
 		require.NoError(t, err)
-		fmt.Printf("files: %v\n", fileInfos)
 		require.Equal(t, 2, len(fileInfos))
 		buf.Reset()
 		require.NoError(t, c.GetFile(repo, commit.ID, glob, 0, 0, &buf))
 		require.Equal(t, header+content[0]+footer+header+content[0]+footer, buf.String())
+	})
+
+	t.Run("Nested", func(t *testing.T) {
+		commit, err = c.StartCommit(repo, "j")
+		require.NoError(t, err)
+		contentA := "aaa\nzzz"
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentA), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "jjj"
+		innerHeader := "((("
+		innerFooter := ")))"
+		nestedFile := "a/0000000000000000.5"
+		_, err = c.PutFileSplit(repo, commit.ID, nestedFile, pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentB), []byte(innerHeader), []byte(innerFooter))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, nestedFile)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fileInfos))
+		glob := "/a/**"
+		fileInfos, err = c.ListFile(repo, commit.ID, glob)
+		require.NoError(t, err)
+		fmt.Printf("files: %v\n", fileInfos)
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, nestedFile, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+contentB+innerFooter+footer, buf.String())
 	})
 }
 
