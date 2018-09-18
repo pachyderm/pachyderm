@@ -732,7 +732,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				Trees:     trees,
 				SizeBytes: size,
 			})
-			if err != nil {
+			if err != nil && !pfsserver.IsCommitFinishedErr(err) {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 					// output commit was deleted during e.g. FinishCommit, which means this job
 					// should be deleted. Goro from top of waitJob() will observe the deletion,
