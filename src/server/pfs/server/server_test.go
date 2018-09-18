@@ -4789,7 +4789,7 @@ ALTER TABLE ONLY public.sprockets
 		dirExpectedLen := 0
 		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
 		for i := 0; i < len(rows); i++ {
-			dirExpectedLen += len(rows[i]) + headerFooterLen
+			dirExpectedLen += len(rows[i]) + headerFooterLen // the dir 'overcounts' the header footer per child
 		}
 		require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 
@@ -4839,7 +4839,7 @@ ALTER TABLE ONLY public.sprockets
 		dirExpectedLen := 0
 		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
 		for i := 0; i < len(rows); i++ {
-			dirExpectedLen += len(rows[i]) + headerFooterLen
+			dirExpectedLen += len(rows[i]) + headerFooterLen // the dir 'overcounts' the header footer per child
 		}
 		require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 	})
@@ -4877,7 +4877,7 @@ ALTER TABLE ONLY public.sprockets
 		dirExpectedLen := 0
 		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
 		for i := 0; i < len(rows); i++ {
-			dirExpectedLen += len(rows[i]) + headerFooterLen
+			dirExpectedLen += len(rows[i]) + headerFooterLen // the dir 'overcounts' the header footer per child
 		}
 		require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 	})
