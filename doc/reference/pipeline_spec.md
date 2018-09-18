@@ -315,6 +315,7 @@ these fields be set for any instantiation of the object.
     "atom": atom_input,
     "union": [input],
     "cross": [input],
+    "cron": cron_input
 }
 ```
 
