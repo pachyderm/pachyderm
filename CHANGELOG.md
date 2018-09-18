@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.7
+
+- Greatly improves the performance of the pfs FUSE implementation. Performance should be close to on par with the that of pachctl get-file. The only trade-off is that the new implementation will use disk space to cache file contents. (#3140)
+
 ## 1.7.6
 
 - Pachyderm's FUSE support (`pachctl mount`) has been rewritten. (#3088)
