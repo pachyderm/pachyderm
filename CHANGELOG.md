@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.8
+
+- Fixes multiple issues that could cause jobs to hang when they encountered intermittent errors such as network hiccups. (#3155)
+
 ## 1.7.7
 
 - Greatly improves the performance of the pfs FUSE implementation. Performance should be close to on par with the that of pachctl get-file. The only trade-off is that the new implementation will use disk space to cache file contents. (#3140)
