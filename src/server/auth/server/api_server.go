@@ -41,14 +41,19 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix  = "/tokens"
-	aclsPrefix    = "/acls"
-	adminsPrefix  = "/admins"
-	membersPrefix = "/members"
-	groupsPrefix  = "/groups"
-	configPrefix  = "/config"
+	tokensPrefix              = "/tokens"
+	authenticationCodesPrefix = "/auth-codes"
+	aclsPrefix                = "/acls"
+	adminsPrefix              = "/admins"
+	membersPrefix             = "/members"
+	groupsPrefix              = "/groups"
+	configPrefix              = "/config"
 
 	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
+
+	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
+	// GetAuthenticationCode
+	defaultAuthCodeTTLSecs = 30
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -91,9 +96,13 @@ type apiServer struct {
 	configCache authclient.AuthConfig // cache of auth config in etcd
 	configMu    sync.Mutex            // guard 'configCache'
 
-	// tokens is a collection of hashedToken -> User mappings. These tokens are
+	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
 	tokens col.Collection
+	// authenticationCodes is a collection of hash(code) -> TokenInfo mappings.
+	// These codes are generated internally, and converted to regular tokens by
+	// Authenticate()
+	authenticationCodes col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
@@ -163,6 +172,14 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 		tokens: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, tokensPrefix),
+			nil,
+			&authclient.TokenInfo{},
+			nil,
+			nil,
+		),
+		authenticationCodes: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, authenticationCodesPrefix),
 			nil,
 			&authclient.TokenInfo{},
 			nil,
@@ -758,6 +775,21 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	return &authclient.ModifyAdminsResponse{}, nil
 }
 
+// expiredClusterAdminCheck enforces that if the cluster's enterprise token is
+// expired, only admins may log in.
+func (a *apiServer) expiredClusterAdminCheck(username string) error {
+	state, err := a.getEnterpriseTokenState()
+	if err != nil {
+		return fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+	}
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(username) {
+		return errors.New("Pachyderm Enterprise is not active in this " +
+			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
+			"auth is deactivated, only cluster admins can perform any operations)")
+	}
+	return nil
+}
+
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	switch a.activationState() {
 	case none:
@@ -773,41 +805,114 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 
-	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+	// verify whatever credential the user has presented, and write a new
+	// Pachyderm token for the user that their credential belongs to
+	var pachToken string
+	switch {
+	case req.GitHubToken != "":
+		// Determine caller's Pachyderm/GitHub username
+		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+		if err != nil {
+			return nil, err
+		}
+
+		// If the cluster's enterprise token is expired, only admins may log in
+		if err := a.expiredClusterAdminCheck(username); err != nil {
+			return nil, err
+		}
+
+		// Generate a new Pachyderm token and write it
+		pachToken = uuid.NewWithoutDashes()
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			tokens := a.tokens.ReadWrite(stm)
+			return tokens.PutTTL(hashToken(pachToken),
+				&authclient.TokenInfo{
+					Subject: username,
+					Source:  authclient.TokenInfo_AUTHENTICATE,
+				},
+				defaultTokenTTLSecs)
+		}); err != nil {
+			return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
+		}
+
+	case req.PachAuthenticationCode != "":
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			// read short-lived authentication code (and delete it if found)
+			codes := a.authenticationCodes.ReadWrite(stm)
+			key := hashToken(req.PachAuthenticationCode)
+			var tokenInfo authclient.TokenInfo
+			if err := codes.Get(key, &tokenInfo); err != nil {
+				return err
+			}
+			codes.Delete(key)
+
+			// If the cluster's enterprise token is expired, only admins may log in
+			if err := a.expiredClusterAdminCheck(tokenInfo.Subject); err != nil {
+				return err
+			}
+
+			// write long-lived pachyderm token
+			pachToken = uuid.NewWithoutDashes()
+			return a.tokens.ReadWrite(stm).PutTTL(hashToken(pachToken), &tokenInfo,
+				defaultTokenTTLSecs)
+		}); err != nil {
+			return nil, err
+		}
+
+	default:
+		return nil, fmt.Errorf("unrecognized authentication mechanism (old pachd?)")
+	}
+
+	// Return new pachyderm token to caller
+	return &authclient.AuthenticateResponse{
+		PachToken: pachToken,
+	}, nil
+}
+
+func (a *apiServer) GetAuthenticationCode(ctx context.Context, req *authclient.GetAuthenticationCodeRequest) (resp *authclient.GetAuthenticationCodeResponse, retErr error) {
+	// We don't want to actually log the request/response since they contain
+	// credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	switch a.activationState() {
+	case none:
+		// PPS is authenticated by a token read from etcd. It never calls or needs
+		// to call authenticate, even while the cluster is partway through the
+		// activation process
+		return nil, authclient.ErrNotActivated
+	case partial:
+		return nil, authclient.ErrPartiallyActivated
+	}
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	// If the cluster's enterprise token is expired, only admins may log in
-	state, err := a.getEnterpriseTokenState()
+	code, err := a.getAuthenticationCode(ctx, callerInfo.Subject)
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+		return nil, err
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(username) {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " +
-			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
-			"auth is deactivated, only cluster admins can perform any operations)")
-	}
+	return &authclient.GetAuthenticationCodeResponse{
+		Code: code,
+	}, nil
+}
 
-	// Generate a new Pachyderm token and return it
-	pachToken := uuid.NewWithoutDashes()
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		tokens := a.tokens.ReadWrite(stm)
-		return tokens.PutTTL(hashToken(pachToken),
+// getAuthenticationCode contains the implementation of GetAuthenticationCode,
+// but is also called directly by handleSAMLREsponse. It generates a
+// short-lived authentication code for 'username', writes it to
+// a.authenticationCodes, and returns it
+func (a *apiServer) getAuthenticationCode(ctx context.Context, username string) (code string, err error) {
+	code = "auth_code:" + uuid.NewWithoutDashes()
+	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		return a.authenticationCodes.ReadWrite(stm).PutTTL(hashToken(code),
 			&authclient.TokenInfo{
 				Subject: username,
 				Source:  authclient.TokenInfo_AUTHENTICATE,
 			},
-			defaultTokenTTLSecs)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
+			defaultAuthCodeTTLSecs)
+	}); err != nil {
+		return "", err
 	}
-
-	return &authclient.AuthenticateResponse{
-		PachToken: pachToken,
-	}, nil
+	return code, nil
 }
 
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
