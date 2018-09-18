@@ -2,8 +2,8 @@
 
 ## Advanced
 
-- [Deploy within an existing VPC](amazon_web_services/existing_vpc.html)
-- [Connect to your Pachyderm Cluster](amazon_web_services/connecting_to_your_cluster.html)
+- [Deploy within an existing VPC](https://github.com/pachyderm/pachyderm/blob/master/doc/deployment/amazon_web_services/existing_vpc.md)
+- [Connect to your Pachyderm Cluster](https://github.com/pachyderm/pachyderm/blob/master/doc/deployment/amazon_web_services/connecting_to_your_cluster.md)
 
 ## Standard Deployment
 
