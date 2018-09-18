@@ -1,14 +1,20 @@
-## ./pachctl auth login
+## ./pachctl auth set-config
 
-Login to Pachyderm with your GitHub account
+Set Pachyderm's current auth configuration
 
 ### Synopsis
 
 
-Login to Pachyderm with your GitHub account. Any resources that have been restricted to the email address registered with your GitHub account will subsequently be accessible.
+Set Pachyderm's current auth configuration
 
 ```
-./pachctl auth login
+./pachctl auth set-config
+```
+
+### Options
+
+```
+  -f, --file string   input file (to use as the new config (default "-")
 ```
 
 ### Options inherited from parent commands
