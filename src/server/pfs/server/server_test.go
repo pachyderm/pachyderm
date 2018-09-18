@@ -4599,7 +4599,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("Nested", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "j")
+		commit, err = c.StartCommit(repo, "k")
 		require.NoError(t, err)
 		contentA := "aaa\nzzz"
 		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentA), []byte(header), []byte(footer))
@@ -4607,7 +4607,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		contentB := "jjj"
 		innerHeader := "((("
 		innerFooter := ")))"
-		nestedFile := "a/0000000000000000.5"
+		nestedFile := "a/999"
 		_, err = c.PutFileSplit(repo, commit.ID, nestedFile, pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentB), []byte(innerHeader), []byte(innerFooter))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -4627,7 +4627,6 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		glob := "/a/**"
 		fileInfos, err = c.ListFile(repo, commit.ID, glob)
 		require.NoError(t, err)
-		fmt.Printf("files: %v\n", fileInfos)
 		require.Equal(t, 3, len(fileInfos))
 	})
 }

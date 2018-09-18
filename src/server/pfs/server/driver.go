@@ -2248,12 +2248,18 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	// paths below
 	for path, node := range paths {
 		if node.FileNode != nil {
-			dirPath := filepath.Dir(path)
-			dirNode, err := tree.Get(dirPath)
-			if err != nil {
-				return nil, err
+			dirPath := path
+			for dirPath != "/" {
+				dirPath = filepath.Dir(dirPath)
+				if _, ok := paths[dirPath]; ok {
+					continue
+				}
+				dirNode, err := tree.Get(dirPath)
+				if err != nil {
+					return nil, err
+				}
+				paths[dirPath] = dirNode
 			}
-			paths[dirPath] = dirNode
 		}
 	}
 	var sortedPaths []string
