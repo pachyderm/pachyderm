@@ -4741,8 +4741,8 @@ ALTER TABLE ONLY public.sprockets
 		require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
 		dirFileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, "data")
 		require.NoError(t, err)
-		dirExpectedLen := 0
 		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
+		dirExpectedLen := headerFooterLen
 		for i := 0; i < len(rows); i++ {
 			dirExpectedLen += len(rows[i]) + headerFooterLen // the dir 'overcounts' the header footer per child
 		}
@@ -4791,10 +4791,10 @@ ALTER TABLE ONLY public.sprockets
 		require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
 		dirFileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, "data")
 		require.NoError(t, err)
-		dirExpectedLen := 0
 		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
-		for i := 0; i < len(rows); i++ {
-			dirExpectedLen += len(rows[i]) + headerFooterLen // the dir 'overcounts' the header footer per child
+		dirExpectedLen := headerFooterLen
+		for i := 0; i < len(fileInfos); i++ {
+			dirExpectedLen += int(fileInfos[i].SizeBytes)
 		}
 		require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 	})
@@ -4829,10 +4829,10 @@ ALTER TABLE ONLY public.sprockets
 		require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
 		dirFileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, "data")
 		require.NoError(t, err)
-		dirExpectedLen := 0
 		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
-		for i := 0; i < len(rows); i++ {
-			dirExpectedLen += len(rows[i]) + headerFooterLen // the dir 'overcounts' the header footer per child
+		dirExpectedLen := headerFooterLen
+		for i := 0; i < len(fileInfos); i++ {
+			dirExpectedLen += int(fileInfos[i].SizeBytes)
 		}
 		require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
 	})
