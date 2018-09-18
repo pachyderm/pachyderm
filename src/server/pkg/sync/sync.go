@@ -423,8 +423,8 @@ func isNotExist(err error) bool {
 }
 
 // PushFile makes sure that pfsFile has the same content as osFile.
-func PushFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSeeker) error {
-	fileInfo, err := client.InspectFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path)
+func PushFile(c *pachclient.APIClient, pfc pachclient.PutFileClient, pfsFile *pfs.File, osFile io.ReadSeeker) error {
+	fileInfo, err := c.InspectFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path)
 	if err != nil && !isNotExist(err) {
 		return err
 	}
@@ -451,6 +451,6 @@ func PushFile(client *pachclient.APIClient, pfsFile *pfs.File, osFile io.ReadSee
 		return err
 	}
 
-	_, err = client.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, int64(i))
+	_, err = pfc.PutFileOverwrite(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, osFile, int64(i))
 	return err
 }

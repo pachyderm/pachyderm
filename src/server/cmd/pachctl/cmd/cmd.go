@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -195,6 +196,10 @@ Environment variables:
 	}
 	adminCmds := admincmds.Cmds(&noMetrics)
 	for _, cmd := range adminCmds {
+		rootCmd.AddCommand(cmd)
+	}
+	debugCmds := debugcmds.Cmds(&noMetrics)
+	for _, cmd := range debugCmds {
 		rootCmd.AddCommand(cmd)
 	}
 

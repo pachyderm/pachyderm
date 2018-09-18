@@ -2,8 +2,8 @@
 
 ## Advanced
 
-- [Deploy within an existing VPC](amazon_web_services/existing_vpc.html)
-- [Connect to your Pachyderm Cluster](amazon_web_services/connecting_to_your_cluster.html)
+- [Deploy within an existing VPC](https://github.com/pachyderm/pachyderm/blob/master/doc/deployment/amazon_web_services/existing_vpc.md)
+- [Connect to your Pachyderm Cluster](https://github.com/pachyderm/pachyderm/blob/master/doc/deployment/amazon_web_services/connecting_to_your_cluster.md)
 
 ## Standard Deployment
 
@@ -57,7 +57,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, Pachyderm's comm
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.7
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.4/pachctl_1.7.4_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.8/pachctl_1.7.8_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version --client-only` to verify that `pachctl` has been successfully installed.

@@ -63,7 +63,7 @@ To get this data into Pachyderm, navigate to this directory and run:
 
 ```
 $ cd data
-$ pachctl put-file training master -c -f iris.csv
+$ pachctl put-file training master -f iris.csv
 ```
 
 Then, you should be able to see the following:
@@ -136,7 +136,7 @@ Great! We now have a trained model that will infer the species of iris flowers. 
 
 ```
 $ cd data/test/
-$ pachctl put-file attributes master -c -r -f .
+$ pachctl put-file attributes master -r -f .
 ```
 
 You should then see:
@@ -188,12 +188,12 @@ We have created results from the inference, but how do we examine those results?
 
 ```
 $ pachctl list-file inference master
-NAME                TYPE                SIZE
-1.csv               file                15 B
-2.csv               file                85 B
-$ pachctl get-file inference master 1.csv
+NAME            TYPE                SIZE
+1               file                15 B
+2               file                85 B
+$ pachctl get-file inference master 1
 Iris-virginica
-$ pachctl get-file inference master 2.csv
+$ pachctl get-file inference master 2
 Iris-versicolor
 Iris-virginica
 Iris-virginica
@@ -278,7 +278,7 @@ a139434b1b554443aceaf1424f119242 inference/15ef7bfe8e7d4df18a77f35b0019e119 9 mi
 Let's say that one or more observations in our training data set were corrupt or unwanted.  Thus, we want to update our training data set.  To simulate this, go ahead and open up `iris.csv` (e.g., with `vim`) and remove a couple of the rows (non-header rows).  Then, let's replace our training set (`-o` tells Pachyderm to overwrite the file):
 
 ```
-$ pachctl put-file training master -c -o -f iris.csv
+$ pachctl put-file training master -o -f ./data/iris.csv
 ```
 
 Immediately, Pachyderm "knows" that the data has been updated, and it starts new jobs to update the model and inferences.
@@ -317,7 +317,8 @@ The `Provenance` tells us exactly which model and training set was used (along w
 ```
 $ pachctl list-file model adb293f8a4604ed7b081c1ff030c0480
 NAME                TYPE                SIZE
-model.jld           file                70.34 KiB
+model.pkl           file                3.448KiB
+model.txt           file                226B
 ```
 
 We could get this model to examine it, rerun it, revert to a different model, etc.
