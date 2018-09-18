@@ -111,3 +111,8 @@ func (a *InactiveAPIServer) SetConfiguration(context.Context, *auth.SetConfigura
 func (a *InactiveAPIServer) GetConfiguration(context.Context, *auth.GetConfigurationRequest) (*auth.GetConfigurationResponse, error) {
 	return nil, auth.ErrNotActivated
 }
+
+// GetAuthenticationCode implements the GetAuthenticationCode RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetAuthenticationCode(context.Context, *auth.GetAuthenticationCodeRequest) (*auth.GetAuthenticationCodeResponse, error) {
+	return nil, auth.ErrNotActivated
+}
