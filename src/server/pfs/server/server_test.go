@@ -4351,7 +4351,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
 		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
-		fmt.Printf("list of files: %v err %v\n", fileInfos, err)
+		require.NoError(t, err)
 		require.Equal(t, 0, len(fileInfos))
 		fileInfos, err = c.ListFile(repo, commit.ID, "/a")
 		require.Equal(t, 1, len(fileInfos))
@@ -4511,6 +4511,21 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 		buf.Reset()
 		require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+	})
+
+	t.Run("DeletionSubFiles", func(t *testing.T) {
+		commit, err = c.StartCommit(repo, "deletionsubfiles")
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.DeleteFile(repo, commit.ID, "/a/0000000000000001"))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "/**", 0, 0, &buf))
+		require.Equal(t, header+content[0]+content[2]+footer, buf.String())
 	})
 
 	t.Run("GlobRead", func(t *testing.T) {
