@@ -1,14 +1,20 @@
-## ./pachctl auth login
+## ./pachctl auth get-config
 
-Login to Pachyderm with your GitHub account
+Retrieve Pachyderm's current auth configuration
 
 ### Synopsis
 
 
-Login to Pachyderm with your GitHub account. Any resources that have been restricted to the email address registered with your GitHub account will subsequently be accessible.
+Retrieve Pachyderm's current auth configuration
 
 ```
-./pachctl auth login
+./pachctl auth get-config
+```
+
+### Options
+
+```
+  -o, --output-format string   output format ("json" or "yaml") (default "json")
 ```
 
 ### Options inherited from parent commands
