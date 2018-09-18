@@ -4624,6 +4624,8 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		require.Equal(t, 3, len(fileInfos))
 		buf.Reset()
 		require.NoError(t, c.GetFile(repo, commit.ID, nestedFile, 0, 0, &buf))
+		require.Equal(t, innerHeader+innerFooter, buf.String())
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
 		require.Equal(t, header+innerHeader+contentB+innerFooter+footer, buf.String())
 	})
 }
