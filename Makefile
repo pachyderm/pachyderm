@@ -80,6 +80,10 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
 
+install-mac:
+	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
+	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+
 install-clean:
 	@# Need to blow away pachctl binary if its already there
 	@rm -f $(GOPATH)/bin/pachctl
@@ -322,6 +326,27 @@ launch-dev-vm: check-kubectl
 	fi
 	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
 
+# launch-release-vm is like launch-dev-vm but it doesn't build pachctl locally, and uses the same
+# version of pachd associated with the current pachctl (useful if you want to start a VM with a
+# point-release version of pachd, instead of whatever's in the current branch)
+launch-release-vm:
+	@# Make sure the caller sets address to avoid confusion later
+	@if [ -z "${ADDRESS}" ]; then \
+		echo -e"Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	  exit 1; \
+	fi
+	@if [ -n "${PACH_CA_CERTS}" ]; then \
+		echo -e"Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
+	  exit 1; \
+	fi
+	# Making sure minikube isn't still up from a previous run...
+	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
+	then \
+	  echo "minikube is still up. Run 'make clean-launch-kube'"; \
+	  exit 1; \
+	fi
+	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$(pachctl version --client-only)
+
 clean-launch-kube:
 	@# clean up both of the following cases:
 	@# make launch-dev-vm - minikube config is owned by $USER
@@ -412,7 +437,7 @@ test: clean-launch-dev launch-dev test-misc test-pps
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
-	if grep --files-with-matches --exclude=Makefile -r -e 'eyJ0b2tl' . ; \
+	if grep --files-with-matches --exclude=Makefile --exclude-from=.gitignore -r -e 'RM2o1Qit6YlZhS1RGdXVac' . ; \
 	then \
 	  $$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
 	  false; \
@@ -459,6 +484,7 @@ test-client:
 test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
+	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true

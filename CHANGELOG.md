@@ -1,5 +1,33 @@
 # Changelog
 
+## 1.7.8
+
+- Fixes multiple issues that could cause jobs to hang when they encountered intermittent errors such as network hiccups. (#3155)
+
+## 1.7.7
+
+- Greatly improves the performance of the pfs FUSE implementation. Performance should be close to on par with the that of pachctl get-file. The only trade-off is that the new implementation will use disk space to cache file contents. (#3140)
+
+## 1.7.6
+
+- Pachyderm's FUSE support (`pachctl mount`) has been rewritten. (#3088)
+- `put-file` requests that put files from multiple sources (`-i` or `-r`) now create a single commit. (#3118) 
+- Fixes a bug that caused `put-file` to throw spurious warnings about URL formatted paths. (#3117)
+- Several fixes have been made to which user code runs as to allow services such as Jupyter to work out of the box. (#3085)
+- `pachctl` now has `auth set-config` and `auth get-config` commands. (#3095)<Paste>
+
+## 1.7.5
+
+- Workers no longer run privileged containers. (#3031) To achieve this a few modifications had to be made to the `/pfs` directory that may impact some user code. Directories under `/pfs` are now symlinks to directories, previously they were bind-mounts (which requires that the container be privileged). Furthermore there's now a hidden directory under `/pfs` called `.scratch` which contains the directories that the symlinks under `/pfs` point to.
+- The number of times datums are retries is now configurable. (#3033)
+- Fixed a bug that could cause Kubernetes errors to prevent pipelines from coming up permanently. (#3043, #3005)
+- Robot users can now modify admins. (#3049)
+- Fixed a bug that could permanently lock robot-only admins out of the cluster. (#3050)
+- Fixed a couple of bugs (#3045, #3046) that occurred when a pipeline was rapidly updated several times. (#3054)
+- `restore` now propagates user credentials, allowing it to work on clusters with auth turned on. (#3057)
+- Adds a `debug-dump` command which dumps running goroutines from the cluster. (#3078)
+- `pachd` now prints a full goroutine dump if it encounters an error. (#3103)
+
 ## 1.7.4
 
 - Fixes a bug that prevented image pull secrets from propagating through `pachctl deploy`. (#2956, thanks to @jkinkead)

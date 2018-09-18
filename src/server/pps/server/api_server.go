@@ -485,13 +485,20 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
+	if request.Job == nil && request.OutputCommit == nil {
+		return nil, fmt.Errorf("must specify either a Job or an OutputCommit")
+	}
 
 	jobs := a.jobs.ReadOnly(ctx)
 	if request.OutputCommit != nil {
 		if request.Job != nil {
 			return nil, fmt.Errorf("can't set both Job and OutputCommit")
 		}
-		if err := a.listJob(pachClient, nil, request.OutputCommit, nil, func(ji *pps.JobInfo) error {
+		ci, err := pachClient.InspectCommit(request.OutputCommit.Repo.Name, request.OutputCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := a.listJob(pachClient, nil, ci.Commit, nil, func(ji *pps.JobInfo) error {
 			if request.Job != nil {
 				return fmt.Errorf("internal error, more than 1 Job has output commit: %v (this is likely a bug)", request.OutputCommit)
 			}
@@ -499,6 +506,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			return nil
 		}); err != nil {
 			return nil, err
+		}
+		if request.Job == nil {
+			return nil, fmt.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
 
@@ -546,7 +556,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		return jobInfo, nil
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
+	workerStatus, err := workerpkg.Status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
@@ -828,7 +838,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 		return nil, err
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerpkg.Cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
