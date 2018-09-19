@@ -2300,7 +2300,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		}
 	}
 	var sortedPaths []string
-	for path, _ := range paths {
+	for path := range paths {
 		sortedPaths = append(sortedPaths, path)
 	}
 	sort.Strings(sortedPaths)
