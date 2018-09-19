@@ -784,6 +784,10 @@ $ pachctl put-header repo branch path-to-directory -f file
 			if err != nil {
 				return err
 			}
+			pfc, err := cli.NewPutFileClient()
+			if err != nil {
+				return err
+			}
 			repoName := args[0]
 			branch := args[1]
 			path := args[2]
@@ -806,7 +810,7 @@ $ pachctl put-header repo branch path-to-directory -f file
 			source := "/dev/null"
 			// We have a single source and the user has specified a path,
 			// we use the path and ignore source (in terms of naming the file).
-			return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, "line", header, nil, targetFileDatums, targetFileBytes, filesPut)
+			return putFileHelper(cli, pfc, repoName, branch, path, source, recursive, overwrite, limiter, "line", header, nil, targetFileDatums, targetFileBytes, filesPut)
 		}),
 	}
 	putHeader.Flags().StringVarP(&headerFilePath, "file", "f", "-", "The file to be put, it can be a local file or by default will be read from stdin")
@@ -824,6 +828,10 @@ $ pachctl put-footer repo branch path-to-directory -f file
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
 			cli, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
+			if err != nil {
+				return err
+			}
+			pfc, err := cli.NewPutFileClient()
 			if err != nil {
 				return err
 			}
@@ -849,7 +857,7 @@ $ pachctl put-footer repo branch path-to-directory -f file
 			source := "/dev/null"
 			// We have a single source and the user has specified a path,
 			// we use the path and ignore source (in terms of naming the file).
-			return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, "line", nil, footer, targetFileDatums, targetFileBytes, filesPut)
+			return putFileHelper(cli, pfc, repoName, branch, path, source, recursive, overwrite, limiter, "line", nil, footer, targetFileDatums, targetFileBytes, filesPut)
 		}),
 	}
 	putFooter.Flags().StringVarP(&footerFilePath, "file", "f", "-", "The file to be put, it can be a local file or by default will be read from stdin")
