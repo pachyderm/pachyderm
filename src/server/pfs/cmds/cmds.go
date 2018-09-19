@@ -788,11 +788,15 @@ $ pachctl put-header repo branch path-to-directory -f file
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if err := pfc.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 			repoName := args[0]
 			branch := args[1]
 			path := args[2]
 			var header []byte
-			limiter := limit.New(int(parallelism))
 			if headerFilePath == "-" {
 				content, err := ioutil.ReadAll(os.Stdin)
 				if err != nil {
@@ -808,6 +812,7 @@ $ pachctl put-header repo branch path-to-directory -f file
 			}
 			filesPut := &gosync.Map{}
 			source := "/dev/null"
+			limiter := limit.New(int(parallelism))
 			// We have a single source and the user has specified a path,
 			// we use the path and ignore source (in terms of naming the file).
 			return putFileHelper(cli, pfc, repoName, branch, path, source, recursive, overwrite, limiter, "line", header, nil, targetFileDatums, targetFileBytes, filesPut)
@@ -835,11 +840,15 @@ $ pachctl put-footer repo branch path-to-directory -f file
 			if err != nil {
 				return err
 			}
+			defer func() {
+				if err := pfc.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 			repoName := args[0]
 			branch := args[1]
 			path := args[2]
 			var footer []byte
-			limiter := limit.New(int(parallelism))
 			if footerFilePath == "-" {
 				content, err := ioutil.ReadAll(os.Stdin)
 				if err != nil {
@@ -855,6 +864,7 @@ $ pachctl put-footer repo branch path-to-directory -f file
 			}
 			filesPut := &gosync.Map{}
 			source := "/dev/null"
+			limiter := limit.New(int(parallelism))
 			// We have a single source and the user has specified a path,
 			// we use the path and ignore source (in terms of naming the file).
 			return putFileHelper(cli, pfc, repoName, branch, path, source, recursive, overwrite, limiter, "line", nil, footer, targetFileDatums, targetFileBytes, filesPut)
