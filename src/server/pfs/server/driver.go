@@ -1021,7 +1021,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	if userCommit == nil {
 		return nil, fmt.Errorf("cannot resolve nil commit")
 	}
-	commit := userCommit // back up user commit, for error reporting
+	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~ and ^)
 	var ancestryLength int
 	commit.ID, ancestryLength = ancestry.Parse(commit.ID)

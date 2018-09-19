@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
@@ -8098,13 +8099,9 @@ func TestPipelineVersions(t *testing.T) {
 	}
 
 	for i := 0; i < nVersions; i++ {
-		pi, err := c.InspectPipeline(fmt.Sprintf("%s~%d", pipeline, nVersions-1-i))
+		pi, err := c.InspectPipeline(ancestry.Add(pipeline, nVersions-1-i))
 		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("%d", i), pi.Transform.Cmd)
-
-		pi, err = c.InspectPipeline(fmt.Sprintf("%s%s", pipeline, strings.Repeat("^", nVersions-1-i)))
-		require.NoError(t, err)
-		require.Equal(t, fmt.Sprintf("%d", i), pi.Transform.Cmd)
+		require.Equal(t, fmt.Sprintf("%d", i), pi.Transform.Cmd[0])
 	}
 }
 
