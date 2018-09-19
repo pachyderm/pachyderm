@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -1023,7 +1024,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	commit := userCommit // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~ and ^)
 	var ancestryLength int
-	commit.ID, ancestryLength = parseCommitID(commit.ID)
+	commit.ID, ancestryLength = ancestry.Parse(commit.ID)
 
 	// Check if commit.ID is already a commit ID (i.e. a UUID).
 	if !uuid.IsUUIDWithoutDashes(commit.ID) {
@@ -1059,43 +1060,6 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		commit = commitInfo.ParentCommit
 	}
 	return commitInfo, nil
-}
-
-// parseCommitID accepts a commit ID that might contain the Git ancestry
-// syntax, such as "master^2", "master~~", "master^^", "master~5", etc.
-// It then returns the ID component such as "master" and the depth of the
-// ancestor.  For instance, for "master^2" it'd return "master" and 2.
-func parseCommitID(commitID string) (string, int) {
-	sepIndex := strings.IndexAny(commitID, "^~")
-	if sepIndex == -1 {
-		return commitID, 0
-	}
-
-	// Find the separator, which is either "^" or "~"
-	sep := commitID[sepIndex]
-	strAfterSep := commitID[sepIndex+1:]
-
-	// Try convert the string after the separator to an int.
-	intAfterSep, err := strconv.Atoi(strAfterSep)
-	// If it works, return
-	if err == nil {
-		return commitID[:sepIndex], intAfterSep
-	}
-
-	// Otherwise, we check if there's a sequence of separators, as in
-	// "master^^^^" or "master~~~~"
-	for i := sepIndex + 1; i < len(commitID); i++ {
-		if commitID[i] != sep {
-			// If we find a character that's not the separator, as in
-			// "master~whatever", then we return.
-			return commitID, 0
-		}
-	}
-
-	// Here we've confirmed that the commit ID ends with a sequence of
-	// (the same) separators and therefore uses the correct ancestry
-	// syntax.
-	return commitID[:sepIndex], len(commitID) - sepIndex
 }
 
 func (d *driver) listCommit(ctx context.Context, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
