@@ -1,6 +1,7 @@
 package ancestry
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -47,4 +48,9 @@ func Parse(s string) (string, int) {
 	// (the same) separators and therefore uses the correct ancestry
 	// syntax.
 	return s[:sepIndex], len(s) - sepIndex
+}
+
+// Add adds an ancestry reference to the given string.
+func Add(s string, ancestors int) string {
+	return fmt.Sprintf("%s~%d", s, ancestors)
 }
