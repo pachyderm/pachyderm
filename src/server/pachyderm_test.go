@@ -8069,6 +8069,45 @@ func TestInspectJob(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "not found"))
 }
 
+func TestPipelineVersions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineVersions_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("TestPipelineVersions")
+	nVersions := 5
+	for i := 0; i < nVersions; i++ {
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{fmt.Sprintf("%d", i)}, // an obviously illegal command, but the pipeline will never run
+			nil,
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(dataRepo, "/*"),
+			"",
+			i != 0,
+		))
+	}
+
+	for i := 0; i < nVersions; i++ {
+		pi, err := c.InspectPipeline(fmt.Sprintf("%s~%d", pipeline, nVersions-1-i))
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("%d", i), pi.Transform.Cmd)
+
+		pi, err = c.InspectPipeline(fmt.Sprintf("%s%s", pipeline, strings.Repeat("^", nVersions-1-i)))
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("%d", i), pi.Transform.Cmd)
+	}
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
