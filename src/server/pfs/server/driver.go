@@ -1059,6 +1059,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		}
 		commit = commitInfo.ParentCommit
 	}
+	userCommit.ID = commitInfo.Commit.ID
 	return commitInfo, nil
 }
 
