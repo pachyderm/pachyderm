@@ -778,6 +778,9 @@ $ echo "data" | pachctl put-header repo branch path-to-directory
 
 # Put a file from the local filesystem as repo/branch/path:
 $ pachctl put-header repo branch path-to-directory -f file
+
+# Delete the existing header:
+$ echo "" | pachctl put-footer repo branch path -f -
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
 			cli, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
@@ -830,6 +833,9 @@ $ echo "data" | pachctl put-footer repo branch path-to-directory
 
 # Put a file from the local filesystem as repo/branch/path:
 $ pachctl put-footer repo branch path-to-directory -f file
+
+# Delete the existing footer:
+$ echo "" | pachctl put-footer repo branch path -f -
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
 			cli, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
