@@ -21,6 +21,7 @@ import (
 	pclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -683,19 +684,19 @@ func TestAncestrySyntax(t *testing.T) {
 
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit1.ID, "1", strings.NewReader("1"))
+	_, err = client.PutFileOverwrite(repo, commit1.ID, "file", strings.NewReader("1"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit2.ID, "2", strings.NewReader("2"))
+	_, err = client.PutFileOverwrite(repo, commit2.ID, "file", strings.NewReader("2"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
 	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit3.ID, "3", strings.NewReader("3"))
+	_, err = client.PutFileOverwrite(repo, commit3.ID, "file", strings.NewReader("3"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
@@ -744,9 +745,19 @@ func TestAncestrySyntax(t *testing.T) {
 	require.YesError(t, err)
 
 	for i := 1; i <= 2; i++ {
-		_, err := client.InspectFile(repo, fmt.Sprintf("%v^%v", commit3.ID, 3-i), fmt.Sprintf("%v", i))
+		_, err := client.InspectFile(repo, fmt.Sprintf("%v^%v", commit3.ID, 3-i), "file")
 		require.NoError(t, err)
 	}
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 0), "file", 0, 0, &buffer))
+	require.Equal(t, "3", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 1), "file", 0, 0, &buffer))
+	require.Equal(t, "2", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 2), "file", 0, 0, &buffer))
+	require.Equal(t, "1", buffer.String())
 }
 
 // TestProvenance implements the following DAG
