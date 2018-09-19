@@ -770,7 +770,7 @@ want to consider using commit IDs directly.
 
 	var headerFilePath string
 	putHeader := &cobra.Command{
-		Use:   "put-header repo-name branch [path/to/file/in/pfs]",
+		Use:   "put-header repo-name branch [path/to/directory/in/pfs]",
 		Short: "Put a header file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
 ` + codestart + `# Put data from stdin as repo/branch/path:
@@ -817,7 +817,7 @@ $ pachctl put-header repo branch path-to-directory -f file
 
 	var footerFilePath string
 	putFooter := &cobra.Command{
-		Use:   "put-footer repo-name branch [path/to/file/in/pfs]",
+		Use:   "put-footer repo-name branch [path/to/directory/in/pfs]",
 		Short: "Put a footer file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
 ` + codestart + `# Put data from stdin as repo/branch/path:
