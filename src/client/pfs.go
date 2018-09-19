@@ -806,7 +806,9 @@ func (c APIClient) PutFileSplit(repoName string, commitID string, path string, d
 			retErr = err
 		}
 	}()
-	written, err := io.Copy(writer, reader)
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	written, err := io.CopyBuffer(writer, reader, buf)
 	return int(written), grpcutil.ScrubGRPC(err)
 }
 
