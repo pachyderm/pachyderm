@@ -816,8 +816,6 @@ $ echo "" | pachctl put-footer repo branch path -f -
 			filesPut := &gosync.Map{}
 			source := "/dev/null"
 			limiter := limit.New(int(parallelism))
-			// We have a single source and the user has specified a path,
-			// we use the path and ignore source (in terms of naming the file).
 			return putFileHelper(cli, pfc, repoName, branch, path, source, recursive, overwrite, limiter, "line", header, nil, targetFileDatums, targetFileBytes, filesPut)
 		}),
 	}
@@ -871,8 +869,6 @@ $ echo "" | pachctl put-footer repo branch path -f -
 			filesPut := &gosync.Map{}
 			source := "/dev/null"
 			limiter := limit.New(int(parallelism))
-			// We have a single source and the user has specified a path,
-			// we use the path and ignore source (in terms of naming the file).
 			return putFileHelper(cli, pfc, repoName, branch, path, source, recursive, overwrite, limiter, "line", nil, footer, targetFileDatums, targetFileBytes, filesPut)
 		}),
 	}
