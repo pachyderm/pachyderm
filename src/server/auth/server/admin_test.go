@@ -28,10 +28,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	_ "github.com/pachyderm/pachyderm/src/server/pkg/cert"
+	"github.com/pachyderm/pachyderm/src/server/pkg/cert"
+
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	_ "k8s.io/client-go/kubernetes"
-	kubecmd "k8s.io/client-go/tools/clientcmd"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	kube "k8s.io/client-go/kubernetes"
 )
 
 func RepoInfoToName(repoInfo interface{}) interface{} {
@@ -1677,13 +1680,73 @@ func TestSAMLBasic(t *testing.T) {
 	}
 	deleteAll(t)
 	adminClient := getPachClient(t, admin)
+	const (
+		samlIDPName      = "pach-fake-saml-id-provider"
+		metadataPortName = "metadata-port"
+	)
+	var labels = map[string]string{
+		"suite": "pachyderm",
+		"app":   samlIDPName,
+	}
+
+	tlsCert, err := cert.GenerateSelfSignedCert(samlIDPName, nil)
+	require.NoError(t, err)
 
 	// TODO(start SAML metadata service in k8s cluster)
-	_ = kubecmd.
-		// _ = kube.NewForConfig()
+	var kc *kube.Clientset
+	kc = tu.GetKubeClient(t)
+	// Delete existing pod if there is one (leftover from previous test)
+	kc.Core().Pods(v1.NamespaceDefault).Delete(samlIDPName, nil)
+	// Create new IdP pod
+	_, err = kc.Core().Pods(v1.NamespaceDefault).Create(&v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   samlIDPName,
+			Labels: labels,
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				v1.Container{
+					Name:  samlIDPName,
+					Image: "pachyderm/saml-idp",
+					Env: []v1.EnvVar{{
+						Name:  "PUBLIC_CERT",
+						Value: string(cert.PublicCertToPEM(tlsCert)),
+					}},
+					Ports: []v1.ContainerPort{
+						v1.ContainerPort{
+							ContainerPort: 80,
+							Protocol:      v1.ProtocolTCP,
+							Name:          metadataPortName,
+						},
+					},
+					ImagePullPolicy: "Always",
+				},
+			},
+		},
+	})
+	// Create IdP servie
+	_, err = kc.Core().Services(v1.NamespaceDefault).Get(samlIDPName, metav1.GetOptions{})
+	if err != nil {
+		_, err = kc.Core().Services(v1.NamespaceDefault).Create(&v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   samlIDPName, // svc name == domain name where IdP can be accessed
+				Labels: labels,
+			},
+			Spec: v1.ServiceSpec{
+				Type: v1.ServiceTypeClusterIP,
+				Ports: []v1.ServicePort{v1.ServicePort{
+					Name:       metadataPortName,
+					TargetPort: intstr.IntOrString{StrVal: metadataPortName},
+					Port:       80,
+				}},
+				Selector: labels,
+			},
+		})
+		require.NoError(t, err)
+	}
 
-		// Check that the metadata service is available
-		require.NoError(t, backoff.Retry(func() error {
+	// Check that the metadata service is available
+	require.NoError(t, backoff.Retry(func() error {
 		// req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", idpMetadataPort), nil)
 		// fmt.Printf(">>> fetching metadata with request: %v\n", req)
 		// resp, err := http.DefaultClient.Do(req)
@@ -1712,8 +1775,8 @@ func TestSAMLBasic(t *testing.T) {
 					{
 						Name:        "idp_1",
 						Description: "fake IdP for testing",
-						SAML:        &auth.IDProvider_SAMLOptions{
-							// MetadataURL: fmt.Sprintf("http://localhost:%d/", idpMetadataPort),
+						SAML: &auth.IDProvider_SAMLOptions{
+							MetadataURL: fmt.Sprintf("http://%s:%d/", samlIDPName, 80),
 						},
 					},
 				},
