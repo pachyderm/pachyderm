@@ -1250,10 +1250,18 @@ func (mq *MergePriorityQueue) Fill(idx int) {
 }
 
 func MergeBucket(bucket string, w pbutil.Writer, srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
+	var eg errgroup.Group
 	for _, s := range srcs {
-		if err := s.NextBucket(bucket); err != nil {
-			return err
-		}
+		s := s
+		eg.Go(func() error {
+			if err := s.NextBucket(bucket); err != nil {
+				return err
+			}
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
 	}
 	if err := w.Write(&BucketHeader{Bucket: bucket}); err != nil {
 		return err
