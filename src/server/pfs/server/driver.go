@@ -56,7 +56,7 @@ var (
 	// Memory limiter (Useful for limiting operations that could use a lot of memory)
 	memoryLimiter *semaphore.Weighted
 	// Limit the number of outstanding put object requests
-	putObjectLimiter = limit.New(500)
+	putObjectLimiter = limit.New(100)
 )
 
 // validateRepoName determines if a repo name is valid
@@ -1956,12 +1956,13 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 					(targetFileBytes == 0 && targetFileDatums == 0) ||
 					EOF) {
 				_buffer := buffer
+				_bufferLen := int64(_buffer.Len())
 				index := filesPut
-				memoryLimiter.Acquire(ctx, int64(_buffer.Len()))
+				memoryLimiter.Acquire(ctx, _bufferLen)
 				putObjectLimiter.Acquire()
 				eg.Go(func() error {
 					defer putObjectLimiter.Release()
-					defer memoryLimiter.Release(int64(_buffer.Len()))
+					defer memoryLimiter.Release(_bufferLen)
 					object, size, err := pachClient.PutObject(_buffer)
 					if err != nil {
 						return err
