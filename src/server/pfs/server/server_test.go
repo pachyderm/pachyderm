@@ -4709,16 +4709,17 @@ ALTER TABLE ONLY public.sprockets
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	t.Run("InvalidPGDump", func(t *testing.T) {
-		_, err := c.StartCommit(dataRepo, "invalid")
+		_, err := c.StartCommit(dataRepo, t.Name())
 		require.NoError(t, err)
-		w, err := c.PutFileSplitWriter(dataRepo, "invalid", "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
+		w, err := c.PutFileSplitWriter(dataRepo, t.Name(), "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(pgDumpHeader + strings.Join(rows, "")))
 		require.NoError(t, err)
 		require.YesError(t, w.Close())
-		_, err = c.StartCommit(dataRepo, "invalid2")
+		branch2 := t.Name() + "2"
+		_, err = c.StartCommit(dataRepo, branch2)
 		require.NoError(t, err)
-		w, err = c.PutFileSplitWriter(dataRepo, "invalid2", "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
+		w, err = c.PutFileSplitWriter(dataRepo, branch2, "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(strings.Join(rows, "") + pgDumpFooter))
 		require.NoError(t, err)
@@ -4726,14 +4727,14 @@ ALTER TABLE ONLY public.sprockets
 	})
 
 	t.Run("ValidPGDump", func(t *testing.T) {
-		commit, err := c.StartCommit(dataRepo, "master")
+		commit, err := c.StartCommit(dataRepo, t.Name())
 		require.NoError(t, err)
-		w, err := c.PutFileSplitWriter(dataRepo, "master", "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
+		w, err := c.PutFileSplitWriter(dataRepo, t.Name(), "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(fullPGDump))
 		require.NoError(t, err)
 		require.NoError(t, w.Close())
-		w, err = c.PutFileSplitWriter(dataRepo, "master", "data2", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
+		w, err = c.PutFileSplitWriter(dataRepo, t.Name(), "data2", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
 		fullPGDump2 := pgDumpHeader2 + strings.Join(rows2, "") + pgDumpFooter2
 		_, err = w.Write([]byte(fullPGDump2))
 		require.NoError(t, err)
@@ -4782,9 +4783,9 @@ ALTER TABLE ONLY public.sprockets
 	})
 
 	t.Run("TargetFileDatums", func(t *testing.T) {
-		commit, err := c.StartCommit(dataRepo, "beta")
+		commit, err := c.StartCommit(dataRepo, t.Name())
 		require.NoError(t, err)
-		w, err := c.PutFileSplitWriter(dataRepo, "beta", "data", pfs.Delimiter_SQL, 2, 0, false, nil, nil)
+		w, err := c.PutFileSplitWriter(dataRepo, t.Name(), "data", pfs.Delimiter_SQL, 2, 0, false, nil, nil)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(fullPGDump))
 		require.NoError(t, err)
@@ -4820,10 +4821,10 @@ ALTER TABLE ONLY public.sprockets
 	})
 
 	t.Run("TargetFileBytes", func(t *testing.T) {
-		commit, err := c.StartCommit(dataRepo, "gamma")
+		commit, err := c.StartCommit(dataRepo, t.Name())
 		require.NoError(t, err)
 		// This byte threshold should yield the same results as --target-file-datums=2 :
-		w, err := c.PutFileSplitWriter(dataRepo, "gamma", "data", pfs.Delimiter_SQL, 0, 80, false, nil, nil)
+		w, err := c.PutFileSplitWriter(dataRepo, t.Name(), "data", pfs.Delimiter_SQL, 0, 80, false, nil, nil)
 		require.NoError(t, err)
 		_, err = w.Write([]byte(fullPGDump))
 		require.NoError(t, err)
