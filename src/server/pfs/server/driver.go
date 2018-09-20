@@ -2651,7 +2651,8 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			return err
 		}
 		var indexOffset int64
-		if len(nodes) > 0 {
+		// This is OK if we're just setting a header/footer, and providing no underlying content
+		if len(nodes) > 0 && len(records.Records) != 0 {
 			indexOffset, err = strconv.ParseInt(path.Base(nodes[len(nodes)-1].Name), splitSuffixBase, splitSuffixWidth)
 			if err != nil {
 				return fmt.Errorf("error parsing filename %s as int, this likely means you're "+
