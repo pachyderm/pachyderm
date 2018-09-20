@@ -4553,6 +4553,29 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 3, len(fileInfos))
 	})
+
+	t.Run("SetHeaderOnNonSplitDir", func(t *testing.T) {
+		// We expect all new values to take effect, even empty ones
+		commit, err = c.StartCommit(repo, "L")
+		require.NoError(t, err)
+		// can't just use a filename like 'b' because this is 'parseable' as a base16 int, so we use 'makefile' instead
+		_, err = c.PutFile(repo, commit.ID, "a/makefile", strings.NewReader(content[0]))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commit, err = c.StartCommit(repo, "L")
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), nil)
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+content[0], buf.String())
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		require.Equal(t, header, buf.String())
+	})
 }
 
 func TestSQLPutFileSplit(t *testing.T) {
