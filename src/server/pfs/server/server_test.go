@@ -4227,9 +4227,6 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 
-	commit, err := c.StartCommit(repo, "")
-	require.NoError(t, err)
-
 	header := "header\n"
 	footer := "footer\n"
 	content := []string{"foo\n", "bar\n", "baz\n"}
@@ -4237,7 +4234,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	var buf bytes.Buffer
 
 	t.Run("Basic", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 		require.NoError(t, err)
@@ -4254,7 +4251,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("JustHeaderFooter", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "a")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), []byte(footer))
 		require.NoError(t, err)
@@ -4275,7 +4272,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("JustHeaderFooterOnExistingDirDiffCommits", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "b")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), nil, nil)
 		require.NoError(t, err)
@@ -4288,7 +4285,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		buf.Reset()
 		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 		require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
-		commit, err = c.StartCommit(repo, "b")
+		commit, err = c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), []byte(footer))
 		require.NoError(t, err)
@@ -4305,7 +4302,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("JustHeaderFooterOnExistingDirSameCommit", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "c")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), nil, nil)
 		require.NoError(t, err)
@@ -4333,7 +4330,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 
 	t.Run("OverwriteHeaderFooterSameCommit", func(t *testing.T) {
 		// We expect all new values to take effect, even empty ones
-		commit, err = c.StartCommit(repo, "d")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 		require.NoError(t, err)
@@ -4354,12 +4351,12 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 
 	t.Run("OverwriteHeaderFooterDiffCommits", func(t *testing.T) {
 		// We expect only new non nil values to take effect
-		commit, err = c.StartCommit(repo, "e")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
-		commit, err = c.StartCommit(repo, "e")
+		commit, err = c.StartCommit(repo, t.Name())
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(newHeader), nil)
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -4376,7 +4373,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("DeletionSameCommit", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "f")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 		require.NoError(t, err)
@@ -4395,7 +4392,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("DeletionDiffCommits", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "g")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 		require.NoError(t, err)
@@ -4408,7 +4405,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		buf.Reset()
 		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
 		require.Equal(t, header+footer, buf.String())
-		commit, err = c.StartCommit(repo, "g")
+		commit, err = c.StartCommit(repo, t.Name())
 		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(""), []byte(""))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
@@ -4423,7 +4420,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("DeletionSubFiles", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "deletionsubfiles")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
 		require.NoError(t, err)
@@ -4438,7 +4435,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("GlobRead", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "h")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		contentA := "aaa"
 		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
@@ -4466,7 +4463,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("GlobRead2", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "i")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		contentA := "aaa"
 		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
@@ -4494,7 +4491,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("GlobRead3", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "j")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		contentA := "aaa"
 		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
@@ -4523,7 +4520,7 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("Nested", func(t *testing.T) {
-		commit, err = c.StartCommit(repo, "k")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		contentA := "aaa\nzzz"
 		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentA), []byte(header), []byte(footer))
@@ -4556,13 +4553,13 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 
 	t.Run("SetHeaderOnNonSplitDir", func(t *testing.T) {
 		// We expect all new values to take effect, even empty ones
-		commit, err = c.StartCommit(repo, "L")
+		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		// can't just use a filename like 'b' because this is 'parseable' as a base16 int, so we use 'makefile' instead
 		_, err = c.PutFile(repo, commit.ID, "a/makefile", strings.NewReader(content[0]))
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
-		commit, err = c.StartCommit(repo, "L")
+		commit, err = c.StartCommit(repo, t.Name())
 		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), nil)
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(repo, commit.ID))
