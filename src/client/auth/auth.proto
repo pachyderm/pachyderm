@@ -411,7 +411,15 @@ message GetUsersResponse {
 // AuthenticateRequest.pach_authentication_code) and exchanged for a
 // longer-lived pachyderm token. This is more secure than GetAuthToken, which
 // produces long-lived authorization tokens.
-message GetAuthenticationCodeRequest {}
+message GetAuthenticationCodeRequest {
+  // If the caller is an admin, GetAuthenticationCode() can return a code for
+  // any user (useful for testing).
+  // If the caller is not an admin, GetAuthenticationCode() will return an
+  // authentication code for the caller if username is unset or set to the
+  // caller's username (and will return an error otherwise)
+  string subject = 1;
+}
+
 message GetAuthenticationCodeResponse {
   string code = 1;
 }
