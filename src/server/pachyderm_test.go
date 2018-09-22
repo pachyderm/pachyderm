@@ -8074,9 +8074,9 @@ func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	require.NoError(t, err)
 	repoInfo, err := pachClient.InspectRepo(repo)
 	require.NoError(t, err)
-	activeObjects, _, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c.PfsAPIClient, c.ObjectAPIClient, []*pfs.RepoInfo{repoInfo}, pipelineInfos)
+	activeStat, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c.PfsAPIClient, c.ObjectAPIClient, []*pfs.RepoInfo{repoInfo}, pipelineInfos, 0)
 	require.NoError(t, err)
-	return len(activeObjects)
+	return activeStat.NObjects
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
