@@ -1272,6 +1272,12 @@
 			"revisionTime": "2017-07-06T13:44:07Z"
 		},
 		{
+			"checksumSHA1": "jAzqolwnRJhHsKXmmvKNrHqxqAw=",
+			"path": "github.com/spaolacci/murmur3",
+			"revision": "f09979ecbc725b9e6d41a297405f65e7e8804acc",
+			"revisionTime": "2018-01-18T20:28:30Z"
+		},
+		{
 			"checksumSHA1": "sB9JgRY0ch4NpG/oUOrR1fnpMqE=",
 			"path": "github.com/spf13/cobra",
 			"revision": "1238ba19d24b0b9ceee2094e1cb31947d45c3e86",
@@ -1318,6 +1324,18 @@
 			"path": "github.com/ugorji/go/codec",
 			"revision": "b94837a2404ab90efe9289e77a70694c355739cb",
 			"revisionTime": "2016-05-31T12:29:44Z"
+		},
+		{
+			"checksumSHA1": "hmFg3XngBr7UwrCBQve5JW/gl88=",
+			"path": "github.com/willf/bitset",
+			"revision": "e553b05586428962bf7058d1044519d87ca72d74",
+			"revisionTime": "2018-08-20T18:00:26Z"
+		},
+		{
+			"checksumSHA1": "yyysY3Ior4jy2HtchTxlP1ayIvQ=",
+			"path": "github.com/willf/bloom",
+			"revision": "54e3b963ee1652b06c4562cb9b6020ebc6e36e59",
+			"revisionTime": "2017-05-05T22:16:40Z"
 		},
 		{
 			"checksumSHA1": "iHiMTBffQvWYlOLu3130JXuQpgQ=",
