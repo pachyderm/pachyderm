@@ -747,7 +747,7 @@ Pachyderm's garbage collection uses bloom filters to index live objects. This
 means that some dead objects may erronously not be deleted during garbage
 collection. The probability of this happening depends on how many objects you
 have; at around 10M objects it starts to become likely with the default values.
-To lower Pachyderm's error rate and  make garbage-collection more comprehensive,
+To lower Pachyderm's error rate and make garbage-collection more comprehensive,
 you can increase the amount of memory used for the bloom filters with the
 --memory flag. The default value is 10MB.
 `,
