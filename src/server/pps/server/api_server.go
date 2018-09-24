@@ -2354,6 +2354,8 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
+// ActiveStat contains stats about the object objects and tags in the
+// filesystem. It is returned by CollectActiveObjectsAndTags.
 type ActiveStat struct {
 	Objects  *bloom.BloomFilter
 	NObjects int
@@ -2361,7 +2363,8 @@ type ActiveStat struct {
 	NTags    int
 }
 
-//CollectActiveObjectsAndTags collects all objects/tags that are not deleted or eligible for garbage collection
+// CollectActiveObjectsAndTags collects all objects/tags that are not deleted
+// or eligible for garbage collection
 func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPIClient, objClient client.ObjectAPIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, memoryAllowance int) (*ActiveStat, error) {
 	if memoryAllowance == 0 {
 		memoryAllowance = defaultGCMemory
