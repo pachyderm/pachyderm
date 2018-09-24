@@ -4445,7 +4445,7 @@ func TestGarbageCollection(t *testing.T) {
 	// Delete everything, then run garbage collection and finally check that
 	// we're at a baseline of 0 tags and 0 objects.
 	require.NoError(t, c.DeleteAll())
-	require.NoError(t, c.GarbageCollect())
+	require.NoError(t, c.GarbageCollect(0))
 	originalObjects := getAllObjects(t, c)
 	originalTags := getAllTags(t, c)
 	require.Equal(t, 0, len(originalObjects))
@@ -4493,11 +4493,11 @@ func TestGarbageCollection(t *testing.T) {
 	tagsBefore := getAllTags(t, c)
 	specObjectCountBefore := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
 	// Try to GC without stopping the pipeline.
-	require.YesError(t, c.GarbageCollect())
+	require.YesError(t, c.GarbageCollect(0))
 
 	// Now stop the pipeline  and GC
 	require.NoError(t, c.StopPipeline(pipeline))
-	require.NoError(t, backoff.Retry(c.GarbageCollect, backoff.NewTestingBackOff()))
+	require.NoError(t, backoff.Retry(func() error { return c.GarbageCollect(0) }, backoff.NewTestingBackOff()))
 
 	// Check that data still exists in the input repo
 	var buf bytes.Buffer
@@ -4534,7 +4534,7 @@ func TestGarbageCollection(t *testing.T) {
 
 	// Now delete the pipeline and GC
 	require.NoError(t, c.DeletePipeline(pipeline, false))
-	require.NoError(t, c.GarbageCollect())
+	require.NoError(t, c.GarbageCollect(0))
 
 	// We should've deleted one tag since the pipeline has only processed
 	// one datum.
@@ -4549,7 +4549,7 @@ func TestGarbageCollection(t *testing.T) {
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
-	require.NoError(t, c.GarbageCollect())
+	require.NoError(t, c.GarbageCollect(0))
 
 	// Since we've now deleted everything that we created in this test,
 	// the tag count and object count should be back to the originals.
