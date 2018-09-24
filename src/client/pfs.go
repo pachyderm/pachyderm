@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"path/filepath"
 	"sync"
@@ -12,6 +13,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
+
+//MaxHeaderFooterSize defines the largest header/footer that can be sent with put-file
+const MaxHeaderFooterSize = 1024 * 1024 // 1MB
 
 // NewRepo creates a pfs.Repo.
 func NewRepo(repoName string) *pfs.Repo {
@@ -820,6 +824,12 @@ func (c *putFileClient) PutFileOverwrite(repoName string, commitID string, path 
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
 func (c *putFileClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader, header []byte, footer []byte) (_ int, retErr error) {
+	if len(header) > MaxHeaderFooterSize {
+		return 0, fmt.Errorf("header size %v is greater than max %v", len(header), MaxHeaderFooterSize)
+	}
+	if len(footer) > MaxHeaderFooterSize {
+		return 0, fmt.Errorf("footer size %v is greater than max %v", len(footer), MaxHeaderFooterSize)
+	}
 	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite, header, footer)
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)

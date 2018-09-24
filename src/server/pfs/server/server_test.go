@@ -26,6 +26,7 @@ import (
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -4248,6 +4249,18 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
 		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
 		require.Equal(t, header+footer, buf.String())
+	})
+
+	t.Run("BigHeaderFooter", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		r := rand.New(rand.NewSource(99))
+		bigHeader := workload.RandString(r, 2*pclient.MaxHeaderFooterSize)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(bigHeader), []byte(footer))
+		require.YesError(t, err)
+		bigFooter := workload.RandString(r, 2*pclient.MaxHeaderFooterSize)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(bigFooter))
+		require.YesError(t, err)
 	})
 
 	t.Run("JustHeaderFooter", func(t *testing.T) {
