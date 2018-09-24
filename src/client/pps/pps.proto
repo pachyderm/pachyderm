@@ -562,7 +562,7 @@ message GarbageCollectRequest {
     // Memory is how much memory to use in computing which objects are alive. A
     // larger number will result in more precise garbage collection (at the
     // cost of more memory usage).
-    int64 memory = 1;
+    int64 memory_bytes = 1;
 }
 message GarbageCollectResponse {}
 
