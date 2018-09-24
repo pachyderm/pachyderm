@@ -2514,7 +2514,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
-	activeStat, err := CollectActiveObjectsAndTags(ctx, pfsClient, objClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, int(request.Memory))
+	activeStat, err := CollectActiveObjectsAndTags(ctx, pfsClient, objClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, int(request.MemoryBytes))
 	if err != nil {
 		return nil, err
 	}
