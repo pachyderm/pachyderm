@@ -744,11 +744,12 @@ Garbage collection puts the cluster into a readonly mode where no new jobs can
 be created and no data can be added.
 
 Pachyderm's garbage collection uses bloom filters to index live objects. This
-means that some dead objects may erronously be marked as live during garbage
+means that some dead objects may erronously not be deleted during garbage
 collection. The probability of this happening depends on how many objects you
-have, around 10MM objects it starts to become likely, with the default values.
-To make it less likely you can increase the amount of memory used for the bloom
-filters with the --memory flag. The default value is 10MB.
+have; at around 10M objects it starts to become likely with the default values.
+To lower Pachyderm's error rate and make garbage-collection more comprehensive,
+you can increase the amount of memory used for the bloom filters with the
+--memory flag. The default value is 10MB.
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine(metrics, "user")
