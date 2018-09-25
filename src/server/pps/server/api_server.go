@@ -34,6 +34,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
+	"github.com/willf/bloom"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -60,8 +61,9 @@ const (
 )
 
 var (
-	zeroVal = int64(0)
-	suite   = "pachyderm"
+	zeroVal         = int64(0)
+	suite           = "pachyderm"
+	defaultGCMemory = 20 * 1024 * 1024 // 20 MB
 )
 
 func newErrJobNotFound(job string) error {
@@ -2352,11 +2354,27 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
-//CollectActiveObjectsAndTags collects all objects/tags that are not deleted or eligible for garbage collection
-func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPIClient, objClient client.ObjectAPIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo) (map[string]bool, map[string]bool, error) {
+// ActiveStat contains stats about the object objects and tags in the
+// filesystem. It is returned by CollectActiveObjectsAndTags.
+type ActiveStat struct {
+	Objects  *bloom.BloomFilter
+	NObjects int
+	Tags     *bloom.BloomFilter
+	NTags    int
+}
 
-	// The set of objects that are in use.
-	activeObjects := make(map[string]bool)
+// CollectActiveObjectsAndTags collects all objects/tags that are not deleted
+// or eligible for garbage collection
+func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPIClient, objClient client.ObjectAPIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, memoryAllowance int) (*ActiveStat, error) {
+	if memoryAllowance == 0 {
+		memoryAllowance = defaultGCMemory
+	}
+	result := &ActiveStat{
+		// Each bloom filter gets half the memory allowance, times 8 to convert
+		// from bytes to bits.
+		Objects: bloom.New(uint(memoryAllowance*8/2), 10),
+		Tags:    bloom.New(uint(memoryAllowance*8/2), 10),
+	}
 	var activeObjectsMu sync.Mutex
 	// A helper function for adding active objects in a thread-safe way
 	addActiveObjects := func(objects ...*pfs.Object) {
@@ -2364,7 +2382,8 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 		defer activeObjectsMu.Unlock()
 		for _, object := range objects {
 			if object != nil {
-				activeObjects[object.Hash] = true
+				result.NObjects++
+				result.Objects.AddString(object.Hash)
 			}
 		}
 	}
@@ -2407,14 +2426,14 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 			Repo: repo.Repo,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		for {
 			commit, err := client.Recv()
 			if err == io.EOF {
 				break
 			} else if err != nil {
-				return nil, nil, grpcutil.ScrubGRPC(err)
+				return nil, grpcutil.ScrubGRPC(err)
 			}
 			limiter.Acquire()
 			eg.Go(func() error {
@@ -2424,26 +2443,25 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 		}
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// The set of tags that are active
-	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos {
 		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
 			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("error listing tagged objects: %v", err)
+			return nil, fmt.Errorf("error listing tagged objects: %v", err)
 		}
 
 		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
 			resp := resp
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
-			activeTags[resp.Tag.Name] = true
+			result.Tags.AddString(resp.Tag.Name)
+			result.NTags++
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
@@ -2452,10 +2470,10 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 		}
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return activeObjects, activeTags, nil
+	return result, nil
 }
 
 func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
@@ -2496,7 +2514,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
-	activeObjects, activeTags, err := CollectActiveObjectsAndTags(ctx, pfsClient, objClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo)
+	activeStat, err := CollectActiveObjectsAndTags(ctx, pfsClient, objClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, int(request.MemoryBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -2523,7 +2541,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		if err != nil {
 			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
 		}
-		if !activeObjects[object.Hash] {
+		if !activeStat.Objects.TestString(object.Hash) {
 			objectsToDelete = append(objectsToDelete, object)
 		}
 		// Delete objects in batches
@@ -2556,7 +2574,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		if err != nil {
 			return nil, fmt.Errorf("error receiving tags from ListTags: %v", err)
 		}
-		if !activeTags[resp.Tag.Name] {
+		if !activeStat.Tags.TestString(resp.Tag.Name) {
 			tagsToDelete = append(tagsToDelete, resp.Tag)
 		}
 		if err := deleteTagsIfMoreThan(100); err != nil {
