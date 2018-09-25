@@ -2280,24 +2280,14 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}
 	var objects []*pfs.Object
 	var totalSize int64
-	// Add directory path/nodes to unique set of paths
-	// so we can collect and header/footer objects as we traverse the
-	// paths below
-	for path, node := range paths {
-		if node.FileNode != nil {
-			dirPath := path
-			for dirPath != "/" {
-				dirPath = filepath.Dir(dirPath)
-				if _, ok := paths[dirPath]; ok {
-					continue
-				}
-				dirNode, err := tree.Get(dirPath)
-				if err != nil {
-					return nil, err
-				}
-				paths[dirPath] = dirNode
-			}
+
+	listAncestors := func(path string) []string {
+		var ancestors []string
+		tokens := strings.Split(strings.TrimPrefix(path, "/"), "/")
+		for i, _ := range tokens {
+			ancestors = append(ancestors, "/"+strings.Join(tokens[0:i+1], "/"))
 		}
+		return ancestors
 	}
 	var sortedPaths []string
 	for path := range paths {
@@ -2306,38 +2296,92 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	sort.Strings(sortedPaths)
 	footers := stack.New()
 	directories := stack.New()
+	fmt.Printf("objects: %v\n", objects)
 	for _, path := range sortedPaths {
-		node := paths[path]
+		fmt.Printf("path: %v\n", path)
+		fmt.Printf("objects: %v\n", objects)
 		thisDir := directories.Peek()
-		if thisDir != nil && !strings.HasPrefix(path, thisDir.(string)) {
-			// We've proceeded past the current directory
-			footer := footers.Pop()
-			if footer != nil {
-				objects = append(objects, footer.(*pfs.Object))
+		ancestors := listAncestors(path)
+		node := paths[path]
+		fmt.Printf("ancestors: %v\n", ancestors)
+		for _, ancestor := range ancestors {
+			fmt.Printf("ancestor: %v\n", ancestor)
+			fmt.Printf("objects: %v\n", objects)
+			if thisDir == nil || !strings.HasPrefix(thisDir.(string), ancestor) {
+				// ancestor directories of the current path that have a prefix
+				// in common (or /) with the current directory
+
+				// pop dirs off until thisDir == the common prefix (if any) of
+				// the old path w the new dir ... otherwise ... pop back until
+				// nil
+				for !(thisDir == nil || !strings.HasPrefix(ancestor, thisDir.(string))) {
+					fmt.Printf("popping off old dirs?\n")
+					fmt.Printf("objects: %v\n", objects)
+					fmt.Printf("thisDir == nil ? %v\n", thisDir == nil)
+					footer := footers.Pop() // TODO - if I don't push a footer each time ... is this correct? feels like ill get mismatched footers if nesting a certain way w and w/o footers
+					fmt.Printf("popped footer %v\n", footer)
+					if footer != nil && footer.(*pfs.Object) != nil {
+						fmt.Printf("appending footer %v, ptr %v\n", footer, footer.(*pfs.Object))
+						fmt.Printf("footer == nil? %v, footer.(*pfs.Object) == nil ? %v\n", footer == nil, footer.(*pfs.Object) == nil)
+						objects = append(objects, footer.(*pfs.Object))
+					}
+					thisDir = directories.Pop()
+					fmt.Printf("popped off dir %v\n", thisDir)
+				}
+				fmt.Printf("objects: %v\n", objects)
+				if ancestor == path && node.FileNode != nil {
+					// Leaf node is a file, continue
+					fmt.Printf("skipping %v\n", ancestor)
+					continue
+				}
+				var dirNode *hashtree.NodeProto
+				fmt.Printf("path %v, ancestor %v, dirnode %v\n", path, ancestor, node.DirNode)
+				if ancestor == path {
+					dirNode = node
+					fmt.Printf("set dirnode to node\n")
+				} else {
+					fmt.Printf("getting ancestor dir %v\n", ancestor)
+					dirNode, err = tree.Get(ancestor)
+					if err != nil {
+						return nil, err
+					}
+				}
+				fmt.Printf("xxx\n")
+				header := dirNode.DirNode.Header
+				if header != nil {
+					fmt.Printf("appending header %v\n", header)
+					objects = append(objects, header)
+				}
+				footers.Push(dirNode.DirNode.Footer)
+				directories.Push(ancestor + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
+				fmt.Printf("zzz\n")
+				fmt.Printf("objects: %v\n", objects)
 			}
-			directories.Pop()
 		}
 
-		if node.DirNode != nil {
-			header := node.DirNode.Header
-			if header != nil {
-				objects = append(objects, header)
-			}
-			if node.DirNode.Footer != nil {
-				footers.Push(node.DirNode.Footer)
-			}
-			directories.Push(path + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
-		} else {
+		// TODO - i dont think we add any dirnodes to the map ... i think this
+		// is the default now ... yea it still applies ... getfile could request
+		// a dir
+		if node.FileNode != nil {
+			fmt.Printf("appending objs %v\n", node.FileNode.Objects)
 			objects = append(objects, node.FileNode.Objects...)
+			fmt.Printf("appended %v objs for path %v\n", len(node.FileNode.Objects), path)
 		}
+		fmt.Printf("objects: %v\n", objects)
 
 		totalSize += node.SubtreeSize
 
 	}
+	fmt.Printf("objects: %v\n", objects)
+	fmt.Printf("appending final footers\n")
 	for footers.Len() > 0 {
 		footer := footers.Pop().(*pfs.Object)
-		objects = append(objects, footer)
+		if footer != nil {
+			fmt.Printf("appending footer %v\n", footer)
+			objects = append(objects, footer)
+		}
 	}
+	fmt.Printf("objects: %v\n", objects)
 
 	if len(paths) <= 0 {
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
@@ -2347,6 +2391,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		// Dir has no header/footer, return err
 		return nil, fmt.Errorf("cannot read directory, no header or footer")
 	}
+	fmt.Printf("getting objs: %v\n", objects)
 
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 		ctx,
