@@ -1,6 +1,7 @@
 package hashtree
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"fmt"
@@ -31,6 +32,7 @@ const (
 	ObjectBucket  = "object"
 	DatumBucket   = "datum"
 	perm          = 0666
+	mergeBufSize  = 1 << (10 * 2)
 )
 
 var (
@@ -920,9 +922,13 @@ type mergeStream struct {
 }
 
 func NewMergeStream(r io.ReadCloser, filter func(path []byte) (bool, error)) (*mergeStream, error) {
+	rBuf := bufio.NewReaderSize(r, mergeBufSize)
+	if _, err := rBuf.Peek(mergeBufSize); err != nil {
+		return nil, err
+	}
 	m := &mergeStream{
 		r:         r,
-		pbr:       pbutil.NewReader(snappy.NewReader(r)),
+		pbr:       pbutil.NewReader(snappy.NewReader(rBuf)),
 		hdr:       &BucketHeader{},
 		filter:    filter,
 		nextChan:  make(chan *keyValue, 10),
