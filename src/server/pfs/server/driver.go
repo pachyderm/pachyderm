@@ -2335,9 +2335,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 				if header != nil {
 					objects = append(objects, header)
 				}
-				//				if dirNode.DirNode.Footer != nil {
 				footers.Push(dirNode.DirNode.Footer)
-				//				}
 				fmt.Printf("pushing dir %v\n", ancestor+"/")
 				directories.Push(ancestor + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
 			}
