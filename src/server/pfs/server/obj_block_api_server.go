@@ -374,6 +374,11 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
 		return grpcutil.WriteToStreamingBytesServer(r, getObjectServer)
 	}
 	var data []byte
@@ -424,6 +429,9 @@ func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, get
 			if err := grpcutil.WriteToStreamingBytesServer(r, getObjectsServer); err != nil {
 				return err
 			}
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
 			continue
 		}
 		var data []byte
@@ -472,6 +480,9 @@ func (s *objBlockAPIServer) GetBlocks(request *pfsclient.GetBlocksRequest, getBl
 			}
 			if err := grpcutil.WriteToStreamingBytesServer(r, getBlockServer); err != nil {
 				return err
+			}
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
 			}
 			continue
 		}
