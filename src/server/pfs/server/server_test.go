@@ -4565,6 +4565,46 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		require.Equal(t, 3, len(fileInfos))
 	})
 
+	t.Run("Nested2", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		contentA := "aaa\nzzz"
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentA), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "zoo"
+		// put a normal file under a non-split dir lexigraphically before the
+		// nested one with header/footer
+		_, err = c.PutFile(repo, commit.ID, "a/999/0000000000000000", strings.NewReader(contentB))
+		require.NoError(t, err)
+		contentC := "jjj"
+		innerHeader := "((("
+		innerFooter := ")))"
+		nestedFile := "a/999999"
+		_, err = c.PutFileSplit(repo, commit.ID, nestedFile, pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentC), []byte(innerHeader), []byte(innerFooter))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, nestedFile, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+innerFooter+footer, buf.String())
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 4, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, nestedFile)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+contentC+innerFooter+footer, buf.String())
+
+		glob := "/a/**"
+		fileInfos, err = c.ListFile(repo, commit.ID, glob)
+		require.NoError(t, err)
+		require.Equal(t, 4, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, glob, 0, 0, &buf))
+		require.Equal(t, header+contentA+contentB+innerHeader+contentC+innerFooter+footer, buf.String())
+	})
+
 	t.Run("SetHeaderOnNonSplitDir", func(t *testing.T) {
 		// We expect all new values to take effect, even empty ones
 		commit, err := c.StartCommit(repo, t.Name())
