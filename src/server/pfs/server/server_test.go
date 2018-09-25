@@ -4566,6 +4566,8 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 	})
 
 	t.Run("Nested2", func(t *testing.T) {
+		// Tests nested dir w/o header/footer lexigraphically before
+		// other nested dir with header/footer
 		commit, err := c.StartCommit(repo, t.Name())
 		require.NoError(t, err)
 		contentA := "aaa\nzzz"
@@ -4603,6 +4605,57 @@ func TestPutFileSplitHeaderFooter(t *testing.T) {
 		buf.Reset()
 		require.NoError(t, c.GetFile(repo, commit.ID, glob, 0, 0, &buf))
 		require.Equal(t, header+contentA+contentB+innerHeader+contentC+innerFooter+footer, buf.String())
+	})
+
+	t.Run("Nested3", func(t *testing.T) {
+		// Test deeper nesting, to test popping logic when traversing up
+		// ancestor dirs
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		contentA := "aaa\nzzz"
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentA), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "zoo"
+		contentC := "daffy"
+		innerHeader := "((("
+		innerFooter := ")))"
+		altInnerHeader := "[[["
+		altInnerFooter := "]]]"
+		// put a normal file under a non-split dir lexigraphically before the
+		// nested one with header/footer
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentB), []byte(altInnerHeader), []byte(altInnerFooter))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b/c/d/e", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentC), []byte(innerHeader), []byte(innerFooter))
+		require.NoError(t, err)
+		contentD := "jjj"
+		nestedFile := "a/d"
+		_, err = c.PutFileSplit(repo, commit.ID, nestedFile, pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentD), []byte(innerHeader), []byte(innerFooter))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, nestedFile, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+innerFooter+footer, buf.String())
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 4, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, nestedFile)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+contentD+innerFooter+footer, buf.String())
+
+		glob := "/a/**"
+		fileInfos, err = c.ListFile(repo, commit.ID, glob)
+		require.NoError(t, err)
+		for _, fileInfo := range fileInfos {
+			fmt.Printf("fileinfo %v\n", fileInfo.File.Path)
+		}
+		require.Equal(t, 8, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, glob, 0, 0, &buf))
+		fmt.Printf("actual: %v\n", buf.String())
+		require.Equal(t, header+contentA+altInnerHeader+contentB+innerHeader+contentC+innerFooter+altInnerFooter+innerHeader+contentD+innerFooter+footer, buf.String())
 	})
 
 	t.Run("SetHeaderOnNonSplitDir", func(t *testing.T) {

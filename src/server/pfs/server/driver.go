@@ -2303,18 +2303,24 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		thisDir := directories.Peek()
 		ancestors := listAncestors(path)
 		node := paths[path]
+		first := true
 		for _, ancestor := range ancestors {
 			if thisDir == nil || !strings.HasPrefix(thisDir.(string), ancestor) {
 
 				for !(thisDir == nil || strings.HasPrefix(ancestor, thisDir.(string))) {
 					fmt.Printf("popping footer. thisDir %v, ancestor %v, has prefix? %v\n", thisDir, ancestor, strings.HasPrefix(ancestor, thisDir.(string)))
-					footer := footers.Pop() // TODO
+					footer := footers.Pop()
 					fmt.Printf("popped footer %v\n", footer)
 					if footer != nil && footer.(*pfs.Object) != nil {
 						objects = append(objects, footer.(*pfs.Object))
 					}
-					thisDir = directories.Pop()
-					fmt.Printf("1 new thisDir: %v, next peek %v, len %v\n", thisDir, directories.Peek(), directories.Len())
+					//if first { // uncomment this to fix failing test
+					if true {
+						fmt.Printf("first: %v\n", first)
+						thisDir = directories.Pop()
+						fmt.Printf("1 new thisDir: %v, next peek %v, len %v\n", thisDir, directories.Peek(), directories.Len())
+						first = false
+					}
 					thisDir = directories.Pop()
 					fmt.Printf("2 new thisDir: %v, next peek %v, len %v\n", thisDir, directories.Peek(), directories.Len())
 				}
@@ -2335,6 +2341,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 				if header != nil {
 					objects = append(objects, header)
 				}
+				fmt.Printf("pushing footer for %v (%v)\n", ancestor, dirNode.DirNode.Footer)
 				footers.Push(dirNode.DirNode.Footer)
 				fmt.Printf("pushing dir %v\n", ancestor+"/")
 				directories.Push(ancestor + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
