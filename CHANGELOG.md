@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.9
+
+- Moves garbage collection over to a bloom filter based indexing method. This
+greatly decreases the amount of memory that garbage collection requires, at the
+cost of a small probability of not deleting objects that should be. Garbage
+collection can be made more accurate by using more memory with the flag
+`--memory` passed to `pachctl garbage-collect`. (#3161)
+
 ## 1.7.8
 
 - Fixes multiple issues that could cause jobs to hang when they encountered intermittent errors such as network hiccups. (#3155)
