@@ -759,7 +759,7 @@ you can increase the amount of memory used for the bloom filters with the
 			return client.GarbageCollect(memoryBytes)
 		}),
 	}
-	getLogs.Flags().Int64VarP(&memoryBytes, "memory", "m", 0, "The amount of memory (in bytes) to use during garbage collection.")
+	garbageCollect.Flags().Int64VarP(&memoryBytes, "memory", "m", 0, "The amount of memory (in bytes) to use during garbage collection.")
 
 	var result []*cobra.Command
 	result = append(result, job)
