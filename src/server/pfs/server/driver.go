@@ -2274,6 +2274,8 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if err != nil {
 		return nil, err
 	}
+	// Note: for glob patterns this may already include all ancestors, but for
+	// specific file requests (e.g. /a/b/c.txt) it will not
 	paths, err := tree.Glob(file.Path)
 	if err != nil {
 		return nil, err
@@ -2298,14 +2300,14 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	directories := stack.New()
 	fmt.Printf("objects: %v\n", objects)
 	for _, path := range sortedPaths {
-		fmt.Printf("path: %v\n", path)
+		fmt.Printf("!!!!!! path: %v\n", path)
 		fmt.Printf("objects: %v\n", objects)
 		thisDir := directories.Peek()
 		ancestors := listAncestors(path)
 		node := paths[path]
 		fmt.Printf("ancestors: %v\n", ancestors)
 		for _, ancestor := range ancestors {
-			fmt.Printf("ancestor: %v\n", ancestor)
+			fmt.Printf("!!!!! ancestor: %v\n", ancestor)
 			fmt.Printf("objects: %v\n", objects)
 			if thisDir == nil || !strings.HasPrefix(thisDir.(string), ancestor) {
 				// ancestor directories of the current path that have a prefix
@@ -2314,8 +2316,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 				// pop dirs off until thisDir == the common prefix (if any) of
 				// the old path w the new dir ... otherwise ... pop back until
 				// nil
-				for !(thisDir == nil || !strings.HasPrefix(ancestor, thisDir.(string))) {
-					fmt.Printf("popping off old dirs?\n")
+				for !(thisDir == nil || strings.HasPrefix(ancestor, thisDir.(string))) {
+					fmt.Printf("popping off old dirs\n")
+					fmt.Printf("thisDir %v, ancestor %v, ancestor doesnt have prefix? %v\n", thisDir, ancestor, !strings.HasPrefix(ancestor, thisDir.(string)))
 					fmt.Printf("objects: %v\n", objects)
 					fmt.Printf("thisDir == nil ? %v\n", thisDir == nil)
 					footer := footers.Pop() // TODO - if I don't push a footer each time ... is this correct? feels like ill get mismatched footers if nesting a certain way w and w/o footers
