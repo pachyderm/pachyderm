@@ -26,7 +26,7 @@ $ cd data/ref
 $ ls
 Icon  ref.dict  ref.fasta  ref.fasta.fai  refSDF
 $ pachctl create-repo reference
-$ pachctl put-file reference master -c -r -f .
+$ pachctl put-file reference master -r -f .
 $ pachctl list-repo
 NAME                CREATED             SIZE
 reference           43 seconds ago      83.68MiB
