@@ -2297,6 +2297,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	sort.Strings(sortedPaths)
 	footers := stack.New()
 	directories := stack.New()
+	var leafNodeIsFile bool
 	for _, path := range sortedPaths {
 		thisDir := directories.Peek()
 		ancestors := listAncestors(path)
@@ -2316,11 +2317,12 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 					thisDir = directories.Pop()
 				}
 				if ancestor == path && node.FileNode != nil {
-					// Leaf node is a file
+					leafNodeIsFile = true
 					continue
 				}
 				var dirNode *hashtree.NodeProto
 				if ancestor == path {
+					// Leaf node is a dir
 					dirNode = node
 				} else {
 					dirNode, err = tree.Get(ancestor)
@@ -2351,9 +2353,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if len(paths) <= 0 {
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
-
-	if len(objects) == 0 {
-		// Dir has no header/footer, return err
+	if len(objects) == 0 && !leafNodeIsFile {
 		return nil, fmt.Errorf("cannot read directory, no header or footer")
 	}
 
