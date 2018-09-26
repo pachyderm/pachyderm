@@ -2691,17 +2691,14 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 				headerFooterSize += records.Footer.SizeBytes
 			}
 		}
-		if err := tree.PutFileSplit(key, nil, 0, header, footer, headerFooterSize); err != nil {
+		if err := tree.PutHeaderFooter(key, header, footer, headerFooterSize); err != nil {
 			return err
 		}
 		for i, record := range records.Records {
-			if err := tree.PutFileSplit(
+			if err := tree.PutFile(
 				path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
 				[]*pfs.Object{{Hash: record.ObjectHash}},
 				record.SizeBytes,
-				header,
-				footer,
-				headerFooterSize,
 			); err != nil {
 				return err
 			}

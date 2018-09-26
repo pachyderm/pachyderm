@@ -498,72 +498,47 @@ func (h *hashtree) Finish() (HashTree, error) {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size, nil, nil, 0)
+	return h.putFile(path, objects, nil, size)
 }
 
 func (h *hashtree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
-	return h.putFile(path, objects, overwriteIndex, sizeDelta, nil, nil, 0)
+	return h.putFile(path, objects, overwriteIndex, sizeDelta)
 }
 
-func (h *hashtree) PutFileSplit(path string, objects []*pfs.Object, size int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
-	return h.putFile(path, objects, nil, size, header, footer, headerFooterSize)
-}
-
-// PutFile appends data to a file (and creates the file if it doesn't exist).
-func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
+func (h *hashtree) PutHeaderFooter(path string, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
 	path = clean(path)
 
-	// Detect any path conflicts before modifying 'h'
+	// detect any path conflicts before modifying 'h'
 	if err := h.visit(path, nop); err != nil {
 		return err
 	}
 
-	// Get/Create file node to which we'll append 'objects', or dir node to
+	// get/create file node to which we'll append 'objects', or dir node to
 	// which we'll add header/footer
 	node, ok := h.fs[path]
 	if !ok {
 		node = &NodeProto{
 			Name: base(path),
 		}
-		if len(objects) > 0 {
-			node.FileNode = &FileNodeProto{}
-		} else {
-			node.DirNode = &DirectoryNodeProto{}
-		}
+		node.DirNode = &DirectoryNodeProto{}
 		h.fs[path] = node
-	} else {
-		if len(objects) > 0 && node.nodetype() != file {
-			return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
-				"type %s is already there", path, node.nodetype().tostring())
-		}
-		if len(objects) == 0 && node.nodetype() != directory {
-			return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
-				"type %s is already there", path, node.nodetype().tostring())
+	} else if node.nodetype() != directory {
+		return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
+			"type %s is already there", path, node.nodetype().tostring())
+	}
+	emptyObject := pfs.Object{}
+	if header != nil {
+		if *header == emptyObject {
+			node.DirNode.Header = nil
+		} else {
+			node.DirNode.Header = header
 		}
 	}
-
-	if len(objects) > 0 {
-		// Append new objects.  Remove existing objects if overwriting.
-		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
-			node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
-		}
-		node.FileNode.Objects = append(node.FileNode.Objects, objects...)
-		node.SubtreeSize += sizeDelta
-	} else {
-		emptyObject := pfs.Object{}
-		if header != nil {
-			if *header == emptyObject {
-				node.DirNode.Header = nil
-			} else {
-				node.DirNode.Header = header
-			}
-		}
-		if footer != nil {
-			if *footer == emptyObject {
-				node.DirNode.Footer = nil
-			} else {
-				node.DirNode.Footer = footer
-			}
+	if footer != nil {
+		if *footer == emptyObject {
+			node.DirNode.Footer = nil
+		} else {
+			node.DirNode.Footer = footer
 		}
 	}
 	node.SubtreeSize += headerFooterSize
@@ -575,32 +550,73 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 				Name:    base(parent),
 				DirNode: &DirectoryNodeProto{},
 			}
-			if len(objects) > 0 {
-				if parent == filepath.Dir(path) {
-					emptyObject := pfs.Object{}
-					if header != nil {
-						if *header == emptyObject {
-							node.DirNode.Header = nil
-						} else {
-							node.DirNode.Header = header
-						}
+			if child == filepath.Dir(path) {
+				emptyObject := pfs.Object{}
+				if header != nil {
+					if *header == emptyObject {
+						node.DirNode.Header = nil
+					} else {
+						node.DirNode.Header = header
 					}
-					if footer != nil {
-						if *footer == emptyObject {
-							node.DirNode.Footer = nil
-						} else {
-							node.DirNode.Footer = footer
-						}
+				}
+				if footer != nil {
+					if *footer == emptyObject {
+						node.DirNode.Footer = nil
+					} else {
+						node.DirNode.Footer = footer
 					}
 				}
 			}
 			h.fs[parent] = node
 		}
 		insertStr(&node.DirNode.Children, child)
-		if len(objects) > 0 {
-			node.SubtreeSize += sizeDelta
-		}
 		node.SubtreeSize += headerFooterSize
+		h.changed[parent] = true
+		return nil
+	})
+}
+
+// PutFile appends data to a file (and creates the file if it doesn't exist).
+func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
+	path = clean(path)
+
+	// Detect any path conflicts before modifying 'h'
+	if err := h.visit(path, nop); err != nil {
+		return err
+	}
+
+	// Get/Create file node to which we'll append 'objects'
+	node, ok := h.fs[path]
+	if !ok {
+		node = &NodeProto{
+			Name:     base(path),
+			FileNode: &FileNodeProto{},
+		}
+		h.fs[path] = node
+	} else if node.nodetype() != file {
+		return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
+			"type %s is already there", path, node.nodetype().tostring())
+	}
+
+	// Append new objects.  Remove existing objects if overwriting.
+	if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
+		node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
+	}
+	node.SubtreeSize += sizeDelta
+	node.FileNode.Objects = append(node.FileNode.Objects, objects...)
+	h.changed[path] = true
+
+	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
+	return h.visit(path, func(node *NodeProto, parent, child string) error {
+		if node == nil {
+			node = &NodeProto{
+				Name:    base(parent),
+				DirNode: &DirectoryNodeProto{},
+			}
+			h.fs[parent] = node
+		}
+		insertStr(&node.DirNode.Children, child)
+		node.SubtreeSize += sizeDelta
 		h.changed[parent] = true
 		return nil
 	})
