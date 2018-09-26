@@ -2282,7 +2282,6 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}
 	var objects []*pfs.Object
 	var totalSize int64
-
 	listAncestors := func(path string) []string {
 		var ancestors []string
 		tokens := strings.Split(strings.TrimPrefix(path, "/"), "/")
@@ -2299,33 +2298,25 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	footers := stack.New()
 	directories := stack.New()
 	for _, path := range sortedPaths {
-		fmt.Printf("path: %v\n", path)
 		thisDir := directories.Peek()
 		ancestors := listAncestors(path)
 		node := paths[path]
 		first := true
 		for _, ancestor := range ancestors {
 			if thisDir == nil || !strings.HasPrefix(thisDir.(string), ancestor) {
-
 				for !(thisDir == nil || strings.HasPrefix(ancestor, thisDir.(string))) {
-					fmt.Printf("popping footer. thisDir %v, ancestor %v, has prefix? %v\n", thisDir, ancestor, strings.HasPrefix(ancestor, thisDir.(string)))
 					footer := footers.Pop()
-					fmt.Printf("popped footer %v\n", footer)
 					if footer != nil && footer.(*pfs.Object) != nil {
 						objects = append(objects, footer.(*pfs.Object))
 					}
-					//if first { // uncomment this to fix failing test
-					if true {
-						fmt.Printf("first: %v\n", first)
+					if first { // Only peeked to set thisDir, need to pop
 						thisDir = directories.Pop()
-						fmt.Printf("1 new thisDir: %v, next peek %v, len %v\n", thisDir, directories.Peek(), directories.Len())
 						first = false
 					}
 					thisDir = directories.Pop()
-					fmt.Printf("2 new thisDir: %v, next peek %v, len %v\n", thisDir, directories.Peek(), directories.Len())
 				}
 				if ancestor == path && node.FileNode != nil {
-					// Leaf node is a file, continue
+					// Leaf node is a file
 					continue
 				}
 				var dirNode *hashtree.NodeProto
@@ -2341,17 +2332,13 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 				if header != nil {
 					objects = append(objects, header)
 				}
-				fmt.Printf("pushing footer for %v (%v)\n", ancestor, dirNode.DirNode.Footer)
 				footers.Push(dirNode.DirNode.Footer)
-				fmt.Printf("pushing dir %v\n", ancestor+"/")
 				directories.Push(ancestor + "/") // Need trailing slash to differentiate dir from other lexigraphical matches
 			}
 		}
-
 		if node.FileNode != nil {
 			objects = append(objects, node.FileNode.Objects...)
 		}
-
 		totalSize += node.SubtreeSize
 	}
 	for footers.Len() > 0 {
