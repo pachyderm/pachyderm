@@ -100,7 +100,7 @@ type OpenHashTree interface {
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, objects []*pfs.Object, size int64) error
 
-	// PutHeaderFooter creates or updates the header/footer metadata on the file's parent directory
+	// PutHeaderFooter creates or updates the header/footer metadata on the specified directory
 	PutHeaderFooter(path string, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error
 
 	// PutFileOverwrite is the same as PutFile, except that instead of
