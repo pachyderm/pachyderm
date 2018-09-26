@@ -4,6 +4,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 
@@ -14,7 +15,7 @@ import (
 type appEnv struct {
 	// cert
 	PublicCert string `env:"PUBLIC_CERT,default="`
-	Port       int    `env:METADATA_PORT,default=80`
+	Port       int    `env:"METADATA_PORT,default=80"`
 }
 
 func main() {
@@ -23,8 +24,12 @@ func main() {
 
 func serveIDPMetadata(appEnvObj interface{}) error {
 	appEnv := appEnvObj.(*appEnv)
+	log.Printf("appEnv: %v", appEnv)
 	if appEnv.PublicCert == "" {
 		return fmt.Errorf("IdP metadata server cannot start if PUBLIC_CERT env var is empty")
+	}
+	if appEnv.Port == 0 {
+		return fmt.Errorf("IdP metadata server cannot serve on port 0")
 	}
 
 	// Create saml.IdentityProvider struct, which generates the metadata bytes
@@ -51,9 +56,11 @@ func serveIDPMetadata(appEnvObj interface{}) error {
 	}
 
 	// Start listener & metadata http server
+	log.Printf("Listening on port %d", appEnv.Port)
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%d", appEnv.Port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			log.Print("serving metadata...")
 			idp.ServeMetadata(w, req)
 		}),
 	}
