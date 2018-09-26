@@ -2285,7 +2285,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	listAncestors := func(path string) []string {
 		var ancestors []string
 		tokens := strings.Split(strings.TrimPrefix(path, "/"), "/")
-		for i, _ := range tokens {
+		for i := range tokens {
 			ancestors = append(ancestors, "/"+strings.Join(tokens[0:i+1], "/"))
 		}
 		return ancestors
