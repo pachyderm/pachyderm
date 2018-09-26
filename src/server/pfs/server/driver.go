@@ -2356,7 +2356,6 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		// Dir has no header/footer, return err
 		return nil, fmt.Errorf("cannot read directory, no header or footer")
 	}
-	fmt.Printf("getting objs: %v\n", objects)
 
 	getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 		ctx,
