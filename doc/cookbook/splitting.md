@@ -74,6 +74,10 @@ Additionally, if your data has a common header or footer you can specify these m
 You'll need to specify the header/footer on the parent directory of your data. Here we have an example of splitting a CSV w a header, then setting the header explicitly. Notice that once we've set the header, whenever we get a file under that directory, the header is applied. You can still use glob patterns to get all the data under the directory, and in that case the header is still applied.
 
 ```
+$ cat users.csv 
+id,name,email
+4,alice,aaa@place.com
+7,bob,bbb@place.com
 $ cat users.csv | tail -n +2 | pc put-file bar master users --split line
 Reading from stdin.
 $ pachctl list-file bar master
