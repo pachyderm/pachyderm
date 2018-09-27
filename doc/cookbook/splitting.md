@@ -69,9 +69,9 @@ $ pachctl put-file users master -c -f user_data.txt --split line --target-file-b
 
 ## Specifying Header/Footer
 
-Additionally, if your data has a common header or footer you can specify these manually. This is helpful for CSV data.
+Additionally, if your data has a common header or footer, you can specify these manually. This is helpful for CSV data.
 
-You'll need to specify the header/footer on the parent directory of your data. Here we have an example of splitting a CSV w a header, then setting the header explicitly. Notice that once we've set the header, whenever we get a file under that directory, the header is applied. You can still use glob patterns to get all the data under the directory, and in that case the header is still applied.
+To do this, you'll need to specify the header/footer on the parent directory of your data. Below we have an example of splitting a CSV with a header, then setting the header explicitly. Notice that once we've set the header, whenever we get a file under that directory, the header is applied. You can still use glob patterns to get all the data under the directory, and in that case the header is still applied.
 
 ```
 $ cat users.csv 
@@ -166,7 +166,7 @@ COPY public.looney_toons (id, name, saying) FROM stdin;
 Note: How you can get each row, and the appropriate header/footer is supplied for loading into the DB. Or, if you want to get the full pgdump, you can use `get-file` plus a glob pattern.
 
 ```
-# Split a json file on json blobs, putting
+# Split a json file on json blobs. E.g. putting
 # each json blob into it's own file.
 
 $ pachctl put-file users master -c -f users.pgdump --split sql
