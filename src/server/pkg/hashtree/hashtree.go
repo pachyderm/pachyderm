@@ -498,11 +498,16 @@ func (h *hashtree) Finish() (HashTree, error) {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size)
+	return h.putFile(path, objects, nil, size, 0)
+}
+
+// PutFileSplit appends data to a file (and creates the file if it doesn't exist).
+func (h *hashtree) PutFileSplit(path string, objects []*pfs.Object, size int64, headerFooterSize int64) error {
+	return h.putFile(path, objects, nil, size, headerFooterSize)
 }
 
 func (h *hashtree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
-	return h.putFile(path, objects, overwriteIndex, sizeDelta)
+	return h.putFile(path, objects, overwriteIndex, sizeDelta, 0)
 }
 
 func (h *hashtree) PutHeaderFooter(path string, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
@@ -577,7 +582,7 @@ func (h *hashtree) PutHeaderFooter(path string, header *pfs.Object, footer *pfs.
 }
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
-func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
+func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, headerFooterSize int64) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -603,6 +608,7 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
 	}
 	node.SubtreeSize += sizeDelta
+	node.SubtreeSize += headerFooterSize
 	node.FileNode.Objects = append(node.FileNode.Objects, objects...)
 	h.changed[path] = true
 

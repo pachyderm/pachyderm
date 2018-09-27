@@ -2694,10 +2694,11 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			return err
 		}
 		for i, record := range records.Records {
-			if err := tree.PutFile(
+			if err := tree.PutFileSplit(
 				path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
 				[]*pfs.Object{{Hash: record.ObjectHash}},
 				record.SizeBytes,
+				headerFooterSize,
 			); err != nil {
 				return err
 			}
