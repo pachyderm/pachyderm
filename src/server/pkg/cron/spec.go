@@ -144,6 +144,105 @@ WRAP:
 	return t
 }
 
+// Prev returns the previous time this schedule is activated, less than the given
+// time.  If no time can be found to satisfy the schedule, return the zero time.
+func (s *SpecSchedule) Prev(t time.Time) time.Time {
+	// General approach:
+	// For Month, Day, Hour, Minute, Second:
+	// Check if the time value matches.  If yes, continue to the next field.
+	// If the field doesn't match the schedule, then decrement the field until it matches.
+	// While decrementing the field, a wrap-around brings it back to the beginning
+	// of the field list (since it is necessary to re-verify previous field
+	// values)
+
+	// Start at the earliest possible time (the upcoming second).
+	t = t.Add(-1*time.Second - time.Duration(t.Nanosecond())*time.Nanosecond)
+
+	// This flag indicates whether a field has been incremented.
+	subbed := false
+
+	// If no time is found within five years, return zero.
+	yearLimit := t.Year() - 5
+
+WRAP:
+	if t.Year() < yearLimit {
+		return time.Time{}
+	}
+
+	// Find the first applicable month.
+	// If it's this month, then do nothing.
+	for 1<<uint(t.Month())&s.Month == 0 {
+		// If we have to sub a month, reset the other parts to 0.
+		if !subbed {
+			subbed = true
+			// Otherwise, set the date at the beginning (since the current time is irrelevant).
+			year := t.Year()
+			month := t.Month()
+			t = time.Date(year, month, 31, 23, 59, 59, 0, t.Location())
+			for year != t.Year() && month != t.Month() {
+				t.AddDate(0, 0, -1)
+			}
+		}
+		t = t.AddDate(0, -1, 0)
+
+		// Wrapped around.
+		if t.Month() == time.December {
+			goto WRAP
+		}
+	}
+
+	// Now get a day in that month.
+	for !dayMatches(s, t) {
+		if !subbed {
+			subbed = true
+			t = time.Date(t.Year(), t.Month(), t.Day(), 23, 59, 59, 0, t.Location())
+		}
+		t = t.AddDate(0, 0, -1)
+
+		if t.Day() == 1 {
+			goto WRAP
+		}
+	}
+
+	for 1<<uint(t.Hour())&s.Hour == 0 {
+		if !subbed {
+			subbed = true
+			t = time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 59, 59, 0, t.Location())
+		}
+		t = t.Add(-1 * time.Hour)
+
+		if t.Hour() == 0 {
+			goto WRAP
+		}
+	}
+
+	for 1<<uint(t.Minute())&s.Minute == 0 {
+		if !subbed {
+			subbed = true
+			t = t.Truncate(time.Minute)
+		}
+		t = t.Add(-1 * time.Minute)
+
+		if t.Minute() == 0 {
+			goto WRAP
+		}
+	}
+
+	for 1<<uint(t.Second())&s.Second == 0 {
+		if !subbed {
+			subbed = true
+			t = t.Truncate(time.Second)
+		}
+		t = t.Add(-1 * time.Second)
+
+		if t.Second() == 0 {
+			goto WRAP
+		}
+	}
+
+	return t
+}
+
 // dayMatches returns true if the schedule's day-of-week and day-of-month
 // restrictions are satisfied by the given time.
 func dayMatches(s *SpecSchedule, t time.Time) bool {
