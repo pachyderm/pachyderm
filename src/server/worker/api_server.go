@@ -47,6 +47,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -125,6 +126,14 @@ type APIServer struct {
 
 	// hashtreeStorage is the where we store on disk hashtrees
 	hashtreeStorage string
+}
+
+func (a *APIServer) blockDir() string {
+	return filepath.Join(a.hashtreeStorage, "block")
+}
+
+func (a *APIServer) blockPath(block *pfs.Block) string {
+	return filepath.Join(a.blockDir(), block.Hash)
 }
 
 type putObjectResponse struct {
@@ -1143,31 +1152,53 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 					}
 				}()
 
-				// Streaming merge
+				// Merge
 				t := time.Now()
-				var rs []io.ReadCloser
+				limiter := limit.New(hashtree.DefaultMergeConcurrency)
+				var eg errgroup.Group
+				var mu sync.Mutex
+				var treeInfos []*pfs.ObjectInfo
 				for _, tag := range tags {
-					r, err := pachClient.GetTagReader(tag.Name)
-					if err != nil {
-						return err
-					}
-					rs = append(rs, r)
+					tag := tag
+					limiter.Acquire()
+					eg.Go(func() error {
+						defer limiter.Release()
+						treeInfo, err := pachClient.InspectTag(ctx, tag)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						treeInfos = append(treeInfos, treeInfo)
+						return nil
+					})
 				}
+				if err := eg.Wait(); err != nil {
+					return err
+				}
+				var parentTreeInfo *pfs.ObjectInfo
 				if useParentHashTree {
-					r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit, merge)
+					var err error
+					parentTreeInfo, err = a.getParentCommitHashTreeInfo(ctx, pachClient, jobInfo.OutputCommit, merge)
 					if err != nil {
 						return err
 					}
-					rs = append(rs, r)
+				}
+				objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
+				if err != nil {
+					return err
 				}
 				w, err := pachClient.PutObjectAsync(nil)
 				var size uint64
-				if size, err = hashtree.MergeTrees(w, rs, func(path []byte) (bool, error) {
+				if size, err = hashtree.MergeTrees(w, objClient, a.blockDir(), treeInfos, parentTreeInfo, func(path []byte) (bool, error) {
 					if xxhash.Checksum64(path)%uint64(plan.Merges) == uint64(merge) {
 						return true, nil
 					}
 					return false, nil
 				}); err != nil {
+					return err
+				}
+				if err := w.Close(); err != nil {
 					return err
 				}
 				object, err := w.Object()
@@ -1193,7 +1224,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 
 }
 
-func (a *APIServer) getParentCommitHashTreeReader(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit, merge int64) (io.ReadCloser, error) {
+func (a *APIServer) getParentCommitHashTreeInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit, merge int64) (*pfs.ObjectInfo, error) {
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
@@ -1212,11 +1243,11 @@ func (a *APIServer) getParentCommitHashTreeReader(ctx context.Context, pachClien
 	if err != nil {
 		return nil, err
 	}
-	var r io.ReadCloser
-	if r, err = pachClient.GetObjectReader(parentCommitInfo.Trees[merge].Hash); err != nil {
+	info, err := pachClient.InspectObject(parentCommitInfo.Trees[merge].Hash)
+	if err != nil {
 		return nil, err
 	}
-	return r, nil
+	return info, nil
 }
 
 func isDone(ctx context.Context) bool {
@@ -1291,7 +1322,7 @@ func (a *APIServer) worker() {
 	logger := a.getWorkerLogger() // this worker's formatting logger
 
 	// Process incoming jobs
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() (retErr error) {
 		retryCtx, retryCancel := context.WithCancel(a.pachClient.Ctx())
 		defer retryCancel()
 		watcher, err := a.jobs.ReadOnly(retryCtx).WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
@@ -1361,14 +1392,22 @@ func (a *APIServer) worker() {
 			}
 
 			ctx := pachClient.Ctx()
-			r, err := a.getParentCommitHashTreeReader(ctx, pachClient, jobInfo.OutputCommit, 0)
+			parentTreeInfo, err := a.getParentCommitHashTreeInfo(ctx, pachClient, jobInfo.OutputCommit, 0)
 			if err != nil {
 				return err
 			}
 			skip := make(map[string]struct{})
 			var useParentHashTree bool
 			//var statsTree hashtree.HashTree
-			if r != nil {
+			if parentTreeInfo != nil {
+				objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
+				if err != nil {
+					return err
+				}
+				r, err := objClient.Reader(a.blockPath(parentTreeInfo.BlockRef.Block), 0, 0)
+				if err != nil {
+					return err
+				}
 				var count int
 				pbr := pbutil.NewReader(snappy.NewReader(r))
 				hdr := &hashtree.BucketHeader{}
@@ -1388,6 +1427,7 @@ func (a *APIServer) worker() {
 						return err
 					}
 				}
+				// (bryce) reading the parent hashtree needs to be refactored so that this can be deferred
 				if err := r.Close(); err != nil {
 					return err
 				}
