@@ -61,6 +61,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}}
 	workerEnv := options.workerEnv
 	workerEnv = append(options.workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
+	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"

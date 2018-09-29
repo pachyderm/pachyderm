@@ -19,6 +19,84 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Environment variable for determining storage backend
+const (
+	StorageBackendEnvVar = "STORAGE_BACKEND"
+)
+
+// Valid object storage backends
+const (
+	Minio     = "MINIO"
+	Amazon    = "AMAZON"
+	Google    = "GOOGLE"
+	Microsoft = "MICROSOFT"
+	Local     = "LOCAL"
+)
+
+// Google environment variables
+const (
+	GoogleBucketEnvVar = "GOOGLE_BUCKET"
+	GoogleCredEnvVar   = "GOOGLE_CRED"
+)
+
+// Microsoft environment variables
+const (
+	MicrosoftContainerEnvVar = "MICROSOFT_CONTAINER"
+	MicrosoftIdEnvVar        = "MICROSOFT_ID"
+	MicrosoftSecretEnvVar    = "MICROSOFT_SECRET"
+)
+
+// Minio environment variables
+const (
+	MinioBucketEnvVar    = "MINIO_BUCKET"
+	MinioEndpointEnvVar  = "MINIO_ENDPOINT"
+	MinioIDEnvVar        = "MINIO_ID"
+	MinioSecretEnvVar    = "MINIO_SECRET"
+	MinioSecureEnvVar    = "MINIO_SECURE"
+	MinioSignatureEnvVar = "MINIO_SIGNATURE"
+)
+
+// Amazon environment variables
+const (
+	AmazonRegionEnvVar       = "AMAZON_REGION"
+	AmazonBucketEnvVar       = "AMAZON_BUCKET"
+	AmazonIdEnvVar           = "AMAZON_ID"
+	AmazonSecretEnvVar       = "AMAZON_SECRET"
+	AmazonTokenEnvVar        = "AMAZON_TOKEN"
+	AmazonVaultAddrEnvVar    = "AMAZON_VAULT_ADDR"
+	AmazonVaultRoleEnvVar    = "AMAZON_VAULT_ROLE"
+	AmazonVaultTokenEnvVar   = "AMAZON_VAULT_TOKEN"
+	AmazonDistributionEnvVar = "AMAZON_DISTRIBUTION"
+)
+
+// Environment variable name to secret key mapping
+// This is being used to temporarily bridge the gap as we transition to a model
+// where object storage access in the workers is based on environment variables
+// and a library rather than mounting a secret to a sidecar container which
+// accesses object storage
+var EnvVarToSecretKey = map[string]string{
+	GoogleBucketEnvVar:       "google-bucket",
+	GoogleCredEnvVar:         "google-cred",
+	MicrosoftContainerEnvVar: "microsoft-container",
+	MicrosoftIdEnvVar:        "microsoft-id",
+	MicrosoftSecretEnvVar:    "microsoft-secret",
+	MinioBucketEnvVar:        "minio-bucket",
+	MinioEndpointEnvVar:      "minio-endpoint",
+	MinioIDEnvVar:            "minio-id",
+	MinioSecretEnvVar:        "minio-secret",
+	MinioSecureEnvVar:        "minio-secure",
+	MinioSignatureEnvVar:     "minio-signature",
+	AmazonRegionEnvVar:       "amazon-region",
+	AmazonBucketEnvVar:       "amazon-bucket",
+	AmazonIdEnvVar:           "amazon-id",
+	AmazonSecretEnvVar:       "amazon-secret",
+	AmazonTokenEnvVar:        "amazon-token",
+	AmazonVaultAddrEnvVar:    "amazon-vault-addr",
+	AmazonVaultRoleEnvVar:    "amazon-vault-role",
+	AmazonVaultTokenEnvVar:   "amazon-vault-token",
+	AmazonDistributionEnvVar: "amazon-distribution",
+}
+
 // Client is an interface to object storage.
 type Client interface {
 	// Writer returns a writer which writes to an object.
@@ -85,6 +163,24 @@ func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, erro
 	return NewGoogleClient(ctx, bucket, credFile)
 }
 
+// NewGoogleClientFromEnv creates a Google client based on environment variables.
+func NewGoogleClientFromEnv(ctx context.Context) (Client, error) {
+	bucket, ok := os.LookupEnv(GoogleBucketEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", GoogleBucketEnvVar)
+	}
+	// (bryce) Need to upgrade gcs client to be able to pass in credentials as bytes
+	//cred, ok := os.LookupEnv(GoogleCredEnvVar)
+	//if !ok {
+	//	return nil, fmt.Errorf("%s not found", GoogleCredEnvVar)
+	//}
+	//var credFile string
+	//if cred != "" {
+	//	credFile = secretFile("/google-cred")
+	//}
+	return NewGoogleClient(ctx, bucket, "")
+}
+
 // NewMicrosoftClient creates a microsoft client:
 //	container   - Azure Blob Container name
 //	accountName - Azure Storage Account name
@@ -111,6 +207,23 @@ func NewMicrosoftClientFromSecret(container string) (Client, error) {
 	secret, err := readSecretFile("/microsoft-secret")
 	if err != nil {
 		return nil, fmt.Errorf("microsoft-secret not found")
+	}
+	return NewMicrosoftClient(container, id, secret)
+}
+
+// NewMicrosoftClientFromEnv creates a Microsoft client based on environment variables.
+func NewMicrosoftClientFromEnv() (Client, error) {
+	container, ok := os.LookupEnv(MicrosoftContainerEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MicrosoftContainerEnvVar)
+	}
+	id, ok := os.LookupEnv(MicrosoftIdEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MicrosoftIdEnvVar)
+	}
+	secret, ok := os.LookupEnv(MicrosoftSecretEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MicrosoftSecretEnvVar)
 	}
 	return NewMicrosoftClient(container, id, secret)
 }
@@ -174,6 +287,35 @@ func NewMinioClientFromSecret(bucket string) (Client, error) {
 	return NewMinioClient(endpoint, bucket, id, secret, secure == "1", isS3V2 == "1")
 }
 
+// NewMinioClientFromEnv creates a Minio client based on environment variables.
+func NewMinioClientFromEnv() (Client, error) {
+	bucket, ok := os.LookupEnv(MinioBucketEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MinioBucketEnvVar)
+	}
+	endpoint, ok := os.LookupEnv(MinioEndpointEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MinioEndpointEnvVar)
+	}
+	id, ok := os.LookupEnv(MinioIDEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MinioIDEnvVar)
+	}
+	secret, ok := os.LookupEnv(MinioSecretEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MinioSecretEnvVar)
+	}
+	secure, ok := os.LookupEnv(MinioSecureEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MinioSecureEnvVar)
+	}
+	isS3V2, ok := os.LookupEnv(MinioSignatureEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", MinioSignatureEnvVar)
+	}
+	return NewMinioClient(endpoint, bucket, id, secret, secure == "1", isS3V2 == "1")
+}
+
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
@@ -223,6 +365,34 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 	// Get Cloudfront distribution (not required, though we can log a warning)
 	distribution, err := readSecretFile("/amazon-distribution")
 	if err != nil {
+		log.Warnln("AWS deployed without cloudfront distribution\n")
+	} else {
+		log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
+	}
+	return NewAmazonClient(region, bucket, &creds, distribution)
+}
+
+// NewAmazonClientFromEnv creates a Amazon client based on environment variables.
+func NewAmazonClientFromEnv() (Client, error) {
+	region, ok := os.LookupEnv(AmazonRegionEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", AmazonRegionEnvVar)
+	}
+	bucket, ok := os.LookupEnv(AmazonBucketEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", AmazonBucketEnvVar)
+	}
+
+	var creds AmazonCreds
+	creds.ID, _ = os.LookupEnv(AmazonIdEnvVar)
+	creds.Secret, _ = os.LookupEnv(AmazonSecretEnvVar)
+	creds.Token, _ = os.LookupEnv(AmazonTokenEnvVar)
+	creds.VaultAddress, _ = os.LookupEnv(AmazonVaultAddrEnvVar)
+	creds.VaultRole, _ = os.LookupEnv(AmazonVaultRoleEnvVar)
+	creds.VaultToken, _ = os.LookupEnv(AmazonVaultTokenEnvVar)
+
+	distribution, ok := os.LookupEnv(AmazonDistributionEnvVar)
+	if !ok {
 		log.Warnln("AWS deployed without cloudfront distribution\n")
 	} else {
 		log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
@@ -287,6 +457,27 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 		}, nil
 	}
 	return nil, fmt.Errorf("unrecognized object store: %s", url.Scheme)
+}
+
+// NewClientFromEnv creates a client based on environment variables.
+func NewClientFromEnv(ctx context.Context, storageRoot string) (Client, error) {
+	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("storage backend environment variable not found")
+	}
+	switch storageBackend {
+	case Amazon:
+		return NewAmazonClientFromEnv()
+	case Google:
+		return NewGoogleClientFromEnv(ctx)
+	case Microsoft:
+		return NewMicrosoftClientFromEnv()
+	case Minio:
+		return NewMinioClientFromEnv()
+	case Local:
+		return NewLocalClient(storageRoot)
+	}
+	return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
 }
 
 // NewExponentialBackOffConfig creates an exponential back-off config with

@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
@@ -320,6 +321,32 @@ func GetSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
 			Name:      client.StorageSecretName,
 			MountPath: "/" + client.StorageSecretName,
 		}
+}
+
+// GetSecretEnvVars returns the environment variable specs for the storage secret.
+func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
+	envVars := []v1.EnvVar{
+		v1.EnvVar{
+			Name:  obj.StorageBackendEnvVar,
+			Value: storageBackend,
+		},
+	}
+	trueVal := true
+	for envVar, secretKey := range obj.EnvVarToSecretKey {
+		envVars = append(envVars, v1.EnvVar{
+			Name: envVar,
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: client.StorageSecretName,
+					},
+					Key:      secretKey,
+					Optional: &trueVal,
+				},
+			},
+		})
+	}
+	return envVars
 }
 
 func versionedPachdImage(opts *AssetOpts) string {
