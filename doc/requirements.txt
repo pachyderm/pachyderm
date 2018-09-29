@@ -18,4 +18,5 @@ six==1.10.0
 snowballstemmer==1.2.1
 Sphinx==1.4.4
 sphinx-autobuild==0.6.0
--e git://github.com/snide/sphinx_rtd_theme.git@26c82648c42bd422df48220cfbdbef36b4a165a6#egg=sphinx_rtd_theme
+sphinx_rtd_theme==0.4.1
+#-e git://github.com/snide/sphinx_rtd_theme.git@26c82648c42bd422df48220cfbdbef36b4a165a6#egg=sphinx_rtd_theme

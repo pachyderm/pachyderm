@@ -44,7 +44,13 @@ func (c *localClient) Reader(path string, offset uint64, size uint64) (io.ReadCl
 		return nil, err
 	}
 
-	return file, nil
+	if size == 0 {
+		if _, err := file.Seek(int64(offset), 0); err != nil {
+			return nil, err
+		}
+		return file, nil
+	}
+	return newSectionReadCloser(file, offset, size), nil
 }
 
 func (c *localClient) Delete(path string) error {
@@ -91,4 +97,20 @@ func (c *localClient) IsNotExist(err error) bool {
 
 func (c *localClient) IsIgnorable(err error) bool {
 	return false
+}
+
+type sectionReadCloser struct {
+	*io.SectionReader
+	f *os.File
+}
+
+func newSectionReadCloser(f *os.File, offset uint64, size uint64) *sectionReadCloser {
+	return &sectionReadCloser{
+		SectionReader: io.NewSectionReader(f, int64(offset), int64(size)),
+		f:             f,
+	}
+}
+
+func (s *sectionReadCloser) Close() error {
+	return s.f.Close()
 }

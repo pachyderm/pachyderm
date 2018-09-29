@@ -13,6 +13,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -386,7 +387,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 			return iter.Err()
 		}),
 	}
-	getLogs.Flags().StringVar(&pipelineName, "pipeline", "", "Filter the log "+
+	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
 	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
@@ -450,7 +451,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					client.Ctx(),
 					request,
 				); err != nil {
-					return err
+					return grpcutil.ScrubGRPC(err)
 				}
 			}
 			return nil
@@ -496,7 +497,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					client.Ctx(),
 					request,
 				); err != nil {
-					return err
+					return grpcutil.ScrubGRPC(err)
 				}
 			}
 			return nil
@@ -607,7 +608,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				client.Ctx(),
 				request,
 			); err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			return nil
 		}),
@@ -683,7 +684,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				err = client.DeletePipeline(args[0], force)
 			}
 			if err != nil {
-				return fmt.Errorf("error from delete-pipeline: %s", err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			return nil
 		}),

@@ -317,6 +317,9 @@ func (c *amazonClient) IsRetryable(err error) (retVal bool) {
 	if strings.Contains(err.Error(), "unexpected EOF") {
 		return true
 	}
+	if strings.Contains(err.Error(), "SlowDown:") {
+		return true
+	}
 
 	awsErr, ok := err.(awserr.Error)
 	if !ok {

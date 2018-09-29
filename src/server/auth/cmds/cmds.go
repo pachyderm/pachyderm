@@ -477,5 +477,7 @@ func Cmds() []*cobra.Command {
 	auth.AddCommand(ModifyAdminsCmd())
 	auth.AddCommand(GetAuthTokenCmd())
 	auth.AddCommand(UseAuthTokenCmd())
+	auth.AddCommand(GetConfig())
+	auth.AddCommand(SetConfig())
 	return []*cobra.Command{auth}
 }

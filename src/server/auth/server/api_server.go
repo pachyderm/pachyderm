@@ -41,19 +41,30 @@ const (
 	// pachyderm token for any username in the AuthenticateRequest.GitHubToken field
 	DisableAuthenticationEnvVar = "PACHYDERM_AUTHENTICATION_DISABLED_FOR_TESTING"
 
-	tokensPrefix  = "/tokens"
-	aclsPrefix    = "/acls"
-	adminsPrefix  = "/admins"
-	membersPrefix = "/members"
-	groupsPrefix  = "/groups"
+	tokensPrefix              = "/tokens"
+	authenticationCodesPrefix = "/auth-codes"
+	aclsPrefix                = "/acls"
+	adminsPrefix              = "/admins"
+	membersPrefix             = "/members"
+	groupsPrefix              = "/groups"
+	configPrefix              = "/config"
 
 	defaultTokenTTLSecs = 30 * 24 * 60 * 60 // 30 days
+
+	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
+	// GetAuthenticationCode
+	defaultAuthCodeTTLSecs = 30
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
 	// magicUser when auth is activated. This string is not secret, but is long
 	// and random to avoid collisions with real usernames
 	magicUser = `magic:GZD4jKDGcirJyWQt6HtK4hhRD6faOofP1mng34xNZsI`
+
+	// configKey is a key (in etcd, in the config collection) that maps to the
+	// auth configuration. This is the only key in that collection (due to
+	// implemenation details of our config library, we can't use an empty key)
+	configKey = "x"
 )
 
 // githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
@@ -80,11 +91,18 @@ type apiServer struct {
 	pachClientOnce sync.Once         // used to initialize pachClient
 
 	adminCache map[string]struct{} // cache of current cluster admins
-	adminMu    sync.Mutex          // synchronize ontrol access to adminCache
+	adminMu    sync.Mutex          // guard 'adminCache'
 
-	// tokens is a collection of hashedToken -> User mappings. These tokens are
+	configCache authclient.AuthConfig // cache of auth config in etcd
+	configMu    sync.Mutex            // guard 'configCache'
+
+	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
 	tokens col.Collection
+	// authenticationCodes is a collection of hash(code) -> TokenInfo mappings.
+	// These codes are generated internally, and converted to regular tokens by
+	// Authenticate()
+	authenticationCodes col.Collection
 	// acls is a collection of repoName -> ACL mappings.
 	acls col.Collection
 	// admins is a collection of username -> Empty mappings (keys indicate which
@@ -94,6 +112,8 @@ type apiServer struct {
 	members col.Collection
 	// groups is a collection of group -> usernames mappings.
 	groups col.Collection
+	// collection containing the auth config (under the key configKey)
+	authConfig col.Collection
 
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
@@ -157,6 +177,14 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			nil,
 		),
+		authenticationCodes: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, authenticationCodesPrefix),
+			nil,
+			&authclient.TokenInfo{},
+			nil,
+			nil,
+		),
 		acls: col.NewCollection(
 			etcdClient,
 			path.Join(etcdPrefix, aclsPrefix),
@@ -186,6 +214,14 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			path.Join(etcdPrefix, groupsPrefix),
 			nil,
 			&authclient.Users{},
+			nil,
+			nil,
+		),
+		authConfig: col.NewCollection(
+			etcdClient,
+			path.Join(etcdPrefix, configKey),
+			nil,
+			&authclient.AuthConfig{},
 			nil,
 			nil,
 		),
@@ -237,6 +273,8 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
+			// TODO(msteffen): Don't use an empty key, as it will not be erased by
+			// superUserTokenCol.DeleteAll()
 			err := superUserTokenCol.Get("", &tokenProto)
 			if err == nil {
 				return nil
@@ -261,6 +299,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 }
 
 func (a *apiServer) watchAdmins(fullAdminPrefix string) {
+	b := backoff.NewExponentialBackOff()
 	backoff.RetryNotify(func() error {
 		// Watch for the addition/removal of new admins. Note that this will return
 		// any existing admins, so if the auth service is already activated, it will
@@ -277,6 +316,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 			if !ok {
 				return errors.New("admin watch closed unexpectedly")
 			}
+			b.Reset() // event successfully received
 
 			if err := func() error {
 				// Lock a.adminMu in case we need to modify a.adminCache
@@ -301,8 +341,59 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 				return err
 			}
 		}
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		logrus.Printf("error from activation check: %v; retrying in %v", err, d)
+	}, b, func(err error, d time.Duration) error {
+		logrus.Printf("error watching admin collection: %v; retrying in %v", err, d)
+		return nil
+	})
+}
+
+func (a *apiServer) watchConfig() {
+	b := backoff.NewExponentialBackOff()
+	backoff.RetryNotify(func() error {
+		// Watch for the addition/removal of new admins. Note that this will return
+		// any existing admins, so if the auth service is already activated, it will
+		// stay activated.
+		watcher, err := a.authConfig.ReadOnly(context.Background()).Watch()
+		if err != nil {
+			return err
+		}
+		defer watcher.Close()
+		// Wait for new config events to arrive
+		for {
+			ev, ok := <-watcher.Watch()
+			if !ok {
+				return errors.New("admin watch closed unexpectedly")
+			}
+			b.Reset() // event successfully received
+
+			if a.activationState() != full {
+				return fmt.Errorf("received config event while auth not fully " +
+					"activated (should be impossible), restarting")
+			}
+			if err := func() error {
+				// Lock a.configMu in case we need to modify a.configCache
+				a.configMu.Lock()
+				defer a.configMu.Unlock()
+
+				// Parse event data and potentially update configCache
+				var key string // always configKey, just need to put it somewhere
+				var configProto authclient.AuthConfig
+				ev.Unmarshal(&key, &configProto)
+				switch ev.Type {
+				case watch.EventPut:
+					a.configCache = configProto
+				case watch.EventDelete:
+					a.configCache.Reset()
+				case watch.EventError:
+					return ev.Err
+				}
+				return nil // unlock mu
+			}(); err != nil {
+				return err
+			}
+		}
+	}, b, func(err error, d time.Duration) error {
+		logrus.Printf("error watching auth config: %v; retrying in %v", err, d)
 		return nil
 	})
 }
@@ -342,6 +433,12 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		return nil, fmt.Errorf("already activated")
 	}
 
+	// The Pachyderm token that Activate() returns will have the TTL
+	// - 'defaultTokenTTLSecs' if the initial admin is a GitHub user (who can get
+	//   a new token by re-authenticating via GitHub after this token expires)
+	// - 0 (no TTL, indefinite lifetime) if the initial admin is a robot user
+	//   (who has no way to acquire a new token once this token expires)
+	ttlSecs := int64(defaultTokenTTLSecs)
 	// Authenticate the caller (or generate a new auth token if req.Subject is a
 	// robot user)
 	if req.Subject != "" {
@@ -363,8 +460,9 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 		}
 		req.Subject = username
 	case strings.HasPrefix(req.Subject, authclient.RobotPrefix):
-		// pass - req.Subject will be used verbatim, and the resulting code will
+		// req.Subject will be used verbatim, and the resulting code will
 		// authenticate the holder as the robot account therein
+		ttlSecs = 0 // no expiration for robot tokens -- see above
 	default:
 		return nil, fmt.Errorf("invalid subject in request (must be a GitHub user or robot): \"%s\"", req.Subject)
 	}
@@ -417,7 +515,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 				Subject: req.Subject,
 				Source:  authclient.TokenInfo_AUTHENTICATE,
 			},
-			defaultTokenTTLSecs,
+			ttlSecs,
 		)
 	}); err != nil {
 		return nil, err
@@ -487,6 +585,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 		a.members.ReadWrite(stm).DeleteAll()
 		a.groups.ReadWrite(stm).DeleteAll()
+		a.authConfig.ReadWrite(stm).DeleteAll()
 		return nil
 	})
 	if err != nil {
@@ -587,21 +686,11 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 		delete(m, u)
 	}
 
-	// Confirm that there will be at least one GitHub user admin.
+	// Confirm that there will be at least one admin.
 	//
-	// This is required so that a person can get the cluster out of any broken
-	// state that it may enter. If all admins are robot users or pipelines, and
-	// the only way to authenticate as a non-human user is for another admin to
-	// call GetAuthToken, then there will be no way to authenticate as an admin
-	// and fix a broken cluster.
-	hasHumanAdmin := false
-	for user := range m {
-		if strings.HasPrefix(user, authclient.GitHubPrefix) {
-			hasHumanAdmin = true
-			break
-		}
-	}
-	if !hasHumanAdmin {
+	// This is required so that the admin can get the cluster out of any broken
+	// state that it may enter.
+	if len(m) == 0 {
 		return fmt.Errorf("invalid request: cannot remove all cluster administrators while auth is active, to avoid unfixable cluster states")
 	}
 	return nil
@@ -686,6 +775,21 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	return &authclient.ModifyAdminsResponse{}, nil
 }
 
+// expiredClusterAdminCheck enforces that if the cluster's enterprise token is
+// expired, only admins may log in.
+func (a *apiServer) expiredClusterAdminCheck(username string) error {
+	state, err := a.getEnterpriseTokenState()
+	if err != nil {
+		return fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+	}
+	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(username) {
+		return errors.New("Pachyderm Enterprise is not active in this " +
+			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
+			"auth is deactivated, only cluster admins can perform any operations)")
+	}
+	return nil
+}
+
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	switch a.activationState() {
 	case none:
@@ -701,41 +805,114 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 
-	// Determine caller's Pachyderm/GitHub username
-	username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+	// verify whatever credential the user has presented, and write a new
+	// Pachyderm token for the user that their credential belongs to
+	var pachToken string
+	switch {
+	case req.GitHubToken != "":
+		// Determine caller's Pachyderm/GitHub username
+		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+		if err != nil {
+			return nil, err
+		}
+
+		// If the cluster's enterprise token is expired, only admins may log in
+		if err := a.expiredClusterAdminCheck(username); err != nil {
+			return nil, err
+		}
+
+		// Generate a new Pachyderm token and write it
+		pachToken = uuid.NewWithoutDashes()
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			tokens := a.tokens.ReadWrite(stm)
+			return tokens.PutTTL(hashToken(pachToken),
+				&authclient.TokenInfo{
+					Subject: username,
+					Source:  authclient.TokenInfo_AUTHENTICATE,
+				},
+				defaultTokenTTLSecs)
+		}); err != nil {
+			return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
+		}
+
+	case req.PachAuthenticationCode != "":
+		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+			// read short-lived authentication code (and delete it if found)
+			codes := a.authenticationCodes.ReadWrite(stm)
+			key := hashToken(req.PachAuthenticationCode)
+			var tokenInfo authclient.TokenInfo
+			if err := codes.Get(key, &tokenInfo); err != nil {
+				return err
+			}
+			codes.Delete(key)
+
+			// If the cluster's enterprise token is expired, only admins may log in
+			if err := a.expiredClusterAdminCheck(tokenInfo.Subject); err != nil {
+				return err
+			}
+
+			// write long-lived pachyderm token
+			pachToken = uuid.NewWithoutDashes()
+			return a.tokens.ReadWrite(stm).PutTTL(hashToken(pachToken), &tokenInfo,
+				defaultTokenTTLSecs)
+		}); err != nil {
+			return nil, err
+		}
+
+	default:
+		return nil, fmt.Errorf("unrecognized authentication mechanism (old pachd?)")
+	}
+
+	// Return new pachyderm token to caller
+	return &authclient.AuthenticateResponse{
+		PachToken: pachToken,
+	}, nil
+}
+
+func (a *apiServer) GetAuthenticationCode(ctx context.Context, req *authclient.GetAuthenticationCodeRequest) (resp *authclient.GetAuthenticationCodeResponse, retErr error) {
+	// We don't want to actually log the request/response since they contain
+	// credentials.
+	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
+	switch a.activationState() {
+	case none:
+		// PPS is authenticated by a token read from etcd. It never calls or needs
+		// to call authenticate, even while the cluster is partway through the
+		// activation process
+		return nil, authclient.ErrNotActivated
+	case partial:
+		return nil, authclient.ErrPartiallyActivated
+	}
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	// If the cluster's enterprise token is expired, only admins may log in
-	state, err := a.getEnterpriseTokenState()
+	code, err := a.getAuthenticationCode(ctx, callerInfo.Subject)
 	if err != nil {
-		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+		return nil, err
 	}
-	if state != enterpriseclient.State_ACTIVE && !a.isAdmin(username) {
-		return nil, errors.New("Pachyderm Enterprise is not active in this " +
-			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
-			"auth is deactivated, only cluster admins can perform any operations)")
-	}
+	return &authclient.GetAuthenticationCodeResponse{
+		Code: code,
+	}, nil
+}
 
-	// Generate a new Pachyderm token and return it
-	pachToken := uuid.NewWithoutDashes()
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		tokens := a.tokens.ReadWrite(stm)
-		return tokens.PutTTL(hashToken(pachToken),
+// getAuthenticationCode contains the implementation of GetAuthenticationCode,
+// but is also called directly by handleSAMLREsponse. It generates a
+// short-lived authentication code for 'username', writes it to
+// a.authenticationCodes, and returns it
+func (a *apiServer) getAuthenticationCode(ctx context.Context, username string) (code string, err error) {
+	code = "auth_code:" + uuid.NewWithoutDashes()
+	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		return a.authenticationCodes.ReadWrite(stm).PutTTL(hashToken(code),
 			&authclient.TokenInfo{
 				Subject: username,
 				Source:  authclient.TokenInfo_AUTHENTICATE,
 			},
-			defaultTokenTTLSecs)
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
+			defaultAuthCodeTTLSecs)
+	}); err != nil {
+		return "", err
 	}
-
-	return &authclient.AuthenticateResponse{
-		PachToken: pachToken,
-	}, nil
+	return code, nil
 }
 
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
@@ -794,13 +971,25 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 		return nil, authclient.ErrNotActivated
 	}
 
+	token, err := getAuthToken(ctx)
+	if err != nil {
+		return nil, err
+	}
 	callerInfo, err := a.getAuthenticatedUser(ctx)
 	if err != nil {
 		return nil, err
 	}
+	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
+	if callerInfo.Subject != magicUser {
+		ttl, err = a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
+		if err != nil {
+			return nil, fmt.Errorf("error looking up TTL for token: %v", err)
+		}
+	}
 	return &authclient.WhoAmIResponse{
 		Username: callerInfo.Subject,
 		IsAdmin:  a.isAdmin(callerInfo.Subject),
+		TTL:      ttl,
 	}, nil
 }
 
@@ -1238,6 +1427,10 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 		if err != nil {
 			return fmt.Errorf("Error looking up TTL for token: %v", err)
 		}
+		// TODO(msteffen): ttl may be -1 if the token has no TTL. We deliberately do
+		// not check this case so that admins can put TTLs on tokens that don't have
+		// them (otherwise any attempt to do so would get ErrTooShortTTL), but that
+		// decision may be revised
 		if req.TTL < ttl {
 			return authclient.ErrTooShortTTL{
 				RequestTTL:  req.TTL,
@@ -1570,20 +1763,28 @@ func hashToken(token string) string {
 	return fmt.Sprintf("%x", sum)
 }
 
+// getAuthToken extracts the auth token embedded in 'ctx', if there is on
+func getAuthToken(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", authclient.ErrNoMetadata
+	}
+	if len(md[authclient.ContextTokenKey]) > 1 {
+		return "", fmt.Errorf("multiple authentication token keys found in context")
+	} else if len(md[authclient.ContextTokenKey]) == 0 {
+		return "", authclient.ErrNotSignedIn
+	}
+	return md[authclient.ContextTokenKey][0], nil
+}
+
 func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.TokenInfo, error) {
 	// TODO(msteffen) cache these lookups, especially since users always authorize
 	// themselves at the beginning of a request. Don't want to look up the same
 	// token -> username entry twice.
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return nil, authclient.ErrNoMetadata
+	token, err := getAuthToken(ctx)
+	if err != nil {
+		return nil, err
 	}
-	if len(md[authclient.ContextTokenKey]) > 1 {
-		return nil, fmt.Errorf("multiple authentication token keys found in context")
-	} else if len(md[authclient.ContextTokenKey]) == 0 {
-		return nil, authclient.ErrNotSignedIn
-	}
-	token := md[authclient.ContextTokenKey][0]
 	if token == a.ppsToken {
 		// TODO(msteffen): This is a hack. The idea is that there is a logical user
 		// entry mapping ppsToken to magicUser. Soon, magicUser will go away and
@@ -1684,4 +1885,105 @@ func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error
 		return "", fmt.Errorf("error canonicalizing \"%s\": %v", user, err)
 	}
 	return authclient.GitHubPrefix + u.GetLogin(), nil
+}
+
+func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetConfigurationRequest) (resp *authclient.GetConfigurationResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	switch a.activationState() {
+	case none:
+		return nil, authclient.ErrNotActivated
+	case partial:
+		return nil, authclient.ErrPartiallyActivated
+	}
+
+	// Get calling user. The user must be logged in to get the cluster config
+	_, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Retrieve & return configuration
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	authConfigRO := a.authConfig.ReadOnly(ctx)
+
+	var currentConfig authclient.AuthConfig
+	if err := authConfigRO.Get(configKey, &currentConfig); err != nil && !col.IsErrNotFound(err) {
+		return nil, err
+	}
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	if a.configCache.LiveConfigVersion < currentConfig.LiveConfigVersion {
+		logrus.Printf("current config (v.%d) is newer than cache (v.%d); updating cache",
+			currentConfig.LiveConfigVersion, a.configCache.LiveConfigVersion)
+		a.configCache = currentConfig
+	} else if a.configCache.LiveConfigVersion > currentConfig.LiveConfigVersion {
+		logrus.Warnln("config cache is NEWER than live config; this shouldn't happen")
+	}
+	return &authclient.GetConfigurationResponse{
+		Configuration: &currentConfig,
+	}, nil
+}
+
+func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetConfigurationRequest) (resp *authclient.SetConfigurationResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+	switch a.activationState() {
+	case none:
+		return nil, authclient.ErrNotActivated
+	case partial:
+		return nil, authclient.ErrPartiallyActivated
+	}
+
+	// Get calling user. The user must be an admin to set the cluster config
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !a.isAdmin(callerInfo.Subject) {
+		return nil, &authclient.ErrNotAuthorized{
+			Subject: callerInfo.Subject,
+			AdminOp: "SetConfiguration",
+		}
+	}
+
+	// Validate new config
+	for _, idp := range req.Configuration.IDProviders {
+		if idp.Name == "" {
+			return nil, errors.New("All ID providers must have a name specified " +
+				"(for use during authorization)")
+		}
+		// TODO(msteffen): make sure we don't have to extend this every time we add
+		// a new built-in backend.
+		switch idp.Name {
+		case authclient.GitHubPrefix:
+			return nil, errors.New("cannot configure auth backend with reserved prefix " +
+				authclient.GitHubPrefix)
+		case authclient.RobotPrefix:
+			return nil, errors.New("cannot configure auth backend with reserved prefix " +
+				authclient.RobotPrefix)
+		case authclient.PipelinePrefix:
+			return nil, errors.New("cannot configure auth backend with reserved prefix " +
+				authclient.PipelinePrefix)
+		}
+	}
+
+	// upsert new config
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		var currentConfig authclient.AuthConfig
+		return a.authConfig.ReadWrite(stm).Upsert(configKey, &currentConfig, func() error {
+			if currentConfig.LiveConfigVersion != req.Configuration.LiveConfigVersion {
+				return fmt.Errorf("expected config version %d, but live config has version %d",
+					req.Configuration.LiveConfigVersion, currentConfig.LiveConfigVersion)
+			}
+			currentConfig.Reset()
+			currentConfig = *req.Configuration
+			currentConfig.LiveConfigVersion++
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return &authclient.SetConfigurationResponse{}, nil
 }
