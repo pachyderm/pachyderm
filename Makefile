@@ -80,6 +80,10 @@ install:
 	# GOPATH/bin must be on your PATH to access these binaries:
 	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
 
+install-mac:
+	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
+	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+
 install-clean:
 	@# Need to blow away pachctl binary if its already there
 	@rm -f $(GOPATH)/bin/pachctl
@@ -307,9 +311,11 @@ launch-kube: check-kubectl
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
 	@if [ -z "${ADDRESS}" ]; then \
-	  echo "Must set ADDRESS"; \
-	  echo "Run"; \
-	  echo "export ADDRESS=192.168.99.100:30650"; \
+		echo -e"Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	  exit 1; \
+	fi
+	@if [ -n "${PACH_CA_CERTS}" ]; then \
+		echo -e"Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
 	  exit 1; \
 	fi
 	# Making sure minikube isn't still up from a previous run...
@@ -319,6 +325,27 @@ launch-dev-vm: check-kubectl
 	  exit 1; \
 	fi
 	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM)
+
+# launch-release-vm is like launch-dev-vm but it doesn't build pachctl locally, and uses the same
+# version of pachd associated with the current pachctl (useful if you want to start a VM with a
+# point-release version of pachd, instead of whatever's in the current branch)
+launch-release-vm:
+	@# Make sure the caller sets address to avoid confusion later
+	@if [ -z "${ADDRESS}" ]; then \
+		echo -e"Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	  exit 1; \
+	fi
+	@if [ -n "${PACH_CA_CERTS}" ]; then \
+		echo -e"Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
+	  exit 1; \
+	fi
+	# Making sure minikube isn't still up from a previous run...
+	@if minikube ip 2>/dev/null || sudo minikube ip 2>/dev/null; \
+	then \
+	  echo "minikube is still up. Run 'make clean-launch-kube'"; \
+	  exit 1; \
+	fi
+	etc/kube/start-minikube-vm.sh --cpus=$(MINIKUBE_CPU) --memory=$(MINIKUBE_MEM) --tag=v$$(pachctl version --client-only)
 
 clean-launch-kube:
 	@# clean up both of the following cases:
@@ -410,7 +437,7 @@ test: clean-launch-dev launch-dev test-misc test-pps
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
-	if grep --files-with-matches --exclude=Makefile -r -e 'eyJ0b2tl' . ; \
+	if grep --files-with-matches --exclude=Makefile --exclude-from=.gitignore -r -e 'eyJ0b2tl' . ; \
 	then \
 	  $$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
 	  false; \
@@ -440,7 +467,7 @@ test-pps:
 	@# subset of the tests using the run flag
 	@make RUN= test-pps-helper
 
-test-pps-helper: launch-stats docker-build-test-entrypoint 
+test-pps-helper: launch-stats docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
@@ -480,6 +507,23 @@ test-auth:
 test-enterprise:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
+
+# TODO This is not very robust -- it doesn't work when the ADDRESS host isn't an IPv4 address
+PACHD_HOST := $(word 1,$(subst :, ,$(ADDRESS)))
+PACHD_PORT := $(word 2,$(subst :, ,$(ADDRESS)))
+
+test-tls:
+	# Pachyderm must be running when this target is called
+	pachctl version
+	# TLS is an enterprise pachyderm feature
+	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
+	# Generate TLS key and re-deploy pachyderm with TLS enabled
+	etc/deploy/gen_pachd_tls.sh --ip=$(PACHD_HOST) --port=$(PACHD_PORT)
+	# Restart pachd with new cert
+	etc/deploy/restart_with_tls.sh --key=$(PWD)/pachd.key --cert=$(PWD)/pachd.pem
+	# If we can run a pipeline, TLS probably works
+	@# TODO actually monitor traffic with tcpdump
+	PACH_CA_CERTS=${PWD}/pachd.pem go test -v ./src/server -run TestPipelineWithParallelism
 
 test-worker: launch-stats test-worker-helper
 

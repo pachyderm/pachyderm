@@ -204,6 +204,9 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 			}
 			modifyRequest.Remove = append(modifyRequest.Remove, a)
 		}
+		if curAdminClient == nil {
+			tb.Fatal("cluster has no GitHub admins; no way for auth test to grant itself admin access")
+		}
 		_, err := curAdminClient.ModifyAdmins(curAdminClient.Ctx(), modifyRequest)
 		require.NoError(tb, err)
 
@@ -2355,4 +2358,46 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
+}
+
+func TestAuthenticationCode(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+	codeResp, err := aliceClient.GetAuthenticationCode(aliceClient.Ctx(),
+		&auth.GetAuthenticationCodeRequest{})
+	require.NoError(t, err)
+
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
+		PachAuthenticationCode: codeResp.Code,
+	})
+	require.NoError(t, err)
+	anonClient.SetAuthToken(authResp.PachToken)
+	whoAmIResp, err := anonClient.WhoAmI(anonClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
+}
+
+func TestAuthenticationCodeExpires(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+	codeResp, err := aliceClient.GetAuthenticationCode(aliceClient.Ctx(),
+		&auth.GetAuthenticationCodeRequest{})
+	require.NoError(t, err)
+
+	time.Sleep(time.Duration(defaultAuthCodeTTLSecs+1) * time.Second)
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
+		PachAuthenticationCode: codeResp.Code,
+	})
+	require.YesError(t, err)
+	require.Nil(t, authResp)
 }

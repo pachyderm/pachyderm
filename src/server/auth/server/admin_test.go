@@ -211,6 +211,9 @@ func TestAdminRWO(t *testing.T) {
 		entries(alice, "owner", "carol", "reader"), GetACL(t, aliceClient, repo))
 }
 
+// TestAdminFixBrokenRepo tests that an admin can modify the ACL of a repo even
+// when the repo's ACL is empty (indicating that no user has explicit access to
+// to the repo)
 func TestAdminFixBrokenRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -262,6 +265,8 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, 1, CommitCnt(t, adminClient, repo)) // check that a new commit was created
 }
 
+// TestModifyAdminsErrorMissingAdmin tests that trying to remove a nonexistant
+// admin returns an error
 func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -298,6 +303,8 @@ func TestModifyAdminsErrorMissingAdmin(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
+// TestCannotRemoveAllClusterAdmins tests that trying to remove all of a
+// clusters admins yields an error
 func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -360,6 +367,59 @@ func TestCannotRemoveAllClusterAdmins(t *testing.T) {
 		&auth.ModifyAdminsRequest{
 			Add:    []string{"admin"},
 			Remove: []string{alice},
+		})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.ElementsEqualOrErr([]string{admin}, resp.Admins)
+	}, backoff.NewTestingBackOff()))
+}
+
+// TestModifyClusterAdminsAllowRobotOnlyAdmin tests the fix to
+// https://github.com/pachyderm/pachyderm/issues/3010
+// Basically, ModifyAdmins should not return an error if the only cluster admin
+// is a robot user
+func TestModifyClusterAdminsAllowRobotOnlyAdmin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	// Check that the initial set of admins is just "admin"
+	resp, err := adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+	require.NoError(t, err)
+	require.ElementsEqual(t, []string{admin}, resp.Admins)
+
+	// 'admin' gets credentials for a robot user, and swaps themself and the robot
+	// so that the only cluster administrator is the robot user
+	tokenResp, err := adminClient.GetAuthToken(adminClient.Ctx(),
+		&auth.GetAuthTokenRequest{
+			Subject: "robot:rob",
+			TTL:     3600,
+		})
+	require.NoError(t, err)
+	// copy client & use resp token
+	robotClient := adminClient.WithCtx(context.Background())
+	robotClient.SetAuthToken(tokenResp.Token)
+	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
+		&auth.ModifyAdminsRequest{
+			Remove: []string{"admin"},
+			Add:    []string{"robot:rob"},
+		})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err = adminClient.GetAdmins(adminClient.Ctx(), &auth.GetAdminsRequest{})
+		require.NoError(t, err)
+		return require.ElementsEqualOrErr([]string{"robot:rob"}, resp.Admins)
+	}, backoff.NewTestingBackOff()))
+
+	// The robot user adds admin back as a cluster admin
+	_, err = robotClient.ModifyAdmins(robotClient.Ctx(),
+		&auth.ModifyAdminsRequest{
+			Add:    []string{"admin"},
+			Remove: []string{"robot:rob"},
 		})
 	require.NoError(t, err)
 	require.NoError(t, backoff.Retry(func() error {
@@ -1276,6 +1336,9 @@ func TestActivateAsRobotUser(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "robot:deckard", whoAmI.Username)
 
+	// Make sure the robot token has no TTL
+	require.Equal(t, int64(-1), whoAmI.TTL)
+
 	// Make "admin" an admin, so that auth can be deactivated
 	client.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
 		Add:    []string{"admin"},
@@ -1361,4 +1424,240 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 
 	// Make sure DeleteAll() succeeds
 	require.NoError(t, aliceClient.DeleteAll())
+}
+
+// TestSetGetConfigBasic sets an auth config and then retrieves it, to make
+// sure it's stored propertly
+func TestSetGetConfigBasic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	adminClient := getPachClient(t, admin)
+
+	// Set a configuration
+	conf := &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{
+			{Name: "idp_1", Description: "fake IdP for testing"},
+		},
+	}
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+
+	// Read the configuration that was just written
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	conf.LiveConfigVersion = 1 // increment version
+	require.Equal(t, conf, configResp.Configuration)
+}
+
+// TestGetSetConfigAdminOnly confirms that only cluster admins can get/set the
+// auth config
+func TestGetSetConfigAdminOnly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice := tu.UniqueString("alice")
+	anonClient, aliceClient, adminClient := getPachClient(t, ""), getPachClient(t, alice), getPachClient(t, admin)
+
+	// Confirm that the auth config starts out empty
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
+
+	// Alice tries to set the current configuration and fails
+	conf := &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{
+			{Name: "idp_1", Description: "fake IdP for testing"},
+		},
+	}
+	_, err = aliceClient.SetConfiguration(aliceClient.Ctx(),
+		&auth.SetConfigurationRequest{
+			Configuration: conf,
+		})
+	require.YesError(t, err)
+	require.Matches(t, "not authorized", err.Error())
+	require.Matches(t, "admin", err.Error())
+	require.Matches(t, "SetConfiguration", err.Error())
+
+	// Confirm that alice didn't modify the configuration by retrieving the empty
+	// config
+	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
+
+	// Modify the configuration and make sure anon can't read it, but alice and
+	// admin can
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{
+			Configuration: conf,
+		})
+
+	// Confirm that anon can't read the config
+	_, err = anonClient.GetConfiguration(anonClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "no authentication token", err.Error())
+
+	// Confirm that alice and admin can read the config
+	configResp, err = aliceClient.GetConfiguration(aliceClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	conf.LiveConfigVersion = 1 // increment version
+	require.Equal(t, conf, configResp.Configuration)
+
+	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	require.Equal(t, conf, configResp.Configuration)
+}
+
+// TestRMWConfigConflict does two conflicting R+M+W operation on a config
+// and confirms that one operation fails
+func TestRMWConfigConflict(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	adminClient := getPachClient(t, admin)
+
+	// Set a configuration
+	conf := &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{
+			{Name: "idp_1", Description: "fake IdP for testing"},
+		},
+	}
+
+	// Set an initial configuration
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+
+	// Read the configuration that was just written
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	conf.LiveConfigVersion = 1 // increment version
+	require.Equal(t, conf, configResp.Configuration)
+
+	// modify the config twice
+	mod2 := *configResp.Configuration
+	mod2.IDProviders = append(mod2.IDProviders,
+		&auth.IDProvider{Name: "idp_2", Description: "fake IDP for testing, #2"})
+	mod3 := *configResp.Configuration
+	mod3.IDProviders = append(mod3.IDProviders,
+		&auth.IDProvider{Name: "idp_3", Description: "fake IDP for testing, #3"})
+
+	// Apply both changes -- the second should fail
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: &mod2,
+	})
+	require.NoError(t, err)
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: &mod3,
+	})
+	require.YesError(t, err)
+	require.Matches(t, "config version", err.Error())
+
+	// Read the configuration and make sure that only #2 was applied
+	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	mod2.LiveConfigVersion = 2 // increment version
+	require.Equal(t, &mod2, configResp.Configuration)
+}
+
+// TestGetEmptyConfig Sets a config, then Deactivates+Reactivates auth, then
+// calls GetConfig on an empty cluster to be sure the config was cleared
+func TestGetEmptyConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	adminClient := getPachClient(t, admin)
+
+	// Set a configuration
+	conf := &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{
+			{Name: "idp_1", Description: "fake IdP for testing"},
+		},
+	}
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.NoError(t, err)
+
+	// Read the configuration that was just written
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	conf.LiveConfigVersion = 1 // increment version
+	require.Equal(t, conf, configResp.Configuration)
+
+	// Deactivate auth
+	_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
+	require.NoError(t, err)
+
+	// Wait for auth to be deactivated
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+		if err != nil && auth.IsErrNotActivated(err) {
+			return nil // WhoAmI should fail when auth is deactivated
+		}
+		return errors.New("auth is not yet deactivated")
+	}, backoff.NewTestingBackOff()))
+
+	// Try to set and get the configuration, and confirm that the calls have been
+	// deactivated
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.YesError(t, err)
+	require.Matches(t, "activated", err.Error())
+
+	_, err = adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.YesError(t, err)
+	require.Matches(t, "activated", err.Error())
+
+	// activate auth
+	activateResp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
+		GitHubToken: "admin",
+	})
+	require.NoError(t, err)
+	adminClient.SetAuthToken(activateResp.PachToken)
+
+	// Wait for auth to be re-activated
+	require.NoError(t, backoff.Retry(func() error {
+		_, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
+		return err
+	}, backoff.NewTestingBackOff()))
+
+	// Try to get the configuration, and confirm that the config is now empty
+	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
+
+	// Set the configuration (again)
+	conf.LiveConfigVersion = 0 // reset to 0 (since config is empty)
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.NoError(t, err)
+
+	// Get the configuration, and confirm that the config has been updated
+	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	conf.LiveConfigVersion = 1 // increment version
+	require.Equal(t, conf, configResp.Configuration)
 }

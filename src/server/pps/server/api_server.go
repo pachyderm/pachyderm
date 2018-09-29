@@ -51,16 +51,15 @@ import (
 )
 
 const (
-	// MaxPodsPerChunk is the maximum number of pods we can schedule for each
-	// chunk in case of failures.
-	MaxPodsPerChunk = 3
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
+	// DefaultDatumTries is the default number of times a datum will be tried
+	// before we give up and consider the job failed.
+	DefaultDatumTries = 3
 )
 
 var (
-	trueVal = true
 	zeroVal = int64(0)
 	suite   = "pachyderm"
 )
@@ -486,13 +485,20 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
+	if request.Job == nil && request.OutputCommit == nil {
+		return nil, fmt.Errorf("must specify either a Job or an OutputCommit")
+	}
 
 	jobs := a.jobs.ReadOnly(ctx)
 	if request.OutputCommit != nil {
 		if request.Job != nil {
 			return nil, fmt.Errorf("can't set both Job and OutputCommit")
 		}
-		if err := a.listJob(pachClient, nil, request.OutputCommit, nil, func(ji *pps.JobInfo) error {
+		ci, err := pachClient.InspectCommit(request.OutputCommit.Repo.Name, request.OutputCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := a.listJob(pachClient, nil, ci.Commit, nil, func(ji *pps.JobInfo) error {
 			if request.Job != nil {
 				return fmt.Errorf("internal error, more than 1 Job has output commit: %v (this is likely a bug)", request.OutputCommit)
 			}
@@ -500,6 +506,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			return nil
 		}); err != nil {
 			return nil, err
+		}
+		if request.Job == nil {
+			return nil, fmt.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
 
@@ -547,7 +556,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		return jobInfo, nil
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
+	workerStatus, err := workerpkg.Status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
@@ -651,7 +660,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	var specCommit *pfs.Commit
 	for i, provCommit := range commitInfo.Provenance {
 		provBranch := commitInfo.BranchProvenance[i]
-		if provBranch.Repo.Name == ppsconsts.SpecRepo {
+		if provBranch.Repo.Name == ppsconsts.SpecRepo && provBranch.Name == jobPtr.Pipeline.Name {
 			specCommit = provCommit
 			break
 		}
@@ -663,6 +672,10 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
 	}
+	// Override the SpecCommit for the pipeline to be what it was when this job
+	// was created, this prevents races between updating a pipeline and
+	// previous jobs running.
+	pipelinePtr.SpecCommit = specCommit
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 	if err != nil {
 		return nil, err
@@ -684,6 +697,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.ChunkSpec = pipelineInfo.ChunkSpec
 	result.DatumTimeout = pipelineInfo.DatumTimeout
 	result.JobTimeout = pipelineInfo.JobTimeout
+	result.DatumTries = pipelineInfo.DatumTries
 	return result, nil
 }
 
@@ -824,7 +838,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 		return nil, err
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerpkg.Cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1741,6 +1755,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		DatumTimeout:     request.DatumTimeout,
 		JobTimeout:       request.JobTimeout,
 		Standby:          request.Standby,
+		DatumTries:       request.DatumTries,
 	}
 	setPipelineDefaults(pipelineInfo)
 
@@ -1971,6 +1986,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	}
 	if pipelineInfo.MaxQueueSize < 1 {
 		pipelineInfo.MaxQueueSize = 1
+	}
+	if pipelineInfo.DatumTries == 0 {
+		pipelineInfo.DatumTries = DefaultDatumTries
 	}
 }
 

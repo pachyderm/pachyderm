@@ -15,10 +15,12 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/pachyderm/pachyderm/src/client"
+	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
+	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
@@ -191,6 +193,7 @@ func do(appEnvObj interface{}) error {
 					defer close(ready)
 					worker.RegisterWorkerServer(s, apiServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
+					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(appEnv.PodName, etcdClient, appEnv.PPSPrefix))
 					return nil
 				},
 			},
@@ -200,7 +203,7 @@ func do(appEnvObj interface{}) error {
 	// Wait until server is ready, then put our IP address into etcd, so pachd can
 	// discover us
 	<-ready
-	key := path.Join(appEnv.PPSPrefix, "workers", workerRcName, appEnv.PPSWorkerIP)
+	key := path.Join(appEnv.PPSPrefix, worker.WorkerEtcdPrefix, workerRcName, appEnv.PPSWorkerIP)
 
 	// Prepare to write "key" into etcd by creating lease -- if worker dies, our
 	// IP will be removed from etcd
