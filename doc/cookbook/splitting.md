@@ -81,7 +81,7 @@ id,name,email
 4,alice,aaa@place.com
 7,bob,bbb@place.com
 # Take the raw CSV data minus the header and split it into multiple files:
-$ cat users.csv | tail -n +2 | pc put-file bar master users --split line
+$ cat users.csv | tail -n +2 | pachctl put-file bar master users --split line
 Reading from stdin.
 $ pachctl list-file bar master
 NAME  TYPE SIZE 
