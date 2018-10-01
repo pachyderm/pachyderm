@@ -2112,10 +2112,8 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	var recordsMu sync.Mutex
 	var eg errgroup.Group
 	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
-		if node.FileNode == nil {
-			return nil
-		}
 		eg.Go(func() error {
+			fmt.Printf("re-inserting putfile records for path %v\n", walkPath)
 			relPath, err := filepath.Rel(src.Path, walkPath)
 			if err != nil {
 				// This shouldn't be possible
@@ -2123,15 +2121,32 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 			}
 			record := &pfs.PutFileRecords{}
 			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
-			for i, object := range node.FileNode.Objects {
-				var size int64
-				if i == 0 {
-					size = node.SubtreeSize
+			if node.FileNode != nil {
+				for i, object := range node.FileNode.Objects {
+					var size int64
+					if i == 0 {
+						size = node.SubtreeSize
+					}
+					record.Records = append(record.Records, &pfs.PutFileRecord{
+						SizeBytes:  size,
+						ObjectHash: object.Hash,
+					})
 				}
-				record.Records = append(record.Records, &pfs.PutFileRecord{
-					SizeBytes:  size,
-					ObjectHash: object.Hash,
-				})
+			} else {
+				if node.DirNode.Header != nil {
+					record.Header = &pfs.PutFileRecord{
+						SizeBytes:  node.SubtreeSize,
+						ObjectHash: node.DirNode.Header.Hash,
+					}
+					record.Split = true
+				}
+				if node.DirNode.Footer != nil {
+					record.Footer = &pfs.PutFileRecord{
+						SizeBytes:  node.SubtreeSize,
+						ObjectHash: node.DirNode.Footer.Hash,
+					}
+					record.Split = true
+				}
 			}
 			if ci.Finished == nil {
 				return d.upsertPutFileRecords(ctx, file, record)
