@@ -110,8 +110,8 @@ You can ingest data from postgres using split file.
 1) Generate your PG Dump file
 
 ```
-$ pg_dump -t looney_toons -f looney_toons.pgdump
-$ cat looney_toons.pgdump 
+$ pg_dump -t users -f users.pgdump
+$ cat users.pgdump 
 --
 -- PostgreSQL database dump
 --
@@ -133,23 +133,23 @@ SET default_tablespace = '';
 SET default_with_oids = false;
 
 --
--- Name: looney_toons; Type: TABLE; Schema: public; Owner: postgres
+-- Name: users; Type: TABLE; Schema: public; Owner: postgres
 --
 
-CREATE TABLE public.looney_toons (
+CREATE TABLE public.users (
     id integer NOT NULL,
     name text NOT NULL,
     saying text NOT NULL
 );
 
 
-ALTER TABLE public.looney_toons OWNER TO postgres;
+ALTER TABLE public.users OWNER TO postgres;
 
 --
--- Data for Name: looney_toons; Type: TABLE DATA; Schema: public; Owner: postgres
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.looney_toons (id, name, saying) FROM stdin;
+COPY public.users (id, name, saying) FROM stdin;
 0	wile E Coyote	...
 1	road runner	\\.
 \.
@@ -163,161 +163,42 @@ COPY public.looney_toons (id, name, saying) FROM stdin;
 
 2) Ingest using split file
 
-Note: How you can get each row, and the appropriate header/footer is supplied for loading into the DB. Or, if you want to get the full pgdump, you can use `get-file` plus a glob pattern.
+When you use `pachctl put-file --split ...` your pg dump file is split into
+three parts - the header, rows, and the footer. The header contains all the SQL
+statements in the pg dump that setup the schema and tables. The rows are split
+into individual files (or if you specify the `--target-file-datums` or 
+`--target-file-bytes` multiple rows per file). The footer contains the remaining
+SQL statements for setting up the tables.
+
+(You might ask why you'd want to store each row as a separate file. Pachyderm
+does data de-duplication under the hood at the granularity of files. So this way
+subsequent dumps won't store redundant information)
+
+The header and footer are stored on the directory containing the rows. This way,
+if you request a `get-file` on the directory, you'll get just the header and
+footer. If you request an individual file, you'll see the header plus the row(s)
+plus the footer. If you request all the files with a glob pattern, e.g.
+`/directoryname/*`, you'll receive the header plus all the rows plus the footer,
+recreating the full pg dump. In this way, you can construct full or partial 
+pg dump files so that you can load full or partial data sets.
 
 ```
-# Split a json file on json blobs, putting
-# each json blob into it's own file.
-
-$ pachctl put-file users master -c -f users.pgdump --split sql
-$ pachctl put-file aaa master looney_toons --split sql -f looney_toons.pgdump 
-$ pachctl list-file aaa master
+$ pachctl put-file data master -c -f users.pgdump --split sql
+$ pachctl put-file data master users --split sql -f users.pgdump 
+$ pachctl list-file data master
 NAME         TYPE SIZE 
-looney_toons dir  914B 
-18-09-26[14:52:44]:pachyderm:0$pc list-file aaa master /looney_toons
+users        dir  914B 
+$ pachctl list-file data master /users
 NAME                           TYPE SIZE 
-/looney_toons/0000000000000000 file 20B  
-/looney_toons/0000000000000001 file 18B  
+/users/0000000000000000        file 20B  
+/users/0000000000000001        file 18B  
+```
 
-$ pachctl get-file aaa master /looney_toons/0000000000000000
---
--- PostgreSQL database dump
---
-
--- Dumped from database version 9.5.12
--- Dumped by pg_dump version 9.5.12
-
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET client_min_messages = warning;
-SET row_security = off;
-
-SET default_tablespace = '';
-
-SET default_with_oids = false;
-
---
--- Name: looney_toons; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.looney_toons (
-    id integer NOT NULL,
-    name text NOT NULL,
-    saying text NOT NULL
-);
-
-
-ALTER TABLE public.looney_toons OWNER TO postgres;
-
---
--- Data for Name: looney_toons; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.looney_toons (id, name, saying) FROM stdin;
-0	wile E Coyote	...
-\.
-
-
---
--- PostgreSQL database dump complete
---
-
-$ pachctl get-file aaa master /looney_toons
---
--- PostgreSQL database dump
---
-
--- Dumped from database version 9.5.12
--- Dumped by pg_dump version 9.5.12
-
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET client_min_messages = warning;
-SET row_security = off;
-
-SET default_tablespace = '';
-
-SET default_with_oids = false;
-
---
--- Name: looney_toons; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.looney_toons (
-    id integer NOT NULL,
-    name text NOT NULL,
-    saying text NOT NULL
-);
-
-
-ALTER TABLE public.looney_toons OWNER TO postgres;
-
---
--- Data for Name: looney_toons; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.looney_toons (id, name, saying) FROM stdin;
-\.
-
-
---
--- PostgreSQL database dump complete
---
-
-$ pachctl get-file aaa master /looney_toons/**
---
--- PostgreSQL database dump
---
-
--- Dumped from database version 9.5.12
--- Dumped by pg_dump version 9.5.12
-
-SET statement_timeout = 0;
-SET lock_timeout = 0;
-SET client_encoding = 'UTF8';
-SET standard_conforming_strings = on;
-SELECT pg_catalog.set_config('search_path', '', false);
-SET check_function_bodies = false;
-SET client_min_messages = warning;
-SET row_security = off;
-
-SET default_tablespace = '';
-
-SET default_with_oids = false;
-
---
--- Name: looney_toons; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.looney_toons (
-    id integer NOT NULL,
-    name text NOT NULL,
-    saying text NOT NULL
-);
-
-
-ALTER TABLE public.looney_toons OWNER TO postgres;
-
---
--- Data for Name: looney_toons; Type: TABLE DATA; Schema: public; Owner: postgres
---
-
-COPY public.looney_toons (id, name, saying) FROM stdin;
-0	wile E Coyote	...
-1	road runner	meepmeep
-\.
-
-
---
--- PostgreSQL database dump complete
---
+Then in your pipeline (where you've started and forked postgres), you can load
+the data by doing something like:
 
 ```
+$ cat /pfs/data/users/* | sudo -u postgres psql
+```
+
+Which would load the whole pg dump into the locally running postgres instance.
