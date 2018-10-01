@@ -74,10 +74,12 @@ Additionally, if your data has a common header or footer, you can specify these 
 To do this, you'll need to specify the header/footer on the parent directory of your data. Below we have an example of splitting a CSV with a header, then setting the header explicitly. Notice that once we've set the header, whenever we get a file under that directory, the header is applied. You can still use glob patterns to get all the data under the directory, and in that case the header is still applied.
 
 ```
+# Raw CSV
 $ cat users.csv 
 id,name,email
 4,alice,aaa@place.com
 7,bob,bbb@place.com
+# Take the raw CSV data minus the header and split it into multiple files:
 $ cat users.csv | tail -n +2 | pc put-file bar master users --split line
 Reading from stdin.
 $ pachctl list-file bar master
@@ -87,9 +89,12 @@ $ pachctl list-file bar master /users/
 NAME                    TYPE SIZE 
 /users/0000000000000000 file 22B  
 /users/0000000000000001 file 20B  
+# Before we set the header, we just see the raw data when we issue a get-file
 $ pachctl get-file bar master /users/0000000000000000
 4,alice,aaa@place.com
+# Now we take the CSV header and apply it to the directory:
 $ cat users.csv | head -n 1 | pc put-header bar master users 
+# Now when we read an individual file, we see the header plus the contents
 $ pachctl get-file bar master /users/0000000000000000
 id,name,email
 4,alice,aaa@place.com
@@ -105,7 +110,7 @@ For more info see `pachctl put-header --help`
 
 ## PG Dump / SQL Support
 
-You can ingest data from postgres using split file.
+You can also ingest data from postgres using split file.
 
 1) Generate your PG Dump file
 
@@ -170,10 +175,6 @@ into individual files (or if you specify the `--target-file-datums` or
 `--target-file-bytes` multiple rows per file). The footer contains the remaining
 SQL statements for setting up the tables.
 
-(You might ask why you'd want to store each row as a separate file. Pachyderm
-does data de-duplication under the hood at the granularity of files. So this way
-subsequent dumps won't store redundant information)
-
 The header and footer are stored on the directory containing the rows. This way,
 if you request a `get-file` on the directory, you'll get just the header and
 footer. If you request an individual file, you'll see the header plus the row(s)
@@ -201,4 +202,9 @@ the data by doing something like:
 $ cat /pfs/data/users/* | sudo -u postgres psql
 ```
 
-Which would load the whole pg dump into the locally running postgres instance.
+And with a glob pattern like `/*` this code would load the raw postgres chunk
+into your postgres instance for processing by your pipeline.
+
+For this use case, you'll likely want to use `--target-file-datums` or 
+`--target-file-bytes` since it's likely that you'll want to run your queries
+against a bunch of rows at a time.
