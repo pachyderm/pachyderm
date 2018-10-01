@@ -69,7 +69,8 @@ $ pachctl put-file users master -c -f user_data.txt --split line --target-file-b
 
 ## Specifying Header/Footer
 
-Additionally, if your data has a common header or footer, you can specify these manually. This is helpful for CSV data.
+Additionally, if your data has a common header or footer, you can specify these
+manually via `pachctl put-header` or `pachctl put-footer`. This is helpful for CSV data.
 
 To do this, you'll need to specify the header/footer on the parent directory of your data. Below we have an example of splitting a CSV with a header, then setting the header explicitly. Notice that once we've set the header, whenever we get a file under that directory, the header is applied. You can still use glob patterns to get all the data under the directory, and in that case the header is still applied.
 
@@ -93,7 +94,7 @@ NAME                    TYPE SIZE
 $ pachctl get-file bar master /users/0000000000000000
 4,alice,aaa@place.com
 # Now we take the CSV header and apply it to the directory:
-$ cat users.csv | head -n 1 | pc put-header bar master users 
+$ cat users.csv | head -n 1 | pachctl put-header bar master users 
 # Now when we read an individual file, we see the header plus the contents
 $ pachctl get-file bar master /users/0000000000000000
 id,name,email
