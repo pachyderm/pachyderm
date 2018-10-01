@@ -1568,41 +1568,18 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				statsTag = &pfs.Tag{tag + statsTagSuffix}
 			}
 			subStats := &pps.ProcessStats{}
-			statsPath := path.Join("/", logger.template.DatumID)
-			var statsTree hashtree.HashTree
+			var stats hashtree.DatumStats
 			if a.pipelineInfo.EnableStats {
-				var err error
-				statsTree, err = hashtree.NewDBHashTree(a.hashtreeStorage)
-				if err != nil {
-					return err
-				}
-				if err := statsTree.PutFile(path.Join(statsPath, fmt.Sprintf("job:%s", jobInfo.Job.ID)), nil, 0); err != nil {
-					logger.stderrLog.Printf("error from hashtree.PutFile for job object: %s\n", err)
-				}
-				defer func() {
-					if retErr != nil {
-						return
-					}
-					if err := statsTree.Hash(); err != nil {
-						retErr = err
-						return
-					}
-					if _, err := hashtree.PutHashTree(pachClient, statsTree, statsTag.Name); err != nil {
-						retErr = err
-						return
-					}
-					if err := statsTree.Destroy(); err != nil {
-						retErr = err
-						return
-					}
-				}()
+				stats.Path = path.Join("/", logger.template.DatumID)
+				stats.JobID = jobInfo.Job.ID
 				defer func() {
 					object, size, err := logger.Close()
 					if err != nil && retErr == nil {
 						retErr = err
 						return
 					}
-					if object != nil && a.pipelineInfo.EnableStats {
+					if object != nil {
+						stats.Logs = object
 						if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
 							retErr = err
 							return
