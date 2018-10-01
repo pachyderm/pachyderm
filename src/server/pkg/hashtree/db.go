@@ -2333,34 +2333,39 @@ func (d *DatumHashTree) handleEndOfDirectory(path string) {
 
 func (d *DatumHashTree) Serialize(_w io.Writer, datum string) error {
 	w := pbutil.NewWriter(snappy.NewWriter(_w))
-	if err := w.Write(&BucketHeader{Bucket: DatumBucket}); err != nil {
+	if err := WriteBucket(w, DatumBucket, func() error {
+		if err := w.WriteBytes([]byte(datum)); err != nil {
+			return err
+		}
+		return w.WriteBytes(exists)
+	}); err != nil {
 		return err
 	}
-	if err := w.WriteBytes([]byte(datum)); err != nil {
+	if err := WriteBucket(w, FsBucket, func() error { return d.SerializeFS(w, "") }); err != nil {
 		return err
 	}
-	if err := w.WriteBytes(exists); err != nil {
-		return err
-	}
-	if err := w.WriteBytes(SentinelByte); err != nil {
-		return err
-	}
-	if err := w.Write(&BucketHeader{Bucket: FsBucket}); err != nil {
-		return err
-	}
+	return WriteBucket(w, ObjectBucket, func() error { return nil })
+}
+
+func (d *DatumHashTree) SerializeFS(w pbutil.Writer, root string) error {
 	d.fs[0].protoBuf.Hash = d.fs[0].hash.Sum(nil)
+	prefix := b(root)
 	for _, n := range d.fs {
 		if err := w.WriteBytes(b(n.path)); err != nil {
 			return err
 		}
-		if err := w.Write(n.protoBuf); err != nil {
-			return err
-		}
+		// Write node
 	}
 	if err := w.WriteBytes(SentinelByte); err != nil {
 		return err
 	}
-	if err := w.Write(&BucketHeader{Bucket: ObjectBucket}); err != nil {
+}
+
+func WriteBucket(w pbutil.Writer, bucket string, f func() error) error {
+	if err := w.Write(&BucketHeader{Bucket: bucket}); err != nil {
+		return err
+	}
+	if err := f(); err != nil {
 		return err
 	}
 	if err := w.WriteBytes(SentinelByte); err != nil {
@@ -2368,3 +2373,37 @@ func (d *DatumHashTree) Serialize(_w io.Writer, datum string) error {
 	}
 	return nil
 }
+
+type DatumStats struct {
+	Path    string
+	JobID   string
+	statsFs []*node
+	datum   *DatumHashTree
+}
+
+func (d *DatumStats) Serialize(_w io.Writer, datum string) {
+	w := pbutil.NewWriter(snappy.NewWriter(_w))
+	if err := WriteBucket(w, DatumBucket, func() error {
+		if err := w.WriteBytes([]byte(datum)); err != nil {
+			return err
+		}
+		return w.WriteBytes(exists)
+	}); err != nil {
+		return err
+	}
+	path.Join(d.Path, fmt.Sprintf("job:%s", d.JobID))
+	if err := WriteBucket(w, FsBucket, func() error {
+		return d.datum.SerializeFS(w)
+	}); err != nil {
+		return err
+	}
+	return WriteBucket(w, ObjectBucket, func() error { return nil })
+}
+
+//func (d *DatumStats) PutFile(path string, blockRefs []*pfs.BlockRef) {
+//	var size uint64
+//	for _, blockRef := range blockRefs {
+//		size += blockRef.Block.Upper - blockRef.Block.Lower
+//	}
+//	d.fs[]
+//}
