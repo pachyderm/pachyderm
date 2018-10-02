@@ -2266,16 +2266,16 @@ type DatumHashTree struct {
 }
 
 type node struct {
-	path     string
-	protoBuf *NodeProto
-	hash     hash.Hash
+	path string
+	pb   *NodeProto
+	hash hash.Hash
 }
 
 func NewDatumHashTree(path string) *DatumHashTree {
 	path = clean(path)
 	n := &node{
 		path: path,
-		protoBuf: &NodeProto{
+		pb: &NodeProto{
 			Name:    base(path),
 			DirNode: &DirectoryNodeProto{},
 		},
@@ -2292,7 +2292,7 @@ func (d *DatumHashTree) PutDir(path string) {
 	d.handleEndOfDirectory(path)
 	n := &node{
 		path: path,
-		protoBuf: &NodeProto{
+		pb: &NodeProto{
 			Name:    base(path),
 			DirNode: &DirectoryNodeProto{},
 		},
@@ -2307,7 +2307,7 @@ func (d *DatumHashTree) PutFile(path string, hash []byte, size int64, fileNode *
 	d.handleEndOfDirectory(path)
 	n := &node{
 		path: path,
-		protoBuf: &NodeProto{
+		pb: &NodeProto{
 			Name:        base(path),
 			Hash:        hash,
 			SubtreeSize: size,
@@ -2315,19 +2315,19 @@ func (d *DatumHashTree) PutFile(path string, hash []byte, size int64, fileNode *
 		},
 	}
 	d.fs = append(d.fs, n)
-	d.dirStack[len(d.dirStack)-1].hash.Write([]byte(fmt.Sprintf("%s:%s:", n.protoBuf.Name, n.protoBuf.Hash)))
-	d.dirStack[len(d.dirStack)-1].protoBuf.SubtreeSize += size
+	d.dirStack[len(d.dirStack)-1].hash.Write([]byte(fmt.Sprintf("%s:%s:", n.pb.Name, n.pb.Hash)))
+	d.dirStack[len(d.dirStack)-1].pb.SubtreeSize += size
 }
 
 func (d *DatumHashTree) handleEndOfDirectory(path string) {
 	parent, _ := split(path)
 	if parent != d.dirStack[len(d.dirStack)-1].path {
 		child := d.dirStack[len(d.dirStack)-1]
-		child.protoBuf.Hash = child.hash.Sum(nil)
+		child.pb.Hash = child.hash.Sum(nil)
 		d.dirStack = d.dirStack[:len(d.dirStack)-1]
 		parent := d.dirStack[len(d.dirStack)-1]
-		parent.hash.Write([]byte(fmt.Sprintf("%s:%s:", child.protoBuf.Name, child.protoBuf.Hash)))
-		parent.protoBuf.SubtreeSize += child.protoBuf.SubtreeSize
+		parent.hash.Write([]byte(fmt.Sprintf("%s:%s:", child.pb.Name, child.pb.Hash)))
+		parent.pb.SubtreeSize += child.pb.SubtreeSize
 	}
 }
 
@@ -2348,17 +2348,21 @@ func (d *DatumHashTree) Serialize(_w io.Writer, datum string) error {
 }
 
 func (d *DatumHashTree) SerializeFS(w pbutil.Writer, root string) error {
-	d.fs[0].protoBuf.Hash = d.fs[0].hash.Sum(nil)
-	prefix := b(root)
+	d.fs[0].pb.Hash = d.fs[0].hash.Sum(nil)
 	for _, n := range d.fs {
-		if err := w.WriteBytes(b(n.path)); err != nil {
+		if err := w.WriteBytes(b(filepath.Join(root, n.path))); err != nil {
 			return err
 		}
-		// Write node
+		n.pb.Hash = n.hash.Sum(nil)
+		v, err := n.pb.Marshal()
+		if err != nil {
+			return err
+		}
+		if err := w.WriteBytes(v); err != nil {
+			return err
+		}
 	}
-	if err := w.WriteBytes(SentinelByte); err != nil {
-		return err
-	}
+	return w.WriteBytes(SentinelByte)
 }
 
 func WriteBucket(w pbutil.Writer, bucket string, f func() error) error {
@@ -2377,11 +2381,14 @@ func WriteBucket(w pbutil.Writer, bucket string, f func() error) error {
 type DatumStats struct {
 	Path    string
 	JobID   string
+	Logs    *pfs.Object
+	Stats   *pfs.Object
 	statsFs []*node
-	datum   *DatumHashTree
+	Pfs     *DatumHashTree
+	Failure *pfs.Object
 }
 
-func (d *DatumStats) Serialize(_w io.Writer, datum string) {
+func (d *DatumStats) Serialize(_w io.Writer, datum string) error {
 	w := pbutil.NewWriter(snappy.NewWriter(_w))
 	if err := WriteBucket(w, DatumBucket, func() error {
 		if err := w.WriteBytes([]byte(datum)); err != nil {
@@ -2391,9 +2398,9 @@ func (d *DatumStats) Serialize(_w io.Writer, datum string) {
 	}); err != nil {
 		return err
 	}
-	path.Join(d.Path, fmt.Sprintf("job:%s", d.JobID))
+	filepath.Join(d.Path, fmt.Sprintf("job:%s", d.JobID))
 	if err := WriteBucket(w, FsBucket, func() error {
-		return d.datum.SerializeFS(w)
+		return d.Pfs.SerializeFS(w, filepath.Join(d.Path, "pfs"))
 	}); err != nil {
 		return err
 	}
