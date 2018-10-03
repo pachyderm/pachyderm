@@ -334,7 +334,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			pipelineInfo.Transform,
 			pipelineInfo.CacheSize,
 			pipelineInfo.Service,
-			pipelineInfo.SpecCommit.ID)
+			pipelineInfo.SpecCommit.ID,
+			pipelineInfo.SchedulingSpec)
 		// Set the pipeline name env
 		options.workerEnv = append(options.workerEnv, v1.EnvVar{
 			Name:  client.PPSPipelineNameEnv,

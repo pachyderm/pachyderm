@@ -700,6 +700,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.DatumTimeout = pipelineInfo.DatumTimeout
 	result.JobTimeout = pipelineInfo.JobTimeout
 	result.DatumTries = pipelineInfo.DatumTries
+	result.SchedulingSpec = pipelineInfo.SchedulingSpec
 	return result, nil
 }
 
@@ -1752,6 +1753,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		JobTimeout:       request.JobTimeout,
 		Standby:          request.Standby,
 		DatumTries:       request.DatumTries,
+		SchedulingSpec:   request.SchedulingSpec,
 	}
 	setPipelineDefaults(pipelineInfo)
 
