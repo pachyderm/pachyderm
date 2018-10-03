@@ -2383,7 +2383,6 @@ type DatumStats struct {
 	JobID   string
 	Logs    *pfs.Object
 	Stats   *pfs.Object
-	statsFs []*node
 	Pfs     *DatumHashTree
 	Failure *pfs.Object
 }
@@ -2398,7 +2397,9 @@ func (d *DatumStats) Serialize(_w io.Writer, datum string) error {
 	}); err != nil {
 		return err
 	}
-	filepath.Join(d.Path, fmt.Sprintf("job:%s", d.JobID))
+	if err := w.WriteBytes(b(filepath.Join(d.Path, fmt.Sprintf("job:%s", d.JobID)))); err != nil {
+		return err
+	}
 	if err := WriteBucket(w, FsBucket, func() error {
 		return d.Pfs.SerializeFS(w, filepath.Join(d.Path, "pfs"))
 	}); err != nil {
@@ -2406,11 +2407,3 @@ func (d *DatumStats) Serialize(_w io.Writer, datum string) error {
 	}
 	return WriteBucket(w, ObjectBucket, func() error { return nil })
 }
-
-//func (d *DatumStats) PutFile(path string, blockRefs []*pfs.BlockRef) {
-//	var size uint64
-//	for _, blockRef := range blockRefs {
-//		size += blockRef.Block.Upper - blockRef.Block.Lower
-//	}
-//	d.fs[]
-//}
