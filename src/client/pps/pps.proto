@@ -193,6 +193,10 @@ message ResourceSpec {
 
   // The number of GPUs each worker needs.
   int64 gpu = 3;
+
+  // The amount of ephemeral stoage, in bytes, each worker needs (in bytes, with allowed
+  // SI suffixes (M, K, G, Mi, Ki, Gi, etc).
+  string disk = 4;
 }
 
 // EtcdJobInfo is the portion of the JobInfo that gets stored in etcd during
@@ -258,6 +262,7 @@ message JobInfo {
   google.protobuf.Duration datum_timeout = 38;
   google.protobuf.Duration job_timeout = 39;
   int64 datum_tries = 41;
+  SchedulingSpec scheduling_spec = 42;
 }
 
 enum WorkerState {
@@ -365,6 +370,7 @@ message PipelineInfo {
   pfs.Commit spec_commit = 36;
   bool standby = 37;
   int64 datum_tries = 39;
+  SchedulingSpec scheduling_spec = 40;
 }
 
 message PipelineInfos {
@@ -500,6 +506,11 @@ message ChunkSpec {
   int64 size_bytes = 2;
 }
 
+message SchedulingSpec {
+  map<string, string> node_selector = 1;
+  string priority_class_name = 2;
+}
+
 message CreatePipelineRequest {
   reserved 3, 4;
   Pipeline pipeline = 1;
@@ -528,6 +539,7 @@ message CreatePipelineRequest {
   string salt = 26;
   bool standby = 27;
   int64 datum_tries = 28;
+  SchedulingSpec scheduling_spec = 29;
 }
 
 message InspectPipelineRequest {
