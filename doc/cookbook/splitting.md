@@ -72,7 +72,7 @@ $ pachctl put-file users master -c -f user_data.txt --split line --target-file-b
 Additionally, if your data has a common header or footer, you can specify these
 manually via `pachctl put-header` or `pachctl put-footer`. This is helpful for CSV data.
 
-To do this, you'll need to specify the header/footer on the parent directory of your data. Below we have an example of splitting a CSV with a header, then setting the header explicitly. Notice that once we've set the header, whenever we get a file under that directory, the header is applied. You can still use glob patterns to get all the data under the directory, and in that case the header is still applied.
+To do this, you'll need to specify the header/footer on the _parent directory_ of your data. It's a little "magical", but you're essentially embedding the header/footer into the directory and then Pachyderm will apply that header/footer to all the files in that directory. Below we have an example of splitting a CSV with a header, then setting the header explicitly. Notice that once we've set the header, whenever we get a file under that directory, the header is applied. You can still use glob patterns to get all the data under the directory, and in that case the header is still applied.
 
 ```
 # Raw CSV
@@ -107,7 +107,7 @@ id,name,email
 7,bob,bbb@place.com
 ```
 
-For more info see `pachctl put-header --help`
+For more info, such as how to delete a header/footer, see `pachctl put-header --help`.
 
 ## PG Dump / SQL Support
 
@@ -167,9 +167,9 @@ COPY public.users (id, name, saying) FROM stdin;
 ```
 
 
-2) Ingest using split file
+2) Ingest SQL data using split file
 
-When you use `pachctl put-file --split ...` your pg dump file is split into
+When you use `pachctl put-file --split sql ...` your pg dump file is split into
 three parts - the header, rows, and the footer. The header contains all the SQL
 statements in the pg dump that setup the schema and tables. The rows are split
 into individual files (or if you specify the `--target-file-datums` or 
@@ -185,7 +185,7 @@ recreating the full pg dump. In this way, you can construct full or partial
 pg dump files so that you can load full or partial data sets.
 
 ```
-$ pachctl put-file data master -c -f users.pgdump --split sql
+$ pachctl put-file data master -f users.pgdump --split sql
 $ pachctl put-file data master users --split sql -f users.pgdump 
 $ pachctl list-file data master
 NAME         TYPE SIZE 
