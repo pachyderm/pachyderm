@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
@@ -35,6 +36,7 @@ type workerOptions struct {
 	volumeMounts     []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
 	etcdPrefix       string              // the prefix in etcd to use
 	schedulingSpec   *pps.SchedulingSpec // the SchedulingSpec for the pipeline
+	podSpec          string
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -177,13 +179,18 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		resourceRequirements.Limits = *options.resourceLimits
 	}
 	podSpec.Containers[0].Resources = resourceRequirements
+	if options.podSpec != "" {
+		if err := json.Unmarshal([]byte(options.podSpec), podSpec); err != nil {
+			return v1.PodSpec{}, err
+		}
+	}
 	return podSpec, nil
 }
 
 func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
-	transform *pps.Transform, cacheSize string,
-	service *pps.Service, specCommitID string, schedulingSpec *pps.SchedulingSpec) *workerOptions {
+	transform *pps.Transform, cacheSize string, service *pps.Service,
+	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string) *workerOptions {
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
@@ -334,6 +341,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		cacheSize:        cacheSize,
 		service:          service,
 		schedulingSpec:   schedulingSpec,
+		podSpec:          podSpec,
 	}
 }
 
