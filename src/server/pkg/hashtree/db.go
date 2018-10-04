@@ -928,7 +928,7 @@ type mergeStream struct {
 
 func NewMergeStream(r io.ReadCloser, filter func(path []byte) (bool, error)) (*mergeStream, error) {
 	rBuf := bufio.NewReaderSize(r, DefaultMergeBufSize)
-	if _, err := rBuf.Peek(DefaultMergeBufSize); err != nil {
+	if _, err := rBuf.Peek(DefaultMergeBufSize); err != nil && err != io.EOF {
 		return nil, err
 	}
 	m := &mergeStream{
