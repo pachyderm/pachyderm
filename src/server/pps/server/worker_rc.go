@@ -162,8 +162,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		TerminationGracePeriodSeconds: &zeroVal,
 		SecurityContext:               &v1.PodSecurityContext{RunAsUser: &zeroVal},
 		ServiceAccountName:            assets.ServiceAccountName,
-		NodeSelector:                  options.schedulingSpec.NodeSelector,
-		PriorityClassName:             options.schedulingSpec.PriorityClassName,
+	}
+	if options.schedulingSpec != nil {
+		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
+		podSpec.PriorityClassName = options.schedulingSpec.PriorityClassName
 	}
 	resourceRequirements := v1.ResourceRequirements{
 		Requests: map[v1.ResourceName]resource.Quantity{
