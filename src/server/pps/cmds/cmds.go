@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"strings"
 
+	units "github.com/docker/go-units"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -724,7 +725,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
-	var memoryBytes int64
+	var memory string
 	garbageCollect := &cobra.Command{
 		Use:   "garbage-collect",
 		Short: "Garbage collect unused data.",
@@ -756,10 +757,14 @@ you can increase the amount of memory used for the bloom filters with the
 			if err != nil {
 				return err
 			}
+			memoryBytes, err := units.RAMInBytes(memory)
+			if err != nil {
+				return err
+			}
 			return client.GarbageCollect(memoryBytes)
 		}),
 	}
-	getLogs.Flags().Int64VarP(&memoryBytes, "memory", "m", 0, "The amount of memory (in bytes) to use during garbage collection.")
+	garbageCollect.Flags().StringVarP(&memory, "memory", "m", "0", "The amount of memory to use during garbage collection. Default is 10MB.")
 
 	var result []*cobra.Command
 	result = append(result, job)
