@@ -3543,6 +3543,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
+				Disk:   "10M",
 			},
 			Input: &pps.Input{
 				Atom: &pps.AtomInput{
@@ -3587,6 +3588,9 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.Equal(t, "100M", mem.String())
 	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
 	require.False(t, ok)
+	disk, ok := context.Resources.Requests[v1.ResourceStorage]
+	require.True(t, ok)
+	require.Equal(t, "10M", disk.String())
 }
 
 func TestPipelineResourceLimit(t *testing.T) {
