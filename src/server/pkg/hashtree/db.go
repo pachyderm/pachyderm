@@ -2150,27 +2150,30 @@ func GetHashTreeTag(pachClient *client.APIClient, storageRoot string, treeRef *p
 	})
 }
 
-func getHashTree(storageRoot string, f func(io.Writer) error) (HashTree, error) {
-	r, w := io.Pipe()
-	var eg errgroup.Group
-	eg.Go(func() (retErr error) {
-		defer func() {
-			if err := w.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		return f(w)
-	})
-	var tree HashTree
-	eg.Go(func() error {
-		var err error
-		tree, err = DeserializeDBHashTree(storageRoot, r)
-		return err
-	})
-	if err := eg.Wait(); err != nil {
+func getHashTree(storageRoot string, f func(io.Writer) error) (_ HashTree, retErr error) {
+	filePath := dbFile(storageRoot)
+	if err := os.MkdirAll(pathlib.Dir(filePath), 0777); err != nil {
 		return nil, err
 	}
-	return tree, nil
+	file, err := os.Create(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := file.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+		if err := os.Remove(filePath); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := f(file); err != nil {
+		return nil, err
+	}
+	if _, err := file.Seek(0, 0); err != nil {
+		return nil, err
+	}
+	return DeserializeDBHashTree(storageRoot, file)
 }
 
 // PutHashTree is a convenience function for putting a HashTree to an object store.
