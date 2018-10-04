@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -1851,8 +1852,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 	} else {
-		// Create output repo, where we'll store the pipeline spec, future pipeline
-		// output, and pipeline stats
+		// Create output repo, pipeline output, and stats
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 			Repo: &pfs.Repo{pipelineName},
 		}); err != nil && !isAlreadyExistsErr(err) {
@@ -2002,6 +2002,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
+	name, ancestors := ancestry.Parse(name)
 	pipelinePtr := pps.EtcdPipelineInfo{}
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
@@ -2009,6 +2010,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		}
 		return nil, err
 	}
+	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
 	if err != nil {
 		return nil, err
