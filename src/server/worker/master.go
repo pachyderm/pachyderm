@@ -660,43 +660,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
-		// Wait for all merges to happen.
-		merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
-		var trees []*pfs.Object
-		var size uint64
-		for merge := int64(0); merge < plan.Merges; merge++ {
-			if err := func() error {
-				mergeState := &MergeState{}
-				watcher, err := merges.WatchOne(fmt.Sprint(merge))
-				if err != nil {
-					return err
-				}
-				defer watcher.Close()
-			EventLoop:
-				for {
-					select {
-					case e := <-watcher.Watch():
-						var key string
-						if err := e.Unmarshal(&key, mergeState); err != nil {
-							return err
-						}
-						if mergeState.State != State_RUNNING {
-							if mergeState.State == State_FAILED {
-								// TODO handle failure
-							}
-							trees = append(trees, mergeState.Tree)
-							size += mergeState.SizeBytes
-							break EventLoop
-						}
-					case <-ctx.Done():
-						return context.Canceled
-					}
-				}
-				return nil
-			}(); err != nil {
-				return err
-			}
-		}
 		// merge stats into stats commit
 		var statsCommit *pfs.Commit
 		// TODO(bryce) Figure out how stats will work with performance changes
@@ -726,6 +689,44 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		// We only do this if failedDatumID == "", which is to say that all of the chunks succeeded.
 		if failedDatumID == "" {
+			// Wait for all merges to happen.
+			merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
+			var trees []*pfs.Object
+			var size uint64
+			for merge := int64(0); merge < plan.Merges; merge++ {
+				if err := func() error {
+					mergeState := &MergeState{}
+					watcher, err := merges.WatchOne(fmt.Sprint(merge))
+					if err != nil {
+						return err
+					}
+					defer watcher.Close()
+				EventLoop:
+					for {
+						select {
+						case e := <-watcher.Watch():
+							var key string
+							if err := e.Unmarshal(&key, mergeState); err != nil {
+								return err
+							}
+							if mergeState.State != State_RUNNING {
+								if mergeState.State == State_FAILED {
+									// TODO handle failure
+								}
+								trees = append(trees, mergeState.Tree)
+								size += mergeState.SizeBytes
+								break EventLoop
+							}
+						case <-ctx.Done():
+							return context.Canceled
+						}
+					}
+					return nil
+				}(); err != nil {
+					return err
+				}
+			}
+
 			// Finish the job's output commit
 			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit:    jobInfo.OutputCommit,
