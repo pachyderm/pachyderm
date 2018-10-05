@@ -179,7 +179,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}
 	podSpec.Containers[0].Resources = resourceRequirements
 	if options.podSpec != "" {
-		if err := json.Unmarshal([]byte(options.podSpec), podSpec); err != nil {
+		if err := json.Unmarshal([]byte(options.podSpec), &podSpec); err != nil {
 			return v1.PodSpec{}, err
 		}
 	}
