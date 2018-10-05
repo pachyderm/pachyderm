@@ -1070,6 +1070,7 @@ func (r *putObjectReader) Read(p []byte) (int, error) {
 			return 0, err
 		}
 		// buffer.Write cannot error
+		r.buffer.Reset()
 		r.buffer.Write(request.Value)
 		r.tags = append(r.tags, request.Tags...)
 	}

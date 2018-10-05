@@ -559,6 +559,7 @@ func (r *putFileReader) Read(p []byte) (int, error) {
 			return 0, err
 		}
 		//buffer.Write cannot error
+		r.buffer.Reset()
 		r.buffer.Write(request.Value)
 	}
 	return r.buffer.Read(p)
