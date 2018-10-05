@@ -94,7 +94,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	// providers set their own defaults which are usually not what we want.
 	cpuZeroQuantity := resource.MustParse("0")
 	memZeroQuantity := resource.MustParse("0M")
-	diskZeroQuantity := resource.MustParse("0M")
 	memSidecarQuantity := resource.MustParse(options.cacheSize)
 
 	if !a.noExposeDockerSocket {
@@ -149,9 +148,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				VolumeMounts:    sidecarVolumeMounts,
 				Resources: v1.ResourceRequirements{
 					Requests: map[v1.ResourceName]resource.Quantity{
-						v1.ResourceCPU:     cpuZeroQuantity,
-						v1.ResourceMemory:  memSidecarQuantity,
-						v1.ResourceStorage: diskZeroQuantity,
+						v1.ResourceCPU:    cpuZeroQuantity,
+						v1.ResourceMemory: memSidecarQuantity,
 					},
 				},
 			},
@@ -169,9 +167,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}
 	resourceRequirements := v1.ResourceRequirements{
 		Requests: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:     cpuZeroQuantity,
-			v1.ResourceMemory:  memZeroQuantity,
-			v1.ResourceStorage: diskZeroQuantity,
+			v1.ResourceCPU:    cpuZeroQuantity,
+			v1.ResourceMemory: memZeroQuantity,
 		},
 	}
 	if options.resourceRequests != nil {
