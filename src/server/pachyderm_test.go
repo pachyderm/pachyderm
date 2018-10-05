@@ -3544,6 +3544,8 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
+				// TODO reenable this once we test against kube 1.12
+				// Disk:   "10M",
 			},
 			Input: &pps.Input{
 				Atom: &pps.AtomInput{
@@ -3588,6 +3590,10 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.Equal(t, "100M", mem.String())
 	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
 	require.False(t, ok)
+	// TODO reenable this once we test against kube 1.12
+	// disk, ok := container.Resources.Requests[v1.ResourceStorage]
+	// require.True(t, ok)
+	// require.Equal(t, "10M", disk.String())
 }
 
 func TestPipelineResourceLimit(t *testing.T) {
@@ -3798,6 +3804,81 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
+}
+
+func TestPodSpecOpts(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestPodSpecOpts_data")
+	pipelineName := tu.UniqueString("TestPodSpecOpts")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	priorityClassName := "system-cluster-critical"
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+			SchedulingSpec: &pps.SchedulingSpec{
+				// This NodeSelector will cause the worker pod to fail to
+				// schedule, but the test can still pass because we just check
+				// for values on the pod, it doesn't need to actually come up.
+				NodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				PriorityClassName: priorityClassName,
+			},
+			PodSpec: `{
+				"hostname": "hostname"
+			}`,
+		})
+	require.NoError(t, err)
+
+	// Get info about the pipeline pods from k8s & check for resources
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	var pod v1.Pod
+	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := getKubeClient(t)
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+				map[string]string{"app": rcName, "suite": "pachyderm"},
+			)),
+		})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+		}
+		pod = podList.Items[0]
+		return nil // no more retries
+	}, backoff.NewTestingBackOff())
+	require.NoError(t, err)
+	// Make sure a CPU and Memory request are both set
+	require.Equal(t, "bar", pod.Spec.NodeSelector["foo"])
+	// TODO reenable this when we test on a more recent version of k8s
+	// require.Equal(t, priorityClassName, pod.Spec.PriorityClassName)
+	require.Equal(t, "hostname", pod.Spec.Hostname)
 }
 
 func TestPipelineLargeOutput(t *testing.T) {
