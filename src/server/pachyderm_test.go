@@ -3836,6 +3836,9 @@ func TestPodSpecOpts(t *testing.T) {
 				},
 			},
 			SchedulingSpec: &pps.SchedulingSpec{
+				// This NodeSelector will cause the worker pod to fail to
+				// schedule, but the test can still pass because we just check
+				// for values on the pod, it doesn't need to actually come up.
 				NodeSelector: map[string]string{
 					"foo": "bar",
 				},
