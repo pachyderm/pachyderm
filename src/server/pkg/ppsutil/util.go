@@ -83,11 +83,13 @@ func getResourceListFromSpec(resources *pps.ResourceSpec, cacheSize string) (*v1
 		result[v1.ResourceMemory] = memQuantity
 	}
 
-	diskQuantity, err := resource.ParseQuantity(resources.Disk)
-	if err != nil {
-		log.Warnf("error parsing disk string: %s: %+v", resources.Disk, err)
-	} else {
-		result[v1.ResourceStorage] = diskQuantity
+	if resources.Disk != "" { // needed because not all versions of k8s support disk resources
+		diskQuantity, err := resource.ParseQuantity(resources.Disk)
+		if err != nil {
+			log.Warnf("error parsing disk string: %s: %+v", resources.Disk, err)
+		} else {
+			result[v1.ResourceStorage] = diskQuantity
+		}
 	}
 
 	// Here we are sanity checking.  A pipeline should request at least
