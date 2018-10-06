@@ -69,7 +69,12 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "chunk_spec": {
     "number": int,
     "size_bytes": int
-  }
+  },
+  "scheduling_spec": {
+    "node_selector": {string: string},
+    "priority_class_name": string
+  },
+  "pod_spec": string
 }
 
 ------------------------------------
@@ -555,7 +560,7 @@ there's a cap of 10,000 `lazy` files per worker and multiple datums that are
 running all count against this limit.
 
 ### Chunk Spec (optional)
-`chunk_spec` specifies how a pipeline should chunk its datums. 
+`chunk_spec` specifies how a pipeline should chunk its datums.
 
 `chunk_spec.number` if nonzero, specifies that each chunk should contain `number`
  datums. Chunks may contain fewer if the total number of datums don't
@@ -565,6 +570,34 @@ running all count against this limit.
  Chunks may be larger or smaller than `size_bytes`, but will usually be
  pretty close to `size_bytes` in size.
 
+### Scheduling Spec (optional)
+`scheduling_spec` specifies how the pods for a pipeline should be scheduled.
+
+`scheduling_spec.node_selector` allows you to select which nodes your pipeline
+will run on. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
+on node selectors for more information about how this works.
+
+`scheduling_spec.priority_class_name` allows you to select the prioriy class
+for the pipeline, which will how Kubernetes chooses to schedule and deschedule
+the pipeline. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
+on priority and preemption for more information about how this works.
+
+### Pod Spec (optional)
+`pod_spec` is an advanced option that allows you to set fields in the pod spec
+that haven't been explicitly exposed in the rest of the pipeline spec. A good
+way to figure out what JSON you should pass is to create a pod in Kubernetes
+with the proper settings, then do:
+
+```
+kubectl get po/<pod-name> -o json | jq .spec
+```
+
+this will give you a correctly formated piece of JSON, you should then remove
+the extraneous fields that Kubernetes injects or that can be set else where.
+
+The JSON is applied after the other parameters for the `pod_spec` have already
+been set. This means that you can modify things such as the storage and user
+containers.
 
 ## The Input Glob Pattern
 
