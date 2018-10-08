@@ -323,9 +323,12 @@ var defaultDashRedirectURL = &url.URL{
 
 func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, error) {
 	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
-	defer a.configMu.Unlock()
+	if a.configCache == nil {
+		return "", http.StatusConflict, errors.New("auth has no active config (either never set or disabled)")
+	}
 	if a.samlSP == nil {
 		return "", http.StatusConflict, errors.New("SAML ACS has not been configured or was disabled")
 	}
@@ -358,7 +361,7 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, 
 	}
 
 	// Success
-	username := a.configCache.IDPName + assertion.Subject.NameID.Value
+	username := fmt.Printf("%s:%s", a.configCache.IDPName, assertion.Subject.NameID.Value)
 	return username, 0, nil
 
 }
