@@ -3854,7 +3854,7 @@ func TestPodSpecOpts(t *testing.T) {
 
 	var pod v1.Pod
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
