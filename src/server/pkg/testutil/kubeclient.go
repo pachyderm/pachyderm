@@ -2,7 +2,6 @@ package testutil
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"os"
 	"os/exec"
@@ -18,9 +17,6 @@ import (
 // connect to the same cluster as kubectl)
 func GetKubeClient(t testing.TB) *kube.Clientset {
 	var config *rest.Config
-	wd, err := os.Getwd()
-	fmt.Printf("cur wd: %v (err: %v)\n", wd, err)
-	fmt.Printf("KUBECONFIG: %v\n", os.Getenv("KUBECONFIG"))
 	host := os.Getenv("KUBERNETES_SERVICE_HOST")
 	if host != "" {
 		var err error
@@ -47,7 +43,6 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 			require.NoError(t, cmd.Run(), "couldn't get kubernetes context info")
 			lines := strings.Split(buf.String(), "\n")
 			clustername, username := lines[0], lines[1]
-			fmt.Printf("clustername: %v\nusername: %v\n", clustername, username)
 
 			// Get user info
 			buf.Reset()
@@ -74,7 +69,6 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 			require.NoError(t, cmd.Run(), "couldn't get kubernetes cluster info: %s", buf.String())
 			lines = strings.Split(buf.String(), "\n")
 			address, CAKey := lines[0], lines[1]
-			fmt.Printf("address: %v\n", address)
 
 			// Generate config
 			config = &rest.Config{
@@ -86,7 +80,6 @@ func GetKubeClient(t testing.TB) *kube.Clientset {
 				},
 			}
 		} else {
-			fmt.Printf("kubectl config current-context yielded: %v\n", err)
 			// no context -- talking to localhost
 			config = &rest.Config{
 				Host: "http://0.0.0.0:8080",
