@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.10
+
+- Adds `put-file --split` support for SQL dumps. (#3064)
+- Adds support for headers and footers for data types passed to `--split` such as CSV and the above mentioned SQL. (#3064)
+- Adds support for accessing previous versions of pipelines using the same syntax as is used with commits. I.e. `pachctl inspect-pipeline foo^` will give the previous version of `foo`. (#3159)
+- Adds support in pipelines for additional Kubernetes primitives on workers, including: node selectors, priority class and storage requests and limits. Additionally there is now a field in the pipeline spec `pod_spec` that allows you to set any field on the pod using json. (#3169)
+
 ## 1.7.9
 
 - Moves garbage collection over to a bloom filter based indexing method. This
