@@ -1888,11 +1888,13 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	// check prefix against config cache
-	if prefix == a.configCache.IDPName {
-		return subject, nil
-	}
-	if prefix == path.Join("group", a.configCache.IDPName) {
-		return subject, nil // TODO(msteffen): check if this IdP supports groups
+	if a.configCache != nil {
+		if prefix == a.configCache.IDPName {
+			return subject, nil
+		}
+		if prefix == path.Join("group", a.configCache.IDPName) {
+			return subject, nil // TODO(msteffen): check if this IdP supports groups
+		}
 	}
 
 	// check against fixed prefixes
