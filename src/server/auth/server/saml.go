@@ -361,7 +361,7 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, 
 	}
 
 	// Success
-	username := fmt.Printf("%s:%s", a.configCache.IDPName, assertion.Subject.NameID.Value)
+	username := fmt.Sprintf("%s:%s", a.configCache.IDPName, assertion.Subject.NameID.Value)
 	return username, 0, nil
 
 }
