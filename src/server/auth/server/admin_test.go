@@ -1807,4 +1807,16 @@ func TestSAMLBasic(t *testing.T) {
 	// which contains randomly-generated OTP
 	require.Equal(t, defaultDashRedirectURL.Host, redirectLocation.Host)
 	require.Equal(t, defaultDashRedirectURL.Path, redirectLocation.Path)
+
+	otp := redirectLocation.Query()["auth_code"][0]
+	require.NotEqual(t, "", otp)
+	newClient := getPachClient(t, "")
+	authResp, err := newClient.Authenticate(newClient.Ctx(), &auth.AuthenticateRequest{
+		PachAuthenticationCode: otp,
+	})
+	require.NoError(t, err)
+	newClient.SetAuthToken(authResp.PachToken)
+	whoAmIResp, err := newClient.WhoAmI(newClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "idp_1:jane.doe@example.com", whoAmIResp.Username)
 }
