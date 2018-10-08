@@ -98,8 +98,8 @@ type apiServer struct {
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // guard 'adminCache'
 
-	configCache authclient.AuthConfig // cache of auth config in etcd
-	configMu    sync.Mutex            // guard 'configCache'. Always lock before 'samlSPMu' (if using both)
+	configCache *canonicalConfig // cache of auth config in etcd
+	configMu    sync.Mutex       // guard 'configCache'. Always lock before 'samlSPMu' (if using both)
 
 	samlSP          *saml.ServiceProvider // object for parsing saml responses
 	redirectAddress *url.URL              // address where users will be redirected after authenticating
@@ -252,7 +252,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 		// anything until config is set)
 		go s.serveSAML()
 	}
-	// Watch config for new SAML options
+	// Watch for new auth config options
 	go s.watchConfig()
 	return s, nil
 }
@@ -399,6 +399,8 @@ func (a *apiServer) watchConfig() {
 				// Lock a.configMu in case we need to modify a.configCache
 				a.configMu.Lock()
 				defer a.configMu.Unlock()
+				a.samlSPMu.Lock()
+				defer a.samlSPMu.Unlock()
 
 				// Parse event data and potentially update configCache
 				var key string // always configKey, just need to put it somewhere
@@ -406,16 +408,16 @@ func (a *apiServer) watchConfig() {
 				ev.Unmarshal(&key, &configProto)
 				switch ev.Type {
 				case watch.EventPut:
-					a.configCache = configProto
+					if err := a.tryUpdateConfig(&configProto); err != nil {
+						logrus.Warnf("could not update SAML service with new config: %v", err)
+					}
 				case watch.EventDelete:
-					a.configCache.Reset()
+					a.configCache = nil
+					a.samlSP = nil
 				case watch.EventError:
 					return ev.Err
 				}
-				if err := a.updateSAMLSP(); err != nil {
-					logrus.Warnf("could not update SAML service with new config: %v", err)
-				}
-				return nil // unlock mu
+				return nil // unlock configMu and samlSPMu
 			}(); err != nil {
 				return err
 			}
@@ -1885,14 +1887,12 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 	prefix := subject[:colonIdx]
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
-	// TODO(msteffen): check prefix against config cache
-	for _, idp := range a.configCache.IDProviders {
-		if prefix == idp.Name {
-			return subject, nil
-		}
-		if prefix == path.Join("group", idp.Name) {
-			return subject, nil // TODO(msteffen): check if this IdP supports groups
-		}
+	// check prefix against config cache
+	if prefix == a.configCache.IDPName {
+		return subject, nil
+	}
+	if prefix == path.Join("group", a.configCache.IDPName) {
+		return subject, nil // TODO(msteffen): check if this IdP supports groups
 	}
 
 	// check against fixed prefixes
@@ -1959,11 +1959,19 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	}
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
-	if a.configCache.LiveConfigVersion < currentConfig.LiveConfigVersion {
-		logrus.Printf("current config (v.%d) is newer than cache (v.%d); updating cache",
-			currentConfig.LiveConfigVersion, a.configCache.LiveConfigVersion)
-		a.configCache = currentConfig
-	} else if a.configCache.LiveConfigVersion > currentConfig.LiveConfigVersion {
+	a.samlSPMu.Lock()
+	defer a.samlSPMu.Unlock()
+	if a.configCache == nil || a.configCache.Version < currentConfig.LiveConfigVersion {
+		var cacheVersion int64
+		if a.configCache != nil {
+			cacheVersion = a.configCache.Version
+		}
+		logrus.Printf("current config (v.%d) is newer than cache (v.%d); attempting to update cache",
+			currentConfig.LiveConfigVersion, cacheVersion)
+		if err := a.tryUpdateConfig(&currentConfig); err != nil {
+			logrus.Warnf("could not update SAML service with new config: %v", err)
+		}
+	} else if a.configCache.Version > currentConfig.LiveConfigVersion {
 		logrus.Warnln("config cache is NEWER than live config; this shouldn't happen")
 	}
 	return &authclient.GetConfigurationResponse{
@@ -1994,37 +2002,23 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 	}
 
 	// Validate new config
-	for _, idp := range req.Configuration.IDProviders {
-		if idp.Name == "" {
-			return nil, errors.New("All ID providers must have a name specified " +
-				"(for use during authorization)")
-		}
-		// TODO(msteffen): make sure we don't have to extend this every time we add
-		// a new built-in backend.
-		switch idp.Name {
-		case authclient.GitHubPrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				authclient.GitHubPrefix)
-		case authclient.RobotPrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				authclient.RobotPrefix)
-		case authclient.PipelinePrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				authclient.PipelinePrefix)
-		}
+	canonicalConfig, err := validateConfig(req.Configuration, external)
+	if err != nil {
+		return nil, err
 	}
 
 	// upsert new config
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		var currentConfig authclient.AuthConfig
 		return a.authConfig.ReadWrite(stm).Upsert(configKey, &currentConfig, func() error {
-			if currentConfig.LiveConfigVersion != req.Configuration.LiveConfigVersion {
+			currentConfigVersion := currentConfig.LiveConfigVersion
+			if currentConfigVersion != req.Configuration.LiveConfigVersion {
 				return fmt.Errorf("expected config version %d, but live config has version %d",
 					req.Configuration.LiveConfigVersion, currentConfig.LiveConfigVersion)
 			}
 			currentConfig.Reset()
-			currentConfig = *req.Configuration
-			currentConfig.LiveConfigVersion++
+			currentConfig = *canonicalConfig.ToProto()
+			currentConfig.LiveConfigVersion = currentConfigVersion + 1
 			return nil
 		})
 	}); err != nil {

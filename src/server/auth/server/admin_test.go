@@ -10,9 +10,10 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"net"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -29,12 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cert"
-
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 func RepoInfoToName(repoInfo interface{}) interface{} {
@@ -1680,179 +1676,125 @@ func TestSAMLBasic(t *testing.T) {
 	}
 	deleteAll(t)
 	adminClient := getPachClient(t, admin)
-	const (
-		samlIDPName      = "pach-fake-saml-id-provider"
-		metadataPortName = "metadata-port"
-	)
-	var labels = map[string]string{
-		"suite": "pachyderm",
-		"app":   samlIDPName,
-	}
 
-	tlsCert, err := cert.GenerateSelfSignedCert(samlIDPName, nil)
+	const samlIDPName = "pach-fake-saml-id-provider"
+
+	var (
+		idpSSOURL        = "http://idp.example.com/" // used for e.g. certs, but never queried
+		idpMetadataURL   = fmt.Sprintf("http://%s.default.svc.cluster.local:%d/", samlIDPName, 80)
+		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.GetAddress())
+		pachdACSURL      = fmt.Sprintf("http://%s/saml/acs", pachdSAMLAddress)
+		pachdMetadataURL = fmt.Sprintf("http://%s/saml/metadata", pachdSAMLAddress)
+		session          = &saml.Session{
+			ID:     "0000000001",
+			NameID: "jane.doe@example.com",
+		}
+	)
+
+	// Generate self-signed cert for the IdP
+	idpCert, err := cert.GenerateSelfSignedCert(samlIDPName, nil)
 	require.NoError(t, err)
 
-	// TODO(start SAML metadata service in k8s cluster)
-	var kc *kube.Clientset
-	kc = tu.GetKubeClient(t)
-	// Delete existing pod if there is one (leftover from previous test)
-	kc.Core().Pods(v1.NamespaceDefault).Delete(samlIDPName, nil)
-	// Create new IdP pod
-	_, err = kc.Core().Pods(v1.NamespaceDefault).Create(&v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   samlIDPName,
-			Labels: labels,
-		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
-				v1.Container{
-					Name:  samlIDPName,
-					Image: "pachyderm/saml-idp",
-					Env: []v1.EnvVar{{
-						Name:  "PUBLIC_CERT",
-						Value: string(cert.PublicCertToPEM(tlsCert)),
-					}},
-					Ports: []v1.ContainerPort{
-						v1.ContainerPort{
-							ContainerPort: 80,
-							Protocol:      v1.ProtocolTCP,
-							Name:          metadataPortName,
-						},
-					},
-					ImagePullPolicy: "Always",
-				},
-			},
-		},
-	})
-	// Create IdP servie
-	_, err = kc.Core().Services(v1.NamespaceDefault).Get(samlIDPName, metav1.GetOptions{})
-	if err != nil {
-		_, err = kc.Core().Services(v1.NamespaceDefault).Create(&v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:   samlIDPName, // svc name == domain name where IdP can be accessed
-				Labels: labels,
-			},
-			Spec: v1.ServiceSpec{
-				Type: v1.ServiceTypeClusterIP,
-				Ports: []v1.ServicePort{v1.ServicePort{
-					Name:       metadataPortName,
-					TargetPort: intstr.IntOrString{StrVal: metadataPortName},
-					Port:       80,
-				}},
-				Selector: labels,
-			},
-		})
-		require.NoError(t, err)
+	var spMetadata saml.EntityDescriptor
+	err = xml.Unmarshal([]byte(`
+		<EntityDescriptor
+		  xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+		  validUntil="`+time.Now().Format(time.RFC3339)+`"
+		  entityID="`+pachdMetadataURL+`">
+      <SPSSODescriptor
+		    xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+		    validUntil="`+time.Now().Format(time.RFC3339)+`"
+		    protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"
+		    AuthnRequestsSigned="false"
+		    WantAssertionsSigned="true">
+        <AssertionConsumerService
+		      Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+		      Location="`+pachdACSURL+`"
+		      index="1">
+		    </AssertionConsumerService>
+      </SPSSODescriptor>
+    </EntityDescriptor>
+  `), &spMetadata)
+	require.NoError(t, err)
+	idp := &saml.IdentityProvider{
+		Key:         idpCert.PrivateKey,
+		Certificate: idpCert.Leaf,
+		MetadataURL: *tu.MustParseURL(t, idpMetadataURL),
+		SSOURL:      *tu.MustParseURL(t, idpSSOURL),
+		ServiceProviderProvider: tu.MockServiceProviderProvider(func(*http.Request, string) (*saml.EntityDescriptor, error) {
+			return &spMetadata, nil
+		}),
+		SessionProvider: tu.ConstSessionProvider(session),
+	}
+	sp := &saml.ServiceProvider{
+		Logger:      log.New(os.Stdout, "[samlsp validation]", log.LstdFlags|log.Lshortfile),
+		AcsURL:      *tu.MustParseURL(t, pachdACSURL),
+		MetadataURL: *tu.MustParseURL(t, pachdMetadataURL),
+		IDPMetadata: idp.Metadata(),
 	}
 
-	// Check that the metadata service is available
-	require.NoError(t, backoff.Retry(func() error {
-		// req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/", idpMetadataPort), nil)
-		// fmt.Printf(">>> fetching metadata with request: %v\n", req)
-		// resp, err := http.DefaultClient.Do(req)
-		// if err != nil {
-		// 	fmt.Printf(">>> metadata fetch error: %v\n", err)
-		// 	return err
-		// }
-		// body, err := ioutil.ReadAll(resp.Body)
-		// if err != nil {
-		// 	fmt.Printf(">>> metadata fetch read body error: %v\n", err)
-		// 	return err
-		// }
-		// fmt.Printf(">>> -------------\nmetadata response body:\n%s\n---------------\n", body)
-		// return err
-		return nil
-	}, backoff.New10sBackOff()))
-
-	// Get current configuration, and then set a configuration
+	// Get current configuration, and then set a configuration (this may need to
+	// be retried if e.g. scraping metadata fails)
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
-		_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
-			Configuration: &auth.AuthConfig{
-				LiveConfigVersion: configResp.Configuration.LiveConfigVersion,
-				IDProviders: []*auth.IDProvider{
-					{
-						Name:        "idp_1",
-						Description: "fake IdP for testing",
-						SAML: &auth.IDProvider_SAMLOptions{
-							MetadataURL: fmt.Sprintf("http://%s:%d/", samlIDPName, 80),
-						},
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: &auth.AuthConfig{
+			LiveConfigVersion: configResp.Configuration.LiveConfigVersion,
+			IDProviders: []*auth.IDProvider{
+				{
+					Name:        "idp_1",
+					Description: "fake IdP for testing",
+					SAML: &auth.IDProvider_SAMLOptions{
+						IDPMetadata: tu.MustMarshalXML(t, idp.Metadata()),
 					},
 				},
-				SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
-					// ACSURL:      ACSURL,
-					// MetadataURL: MetadataURL,
-				},
 			},
-		})
-		return err
+			SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+				ACSURL:      pachdACSURL,
+				MetadataURL: pachdMetadataURL,
+			},
+		},
 	})
+	require.NoError(t, err)
 
-	// Send SAML response (simulated IdP) to SAML endpoint & expect redirect
-	// response
+	// Generate SAMLResponse
+	var clientReq *saml.AuthnRequest
+	var samlRequest *saml.IdpAuthnRequest
+	clientReq, err = sp.MakeAuthenticationRequest(idpSSOURL)
+	require.NoError(t, err)
+	// the SAML library doesn't have a way to generate SAMLResponses other
+	// than for SP-created requests. But Pachyderm only supports IdP-initiated
+	// auth, so just unset the request ID to simulate a standalone response
+	clientReq.ID = ""
+	samlRequest = &saml.IdpAuthnRequest{
+		Now:           time.Now(), // uh
+		IDP:           idp,
+		RequestBuffer: tu.MustMarshalXML(t, clientReq),
+	}
+	samlRequest.HTTPRequest, err = http.NewRequest("POST", idpSSOURL, nil)
+
+	// Populate SP metadata fields in samlRequest (a side effect of Validate())
+	require.NoError(t, samlRequest.Validate())
+	// Generate identity assertion based on samlRequest
+	require.NoError(t, saml.DefaultAssertionMaker{}.MakeAssertion(samlRequest, session))
+	// Sign identity assertion (a side effect of MakeResponse()
+	require.NoError(t, samlRequest.MakeResponse())
+
 	var resp *http.Response
-	require.NoErrorWithinT(t, 30*time.Second, func() (retErr error) {
-		// Create SAMLResponse & xml writer
-		expires := time.Now().Add(time.Hour)
-		authCred := saml.Response{
-			Issuer: &saml.Issuer{},
-			Status: saml.Status{
-				StatusCode: saml.StatusCode{Value: "urn:oasis:names:tc:SAML:2.0:status:Success"},
-			},
-			Assertion: &saml.Assertion{
-				Issuer: saml.Issuer{Value: "urn:example:idp"},
-				Subject: &saml.Subject{
-					NameID: &saml.NameID{
-						Format: "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
-						Value:  "jane.doe@example.com",
-					},
-					SubjectConfirmations: []saml.SubjectConfirmation{{
-						Method: "urn:oasis:names:tc:SAML:2.0:cm:bearer",
-						SubjectConfirmationData: &saml.SubjectConfirmationData{
-							NotBefore:    time.Now().Add(-1 * time.Hour),
-							NotOnOrAfter: expires,
-							// Recipient:    ACSURL,
-						},
-					}},
-				},
-				AuthnStatements: []saml.AuthnStatement{{
-					AuthnInstant:        time.Now(),
-					SessionNotOnOrAfter: &expires,
-					AuthnContext: saml.AuthnContext{
-						AuthnContextClassRef: &saml.AuthnContextClassRef{
-							Value: "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified",
-						},
-					},
-				}},
+	require.NoErrorWithinT(t, 300*time.Second, func() (retErr error) {
+		// By default, http.Client.PostForm follows redirect, but we want to trap it
+		noRedirectClient := http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
 			},
 		}
-		buf := bytes.Buffer{}
-		xmlWriter := xml.NewEncoder(base64.NewEncoder(base64.URLEncoding, &buf))
-
-		// begin writing XML data to pipe http request body (via pipe)
-		var writeErr error
-		go func() {
-			writeErr = authCred.MarshalXML(xmlWriter, xml.StartElement{})
-		}()
-		defer func() {
-			if retErr == nil {
-				retErr = writeErr
-			}
-		}()
-		var err error
-		resp, err = http.DefaultClient.Do(&http.Request{
-			Method: "POST",
-			URL: &url.URL{
-				Scheme: "http",
-				// Host:   net.JoinHostPort(host, samlPort),
-				Host: net.JoinHostPort("host", "0"),
-				// Path:   "saml/acs",
-			},
-			PostForm: url.Values{
-				"SAMLResponse": []string{buf.String()},
-				"RelayState":   []string{},
-			},
+		resp, err = noRedirectClient.PostForm(pachdACSURL, url.Values{
+			"RelayState": []string{""},
+			// crewjam/saml library parses the SAML assertion using base64.StdEncoding
+			// TODO(msteffen) is that is the SAML spec?
+			"SAMLResponse": []string{base64.StdEncoding.EncodeToString(
+				tu.MustMarshalEl(t, samlRequest.ResponseEl),
+			)},
 		})
 		return err
 	})
@@ -1861,5 +1803,8 @@ func TestSAMLBasic(t *testing.T) {
 	require.Equal(t, http.StatusFound, resp.StatusCode, "response body:\n"+buf.String())
 	redirectLocation, err := resp.Location()
 	require.NoError(t, err)
-	require.Equal(t, "http://localhost:30080", redirectLocation)
+	// Compare host and path (i.e. redirect location) but not e.g. query string,
+	// which contains randomly-generated OTP
+	require.Equal(t, defaultDashRedirectURL.Host, redirectLocation.Host)
+	require.Equal(t, defaultDashRedirectURL.Path, redirectLocation.Path)
 }

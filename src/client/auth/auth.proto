@@ -73,6 +73,15 @@ message IDProvider {
     // metadata_url is the URL of the SAML ID provider's metadata service
     // (which Pachd can query to get more info about the SAML ID provider)
     string metadata_url = 1 [(gogoproto.customname) = "MetadataURL"];
+
+    // idp_metadata is a direct reproduction of the ID provider's metadata.
+    // Users can set this field in the argument to SetConfig if the ID provider
+    // can't be reached from pachd (e.g. because it's on a separate network to
+    // which Pachyderm users also have access) or for testing.  Exactly one of
+    // metadata_url and idp_metadata should be set in calls to SetConfig, but
+    // internally, if metadata_url is set, the result of scraping the metadata
+    // URL will be placed here in the result from GetConfig().
+    bytes idp_metadata = 2 [(gogoproto.customname) = "IDPMetadata"];
   }
   SAMLOptions saml = 3 [(gogoproto.customname) = "SAML"];
 }
