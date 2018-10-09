@@ -389,7 +389,7 @@ kubectl %s port-forward "$pod" %d:8080
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
-					fmt.Printf("Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
+					fmt.Fprintf(os.Stderr, "Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
 					return fmt.Errorf("Could not forward dash UI port")
 				}
 				return nil
