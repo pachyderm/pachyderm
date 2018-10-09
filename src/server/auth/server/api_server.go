@@ -1874,6 +1874,7 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 	colonIdx := strings.Index(subject, ":")
 	if colonIdx < 0 {
 		subject = authclient.GitHubPrefix + subject
+		colonIdx = len(authclient.GitHubPrefix) - 1
 	}
 	prefix := subject[:colonIdx]
 	a.configMu.Lock()
