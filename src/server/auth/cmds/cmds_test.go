@@ -6,6 +6,7 @@ package cmds
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"io/ioutil"
 	"os"
@@ -263,11 +264,36 @@ func TestConfig(t *testing.T) {
 	}
 	activateAuth(t)
 	defer deactivateAuth(t)
+
+	idpMetadata := base64.StdEncoding.EncodeToString([]byte(`<EntityDescriptor
+		  xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+		  validUntil="` + time.Now().Format(time.RFC3339) + `"
+		  entityID="metadata">
+      <SPSSODescriptor
+		    xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+		    validUntil="` + time.Now().Format(time.RFC3339) + `"
+		    protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"
+		    AuthnRequestsSigned="false"
+		    WantAssertionsSigned="true">
+        <AssertionConsumerService
+		      Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+		      Location="acs"
+		      index="1">
+		    </AssertionConsumerService>
+      </SPSSODescriptor>
+    </EntityDescriptor>`))
 	require.NoError(t, tu.BashCmd(`
 		echo "admin" | pachctl auth login
 		pachctl auth set-config <<EOF
 		{
 		  "live_config_version": 0,
+		  "id_providers": [{
+		    "name": "idp",
+		    "description": "fake ID provider for testing",
+		    "saml": {
+		      "idp_metadata": "`+idpMetadata+`"
+		    }
+		  }],
 		  "saml_svc_options": {
 		    "acs_url": "http://www.example.com",
 		    "metadata_url": "http://www.example.com"
