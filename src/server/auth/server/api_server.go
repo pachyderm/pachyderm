@@ -408,7 +408,7 @@ func (a *apiServer) watchConfig() {
 				ev.Unmarshal(&key, &configProto)
 				switch ev.Type {
 				case watch.EventPut:
-					if err := a.tryUpdateConfig(&configProto); err != nil {
+					if err := a.updateConfig(&configProto); err != nil {
 						logrus.Warnf("could not update SAML service with new config: %v", err)
 					}
 				case watch.EventDelete:
@@ -472,7 +472,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// Authenticate the caller (or generate a new auth token if req.Subject is a
 	// robot user)
 	if req.Subject != "" {
-		req.Subject, err = a.lenientCanonicalizeSubject(ctx, req.Subject)
+		req.Subject, err = a.canonicalizeSubject(ctx, req.Subject)
 		if err != nil {
 			return nil, err
 		}
@@ -756,7 +756,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	for i, user := range req.Add {
 		i, user := i, user
 		eg.Go(func() error {
-			user, err = a.lenientCanonicalizeSubject(ctx, user)
+			user, err = a.canonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -768,7 +768,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	for i, user := range req.Remove {
 		i, user := i, user
 		eg.Go(func() error {
-			user, err = a.lenientCanonicalizeSubject(ctx, user)
+			user, err = a.canonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -1115,7 +1115,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 
 		// Scope change is authorized. Make the change
-		principal, err := a.lenientCanonicalizeSubject(ctx, req.Username)
+		principal, err := a.canonicalizeSubject(ctx, req.Username)
 		if err != nil {
 			return err
 		}
@@ -1188,7 +1188,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 					Required: authclient.Scope_READER,
 				}
 			}
-			principal, err := a.lenientCanonicalizeSubject(ctx, req.Username)
+			principal, err := a.canonicalizeSubject(ctx, req.Username)
 			if err != nil {
 				return nil, err
 			}
@@ -1275,7 +1275,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	for _, entry := range req.Entries {
 		user, scope := entry.Username, entry.Scope
 		eg.Go(func() error {
-			principal, err := a.lenientCanonicalizeSubject(ctx, user)
+			principal, err := a.canonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -1389,7 +1389,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 			AdminOp: "GetAuthToken on behalf of another user",
 		}
 	}
-	subject, err := a.lenientCanonicalizeSubject(ctx, req.Subject)
+	subject, err := a.canonicalizeSubject(ctx, req.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1532,7 +1532,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		}
 	}
 
-	username, err := a.lenientCanonicalizeSubject(ctx, req.Username)
+	username, err := a.canonicalizeSubject(ctx, req.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -1608,12 +1608,12 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 		}
 	}
 
-	add, err := a.lenientCanonicalizeSubjects(ctx, req.Add)
+	add, err := a.canonicalizeSubjects(ctx, req.Add)
 	if err != nil {
 		return nil, err
 	}
 	// TODO(bryce) Skip canonicalization if the users can be found.
-	remove, err := a.lenientCanonicalizeSubjects(ctx, req.Remove)
+	remove, err := a.canonicalizeSubjects(ctx, req.Remove)
 	if err != nil {
 		return nil, err
 	}
@@ -1698,7 +1698,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 
 	// Filter by username
 	if req.Username != "" {
-		username, err := a.lenientCanonicalizeSubject(ctx, req.Username)
+		username, err := a.canonicalizeSubject(ctx, req.Username)
 		if err != nil {
 			return nil, err
 		}
@@ -1839,8 +1839,8 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	return &tokenInfo, nil
 }
 
-// lenientCanonicalizeSubjects applies lenientCanonicalizeSubject to a list
-func (a *apiServer) lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
+// canonicalizeSubjects applies canonicalizeSubject to a list
+func (a *apiServer) canonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
 	if subjects == nil {
 		return []string{}, nil
 	}
@@ -1850,7 +1850,7 @@ func (a *apiServer) lenientCanonicalizeSubjects(ctx context.Context, subjects []
 	for i, subject := range subjects {
 		i, subject := i, subject
 		eg.Go(func() error {
-			subject, err := a.lenientCanonicalizeSubject(ctx, subject)
+			subject, err := a.canonicalizeSubject(ctx, subject)
 			if err != nil {
 				return err
 			}
@@ -1865,24 +1865,15 @@ func (a *apiServer) lenientCanonicalizeSubjects(ctx context.Context, subjects []
 	return canonicalizedSubjects, nil
 }
 
-// lenientCanonicalizeSubject is like 'canonicalizeSubject', except that if
-// 'subject' has no prefix, they are assumed to be a GitHub user.
-func (a *apiServer) lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
-	if strings.Index(subject, ":") < 0 {
-		// assume default 'github:' prefix (then canonicalize the GitHub username in
-		// canonicalizeSubject)
-		subject = authclient.GitHubPrefix + subject
-	}
-	return a.canonicalizeSubject(ctx, subject)
-}
-
 // canonicalizeSubject establishes the type of 'subject' by looking for one of
 // pachyderm's subject prefixes, and then canonicalizes the subject based on
-// that.
+// that. If 'subject' has no prefix, they are assumed to be a GitHub user.
+// TODO(msteffen): We'd like to require that subjects always have a prefix, but
+// this behavior hasn't been implemented in the dash yet.
 func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	colonIdx := strings.Index(subject, ":")
 	if colonIdx < 0 {
-		return "", fmt.Errorf("subject must have a type prefix (e.g. \"github:\" or \"pachyderm_robot:\") but had none")
+		subject = authclient.GitHubPrefix + subject
 	}
 	prefix := subject[:colonIdx]
 	a.configMu.Lock()
@@ -1970,7 +1961,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 		}
 		logrus.Printf("current config (v.%d) is newer than cache (v.%d); attempting to update cache",
 			currentConfig.LiveConfigVersion, cacheVersion)
-		if err := a.tryUpdateConfig(&currentConfig); err != nil {
+		if err := a.updateConfig(&currentConfig); err != nil {
 			logrus.Warnf("could not update SAML service with new config: %v", err)
 		}
 	} else if a.configCache.Version > currentConfig.LiveConfigVersion {
