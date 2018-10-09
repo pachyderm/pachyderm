@@ -13,15 +13,17 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 )
 
-// Environment variable for determining storage backend
+// Environment variables for determining storage backend and pathing
 const (
 	StorageBackendEnvVar = "STORAGE_BACKEND"
+	PachRootEnvVar       = "PACH_ROOT"
 )
 
 // Valid object storage backends
@@ -95,6 +97,35 @@ var EnvVarToSecretKey = map[string]string{
 	AmazonVaultRoleEnvVar:    "amazon-vault-role",
 	AmazonVaultTokenEnvVar:   "amazon-vault-token",
 	AmazonDistributionEnvVar: "amazon-distribution",
+}
+
+func StorageRootFromEnv() (string, error) {
+	storageRoot, ok := os.LookupEnv(PachRootEnvVar)
+	if !ok {
+		return "", fmt.Errorf("%s not found", PachRootEnvVar)
+	}
+	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
+	if !ok {
+		return "", fmt.Errorf("%s not found", StorageBackendEnvVar)
+	}
+	// These storage backends do not like leading slashes
+	switch storageBackend {
+	case Amazon:
+		fallthrough
+	case Minio:
+		if len(storageRoot) > 0 && storageRoot[0] == '/' {
+			storageRoot = storageRoot[1:]
+		}
+	}
+	return storageRoot, nil
+}
+
+func BlockPathFromEnv(block *pfs.Block) (string, error) {
+	storageRoot, err := StorageRootFromEnv()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(storageRoot, "block", block.Hash), nil
 }
 
 // Client is an interface to object storage.
@@ -391,12 +422,7 @@ func NewAmazonClientFromEnv() (Client, error) {
 	creds.VaultRole, _ = os.LookupEnv(AmazonVaultRoleEnvVar)
 	creds.VaultToken, _ = os.LookupEnv(AmazonVaultTokenEnvVar)
 
-	distribution, ok := os.LookupEnv(AmazonDistributionEnvVar)
-	if !ok {
-		log.Warnln("AWS deployed without cloudfront distribution\n")
-	} else {
-		log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
-	}
+	distribution, _ := os.LookupEnv(AmazonDistributionEnvVar)
 	return NewAmazonClient(region, bucket, &creds, distribution)
 }
 

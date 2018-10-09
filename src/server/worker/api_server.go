@@ -126,14 +126,6 @@ type APIServer struct {
 	hashtreeStorage string
 }
 
-func (a *APIServer) blockDir() string {
-	return filepath.Join(a.hashtreeStorage, "block")
-}
-
-func (a *APIServer) blockPath(block *pfs.Block) string {
-	return filepath.Join(a.blockDir(), block.Hash)
-}
-
 type putObjectResponse struct {
 	object *pfs.Object
 	size   int64
@@ -1220,7 +1212,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 				}
 				w, err := pachClient.PutObjectAsync(nil)
 				var size uint64
-				if size, err = hashtree.MergeTrees(w, objClient, a.blockDir(), treeInfos, parentTreeInfo, func(path []byte) (bool, error) {
+				if size, err = hashtree.MergeTrees(w, objClient, treeInfos, parentTreeInfo, func(path []byte) (bool, error) {
 					if xxhash.Checksum64(path)%uint64(plan.Merges) == uint64(merge) {
 						return true, nil
 					}
@@ -1437,7 +1429,11 @@ func (a *APIServer) worker() {
 				if err != nil {
 					return err
 				}
-				r, err := objClient.Reader(a.blockPath(parentTreeInfo.BlockRef.Block), 0, 0)
+				path, err := obj.BlockPathFromEnv(parentTreeInfo.BlockRef.Block)
+				if err != nil {
+					return err
+				}
+				r, err := objClient.Reader(path, 0, 0)
 				if err != nil {
 					return err
 				}
