@@ -1773,6 +1773,12 @@ func TestValidateConfigErrNoName(t *testing.T) {
 		&auth.SetConfigurationRequest{Configuration: conf})
 	require.YesError(t, err)
 	require.Matches(t, "must have a name", err.Error())
+
+	// Make sure config change wasn't applied
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
 }
 
 // TestValidateConfigErrReservedName tests that SetConfig rejects configs that
@@ -1802,10 +1808,16 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 		require.YesError(t, err)
 		require.Matches(t, "reserved", err.Error())
 	}
+
+	// Make sure config change wasn't applied
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
 }
 
 // TestValidateConfigErrNoType tests that SetConfig rejects configs that
-// don't have an IDP type
+// have an IDProvider (IDP) with no type
 func TestValidateConfigErrNoType(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -1827,11 +1839,17 @@ func TestValidateConfigErrNoType(t *testing.T) {
 		&auth.SetConfigurationRequest{Configuration: conf})
 	require.YesError(t, err)
 	require.Matches(t, "type", err.Error())
+
+	// Make sure config change wasn't applied
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
 }
 
-// TestValidateConfigInvalidMetadata tests that SetConfig rejects configs that
-// don't have an IDP type
-func TestValidateConfigInvalidMetadata(t *testing.T) {
+// TestValidateConfigErrInvalidIDPMetadata tests that SetConfig rejects configs
+// that have a SAML IDProvider with invalid XML in their IDPMetadata
+func TestValidateConfigErrInvalidIDPMetadata(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -1856,7 +1874,23 @@ func TestValidateConfigInvalidMetadata(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "could not unmarshal", err.Error())
 
-	conf = &auth.AuthConfig{
+	// Make sure config change wasn't applied
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+}
+
+// TestValidateConfigErrInvalidIDPMetadata tests that SetConfig rejects configs
+// that have a SAML IDProvider with an invalid metadata URL
+func TestValidateConfigErrInvalidMetadataURL(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
 			Name:        "idp",
@@ -1869,12 +1903,29 @@ func TestValidateConfigInvalidMetadata(t *testing.T) {
 			ACSURL: "http://acs", MetadataURL: "http://metadata",
 		},
 	}
-	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
 	require.YesError(t, err)
 	require.Matches(t, "URL", err.Error())
 
-	conf = &auth.AuthConfig{
+	// Make sure config change wasn't applied
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+}
+
+// TestValidateConfigErrRedundantIDPMetadata tests that SetConfig rejects
+// configs with a SAML IDProvider that has both explicit metadata and a metadata
+// URL
+func TestValidateConfigErrRedundantIDPMetadata(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
 			Name:        "idp",
@@ -1888,10 +1939,47 @@ func TestValidateConfigInvalidMetadata(t *testing.T) {
 			ACSURL: "http://acs", MetadataURL: "http://metadata",
 		},
 	}
-	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
 	require.YesError(t, err)
 	require.Matches(t, "either|both", err.Error())
+
+	// Make sure config change wasn't applied
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+}
+
+// TestValidateConfigErrMissingSAMLConfig tests that SetConfig rejects configs
+// that have a SAML IdP but don't have saml_svc_options
+func TestValidateConfigErrMissingSAMLConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	conf := &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{&auth.IDProvider{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata"),
+			},
+		}},
+	}
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.YesError(t, err)
+	require.Matches(t, "saml_svc_options", err.Error())
+
+	// Make sure config change wasn't applied
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
 }
 
 func TestSAMLBasic(t *testing.T) {
