@@ -645,6 +645,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 						if err := e.Unmarshal(&key, chunkState); err != nil {
 							return err
 						}
+						if key != fmt.Sprint(high) {
+							continue
+						}
 						if chunkState.State != State_RUNNING {
 							if chunkState.State == State_FAILED {
 								failedDatumID = chunkState.DatumID
@@ -708,6 +711,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 							var key string
 							if err := e.Unmarshal(&key, mergeState); err != nil {
 								return err
+							}
+							if key != fmt.Sprint(merge) {
+								continue
 							}
 							if mergeState.State != State_RUNNING {
 								if mergeState.State == State_FAILED {
