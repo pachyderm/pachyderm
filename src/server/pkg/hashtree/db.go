@@ -1261,7 +1261,7 @@ func (r *HashTreeReaderStream) ReadDatums() ([][]byte, error) {
 		r.done[DatumBucket] = true
 		r.started = false
 	}
-	return result, err
+	return result, nil
 }
 
 func (r *HashTreeReaderStream) ReadFS() ([]*IntermediaryNode, error) {
@@ -1294,7 +1294,7 @@ func (r *HashTreeReaderStream) ReadFS() ([]*IntermediaryNode, error) {
 		r.done[FsBucket] = true
 		r.started = false
 	}
-	return result, err
+	return result, nil
 }
 
 func ReadBucket(pbr pbutil.Reader, f func(k, v []byte) (bool, error)) error {
@@ -1494,7 +1494,7 @@ func (h *IntermediaryHashTree) ReadDatums() ([][]byte, error) {
 		return nil, io.EOF
 	}
 	h.done[DatumBucket] = true
-	return h.datums, io.EOF
+	return h.datums, nil
 }
 
 func (h *IntermediaryHashTree) ReadFS() ([]*IntermediaryNode, error) {
@@ -1505,28 +1505,16 @@ func (h *IntermediaryHashTree) ReadFS() ([]*IntermediaryNode, error) {
 		return nil, errorf(Internal, "reading hashtree out of order")
 	}
 	h.done[FsBucket] = true
-	return h.fs, io.EOF
+	return h.fs, nil
 }
 
 func (h *IntermediaryHashTree) WriteDatums(datums [][]byte, done bool) error {
-	if done {
-		return nil
-	}
-	if h.datums != nil {
-		return errorf(Internal, "intermediary hashtree datums written already")
-	}
-	h.datums = datums
+	h.datums = append(h.datums, datums...)
 	return nil
 }
 
 func (h *IntermediaryHashTree) WriteFS(fs []*IntermediaryNode, done bool) error {
-	if done {
-		return nil
-	}
-	if h.fs != nil {
-		return errorf(Internal, "intermediary hashtree fs written already")
-	}
-	h.fs = fs
+	h.fs = append(h.fs, fs...)
 	return nil
 }
 
@@ -1630,23 +1618,33 @@ func MergeTreesPairwise(w HashTreeWriter, r1, r2 HashTreeReader) error {
 }
 
 func MergeDatums(w HashTreeWriter, r1, r2 HashTreeReader) error {
+	var d1, d2, result [][]byte
+	var i1, i2 int
+	var err error
 	for {
-		d1, err := r1.ReadDatums()
-		if err != nil && err != io.EOF {
-			return err
-		}
-		d2, err := r2.ReadDatums()
-		if err != nil && err != io.EOF {
-			return err
-		}
-		if len(d1) <= 0 && len(d2) <= 0 {
-			if err := w.WriteDatums(nil, true); err != nil {
+		// Get next chunk from r1
+		if i1 >= len(d1) {
+			d1, err = r1.ReadDatums()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
 				return err
 			}
-			break
+			i1 = 0
 		}
-		result := [][]byte{}
-		i1, i2 := 0, 0
+		// Get next chunk from r2
+		if i2 >= len(d2) {
+			d2, err = r2.ReadDatums()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			i2 = 0
+		}
+		// Merge
 		for i1 < len(d1) && i2 < len(d2) {
 			if bytes.Compare(d1[i1], d2[i2]) < 0 {
 				result = append(result, d1[i1])
@@ -1656,40 +1654,75 @@ func MergeDatums(w HashTreeWriter, r1, r2 HashTreeReader) error {
 				i2++
 			}
 		}
-		for i1 < len(d1) {
-			result = append(result, d1[i1])
-			i1++
-		}
-		for i2 < len(d2) {
-			result = append(result, d2[i2])
-			i2++
-		}
 		if err := w.WriteDatums(result, false); err != nil {
 			return err
 		}
+		result = nil
 	}
-	return nil
+	// Copy whichever reader has elements left to the writer
+	if i1 < len(d1) {
+		if err := w.WriteDatums(d1[i1:], false); err != nil {
+			return err
+		}
+	}
+	if err := CopyDatums(w, r1); err != nil {
+		return err
+	}
+	if i2 < len(d2) {
+		if err := w.WriteDatums(d2[i2:], false); err != nil {
+			return err
+		}
+	}
+	if err := CopyDatums(w, r2); err != nil {
+		return err
+	}
+	return w.WriteDatums(nil, true)
+}
+
+func CopyDatums(w HashTreeWriter, r HashTreeReader) error {
+	for {
+		d, err := r.ReadDatums()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := w.WriteDatums(d, false); err != nil {
+			return err
+		}
+	}
 }
 
 // (bryce) Could make memory recoverable by niling values as I go
 func MergeFS(w HashTreeWriter, r1, r2 HashTreeReader) error {
+	var f1, f2, result []*IntermediaryNode
+	var i1, i2 int
+	var err error
 	for {
-		f1, err := r1.ReadFS()
-		if err != nil && err != io.EOF {
-			return err
-		}
-		f2, err := r2.ReadFS()
-		if err != nil && err != io.EOF {
-			return err
-		}
-		if len(f1) <= 0 && len(f2) <= 0 {
-			if err := w.WriteFS(nil, true); err != nil {
+		// Get next chunk from r1
+		if i1 >= len(f1) {
+			f1, err = r1.ReadFS()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
 				return err
 			}
-			break
+			i1 = 0
 		}
-		result := []*IntermediaryNode{}
-		i1, i2 := 0, 0
+		// Get next chunk from r2
+		if i2 >= len(f2) {
+			f2, err = r2.ReadFS()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return err
+			}
+			i2 = 0
+		}
+		// Merge
 		for i1 < len(f1) && i2 < len(f2) {
 			cmp := bytes.Compare(f1[i1].k, f2[i2].k)
 			if cmp < 0 {
@@ -1707,19 +1740,44 @@ func MergeFS(w HashTreeWriter, r1, r2 HashTreeReader) error {
 				i2++
 			}
 		}
-		for i1 < len(f1) {
-			result = append(result, f1[i1])
-			i1++
-		}
-		for i2 < len(f2) {
-			result = append(result, f2[i2])
-			i2++
-		}
 		if err := w.WriteFS(result, false); err != nil {
 			return err
 		}
+		result = nil
 	}
-	return nil
+	// Copy whichever reader has elements left to the writer
+	if i1 < len(f1) {
+		if err := w.WriteFS(f1[i1:], false); err != nil {
+			return err
+		}
+	}
+	if err := CopyFS(w, r1); err != nil {
+		return err
+	}
+	if i2 < len(f2) {
+		if err := w.WriteFS(f2[i2:], false); err != nil {
+			return err
+		}
+	}
+	if err := CopyFS(w, r2); err != nil {
+		return err
+	}
+	return w.WriteFS(nil, true)
+}
+
+func CopyFS(w HashTreeWriter, r HashTreeReader) error {
+	for {
+		f, err := r.ReadFS()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := w.WriteFS(f, false); err != nil {
+			return err
+		}
+	}
 }
 
 func MergeIntermediaryNodes(n1, n2 *IntermediaryNode) error {
