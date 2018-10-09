@@ -31,8 +31,12 @@ PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
 
 make install
 make docker-build
-make clean-launch-dev
-make launch-dev
+for i in $(seq 3); do
+  make clean-launch-dev || true # may be nothing to delete
+  make launch-dev && break
+  (( i < 3 )) # false if this is the last loop (causes exit)
+  sleep 10
+done
 
 go install ./src/testing/match
 
