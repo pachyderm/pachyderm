@@ -1377,7 +1377,7 @@ func TestGetScopeRequiresReader(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
+	repo := tu.UniqueString("TestGetScopeRequiresReader")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 

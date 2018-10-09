@@ -35,6 +35,9 @@ type canonicalConfig struct {
 }
 
 func (c *canonicalConfig) ToProto() *auth.AuthConfig {
+	if c == nil {
+		return &auth.AuthConfig{}
+	}
 	metadataBytes, _ := xml.MarshalIndent(c.IDPMetadata, "", "  ")
 	samlIDP := &auth.IDProvider{
 		Name:        c.IDPName,
@@ -128,7 +131,7 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 		}
 		// TODO(msteffen): make sure we don't have to extend this every time we add
 		// a new built-in backend.
-		switch idp.Name {
+		switch idp.Name + ":" {
 		case auth.GitHubPrefix:
 			return nil, errors.New("cannot configure auth backend with reserved prefix " +
 				auth.GitHubPrefix)
@@ -235,6 +238,11 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 				return nil, fmt.Errorf("no entity found with IDPSSODescriptor")
 			}
 		}
+	}
+
+	// Make sure saml_svc_options are set if using SAML
+	if c.IDPName != "" && config.SAMLServiceOptions == nil {
+		return nil, errors.New("must set saml_svc_options if a SAML ID provider has been configured")
 	}
 
 	// Validate saml_svc_options
