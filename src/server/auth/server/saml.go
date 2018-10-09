@@ -284,10 +284,10 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 	return c, nil
 }
 
-// tryUpdateConfig validates 'config', and if it valides successfully, loads it
+// updateConfig validates 'config', and if it valides successfully, loads it
 // into the apiServer's config cache. The caller should already hold a.configMu
 // and a.samlSPMu (as this updates a.samlSP)
-func (a *apiServer) tryUpdateConfig(config *auth.AuthConfig) error {
+func (a *apiServer) updateConfig(config *auth.AuthConfig) error {
 	if config != nil {
 		newConfig, err := validateConfig(config, internal)
 		if err != nil {
