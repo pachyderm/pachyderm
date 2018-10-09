@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/crewjam/saml"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 
@@ -32,6 +33,26 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cert"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
+
+func SimpleSAMLIdPMetadata(acsURL, metadataURL string) []byte {
+	return []byte(`<EntityDescriptor
+		  xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+		  validUntil="` + time.Now().Format(time.RFC3339) + `"
+		  entityID="` + metadataURL + `">
+      <SPSSODescriptor
+		    xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
+		    validUntil="` + time.Now().Format(time.RFC3339) + `"
+		    protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"
+		    AuthnRequestsSigned="false"
+		    WantAssertionsSigned="true">
+        <AssertionConsumerService
+		      Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
+		      Location="` + acsURL + `"
+		      index="1">
+		    </AssertionConsumerService>
+      </SPSSODescriptor>
+    </EntityDescriptor>`)
+}
 
 func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
@@ -1434,6 +1455,28 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	require.NoError(t, aliceClient.DeleteAll())
 }
 
+func requireConfigsEqual(t testing.TB, expected, actual *auth.AuthConfig) {
+	e, a := proto.Clone(expected).(*auth.AuthConfig), proto.Clone(actual).(*auth.AuthConfig)
+	// Format IdP metadata which is serialized XML, and may have e.g. whitespace
+	// discrepencies that we want to ignore
+	formatIDP := func(c *auth.IDProvider) {
+		if c.SAML == nil || c.SAML.IDPMetadata == nil {
+			return
+		}
+		var d saml.EntityDescriptor
+		require.NoError(t, xml.Unmarshal(c.SAML.IDPMetadata, &d))
+		c.SAML.IDPMetadata = tu.MustMarshalXML(t, &d)
+	}
+	for _, idp := range e.IDProviders {
+		formatIDP(idp)
+	}
+	for _, idp := range a.IDProviders {
+		formatIDP(idp)
+	}
+	require.True(t, proto.Equal(e, a),
+		"expected: %v\n                actual: %v", e, a)
+}
+
 // TestSetGetConfigBasic sets an auth config and then retrieves it, to make
 // sure it's stored propertly
 func TestSetGetConfigBasic(t *testing.T) {
@@ -1447,19 +1490,27 @@ func TestSetGetConfigBasic(t *testing.T) {
 	// Set a configuration
 	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
-		IDProviders: []*auth.IDProvider{
-			{Name: "idp_1", Description: "fake IdP for testing"},
+		IDProviders: []*auth.IDProvider{{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata"),
+			},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
 		},
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
+	require.NoError(t, err)
 
 	// Read the configuration that was just written
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 1 // increment version
-	require.Equal(t, conf, configResp.Configuration)
+	requireConfigsEqual(t, conf, configResp.Configuration)
 }
 
 // TestGetSetConfigAdminOnly confirms that only cluster admins can get/set the
@@ -1477,13 +1528,20 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
-		IDProviders: []*auth.IDProvider{
-			{Name: "idp_1", Description: "fake IdP for testing"},
+		IDProviders: []*auth.IDProvider{{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata"),
+			},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
 		},
 	}
 	_, err = aliceClient.SetConfiguration(aliceClient.Ctx(),
@@ -1500,7 +1558,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
 
 	// Modify the configuration and make sure anon can't read it, but alice and
 	// admin can
@@ -1508,6 +1566,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 		&auth.SetConfigurationRequest{
 			Configuration: conf,
 		})
+	require.NoError(t, err)
 
 	// Confirm that anon can't read the config
 	_, err = anonClient.GetConfiguration(anonClient.Ctx(),
@@ -1520,12 +1579,12 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 1 // increment version
-	require.Equal(t, conf, configResp.Configuration)
+	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	require.Equal(t, conf, configResp.Configuration)
+	requireConfigsEqual(t, conf, configResp.Configuration)
 }
 
 // TestRMWConfigConflict does two conflicting R+M+W operation on a config
@@ -1541,37 +1600,51 @@ func TestRMWConfigConflict(t *testing.T) {
 	// Set a configuration
 	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
-		IDProviders: []*auth.IDProvider{
-			{Name: "idp_1", Description: "fake IdP for testing"},
+		IDProviders: []*auth.IDProvider{{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata"),
+			},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
 		},
 	}
 
 	// Set an initial configuration
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
+	require.NoError(t, err)
 
 	// Read the configuration that was just written
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 1 // increment version
-	require.Equal(t, conf, configResp.Configuration)
+	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	// modify the config twice
-	mod2 := *configResp.Configuration
-	mod2.IDProviders = append(mod2.IDProviders,
-		&auth.IDProvider{Name: "idp_2", Description: "fake IDP for testing, #2"})
-	mod3 := *configResp.Configuration
-	mod3.IDProviders = append(mod3.IDProviders,
-		&auth.IDProvider{Name: "idp_3", Description: "fake IDP for testing, #3"})
+	mod2 := proto.Clone(configResp.Configuration).(*auth.AuthConfig)
+	mod2.IDProviders = []*auth.IDProvider{{
+		Name: "idp_2", Description: "fake IDP for testing, #2",
+		SAML: &auth.IDProvider_SAMLOptions{
+			IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata"),
+		}}}
+	mod3 := proto.Clone(configResp.Configuration).(*auth.AuthConfig)
+	mod3.IDProviders = []*auth.IDProvider{{
+		Name: "idp_3", Description: "fake IDP for testing, #3",
+		SAML: &auth.IDProvider_SAMLOptions{
+			IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata"),
+		}}}
 
 	// Apply both changes -- the second should fail
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
-		Configuration: &mod2,
+		Configuration: mod2,
 	})
 	require.NoError(t, err)
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
-		Configuration: &mod3,
+		Configuration: mod3,
 	})
 	require.YesError(t, err)
 	require.Matches(t, "config version", err.Error())
@@ -1581,7 +1654,7 @@ func TestRMWConfigConflict(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	mod2.LiveConfigVersion = 2 // increment version
-	require.Equal(t, &mod2, configResp.Configuration)
+	requireConfigsEqual(t, mod2, configResp.Configuration)
 }
 
 // TestGetEmptyConfig Sets a config, then Deactivates+Reactivates auth, then
@@ -1597,8 +1670,14 @@ func TestGetEmptyConfig(t *testing.T) {
 	// Set a configuration
 	conf := &auth.AuthConfig{
 		LiveConfigVersion: 0,
-		IDProviders: []*auth.IDProvider{
-			{Name: "idp_1", Description: "fake IdP for testing"},
+		IDProviders: []*auth.IDProvider{{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata")},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
 		},
 	}
 	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
@@ -1610,7 +1689,7 @@ func TestGetEmptyConfig(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 1 // increment version
-	require.Equal(t, conf, configResp.Configuration)
+	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	// Deactivate auth
 	_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
@@ -1654,7 +1733,7 @@ func TestGetEmptyConfig(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	require.Equal(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
 
 	// Set the configuration (again)
 	conf.LiveConfigVersion = 0 // reset to 0 (since config is empty)
@@ -1667,7 +1746,152 @@ func TestGetEmptyConfig(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 1 // increment version
-	require.Equal(t, conf, configResp.Configuration)
+	requireConfigsEqual(t, conf, configResp.Configuration)
+}
+
+// TestValidateConfigErrNoName tests that SetConfig rejects configs with unnamed
+// ID providers
+func TestValidateConfigErrNoName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	conf := &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{&auth.IDProvider{
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata")},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
+		},
+	}
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.YesError(t, err)
+	require.Matches(t, "must have a name", err.Error())
+}
+
+// TestValidateConfigErrReservedName tests that SetConfig rejects configs that
+// try to use a reserved name
+func TestValidateConfigErrReservedName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	for _, name := range []string{"github", "robot", "pipeline"} {
+		conf := &auth.AuthConfig{
+			LiveConfigVersion: 0,
+			IDProviders: []*auth.IDProvider{&auth.IDProvider{
+				Name:        name,
+				Description: "fake IdP for testing",
+				SAML: &auth.IDProvider_SAMLOptions{
+					IDPMetadata: SimpleSAMLIdPMetadata("acs", "metadata")},
+			}},
+			SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+				ACSURL: "http://acs", MetadataURL: "http://metadata",
+			},
+		}
+		_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+			&auth.SetConfigurationRequest{Configuration: conf})
+		require.YesError(t, err)
+		require.Matches(t, "reserved", err.Error())
+	}
+}
+
+// TestValidateConfigErrNoType tests that SetConfig rejects configs that
+// don't have an IDP type
+func TestValidateConfigErrNoType(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	conf := &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{&auth.IDProvider{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
+		},
+	}
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.YesError(t, err)
+	require.Matches(t, "type", err.Error())
+}
+
+// TestValidateConfigInvalidMetadata tests that SetConfig rejects configs that
+// don't have an IDP type
+func TestValidateConfigInvalidMetadata(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	conf := &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{&auth.IDProvider{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				IDPMetadata: []byte("invalid XML"),
+			},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
+		},
+	}
+	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.YesError(t, err)
+	require.Matches(t, "could not unmarshal", err.Error())
+
+	conf = &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{&auth.IDProvider{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				MetadataURL: "invalid URL",
+			},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
+		},
+	}
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.YesError(t, err)
+	require.Matches(t, "URL", err.Error())
+
+	conf = &auth.AuthConfig{
+		LiveConfigVersion: 0,
+		IDProviders: []*auth.IDProvider{&auth.IDProvider{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				MetadataURL: "http://idp.example.com",
+				IDPMetadata: SimpleSAMLIdPMetadata("http://acs.example.com", "http://md.example.com"),
+			},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
+		},
+	}
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: conf})
+	require.YesError(t, err)
+	require.Matches(t, "either|both", err.Error())
 }
 
 func TestSAMLBasic(t *testing.T) {
@@ -1696,25 +1920,8 @@ func TestSAMLBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	var spMetadata saml.EntityDescriptor
-	err = xml.Unmarshal([]byte(`
-		<EntityDescriptor
-		  xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
-		  validUntil="`+time.Now().Format(time.RFC3339)+`"
-		  entityID="`+pachdMetadataURL+`">
-      <SPSSODescriptor
-		    xmlns="urn:oasis:names:tc:SAML:2.0:metadata"
-		    validUntil="`+time.Now().Format(time.RFC3339)+`"
-		    protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"
-		    AuthnRequestsSigned="false"
-		    WantAssertionsSigned="true">
-        <AssertionConsumerService
-		      Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"
-		      Location="`+pachdACSURL+`"
-		      index="1">
-		    </AssertionConsumerService>
-      </SPSSODescriptor>
-    </EntityDescriptor>
-  `), &spMetadata)
+	err = xml.Unmarshal(SimpleSAMLIdPMetadata(pachdACSURL, pachdMetadataURL),
+		&spMetadata)
 	require.NoError(t, err)
 	idp := &saml.IdentityProvider{
 		Key:         idpCert.PrivateKey,
