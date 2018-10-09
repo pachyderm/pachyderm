@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"os"
 	pathlib "path"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -1518,7 +1517,7 @@ func (h *IntermediaryHashTree) WriteFS(fs []*IntermediaryNode, done bool) error 
 	return nil
 }
 
-func MergeTrees(w io.Writer, objClient obj.Client, blockDir string, treeInfos []*pfs.ObjectInfo, parentTreeInfo *pfs.ObjectInfo, filter func([]byte) (bool, error)) (size uint64, retErr error) {
+func MergeTrees(w io.Writer, objClient obj.Client, treeInfos []*pfs.ObjectInfo, parentTreeInfo *pfs.ObjectInfo, filter func([]byte) (bool, error)) (size uint64, retErr error) {
 	t := time.Now()
 	// Read and setup intermediary hashtrees (in-memory trees)
 	limiter := limit.New(DefaultMergeConcurrency)
@@ -1530,7 +1529,11 @@ func MergeTrees(w io.Writer, objClient obj.Client, blockDir string, treeInfos []
 		limiter.Acquire()
 		eg.Go(func() (retErr error) {
 			defer limiter.Release()
-			r, err := objClient.Reader(filepath.Join(blockDir, treeInfo.BlockRef.Block.Hash), 0, 0)
+			path, err := obj.BlockPathFromEnv(treeInfo.BlockRef.Block)
+			if err != nil {
+				return err
+			}
+			r, err := objClient.Reader(path, 0, 0)
 			if err != nil {
 				return err
 			}
@@ -1594,7 +1597,11 @@ func MergeTrees(w io.Writer, objClient obj.Client, blockDir string, treeInfos []
 		return out.size, nil
 	}
 	// Handles merging when there is a parent hashtree
-	parentTree, err := objClient.Reader(filepath.Join(blockDir, parentTreeInfo.BlockRef.Block.Hash), 0, 0)
+	path, err := obj.BlockPathFromEnv(parentTreeInfo.BlockRef.Block)
+	if err != nil {
+		return 0, err
+	}
+	parentTree, err := objClient.Reader(path, 0, 0)
 	if err != nil {
 		return 0, err
 	}
