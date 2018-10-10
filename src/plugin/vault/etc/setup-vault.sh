@@ -10,6 +10,9 @@ pachctl version
 which vault
 
 # Make sure Pachyderm enterprise and auth are enabled
+sudo -n apt-get update -y -qq
+sudo -n apt-get upgrade -y python
+pip install urllib3[secure] --upgrade --user
 which aws || pip install awscli --upgrade --user
 if [[ "$(pachctl enterprise get-state)" = "No Pachyderm Enterprise token was found" ]]; then
   # Don't print token to stdout
