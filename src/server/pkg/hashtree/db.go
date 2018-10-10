@@ -1386,6 +1386,12 @@ func (w *HashTreeWriterStream) WriteFS(fs []*IntermediaryNode, done bool) error 
 	}
 	for _, n := range fs {
 		if bytes.Equal(n.k, nullByte) {
+			if n.node == nil {
+				n.node = &NodeProto{}
+				if err := n.node.Unmarshal(n.v); err != nil {
+					return err
+				}
+			}
 			w.size = uint64(n.node.SubtreeSize)
 		}
 		if err := w.pbw.WriteBytes(n.k); err != nil {
