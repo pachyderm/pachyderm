@@ -6,13 +6,18 @@ set -e
 mkdir -p ~/.cache/go-build
 sudo chown -R `whoami` ~/.cache/go-build
 
+minikube delete || true  # In case we get a recycled machine
 make launch-kube
+sleep 5
 
 # Wait until a connection with kubernetes has been established
 echo "Waiting for connection to kubernetes..."
 max_t=90
 WHEEL="\|/-";
-until kubectl version >/dev/null 2>/dev/null; do
+until {
+  minikube status 2>&1 >/dev/null
+  kubectl version 2>&1 >/dev/null
+}; do
   if ((max_t-- <= 0)); then
     echo "Could not connect to minikube"
     echo "minikube status --alsologtostderr --loglevel=0 -v9:"
@@ -24,6 +29,8 @@ until kubectl version >/dev/null 2>/dev/null; do
 	WHEEL="$${WHEEL:1}$${WHEEL:0:1}";
 	sleep 1;
 done
+minikube status
+kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
