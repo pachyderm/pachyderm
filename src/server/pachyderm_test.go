@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -54,8 +53,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -2457,7 +2454,7 @@ func TestPipelineEnv(t *testing.T) {
 	}
 
 	// make a secret to reference
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	secretName := tu.UniqueString("test-secret")
 	_, err := k.CoreV1().Secrets(v1.NamespaceDefault).Create(
 		&v1.Secret{
@@ -2903,12 +2900,12 @@ func TestParallelismSpec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	kubeclient := getKubeClient(t)
+	kubeclient := tu.GetKubeClient(t)
 	nodes, err := kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
 	numNodes := len(nodes.Items)
 
 	// Test Constant strategy
-	parellelism, err := ppsutil.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err := ppsutil.GetExpectedNumWorkers(tu.GetKubeClient(t), &pps.ParallelismSpec{
 		Constant: 7,
 	})
 	require.NoError(t, err)
@@ -3465,7 +3462,7 @@ func TestSystemResourceRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 
 	// Expected resource requests for pachyderm system pods:
 	defaultLocalMem := map[string]string{
@@ -3563,7 +3560,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 
 	var container v1.Container
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
 			metav1.ListOptions{
@@ -3638,7 +3635,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 
 	var container v1.Container
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -3705,7 +3702,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 
 	var container v1.Container
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -3857,7 +3854,7 @@ func TestPodSpecOpts(t *testing.T) {
 
 	var pod v1.Pod
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -5911,7 +5908,7 @@ func TestService(t *testing.T) {
 		// Get k8s service corresponding to pachyderm service above--must access
 		// via internal cluster IP, but we don't know what that is
 		var address string
-		kubeClient := getKubeClient(t)
+		kubeClient := tu.GetKubeClient(t)
 		backoff.Retry(func() error {
 			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
 			require.NoError(t, err)
@@ -8219,7 +8216,7 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 }
 
 func restartAll(t *testing.T) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
 	podList, err := podsInterface.List(
 		metav1.ListOptions{
@@ -8235,7 +8232,7 @@ func restartAll(t *testing.T) {
 }
 
 func restartOne(t *testing.T) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
 	podList, err := podsInterface.List(
 		metav1.ListOptions{
@@ -8279,7 +8276,7 @@ func podRunningAndReady(e watch.Event) (bool, error) {
 }
 
 func waitForReadiness(t testing.TB) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	deployment := pachdDeployment(t)
 	for {
 		newDeployment, err := k.Apps().Deployments(v1.NamespaceDefault).Get(deployment.Name, metav1.GetOptions{})
@@ -8333,7 +8330,7 @@ func simulateGitPush(t *testing.T, pathToPayload string) {
 }
 
 func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*v1.ReplicationController, error) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	rc := k.CoreV1().ReplicationControllers(v1.NamespaceDefault)
 	return rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
@@ -8341,7 +8338,7 @@ func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*v1.ReplicationCo
 }
 
 func pachdDeployment(t testing.TB) *apps.Deployment {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	result, err := k.Apps().Deployments(v1.NamespaceDefault).Get("pachd", metav1.GetOptions{})
 	require.NoError(t, err)
 	return result
@@ -8369,7 +8366,7 @@ func scalePachdRandom(t testing.TB, up bool) {
 
 // scalePachdN scales the number of pachd nodes to N
 func scalePachdN(t testing.TB, n int) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	// Modify the type metadata of the Deployment spec we read from k8s, so that
 	// k8s will accept it if we're talking to a 1.7 cluster
 	pachdDeployment := pachdDeployment(t)
@@ -8394,84 +8391,6 @@ func scalePachd(t testing.TB) {
 	n, err := strconv.Atoi(nStr)
 	require.NoError(t, err)
 	scalePachdN(t, n)
-}
-
-func getKubeClient(t testing.TB) *kube.Clientset {
-	var config *rest.Config
-	host := os.Getenv("KUBERNETES_SERVICE_HOST")
-	if host != "" {
-		var err error
-		config, err = rest.InClusterConfig()
-		require.NoError(t, err)
-	} else {
-		// Use kubectl binary to parse .kube/config and get address of current
-		// cluster. Hopefully, once we upgrade to k8s.io/client-go, we will be able
-		// to do this in-process with a library
-		// First, figure out if we're talking to minikube or localhost
-		cmd := exec.Command("kubectl", "config", "current-context")
-		if context, err := cmd.Output(); err == nil {
-			context = bytes.TrimSpace(context)
-			// kubectl has a context -- not talking to localhost
-			// Get cluster and user name from kubectl
-			buf := &bytes.Buffer{}
-			cmd := tu.BashCmd(strings.Join([]string{
-				`kubectl config get-contexts "{{.context}}" | tail -n+2 | awk '{print $3}'`,
-				`kubectl config get-contexts "{{.context}}" | tail -n+2 | awk '{print $4}'`,
-			}, "\n"),
-				"context", string(context))
-			cmd.Stdout = buf
-			require.NoError(t, cmd.Run(), "couldn't get kubernetes context info")
-			lines := strings.Split(buf.String(), "\n")
-			clustername, username := lines[0], lines[1]
-
-			// Get user info
-			buf.Reset()
-			cmd = tu.BashCmd(strings.Join([]string{
-				`cluster="$(kubectl config view -o json | jq -r '.users[] | select(.name == "{{.user}}") | .user' )"`,
-				`echo "${cluster}" | jq -r '.["client-certificate"]'`,
-				`echo "${cluster}" | jq -r '.["client-key"]'`,
-			}, "\n"),
-				"user", username)
-			cmd.Stdout = buf
-			require.NoError(t, cmd.Run(), "couldn't get kubernetes user info")
-			lines = strings.Split(buf.String(), "\n")
-			clientCert, clientKey := lines[0], lines[1]
-
-			// Get cluster info
-			buf.Reset()
-			cmd = tu.BashCmd(strings.Join([]string{
-				`cluster="$(kubectl config view -o json | jq -r '.clusters[] | select(.name == "{{.cluster}}") | .cluster')"`,
-				`echo "${cluster}" | jq -r .server`,
-				`echo "${cluster}" | jq -r '.["certificate-authority"]'`,
-			}, "\n"),
-				"cluster", clustername)
-			cmd.Stdout = buf
-			require.NoError(t, cmd.Run(), "couldn't get kubernetes cluster info: %s", buf.String())
-			lines = strings.Split(buf.String(), "\n")
-			address, CAKey := lines[0], lines[1]
-
-			// Generate config
-			config = &rest.Config{
-				Host: address,
-				TLSClientConfig: rest.TLSClientConfig{
-					CertFile: clientCert,
-					KeyFile:  clientKey,
-					CAFile:   CAKey,
-				},
-			}
-		} else {
-			// no context -- talking to localhost
-			config = &rest.Config{
-				Host: "http://0.0.0.0:8080",
-				TLSClientConfig: rest.TLSClientConfig{
-					Insecure: false,
-				},
-			}
-		}
-	}
-	k, err := kube.NewForConfig(config)
-	require.NoError(t, err)
-	return k
 }
 
 var pachClient *client.APIClient

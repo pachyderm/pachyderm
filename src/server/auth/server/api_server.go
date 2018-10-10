@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -15,6 +16,7 @@ import (
 	"google.golang.org/grpc/metadata"
 
 	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-github/github"
 	logrus "github.com/sirupsen/logrus"
@@ -53,7 +55,7 @@ const (
 
 	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
 	// GetAuthenticationCode
-	defaultAuthCodeTTLSecs = 30
+	defaultAuthCodeTTLSecs = 60
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
 	// possible to log in as magicUser, but pipelines with no owner are run as
@@ -64,7 +66,10 @@ const (
 	// configKey is a key (in etcd, in the config collection) that maps to the
 	// auth configuration. This is the only key in that collection (due to
 	// implemenation details of our config library, we can't use an empty key)
-	configKey = "x"
+	configKey = "config"
+
+	// SamlPort is the port where SAML ID Providers can send auth assertions
+	SamlPort = 654
 )
 
 // githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
@@ -93,8 +98,12 @@ type apiServer struct {
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // guard 'adminCache'
 
-	configCache authclient.AuthConfig // cache of auth config in etcd
-	configMu    sync.Mutex            // guard 'configCache'
+	configCache *canonicalConfig // cache of auth config in etcd
+	configMu    sync.Mutex       // guard 'configCache'. Always lock before 'samlSPMu' (if using both)
+
+	samlSP          *saml.ServiceProvider // object for parsing saml responses
+	redirectAddress *url.URL              // address where users will be redirected after authenticating
+	samlSPMu        sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
@@ -118,6 +127,13 @@ type apiServer struct {
 	// This is a cache of the PPS master token. It's set once on startup and then
 	// never updated
 	ppsToken string
+
+	// public addresses the fact that pachd in full mode initializes two auth
+	// servers: one that exposes a public API, possibly over TLS, and one that
+	// exposes a private API, for internal services. Only the public-facing auth
+	// service should export the SAML ACS and Metadata services, so if public
+	// is true and auth is active, this may export those SAML services
+	public bool
 }
 
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
@@ -155,7 +171,7 @@ func (a *apiServer) getPachClient() *client.APIClient {
 }
 
 // NewAuthServer returns an implementation of authclient.APIServer.
-func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (authclient.APIServer, error) {
+func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, public bool) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.DefaultDialOptions(),
@@ -225,10 +241,19 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string) (
 			nil,
 			nil,
 		),
+		public: public,
 	}
+	go s.retrieveOrGeneratePPSToken()
 	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
-	go s.retrieveOrGeneratePPSToken()
+
+	if public {
+		// start SAML service (won't respond to
+		// anything until config is set)
+		go s.serveSAML()
+	}
+	// Watch for new auth config options
+	go s.watchConfig()
 	return s, nil
 }
 
@@ -374,6 +399,8 @@ func (a *apiServer) watchConfig() {
 				// Lock a.configMu in case we need to modify a.configCache
 				a.configMu.Lock()
 				defer a.configMu.Unlock()
+				a.samlSPMu.Lock()
+				defer a.samlSPMu.Unlock()
 
 				// Parse event data and potentially update configCache
 				var key string // always configKey, just need to put it somewhere
@@ -381,13 +408,16 @@ func (a *apiServer) watchConfig() {
 				ev.Unmarshal(&key, &configProto)
 				switch ev.Type {
 				case watch.EventPut:
-					a.configCache = configProto
+					if err := a.updateConfig(&configProto); err != nil {
+						logrus.Warnf("could not update SAML service with new config: %v", err)
+					}
 				case watch.EventDelete:
-					a.configCache.Reset()
+					a.configCache = nil
+					a.samlSP = nil
 				case watch.EventError:
 					return ev.Err
 				}
-				return nil // unlock mu
+				return nil // unlock configMu and samlSPMu
 			}(); err != nil {
 				return err
 			}
@@ -442,7 +472,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// Authenticate the caller (or generate a new auth token if req.Subject is a
 	// robot user)
 	if req.Subject != "" {
-		req.Subject, err = lenientCanonicalizeSubject(ctx, req.Subject)
+		req.Subject, err = a.canonicalizeSubject(ctx, req.Subject)
 		if err != nil {
 			return nil, err
 		}
@@ -726,7 +756,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	for i, user := range req.Add {
 		i, user := i, user
 		eg.Go(func() error {
-			user, err = lenientCanonicalizeSubject(ctx, user)
+			user, err = a.canonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -738,7 +768,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 	for i, user := range req.Remove {
 		i, user := i, user
 		eg.Go(func() error {
-			user, err = lenientCanonicalizeSubject(ctx, user)
+			user, err = a.canonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -1085,7 +1115,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 
 		// Scope change is authorized. Make the change
-		principal, err := lenientCanonicalizeSubject(ctx, req.Username)
+		principal, err := a.canonicalizeSubject(ctx, req.Username)
 		if err != nil {
 			return err
 		}
@@ -1130,7 +1160,9 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 
 	// For now, we don't return OWNER if the user is an admin, even though that's
 	// their effective access scope for all repos--the caller may want to know
-	// what will happen if the user's admin privileges are revoked
+	// what will happen if the user's admin privileges are revoked. Note that
+	// pfs.ListRepo overrides this logic--the auth info it returns for listed
+	// repo indicates that a user is OWNER of all repos if they are an admin
 
 	// Read repo ACL from etcd
 	acls := a.acls.ReadOnly(ctx)
@@ -1148,6 +1180,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		} else {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
+			// TODO(msteffen) bug fix: should account groups for caller
 			if !a.isAdmin(callerInfo.Subject) && acl.Entries[callerInfo.Subject] < authclient.Scope_READER {
 				return nil, &authclient.ErrNotAuthorized{
 					Subject:  callerInfo.Subject,
@@ -1155,7 +1188,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 					Required: authclient.Scope_READER,
 				}
 			}
-			principal, err := lenientCanonicalizeSubject(ctx, req.Username)
+			principal, err := a.canonicalizeSubject(ctx, req.Username)
 			if err != nil {
 				return nil, err
 			}
@@ -1242,7 +1275,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	for _, entry := range req.Entries {
 		user, scope := entry.Username, entry.Scope
 		eg.Go(func() error {
-			principal, err := lenientCanonicalizeSubject(ctx, user)
+			principal, err := a.canonicalizeSubject(ctx, user)
 			if err != nil {
 				return err
 			}
@@ -1356,7 +1389,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 			AdminOp: "GetAuthToken on behalf of another user",
 		}
 	}
-	subject, err := lenientCanonicalizeSubject(ctx, req.Subject)
+	subject, err := a.canonicalizeSubject(ctx, req.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1499,7 +1532,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		}
 	}
 
-	username, err := lenientCanonicalizeSubject(ctx, req.Username)
+	username, err := a.canonicalizeSubject(ctx, req.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -1575,12 +1608,12 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 		}
 	}
 
-	add, err := lenientCanonicalizeSubjects(ctx, req.Add)
+	add, err := a.canonicalizeSubjects(ctx, req.Add)
 	if err != nil {
 		return nil, err
 	}
 	// TODO(bryce) Skip canonicalization if the users can be found.
-	remove, err := lenientCanonicalizeSubjects(ctx, req.Remove)
+	remove, err := a.canonicalizeSubjects(ctx, req.Remove)
 	if err != nil {
 		return nil, err
 	}
@@ -1665,7 +1698,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 
 	// Filter by username
 	if req.Username != "" {
-		username, err := lenientCanonicalizeSubject(ctx, req.Username)
+		username, err := a.canonicalizeSubject(ctx, req.Username)
 		if err != nil {
 			return nil, err
 		}
@@ -1806,8 +1839,8 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 	return &tokenInfo, nil
 }
 
-// lenientCanonicalizeSubjects applies lenientCanonicalizeSubject to a list
-func lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
+// canonicalizeSubjects applies canonicalizeSubject to a list
+func (a *apiServer) canonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
 	if subjects == nil {
 		return []string{}, nil
 	}
@@ -1817,7 +1850,7 @@ func lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]stri
 	for i, subject := range subjects {
 		i, subject := i, subject
 		eg.Go(func() error {
-			subject, err := lenientCanonicalizeSubject(ctx, subject)
+			subject, err := a.canonicalizeSubject(ctx, subject)
 			if err != nil {
 				return err
 			}
@@ -1832,37 +1865,43 @@ func lenientCanonicalizeSubjects(ctx context.Context, subjects []string) ([]stri
 	return canonicalizedSubjects, nil
 }
 
-// lenientCanonicalizeSubject is like 'canonicalizeSubject', except that if
-// 'subject' has no prefix, they are assumed to be a GitHub user.
-func lenientCanonicalizeSubject(ctx context.Context, subject string) (string, error) {
-	if strings.Index(subject, ":") < 0 {
-		// assume default 'github:' prefix (then canonicalize the GitHub username in
-		// canonicalizeSubject)
-		subject = authclient.GitHubPrefix + subject
-	}
-	return canonicalizeSubject(ctx, subject)
-}
-
 // canonicalizeSubject establishes the type of 'subject' by looking for one of
 // pachyderm's subject prefixes, and then canonicalizes the subject based on
-// that.
-func canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+// that. If 'subject' has no prefix, they are assumed to be a GitHub user.
+// TODO(msteffen): We'd like to require that subjects always have a prefix, but
+// this behavior hasn't been implemented in the dash yet.
+func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	colonIdx := strings.Index(subject, ":")
-	switch {
-	case strings.HasPrefix(subject, authclient.GitHubPrefix):
+	if colonIdx < 0 {
+		subject = authclient.GitHubPrefix + subject
+		colonIdx = len(authclient.GitHubPrefix) - 1
+	}
+	prefix := subject[:colonIdx]
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	// check prefix against config cache
+	if a.configCache != nil {
+		if prefix == a.configCache.IDPName {
+			return subject, nil
+		}
+		if prefix == path.Join("group", a.configCache.IDPName) {
+			return subject, nil // TODO(msteffen): check if this IdP supports groups
+		}
+	}
+
+	// check against fixed prefixes
+	prefix += ":" // append ":" to match constants
+	switch prefix {
+	case authclient.GitHubPrefix:
 		var err error
 		subject, err = canonicalizeGitHubUsername(ctx, subject[len(authclient.GitHubPrefix):])
 		if err != nil {
 			return "", err
 		}
-	case strings.HasPrefix(subject, authclient.PipelinePrefix):
-		fallthrough
-	case strings.HasPrefix(subject, authclient.RobotPrefix):
+	case authclient.PipelinePrefix, authclient.RobotPrefix:
 		break
-	case colonIdx > 0:
-		return "", fmt.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
 	default:
-		return "", fmt.Errorf("subject must have one of the prefixes \"github:\" or \"pachyderm_robot:\"")
+		return "", fmt.Errorf("subject has unrecognized prefix: %s", subject[:colonIdx+1])
 	}
 	return subject, nil
 }
@@ -1914,11 +1953,19 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	}
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
-	if a.configCache.LiveConfigVersion < currentConfig.LiveConfigVersion {
-		logrus.Printf("current config (v.%d) is newer than cache (v.%d); updating cache",
-			currentConfig.LiveConfigVersion, a.configCache.LiveConfigVersion)
-		a.configCache = currentConfig
-	} else if a.configCache.LiveConfigVersion > currentConfig.LiveConfigVersion {
+	a.samlSPMu.Lock()
+	defer a.samlSPMu.Unlock()
+	if a.configCache == nil || a.configCache.Version < currentConfig.LiveConfigVersion {
+		var cacheVersion int64
+		if a.configCache != nil {
+			cacheVersion = a.configCache.Version
+		}
+		logrus.Printf("current config (v.%d) is newer than cache (v.%d); attempting to update cache",
+			currentConfig.LiveConfigVersion, cacheVersion)
+		if err := a.updateConfig(&currentConfig); err != nil {
+			logrus.Warnf("could not update SAML service with new config: %v", err)
+		}
+	} else if a.configCache.Version > currentConfig.LiveConfigVersion {
 		logrus.Warnln("config cache is NEWER than live config; this shouldn't happen")
 	}
 	return &authclient.GetConfigurationResponse{
@@ -1949,37 +1996,23 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 	}
 
 	// Validate new config
-	for _, idp := range req.Configuration.IDProviders {
-		if idp.Name == "" {
-			return nil, errors.New("All ID providers must have a name specified " +
-				"(for use during authorization)")
-		}
-		// TODO(msteffen): make sure we don't have to extend this every time we add
-		// a new built-in backend.
-		switch idp.Name {
-		case authclient.GitHubPrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				authclient.GitHubPrefix)
-		case authclient.RobotPrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				authclient.RobotPrefix)
-		case authclient.PipelinePrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				authclient.PipelinePrefix)
-		}
+	canonicalConfig, err := validateConfig(req.Configuration, external)
+	if err != nil {
+		return nil, err
 	}
 
 	// upsert new config
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		var currentConfig authclient.AuthConfig
 		return a.authConfig.ReadWrite(stm).Upsert(configKey, &currentConfig, func() error {
-			if currentConfig.LiveConfigVersion != req.Configuration.LiveConfigVersion {
+			currentConfigVersion := currentConfig.LiveConfigVersion
+			if currentConfigVersion != req.Configuration.LiveConfigVersion {
 				return fmt.Errorf("expected config version %d, but live config has version %d",
 					req.Configuration.LiveConfigVersion, currentConfig.LiveConfigVersion)
 			}
 			currentConfig.Reset()
-			currentConfig = *req.Configuration
-			currentConfig.LiveConfigVersion++
+			currentConfig = *canonicalConfig.ToProto()
+			currentConfig.LiveConfigVersion = currentConfigVersion + 1
 			return nil
 		})
 	}); err != nil {

@@ -225,6 +225,10 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 	return getPachClientInternal(tb, subject)
 }
 
+// deleteAll deletes all data in the cluster. This includes deleting all auth
+// tokens, so all pachyderm clients must be recreated after calling deleteAll()
+// (it should generally be called at the beginning or end of tests, before any
+// clients have been created or after they're done being used).
 func deleteAll(tb testing.TB) {
 	tb.Helper()
 	func() {
@@ -1377,7 +1381,7 @@ func TestGetScopeRequiresReader(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
+	repo := tu.UniqueString("TestGetScopeRequiresReader")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 
