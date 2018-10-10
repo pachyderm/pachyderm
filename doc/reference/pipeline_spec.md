@@ -187,6 +187,10 @@ Lines need not end in newline characters.
 `transform.env` is a map from key to value of environment variables that will be
 injected into the container
 
+Note: there are environment variables that are automatically injected into the
+container, for a comprehensive list of them see the [Environment
+Variables](#environment-variables) section below.
+
 `transform.secrets` is an array of secrets, they are useful for embedding
 sensitive data such as credentials. Secrets reference Kubernetes secrets by
 name and specify a path that the secrets should be mounted to, or an
@@ -602,12 +606,6 @@ The datums are defined as whichever files or directories match by the glob patte
 `/*`, then the job will process three datums (potentially in parallel):
 `/foo-1`, `/foo-2`, and `/bar`. Both the `bar-1` and `bar-2` files within the directory `bar` would be grouped together and always processed by the same worker.
 
-## Multiple Inputs
-
-It's important to note that if a pipeline takes multiple atom inputs (via cross
-or union) then the pipeline will not get triggered until all of the atom inputs
-have at least one commit on the branch.
-
 ## PPS Mounts and File Access
 
 ### Mount Paths
@@ -619,6 +617,24 @@ The root mount point is at `/pfs`, which contains:
   name if not specified.
 - `/pfs/out` which is where you write any output.
 
-### Output Formats
+# Environment Variables
 
-PFS supports data to be delimited by line, JSON, or binary blobs.
+There are several environment variables that get injected into the user code
+before it runs. They are:
+
+- `PACH_JOB_ID` the id the currently run job.
+- `PACH_OUTPUT_COMMIT_ID` the id of the commit being outputted to.
+- For each input there will be an envirnment variable with the same name
+    defined to the path of the file for that input. For example if you are
+    accessing an input called foo from the path `/pfs/foo` which contains a file
+    called `bar` then the environment variable `foo` will have the value
+    `/pfs/foo/bar`. 
+
+In addition to these environment variables Kubernetes also injects others for
+Services that are running inside the cluster. These allow you to connect to
+outside those services, which can be powerful but also can be hard to reason
+about, as processing me be retried multiple times. Interaction with outside
+services should be idempotent to prevent unexpected behavior. Furthermore, one
+of the running services that your code can connect to is Pachyderm itself, this
+is generally not recommended as very little of the Pachyderm API is idempotent,
+but in some specific cases it can be a viable approach.
