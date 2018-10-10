@@ -226,6 +226,7 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		Pipeline:           pipelineInfo.Pipeline,
 		Transform:          pipelineInfo.Transform,
 		ParallelismSpec:    pipelineInfo.ParallelismSpec,
+		HashtreeSpec:       pipelineInfo.HashtreeSpec,
 		Egress:             pipelineInfo.Egress,
 		OutputBranch:       pipelineInfo.OutputBranch,
 		ScaleDownThreshold: pipelineInfo.ScaleDownThreshold,
