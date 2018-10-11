@@ -965,6 +965,7 @@ func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Inp
 	result := os.Environ()
 	for _, input := range data {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
 	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommitID))
