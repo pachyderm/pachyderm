@@ -624,11 +624,16 @@ before it runs. They are:
 
 - `PACH_JOB_ID` the id the currently run job.
 - `PACH_OUTPUT_COMMIT_ID` the id of the commit being outputted to.
-- For each input there will be an envirnment variable with the same name
+- For each input there will be an environment variable with the same name
     defined to the path of the file for that input. For example if you are
-    accessing an input called foo from the path `/pfs/foo` which contains a file
-    called `bar` then the environment variable `foo` will have the value
-    `/pfs/foo/bar`.
+    accessing an input called foo from the path `/pfs/foo` which contains a
+    file called `bar` then the environment variable `foo` will have the value
+    `/pfs/foo/bar`. The path in the environment variable is the path which
+    matched the glob pattern, even if the file is a directory, ie if your glob
+    pattern is `/*` it would match a directory `/bar`, the value of `$foo`
+    would then be `/pfs/foo/bar`. With a glob pattern of `/*/*` you would match
+    the files contained in `/bar` and thus the value of `foo` would be
+    `/pfs/foo/bar/quux`.
 
 In addition to these environment variables Kubernetes also injects others for
 Services that are running inside the cluster. These allow you to connect to
