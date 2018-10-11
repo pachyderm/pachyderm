@@ -628,13 +628,15 @@ before it runs. They are:
     defined to the path of the file for that input. For example if you are
     accessing an input called foo from the path `/pfs/foo` which contains a file
     called `bar` then the environment variable `foo` will have the value
-    `/pfs/foo/bar`. 
+    `/pfs/foo/bar`.
 
 In addition to these environment variables Kubernetes also injects others for
 Services that are running inside the cluster. These allow you to connect to
-outside those services, which can be powerful but also can be hard to reason
-about, as processing me be retried multiple times. Interaction with outside
-services should be idempotent to prevent unexpected behavior. Furthermore, one
-of the running services that your code can connect to is Pachyderm itself, this
-is generally not recommended as very little of the Pachyderm API is idempotent,
-but in some specific cases it can be a viable approach.
+those outside services, which can be powerful but also can be hard to reason
+about, as processing might be retried multiple times. For example if your code
+writes a row to a database that row may be written multiple times due to
+retries. Interaction with outside services should be idempotent to prevent
+unexpected behavior. Furthermore, one of the running services that your code
+can connect to is Pachyderm itself, this is generally not recommended as very
+little of the Pachyderm API is idempotent, but in some specific cases it can be
+a viable approach.
