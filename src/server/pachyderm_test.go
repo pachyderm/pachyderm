@@ -2490,6 +2490,8 @@ func TestPipelineEnv(t *testing.T) {
 					"echo $foo> /pfs/out/foo_env",
 					fmt.Sprintf("echo $%s >/pfs/out/job_id", client.JobIDEnv),
 					fmt.Sprintf("echo $%s >/pfs/out/output_commit_id", client.OutputCommitIDEnv),
+					fmt.Sprintf("echo $%s >/pfs/out/input", dataRepo),
+					fmt.Sprintf("echo $%s_COMMIT >/pfs/out/input_commit", dataRepo),
 				},
 				Env: map[string]string{"bar": "bar"},
 				Secrets: []*pps.Secret{
@@ -2527,6 +2529,12 @@ func TestPipelineEnv(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "output_commit_id", 0, 0, &buffer))
 	require.Equal(t, fmt.Sprintf("%s\n", jis[0].OutputCommit.ID), buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "input", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("/pfs/%s/file\n", dataRepo), buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "input_commit", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Input.Atom.Commit), buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
