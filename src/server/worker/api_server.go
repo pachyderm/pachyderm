@@ -26,7 +26,6 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	"github.com/golang/snappy"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/go-playground/webhooks.v3/github"
@@ -1438,7 +1437,7 @@ func (a *APIServer) worker() {
 					return err
 				}
 				var count int
-				pbr := pbutil.NewReader(snappy.NewReader(r))
+				pbr := pbutil.NewReader(r)
 				hdr := &hashtree.BucketHeader{}
 				if err := pbr.Read(hdr); err != nil {
 					return err
