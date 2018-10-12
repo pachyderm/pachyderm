@@ -19,7 +19,6 @@ import (
 
 	bolt "github.com/coreos/bbolt"
 	globlib "github.com/gobwas/glob"
-	"github.com/golang/snappy"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -499,7 +498,7 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 }
 
 func (h *dbHashTree) Serialize(_w io.Writer) error {
-	w := pbutil.NewWriter(snappy.NewWriter(_w))
+	w := pbutil.NewWriter(_w)
 	return h.View(func(tx *bolt.Tx) error {
 		for _, bucket := range buckets {
 			b := tx.Bucket(b(bucket))
@@ -530,7 +529,7 @@ type keyValue struct {
 }
 
 func (h *dbHashTree) Deserialize(_r io.Reader) error {
-	r := pbutil.NewReader(snappy.NewReader(_r))
+	r := pbutil.NewReader(_r)
 	hdr := &BucketHeader{}
 	batchSize := 10000
 	kvs := make(chan *keyValue, batchSize/10)
@@ -932,7 +931,7 @@ func NewMergeStream(r io.ReadCloser, filter func(path []byte) (bool, error)) (*m
 	}
 	m := &mergeStream{
 		r:         r,
-		pbr:       pbutil.NewReader(snappy.NewReader(rBuf)),
+		pbr:       pbutil.NewReader(rBuf),
 		hdr:       &BucketHeader{},
 		filter:    filter,
 		nextChan:  make(chan *keyValue, 10),
@@ -1066,7 +1065,7 @@ func MergeTreesOld(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte
 			}
 		}
 	}()
-	pbw := pbutil.NewWriter(snappy.NewWriter(w))
+	pbw := pbutil.NewWriter(w)
 	out := func(k, v []byte) error {
 		if bytes.Equal(k, nullByte) {
 			n := &NodeProto{}
@@ -1231,7 +1230,7 @@ type HashTreeReaderStream struct {
 
 func NewHashTreeReaderStream(r io.Reader) *HashTreeReaderStream {
 	return &HashTreeReaderStream{
-		pbr:  pbutil.NewReader(snappy.NewReader(bufio.NewReaderSize(r, DefaultMergeBufSize))),
+		pbr:  pbutil.NewReader(bufio.NewReaderSize(r, DefaultMergeBufSize)),
 		done: make(map[string]bool),
 	}
 }
@@ -1340,7 +1339,7 @@ type HashTreeWriterStream struct {
 
 func NewHashTreeWriterStream(w io.Writer) *HashTreeWriterStream {
 	return &HashTreeWriterStream{
-		pbw:  pbutil.NewWriter(snappy.NewWriter(w)),
+		pbw:  pbutil.NewWriter(w),
 		done: make(map[string]bool),
 	}
 }
@@ -1459,7 +1458,7 @@ func NewIntermediaryHashTreeFromReader(r io.Reader, filter func(path []byte) (bo
 	if err != nil {
 		return nil, err
 	}
-	pbr := pbutil.NewReader(snappy.NewReader(bytes.NewReader(buf)))
+	pbr := pbutil.NewReader(bytes.NewReader(buf))
 	t := NewIntermediaryHashTree()
 	// Read datum bucket
 	if err := pbr.Read(&BucketHeader{}); err != nil {
@@ -2406,7 +2405,7 @@ func (d *DatumHashTree) handleEndOfDirectory(path string) {
 }
 
 func (d *DatumHashTree) Serialize(_w io.Writer, datum string) error {
-	w := pbutil.NewWriter(snappy.NewWriter(_w))
+	w := pbutil.NewWriter(_w)
 	if err := w.Write(&BucketHeader{Bucket: DatumBucket}); err != nil {
 		return err
 	}
