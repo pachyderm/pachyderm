@@ -104,7 +104,7 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Trees != nil {
-		if err := a.driver.finishOutputCommit(ctx, request.Commit, request.Trees, request.SizeBytes); err != nil {
+		if err := a.driver.finishOutputCommit(ctx, request.Commit, request.Trees, request.Datums, request.SizeBytes); err != nil {
 			return nil, err
 		}
 	} else if err := a.driver.finishCommit(ctx, request.Commit, request.Tree, request.Empty, request.Description); err != nil {
