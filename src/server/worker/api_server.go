@@ -1245,7 +1245,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 
 }
 
-func (a *APIServer) getParentCommitHashTreeInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit, merge int64) (*pfs.ObjectInfo, error) {
+func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
@@ -1253,14 +1253,49 @@ func (a *APIServer) getParentCommitHashTreeInfo(ctx context.Context, pachClient 
 	if err != nil {
 		return nil, err
 	}
-	if commitInfo.ParentCommit == nil {
-		return nil, nil
+	for commitInfo.ParentCommit != nil {
+		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+			&pfs.InspectCommitRequest{
+				Commit:     commitInfo.ParentCommit,
+				BlockState: pfs.CommitState_FINISHED,
+			})
+		if err != nil {
+			return nil, err
+		}
+		if parentCommitInfo.Trees != nil {
+			return parentCommitInfo, nil
+		}
+		commitInfo = parentCommitInfo
 	}
-	parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
-		&pfs.InspectCommitRequest{
-			Commit:     commitInfo.ParentCommit,
-			BlockState: pfs.CommitState_FINISHED,
-		})
+	return nil, nil
+}
+
+func (a *APIServer) getCommitDatums(ctx context.Context, pachClient *client.APIClient, commitInfo *pfs.CommitInfo) (datums map[string]struct{}, retErr error) {
+	r, err := pachClient.GetObjectReader(commitInfo.Datums.Hash)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := r.Close(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	pbr := pbutil.NewReader(r)
+	datums = make(map[string]struct{})
+	for {
+		k, err := pbr.ReadBytes()
+		if err != nil {
+			if err == io.EOF {
+				return
+			}
+			return nil, err
+		}
+		datums[string(k)] = struct{}{}
+	}
+}
+
+func (a *APIServer) getParentCommitHashTreeInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit, merge int64) (*pfs.ObjectInfo, error) {
+	parentCommitInfo, err := a.getParentCommitInfo(ctx, pachClient, commit)
 	if err != nil {
 		return nil, err
 	}
@@ -1415,50 +1450,20 @@ func (a *APIServer) worker() {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
 
-			ctx := pachClient.Ctx()
-			parentTreeInfo, err := a.getParentCommitHashTreeInfo(ctx, pachClient, jobInfo.OutputCommit, 0)
+			// Compute the datums to skip
+			skip := make(map[string]struct{})
+			var useParentHashTree bool
+			parentCommitInfo, err := a.getParentCommitInfo(jobCtx, pachClient, jobInfo.OutputCommit)
 			if err != nil {
 				return err
 			}
-			skip := make(map[string]struct{})
-			var useParentHashTree bool
-			//var statsTree hashtree.HashTree
-			if parentTreeInfo != nil {
-				objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
-				if err != nil {
-					return err
-				}
-				path, err := obj.BlockPathFromEnv(parentTreeInfo.BlockRef.Block)
-				if err != nil {
-					return err
-				}
-				r, err := objClient.Reader(path, 0, 0)
+			if parentCommitInfo != nil {
+				var err error
+				skip, err = a.getCommitDatums(jobCtx, pachClient, parentCommitInfo)
 				if err != nil {
 					return err
 				}
 				var count int
-				pbr := pbutil.NewReader(r)
-				hdr := &hashtree.BucketHeader{}
-				if err := pbr.Read(hdr); err != nil {
-					return err
-				}
-				for {
-					k, err := pbr.ReadBytes()
-					if err != nil {
-						return err
-					}
-					if bytes.Equal(k, hashtree.SentinelByte) {
-						break
-					}
-					skip[string(k)] = struct{}{}
-					if _, err := pbr.ReadBytes(); err != nil {
-						return err
-					}
-				}
-				// (bryce) reading the parent hashtree needs to be refactored so that this can be deferred
-				if err := r.Close(); err != nil {
-					return err
-				}
 				for i := 0; i < df.Len(); i++ {
 					files := df.Datum(i)
 					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)

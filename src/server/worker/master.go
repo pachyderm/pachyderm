@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -732,12 +734,26 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					return err
 				}
 			}
-
+			// Write out the datums processed/skipped and merged for this job
+			buf := &bytes.Buffer{}
+			pbw := pbutil.NewWriter(buf)
+			for i := 0; i < df.Len(); i++ {
+				files := df.Datum(i)
+				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+				if err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+					return err
+				}
+			}
+			datums, _, err := pachClient.PutObject(buf)
+			if err != nil {
+				return err
+			}
 			// Finish the job's output commit
 			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit:    jobInfo.OutputCommit,
 				Trees:     trees,
 				SizeBytes: size,
+				Datums:    datums,
 			})
 			if err != nil && !pfsserver.IsCommitFinishedErr(err) {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {

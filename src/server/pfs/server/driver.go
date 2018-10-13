@@ -750,7 +750,7 @@ func (d *driver) finishCommit(ctx context.Context, commit *pfs.Commit, tree *pfs
 	return err
 }
 
-func (d *driver) finishOutputCommit(ctx context.Context, commit *pfs.Commit, trees []*pfs.Object, size uint64) (retErr error) {
+func (d *driver) finishOutputCommit(ctx context.Context, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
@@ -764,6 +764,7 @@ func (d *driver) finishOutputCommit(ctx context.Context, commit *pfs.Commit, tre
 		return fmt.Errorf("commit %s has already been finished", commit.FullID())
 	}
 	commitInfo.Trees = trees
+	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
 	commitInfo.Finished = now()
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
