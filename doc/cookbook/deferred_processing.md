@@ -51,12 +51,10 @@ Commit a file to the staging branch:
 
 ```sh
 $ pachctl put-file data staging -f <file>
-
-# Note: Doing put-file to a branch that doesn't exist, in this case
-"stages", will automatically create that branch.
 ```
 
-Your repo now has 2 branches, `staging` and `master`, If you do
+Your repo now has 2 branches, `staging` and `master` (`put-file`
+automatically creates branches if they don't exist). If you do
 `list-branch` again you should see:
 
 ```sh
