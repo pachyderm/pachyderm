@@ -58,3 +58,6 @@ reduce: docker-build-reduce
 		pachctl update-pipeline -f reduce.json --push-images --reprocess
 
 all: teardown input map join shuffle reduce
+
+new-sales:
+	cat sales2.csv | tail -n+2 | pachctl put-file data master /sales/2.csv 

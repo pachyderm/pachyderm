@@ -143,39 +143,37 @@ How many files is that? Well if we look ...
 18-10-18[15:20:47]:join:0$pc list-file map master /sales
 NAME          TYPE SIZE 
 /sales/1.csv  file 4B   
-/sales/10.csv file 5B   
-/sales/11.csv file 5B   
 ...
 ```
 
-We see that it's a lot. In fact it's 100:
+We see that it's a lot. In fact it's 10:
 
 ```
 $pc list-file map master /sales | wc -l
-102
-# minus the headers, this is 100 values
+11
+# minus the headers, this is 10 values
 ```
 
 Similarly for the other two inputs, we're selecting each of the files separately. Then we take the cross product. That means every combination of files will be seen in some datum. For instance, some datum will see:
 
 ```
 /pfs/authors/authors/3.csv
-/pfs/books/books/66.csv
-/pfs/sales/sales/34.csv
+/pfs/books/books/6.csv
+/pfs/sales/sales/4.csv
 ```
 
 Which means there will be as many combinations as there are # of authors times # of books times # of sales. How many combinations exactly? Well we need to know the number of each of these.
 
 ```
 $pc list-file map master /sales | wc -l
-102
-# minus the headers, this is 100 values
+11
+# minus the headers, this is 10 values
 $pc list-file map master /authors | wc -l
 6
 # so 5 total
 $pc list-file map master /books | wc -l
-102
-# and 100 total
+11
+# and 10 total
 ```
 
 So that's 50k combinations in total. This is something to be aware of and keep an eye on when designing your pipelines. Depending on your workload too many datums will introduce too much overhead.
@@ -363,3 +361,10 @@ emma
 $pc get-file reduce master /top_seller/publishers.txt
 random house
 ```
+
+## Add More Data
+
+You can run `make new-sales` to add a bit more data to the sales table ... and
+watch it percolate through the pipelines.
+
+
