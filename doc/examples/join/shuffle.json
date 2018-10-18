@@ -1,0 +1,17 @@
+{
+  "pipeline": {
+    "name": "shuffle"
+  },
+  "enable_stats": true,
+  "transform": {
+    "cmd": [ "/bin/bash" ],
+    "image": "pachyderm/shuffle",
+    "stdin": [ "./shuffle.rb /pfs/join /pfs/out/" ]
+  },
+  "input": {
+    "atom":{
+        "repo": "join",
+        "glob": "/*"
+    }
+  }
+}

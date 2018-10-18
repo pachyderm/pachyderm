@@ -1,0 +1,20 @@
+{
+  "pipeline": {
+    "name": "reduce"
+  },
+  "enable_stats": true,
+  "transform": {
+    "cmd": [ "/bin/bash" ],
+    "image": "pachyderm/reduce",
+    "stdin": [ "./reduce.rb /pfs/ /pfs/out/" ]
+  },
+  "parallelism_spec": {
+    "constant": 2
+  },
+  "input": {
+      "atom":{
+          "repo": "shuffle",
+          "glob": "/*"
+      }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "pipeline": {
+    "name": "map"
+  },
+  "input": {
+      "atom": {
+        "glob": "/",
+        "repo": "data"
+      }
+  },
+  "enable_stats": true,
+  "transform": {
+    "cmd": [ "/bin/bash" ],
+    "image": "pachyderm/map",
+    "stdin": [ "./map.rb /pfs/data /pfs/out/" ]
+  }
+}

@@ -1,0 +1,3 @@
+FROM ruby:2.4.4-onbuild 
+ 
+ADD join.rb . 
