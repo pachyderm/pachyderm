@@ -787,6 +787,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 								}
 								blockRefs = append(blockRefs, objectInfo.BlockRef)
 							}
+							blockRefs = append(blockRefs, fileInfo.BlockRefs...)
 							n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
 							//if statsTree != nil {
 							//	if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Hash, &FileNodeProto{},
