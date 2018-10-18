@@ -1563,6 +1563,12 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
+			} else {
+				if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+					atomic.AddInt64(&result.datumsSkipped, 1)
+					logger.Logf("skipping datum")
+					return nil
+				}
 			}
 			var statsTag *pfs.Tag
 			if a.pipelineInfo.EnableStats {
