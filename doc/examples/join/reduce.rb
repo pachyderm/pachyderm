@@ -14,24 +14,26 @@ $price_index = 4
 
 Dir.glob(File.join(INPUT_DIR, "*")).each do |table_dir|
     # Either data indexed by publisher or author
-	output_file = File.open(File.join(OUTPUT_DIR, table_dir), "w")
+    table = File.basename(table_dir)
+	output_file = File.open(File.join(OUTPUT_DIR, table) + ".csv", "w")
 
 	# Read all rows
 	rows = []
-	header = nil
+	sum = 0.00
     Dir.glob(File.join(table_dir, "*")).each do |file|
-		# No need to read into mem just to append, just use bash
-		raw = File.read(file).split("\n")
-		header = raw.first
-		rows << raw.last.split(",") # Don't want the header
+		id = File.basename(file).split(".").first # Filename is object ID (author / publisher)
+		sales = File.read(file).split("\n")
+		sales.each do |sale|
+			sum += sale.split(",").last.to_f	
+		end
+		rows << [id, sum]
     end
 
 	# Sort the result by price
-	rows.sort_by! {|row| row[$price_index]}
+	rows.sort_by! {|row| row.last}
 
 	# Output the sorted result
-	output_file << header
-	rows.each do |row|
+	rows.reverse.each do |row|
 		output_file << row.join(",") + "\n"
 	end
 end
