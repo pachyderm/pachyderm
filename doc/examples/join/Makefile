@@ -1,13 +1,10 @@
 
-setup:
-	pachctl create-repo data
-	@#pachctl create-pipeline map.json
-	@#pachctl create-pipeline join.json
-	@#pachctl create-pipeline shuffle.json
-	@#pachctl create-pipeline reduce.json
-
 teardown:
-	pachctl delete-repo data
+	pachctl delete-pipeline reduce || true
+	pachctl delete-pipeline shuffle || true
+	pachctl delete-pipeline join || true
+	pachctl delete-pipeline map || true
+	pachctl delete-repo data || true
 
 generate-input-data:
 	./gendata.rb
@@ -19,6 +16,7 @@ upload:
 	cat sales1.csv | tail -n+2 | pachctl put-file data master /sales/1.csv 
 	cat authors.csv | tail -n+2 | pachctl put-file data master /authors/1.csv 
 	cat books.csv | tail -n+2 | pachctl put-file data master /books/1.csv 
+	pachctl put-file data master /publishers/1.csv -f publishers.csv
 	pachctl finish-commit data master
 
 input: generate-input-data upload
@@ -59,4 +57,4 @@ reduce: docker-build-reduce
 	pachctl create-pipeline -f reduce.json || \
 		pachctl update-pipeline -f reduce.json --push-images --reprocess
 
-all: input map join shuffle reduce
+all: teardown input map join shuffle reduce

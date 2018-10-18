@@ -12,9 +12,19 @@
     "constant": 2
   },
   "input": {
-      "atom":{
-          "repo": "shuffle",
-          "glob": "/*"
-      }
+      "cross": [
+          {
+              "atom":{
+                  "repo": "shuffle",
+                  "glob": "/*"
+              }
+          },
+          {
+              "atom":{
+                  "repo": "data",
+                  "glob": "/"
+              }
+          }
+      ]
   }
 }

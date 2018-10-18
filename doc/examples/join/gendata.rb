@@ -1,7 +1,16 @@
 #!/usr/bin/env ruby
 
+$book_total = 10
+$sales_total = 10
 
 $publishers = ["random house", "pelican"]
+
+# Write publishers
+publishers_file = File.open("publishers.csv","w")
+publishers_file << "ID, Name\n"
+$publishers.each_with_index do |publisher, idx|
+    publishers_file << [idx, publisher].join(",") + "\n"
+end
 
 $authors = ["alice","bob","catie","dan","emma","frank"]
 authors_file = File.open("authors.csv", "w")
@@ -35,7 +44,7 @@ def new_book()
 end
 
 $book_count = 0
-while $book_count < 100
+while $book_count < $book_total
     books_file << new_book() + "\n"
     $book_count += 1
 end
@@ -51,7 +60,7 @@ while batch < 3
     sales_file = File.open("sales#{batch}.csv", "w")
 	sales_file << "TransactionID, BookID\n"
     txn=0
-    while txn < 100
+    while txn < $sales_total
         sales_file << new_sale(txn) + "\n"
         txn += 1
     end

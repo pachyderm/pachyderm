@@ -301,11 +301,12 @@ total sales for each author/publisher ... then sort the result.
 
 #### Input
 
-| Input Repo | Glob Pattern |
-|---|---|
-| shuffle | `/*` |
+| Input Repo | Glob Pattern | Datum Count |
+|---|---|---|
+| shuffle | `/*` | 2 |
+| data | `/` | 1 |
 
-This means that there will be 2 datums -- one for authors, one for publishers.
+And since we're doing the cross, this means that there will be 2 datums -- one for authors, one for publishers.
 
 e.g. One datum will see:
 
@@ -325,17 +326,40 @@ The code will read each of the individual files under the table given, aggregate
 the sum, sort the results - e.g. tuples of [author, total sales] - and write
 them to a single file.
 
+We also cross reference the top result (the author/publisher w the most sales)
+w the original tables to lookup the name. These are emitted in the output as
+well
+
+#### Parallelism
+
+We set the parallelism to 2 to demonstrate that we can do these reduces per
+table separately.
+
 #### Output
+
+We see the raw rankings for authors / publishers. And we see the top ranked
+results.
 
 ```
 $pc list-file reduce master
-NAME           TYPE SIZE 
-authors.csv    file 80B  
-publishers.csv file 30B  
-$pc get-file reduce master /authors.csv
-4,447.2599999999999
-2,336.40999999999997
-5,262.84
-1,178.89
-3,108.10000000000001
+NAME       TYPE SIZE 
+rankings   dir  58B  
+top_seller dir  18B  
+$pc list-file reduce master /rankings
+NAME                     TYPE SIZE 
+/rankings/authors.csv    file 42B  
+/rankings/publishers.csv file 16B  
+$pc get-file reduce master /rankings/authors.csv
+4,42.81999999999999
+2,24.79
+1,14.94
+3,7.4
+$pc list-file reduce master /top_seller
+NAME                       TYPE SIZE 
+/top_seller/authors.txt    file 5B   
+/top_seller/publishers.txt file 13B  
+$pc get-file reduce master /top_seller/authors.txt
+emma
+$pc get-file reduce master /top_seller/publishers.txt
+random house
 ```
