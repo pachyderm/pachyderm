@@ -18,7 +18,7 @@ each stage of this guide.
 |----|---|---|
 | ID | Name | Publisher ID |
 
-| Books |||
+| Books ||||
 |----|---|---|---|
 | ID | Title | Author ID | Price |
 
