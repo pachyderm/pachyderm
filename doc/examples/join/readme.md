@@ -169,14 +169,23 @@ $pc list-file map master /sales | wc -l
 11
 # minus the headers, this is 10 values
 $pc list-file map master /authors | wc -l
-6
-# so 5 total
+7
+# so 6 total
 $pc list-file map master /books | wc -l
 11
 # and 10 total
 ```
 
-So that's 50k combinations in total. This is something to be aware of and keep an eye on when designing your pipelines. Depending on your workload too many datums will introduce too much overhead.
+To summarize ...
+
+
+| Input Repo | Glob Pattern | Datum Count |
+|---|---|---|
+| data | `/authors/authors/*` | 6 |
+| data | `/sales/sales/*` | 10 |
+| data | `/books/books/*` | 10 |
+
+So that's 600 combinations in total. This is something to be aware of and keep an eye on when designing your pipelines. Depending on your workload too many datums will introduce too much overhead.
 
 #### Processing
 
@@ -198,11 +207,11 @@ So let's say this particular datum sees the combination:
 
 ```
 /pfs/authors/authors/2.csv
-/pfs/books/books/76.csv
-/pfs/sales/sales/44.csv
+/pfs/books/books/7.csv
+/pfs/sales/sales/4.csv
 ```
 
-If sale number 44 has a book ID that matches book number 76 AND book number 76 has an author ID
+If sale number 4 has a book ID that matches book number 7 AND book number 7 has an author ID
 that matches author number 2 ... then we write out the full row.
 
 But what if they don't match? That's ok. We don't need to write anything out
@@ -210,12 +219,23 @@ since the cross product guarantees _some_ datum will see the right combination.
 
 #### Parallelism
 
-We have 50k datums to process here. If we process these sequentially, even if
-they're fast, this will quickly add up. (In fact if we ran this data set in 
-sequence it would take ~200m). But the good news is we can distribute this join.
-Since each datum can be processed in any order, we can spread the work across 
-workers. Note in the pipeline spec we've set parallelism to 10. This brings the
-wall clock time for the job to ~20m.
+We have 600 datums to process here. If we process these sequentially, even if
+they're fast, this will quickly add up.
+
+By default we have this pipeline running with a single worker. As is, it'll take
+about 5 minutes to complete. 
+
+But the good news is we can distribute this join. Since each datum can be processed in any order, we can spread the work across workers. 
+
+If we supply the following config in our join pipeline:
+
+```
+"parallelism_spec": {
+  "constant": 10
+}
+```
+
+We'll see the job complete in about 30 seconds.
 
 #### Output
 

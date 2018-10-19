@@ -8,9 +8,6 @@
     "image": "pachyderm/join",
     "stdin": [ "./join.rb /pfs/ /pfs/out/" ]
   },
-  "parallelism_spec": {
-    "constant": 10
-  },
   "input": {
         "cross": [
             {
