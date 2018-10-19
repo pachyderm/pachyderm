@@ -11,15 +11,15 @@ each stage of this guide.
 ## Schema
 
 | Sales|
-|----|
+|----|---|
 | Sale ID | Book ID |
 
 | Authors |
-|----|
+|----|---|
 | ID | Name | Publisher ID |
 
 | Books |
-|----|
+|----|---|
 | ID | Title | Author ID | Price |
 
 ## Basic Design
