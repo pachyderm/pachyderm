@@ -602,6 +602,8 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		defer func() {
 			if retErr == nil {
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					locks := a.locks(jobID).ReadWrite(stm)
+					locks.DeleteAll()
 					chunksCol := a.chunks.ReadWrite(stm)
 					return chunksCol.Delete(jobID)
 				}); err != nil {
