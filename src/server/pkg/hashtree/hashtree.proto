@@ -66,6 +66,11 @@ message BucketHeader {
   string bucket = 1;
 }
 
+message Index {
+	bytes k = 1;
+	uint64 offset = 2;
+}
+
 /// Potential Optimizations
 //
 // Currently, we serialize HashTree.fs, i.e. the map from paths to nodes, as a

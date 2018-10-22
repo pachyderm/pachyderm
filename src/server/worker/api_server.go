@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -21,7 +22,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/OneOfOne/xxhash"
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
@@ -59,9 +59,10 @@ const (
 	concurrency = 100
 	logBuffer   = 25
 
-	planPrefix  = "/plan"
-	chunkPrefix = "/chunk"
-	mergePrefix = "/merge"
+	planPrefix        = "/plan"
+	chunkPrefix       = "/chunk"
+	mergePrefix       = "/merge"
+	parentTreeBufSize = 50 * (1 << (10 * 2))
 )
 
 var (
@@ -695,14 +696,14 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	buf := grpcutil.GetBuffer()
 	defer grpcutil.PutBuffer(buf)
 	var offset uint64
-	var tree *hashtree.DatumHashTree
+	var tree *hashtree.Datum
 	// Upload all files in output directory
 	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if filePath == outputPath {
-			tree = hashtree.NewDatumHashTree("/")
+			tree = hashtree.NewDatum("/")
 			return nil
 		}
 		relPath, err := filepath.Rel(outputPath, filePath)
@@ -868,7 +869,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			retErr = err
 		}
 	}()
-	if err := tree.Serialize(w, tag); err != nil {
+	if err := tree.Serialize(w); err != nil {
 		return err
 	}
 	return nil
@@ -1112,7 +1113,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 	complete := false
 	for !complete {
 		// func to defer cancel in
-		if err := func() error {
+		if err := func() (retErr error) {
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 			var merge int64
@@ -1176,63 +1177,66 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 
 				// Merge
 				t := time.Now()
-				limiter := limit.New(hashtree.DefaultMergeConcurrency)
-				var eg errgroup.Group
-				var mu sync.Mutex
-				var treeInfos []*pfs.ObjectInfo
-				for _, tag := range tags {
-					tag := tag
-					limiter.Acquire()
-					eg.Go(func() error {
-						defer limiter.Release()
-						treeInfo, err := pachClient.InspectTag(ctx, tag)
-						if err != nil {
-							return err
-						}
-						mu.Lock()
-						defer mu.Unlock()
-						treeInfos = append(treeInfos, treeInfo)
-						return nil
-					})
-				}
-				if err := eg.Wait(); err != nil {
-					return err
-				}
-				var parentTreeInfo *pfs.ObjectInfo
-				if useParentHashTree {
-					var err error
-					parentTreeInfo, err = a.getParentCommitHashTreeInfo(ctx, pachClient, jobInfo.OutputCommit, merge)
-					if err != nil {
-						return err
-					}
-				}
 				objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
 				if err != nil {
 					return err
 				}
-				w, err := pachClient.PutObjectAsync(nil)
-				var size uint64
-				if size, err = hashtree.MergeTrees(w, objClient, treeInfos, parentTreeInfo, func(path []byte) (bool, error) {
-					if xxhash.Checksum64(path)%uint64(plan.Merges) == uint64(merge) {
-						return true, nil
-					}
-					return false, nil
-				}); err != nil {
-					return err
-				}
-				if err := w.Close(); err != nil {
-					return err
-				}
-				object, err := w.Object()
+				rs, err := a.getDatumHashtrees(ctx, pachClient, objClient, tags, hashtree.NewFilter(plan.Merges, merge))
 				if err != nil {
 					return err
 				}
-				fmt.Printf("(mergefilter) Time spent merging: %v\n", time.Since(t))
+				if useParentHashTree {
+					var err error
+					info, err := a.getParentCommitHashTreeInfo(ctx, pachClient, jobInfo.OutputCommit, merge)
+					if err != nil {
+						return err
+					}
+					path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+					if err != nil {
+						return err
+					}
+					r, err := objClient.Reader(path, 0, 0)
+					if err != nil {
+						return err
+					}
+					defer func() {
+						if err := r.Close(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
+					rs = append(rs, hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil))
+				}
+				objW, err := pachClient.PutObjectAsync(nil)
+				if err != nil {
+					return err
+				}
+				w := hashtree.NewWriter(objW)
+				size, err := hashtree.Merge(w, rs)
+				if err != nil {
+					return err
+				}
+				// Get object hash for hashtree
+				if err := objW.Close(); err != nil {
+					return err
+				}
+				tree, err := objW.Object()
+				if err != nil {
+					return err
+				}
+				// Get index and write it out
+				idx, err := w.Index()
+				if err != nil {
+					return err
+				}
+				if err := writeIndex(pachClient, objClient, tree, idx); err != nil {
+					return err
+				}
+				fmt.Printf("(mergefilter) time spent merging: %v\n", time.Since(t))
 
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 					merges := a.merges(jobID).ReadWrite(stm)
 					// TODO handle failures
-					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE, Tree: object, SizeBytes: size})
+					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE, Tree: tree, SizeBytes: size})
 				}); err != nil {
 					return err
 				}
@@ -1271,6 +1275,63 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 	return nil, nil
 }
 
+func (a *APIServer) getDatumHashtrees(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, filter func(k []byte) (bool, error)) ([]*hashtree.Reader, error) {
+	t := time.Now()
+	defer func() {
+		fmt.Printf("(mergefilter) time spent getting datum hashtrees: %v\n", time.Since(t))
+	}()
+	limiter := limit.New(hashtree.DefaultMergeConcurrency)
+	var eg errgroup.Group
+	var mu sync.Mutex
+	var rs []*hashtree.Reader
+	for _, tag := range tags {
+		tag := tag
+		limiter.Acquire()
+		eg.Go(func() (retErr error) {
+			defer limiter.Release()
+			// Get datum hashtree info
+			info, err := pachClient.InspectTag(ctx, tag)
+			if err != nil {
+				return err
+			}
+			path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+			if err != nil {
+				return err
+			}
+			// Read the full datum hashtree in memory
+			objR, err := objClient.Reader(path, 0, 0)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := objR.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			fullTree, err := ioutil.ReadAll(objR)
+			if err != nil {
+				return err
+			}
+			// Filter out unecessary keys
+			filteredTree := &bytes.Buffer{}
+			w := hashtree.NewWriter(filteredTree)
+			r := hashtree.NewReader(bytes.NewBuffer(fullTree), filter)
+			if err := w.Copy(r); err != nil {
+				return err
+			}
+			// Add it to the list of readers
+			mu.Lock()
+			defer mu.Unlock()
+			rs = append(rs, hashtree.NewReader(filteredTree, nil))
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
 func (a *APIServer) getCommitDatums(ctx context.Context, pachClient *client.APIClient, commitInfo *pfs.CommitInfo) (datums map[string]struct{}, retErr error) {
 	r, err := pachClient.GetObjectReader(commitInfo.Datums.Hash)
 	if err != nil {
@@ -1305,6 +1366,28 @@ func (a *APIServer) getParentCommitHashTreeInfo(ctx context.Context, pachClient 
 		return nil, err
 	}
 	return info, nil
+}
+
+func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Object, idx []byte) (retErr error) {
+	info, err := pachClient.InspectObject(tree.Hash)
+	if err != nil {
+		return err
+	}
+	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+	if err != nil {
+		return err
+	}
+	idxW, err := objClient.Writer(filepath.Join(path, hashtree.IndexPath))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := idxW.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err = idxW.Write(idx)
+	return err
 }
 
 func isDone(ctx context.Context) bool {

@@ -1,30 +1,25 @@
 package hashtree
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"os"
 	pathlib "path"
 	"regexp"
 	"strings"
-	"sync"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/OneOfOne/xxhash"
 	bolt "github.com/coreos/bbolt"
 	globlib "github.com/gobwas/glob"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
@@ -34,8 +29,10 @@ const (
 	ObjectBucket            = "object"
 	DatumBucket             = "datum"
 	perm                    = 0666
-	DefaultMergeBufSize     = 5 * (1 << (10 * 2))
+	DefaultBufSize          = 5 * (1 << (10 * 2))
 	DefaultMergeConcurrency = 10
+	IndexPath               = "/index"
+	IndexSize               = uint64(1 << (10 * 2))
 )
 
 var (
@@ -169,10 +166,10 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 }
 
 // (bryce) This get implementation is very naive and will be changed later.
-func Get(mq *MergePriorityQueue, filePath string) (*NodeProto, error) {
+func Get(rs []*Reader, filePath string) (*NodeProto, error) {
 	filePath = clean(filePath)
 	var fileNode *NodeProto
-	if err := Nodes(mq, b(filePath), func(path string, node *NodeProto) error {
+	if err := nodes(rs, func(path string, node *NodeProto) error {
 		if path == filePath {
 			fileNode = node
 		}
@@ -247,8 +244,7 @@ func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 	return result, nil
 }
 
-func List(mq *MergePriorityQueue, root string, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	root = clean(root)
+func List(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retErr error) {
 	if pattern != "/" {
 		pattern = clean(pattern)
 	}
@@ -256,7 +252,7 @@ func List(mq *MergePriorityQueue, root string, pattern string, f func(string, *N
 	if err != nil {
 		return errorf(MalformedGlob, err.Error())
 	}
-	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
+	return nodes(rs, func(path string, node *NodeProto) error {
 		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
 			return f(path, node)
 		}
@@ -265,7 +261,7 @@ func List(mq *MergePriorityQueue, root string, pattern string, f func(string, *N
 }
 
 func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
-	if !isGlob(pattern) {
+	if !IsGlob(pattern) {
 		node, err := get(tx, pattern)
 		if err != nil {
 			return err
@@ -313,14 +309,13 @@ func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
 	return res, nil
 }
 
-func Glob(mq *MergePriorityQueue, root string, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	root = clean(root)
+func Glob(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retErr error) {
 	pattern = clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
 		return errorf(MalformedGlob, err.Error())
 	}
-	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
+	return nodes(rs, func(path string, node *NodeProto) error {
 		if g.Match(path) {
 			return f(path, node)
 		}
@@ -364,9 +359,11 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 	})
 }
 
-func Walk(mq *MergePriorityQueue, root string, f func(path string, node *NodeProto) error) error {
-	root = clean(root)
-	return Nodes(mq, b(root), func(path string, node *NodeProto) error {
+func Walk(rs []*Reader, walkPath string, f func(path string, node *NodeProto) error) error {
+	return nodes(rs, func(path string, node *NodeProto) error {
+		if path != walkPath && !strings.HasPrefix(path, walkPath+"/") {
+			return nil
+		}
 		if err := f(path, node); err != nil {
 			if err == errutil.ErrBreak {
 				return nil
@@ -502,21 +499,22 @@ func (h *dbHashTree) Serialize(_w io.Writer) error {
 	return h.View(func(tx *bolt.Tx) error {
 		for _, bucket := range buckets {
 			b := tx.Bucket(b(bucket))
-			if err := w.Write(
+			if _, err := w.Write(
 				&BucketHeader{
 					Bucket: bucket,
 				}); err != nil {
 				return err
 			}
 			if err := b.ForEach(func(k, v []byte) error {
-				if err := w.WriteBytes(k); err != nil {
+				if _, err := w.WriteBytes(k); err != nil {
 					return err
 				}
-				return w.WriteBytes(v)
+				_, err := w.WriteBytes(v)
+				return err
 			}); err != nil {
 				return err
 			}
-			if err := w.WriteBytes(SentinelByte); err != nil {
+			if _, err := w.WriteBytes(SentinelByte); err != nil {
 				return err
 			}
 		}
@@ -864,1155 +862,383 @@ func (h *dbHashTree) DeleteFile(path string) error {
 	})
 }
 
-type Mergeable interface {
-	NextBucket(bucket string) error
-	Next() error
-	K() []byte
-	V() []byte
-	Close() error
-}
-
-type mergeCursor struct {
-	tx     *bolt.Tx
-	cursor *bolt.Cursor
-	k, v   []byte
-}
-
-func NewMergeCursor(h *dbHashTree) (*mergeCursor, error) {
-	tx, err := h.Begin(false)
-	if err != nil {
-		return nil, err
-	}
-	m := &mergeCursor{
-		tx: tx,
-	}
-	return m, nil
-}
-
-func (m *mergeCursor) NextBucket(bucket string) error {
-	m.cursor = m.tx.Bucket(b(bucket)).Cursor()
-	m.k, m.v = m.cursor.First()
-	return nil
-}
-
-func (m *mergeCursor) Next() error {
-	m.k, m.v = m.cursor.Next()
-	return nil
-}
-
-func (m *mergeCursor) K() []byte {
-	return m.k
-}
-
-func (m *mergeCursor) V() []byte {
-	return m.v
-}
-
-func (m *mergeCursor) Close() error {
-	return m.tx.Rollback()
-}
-
-type mergeStream struct {
-	r         io.ReadCloser
-	pbr       pbutil.Reader
-	hdr       *BucketHeader
-	done      bool
-	k, v      []byte
-	filter    func(path []byte) (bool, error)
-	nextChan  chan *keyValue
-	errChan   chan error
-	closeChan chan struct{}
-}
-
-func NewMergeStream(r io.ReadCloser, filter func(path []byte) (bool, error)) (*mergeStream, error) {
-	rBuf := bufio.NewReaderSize(r, DefaultMergeBufSize)
-	if _, err := rBuf.Peek(DefaultMergeBufSize); err != nil && err != io.EOF {
-		return nil, err
-	}
-	m := &mergeStream{
-		r:         r,
-		pbr:       pbutil.NewReader(rBuf),
-		hdr:       &BucketHeader{},
-		filter:    filter,
-		nextChan:  make(chan *keyValue, 10),
-		errChan:   make(chan error, 1),
-		closeChan: make(chan struct{}, 1),
-	}
-	return m, nil
-}
-
-func (m *mergeStream) NextBucket(bucket string) error {
-	m.hdr.Reset()
-	if err := m.pbr.Read(m.hdr); err != nil {
-		return err
-	}
-	for m.hdr.Bucket != bucket {
-		k, err := m.pbr.ReadBytes()
-		if err != nil {
-			return err
-		}
-		for !bytes.Equal(k, SentinelByte) {
-			k, err = m.pbr.ReadBytes()
-			if err != nil {
-				return err
-			}
-		}
-		if err := m.pbr.Read(m.hdr); err != nil {
-			return err
-		}
-	}
-	m.done = false
-	// Creating goroutine that handles getting the next key/values in a stream
-	go func() {
-		for {
-			_k, err := m.pbr.ReadBytes()
-			if err != nil {
-				m.errChan <- err
-				return
-			}
-			if bytes.Equal(_k, SentinelByte) {
-				m.nextChan <- &keyValue{nil, nil}
-				return
-			}
-			if m.hdr.Bucket == FsBucket {
-				ok, err := m.filter(_k)
-				if err != nil {
-					m.errChan <- err
-					return
-				}
-				if !ok {
-					if _, err := m.pbr.ReadBytes(); err != nil {
-						m.errChan <- err
-						return
-					}
-					continue
-				}
-			}
-			// we need to make copies of k and v because the memory will be reused
-			k := make([]byte, len(_k))
-			copy(k, _k)
-			_v, err := m.pbr.ReadBytes()
-			if err != nil {
-				m.errChan <- err
-				return
-			}
-			v := make([]byte, len(_v))
-			copy(v, _v)
-			select {
-			case <-m.closeChan:
-				close(m.nextChan)
-				close(m.errChan)
-				if err := m.r.Close(); err != nil {
-					fmt.Println("Error closing merge stream")
-				}
-				return
-			case m.nextChan <- &keyValue{k, v}:
-			}
-		}
-	}()
-	if err := m.Next(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (m *mergeStream) Next() error {
-	if m.done {
-		return nil
-	}
-	select {
-	case kv := <-m.nextChan:
-		m.k = kv.k
-		m.v = kv.v
-		if m.k == nil {
-			m.done = true
-		}
-		return nil
-	case err := <-m.errChan:
-		return err
-	}
-}
-
-func (m *mergeStream) K() []byte {
-	return m.k
-}
-
-func (m *mergeStream) V() []byte {
-	return m.v
-}
-
-func (m *mergeStream) Close() error {
-	m.closeChan <- struct{}{}
-	return nil
-}
-
-func MergeTreesOld(w io.WriteCloser, rs []io.ReadCloser, filter func(path []byte) (bool, error)) (size uint64, retErr error) {
-	var srcs []Mergeable
-	for _, r := range rs {
-		src, err := NewMergeStream(r, filter)
-		if err != nil {
-			return 0, err
-		}
-		srcs = append(srcs, src)
-	}
-	defer func() {
-		if err := w.Close(); err != nil && retErr == nil {
-			retErr = err
-		}
-		for _, src := range srcs {
-			if err := src.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}
-	}()
-	pbw := pbutil.NewWriter(w)
-	out := func(k, v []byte) error {
-		if bytes.Equal(k, nullByte) {
-			n := &NodeProto{}
-			if err := n.Unmarshal(v); err != nil {
-				return err
-			}
-			size = uint64(n.SubtreeSize)
-		}
-		if err := pbw.WriteBytes(k); err != nil {
-			return err
-		}
-		if err := pbw.WriteBytes(v); err != nil {
-			return err
-		}
-		return nil
-	}
-	if err := MergeBucketOld(DatumBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
-		return out(k, vs[0])
-	}); err != nil {
-		return 0, err
-	}
-	if err := MergeBucketOld(FsBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
-		if len(vs) <= 1 {
-			return out(k, vs[0])
-		}
-		destNode := &NodeProto{
-			Name:        base(s(k)),
-			SubtreeSize: 0,
-			Hash:        nil,
-			FileNode:    nil,
-			DirNode:     nil,
-		}
-		n := &NodeProto{}
-		if err := n.Unmarshal(vs[0]); err != nil {
-			return err
-		}
-		if n.nodetype() == directory {
-			destNode.DirNode = &DirectoryNodeProto{}
-		} else if n.nodetype() == file {
-			destNode.FileNode = &FileNodeProto{}
-		} else {
-			return errorf(Internal, "could not merge unrecognized file type at "+
-				"\"%s\", which is neither a file nor a directory", s(k))
-		}
-		sizeDelta := int64(0)
-		for _, v := range vs {
-			n := &NodeProto{}
-			if err := n.Unmarshal(v); err != nil {
-				return err
-			}
-			if n.nodetype() != destNode.nodetype() {
-				return errorf(PathConflict, "could not merge path \"%s\" "+
-					"which is a regular-file in some hashtrees and a directory in others", s(k))
-			}
-			switch n.nodetype() {
-			case directory:
-				sizeDelta += n.SubtreeSize
-			case file:
-				// Append new block refs, and update size of target node (since that can't be
-				// done in canonicalize)
-				destNode.FileNode.BlockRefs = append(destNode.FileNode.BlockRefs, n.FileNode.BlockRefs...)
-				sizeDelta += n.SubtreeSize
-			default:
-				return errorf(Internal, "malformed file at \"%s\" in source "+
-					"hashtree is neither a regular-file nor a directory", s(k))
-			}
-		}
-		destNode.SubtreeSize += sizeDelta
-		v, err := destNode.Marshal()
-		if err != nil {
-			return err
-		}
-		return out(k, v)
-	}); err != nil {
-		return 0, err
-	}
-	if err := MergeBucketOld(ObjectBucket, pbw, srcs, func(k []byte, vs [][]byte) error {
-		return out(k, vs[0])
-	}); err != nil {
-		return 0, err
-	}
-	return size, nil
-}
-
-//type AsyncBufferedReader struct {
-//	r io.Reader
-//	buf *bytes.Buffer
-//	fetchChan chan *bytes.Buffer
-//	readyChan chan *bytes.Buffer
-//	errChan chan error
-//	done bool
-//}
-//
-//func NewAsyncBufferedReader(r io.Reader, size bufSize) *AsyncBufferedReader {
-//	rBuf := &AsyncBufferedReader{
-//		r: r,
-//		buf: bytes.NewBuffer(make([]byte, bufSize)),
-//		fetchChan: make(chan *bytes.Buffer, 1),
-//		readyChan: make(chan *bytes.Buffer, 1),
-//		errChan: make(chan error, 1),
-//	}
-//	if err := r.ReadFull(buf); err != nil {
-//		if err == io.ErrUnexpectedEOF {
-//			errChan <- io.EOF
-//		}
-//		errChan <- err
-//	}
-//	nextChan <- bytes.NewBuffer(make([]byte, bufSize))
-//	go func() {
-//		for buf := range nextChan {
-//			if err := r.ReadFull(buf); err != nil {
-//				if err == io.ErrUnexpectedEOF {
-//					r.readyChan <- buf
-//					r.errChan <- io.EOF
-//				}
-//				errChan <- err
-//			}
-//			errChan <- nil
-//		}
-//	}
-//
-//}
-//
-//func (r *AsyncBufferedReader) Read() {
-//	var n int
-//	var err error
-//	for !r.done && n < len(data) {
-//		n, err = buf.Read(data[n:])
-//		if err != nil {
-//			// Pull buffer from ready channel
-//			switch {
-//			case r.buf = <-r.readyChan:
-//			}
-//			// Check for errors or end of file
-//			switch {
-//			case err := <-r.errChan:
-//				if err == io.EOF {
-//					close(r.fetchChan)
-//					return r.buf.Read(data[n:])
-//				}
-//				return err
-//			}
-//		}
-//	}
-//}
-
-type HashTreeReader interface {
-	ReadDatums() ([][]byte, error)
-	ReadFS() ([]*IntermediaryNode, error)
-}
-
-type HashTreeReaderStream struct {
-	pbr pbutil.Reader
-	// started specifies whether the next bucket has been started.
-	// This is useful for reading bucket headers.
-	started bool
-	// done keeps track of the buckets that have been fully read.
-	// This is useful for ensuring the buckets are read in
-	// the correct order.
-	done map[string]bool
-}
-
-func NewHashTreeReaderStream(r io.Reader) *HashTreeReaderStream {
-	return &HashTreeReaderStream{
-		pbr:  pbutil.NewReader(bufio.NewReaderSize(r, DefaultMergeBufSize)),
-		done: make(map[string]bool),
-	}
-}
-
-func (r *HashTreeReaderStream) ReadDatums() ([][]byte, error) {
-	if _, ok := r.done[DatumBucket]; ok {
-		return nil, io.EOF
-	}
-	if !r.started {
-		if err := r.pbr.Read(&BucketHeader{}); err != nil {
-			return nil, err
-		}
-		r.started = true
-	}
-	result := [][]byte{}
-	var size uint64
-	err := ReadBucket(r.pbr, func(k, v []byte) (bool, error) {
-		result = append(result, k)
-		size += uint64(len(k))
-		if size > DefaultMergeBufSize {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err == io.EOF {
-		r.done[DatumBucket] = true
-		r.started = false
-	}
-	return result, nil
-}
-
-func (r *HashTreeReaderStream) ReadFS() ([]*IntermediaryNode, error) {
-	if _, ok := r.done[FsBucket]; ok {
-		return nil, io.EOF
-	}
-	if _, ok := r.done[DatumBucket]; !ok {
-		return nil, errorf(Internal, "reading hashtree stream out of order")
-	}
-	if !r.started {
-		if err := r.pbr.Read(&BucketHeader{}); err != nil {
-			return nil, err
-		}
-		r.started = true
-	}
-	result := []*IntermediaryNode{}
-	var size uint64
-	err := ReadBucket(r.pbr, func(k, v []byte) (bool, error) {
-		result = append(result, &IntermediaryNode{
-			k: k,
-			v: v,
-		})
-		size += uint64(len(k) + len(v))
-		if size > DefaultMergeBufSize {
-			return true, nil
-		}
-		return false, nil
-	})
-	if err == io.EOF {
-		r.done[FsBucket] = true
-		r.started = false
-	}
-	return result, nil
-}
-
-func ReadBucket(pbr pbutil.Reader, f func(k, v []byte) (bool, error)) error {
-	var done bool
-	for !done {
-		_k, err := pbr.ReadBytes()
-		if err != nil {
-			return err
-		}
-		if bytes.Equal(_k, SentinelByte) {
-			return io.EOF
-		}
-		k := make([]byte, len(_k))
-		copy(k, _k)
-		_v, err := pbr.ReadBytes()
-		if err != nil {
-			return err
-		}
-		v := make([]byte, len(_v))
-		copy(v, _v)
-		if done, err = f(k, v); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-type HashTreeWriter interface {
-	WriteDatums(datums [][]byte, done bool) error
-	WriteFS(fs []*IntermediaryNode, done bool) error
-}
-
-type HashTreeWriterStream struct {
-	pbw pbutil.Writer
-	// started specifies whether the next bucket has been started.
-	// This is useful for writing bucket headers.
-	started bool
-	// done keeps track of the buckets that have been fully written.
-	// This is useful for ensuring the buckets are written in
-	// the correct order.
-	done map[string]bool
-	size uint64
-}
-
-func NewHashTreeWriterStream(w io.Writer) *HashTreeWriterStream {
-	return &HashTreeWriterStream{
-		pbw:  pbutil.NewWriter(w),
-		done: make(map[string]bool),
-	}
-}
-
-func (w *HashTreeWriterStream) WriteDatums(datums [][]byte, done bool) error {
-	if _, ok := w.done[DatumBucket]; ok {
-		return errorf(Internal, "writing to bucket that has been finished")
-	}
-	if !w.started {
-		if err := w.pbw.Write(&BucketHeader{Bucket: DatumBucket}); err != nil {
-			return err
-		}
-		w.started = true
-	}
-	for _, d := range datums {
-		if err := w.pbw.WriteBytes(d); err != nil {
-			return err
-		}
-		if err := w.pbw.WriteBytes(exists); err != nil {
-			return err
-		}
-	}
-	if done {
-		w.done[DatumBucket] = true
-		w.started = false
-		return w.pbw.WriteBytes(SentinelByte)
-	}
-	return nil
-}
-
-func (w *HashTreeWriterStream) WriteFS(fs []*IntermediaryNode, done bool) error {
-	if _, ok := w.done[FsBucket]; ok {
-		return errorf(Internal, "writing to bucket that has been finished")
-	}
-	if _, ok := w.done[DatumBucket]; !ok {
-		return errorf(Internal, "writing hashtree stream out of order")
-	}
-	if !w.started {
-		if err := w.pbw.Write(&BucketHeader{Bucket: FsBucket}); err != nil {
-			return err
-		}
-		w.started = true
-	}
-	for _, n := range fs {
-		if bytes.Equal(n.k, nullByte) {
-			if n.node == nil {
-				n.node = &NodeProto{}
-				if err := n.node.Unmarshal(n.v); err != nil {
-					return err
-				}
-			}
-			w.size = uint64(n.node.SubtreeSize)
-		}
-		if err := w.pbw.WriteBytes(n.k); err != nil {
-			return err
-		}
-		// Handles the case when a path showed up in multiple hashtrees
-		if n.node != nil {
-			var err error
-			n.v, err = n.node.Marshal()
-			if err != nil {
-				return err
-			}
-		}
-		if err := w.pbw.WriteBytes(n.v); err != nil {
-			return err
-		}
-	}
-	if done {
-		w.done[FsBucket] = true
-		w.started = false
-		return w.pbw.WriteBytes(SentinelByte)
-	}
-	return nil
-}
-
-// (bryce) make this work when reading from a streaming hashtree
-func (w *HashTreeWriterStream) CopyTree(r HashTreeReader) error {
-	datums, err := r.ReadDatums()
-	if err != nil && err != io.EOF {
-		return err
-	}
-	if err := w.WriteDatums(datums, true); err != nil {
-		return err
-	}
-	fs, err := r.ReadFS()
-	if err != nil && err != io.EOF {
-		return err
-	}
-	if err := w.WriteFS(fs, true); err != nil {
-		return err
-	}
-	return nil
-}
-
-type IntermediaryNode struct {
+type mergeNode struct {
 	k, v []byte
 	node *NodeProto
 }
 
-type IntermediaryHashTree struct {
-	datums [][]byte
-	fs     []*IntermediaryNode
-	// done keeps track of the buckets that have been fully read.
-	// This is useful for ensuring the buckets are read in
-	// the correct order.
-	done map[string]bool
+type Reader struct {
+	pbr    pbutil.Reader
+	filter func(k []byte) (bool, error)
 }
 
-func NewIntermediaryHashTree() *IntermediaryHashTree {
-	return &IntermediaryHashTree{done: make(map[string]bool)}
+func NewReader(r io.Reader, filter func(k []byte) (bool, error)) *Reader {
+	return &Reader{
+		pbr:    pbutil.NewReader(r),
+		filter: filter,
+	}
 }
 
-func NewIntermediaryHashTreeFromReader(r io.Reader, filter func(path []byte) (bool, error)) (*IntermediaryHashTree, error) {
-	buf, err := ioutil.ReadAll(r)
+func (r *Reader) Read() (*mergeNode, error) {
+	_k, err := r.pbr.ReadBytes()
 	if err != nil {
 		return nil, err
 	}
-	pbr := pbutil.NewReader(bytes.NewReader(buf))
-	t := NewIntermediaryHashTree()
-	// Read datum bucket
-	if err := pbr.Read(&BucketHeader{}); err != nil {
+	if r.filter != nil {
+		for {
+			ok, err := r.filter(_k)
+			if err != nil {
+				return nil, err
+			}
+			if ok {
+				break
+			}
+			_, err = r.pbr.ReadBytes()
+			if err != nil {
+				return nil, err
+			}
+			_k, err = r.pbr.ReadBytes()
+			if err != nil {
+				return nil, err
+			}
+		}
+
+	}
+	k := make([]byte, len(_k))
+	copy(k, _k)
+	_v, err := r.pbr.ReadBytes()
+	if err != nil {
 		return nil, err
 	}
-	if err := ReadBucket(pbr, func(k, v []byte) (bool, error) {
-		t.datums = append(t.datums, k)
-		return false, nil
-	}); err != nil && err != io.EOF {
-		return nil, err
+	v := make([]byte, len(_v))
+	copy(v, _v)
+	return &mergeNode{
+		k: k,
+		v: v,
+	}, nil
+}
+
+type Writer struct {
+	pbw    pbutil.Writer
+	size   uint64
+	idxs   []*Index
+	offset uint64
+}
+
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
+		pbw: pbutil.NewWriter(w),
 	}
-	// Read fs bucket (filter out keys not involved with this merge)
-	if err := pbr.Read(&BucketHeader{}); err != nil {
-		return nil, err
-	}
-	if err := ReadBucket(pbr, func(k, v []byte) (bool, error) {
-		ok, err := filter(k)
+}
+
+func (w *Writer) Write(n *mergeNode) error {
+	// Marshal node if it was merged
+	if n.node != nil {
+		var err error
+		n.v, err = n.node.Marshal()
 		if err != nil {
-			return false, err
+			return err
 		}
-		if !ok {
-			return false, nil
+	}
+	// Get size info from root node
+	if bytes.Equal(n.k, nullByte) {
+		if n.node == nil {
+			n.node = &NodeProto{}
+			if err := n.node.Unmarshal(n.v); err != nil {
+				return err
+			}
 		}
-		t.fs = append(t.fs, &IntermediaryNode{
-			k: k,
-			v: v,
+		w.size = uint64(n.node.SubtreeSize)
+	}
+	// Write index for every index size bytes
+	if w.offset > uint64(len(w.idxs)+1)*IndexSize {
+		w.idxs = append(w.idxs, &Index{
+			K:      n.k,
+			Offset: w.offset,
 		})
-		return false, nil
-	}); err != nil && err != io.EOF {
-		return nil, err
 	}
-	return t, nil
-}
-
-func (h *IntermediaryHashTree) ReadDatums() ([][]byte, error) {
-	if _, ok := h.done[DatumBucket]; ok {
-		return nil, io.EOF
+	b, err := w.pbw.WriteBytes(n.k)
+	if err != nil {
+		return err
 	}
-	h.done[DatumBucket] = true
-	return h.datums, nil
-}
-
-func (h *IntermediaryHashTree) ReadFS() ([]*IntermediaryNode, error) {
-	if _, ok := h.done[FsBucket]; ok {
-		return nil, io.EOF
+	w.offset += uint64(b)
+	b, err = w.pbw.WriteBytes(n.v)
+	if err != nil {
+		return err
 	}
-	if _, ok := h.done[DatumBucket]; !ok {
-		return nil, errorf(Internal, "reading hashtree out of order")
-	}
-	h.done[FsBucket] = true
-	return h.fs, nil
-}
-
-func (h *IntermediaryHashTree) WriteDatums(datums [][]byte, done bool) error {
-	h.datums = append(h.datums, datums...)
+	w.offset += uint64(b)
 	return nil
 }
 
-func (h *IntermediaryHashTree) WriteFS(fs []*IntermediaryNode, done bool) error {
-	h.fs = append(h.fs, fs...)
-	return nil
+func (w *Writer) Copy(r *Reader) error {
+	for {
+		n, err := r.Read()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		if err := w.Write(n); err != nil {
+			return err
+		}
+	}
 }
 
-func MergeTrees(w io.Writer, objClient obj.Client, treeInfos []*pfs.ObjectInfo, parentTreeInfo *pfs.ObjectInfo, filter func([]byte) (bool, error)) (size uint64, retErr error) {
-	t := time.Now()
-	// Read and setup intermediary hashtrees (in-memory trees)
-	limiter := limit.New(DefaultMergeConcurrency)
-	var eg errgroup.Group
-	var mu sync.Mutex
-	var trees []*IntermediaryHashTree
-	for _, treeInfo := range treeInfos {
-		treeInfo := treeInfo
-		limiter.Acquire()
-		eg.Go(func() (retErr error) {
-			defer limiter.Release()
-			path, err := obj.BlockPathFromEnv(treeInfo.BlockRef.Block)
-			if err != nil {
-				return err
-			}
-			r, err := objClient.Reader(path, 0, 0)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := r.Close(); err != nil && retErr == nil {
-					retErr = err
+func (w *Writer) Index() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	pbw := pbutil.NewWriter(buf)
+	for _, idx := range w.idxs {
+		if _, err := pbw.Write(idx); err != nil {
+			return nil, err
+		}
+	}
+	return buf.Bytes(), nil
+}
+
+func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
+	pbr := pbutil.NewReader(r)
+	idx := &Index{}
+	k := b(prefix)
+	var lower, upper uint64
+	iter := func(f func(int) bool) error {
+		for {
+			if err := pbr.Read(idx); err != nil {
+				if err == io.EOF {
+					break
 				}
-			}()
-			tree, err := NewIntermediaryHashTreeFromReader(r, filter)
-			if err != nil {
 				return err
 			}
-			mu.Lock()
-			defer mu.Unlock()
-			trees = append(trees, tree)
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return 0, err
-	}
-	fmt.Printf("(mergefilter) time spent getting intermediary hashtrees: %v\n", time.Since(t))
-
-	t = time.Now()
-	// Merges trees pairwise
-	nextTrees := trees
-	for len(nextTrees) > 1 {
-		currTrees := nextTrees
-		nextTrees = []*IntermediaryHashTree{}
-		var base *IntermediaryHashTree
-		for i, t := range currTrees {
-			if i%2 == 0 {
-				base = t
-				continue
-			}
-			result := NewIntermediaryHashTree()
-			if err := MergeTreesPairwise(result, base, t); err != nil {
-				return 0, err
-			}
-			nextTrees = append(nextTrees, result)
-			base = nil
-		}
-		// Handles the case when there is an odd number of trees at a level
-		if base != nil {
-			result := NewIntermediaryHashTree()
-			if err := MergeTreesPairwise(result, nextTrees[len(nextTrees)-1], base); err != nil {
-				return 0, err
-			}
-			nextTrees[len(nextTrees)-1] = result
-		}
-	}
-	fmt.Printf("(mergefilter) time spent doing intermediary merge: %v\n", time.Since(t))
-
-	t = time.Now()
-	out := NewHashTreeWriterStream(w)
-	// Handles merging when there is no parent hashtree
-	if parentTreeInfo == nil {
-		if err := out.CopyTree(nextTrees[0]); err != nil {
-			return 0, err
-		}
-		return out.size, nil
-	}
-	// Handles merging when there is a parent hashtree
-	path, err := obj.BlockPathFromEnv(parentTreeInfo.BlockRef.Block)
-	if err != nil {
-		return 0, err
-	}
-	parentTree, err := objClient.Reader(path, 0, 0)
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if err := parentTree.Close(); err != nil && retErr != nil {
-			retErr = err
-		}
-	}()
-	if err := MergeTreesPairwise(out, NewHashTreeReaderStream(parentTree), nextTrees[0]); err != nil {
-		return 0, err
-	}
-	fmt.Printf("(mergefilter) time spent merging parent: %v\n", time.Since(t))
-	return out.size, nil
-}
-
-func MergeTreesPairwise(w HashTreeWriter, r1, r2 HashTreeReader) error {
-	if err := MergeDatums(w, r1, r2); err != nil {
-		return err
-	}
-	return MergeFS(w, r1, r2)
-}
-
-func MergeDatums(w HashTreeWriter, r1, r2 HashTreeReader) error {
-	var d1, d2, result [][]byte
-	var i1, i2 int
-	var err error
-	for {
-		// Get next chunk from r1
-		if i1 >= len(d1) {
-			d1, err = r1.ReadDatums()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			i1 = 0
-		}
-		// Get next chunk from r2
-		if i2 >= len(d2) {
-			d2, err = r2.ReadDatums()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			i2 = 0
-		}
-		// Merge
-		for i1 < len(d1) && i2 < len(d2) {
-			if bytes.Compare(d1[i1], d2[i2]) < 0 {
-				result = append(result, d1[i1])
-				i1++
+			var cmp int
+			if len(k) < len(idx.K) {
+				cmp = bytes.Compare(k, idx.K[:len(k)])
 			} else {
-				result = append(result, d2[i2])
-				i2++
+				cmp = bytes.Compare(k[:len(idx.K)], idx.K)
+			}
+			if f(cmp) {
+				break
 			}
 		}
-		if err := w.WriteDatums(result, false); err != nil {
-			return err
+		return nil
+	}
+	low := func(cmp int) bool {
+		if cmp > 0 {
+			lower = idx.Offset
+			return false
+		} else if cmp < 0 {
+			// Handles the case where a prefix fits within one range
+			upper = idx.Offset
 		}
-		result = nil
+		return true
 	}
-	// Copy whichever reader has elements left to the writer
-	if i1 < len(d1) {
-		if err := w.WriteDatums(d1[i1:], false); err != nil {
-			return err
+	up := func(cmp int) bool {
+		if cmp < 0 {
+			upper = idx.Offset
+			return true
 		}
+		return false
 	}
-	if err := CopyDatums(w, r1); err != nil {
-		return err
+	// Find lower
+	iter(low)
+	// Find upper
+	if upper <= 0 {
+		iter(up)
 	}
-	if i2 < len(d2) {
-		if err := w.WriteDatums(d2[i2:], false); err != nil {
-			return err
-		}
+	// Handles the case when at the end of the indexes
+	if upper <= 0 {
+		return lower, 0, nil
 	}
-	if err := CopyDatums(w, r2); err != nil {
-		return err
-	}
-	return w.WriteDatums(nil, true)
+	// Return offset and size
+	return lower, upper - lower, nil
 }
 
-func CopyDatums(w HashTreeWriter, r HashTreeReader) error {
-	for {
-		d, err := r.ReadDatums()
+func NewFilter(numTrees int64, tree int64) func(k []byte) (bool, error) {
+	return func(k []byte) (bool, error) {
+		if pathToTree(k, numTrees) == uint64(tree) {
+			return true, nil
+		}
+		return false, nil
+	}
+}
+
+func PathToTree(path string, numTrees int64) uint64 {
+	return pathToTree(b(path), numTrees)
+}
+
+func pathToTree(k []byte, numTrees int64) uint64 {
+	return xxhash.Checksum64(k) % uint64(numTrees)
+}
+
+type nodeStream struct {
+	node *mergeNode
+	r    *Reader
+}
+
+type mergePQ struct {
+	q    []*nodeStream
+	size int
+}
+
+func (mq *mergePQ) k(i int) []byte {
+	return mq.q[i].node.k
+}
+
+func (mq *mergePQ) insert(s *nodeStream) error {
+	// Get next node in stream
+	var err error
+	s.node, err = s.r.Read()
+	if err != nil {
 		if err == io.EOF {
 			return nil
 		}
-		if err != nil {
-			return err
-		}
-		if err := w.WriteDatums(d, false); err != nil {
-			return err
-		}
-	}
-}
-
-// (bryce) Could make memory recoverable by niling values as I go
-func MergeFS(w HashTreeWriter, r1, r2 HashTreeReader) error {
-	var f1, f2, result []*IntermediaryNode
-	var i1, i2 int
-	var err error
-	for {
-		// Get next chunk from r1
-		if i1 >= len(f1) {
-			f1, err = r1.ReadFS()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			i1 = 0
-		}
-		// Get next chunk from r2
-		if i2 >= len(f2) {
-			f2, err = r2.ReadFS()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return err
-			}
-			i2 = 0
-		}
-		// Merge
-		for i1 < len(f1) && i2 < len(f2) {
-			cmp := bytes.Compare(f1[i1].k, f2[i2].k)
-			if cmp < 0 {
-				result = append(result, f1[i1])
-				i1++
-			} else if cmp > 0 {
-				result = append(result, f2[i2])
-				i2++
-			} else {
-				if err := MergeIntermediaryNodes(f1[i1], f2[i2]); err != nil {
-					return err
-				}
-				result = append(result, f1[i1])
-				i1++
-				i2++
-			}
-		}
-		if err := w.WriteFS(result, false); err != nil {
-			return err
-		}
-		result = nil
-	}
-	// Copy whichever reader has elements left to the writer
-	if i1 < len(f1) {
-		if err := w.WriteFS(f1[i1:], false); err != nil {
-			return err
-		}
-	}
-	if err := CopyFS(w, r1); err != nil {
 		return err
 	}
-	if i2 < len(f2) {
-		if err := w.WriteFS(f2[i2:], false); err != nil {
-			return err
-		}
-	}
-	if err := CopyFS(w, r2); err != nil {
-		return err
-	}
-	return w.WriteFS(nil, true)
-}
-
-func CopyFS(w HashTreeWriter, r HashTreeReader) error {
-	for {
-		f, err := r.ReadFS()
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if err := w.WriteFS(f, false); err != nil {
-			return err
-		}
-	}
-}
-
-func MergeIntermediaryNodes(n1, n2 *IntermediaryNode) error {
-	// These checks prevent duplicate deserialization
-	if n1.node == nil {
-		n1.node = &NodeProto{}
-		if err := n1.node.Unmarshal(n1.v); err != nil {
-			return err
-		}
-	}
-	if n2.node == nil {
-		n2.node = &NodeProto{}
-		if err := n2.node.Unmarshal(n2.v); err != nil {
-			return err
-		}
-	}
-	// Check for inconsistent node types
-	if n1.node.nodetype() != n2.node.nodetype() {
-		return errorf(PathConflict, "could not merge path \"%s\" "+
-			"which is a different type in different hashtrees", s(n1.k))
-	}
-	// Merge
-	if n1.node.nodetype() == file {
-		n1.node.FileNode.BlockRefs = append(n1.node.FileNode.BlockRefs, n2.node.FileNode.BlockRefs...)
-
-	}
-	// (bryce) Add hash stuff
-	n1.node.SubtreeSize += n2.node.SubtreeSize
-	return nil
-}
-
-type MergePriorityQueue struct {
-	queue    []Mergeable
-	size     int
-	nextChan chan Mergeable
-	count    int
-	mu       *sync.Mutex
-	errChan  chan error
-}
-
-func NewMergePriorityQueue(srcs []Mergeable, numWorkers int) *MergePriorityQueue {
-	mq := &MergePriorityQueue{
-		queue:    make([]Mergeable, len(srcs)+1),
-		nextChan: make(chan Mergeable, len(srcs)),
-		mu:       &sync.Mutex{},
-		errChan:  make(chan error, 1),
-	}
-	for _, src := range srcs {
-		mq.Insert(src)
-	}
-	// First set of streams are ready
-	mq.errChan <- nil
-	// Creating goroutines that handle getting the next key/values in a set of streams
-	for i := 0; i < numWorkers; i++ {
-		go func() {
-			for src := range mq.nextChan {
-				if err := src.Next(); err != nil {
-					mq.errChan <- err
-				}
-				mq.mu.Lock()
-				mq.Insert(src)
-				mq.count--
-				if mq.count <= 0 {
-					mq.errChan <- nil
-				}
-				mq.mu.Unlock()
-			}
-		}()
-	}
-	return mq
-}
-
-func (mq *MergePriorityQueue) Insert(src Mergeable) {
-	// Streams with a nil key are at the end
-	if src.K() == nil {
-		return
-	}
+	mq.q[mq.size+1] = s
 	mq.size++
-	idx := mq.size
-	mq.queue[idx] = src
-	for idx > 1 {
-		if bytes.Compare(mq.queue[idx].K(), mq.queue[idx/2].K()) > 0 {
+	// Propagate insert up the queue
+	i := mq.size
+	for i > 1 {
+		if bytes.Compare(mq.k(i/2), mq.k(i)) <= 0 {
 			break
 		}
-		mq.Swap(idx, idx/2)
-		idx /= 2
+		mq.swap(i/2, i)
+		i /= 2
 	}
+	return nil
 }
 
-func (mq *MergePriorityQueue) Next() ([]byte, [][]byte, error) {
-	if err := <-mq.errChan; err != nil || mq.size <= 0 {
-		close(mq.nextChan)
-		return nil, nil, err
+func (mq *mergePQ) next() ([]*mergeNode, error) {
+	ns := []*mergeNode{mq.q[1].node}
+	if err := mq.fill(); err != nil {
+		return nil, err
 	}
-	// Get next streams to be merged
-	srcs := []Mergeable{mq.queue[1]}
-	mq.Fill(1)
-	for mq.size > 0 && bytes.Equal(srcs[0].K(), mq.queue[1].K()) {
-		srcs = append(srcs, mq.queue[1])
-		mq.Fill(1)
+	// Keep popping nodes off the queue if they share the same path
+	for mq.q[1] != nil && bytes.Compare(mq.k(1), ns[0].k) == 0 {
+		ns = append(ns, mq.q[1].node)
+		if err := mq.fill(); err != nil {
+			return nil, err
+		}
 	}
-	mq.count = len(srcs)
-	k := srcs[0].K()
-	vs := [][]byte{}
-	// Create value slice, and request next key/value in streams
-	for _, src := range srcs {
-		vs = append(vs, src.V())
-		mq.nextChan <- src
-	}
-	return k, vs, nil
+	return ns, nil
 }
 
-func (mq *MergePriorityQueue) Swap(i, j int) {
-	tmp := mq.queue[i]
-	mq.queue[i] = mq.queue[j]
-	mq.queue[j] = tmp
+func merge(ns []*mergeNode) (*mergeNode, error) {
+	base := ns[0]
+	if base.node == nil {
+		base.node = &NodeProto{}
+		if err := base.node.Unmarshal(base.v); err != nil {
+			return nil, err
+		}
+	}
+	for i := 1; i < len(ns); i++ {
+		n := ns[i]
+		n.node = &NodeProto{}
+		if err := n.node.Unmarshal(n.v); err != nil {
+			return nil, err
+		}
+		// Check for inconsistent node types
+		if base.node.nodetype() != n.node.nodetype() {
+			return nil, errorf(PathConflict, "could not merge path \"%s\" "+
+				"which is a different type in different hashtrees", s(base.k))
+		}
+		// Merge file content
+		if base.node.nodetype() == file {
+			base.node.FileNode.BlockRefs = append(base.node.FileNode.BlockRefs, n.node.FileNode.BlockRefs...)
+
+		}
+		// (bryce) Add hash stuff
+		base.node.SubtreeSize += n.node.SubtreeSize
+	}
+	return base, nil
 }
 
-func (mq *MergePriorityQueue) Fill(idx int) {
-	mq.queue[idx] = mq.queue[mq.size]
+func (mq *mergePQ) fill() error {
+	// Save stream for re-insert
+	ns := mq.q[1]
+	// Replace first stream with last
+	mq.q[1] = mq.q[mq.size]
+	mq.q[mq.size] = nil
 	mq.size--
+	// Propagate last stream down the queue
+	i := 1
 	var next int
 	for {
-		left, right := idx*2, idx*2+1
-		if right <= mq.size && bytes.Compare(mq.queue[left].K(), mq.queue[right].K()) > 0 {
-			next = right
-		} else if left <= mq.size {
-			next = left
+		l, r := i*2, i*2+1
+		if l > mq.size {
+			break
+		} else if r > mq.size || bytes.Compare(mq.k(l), mq.k(r)) <= 0 {
+			next = l
 		} else {
+			next = r
+		}
+		if bytes.Compare(mq.k(i), mq.k(next)) <= 0 {
 			break
 		}
-		if bytes.Compare(mq.queue[next].K(), mq.queue[idx].K()) >= 0 {
-			break
-		}
-		mq.Swap(idx, next)
-		idx = next
+		mq.swap(i, next)
+		i = next
 	}
+	// Re-insert stream
+	return mq.insert(ns)
 }
 
-func MergeBucketOld(bucket string, w pbutil.Writer, srcs []Mergeable, f func(k []byte, vs [][]byte) error) error {
-	var eg errgroup.Group
-	for _, s := range srcs {
-		s := s
-		eg.Go(func() error {
-			if err := s.NextBucket(bucket); err != nil {
-				return err
-			}
-			return nil
-		})
+func (mq *mergePQ) swap(i, j int) {
+	tmp := mq.q[i]
+	mq.q[i] = mq.q[j]
+	mq.q[j] = tmp
+}
+
+func Merge(w *Writer, rs []*Reader) (uint64, error) {
+	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
+	// Setup first set of nodes
+	for _, r := range rs {
+		if err := mq.insert(&nodeStream{r: r}); err != nil {
+			return 0, err
+		}
 	}
-	if err := eg.Wait(); err != nil {
-		return err
+	for mq.q[1] != nil {
+		// Get next nodes to merge
+		ns, err := mq.next()
+		if err != nil {
+			return 0, err
+		}
+		// Merge nodes
+		n, err := merge(ns)
+		if err != nil {
+			return 0, err
+		}
+		// Write out result
+		if err := w.Write(n); err != nil {
+			return 0, err
+		}
 	}
-	if err := w.Write(&BucketHeader{Bucket: bucket}); err != nil {
-		return err
+	return w.size, nil
+}
+
+func nodes(rs []*Reader, f func(path string, node *NodeProto) error) error {
+	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
+	// Setup first set of nodes
+	for _, r := range rs {
+		if err := mq.insert(&nodeStream{r: r}); err != nil {
+			return err
+		}
 	}
-	mq := NewMergePriorityQueue(srcs, 10)
-	if err := Merge(mq, f); err != nil {
-		return err
-	}
-	if err := w.WriteBytes(SentinelByte); err != nil {
-		return err
+	for mq.q[1] != nil {
+		// Get next node
+		ns, err := mq.next()
+		if err != nil {
+			return err
+		}
+		// Unmarshal node and run callback
+		n := ns[0]
+		n.node = &NodeProto{}
+		if err := n.node.Unmarshal(n.v); err != nil {
+			return err
+		}
+		if err := f(s(n.k), n.node); err != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-func Merge(mq *MergePriorityQueue, f func(k []byte, vs [][]byte) error) error {
-	var total, total2 time.Duration
-	t := time.Now()
-	for {
-		k, vs, err := mq.Next()
-		if err != nil {
-			return err
-		}
-		if k == nil {
-			break
-		}
-		total += time.Since(t)
-		t = time.Now()
-		if err := f(k, vs); err != nil {
-			return err
-		}
-		total2 += time.Since(t)
-		t = time.Now()
-	}
-	fmt.Printf("(mergefilter) Time spent getting next in stream: %v\nTime spent merging and writing: %v\n", total, total2)
-	return nil
-}
-
-func Nodes(mq *MergePriorityQueue, prefix []byte, f func(path string, node *NodeProto) error) error {
-	var k []byte
-	var vs [][]byte
-	var err error
-	// Skip to the prefix (this will be replaced by the object storage indexing later)
-	for {
-		k, vs, err = mq.Next()
-		if err != nil {
-			return err
-		}
-		if k == nil {
-			return nil
-		}
-		if bytes.HasPrefix(k, prefix) {
-			break
-		}
-	}
-	// Iterate through paths with prefix
-	for {
-		if k == nil || !bytes.HasPrefix(k, prefix) {
-			return nil
-		}
-		node := &NodeProto{}
-		if err := node.Unmarshal(vs[0]); err != nil {
-			return err
-		}
-		if err := f(s(k), node); err != nil {
-			return err
-		}
-		k, vs, err = mq.Next()
-		if err != nil {
-			return err
-		}
-	}
 }
 
 func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
@@ -2201,9 +1427,18 @@ func nop(*NodeProto, string, string) error {
 
 var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
 
-// isGlob checks if the pattern contains a glob character
-func isGlob(pattern string) bool {
+// IsGlob checks if the pattern contains a glob character
+func IsGlob(pattern string) bool {
 	return globRegex.Match([]byte(pattern))
+}
+
+// GlobLiteralPrefix returns the prefix before the first glob character
+func GlobLiteralPrefix(pattern string) string {
+	idx := globRegex.FindStringIndex(pattern)
+	if idx == nil {
+		return pattern
+	}
+	return pattern[:idx[0]]
 }
 
 // GetHashTreeObject is a convenience function to deserialize a HashTree from an object in the object store.
@@ -2331,41 +1566,41 @@ func compare(a, b *childCursor) int {
 	}
 }
 
-// DatumHashTree is an in memory version of the hashtree that is optimized and only works for sequential inserts followed by serialization.
+// Datum is an in memory version of the hashtree that is optimized and only works for sequential inserts followed by serialization.
 // This data structure is useful for datum output because a datum's hashtree is created by walking the local filesystem then is uploaded.
-type DatumHashTree struct {
-	fs       []*node
-	dirStack []*node
+type Datum struct {
+	fs       []*datumNode
+	dirStack []*datumNode
 }
 
-type node struct {
-	path     string
-	protoBuf *NodeProto
-	hash     hash.Hash
+type datumNode struct {
+	path string
+	node *NodeProto
+	hash hash.Hash
 }
 
-func NewDatumHashTree(path string) *DatumHashTree {
+func NewDatum(path string) *Datum {
 	path = clean(path)
-	n := &node{
+	n := &datumNode{
 		path: path,
-		protoBuf: &NodeProto{
+		node: &NodeProto{
 			Name:    base(path),
 			DirNode: &DirectoryNodeProto{},
 		},
 		hash: sha256.New(),
 	}
-	return &DatumHashTree{
-		fs:       []*node{n},
-		dirStack: []*node{n},
+	return &Datum{
+		fs:       []*datumNode{n},
+		dirStack: []*datumNode{n},
 	}
 }
 
-func (d *DatumHashTree) PutDir(path string) {
+func (d *Datum) PutDir(path string) {
 	path = clean(path)
 	d.handleEndOfDirectory(path)
-	n := &node{
+	n := &datumNode{
 		path: path,
-		protoBuf: &NodeProto{
+		node: &NodeProto{
 			Name:    base(path),
 			DirNode: &DirectoryNodeProto{},
 		},
@@ -2375,12 +1610,12 @@ func (d *DatumHashTree) PutDir(path string) {
 	d.dirStack = append(d.dirStack, n)
 }
 
-func (d *DatumHashTree) PutFile(path string, hash []byte, size int64, fileNode *FileNodeProto) {
+func (d *Datum) PutFile(path string, hash []byte, size int64, fileNode *FileNodeProto) {
 	path = clean(path)
 	d.handleEndOfDirectory(path)
-	n := &node{
+	n := &datumNode{
 		path: path,
-		protoBuf: &NodeProto{
+		node: &NodeProto{
 			Name:        base(path),
 			Hash:        hash,
 			SubtreeSize: size,
@@ -2388,56 +1623,32 @@ func (d *DatumHashTree) PutFile(path string, hash []byte, size int64, fileNode *
 		},
 	}
 	d.fs = append(d.fs, n)
-	d.dirStack[len(d.dirStack)-1].hash.Write([]byte(fmt.Sprintf("%s:%s:", n.protoBuf.Name, n.protoBuf.Hash)))
-	d.dirStack[len(d.dirStack)-1].protoBuf.SubtreeSize += size
+	d.dirStack[len(d.dirStack)-1].hash.Write([]byte(fmt.Sprintf("%s:%s:", n.node.Name, n.node.Hash)))
+	d.dirStack[len(d.dirStack)-1].node.SubtreeSize += size
 }
 
-func (d *DatumHashTree) handleEndOfDirectory(path string) {
+func (d *Datum) handleEndOfDirectory(path string) {
 	parent, _ := split(path)
 	if parent != d.dirStack[len(d.dirStack)-1].path {
 		child := d.dirStack[len(d.dirStack)-1]
-		child.protoBuf.Hash = child.hash.Sum(nil)
+		child.node.Hash = child.hash.Sum(nil)
 		d.dirStack = d.dirStack[:len(d.dirStack)-1]
 		parent := d.dirStack[len(d.dirStack)-1]
-		parent.hash.Write([]byte(fmt.Sprintf("%s:%s:", child.protoBuf.Name, child.protoBuf.Hash)))
-		parent.protoBuf.SubtreeSize += child.protoBuf.SubtreeSize
+		parent.hash.Write([]byte(fmt.Sprintf("%s:%s:", child.node.Name, child.node.Hash)))
+		parent.node.SubtreeSize += child.node.SubtreeSize
 	}
 }
 
-func (d *DatumHashTree) Serialize(_w io.Writer, datum string) error {
+func (d *Datum) Serialize(_w io.Writer) error {
 	w := pbutil.NewWriter(_w)
-	if err := w.Write(&BucketHeader{Bucket: DatumBucket}); err != nil {
-		return err
-	}
-	if err := w.WriteBytes([]byte(datum)); err != nil {
-		return err
-	}
-	if err := w.WriteBytes(exists); err != nil {
-		return err
-	}
-	if err := w.WriteBytes(SentinelByte); err != nil {
-		return err
-	}
-	if err := w.Write(&BucketHeader{Bucket: FsBucket}); err != nil {
-		return err
-	}
-	d.fs[0].protoBuf.Hash = d.fs[0].hash.Sum(nil)
+	d.fs[0].node.Hash = d.fs[0].hash.Sum(nil)
 	for _, n := range d.fs {
-		if err := w.WriteBytes(b(n.path)); err != nil {
+		if _, err := w.WriteBytes(b(n.path)); err != nil {
 			return err
 		}
-		if err := w.Write(n.protoBuf); err != nil {
+		if _, err := w.Write(n.node); err != nil {
 			return err
 		}
-	}
-	if err := w.WriteBytes(SentinelByte); err != nil {
-		return err
-	}
-	if err := w.Write(&BucketHeader{Bucket: ObjectBucket}); err != nil {
-		return err
-	}
-	if err := w.WriteBytes(SentinelByte); err != nil {
-		return err
 	}
 	return nil
 }
