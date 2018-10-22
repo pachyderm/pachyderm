@@ -76,6 +76,11 @@ var (
 	// The name of the kubernetes secret mount in the TLS volume (see
 	// tlsVolumeName)
 	tlsSecretName = "pachd-tls-cert"
+
+	// IAMAnnotation is the annotation used for the IAM role, this can work
+	// with something like kube2iam as an alternative way to provide
+	// credentials.
+	IAMAnnotation = "iam.amazonaws.com/role"
 )
 
 type backend int
@@ -444,7 +449,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: objectMeta(pachdName, labels(pachdName),
-					map[string]string{"iam.amazonaws.com/role": opts.IAMRole}, opts.Namespace),
+					map[string]string{IAMAnnotation: opts.IAMRole}, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
