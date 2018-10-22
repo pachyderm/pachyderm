@@ -77,7 +77,7 @@ var (
 	// tlsVolumeName)
 	tlsSecretName = "pachd-tls-cert"
 
-	// 8 GB, the max for etcd backend bytes.
+	// 8 GiB, the max for etcd backend bytes.
 	etcdBackendBytes = 8 * 1024 * 1024 * 1024
 	// Cmd used to launch etcd
 	etcdCmd = []string{
