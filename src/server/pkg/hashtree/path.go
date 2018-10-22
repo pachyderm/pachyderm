@@ -72,7 +72,7 @@ func ValidatePath(path string) error {
 		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
 	}
 
-	if isGlob(path) {
+	if IsGlob(path) {
 		return fmt.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", path, globRegex.FindString(path))
 	}
 

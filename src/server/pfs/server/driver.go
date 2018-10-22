@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -2182,31 +2184,116 @@ func (d *driver) getTreeForCommit(ctx context.Context, commit *pfs.Commit) (hash
 	return h, nil
 }
 
-func (d *driver) getTreesForCommit(ctx context.Context, commitInfo *pfs.CommitInfo) (*hashtree.MergePriorityQueue, error) {
+func (d *driver) getTree(ctx context.Context, commitInfo *pfs.CommitInfo, path string) (rs []*hashtree.Reader, cleanup func() error, retErr error) {
+	// Setup cleanup function
+	var f *os.File
+	cleanup = func() error {
+		return os.Remove(f.Name())
+	}
 	pachClient := d.getPachClient(ctx)
-	ctx = pachClient.Ctx()
-	trees := make([]hashtree.Mergeable, len(commitInfo.Trees))
+	objClient, err := obj.NewClientFromEnv(ctx, d.storageRoot)
+	if err != nil {
+		return nil, cleanup, err
+	}
+	// Determine the hashtree in which the path is located and download the chunk it is in
+	idx := hashtree.PathToTree(path, int64(len(commitInfo.Trees)))
+	if f, err = d.downloadTree(ctx, pachClient, objClient, commitInfo.Trees[idx], path); err != nil {
+		return nil, cleanup, err
+	}
+	return []*hashtree.Reader{hashtree.NewReader(f, nil)}, cleanup, nil
+}
+
+func (d *driver) getTrees(ctx context.Context, commitInfo *pfs.CommitInfo, pattern string) (rs []*hashtree.Reader, cleanup func() error, retErr error) {
+	// Setup cleanup function
+	var fs []*os.File
+	cleanup = func() error {
+		for _, f := range fs {
+			if err := os.Remove(f.Name()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	prefix := hashtree.GlobLiteralPrefix(pattern)
+	pachClient := d.getPachClient(ctx)
+	objClient, err := obj.NewClientFromEnv(ctx, d.storageRoot)
+	if err != nil {
+		return nil, cleanup, err
+	}
+	limiter := limit.New(hashtree.DefaultMergeConcurrency)
 	var eg errgroup.Group
-	for i, object := range commitInfo.Trees {
-		i := i
+	var mu sync.Mutex
+	// Download each hashtree chunk based on the literal prefix of the pattern
+	for _, object := range commitInfo.Trees {
 		object := object
-		eg.Go(func() error {
-			r, err := pachClient.GetObjectReader(object.Hash)
+		limiter.Acquire()
+		eg.Go(func() (retErr error) {
+			defer limiter.Release()
+			f, err := d.downloadTree(ctx, pachClient, objClient, object, prefix)
 			if err != nil {
 				return err
 			}
-			if trees[i], err = hashtree.NewMergeStream(r, func(path []byte) (bool, error) {
-				return true, nil
-			}); err != nil {
-				return err
-			}
-			return trees[i].NextBucket(hashtree.FsBucket)
+			mu.Lock()
+			defer mu.Unlock()
+			fs = append(fs, f)
+			rs = append(rs, hashtree.NewReader(f, nil))
+			return nil
 		})
 	}
 	if err := eg.Wait(); err != nil {
+		return nil, cleanup, err
+	}
+	return rs, cleanup, nil
+}
+
+func (d *driver) downloadTree(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, object *pfs.Object, prefix string) (f *os.File, retErr error) {
+	info, err := pachClient.InspectObject(object.Hash)
+	if err != nil {
 		return nil, err
 	}
-	return hashtree.NewMergePriorityQueue(trees, 10), nil
+	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+	if err != nil {
+		return nil, err
+	}
+	offset, size, err := getTreeRange(ctx, objClient, path, prefix)
+	if err != nil {
+		return nil, err
+	}
+	objR, err := objClient.Reader(path, offset, size)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := objR.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	f, err = os.Create(filepath.Join(d.storageRoot, uuid.NewWithoutDashes()))
+	if err != nil {
+		return nil, err
+	}
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	if _, err := io.CopyBuffer(f, objR, buf); err != nil {
+		return nil, err
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
+	p := filepath.Join(path, hashtree.IndexPath)
+	r, err := objClient.Reader(p, 0, 0)
+	if err != nil {
+		return 0, 0, err
+	}
+	idx, err := ioutil.ReadAll(r)
+	if err != nil {
+		return 0, 0, err
+	}
+	return hashtree.GetRangeFromIndex(bytes.NewBuffer(idx), prefix)
 }
 
 // getTreeForFile is like getTreeForCommit except that it can handle open commits.
@@ -2264,7 +2351,7 @@ func (d *driver) getTreeForOpenCommit(ctx context.Context, file *pfs.File, paren
 	return tree, nil
 }
 
-func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (io.Reader, error) {
+func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size int64) (r io.Reader, retErr error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -2311,13 +2398,25 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
-	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	var rs []*hashtree.Reader
+	var cleanup func() error
+	// Handles the case when looking for a specific file/directory
+	if !hashtree.IsGlob(file.Path) {
+		rs, cleanup, err = d.getTree(ctx, commitInfo, file.Path)
+	} else {
+		rs, cleanup, err = d.getTrees(ctx, commitInfo, file.Path)
+	}
 	if err != nil {
 		return nil, err
 	}
+	defer func() {
+		if err := cleanup(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
 	blockRefs := []*pfs.BlockRef{}
 	var totalSize int64
-	if err := hashtree.Glob(trees, "/", file.Path, func(path string, node *hashtree.NodeProto) error {
+	if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
 		}
@@ -2371,7 +2470,7 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 	return fileInfo
 }
 
-func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo, error) {
+func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -2397,11 +2496,16 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (*pfs.FileInfo
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
-	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	rs, cleanup, err := d.getTree(ctx, commitInfo, file.Path)
 	if err != nil {
 		return nil, err
 	}
-	node, err := hashtree.Get(trees, file.Path)
+	defer func() {
+		if err := cleanup(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	node, err := hashtree.Get(rs, file.Path)
 	if err != nil {
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
@@ -2447,16 +2551,21 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
-	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	rs, cleanup, err := d.getTrees(ctx, commitInfo, file.Path)
 	if err != nil {
 		return err
 	}
-	return hashtree.List(trees, "/", file.Path, func(path string, node *hashtree.NodeProto) error {
+	defer func() {
+		if err := cleanup(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	return hashtree.List(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(file.Commit, path, node, full))
 	})
 }
 
-func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileInfo) error) error {
+func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileInfo) error) (retErr error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -2480,16 +2589,21 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
-	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	rs, cleanup, err := d.getTrees(ctx, commitInfo, file.Path)
 	if err != nil {
 		return err
 	}
-	return hashtree.Walk(trees, file.Path, func(path string, node *hashtree.NodeProto) error {
+	defer func() {
+		if err := cleanup(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	return hashtree.Walk(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(file.Commit, path, node, false))
 	})
 }
 
-func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string, f func(*pfs.FileInfo) error) error {
+func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern string, f func(*pfs.FileInfo) error) (retErr error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
@@ -2513,11 +2627,23 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
-	trees, err := d.getTreesForCommit(ctx, commitInfo)
+	var rs []*hashtree.Reader
+	var cleanup func() error
+	// Handles the case when looking for a specific file/directory
+	if !hashtree.IsGlob(pattern) {
+		rs, cleanup, err = d.getTree(ctx, commitInfo, pattern)
+	} else {
+		rs, cleanup, err = d.getTrees(ctx, commitInfo, pattern)
+	}
 	if err != nil {
 		return err
 	}
-	return hashtree.Glob(trees, "/", pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
+	defer func() {
+		if err := cleanup(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	return hashtree.Glob(rs, pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(commit, rootPath, rootNode, false))
 	})
 }

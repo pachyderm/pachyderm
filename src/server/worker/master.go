@@ -740,7 +740,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			for i := 0; i < df.Len(); i++ {
 				files := df.Datum(i)
 				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-				if err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+				if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
 					return err
 				}
 			}

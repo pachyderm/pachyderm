@@ -56,7 +56,8 @@ func (c APIClient) ExtractAll(objects bool) ([]*admin.Op, error) {
 func (c APIClient) ExtractWriter(objects bool, w io.Writer) error {
 	writer := pbutil.NewWriter(w)
 	return c.Extract(objects, func(op *admin.Op) error {
-		return writer.Write(op)
+		_, err := writer.Write(op)
+		return err
 	})
 }
 

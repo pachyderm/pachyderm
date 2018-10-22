@@ -60,7 +60,10 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}
 		}()
 		w := pbutil.NewWriter(snappyW)
-		handleOp = func(op *admin.Op) error { return w.Write(op) }
+		handleOp = func(op *admin.Op) error {
+			_, err := w.Write(op)
+			return err
+		}
 	}
 	if !request.NoObjects {
 		w := extractObjectWriter(handleOp)

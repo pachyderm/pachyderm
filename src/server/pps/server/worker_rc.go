@@ -59,6 +59,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
 	}}
+	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	workerEnv := options.workerEnv
 	workerEnv = append(options.workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
 	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)

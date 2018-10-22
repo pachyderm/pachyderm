@@ -3,6 +3,7 @@ package pbutil
 import (
 	"encoding/binary"
 	"io"
+	"unsafe"
 
 	"github.com/gogo/protobuf/proto"
 )
@@ -15,8 +16,8 @@ type Reader interface {
 
 // Writer is io.Writer for proto.Message instead of []byte.
 type Writer interface {
-	Write(val proto.Message) error
-	WriteBytes([]byte) error
+	Write(val proto.Message) (int64, error)
+	WriteBytes([]byte) (int64, error)
 }
 
 // ReadWriter is io.ReadWriter for proto.Message instead of []byte.
@@ -58,19 +59,20 @@ func (r *readWriter) Read(val proto.Message) error {
 	return proto.Unmarshal(buf, val)
 }
 
-func (r *readWriter) WriteBytes(bytes []byte) error {
+func (r *readWriter) WriteBytes(bytes []byte) (int64, error) {
 	if err := binary.Write(r.w, binary.LittleEndian, int64(len(bytes))); err != nil {
-		return err
+		return 0, err
 	}
-	_, err := r.w.Write(bytes)
-	return err
+	lenByteSize := unsafe.Sizeof(int64(len(bytes)))
+	n, err := r.w.Write(bytes)
+	return int64(lenByteSize) + int64(n), err
 }
 
 // Write writes val to r.
-func (r *readWriter) Write(val proto.Message) error {
+func (r *readWriter) Write(val proto.Message) (int64, error) {
 	bytes, err := proto.Marshal(val)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	return r.WriteBytes(bytes)
 }
