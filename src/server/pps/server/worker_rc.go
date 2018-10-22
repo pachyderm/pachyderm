@@ -126,7 +126,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Image:           workerImage,
 				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
-				Env:             options.workerEnv,
 				VolumeMounts:    options.volumeMounts,
 			},
 		},
