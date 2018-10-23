@@ -16,8 +16,6 @@ This is because of a dependency on CGO via [this bug](https://github.com/opencon
 
 (We don't want to enable CGO in part because it doesn't play nice w OSX for us)
 
-If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release)
-
 You'll need the following credentials / tools:
 
 - A GitHub *Personal Access Token* with **repo** access
@@ -29,6 +27,8 @@ You'll need the following credentials / tools:
 - access to `homebrew-tap` and `www` repositories
 - S3 credentials
 - A dockerhub account, with write access to https://hub.docker.com/u/pachyderm/ (run `docker login`)
+
+If you're doing a custom release (off a branch that isn't master), [skip to the section at the bottom](#custom-release)
 
 ## Releasing:
 
@@ -146,26 +146,12 @@ Then _after a successful release_:
 
 - The tag created by goxc will point to master, and this is wrong. Opened an issue for this: https://github.com/laher/goxc/issues/112
 - But the binaries built are correct (they're built off of your local code, on the branch you've checked out)
-- So we'll have to manually create the tag + release + binaries
+- So we'll delete the tag and re-create it to make it point to the correct commit 
 
-1) Download the binaries that goxc created
+1) Delete the tag
+- [You can see a list of tags here](https://github.com/pachyderm/pachyderm/tags) or here's an [example release tag](https://github.com/pachyderm/pachyderm/releases/tag/v1.2.5)
 
-Do this for the release you just created.
-
-[Here's an example URL](https://github.com/pachyderm/pachyderm/releases/tag/v1.2.5)
-
-You should download all three binaries:
-
-- pachctl_1.2.5_amd64.deb
-- pachctl_1.2.5_darwin_amd64.zip
-- pachctl_1.2.5_linux_amd64.tar.gz
-
-2) Delete the release
-
-- You'll have to go to http://github.com/pachyderm/pachyderm/releases, and manually delete the release that goxc created
-- Also make sure you delete the tag. [You can see a list of tags here](https://github.com/pachyderm/pachyderm/tags) or here's an [example release tag](https://github.com/pachyderm/pachyderm/releases/tag/v1.2.5)
-
-3) Manually tag your branch
+2) Manually tag your branch
 
 ```
 git tag -d v1.2.6 # You may need to delete it locally
@@ -175,15 +161,9 @@ git push origin --tags
 
 This will fail if you didn't delete the tag on Github in the previous step
 
-4) Manually create the release on Github
+3) Manually update the release with the tag and publish 
 
-- [Create a new release](https://github.com/pachyderm/pachyderm/releases/new)
-- Use the tag you just pushed to Github
-- Provide a custom message. [Here's an example](https://github.com/pachyderm/pachyderm/releases/tag/v1.2.6)
-- Upload the binaries (the link is at the bottom) that you copied
-- Publish the release
-
-5) Check the docs
+4) Check the docs
 
 Note that ReadTheDocs builds docs from our GitHub master branch. If the docs changes you made aren't checked into the Pachyderm master branch, they won't show up.
 
