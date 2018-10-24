@@ -1,17 +1,20 @@
-#!/bin/sh
+#!/bin/bash
 
 set -Eex
 
 # Parse flags
 VERSION=v1.8.0
-RBAC=""
+minikube_args=(
+  --vm-driver=none
+  --kubernetes-version="${VERSION}"
+)
 while getopts ":v:r" opt; do
   case "${opt}" in
     v)
       VERSION="v${OPTARG}"
       ;;
     r)
-      RBAC="--extra-config=apiserver.Authorization.Mode=RBAC"
+      minikube_args+=("--extra-config=apiserver.Authorization.Mode=RBAC")
       ;;
     \?)
       echo "Invalid argument: ${opt}"
@@ -20,10 +23,15 @@ while getopts ":v:r" opt; do
   esac
 done
 
+if [[ -n "${TRAVIS}" ]]; then
+  minikube_args+=("--bootstrapper=localkube")
+fi
+
+
 # Repeatedly restart minikube until it comes up. This corrects for an issue in
 # Travis, where minikube will get stuck on startup and never recover
 while true; do
-  sudo CHANGE_MINIKUBE_NONE_USER=true minikube start --vm-driver=none --kubernetes-version="${VERSION}" "${RBAC}"
+  sudo CHANGE_MINIKUBE_NONE_USER=true minikube start "${minikube_args[@]}"
   HEALTHY=false
   # Try to connect for one minute
   for i in $(seq 12); do

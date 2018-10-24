@@ -2,6 +2,8 @@ package server
 
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+
+	"github.com/hashicorp/golang-lru"
 )
 
 // Valid object storage backends
@@ -24,9 +26,8 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-// cacheSize is the number of commit trees which will be cached in the server.
-func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, cacheSize int64) (APIServer, error) {
-	return newAPIServer(address, etcdAddresses, etcdPrefix, cacheSize)
+func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *lru.Cache) (APIServer, error) {
+	return newAPIServer(address, etcdAddresses, etcdPrefix, treeCache)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in

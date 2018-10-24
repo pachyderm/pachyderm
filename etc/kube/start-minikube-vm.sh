@@ -49,12 +49,6 @@ while true; do
   esac
 done
 
-etcd_image="quay.io/coreos/etcd"
-etcd_version="v3\\.3\\.5"
-if ! docker images | grep "${etcd_image}" | grep -q "${etcd_version}"; then
-  echo -e "\nMissing \"${etcd_image}:${etcd_version}\", please run:\ndocker pull ${etcd_image}\n"
-  exit 1
-fi
 
 # In parallel, start minikube, build pachctl, and get/build the pachd and worker images
 cat <<EOF
@@ -69,12 +63,12 @@ EOF
 
 # Print a spinning wheel while waiting for minikube to come up
 set +x
-WHEEL="-\|/"
+WHEEL='-\|/'
 until minikube ip 2>/dev/null; do
     # advance wheel 1/4 turn
-    WHEEL=${WHEEL:1}${WHEEL:0:1}
+    WHEEL=${WHEEL:1}${WHEEL::1}
     # jump to beginning of line & print message
-    echo -en "\e[G\e[K${WHEEL:0:1} waiting for minikube to start..."
+    echo -en "\e[G\e[K${WHEEL::1} Waiting for minikube to start..."
     sleep 1
 done
 set -x
@@ -82,6 +76,12 @@ set -x
 export ADDRESS=$(minikube ip):30650
 
 # Push pachyderm images to minikube VM
+dash_image="$(pc deploy local -d --dry-run | jq -r '.. | select(.name? == "dash" and has("image")).image')"
+grpc_proxy_image="$(pc deploy local -d --dry-run | jq -r '.. | select(.name? == "grpc-proxy").image')"
+etcd_image="quay.io/coreos/etcd:v3.3.5"
+docker pull ${etcd_image}
+docker pull ${grpc_proxy_image}
+docker pull ${dash_image}
 etc/kube/push-to-minikube.sh pachyderm/pachd:${PACH_VERSION}
 etc/kube/push-to-minikube.sh pachyderm/worker:${PACH_VERSION}
 etc/kube/push-to-minikube.sh ${etcd_image}

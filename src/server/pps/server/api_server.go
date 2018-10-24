@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -34,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
+	"github.com/willf/bloom"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -51,18 +53,18 @@ import (
 )
 
 const (
-	// MaxPodsPerChunk is the maximum number of pods we can schedule for each
-	// chunk in case of failures.
-	MaxPodsPerChunk = 3
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
 	DefaultUserImage = "ubuntu:16.04"
+	// DefaultDatumTries is the default number of times a datum will be tried
+	// before we give up and consider the job failed.
+	DefaultDatumTries = 3
 )
 
 var (
-	trueVal = true
-	zeroVal = int64(0)
-	suite   = "pachyderm"
+	zeroVal         = int64(0)
+	suite           = "pachyderm"
+	defaultGCMemory = 20 * 1024 * 1024 // 20 MB
 )
 
 func newErrJobNotFound(job string) error {
@@ -486,13 +488,20 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
+	if request.Job == nil && request.OutputCommit == nil {
+		return nil, fmt.Errorf("must specify either a Job or an OutputCommit")
+	}
 
 	jobs := a.jobs.ReadOnly(ctx)
 	if request.OutputCommit != nil {
 		if request.Job != nil {
 			return nil, fmt.Errorf("can't set both Job and OutputCommit")
 		}
-		if err := a.listJob(pachClient, nil, request.OutputCommit, nil, func(ji *pps.JobInfo) error {
+		ci, err := pachClient.InspectCommit(request.OutputCommit.Repo.Name, request.OutputCommit.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := a.listJob(pachClient, nil, ci.Commit, nil, func(ji *pps.JobInfo) error {
 			if request.Job != nil {
 				return fmt.Errorf("internal error, more than 1 Job has output commit: %v (this is likely a bug)", request.OutputCommit)
 			}
@@ -500,6 +509,9 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 			return nil
 		}); err != nil {
 			return nil, err
+		}
+		if request.Job == nil {
+			return nil, fmt.Errorf("job with output commit %s not found", request.OutputCommit.ID)
 		}
 	}
 
@@ -547,7 +559,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 		return jobInfo, nil
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	workerStatus, err := status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
+	workerStatus, err := workerpkg.Status(ctx, workerPoolID, a.etcdClient, a.etcdPrefix)
 	if err != nil {
 		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
@@ -651,7 +663,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	var specCommit *pfs.Commit
 	for i, provCommit := range commitInfo.Provenance {
 		provBranch := commitInfo.BranchProvenance[i]
-		if provBranch.Repo.Name == ppsconsts.SpecRepo {
+		if provBranch.Repo.Name == ppsconsts.SpecRepo && provBranch.Name == jobPtr.Pipeline.Name {
 			specCommit = provCommit
 			break
 		}
@@ -663,6 +675,10 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return nil, err
 	}
+	// Override the SpecCommit for the pipeline to be what it was when this job
+	// was created, this prevents races between updating a pipeline and
+	// previous jobs running.
+	pipelinePtr.SpecCommit = specCommit
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
 	if err != nil {
 		return nil, err
@@ -684,6 +700,9 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.ChunkSpec = pipelineInfo.ChunkSpec
 	result.DatumTimeout = pipelineInfo.DatumTimeout
 	result.JobTimeout = pipelineInfo.JobTimeout
+	result.DatumTries = pipelineInfo.DatumTries
+	result.SchedulingSpec = pipelineInfo.SchedulingSpec
+	result.PodSpec = pipelineInfo.PodSpec
 	return result, nil
 }
 
@@ -824,7 +843,7 @@ func (a *apiServer) RestartDatum(ctx context.Context, request *pps.RestartDatumR
 		return nil, err
 	}
 	workerPoolID := ppsutil.PipelineRcName(jobInfo.Pipeline.Name, jobInfo.PipelineVersion)
-	if err := cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
+	if err := workerpkg.Cancel(ctx, workerPoolID, a.etcdClient, a.etcdPrefix, request.Job.ID, request.DataFilters); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -1388,6 +1407,9 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 }
 
 func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) error {
+	if pipelineInfo.Pipeline == nil {
+		return fmt.Errorf("pipeline has no name")
+	}
 	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
 	}
@@ -1732,6 +1754,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		DatumTimeout:     request.DatumTimeout,
 		JobTimeout:       request.JobTimeout,
 		Standby:          request.Standby,
+		DatumTries:       request.DatumTries,
+		SchedulingSpec:   request.SchedulingSpec,
+		PodSpec:          request.PodSpec,
 	}
 	setPipelineDefaults(pipelineInfo)
 
@@ -1831,8 +1856,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 	} else {
-		// Create output repo, where we'll store the pipeline spec, future pipeline
-		// output, and pipeline stats
+		// Create output repo, pipeline output, and stats
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 			Repo: &pfs.Repo{pipelineName},
 		}); err != nil && !isAlreadyExistsErr(err) {
@@ -1963,6 +1987,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.MaxQueueSize < 1 {
 		pipelineInfo.MaxQueueSize = 1
 	}
+	if pipelineInfo.DatumTries == 0 {
+		pipelineInfo.DatumTries = DefaultDatumTries
+	}
 }
 
 func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
@@ -1979,6 +2006,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
+	name, ancestors := ancestry.Parse(name)
 	pipelinePtr := pps.EtcdPipelineInfo{}
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
@@ -1986,6 +2014,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		}
 		return nil, err
 	}
+	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
 	if err != nil {
 		return nil, err
@@ -2331,11 +2360,27 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
-//CollectActiveObjectsAndTags collects all objects/tags that are not deleted or eligible for garbage collection
-func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPIClient, objClient client.ObjectAPIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo) (map[string]bool, map[string]bool, error) {
+// ActiveStat contains stats about the object objects and tags in the
+// filesystem. It is returned by CollectActiveObjectsAndTags.
+type ActiveStat struct {
+	Objects  *bloom.BloomFilter
+	NObjects int
+	Tags     *bloom.BloomFilter
+	NTags    int
+}
 
-	// The set of objects that are in use.
-	activeObjects := make(map[string]bool)
+// CollectActiveObjectsAndTags collects all objects/tags that are not deleted
+// or eligible for garbage collection
+func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPIClient, objClient client.ObjectAPIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, memoryAllowance int) (*ActiveStat, error) {
+	if memoryAllowance == 0 {
+		memoryAllowance = defaultGCMemory
+	}
+	result := &ActiveStat{
+		// Each bloom filter gets half the memory allowance, times 8 to convert
+		// from bytes to bits.
+		Objects: bloom.New(uint(memoryAllowance*8/2), 10),
+		Tags:    bloom.New(uint(memoryAllowance*8/2), 10),
+	}
 	var activeObjectsMu sync.Mutex
 	// A helper function for adding active objects in a thread-safe way
 	addActiveObjects := func(objects ...*pfs.Object) {
@@ -2343,7 +2388,8 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 		defer activeObjectsMu.Unlock()
 		for _, object := range objects {
 			if object != nil {
-				activeObjects[object.Hash] = true
+				result.NObjects++
+				result.Objects.AddString(object.Hash)
 			}
 		}
 	}
@@ -2386,14 +2432,14 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 			Repo: repo.Repo,
 		})
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		for {
 			commit, err := client.Recv()
 			if err == io.EOF {
 				break
 			} else if err != nil {
-				return nil, nil, grpcutil.ScrubGRPC(err)
+				return nil, grpcutil.ScrubGRPC(err)
 			}
 			limiter.Acquire()
 			eg.Go(func() error {
@@ -2403,26 +2449,25 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 		}
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	// The set of tags that are active
-	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos {
 		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
 			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("error listing tagged objects: %v", err)
+			return nil, fmt.Errorf("error listing tagged objects: %v", err)
 		}
 
 		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
 			resp := resp
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
-			activeTags[resp.Tag.Name] = true
+			result.Tags.AddString(resp.Tag.Name)
+			result.NTags++
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
@@ -2431,10 +2476,10 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 		}
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return activeObjects, activeTags, nil
+	return result, nil
 }
 
 func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
@@ -2475,7 +2520,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
-	activeObjects, activeTags, err := CollectActiveObjectsAndTags(ctx, pfsClient, objClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo)
+	activeStat, err := CollectActiveObjectsAndTags(ctx, pfsClient, objClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, int(request.MemoryBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -2502,7 +2547,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		if err != nil {
 			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
 		}
-		if !activeObjects[object.Hash] {
+		if !activeStat.Objects.TestString(object.Hash) {
 			objectsToDelete = append(objectsToDelete, object)
 		}
 		// Delete objects in batches
@@ -2535,7 +2580,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		if err != nil {
 			return nil, fmt.Errorf("error receiving tags from ListTags: %v", err)
 		}
-		if !activeTags[resp.Tag.Name] {
+		if !activeStat.Tags.TestString(resp.Tag.Name) {
 			tagsToDelete = append(tagsToDelete, resp.Tag)
 		}
 		if err := deleteTagsIfMoreThan(100); err != nil {

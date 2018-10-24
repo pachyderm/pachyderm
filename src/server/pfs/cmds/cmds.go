@@ -3,12 +3,13 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	gosync "sync"
@@ -17,9 +18,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -75,7 +78,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 					Description: description,
 				},
 			)
-			return err
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
@@ -97,7 +100,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 					Update:      true,
 				},
 			)
-			return err
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
@@ -188,7 +191,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 				err = client.DeleteRepo(args[0], force)
 			}
 			if err != nil {
-				return fmt.Errorf("error from delete-repo: %s", err)
+				return grpcutil.ScrubGRPC(err)
 			}
 			return nil
 		}),
@@ -253,7 +256,7 @@ $ pachctl start-commit test -p XXX
 					Description: description,
 				})
 			if err != nil {
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			fmt.Println(commit.ID)
 			return nil
@@ -278,7 +281,7 @@ $ pachctl start-commit test -p XXX
 						Commit:      client.NewCommit(args[0], args[1]),
 						Description: description,
 					})
-				return err
+				return grpcutil.ScrubGRPC(err)
 			}
 			return cli.FinishCommit(args[0], args[1])
 		}),
@@ -498,8 +501,8 @@ $ pachctl subscribe-commit test master --new
 	var head string
 	createBranch := &cobra.Command{
 		Use:   "create-branch <repo-name> <branch-name> [flags]",
-		Short: "Create a new branch on a repo",
-		Long:  "Create a new branch on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
+		Short: "Create a new branch, or update an existing branch, on a repo.",
+		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
@@ -547,8 +550,8 @@ $ pachctl subscribe-commit test master --new
 
 	setBranch := &cobra.Command{
 		Use:   "set-branch repo-name commit-id/branch-name new-branch-name",
-		Short: "Set a commit and its ancestors to a branch",
-		Long: `Set a commit and its ancestors to a branch.
+		Short: "DEPRECATED Set a commit and its ancestors to a branch",
+		Long: `DEPRECATED Set a commit and its ancestors to a branch.
 
 Examples:
 
@@ -560,6 +563,7 @@ $ pachctl set-branch foo XXX master
 # same commit.
 $ pachctl set-branch foo test master` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+			fmt.Fprintf(os.Stderr, "set-branch is DEPRECATED, use create-branch instead.\n")
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
@@ -597,7 +601,7 @@ $ pachctl set-branch foo test master` + codeend,
 	var filePaths []string
 	var recursive bool
 	var inputFile string
-	var parallelism uint
+	var parallelism int
 	var split string
 	var targetFileDatums uint
 	var targetFileBytes uint
@@ -634,6 +638,9 @@ $ pachctl put-file repo branch path -f http://host/path
 # Put the data from a URL as repo/branch/path:
 $ pachctl put-file repo branch -f http://host/path
 
+# Put the data from an S3 bucket as repo/branch/s3_object:
+$ pachctl put-file repo branch -r -f s3://my_bucket
+
 # Put several files or URLs that are listed in file.
 # Files and URLs should be newline delimited.
 $ pachctl put-file repo branch -i file
@@ -642,6 +649,9 @@ $ pachctl put-file repo branch -i file
 # NOTE this URL can reference local files, so it could cause you to put sensitive
 # files into your Pachyderm cluster.
 $ pachctl put-file repo branch -i http://host/path
+
+# Put a pgdump file
+$ pachctl put-file repo branch tablename -f tablename.pgdump --split sql
 ` + codeend + `
 NOTE there's a small performance overhead for using a branch name as opposed
 to a commit ID in put-file.  In most cases the performance overhead is
@@ -649,23 +659,36 @@ negligible, but if you are putting a large number of small files, you might
 want to consider using commit IDs directly.
 `,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			cli, err := client.NewOnUserMachineWithConcurrency(metrics, "user", parallelism)
+			c, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
+			pfc, err := c.NewPutFileClient()
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := pfc.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
 			repoName := args[0]
 			branch := args[1]
 			var path string
 			if len(args) == 3 {
 				path = args[2]
+				if url, err := url.Parse(path); err == nil && url.Scheme != "" {
+					fmt.Fprintf(os.Stderr, "warning: PFS destination \"%s\" looks like a URL; did you mean -f %s?\n", path, path)
+				}
 			}
 			if putFileCommit {
-				fmt.Printf("flag --commit / -c is deprecated as of 1.7.2, you will get the same behavior without it")
+				fmt.Fprintf(os.Stderr, "flag --commit / -c is deprecated; as of 1.7.2, you will get the same behavior without it\n")
 			}
 
 			limiter := limit.New(int(parallelism))
 			var sources []string
 			if inputFile != "" {
+				// User has provided a file listing sources, one per line. Read sources
 				var r io.Reader
 				if inputFile == "-" {
 					r = os.Stdin
@@ -700,8 +723,11 @@ want to consider using commit IDs directly.
 					}
 				}
 			} else {
+				// User has provided a single source
 				sources = filePaths
 			}
+
+			// Arguments parsed; create putFileHelper and begin copying data
 			var eg errgroup.Group
 			filesPut := &gosync.Map{}
 			for _, source := range sources {
@@ -709,22 +735,22 @@ want to consider using commit IDs directly.
 				if len(args) == 2 {
 					// The user has not specified a path so we use source as path.
 					if source == "-" {
-						return fmt.Errorf("no filename specified")
+						return fmt.Errorf("must specify filename when reading data from stdin")
 					}
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, nil, nil, targetFileDatums, targetFileBytes, filesPut)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, path, source, recursive, overwrite, limiter, split, nil, nil, targetFileDatums, targetFileBytes, filesPut)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(cli, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, nil, nil, targetFileDatums, targetFileBytes, filesPut)
 					})
 				}
 			}
@@ -734,7 +760,7 @@ want to consider using commit IDs directly.
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
+	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
@@ -743,16 +769,122 @@ want to consider using commit IDs directly.
 	putFile.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (only allowed with -c)")
 	putFile.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
 
+	var headerFilePath string
+	putHeader := &cobra.Command{
+		Use:   "put-header repo-name branch [path/to/directory/in/pfs]",
+		Short: "Put a header file into the filesystem.",
+		Long: `Put-header supports a number of ways to insert data into pfs:
+` + codestart + `# Put data from stdin as repo/branch/path:
+$ echo "data" | pachctl put-header repo branch path-to-directory
+
+# Put a file from the local filesystem as repo/branch/path:
+$ pachctl put-header repo branch path-to-directory -f file
+
+# Delete the existing header:
+$ echo "" | pachctl put-header repo branch path -f -
+` + codeend,
+		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
+			cli, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
+			if err != nil {
+				return err
+			}
+			pfc, err := cli.NewPutFileClient()
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := pfc.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			repoName := args[0]
+			branch := args[1]
+			path := args[2]
+			var header []byte
+			if headerFilePath == "-" {
+				content, err := ioutil.ReadAll(os.Stdin)
+				if err != nil {
+					return err
+				}
+				header = content
+			} else {
+				content, err := ioutil.ReadFile(headerFilePath)
+				if err != nil {
+					return err
+				}
+				header = content
+			}
+			filesPut := &gosync.Map{}
+			source := "/dev/null"
+			limiter := limit.New(int(parallelism))
+			return putFileHelper(cli, pfc, repoName, branch, path, source, recursive, overwrite, limiter, "line", header, nil, targetFileDatums, targetFileBytes, filesPut)
+		}),
+	}
+	putHeader.Flags().StringVarP(&headerFilePath, "file", "f", "-", "The file to be put, it can be a local file or by default will be read from stdin")
+
+	var footerFilePath string
+	putFooter := &cobra.Command{
+		Use:   "put-footer repo-name branch [path/to/directory/in/pfs]",
+		Short: "Put a footer file into the filesystem.",
+		Long: `Put-footer supports a number of ways to insert data into pfs:
+` + codestart + `# Put data from stdin as repo/branch/path:
+$ echo "data" | pachctl put-footer repo branch path-to-directory
+
+# Put a file from the local filesystem as repo/branch/path:
+$ pachctl put-footer repo branch path-to-directory -f file
+
+# Delete the existing footer:
+$ echo "" | pachctl put-footer repo branch path -f -
+` + codeend,
+		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
+			cli, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
+			if err != nil {
+				return err
+			}
+			pfc, err := cli.NewPutFileClient()
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := pfc.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			repoName := args[0]
+			branch := args[1]
+			path := args[2]
+			var footer []byte
+			if footerFilePath == "-" {
+				content, err := ioutil.ReadAll(os.Stdin)
+				if err != nil {
+					return err
+				}
+				footer = content
+			} else {
+				content, err := ioutil.ReadFile(footerFilePath)
+				if err != nil {
+					return err
+				}
+				footer = content
+			}
+			filesPut := &gosync.Map{}
+			source := "/dev/null"
+			limiter := limit.New(int(parallelism))
+			return putFileHelper(cli, pfc, repoName, branch, path, source, recursive, overwrite, limiter, "line", nil, footer, targetFileDatums, targetFileBytes, filesPut)
+		}),
+	}
+	putFooter.Flags().StringVarP(&footerFilePath, "file", "f", "-", "The file to be put, it can be a local file or by default will be read from stdin")
+
 	copyFile := &cobra.Command{
 		Use:   "copy-file src-repo src-commit src-path dst-repo dst-commit dst-path",
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
 		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
-			client, err := client.NewOnUserMachineWithConcurrency(metrics, "user", parallelism)
+			c, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
-			return client.CopyFile(args[0], args[1], args[2], args[3], args[4], args[5], overwrite)
+			return c.CopyFile(args[0], args[1], args[2], args[3], args[4], args[5], overwrite)
 		}),
 	}
 	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
@@ -783,7 +915,7 @@ $ pachctl get-file foo master^2 XXX
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
-				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, false, int(parallelism), nil, "")
+				return puller.Pull(client, outputPath, args[0], args[1], args[2], false, false, parallelism, nil, "")
 			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
@@ -802,7 +934,7 @@ $ pachctl get-file foo master^2 XXX
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
-	getFile.Flags().UintVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
+	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
 
 	inspectFile := &cobra.Command{
 		Use:   "inspect-file repo-name commit-id path/to/file",
@@ -1014,7 +1146,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 
 	var debug bool
-	var allCommits bool
+	var commits cmdutil.RepeatedStringArg
 	mount := &cobra.Command{
 		Use:   "mount path/to/mount/point",
 		Short: "Mount pfs locally. This command blocks.",
@@ -1024,22 +1156,22 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
-			mounter := fuse.NewMounter(client.GetAddress(), client)
 			mountPoint := args[0]
-			ready := make(chan bool)
-			go func() {
-				<-ready
-				fmt.Println("Filesystem mounted, CTRL-C to exit.")
-			}()
-			err = mounter.Mount(mountPoint, nil, ready, debug, false)
+			commits, err := parseCommits(commits)
 			if err != nil {
 				return err
 			}
-			return nil
+			opts := &fuse.Options{
+				Fuse: &nodefs.Options{
+					Debug: debug,
+				},
+				Commits: commits,
+			}
+			return fuse.Mount(client, mountPoint, opts)
 		}),
 	}
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
-	mount.Flags().BoolVarP(&allCommits, "all-commits", "a", false, "Show archived and cancelled commits.")
+	mount.Flags().VarP(&commits, "commits", "c", "Commits to mount for repos, arguments should be of the form \"repo:commit\"")
 
 	unmount := &cobra.Command{
 		Use:   "unmount path/to/mount/point",
@@ -1114,6 +1246,8 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, deleteBranch)
 	result = append(result, file)
 	result = append(result, putFile)
+	result = append(result, putHeader)
+	result = append(result, putFooter)
 	result = append(result, copyFile)
 	result = append(result, getFile)
 	result = append(result, inspectFile)
@@ -1128,26 +1262,21 @@ $ pachctl diff-file foo master path1 bar master path2
 	return result
 }
 
-func parseCommitMounts(args []string) []*fuse.CommitMount {
-	var result []*fuse.CommitMount
+func parseCommits(args []string) (map[string]string, error) {
+	result := make(map[string]string)
 	for _, arg := range args {
-		commitMount := &fuse.CommitMount{Commit: client.NewCommit("", "")}
-		repo, commitAlias := path.Split(arg)
-		commitMount.Commit.Repo.Name = path.Clean(repo)
-		split := strings.Split(commitAlias, ":")
-		if len(split) > 0 {
-			commitMount.Commit.ID = split[0]
+		split := strings.Split(arg, ":")
+		if len(split) != 2 {
+			return nil, fmt.Errorf("malformed input %s, must be of the form repo:commit", args)
 		}
-		if len(split) > 1 {
-			commitMount.Alias = split[1]
-		}
-		result = append(result, commitMount)
+		result[split[0]] = split[1]
 	}
-	return result
+	return result, nil
 }
 
-func putFileHelper(client *client.APIClient, repo, commit, path, source string,
+func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, path, source string,
 	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
+	header []byte, footer []byte,
 	targetFileDatums uint, targetFileBytes uint, filesPut *gosync.Map) (retErr error) {
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
@@ -1157,15 +1286,9 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
 			if overwrite {
-				return sync.PushFile(client, &pfsclient.File{
-					Commit: &pfsclient.Commit{
-						Repo: &pfsclient.Repo{repo},
-						ID:   commit,
-					},
-					Path: path,
-				}, reader)
+				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
 			}
-			_, err := client.PutFile(repo, commit, path, reader)
+			_, err := pfc.PutFile(repo, commit, path, reader)
 			return err
 		}
 
@@ -1175,24 +1298,29 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 			delimiter = pfsclient.Delimiter_LINE
 		case "json":
 			delimiter = pfsclient.Delimiter_JSON
+		case "sql":
+			delimiter = pfsclient.Delimiter_SQL
 		default:
-			return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json' or 'line'", split)
+			return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json', 'line', or 'sql'", split)
 		}
-		_, err := client.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader)
+		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader, header, footer)
 		return err
 	}
 
 	if source == "-" {
+		if recursive {
+			return errors.New("cannot set -r and read from stdin (must also set -f or -i)")
+		}
 		limiter.Acquire()
 		defer limiter.Release()
-		fmt.Println("Reading from stdin.")
+		fmt.Fprintln(os.Stderr, "Reading from stdin.")
 		return putFile(os.Stdin)
 	}
 	// try parsing the filename as a url, if it is one do a PutFileURL
 	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
 		limiter.Acquire()
 		defer limiter.Release()
-		return client.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
+		return pfc.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
 	}
 	if recursive {
 		var eg errgroup.Group
@@ -1205,7 +1333,7 @@ func putFileHelper(client *client.APIClient, repo, commit, path, source string,
 				return nil
 			}
 			eg.Go(func() error {
-				return putFileHelper(client, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+				return putFileHelper(c, pfc, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, header, footer, targetFileDatums, targetFileBytes, filesPut)
 			})
 			return nil
 		}); err != nil {

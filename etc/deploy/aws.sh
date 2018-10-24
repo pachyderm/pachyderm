@@ -131,7 +131,7 @@ deploy_k8s_on_aws() {
         --node-size=${NODE_SIZE} \
         --master-size=${MASTER_SIZE} \
         --name=${NAME} \
-        --kubernetes-version=1.8.0 \
+        --kubernetes-version=1.10.0 \
         --yes
     kops update cluster ${NAME} --yes --state=${KOPS_BUCKET}
 
@@ -263,8 +263,9 @@ deploy_pachyderm_on_aws() {
     create_s3_bucket "${PACHYDERM_BUCKET}" ${USE_CLOUDFRONT}
 
     # Since my user should have the right access:
-    AWS_KEY=`cat ~/.aws/credentials | grep aws_secret_access_key | cut -d " " -f 3`
-    AWS_ID=`cat ~/.aws/credentials | grep aws_access_key_id  | cut -d " " -f 3`
+    AWS_ID=`cat ~/.aws/credentials | tr -s [:space:] | grep -m1 ^aws_access_key_id  | cut -d " " -f 3`
+    AWS_KEY=`cat ~/.aws/credentials | tr -s [:space:] | grep -m1 ^aws_secret_access_key | cut -d " " -f 3`
+
 
     # Omit token since im using my personal creds
     cmd=( pachctl deploy amazon ${PACHYDERM_BUCKET} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --no-dashboard --credentials=${AWS_ID},${AWS_KEY},)

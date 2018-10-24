@@ -1,4 +1,7 @@
 {
+  "pipeline": {
+    "name": "jupyter"
+  },
   "service" : {
     "internal_port": 8888,
     "external_port": 30888
@@ -16,13 +19,22 @@
   "input": {
     "cross": [
       {
-        "atom": {"repo": "trips"}
+        "atom": {
+          "repo": "trips",
+          "glob": "/"
+        }
       },
       {
-        "atom": {"repo": "weather"}
+        "atom": {
+          "repo": "weather",
+          "glob": "/"
+        }
       },
       {
-        "atom": {"repo": "sales"}
+        "atom": {
+          "repo": "sales",
+          "glob": "/"
+        }
       }
     ]
   }

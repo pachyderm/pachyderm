@@ -74,6 +74,8 @@ func renewUserCredentials(ctx context.Context, pachdAddress string, adminToken s
 	if err != nil {
 		return err
 	}
+	defer client.Close() // avoid leaking connections
+
 	client = client.WithCtx(ctx)
 	client.SetAuthToken(adminToken)
 
