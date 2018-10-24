@@ -77,6 +77,19 @@ var (
 	// tlsVolumeName)
 	tlsSecretName = "pachd-tls-cert"
 
+	// 8 GiB, the max for etcd backend bytes.
+	etcdBackendBytes = 8 * 1024 * 1024 * 1024
+	// Cmd used to launch etcd
+	etcdCmd = []string{
+		"/usr/local/bin/etcd",
+		"--listen-client-urls=http://0.0.0.0:2379",
+		"--advertise-client-urls=http://0.0.0.0:2379",
+		"--data-dir=/var/data/etcd",
+		"--auto-compaction-retention=1",
+		"--max-txn-ops=5000",
+		fmt.Sprintf("--quota-backend-bytes=%d", etcdBackendBytes),
+	}
+
 	// IAMAnnotation is the annotation used for the IAM role, this can work
 	// with something like kube2iam as an alternative way to provide
 	// credentials.
@@ -673,14 +686,7 @@ func EtcdDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 							Name:  etcdName,
 							Image: image,
 							//TODO figure out how to get a cluster of these to talk to each other
-							Command: []string{
-								"/usr/local/bin/etcd",
-								"--listen-client-urls=http://0.0.0.0:2379",
-								"--advertise-client-urls=http://0.0.0.0:2379",
-								"--data-dir=/var/data/etcd",
-								"--auto-compaction-retention=1",
-								"--max-txn-ops=5000",
-							},
+							Command: etcdCmd,
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: 2379,
@@ -885,18 +891,12 @@ func EtcdStatefulSet(opts *AssetOpts, backend backend, diskSpace int) interface{
 	// Because we need to refer to some environment variables set the by the
 	// k8s downward API, we define the command for running etcd here, and then
 	// actually run it below via '/bin/sh -c ${CMD}'
-	etcdCmd := []string{
-		"/usr/local/bin/etcd",
-		"--listen-client-urls=http://0.0.0.0:2379",
-		"--advertise-client-urls=http://0.0.0.0:2379",
+	etcdCmd := append(etcdCmd,
 		"--listen-peer-urls=http://0.0.0.0:2380",
-		"--data-dir=/var/data/etcd",
 		"--initial-cluster-token=pach-cluster", // unique ID
 		"--initial-advertise-peer-urls=http://${ETCD_NAME}.etcd-headless.${NAMESPACE}.svc.cluster.local:2380",
-		"--initial-cluster=" + strings.Join(initialCluster, ","),
-		"--auto-compaction-retention=1",
-		"--max-txn-ops=5000",
-	}
+		"--initial-cluster="+strings.Join(initialCluster, ","),
+	)
 	for i, str := range etcdCmd {
 		etcdCmd[i] = fmt.Sprintf("\"%s\"", str) // quote all arguments, for shell
 	}
