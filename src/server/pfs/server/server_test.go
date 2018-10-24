@@ -19,23 +19,37 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	pclient "github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
-	"github.com/pachyderm/pachyderm/src/client/version"
-	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 )
+
+const (
+	MB = 1024 * 1024
+)
+
+func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
+	var commitInfos []*pfs.CommitInfo
+	for {
+		commitInfo, err := commitInfoIter.Next()
+		if err == io.EOF {
+			return commitInfos, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		commitInfos = append(commitInfos, commitInfo)
+	}
+}
 
 func CommitToID(commit interface{}) interface{} {
 	return commit.(*pfs.Commit).ID
@@ -53,10 +67,8 @@ func RepoToName(repo interface{}) interface{} {
 	return repo.(*pfs.Repo).Name
 }
 
-var testDBs []string
-
 func TestInvalidRepo(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 	require.YesError(t, client.CreateRepo("/repo"))
 
 	require.NoError(t, client.CreateRepo("lenny"))
@@ -71,7 +83,7 @@ func TestInvalidRepo(t *testing.T) {
 }
 
 func TestCreateSameRepoInParallel(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	numGoros := 1000
 	errCh := make(chan error)
@@ -96,7 +108,7 @@ func TestCreateSameRepoInParallel(t *testing.T) {
 }
 
 func TestCreateDifferentRepoInParallel(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	numGoros := 1000
 	errCh := make(chan error)
@@ -121,7 +133,7 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 }
 
 func TestCreateRepoDeleteRepoRace(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	for i := 0; i < 100; i++ {
 		require.NoError(t, client.CreateRepo("foo"))
@@ -145,7 +157,7 @@ func TestCreateRepoDeleteRepoRace(t *testing.T) {
 }
 
 func TestBranch(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
@@ -165,7 +177,7 @@ func TestBranch(t *testing.T) {
 }
 
 func TestCreateAndInspectRepo(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -187,7 +199,7 @@ func TestCreateAndInspectRepo(t *testing.T) {
 }
 
 func TestRepoSize(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -226,7 +238,7 @@ func TestRepoSize(t *testing.T) {
 }
 
 func TestListRepo(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	numRepos := 10
 	var repoNames []string
@@ -243,7 +255,7 @@ func TestListRepo(t *testing.T) {
 
 // Make sure that commits of deleted repos do not resurface
 func TestCreateDeletedRepo(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -281,7 +293,7 @@ func TestCreateDeletedRepo(t *testing.T) {
 //   /    \
 // d1      d2
 func TestUpdateProvenance(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	prov1 := "prov1"
 	require.NoError(t, client.CreateRepo(prov1))
@@ -323,7 +335,7 @@ func TestUpdateProvenance(t *testing.T) {
 }
 
 func TestPutFileIntoOpenCommit(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -349,7 +361,7 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 
 func TestCreateInvalidBranchName(t *testing.T) {
 
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -360,7 +372,7 @@ func TestCreateInvalidBranchName(t *testing.T) {
 }
 
 func TestDeleteRepo(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	numRepos := 10
 	repoNames := make(map[string]bool)
@@ -391,7 +403,7 @@ func TestDeleteRepo(t *testing.T) {
 }
 
 func TestDeleteProvenanceRepo(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	// Create two repos, one as another's provenance
 	require.NoError(t, client.CreateRepo("A"))
@@ -423,7 +435,7 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 }
 
 func TestInspectCommit(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -469,7 +481,7 @@ func TestInspectCommit(t *testing.T) {
 }
 
 func TestInspectCommitBlock(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "TestInspectCommitBlock"
 	require.NoError(t, client.CreateRepo(repo))
@@ -487,7 +499,7 @@ func TestInspectCommitBlock(t *testing.T) {
 }
 
 func TestDeleteCommit(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -521,7 +533,7 @@ func TestDeleteCommit(t *testing.T) {
 }
 
 func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -546,7 +558,7 @@ func TestDeleteCommitOnlyCommitInBranch(t *testing.T) {
 }
 
 func TestDeleteCommitFinished(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -572,7 +584,7 @@ func TestDeleteCommitFinished(t *testing.T) {
 }
 
 func TestCleanPath(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := "TestCleanPath"
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -585,7 +597,7 @@ func TestCleanPath(t *testing.T) {
 }
 
 func TestBasicFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -609,7 +621,7 @@ func TestBasicFile(t *testing.T) {
 }
 
 func TestSimpleFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -649,7 +661,7 @@ func TestSimpleFile(t *testing.T) {
 }
 
 func TestStartCommitWithUnfinishedParent(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -666,26 +678,26 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 }
 
 func TestAncestrySyntax(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit1.ID, "1", strings.NewReader("1"))
+	_, err = client.PutFileOverwrite(repo, commit1.ID, "file", strings.NewReader("1"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
 	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit2.ID, "2", strings.NewReader("2"))
+	_, err = client.PutFileOverwrite(repo, commit2.ID, "file", strings.NewReader("2"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit2.ID))
 
 	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit3.ID, "3", strings.NewReader("3"))
+	_, err = client.PutFileOverwrite(repo, commit3.ID, "file", strings.NewReader("3"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit3.ID))
 
@@ -734,9 +746,19 @@ func TestAncestrySyntax(t *testing.T) {
 	require.YesError(t, err)
 
 	for i := 1; i <= 2; i++ {
-		_, err := client.InspectFile(repo, fmt.Sprintf("%v^%v", commit3.ID, 3-i), fmt.Sprintf("%v", i))
+		_, err := client.InspectFile(repo, fmt.Sprintf("%v^%v", commit3.ID, 3-i), "file")
 		require.NoError(t, err)
 	}
+
+	var buffer bytes.Buffer
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 0), "file", 0, 0, &buffer))
+	require.Equal(t, "3", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 1), "file", 0, 0, &buffer))
+	require.Equal(t, "2", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 2), "file", 0, 0, &buffer))
+	require.Equal(t, "1", buffer.String())
 }
 
 // TestProvenance implements the following DAG
@@ -745,7 +767,7 @@ func TestAncestrySyntax(t *testing.T) {
 //  E ────────╯
 
 func TestProvenance(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
@@ -788,7 +810,7 @@ func TestProvenance(t *testing.T) {
 }
 
 func TestSimple(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -818,7 +840,7 @@ func TestSimple(t *testing.T) {
 }
 
 func TestBranch1(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -859,7 +881,7 @@ func TestBranch1(t *testing.T) {
 }
 
 func TestPutFileBig(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -885,7 +907,7 @@ func TestPutFileBig(t *testing.T) {
 }
 
 func TestPutFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -946,7 +968,7 @@ func TestPutFile(t *testing.T) {
 }
 
 func TestPutFile2(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -999,7 +1021,7 @@ func TestPutFile2(t *testing.T) {
 }
 
 func TestPutFileLongName(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1017,7 +1039,7 @@ func TestPutFileLongName(t *testing.T) {
 }
 
 func TestPutSameFileInParallel(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1040,7 +1062,7 @@ func TestPutSameFileInParallel(t *testing.T) {
 }
 
 func TestInspectFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1099,7 +1121,7 @@ func TestInspectFile(t *testing.T) {
 }
 
 func TestInspectFile2(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1144,7 +1166,7 @@ func TestInspectFile2(t *testing.T) {
 }
 
 func TestInspectDir(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1180,7 +1202,7 @@ func TestInspectDir(t *testing.T) {
 }
 
 func TestInspectDir2(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1234,7 +1256,7 @@ func TestInspectDir2(t *testing.T) {
 }
 
 func TestListFileTwoCommits(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1279,7 +1301,7 @@ func TestListFileTwoCommits(t *testing.T) {
 }
 
 func TestListFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1311,7 +1333,7 @@ func TestListFile(t *testing.T) {
 }
 
 func TestListFile2(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1357,7 +1379,7 @@ func TestListFile2(t *testing.T) {
 }
 
 func TestListFile3(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1412,7 +1434,7 @@ func TestListFile3(t *testing.T) {
 }
 
 func TestPutFileTypeConflict(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1433,7 +1455,7 @@ func TestPutFileTypeConflict(t *testing.T) {
 }
 
 func TestRootDirectory(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1457,7 +1479,7 @@ func TestRootDirectory(t *testing.T) {
 }
 
 func TestDeleteFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1537,7 +1559,7 @@ func TestDeleteFile(t *testing.T) {
 }
 
 func TestDeleteDir(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1621,7 +1643,7 @@ func TestDeleteDir(t *testing.T) {
 }
 
 func TestDeleteFile2(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1662,7 +1684,7 @@ func TestDeleteFile2(t *testing.T) {
 }
 
 func TestListCommit(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1722,7 +1744,7 @@ func TestListCommit(t *testing.T) {
 }
 
 func TestOffsetRead(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "TestOffsetRead"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1746,7 +1768,7 @@ func TestOffsetRead(t *testing.T) {
 }
 
 func TestBranch2(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1789,7 +1811,7 @@ func TestBranch2(t *testing.T) {
 }
 
 func TestDeleteNonexistantBranch(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "TestDeleteNonexistantBranch"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1797,7 +1819,7 @@ func TestDeleteNonexistantBranch(t *testing.T) {
 }
 
 func TestSubscribeCommit(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1847,7 +1869,7 @@ func TestSubscribeCommit(t *testing.T) {
 }
 
 func TestInspectRepoSimple(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1872,7 +1894,7 @@ func TestInspectRepoSimple(t *testing.T) {
 }
 
 func TestInspectRepoComplex(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1912,13 +1934,13 @@ func TestInspectRepoComplex(t *testing.T) {
 }
 
 func TestCreate(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
-	w, err := client.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, false)
+	w, err := client.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, false, nil, nil)
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -1927,7 +1949,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestGetFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 	repo := tu.UniqueString("test")
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "")
@@ -1954,7 +1976,7 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long tests in short mode")
 	}
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -1997,7 +2019,7 @@ func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 }
 
 func TestPutFileValidCharacters(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2034,7 +2056,7 @@ func TestPutFileURL(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	repo := "TestPutFileURL"
 	require.NoError(t, c.CreateRepo(repo))
@@ -2048,7 +2070,7 @@ func TestPutFileURL(t *testing.T) {
 }
 
 func TestBigListFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "TestBigListFile"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2075,7 +2097,7 @@ func TestBigListFile(t *testing.T) {
 }
 
 func TestStartCommitLatestOnBranch(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2098,7 +2120,7 @@ func TestStartCommitLatestOnBranch(t *testing.T) {
 }
 
 func TestSetBranchTwice(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2122,7 +2144,7 @@ func TestSetBranchTwice(t *testing.T) {
 }
 
 func TestSyncPullPush(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo1 := "repo1"
 	require.NoError(t, client.CreateRepo(repo1))
@@ -2199,7 +2221,7 @@ func TestSyncPullPush(t *testing.T) {
 }
 
 func TestSyncFile(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2208,7 +2230,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit1,
 		Path:   "file",
 	}, strings.NewReader(content1)))
@@ -2222,7 +2244,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit2, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit2,
 		Path:   "file",
 	}, strings.NewReader(content2)))
@@ -2236,7 +2258,7 @@ func TestSyncFile(t *testing.T) {
 
 	commit3, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pfssync.PushFile(client, &pfs.File{
+	require.NoError(t, pfssync.PushFile(client, client, &pfs.File{
 		Commit: commit3,
 		Path:   "file",
 	}, strings.NewReader(content3)))
@@ -2248,7 +2270,7 @@ func TestSyncFile(t *testing.T) {
 }
 
 func TestSyncEmptyDir(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 
 	repo := "repo"
 	require.NoError(t, client.CreateRepo(repo))
@@ -2272,111 +2294,8 @@ func TestSyncEmptyDir(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func generateRandomString(n int) string {
-	rand.Seed(time.Now().UnixNano())
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = byte('a' + rand.Intn(26))
-	}
-	return string(b)
-}
-
-func runServers(t *testing.T, port int32, apiServer pfs.APIServer,
-	blockAPIServer BlockAPIServer) {
-	ready := make(chan bool)
-	go func() {
-		err := grpcutil.Serve(
-			func(s *grpc.Server) {
-				pfs.RegisterAPIServer(s, apiServer)
-				pfs.RegisterObjectAPIServer(s, blockAPIServer)
-				auth.RegisterAPIServer(s, &authtesting.InactiveAPIServer{}) // PFS server uses auth API
-				close(ready)
-			},
-			grpcutil.ServeOptions{
-				Version:    version.Version,
-				MaxMsgSize: grpcutil.MaxMsgSize,
-			},
-			grpcutil.ServeEnv{GRPCPort: uint16(port)},
-		)
-		require.NoError(t, err)
-	}()
-	<-ready
-}
-
-const (
-	servers     = 2                 // Number of pachd server processes to run
-	etcdAddress = "localhost:32379" // etcd must already be serving at this address
-)
-
-var (
-	port int32 = 30653 // Initial port on which pachd server processes will serve
-
-	startPFSServersOnce sync.Once // ensure pachd servers are only started once
-)
-
-// src/server/pfs/server/driver.go expects an etcd server at "localhost:32379"
-// Try to establish a connection before proceeding with the test (which will
-// fail if the connection can't be established)
-func startPFSServers(t *testing.T) {
-	startPFSServersOnce.Do(func() {
-		require.NoError(t, backoff.Retry(func() error {
-			_, err := etcd.New(etcd.Config{
-				Endpoints:   []string{etcdAddress},
-				DialOptions: pclient.EtcdDialOptions(),
-			})
-			if err != nil {
-				return fmt.Errorf("could not connect to etcd: %s", err.Error())
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
-	})
-}
-
-func getClient(t *testing.T) *pclient.APIClient {
-	startPFSServers(t)
-	dbName := "pachyderm_test_" + uuid.NewWithoutDashes()[0:12]
-	testDBs = append(testDBs, dbName)
-
-	root := tu.UniqueString("/tmp/pach_test/run")
-	t.Logf("root %s", root)
-	var ports []int32
-	for i := 0; i < servers; i++ {
-		ports = append(ports, atomic.AddInt32(&port, 1))
-	}
-	var addresses []string
-	for _, port := range ports {
-		addresses = append(addresses, fmt.Sprintf("localhost:%d", port))
-	}
-	prefix := generateRandomString(32)
-	for i, port := range ports {
-		address := addresses[i]
-		blockAPIServer, err := newLocalBlockAPIServer(root, 256*1024*1024, etcdAddress)
-		require.NoError(t, err)
-		apiServer, err := newLocalAPIServer(address, prefix)
-		require.NoError(t, err)
-		runServers(t, port, apiServer, blockAPIServer)
-	}
-	c, err := pclient.NewFromAddress(addresses[0])
-	require.NoError(t, err)
-	return c
-}
-
-func collectCommitInfos(commitInfoIter pclient.CommitInfoIterator) ([]*pfs.CommitInfo, error) {
-	var commitInfos []*pfs.CommitInfo
-	for {
-		commitInfo, err := commitInfoIter.Next()
-		if err == io.EOF {
-			return commitInfos, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-		commitInfos = append(commitInfos, commitInfo)
-	}
-}
-
 func TestFlush(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
@@ -2394,7 +2313,7 @@ func TestFlush(t *testing.T) {
 // TestFlush2 implements the following DAG:
 // A ─▶ B ─▶ C ─▶ D
 func TestFlush2(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateRepo("C"))
@@ -2438,7 +2357,7 @@ func TestFlush2(t *testing.T) {
 //  ╱
 // B
 func TestFlush3(t *testing.T) {
-	client := getClient(t)
+	client := GetPachClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateRepo("C"))
@@ -2469,7 +2388,7 @@ func TestFlush3(t *testing.T) {
 }
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := "test"
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
@@ -2484,7 +2403,7 @@ func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 
 func TestFlushOpenCommit(t *testing.T) {
 
-	client := getClient(t)
+	client := GetPachClient(t)
 	require.NoError(t, client.CreateRepo("A"))
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
@@ -2508,7 +2427,7 @@ func TestFlushOpenCommit(t *testing.T) {
 
 func TestEmptyFlush(t *testing.T) {
 
-	client := getClient(t)
+	client := GetPachClient(t)
 	commitIter, err := client.FlushCommit(nil, nil)
 	require.NoError(t, err)
 	_, err = collectCommitInfos(commitIter)
@@ -2517,7 +2436,7 @@ func TestEmptyFlush(t *testing.T) {
 
 func TestFlushNonExistentCommit(t *testing.T) {
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	iter, err := c.FlushCommit([]*pfs.Commit{pclient.NewCommit("fake-repo", "fake-commit")}, nil)
 	require.NoError(t, err)
 	_, err = collectCommitInfos(iter)
@@ -2535,29 +2454,29 @@ func TestPutFileSplit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	// create repos
 	repo := tu.UniqueString("TestPutFileSplit")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line2", pfs.Delimiter_LINE, 2, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line2", pfs.Delimiter_LINE, 2, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line3", pfs.Delimiter_LINE, 0, 8, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line3", pfs.Delimiter_LINE, 0, 8, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "json2", pfs.Delimiter_JSON, 2, 0, false, strings.NewReader("{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit.ID, "json2", pfs.Delimiter_JSON, 2, 0, false, strings.NewReader("{}{}{}{}"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "json3", pfs.Delimiter_JSON, 0, 4, false, strings.NewReader("{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit.ID, "json3", pfs.Delimiter_JSON, 0, 4, false, strings.NewReader("{}{}{}{}"), nil, nil)
 	require.NoError(t, err)
 
 	files, err := c.ListFile(repo, commit.ID, "line2")
@@ -2570,9 +2489,9 @@ func TestPutFileSplit(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	commit2, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit2.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, commit2.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit2.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit2.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"), nil, nil)
 	require.NoError(t, err)
 
 	files, err = c.ListFile(repo, commit2.ID, "line")
@@ -2641,13 +2560,13 @@ func TestPutFileSplitBig(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	// create repos
 	repo := tu.UniqueString("TestPutFileSplitBig")
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	w, err := c.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false)
+	w, err := c.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false, nil, nil)
 	require.NoError(t, err)
 	for i := 0; i < 1000; i++ {
 		_, err = w.Write([]byte("foo\n"))
@@ -2668,7 +2587,7 @@ func TestDiff(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := tu.UniqueString("TestDiff")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -2802,7 +2721,7 @@ func TestGlob(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := tu.UniqueString("TestGlob")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -2933,7 +2852,7 @@ func TestApplyWriteOrder(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := tu.UniqueString("TestApplyWriteOrder")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -2956,7 +2875,7 @@ func TestOverwrite(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := tu.UniqueString("TestGlob")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -2964,9 +2883,9 @@ func TestOverwrite(t *testing.T) {
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, "master", "file1", strings.NewReader("foo"))
-	_, err = c.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), nil, nil)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"), nil, nil)
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.StartCommit(repo, "master")
@@ -2975,7 +2894,7 @@ func TestOverwrite(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz"), 0)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, true, strings.NewReader("0\n1\n2\n"))
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, true, strings.NewReader("0\n1\n2\n"), nil, nil)
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	var buffer bytes.Buffer
@@ -2999,7 +2918,7 @@ func TestCopyFile(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := tu.UniqueString("TestCopyFile")
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.StartCommit(repo, "master")
@@ -3036,7 +2955,7 @@ func TestBuildCommit(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := tu.UniqueString("TestBuildCommit")
 	require.NoError(t, c.CreateRepo(repo))
 
@@ -3077,7 +2996,7 @@ func TestBuildCommit(t *testing.T) {
 }
 
 func TestPropagateCommit(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo1 := tu.UniqueString("TestPropagateCommit1")
 	require.NoError(t, c.CreateRepo(repo1))
 	repo2 := tu.UniqueString("TestPropagateCommit2")
@@ -3101,7 +3020,7 @@ func TestPropagateCommit(t *testing.T) {
 // 	╱   ◀
 // B ──▶ D
 func TestBackfillBranch(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
 	require.NoError(t, c.CreateRepo("C"))
@@ -3137,7 +3056,7 @@ func TestBackfillBranch(t *testing.T) {
 // D ───╯
 //
 func TestUpdateBranch(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
 	require.NoError(t, c.CreateRepo("C"))
@@ -3163,7 +3082,7 @@ func TestUpdateBranch(t *testing.T) {
 }
 
 func TestBranchProvenance(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	tests := [][]struct {
 		name       string
 		directProv []string
@@ -3264,7 +3183,7 @@ func TestBranchProvenance(t *testing.T) {
 		})
 	}
 	// t.Run("1", func(t *testing.T) {
-	// 	c := getClient(t)
+	// 	c := getPachClient(t)
 	// 	require.NoError(t, c.CreateRepo("A"))
 	// 	require.NoError(t, c.CreateRepo("B"))
 	// 	require.NoError(t, c.CreateRepo("C"))
@@ -3301,7 +3220,7 @@ func TestBranchProvenance(t *testing.T) {
 	// 	require.Equal(t, 3, len(dMaster.Provenance))
 	// })
 	// t.Run("2", func(t *testing.T) {
-	// 	c := getClient(t)
+	// 	c := getPachClient(t)
 	// 	require.NoError(t, c.CreateRepo("A"))
 	// 	require.NoError(t, c.CreateRepo("B"))
 	// 	require.NoError(t, c.CreateRepo("C"))
@@ -3314,7 +3233,7 @@ func TestBranchProvenance(t *testing.T) {
 }
 
 func TestChildCommits(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateBranch("A", "master", "", nil))
 
@@ -3408,7 +3327,7 @@ func TestChildCommits(t *testing.T) {
 }
 
 func TestStartCommitFork(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateBranch("A", "master", "", nil))
 	commit, err := c.StartCommit("A", "master")
@@ -3437,7 +3356,7 @@ func TestStartCommitFork(t *testing.T) {
 //
 // C should create a new output commit to process its unprocessed inputs in B
 func TestUpdateBranchNewOutputCommit(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
 	require.NoError(t, c.CreateRepo("C"))
@@ -3483,7 +3402,7 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 // 3. Delete branch HEAD   -> output branch rewritten to point to nil
 // 4. Delete parent commit -> child rewritten to point to nil
 func TestDeleteCommitBigSubvenance(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	// two input repos, one with many commits (logs), and one with few (schema)
 	require.NoError(t, c.CreateRepo("logs"))
@@ -3678,7 +3597,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 //  ↘ ↙
 //   a
 func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
-	cli := getClient(t)
+	cli := GetPachClient(t)
 	require.NoError(t, cli.CreateRepo("repo"))
 	require.NoError(t, cli.CreateBranch("repo", "master", "", nil))
 
@@ -3756,7 +3675,7 @@ func TestDeleteCommitMultipleChildrenSingleCommit(t *testing.T) {
 //  ↘↓↙
 //  nil
 func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
-	cli := getClient(t)
+	cli := GetPachClient(t)
 	require.NoError(t, cli.CreateRepo("upstream1"))
 	require.NoError(t, cli.CreateRepo("upstream2"))
 	// commit to both inputs
@@ -3893,7 +3812,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 // This makes sure that multiple live children are re-pointed at a live parent
 // if appropriate
 func TestDeleteCommitMultiLevelChildren(t *testing.T) {
-	cli := getClient(t)
+	cli := GetPachClient(t)
 	require.NoError(t, cli.CreateRepo("upstream1"))
 	require.NoError(t, cli.CreateRepo("upstream2"))
 	// commit to both inputs
@@ -4036,7 +3955,7 @@ func TestDeleteCommitMultiLevelChildren(t *testing.T) {
 // 3. Subvenance is not affected, because the deleted commit is between "Lower" and "Upper"
 // 4. The entire subvenance range is deleted
 func TestDeleteCommitShrinkSubvRange(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	// two input repos, one with many commits (logs), and one with few (schema)
 	require.NoError(t, c.CreateRepo("logs"))
@@ -4130,7 +4049,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 }
 
 func TestCommitState(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	// two input repos, one with many commits (logs), and one with few (schema)
 	require.NoError(t, c.CreateRepo("A"))
@@ -4175,7 +4094,7 @@ func TestCommitState(t *testing.T) {
 }
 
 func TestSubscribeStates(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	require.NoError(t, c.CreateRepo("A"))
 	require.NoError(t, c.CreateRepo("B"))
@@ -4223,7 +4142,7 @@ func TestSubscribeStates(t *testing.T) {
 }
 
 func TestPutFileCommit(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	numFiles := 100
 	repo := "repo"
@@ -4278,7 +4197,7 @@ func TestPutFileCommit(t *testing.T) {
 }
 
 func TestPutFileCommitNilBranch(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 	require.NoError(t, c.CreateBranch(repo, "master", "", nil))
@@ -4288,7 +4207,7 @@ func TestPutFileCommitNilBranch(t *testing.T) {
 }
 
 func TestPutFileCommitOverwrite(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	numFiles := 5
 	repo := "repo"
@@ -4305,11 +4224,899 @@ func TestPutFileCommitOverwrite(t *testing.T) {
 }
 
 func TestStartCommitOutputBranch(t *testing.T) {
-	c := getClient(t)
+	c := GetPachClient(t)
 
 	require.NoError(t, c.CreateRepo("in"))
 	require.NoError(t, c.CreateRepo("out"))
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
 	_, err := c.StartCommit("out", "master")
 	require.YesError(t, err)
+}
+
+func TestPutFileSplitHeaderFooter(t *testing.T) {
+	c := GetPachClient(t)
+
+	repo := "repo"
+	require.NoError(t, c.CreateRepo(repo))
+
+	header := "header\n"
+	footer := "footer\n"
+	content := []string{"foo\n", "bar\n", "baz\n"}
+	newHeader := "new\n"
+	var buf bytes.Buffer
+
+	t.Run("Basic", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+content[0]+footer, buf.String())
+		buf.Reset()
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		require.Equal(t, header+footer, buf.String())
+	})
+
+	t.Run("BigHeaderFooter", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		r := rand.New(rand.NewSource(99))
+		bigHeader := workload.RandString(r, 2*pclient.MaxHeaderFooterSize)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(bigHeader), []byte(footer))
+		require.YesError(t, err)
+		bigFooter := workload.RandString(r, 2*pclient.MaxHeaderFooterSize)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(bigFooter))
+		require.YesError(t, err)
+	})
+
+	t.Run("JustHeaderFooter", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 0, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a")
+		require.Equal(t, 1, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+footer, buf.String())
+		buf.Reset()
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		require.Equal(t, header+footer, buf.String())
+	})
+
+	t.Run("JustHeaderFooterOnExistingDirDiffCommits", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), nil, nil)
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, content[0], buf.String())
+		buf.Reset()
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		commit, err = c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a/b")
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+content[0]+footer, buf.String())
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		require.Equal(t, header+footer, buf.String())
+	})
+
+	t.Run("JustHeaderFooterOnExistingDirSameCommit", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), nil, nil)
+		require.NoError(t, err)
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, content[0], buf.String())
+		buf.Reset()
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a/b")
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+content[0]+footer, buf.String())
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		require.Equal(t, header+footer, buf.String())
+	})
+
+	t.Run("OverwriteHeaderFooterSameCommit", func(t *testing.T) {
+		// We expect all new values to take effect, even empty ones
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(newHeader), nil)
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, newHeader+content[0], buf.String())
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		require.Equal(t, newHeader, buf.String())
+	})
+
+	t.Run("OverwriteHeaderFooterDiffCommits", func(t *testing.T) {
+		// We expect only new non nil values to take effect
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commit, err = c.StartCommit(repo, t.Name())
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(newHeader), nil)
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, newHeader+content[0]+footer, buf.String())
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		require.Equal(t, newHeader+footer, buf.String())
+	})
+
+	t.Run("DeletionSameCommit", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, nil, nil)
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, content[0], buf.String())
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		buf.Reset()
+		require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+	})
+
+	t.Run("DeletionDiffCommits", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+content[0]+footer, buf.String())
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+		require.Equal(t, header+footer, buf.String())
+		commit, err = c.StartCommit(repo, t.Name())
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(""), []byte(""))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a/b")
+		require.Equal(t, 3, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, content[0], buf.String())
+		require.YesError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		buf.Reset()
+		require.YesError(t, c.GetFile(repo, commit.ID, "a/b", 0, 0, &buf))
+	})
+
+	t.Run("DeletionSubFiles", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.DeleteFile(repo, commit.ID, "/a/0000000000000001"))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "/**", 0, 0, &buf))
+		require.Equal(t, header+content[0]+content[2]+footer, buf.String())
+	})
+
+	t.Run("GlobRead", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		contentA := "aaa"
+		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "zoo"
+		_, err = c.PutFile(repo, commit.ID, "a/c", strings.NewReader(contentB))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/d", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a/d")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/**")
+		require.NoError(t, err)
+		require.Equal(t, 10, len(fileInfos))
+		buf.Reset()
+		fmt.Printf("!!!!!!!! globbing \n")
+		require.NoError(t, c.GetFile(repo, commit.ID, "/**", 0, 0, &buf))
+		require.Equal(t, contentA+header+strings.Join(content, "")+footer+contentB+header+strings.Join(content, "")+footer, buf.String())
+	})
+
+	t.Run("GlobRead2", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		contentA := "aaa"
+		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), nil)
+		require.NoError(t, err)
+		contentB := "zoo"
+		_, err = c.PutFile(repo, commit.ID, "a/c", strings.NewReader(contentB))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/d", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a/d")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/**")
+		require.NoError(t, err)
+		require.Equal(t, 10, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "/**", 0, 0, &buf))
+		require.Equal(t, contentA+header+strings.Join(content, "")+contentB+header+strings.Join(content, "")+footer, buf.String())
+	})
+
+	t.Run("GlobRead3", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		contentA := "aaa"
+		_, err = c.PutFile(repo, commit.ID, "a/a", strings.NewReader(contentA))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "zoo"
+		_, err = c.PutFile(repo, commit.ID, "a/c", strings.NewReader(contentB))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/d", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(strings.Join(content, "")), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a/b")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, "/a/d")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		glob := "/a/*/0000000000000000"
+		fileInfos, err = c.ListFile(repo, commit.ID, glob)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, glob, 0, 0, &buf))
+		require.Equal(t, header+content[0]+footer+header+content[0]+footer, buf.String())
+	})
+
+	t.Run("Nested", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		contentA := "aaa\nzzz"
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentA), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "jjj"
+		innerHeader := "((("
+		innerFooter := ")))"
+		nestedFile := "a/999"
+		_, err = c.PutFileSplit(repo, commit.ID, nestedFile, pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentB), []byte(innerHeader), []byte(innerFooter))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, nestedFile, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+innerFooter+footer, buf.String())
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, nestedFile)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+contentB+innerFooter+footer, buf.String())
+
+		glob := "/a/**"
+		fileInfos, err = c.ListFile(repo, commit.ID, glob)
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+	})
+
+	t.Run("Nested2", func(t *testing.T) {
+		// Tests nested dir w/o header/footer lexigraphically before
+		// other nested dir with header/footer
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		contentA := "aaa\nzzz"
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentA), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "zoo"
+		// put a normal file under a non-split dir lexigraphically before the
+		// nested one with header/footer
+		_, err = c.PutFile(repo, commit.ID, "a/999/0000000000000000", strings.NewReader(contentB))
+		require.NoError(t, err)
+		contentC := "jjj"
+		innerHeader := "((("
+		innerFooter := ")))"
+		nestedFile := "a/999999"
+		_, err = c.PutFileSplit(repo, commit.ID, nestedFile, pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentC), []byte(innerHeader), []byte(innerFooter))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, nestedFile, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+innerFooter+footer, buf.String())
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 4, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, nestedFile)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+contentC+innerFooter+footer, buf.String())
+
+		glob := "/a/**"
+		fileInfos, err = c.ListFile(repo, commit.ID, glob)
+		require.NoError(t, err)
+		require.Equal(t, 4, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, glob, 0, 0, &buf))
+		require.Equal(t, header+contentA+contentB+innerHeader+contentC+innerFooter+footer, buf.String())
+	})
+
+	t.Run("Nested3", func(t *testing.T) {
+		// Test deeper nesting, to test popping logic when traversing up
+		// ancestor dirs
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		contentA := "aaa\nzzz"
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentA), []byte(header), []byte(footer))
+		require.NoError(t, err)
+		contentB := "zoo"
+		contentC := "daffy"
+		innerHeader := "((("
+		innerFooter := ")))"
+		altInnerHeader := "[[["
+		altInnerFooter := "]]]"
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentB), []byte(altInnerHeader), []byte(altInnerFooter))
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "a/b/c/d/e", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentC), []byte(innerHeader), []byte(innerFooter))
+		require.NoError(t, err)
+		contentD := "jjj"
+		nestedFile := "a/d"
+		_, err = c.PutFileSplit(repo, commit.ID, nestedFile, pfs.Delimiter_LINE, 0, 0, false, strings.NewReader(contentD), []byte(innerHeader), []byte(innerFooter))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, nestedFile, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+innerFooter+footer, buf.String())
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 4, len(fileInfos))
+		fileInfos, err = c.ListFile(repo, commit.ID, nestedFile)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+innerHeader+contentD+innerFooter+footer, buf.String())
+
+		glob := "/a/**"
+		fileInfos, err = c.ListFile(repo, commit.ID, glob)
+		require.NoError(t, err)
+		require.Equal(t, 8, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, glob, 0, 0, &buf))
+		require.Equal(t, header+contentA+altInnerHeader+contentB+innerHeader+contentC+innerFooter+altInnerFooter+innerHeader+contentD+innerFooter+footer, buf.String())
+	})
+
+	t.Run("SetHeaderOnNonSplitDir", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		// can't just use a filename like 'b' because this is 'parseable' as a base16 int, so we use 'makefile' instead
+		_, err = c.PutFile(repo, commit.ID, "a/makefile", strings.NewReader(content[0]))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commit, err = c.StartCommit(repo, t.Name())
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), nil)
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		fileInfos, err := c.ListFile(repo, commit.ID, "/a")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(fileInfos))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		require.Equal(t, header+content[0], buf.String())
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "a", 0, 0, &buf))
+		require.Equal(t, header, buf.String())
+	})
+
+	t.Run("CopyDirWithHeaderOrFooter", func(t *testing.T) {
+		commit, err := c.StartCommit(repo, t.Name())
+		require.NoError(t, err)
+		// can't just use a filename like 'b' because this is 'parseable' as a base16 int, so we use 'makefile' instead
+		_, err = c.PutFile(repo, commit.ID, "a/makefile", strings.NewReader(content[0]))
+		require.NoError(t, err)
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		commit, err = c.StartCommit(repo, t.Name())
+		_, err = c.PutFileSplit(repo, commit.ID, "a", pfs.Delimiter_LINE, 0, 0, false, nil, []byte(header), nil)
+		require.NoError(t, err)
+		_, err = c.PutFileSplit(repo, commit.ID, "z", pfs.Delimiter_LINE, 0, 0, false, nil, nil, []byte(footer))
+		require.NoError(t, err)
+		require.NoError(t, c.CopyFile(repo, commit.ID, "a", repo, commit.ID, "b", false))
+		require.NoError(t, c.CopyFile(repo, commit.ID, "z", repo, commit.ID, "x", false))
+		require.NoError(t, c.FinishCommit(repo, commit.ID))
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "/a", 0, 0, &buf))
+		require.Equal(t, header, buf.String())
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "/b", 0, 0, &buf))
+		require.Equal(t, header, buf.String())
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "/z", 0, 0, &buf))
+		require.Equal(t, footer, buf.String())
+		buf.Reset()
+		require.NoError(t, c.GetFile(repo, commit.ID, "/x", 0, 0, &buf))
+		require.Equal(t, footer, buf.String())
+	})
+}
+
+func TestSQLPutFileSplit(t *testing.T) {
+	pgDumpHeader := `--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 10.4 (Debian 10.4-2.pgdg90+1)
+-- Dumped by pg_dump version 10.4 (Debian 10.4-2.pgdg90+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: company; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.company (
+    id integer NOT NULL,
+    name text NOT NULL,
+    age integer NOT NULL,
+    address character(50),
+    salary real
+);
+
+
+ALTER TABLE public.company OWNER TO postgres;
+
+--
+-- Data for Name: company; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.company (id, name, age, address, salary) FROM stdin;
+`
+	pgDumpFooter := `\.
+
+
+--
+-- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.company
+    ADD CONSTRAINT company_pkey PRIMARY KEY (id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+`
+	rows := []string{
+		"1	alice	100	1234 acme st                                      	1000000\n",
+		"2	bill	100	12345 acme st                                     	10000.0234\n",
+		"3	dakota	10	666 acme st                                       	100.023399\n",
+	}
+	pgDumpHeader2 := `--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 10.4 (Debian 10.4-2.pgdg90+1)
+-- Dumped by pg_dump version 10.4 (Debian 10.4-2.pgdg90+1)
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: company; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.company (
+    id integer NOT NULL,
+    name text NOT NULL,
+    weight real
+	stock integer NOT NULL,
+    price real
+);
+
+
+ALTER TABLE public.company OWNER TO postgres;
+
+--
+-- Data for Name: company; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.sprockets (id, name, weight, stock, price) FROM stdin;
+`
+	pgDumpFooter2 := `\.
+
+
+--
+-- Name: company company_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.sprockets
+    ADD CONSTRAINT sprockets_pkey PRIMARY KEY (id);
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+`
+	rows2 := []string{
+		"1	fidget	23.4	4 100.0\n",
+		"4	panasonicliktatricktor2000	345.34	1 5000.0\n",
+	}
+
+	fullPGDump := pgDumpHeader + strings.Join(rows, "") + pgDumpFooter
+	c := GetPachClient(t)
+
+	dataRepo := "TestSQL_data"
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	t.Run("InvalidPGDump", func(t *testing.T) {
+		_, err := c.StartCommit(dataRepo, t.Name())
+		require.NoError(t, err)
+		w, err := c.PutFileSplitWriter(dataRepo, t.Name(), "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
+		require.NoError(t, err)
+		_, err = w.Write([]byte(pgDumpHeader + strings.Join(rows, "")))
+		require.NoError(t, err)
+		require.YesError(t, w.Close())
+		branch2 := t.Name() + "2"
+		_, err = c.StartCommit(dataRepo, branch2)
+		require.NoError(t, err)
+		w, err = c.PutFileSplitWriter(dataRepo, branch2, "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
+		require.NoError(t, err)
+		_, err = w.Write([]byte(strings.Join(rows, "") + pgDumpFooter))
+		require.NoError(t, err)
+		require.YesError(t, w.Close())
+	})
+
+	t.Run("ValidPGDump", func(t *testing.T) {
+		commit, err := c.StartCommit(dataRepo, t.Name())
+		require.NoError(t, err)
+		w, err := c.PutFileSplitWriter(dataRepo, t.Name(), "data", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
+		require.NoError(t, err)
+		_, err = w.Write([]byte(fullPGDump))
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+		w, err = c.PutFileSplitWriter(dataRepo, t.Name(), "data2", pfs.Delimiter_SQL, 0, 0, false, nil, nil)
+		fullPGDump2 := pgDumpHeader2 + strings.Join(rows2, "") + pgDumpFooter2
+		_, err = w.Write([]byte(fullPGDump2))
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+		fileInfos, err := c.ListFile(commit.Repo.Name, commit.ID, "data")
+		require.NoError(t, err)
+		require.Equal(t, 3, len(fileInfos))
+		fileInfos2, err := c.ListFile(commit.Repo.Name, commit.ID, "data2")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos2))
+
+		var buf bytes.Buffer
+		for i := 0; i < len(fileInfos); i++ {
+			buf.Reset()
+			require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[i].File.Path, 0, 0, &buf))
+			expected := pgDumpHeader + rows[i] + pgDumpFooter
+			require.Equal(t, expected, buf.String())
+			require.Equal(t, len(expected), int(fileInfos[i].SizeBytes))
+		}
+		// The dir should only have the header/footer
+		buf.Reset()
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
+		require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
+		dirFileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, "data")
+		require.NoError(t, err)
+		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
+		dirExpectedLen := headerFooterLen
+		for i := 0; i < len(rows); i++ {
+			dirExpectedLen += len(rows[i])
+		}
+		require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
+
+		// Validate glob read behavior
+		buf.Reset()
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "/data/*", 0, 0, &buf))
+		validDump := pgDumpHeader + strings.Join(rows, "") + pgDumpFooter
+		require.Equal(t, validDump, buf.String())
+
+		buf.Reset()
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "/**", 0, 0, &buf))
+		validDump2 := pgDumpHeader2 + strings.Join(rows2, "") + pgDumpFooter2
+		require.Equal(t, validDump+validDump2, buf.String())
+
+	})
+
+	t.Run("TargetFileDatums", func(t *testing.T) {
+		commit, err := c.StartCommit(dataRepo, t.Name())
+		require.NoError(t, err)
+		w, err := c.PutFileSplitWriter(dataRepo, t.Name(), "data", pfs.Delimiter_SQL, 2, 0, false, nil, nil)
+		require.NoError(t, err)
+		_, err = w.Write([]byte(fullPGDump))
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+		fileInfos, err := c.ListFile(commit.Repo.Name, commit.ID, "data")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		expected := pgDumpHeader + strings.Join(rows[0:2], "") + pgDumpFooter
+		require.Equal(t, expected, buf.String())
+		require.Equal(t, len(expected), int(fileInfos[0].SizeBytes))
+		buf.Reset()
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
+		expected = pgDumpHeader + rows[2] + pgDumpFooter
+		require.Equal(t, expected, buf.String())
+		require.Equal(t, len(expected), int(fileInfos[1].SizeBytes))
+
+		buf.Reset()
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
+		require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
+		dirFileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, "data")
+		require.NoError(t, err)
+		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
+		dirExpectedLen := headerFooterLen
+		for i := 0; i < len(rows); i++ {
+			dirExpectedLen += len(rows[i])
+		}
+		require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
+	})
+
+	t.Run("TargetFileBytes", func(t *testing.T) {
+		commit, err := c.StartCommit(dataRepo, t.Name())
+		require.NoError(t, err)
+		// This byte threshold should yield the same results as --target-file-datums=2 :
+		w, err := c.PutFileSplitWriter(dataRepo, t.Name(), "data", pfs.Delimiter_SQL, 0, 80, false, nil, nil)
+		require.NoError(t, err)
+		_, err = w.Write([]byte(fullPGDump))
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+		require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+		fileInfos, err := c.ListFile(commit.Repo.Name, commit.ID, "data")
+		require.NoError(t, err)
+		require.Equal(t, 2, len(fileInfos))
+
+		var buf bytes.Buffer
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[0].File.Path, 0, 0, &buf))
+		expected := pgDumpHeader + strings.Join(rows[0:2], "") + pgDumpFooter
+		require.Equal(t, expected, buf.String())
+		require.Equal(t, len(expected), int(fileInfos[0].SizeBytes))
+		buf.Reset()
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, fileInfos[1].File.Path, 0, 0, &buf))
+		expected = pgDumpHeader + rows[2] + pgDumpFooter
+		require.Equal(t, expected, buf.String())
+		require.Equal(t, len(expected), int(fileInfos[1].SizeBytes))
+		buf.Reset()
+		require.NoError(t, c.GetFile(commit.Repo.Name, commit.ID, "data", 0, 0, &buf))
+		require.Equal(t, pgDumpHeader+pgDumpFooter, buf.String())
+		dirFileInfo, err := c.InspectFile(commit.Repo.Name, commit.ID, "data")
+		require.NoError(t, err)
+		headerFooterLen := len(pgDumpHeader) + len(pgDumpFooter)
+		dirExpectedLen := headerFooterLen
+		for i := 0; i < len(rows); i++ {
+			dirExpectedLen += len(rows[i])
+		}
+		require.Equal(t, dirExpectedLen, int(dirFileInfo.SizeBytes))
+	})
+}
+
+func TestReadSizeLimited(t *testing.T) {
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("test"))
+	_, err := c.PutFile("test", "master", "file", strings.NewReader(strings.Repeat("a", 100*MB)))
+	require.NoError(t, err)
+
+	var b bytes.Buffer
+	require.NoError(t, c.GetFile("test", "master", "file", 0, 2*MB, &b))
+	require.Equal(t, 2*MB, b.Len())
+
+	b.Reset()
+	require.NoError(t, c.GetFile("test", "master", "file", 2*MB, 2*MB, &b))
+	require.Equal(t, 2*MB, b.Len())
+}
+
+func TestPutFiles(t *testing.T) {
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	paths := []string{"foo", "bar", "fizz", "buzz"}
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File:  pclient.NewFile("repo", "master", path),
+			Value: []byte(path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
+		require.Equal(t, path, b.String())
+	}
+}
+
+func TestPutFilesURL(t *testing.T) {
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	paths := []string{"README.md", "CHANGELOG.md", "CONTRIBUTING.md"}
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File: pclient.NewFile("repo", "master", path),
+			Url:  fmt.Sprintf("https://raw.githubusercontent.com/pachyderm/pachyderm/master/%s", path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		fileInfo, err := c.InspectFile("repo", "master", path)
+		require.NoError(t, err)
+		require.True(t, fileInfo.SizeBytes > 0)
+	}
+}
+
+func writeObj(t *testing.T, c obj.Client, path, content string) {
+	w, err := c.Writer(path)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, w.Close())
+	}()
+	_, err = w.Write([]byte(content))
+	require.NoError(t, err)
+}
+
+func TestPutFilesObjURL(t *testing.T) {
+	paths := []string{"files/foo", "files/bar", "files/fizz"}
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	objC, err := obj.NewLocalClient(wd)
+	require.NoError(t, err)
+	for _, path := range paths {
+		writeObj(t, objC, path, path)
+	}
+	defer func() {
+		for _, path := range paths {
+			// ignored error, this is just cleanup, not actually part of the test
+			objC.Delete(path)
+		}
+	}()
+
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File: pclient.NewFile("repo", "master", path),
+			Url:  fmt.Sprintf("local://%s/%s", wd, path),
+		}))
+	}
+	require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+		File:      pclient.NewFile("repo", "master", "recursive"),
+		Url:       fmt.Sprintf("local://%s/files", wd),
+		Recursive: true,
+	}))
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		var b bytes.Buffer
+		require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
+		require.Equal(t, path, b.String())
+		b.Reset()
+		require.NoError(t, c.GetFile("repo", "master", filepath.Join("recursive", filepath.Base(path)), 0, 0, &b))
+		require.Equal(t, path, b.String())
+	}
 }

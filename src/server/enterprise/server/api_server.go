@@ -90,7 +90,7 @@ func (a *apiServer) LogReq(request interface{}) {
 func NewEnterpriseServer(pachdAddress, etcdAddress string, etcdPrefix string) (ec.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
-		DialOptions: client.EtcdDialOptions(),
+		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error constructing etcdClient: %s", err.Error())

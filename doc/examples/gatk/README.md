@@ -2,7 +2,7 @@
 
 ![alt tag](pipeline.png)
 
-This example illustrates the use of GATK in Pachyderm for Germline variant calling and joint genotyping. Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
+This example illustrates the use of GATK in Pachyderm for [Germline](https://en.wikipedia.org/wiki/Germline) variant calling and joint [genotyping](https://en.wikipedia.org/wiki/Genotyping). Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
 
 ## Committing the reference genome
 
@@ -26,7 +26,7 @@ $ cd data/ref
 $ ls
 Icon  ref.dict  ref.fasta  ref.fasta.fai  refSDF
 $ pachctl create-repo reference
-$ pachctl put-file reference master -c -r -f .
+$ pachctl put-file reference master -r -f .
 $ pachctl list-repo
 NAME                CREATED             SIZE
 reference           43 seconds ago      83.68MiB

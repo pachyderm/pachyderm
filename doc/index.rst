@@ -45,12 +45,6 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
 .. toctree::
     :maxdepth: 1
-    :caption: Full Examples
-
-    examples/readme
-
-.. toctree::
-    :maxdepth: 1
     :caption: Deploy Pachyderm
 
     deployment/deploy_intro
@@ -74,6 +68,12 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     managing_pachyderm/general_troubleshooting
     managing_pachyderm/deploy_troubleshooting
 
+.. toctree::
+    :maxdepth: 1
+    :caption: Full Examples
+
+    examples/README
+    
 .. toctree::
     :maxdepth: 1
     :caption: Pachyderm Cookbook

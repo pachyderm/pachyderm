@@ -58,7 +58,7 @@ An example pipeline definition for a GPU enabled Pachyderm Pipeline is as follow
       "LD_LIBRARY_PATH": "/usr/lib/nvidia:/usr/local/cuda/lib64:/rootfs/usr/lib/x86_64-linux-gnu"
     }
   },
-  "resource_spec": {
+  "resource_requests": {
       "gpu": 1
   },
   "inputs": {

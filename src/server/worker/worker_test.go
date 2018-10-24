@@ -79,7 +79,7 @@ func getEtcdClient(t *testing.T) *etcd.Client {
 			var err error
 			etcdClient, err = etcd.New(etcd.Config{
 				Endpoints:   []string{etcdAddress},
-				DialOptions: pclient.EtcdDialOptions(),
+				DialOptions: pclient.DefaultDialOptions(),
 			})
 			if err != nil {
 				return fmt.Errorf("could not connect to etcd: %s", err.Error())

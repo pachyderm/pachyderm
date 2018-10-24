@@ -2,14 +2,15 @@ package assets
 
 import (
 	"fmt"
+	"io/ioutil"
 	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
-	"github.com/pachyderm/pachyderm/src/server/http"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
@@ -68,6 +69,18 @@ var (
 		Resources:     []string{"secrets"},
 		ResourceNames: []string{client.StorageSecretName},
 	}}
+
+	// The name of the local volume (mounted kubernetes secret) where pachd
+	// should read a TLS cert and private key for authenticating with clients
+	tlsVolumeName = "pachd-tls-cert"
+	// The name of the kubernetes secret mount in the TLS volume (see
+	// tlsVolumeName)
+	tlsSecretName = "pachd-tls-cert"
+
+	// IAMAnnotation is the annotation used for the IAM role, this can work
+	// with something like kube2iam as an alternative way to provide
+	// credentials.
+	IAMAnnotation = "iam.amazonaws.com/role"
 )
 
 type backend int
@@ -80,6 +93,13 @@ const (
 	minioBackend
 	s3CustomArgs = 6
 )
+
+// TLSOpts indicates the cert and key file that Pachd should use to
+// authenticate with clients
+type TLSOpts struct {
+	ServerCert string
+	ServerKey  string
+}
 
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
@@ -158,6 +178,16 @@ type AssetOpts struct {
 
 	// NoExposeDockerSocket if true prevents pipelines from accessing the docker socket.
 	NoExposeDockerSocket bool
+
+	// ExposeObjectAPI, if set, causes pachd to serve Object/Block API requests on
+	// its public port. This should generally be false in production (it breaks
+	// auth) but is needed by tests
+	ExposeObjectAPI bool
+
+	// If set, the files indictated by 'TLS.ServerCert' and 'TLS.ServerKey' are
+	// placed into a Kubernetes secret and used by pachd nodes to authenticate
+	// during TLS
+	TLS *TLSOpts
 }
 
 // Encoder is the interface for writing out assets. This is assumed to wrap an output writer.
@@ -301,10 +331,10 @@ func RoleBinding(opts *AssetOpts) *rbacv1.RoleBinding {
 	}
 }
 
-// GetSecretVolumeAndMount returns a properly configured Volume and
+// GetBackendSecretVolumeAndMount returns a properly configured Volume and
 // VolumeMount object given a backend.  The backend needs to be one of the
 // constants defined in pfs/server.
-func GetSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
+func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) {
 	return v1.Volume{
 			Name: client.StorageSecretName,
 			VolumeSource: v1.VolumeSource{
@@ -377,9 +407,23 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 	case microsoftBackend:
 		backendEnvVar = pfs.MicrosoftBackendEnvVar
 	}
-	volume, mount := GetSecretVolumeAndMount(backendEnvVar)
+	volume, mount := GetBackendSecretVolumeAndMount(backendEnvVar)
 	volumes = append(volumes, volume)
 	volumeMounts = append(volumeMounts, mount)
+	if opts.TLS != nil {
+		volumes = append(volumes, v1.Volume{
+			Name: tlsVolumeName,
+			VolumeSource: v1.VolumeSource{
+				Secret: &v1.SecretVolumeSource{
+					SecretName: tlsSecretName,
+				},
+			},
+		})
+		volumeMounts = append(volumeMounts, v1.VolumeMount{
+			Name:      tlsVolumeName,
+			MountPath: grpcutil.TLSVolumePath,
+		})
+	}
 	resourceRequirements := v1.ResourceRequirements{
 		Requests: v1.ResourceList{
 			v1.ResourceCPU:    cpu,
@@ -405,7 +449,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: objectMeta(pachdName, labels(pachdName),
-					map[string]string{"iam.amazonaws.com/role": opts.IAMRole}, opts.Namespace),
+					map[string]string{IAMAnnotation: opts.IAMRole}, opts.Namespace),
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{
@@ -437,26 +481,37 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 										},
 									},
 								},
+								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
 							},
 							Ports: []v1.ContainerPort{
 								{
-									ContainerPort: 650,
+									ContainerPort: 650, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "api-grpc-port",
 								},
 								{
-									ContainerPort: 651,
+									ContainerPort: 651, // also set in cmd/pachd/main.go
 									Name:          "trace-port",
 								},
 								{
-									ContainerPort: http.HTTPPort,
+									ContainerPort: 652, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "api-http-port",
+								},
+								{
+									ContainerPort: 653, // also set in cmd/pachd/main.go
+									Protocol:      "TCP",
+									Name:          "peer-port",
 								},
 								{
 									ContainerPort: githook.GitHookPort,
 									Protocol:      "TCP",
 									Name:          "api-git-port",
+								},
+								{
+									ContainerPort: auth.SamlPort,
+									Protocol:      "TCP",
+									Name:          "saml-port",
 								},
 							},
 							VolumeMounts:    volumeMounts,
@@ -484,7 +539,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 func PachdService(opts *AssetOpts) *v1.Service {
 	prometheusAnnotations := map[string]string{
 		"prometheus.io/scrape": "true",
-		"prometheus.io/port":   string(PrometheusPort),
+		"prometheus.io/port":   strconv.Itoa(PrometheusPort),
 	}
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -499,19 +554,24 @@ func PachdService(opts *AssetOpts) *v1.Service {
 			},
 			Ports: []v1.ServicePort{
 				{
-					Port:     650,
+					Port:     650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
 					NodePort: 30650,
 				},
 				{
-					Port:     651,
+					Port:     651, // also set in cmd/pachd/main.go
 					Name:     "trace-port",
 					NodePort: 30651,
 				},
 				{
-					Port:     http.HTTPPort,
+					Port:     652, // also set in cmd/pachd/main.go
 					Name:     "api-http-port",
-					NodePort: 30000 + http.HTTPPort,
+					NodePort: 30652,
+				},
+				{
+					Port:     auth.SamlPort,
+					Name:     "saml-port",
+					NodePort: 30000 + auth.SamlPort,
 				},
 				{
 					Port:     githook.GitHookPort,
@@ -1276,9 +1336,59 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 		return err
 	}
 	if !opts.NoDash {
-		return WriteDashboardAssets(encoder, opts)
+		if err := WriteDashboardAssets(encoder, opts); err != nil {
+			return err
+		}
+	}
+	if opts.TLS != nil {
+		if err := WriteTLSSecret(encoder, opts); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// WriteTLSSecret creates a new TLS secret in the kubernetes manifest
+// (equivalent to one generate by 'kubectl create secret tls'). This will be
+// mounted by the pachd pod and used as its TLS public certificate and private
+// key
+func WriteTLSSecret(encoder Encoder, opts *AssetOpts) error {
+	// Validate arguments
+	if opts.DashOnly {
+		return nil
+	}
+	if opts.TLS == nil {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS is nil")
+	}
+	if opts.TLS.ServerKey == "" {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerKey is \"\"")
+	}
+	if opts.TLS.ServerCert == "" {
+		return fmt.Errorf("Internal error: WriteTLSSecret called but opts.TLS.ServerCert is \"\"")
+	}
+
+	// Attempt to copy server cert and key files into config (kubernetes client
+	// does the base64-encoding)
+	certBytes, err := ioutil.ReadFile(opts.TLS.ServerCert)
+	if err != nil {
+		return fmt.Errorf("could not open server cert at \"%s\": %v", opts.TLS.ServerCert, err)
+	}
+	keyBytes, err := ioutil.ReadFile(opts.TLS.ServerKey)
+	if err != nil {
+		return fmt.Errorf("could not open server key at \"%s\": %v", opts.TLS.ServerKey, err)
+	}
+	secret := &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: objectMeta(tlsSecretName, labels(tlsSecretName), nil, opts.Namespace),
+		Data: map[string][]byte{
+			grpcutil.TLSCertFile: certBytes,
+			grpcutil.TLSKeyFile:  keyBytes,
+		},
+	}
+	return encoder.Encode(secret)
 }
 
 // WriteLocalAssets writes assets to a local backend.

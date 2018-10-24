@@ -47,7 +47,7 @@ const (
 	PPSInputPrefix = "/pfs"
 	// PPSScratchSpace is where pps workers store data while it's waiting to be
 	// processed.
-	PPSScratchSpace = "/scratch"
+	PPSScratchSpace = "/pfs/.scratch"
 	// PPSWorkerPort is the port that workers use for their gRPC server
 	PPSWorkerPort = 80
 	// PPSWorkerVolume is the name of the volume in which workers store
@@ -625,13 +625,19 @@ func (c APIClient) CreatePipelineService(
 	return grpcutil.ScrubGRPC(err)
 }
 
-// GarbageCollect garbage collects unused data.  Currently GC needs to be
-// run while no data is being added or removed (which, among other things,
-// implies that there shouldn't be jobs actively running).
-func (c APIClient) GarbageCollect() error {
+// GarbageCollect garbage collects unused data.  Currently GC needs to be run
+// while no data is being added or removed (which, among other things, implies
+// that there shouldn't be jobs actively running).  Pfs Garbage collection uses
+// bloom filters to keep track of live objects because it can store more
+// objects than can be indexed in memory. This means that there is a chance for
+// unreferenced objects to not be GCed, this chance increases as the number of
+// objects in the system increases. You can tradeoff using more memory to get a
+// lower chance of collisions, the default value is 10 MB and collisions should
+// be unlikely until you have 10 million objects.
+func (c APIClient) GarbageCollect(memoryBytes int64) error {
 	_, err := c.PpsAPIClient.GarbageCollect(
 		c.Ctx(),
-		&pps.GarbageCollectRequest{},
+		&pps.GarbageCollectRequest{MemoryBytes: memoryBytes},
 	)
 	return grpcutil.ScrubGRPC(err)
 }

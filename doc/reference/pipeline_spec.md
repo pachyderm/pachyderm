@@ -22,6 +22,11 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "secrets": [ {
         "name": string,
         "mount_path": string
+    },
+    {
+        "name": string,
+        "env_var": string,
+        "key": string
     } ],
     "image_pull_secrets": [ string ],
     "accept_return_code": [ int ],
@@ -32,16 +37,18 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "parallelism_spec": {
     // Set at most one of the following:
     "constant": int,
-    "coefficient": double
+    "coefficient": number
   },
   "resource_requests": {
     "memory": string,
-    "cpu": double
+    "cpu": number,
+    "disk": string,
   },
   "resource_limits": {
     "memory": string,
-    "cpu": double,
-    "gpu": double
+    "cpu": number,
+    "gpu": number,
+    "disk": string,
   },
   "datum_timeout": string,
   "job_timeout": string,
@@ -64,7 +71,12 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "chunk_spec": {
     "number": int,
     "size_bytes": int
-  }
+  },
+  "scheduling_spec": {
+    "node_selector": {string: string},
+    "priority_class_name": string
+  },
+  "pod_spec": string
 }
 
 ------------------------------------
@@ -156,7 +168,11 @@ Following is a walk-through of all the fields.
 ### Name (required)
 
 `pipeline.name` is the name of the pipeline that you are creating.  Each
-pipeline needs to have a unique name.
+pipeline needs to have a unique name. Pipeline names must:
+
+- contain only alphanumeric characters, `_` and `-`
+- begin or end with only alphanumeric characters (not `_` or `-`)
+- be no more than 50 characters in length
 
 ### Description (optional)
 
@@ -178,10 +194,14 @@ Lines need not end in newline characters.
 `transform.env` is a map from key to value of environment variables that will be
 injected into the container
 
-`transform.secrets` is an array of secrets, secrets reference Kubernetes
-secrets by name and specify a path that the secrets should be mounted to.
-Secrets are useful for embedding sensitive data such as credentials. Read more
-about secrets in Kubernetes
+`transform.secrets` is an array of secrets, they are useful for embedding
+sensitive data such as credentials. Secrets reference Kubernetes secrets by
+name and specify a path that the secrets should be mounted to, or an
+environment variable (`env_var`) that the value should be bound to. Secrets
+must set `name` which should be the name of a secret in Kubernetes. Secrets
+must also specify either `mount_path` or `env_var` and `key`.
+
+
 [here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.image_pull_secrets` is an array of image pull secrets, image pull
@@ -244,12 +264,16 @@ file. Workers for this pipeline will only be placed on machines with at least
 1.2GB of free memory, and other large workers will be prevented from using it
 (if they also set their `resource_requests`).
 
-The `cpu` field is a double that describes the amount of CPU time (in (cpu
+The `cpu` field is a number that describes the amount of CPU time (in (cpu
 seconds)/(real seconds) each worker needs. Setting `"cpu": 0.5` indicates that
 the worker should get 500ms of CPU time per second. Setting `"cpu": 2`
 indicates that the worker should get 2000ms of CPU time per second (i.e. it's
 using 2 CPUs, essentially, though worker threads might spend e.g. 500ms on four
 physical CPUs instead of one second on two physical CPUs).
+
+The `disk` field is a string that describes the amount of ephemeral disk space,
+in bytes, each worker needs (with allowed SI suffixes (M, K, G, Mi, Ki, Gi,
+etc).
 
 In both cases, the resource requests are not upper bounds. If the worker uses
 more memory than it's requested, it will not (necessarily) be killed.  However,
@@ -266,11 +290,24 @@ avoid scheduling problems that prevent users from being unable to run
 pipelines).  This means that if a node runs out of memory, any such worker
 might be killed.
 
+For more information about resource requests and limits see the
+[Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
+on the subject.
+
 ### Resource Limits (optional)
 
 `resource_limits` describes the upper threshold of allowed resources a given 
 worker can consume. If a worker exceeds this value, it will be evicted.
 
+The `gpu` field is a number that describes how many GPUs each worker needs.
+Only whole number are supported, Kubernetes does not allow multiplexing of
+GPUs. Unlike the other resource fields, GPUs only have meaning in Limits, by
+requesting a GPU the worker will have sole access to that GPU while it is
+running. It's recommended to enable `standby` if you are using GPUs so other
+processes in the cluster will have access to the GPUs while the pipeline has
+nothing to process. For more information about scheduling GPUs see the
+[Kubernetes docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/)
+on the subject.
 
 ### Datum Timeout (optional)
 
@@ -302,6 +339,7 @@ these fields be set for any instantiation of the object.
     "atom": atom_input,
     "union": [input],
     "cross": [input],
+    "cron": cron_input
 }
 ```
 
@@ -541,7 +579,7 @@ there's a cap of 10,000 `lazy` files per worker and multiple datums that are
 running all count against this limit.
 
 ### Chunk Spec (optional)
-`chunk_spec` specifies how a pipeline should chunk its datums. 
+`chunk_spec` specifies how a pipeline should chunk its datums.
 
 `chunk_spec.number` if nonzero, specifies that each chunk should contain `number`
  datums. Chunks may contain fewer if the total number of datums don't
@@ -551,6 +589,34 @@ running all count against this limit.
  Chunks may be larger or smaller than `size_bytes`, but will usually be
  pretty close to `size_bytes` in size.
 
+### Scheduling Spec (optional)
+`scheduling_spec` specifies how the pods for a pipeline should be scheduled.
+
+`scheduling_spec.node_selector` allows you to select which nodes your pipeline
+will run on. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
+on node selectors for more information about how this works.
+
+`scheduling_spec.priority_class_name` allows you to select the prioriy class
+for the pipeline, which will how Kubernetes chooses to schedule and deschedule
+the pipeline. Refer to the [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
+on priority and preemption for more information about how this works.
+
+### Pod Spec (optional)
+`pod_spec` is an advanced option that allows you to set fields in the pod spec
+that haven't been explicitly exposed in the rest of the pipeline spec. A good
+way to figure out what JSON you should pass is to create a pod in Kubernetes
+with the proper settings, then do:
+
+```
+kubectl get po/<pod-name> -o json | jq .spec
+```
+
+this will give you a correctly formated piece of JSON, you should then remove
+the extraneous fields that Kubernetes injects or that can be set else where.
+
+The JSON is applied after the other parameters for the `pod_spec` have already
+been set. This means that you can modify things such as the storage and user
+containers.
 
 ## The Input Glob Pattern
 

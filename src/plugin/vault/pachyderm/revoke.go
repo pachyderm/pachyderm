@@ -60,6 +60,8 @@ func revokeUserCredentials(ctx context.Context, pachdAddress string, userToken s
 	if err != nil {
 		return err
 	}
+	defer client.Close() // avoid leaking connections
+
 	client = client.WithCtx(ctx)
 	client.SetAuthToken(adminToken)
 	_, err = client.AuthAPIClient.RevokeAuthToken(client.Ctx(), &auth.RevokeAuthTokenRequest{

@@ -161,6 +161,8 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 	var localRoles bool
 	var namespace string
 	var noExposeDockerSocket bool
+	var exposeObjectAPI bool
+	var tlsCertKey string
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -187,6 +189,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 
 				// Disable authentication, for tests
 				opts.DisableAuthentication = true
+
+				// Serve the Pachyderm object/block API locally, as this is needed by
+				// our tests (and authentication is disabled anyway)
+				opts.ExposeObjectAPI = true
 			}
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
@@ -195,7 +201,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
-	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd built locally, disable metrics, and use insecure authentication")
+	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")
 
 	deployGoogle := &cobra.Command{
 		Use:   "google <GCS bucket> <size of disk(s) (in GB)> [<service account creds file>]",
@@ -352,7 +358,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			"applied to cloudfront, making all data public (obscured but not secured)")
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
 	deployAmazon.Flags().StringVar(&vault, "vault", "", "Use the format \"<address/hostport>,<role>,<token>\".")
-	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", "Use the given IAM role for authorization, as opposed to using static credentials.  The nodes on which Pachyderm is deployed needs to have the given IAM role.")
+	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", fmt.Sprintf("Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation %s, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.", assets.IAMAnnotation))
 
 	deployMicrosoft := &cobra.Command{
 		Use:   "microsoft <container> <storage account name> <storage account key> <size of volumes (in GB)>",
@@ -522,6 +528,19 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				LocalRoles:              localRoles,
 				Namespace:               namespace,
 				NoExposeDockerSocket:    noExposeDockerSocket,
+				ExposeObjectAPI:         exposeObjectAPI,
+			}
+			if tlsCertKey != "" {
+				// TODO(msteffen): If either the cert path or the key path contains a
+				// comma, this doesn't work
+				certKey := strings.Split(tlsCertKey, ",")
+				if len(certKey) != 2 {
+					return fmt.Errorf("could not split TLS certificate and key correctly; must have two parts but got: %#v", certKey)
+				}
+				opts.TLS = &assets.TLSOpts{
+					ServerCert: certKey[0],
+					ServerKey:  certKey[1],
+				}
 			}
 			return nil
 		}),
@@ -543,6 +562,8 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
 	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
+	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
+	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 
 	deploy.AddCommand(
 		deployLocal,
@@ -620,7 +641,6 @@ Are you sure you want to proceed? yN
 				Stderr: os.Stderr,
 			}
 			assets := []string{
-				"job",
 				"service",
 				"replicationcontroller",
 				"deployment",

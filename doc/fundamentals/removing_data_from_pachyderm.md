@@ -5,22 +5,22 @@ it. There are a couple of ways to address this, which depend on
 what exactly was "bad" about the data you committed and what's happened in the
 system since you committed the "bad" data.
 
-- [Deleting the HEAD of a branch](#deleting-the-head-of-a-branch) - You should 
-follow this guide if you've just made a commit to a branch with some corrupt, incorrect, 
+- [Deleting the HEAD of a branch](#deleting-the-head-of-a-branch) - You should
+follow this guide if you've just made a commit to a branch with some corrupt, incorrect,
 or otherwise bad changes to your data.
-- [Deleting non-HEAD commits](#deleting-non-head-commits) - You should follow 
+- [Deleting non-HEAD commits](#deleting-non-head-commits) - You should follow
 this guide if you've committed data to the branch after committing the data that
-needs to be deleted. 
-- [Deleting sentitive data](#deleting-sensitive-data) - You should follow these
-steps when you have committed sensitive data that you need to completely 
+needs to be deleted.
+- [Deleting sensitive data](#deleting-sensitive-data) - You should follow these
+steps when you have committed sensitive data that you need to completely
 purge from Pachyderm, such that no trace remains.
 
 ## Deleting The HEAD of a Branch
 
 The simplest case is when you've just made a commit to a branch with some
-incorrect, corrupt, or otherwise bad data. In this scenario, the HEAD of your branch 
+incorrect, corrupt, or otherwise bad data. In this scenario, the HEAD of your branch
 (i.e., the latest commit) is bad. Users who read from it are likely to be misled, and/or
-pipeline subscribed to it are likely to fail or produce bad downstream output. 
+pipeline subscribed to it are likely to fail or produce bad downstream output.
 
 To fix this you should use `delete-commit` as follows:
 
@@ -46,11 +46,11 @@ When you delete the bad commit, several things will happen (all atomically):
 
 ## Deleting Non-HEAD Commits
 
-Recovering from commits of bad data is a little more complicated if you've 
+Recovering from commits of bad data is a little more complicated if you've
 committed more data to the branch after the bad data was added. You can
 still delete the commit as in the previous section, however, unless the subsequent
 commits overwrote or deleted the bad data, it will still be present in the
-children commits. *Deleting a commit does not modify its children.* 
+children commits. *Deleting a commit does not modify its children.*
 
 In git terms, `delete-commit` is equivalent to squashing a commit out of existence.
 It's not equivalent to reverting a commit. The reason for this behavior is that the
@@ -78,7 +78,7 @@ access errant data when reading non-HEAD version of the data.
 
 If the data you committed is bad because it's sensitive and you want to make
 sure that nobody ever accesses it, you should complete an extra step in addition to those
-above. 
+above.
 
 Pachyderm stores data in a content addressed way and when you delete
 a file or a commit, Pachyderm only deletes references to the underlying data, it
