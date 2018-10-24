@@ -1607,7 +1607,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	} else {
 		// [Harder case] explicit req.Subject
 		// canonicalize req.Subject
-		req.Subject, err = a.lenientCanonicalizeSubject(ctx, req.Subject)
+		req.Subject, err = a.canonicalizeSubject(ctx, req.Subject)
 		if err != nil {
 			return nil, err
 		}
@@ -1764,6 +1764,60 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 	return &authclient.RevokeAuthTokenResponse{}, nil
 }
 
+// setGroupsForUserInternal is a helper function used by SetGroupsForUser, and
+// also by handleSAMLResponse (which updates group membership information based
+// on signed SAML assertions). This does no auth checks, so the caller must do
+// all relevant authorization.
+func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		members := a.members.ReadWrite(stm)
+
+		// Get groups to remove/add user from/to
+		var removeGroups authclient.Groups
+		addGroups := addToSet(nil, groups...)
+		if err := members.Get(subject, &removeGroups); err == nil {
+			for _, group := range groups {
+				if removeGroups.Groups[group] {
+					removeGroups.Groups = removeFromSet(removeGroups.Groups, group)
+					addGroups = removeFromSet(addGroups, group)
+				}
+			}
+		}
+
+		// Set groups for user
+		if err := members.Put(subject, &authclient.Groups{
+			Groups: addToSet(nil, groups...),
+		}); err != nil {
+			return err
+		}
+
+		// Remove user from previous groups
+		groups := a.groups.ReadWrite(stm)
+		var membersProto authclient.Users
+		for group := range removeGroups.Groups {
+			if err := groups.Upsert(group, &membersProto, func() error {
+				membersProto.Usernames = removeFromSet(membersProto.Usernames, subject)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Add user to new groups
+		for group := range addGroups {
+			if err := groups.Upsert(group, &membersProto, func() error {
+				membersProto.Usernames = addToSet(membersProto.Usernames, subject)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	return err
+}
+
 func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGroupsForUserRequest) (resp *authclient.SetGroupsForUserResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1787,60 +1841,14 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 		}
 	}
 
-	username, err := a.canonicalizeSubject(ctx, req.Username)
+	subject, err := a.canonicalizeSubject(ctx, req.Username)
 	if err != nil {
 		return nil, err
 	}
-
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-		members := a.members.ReadWrite(stm)
-
-		// Get groups to remove/add user from/to
-		var removeGroups authclient.Groups
-		addGroups := addToSet(nil, req.Groups...)
-		if err := members.Get(username, &removeGroups); err == nil {
-			for _, group := range req.Groups {
-				if removeGroups.Groups[group] {
-					removeGroups.Groups = removeFromSet(removeGroups.Groups, group)
-					addGroups = removeFromSet(addGroups, group)
-				}
-			}
-		}
-
-		// Set groups for user
-		if err := members.Put(username, &authclient.Groups{
-			Groups: addToSet(nil, req.Groups...),
-		}); err != nil {
-			return err
-		}
-
-		// Remove user from previous groups
-		groups := a.groups.ReadWrite(stm)
-		var membersProto authclient.Users
-		for group := range removeGroups.Groups {
-			if err := groups.Upsert(group, &membersProto, func() error {
-				membersProto.Usernames = removeFromSet(membersProto.Usernames, username)
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-
-		// Add user to new groups
-		for group := range addGroups {
-			if err := groups.Upsert(group, &membersProto, func() error {
-				membersProto.Usernames = addToSet(membersProto.Usernames, username)
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	}); err != nil {
+	// TODO(msteffen): canonicalize group names
+	if err := a.setGroupsForUserInternal(ctx, subject, req.Groups); err != nil {
 		return nil, err
 	}
-
 	return &authclient.SetGroupsForUserResponse{}, nil
 }
 
@@ -2151,10 +2159,10 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 
 	// check prefix against config cache
 	if a.configCache != nil {
-		if prefix == a.configCache.IDPName {
+		if prefix == a.configCache.IDP.Name {
 			return subject, nil
 		}
-		if prefix == path.Join("group", a.configCache.IDPName) {
+		if prefix == path.Join("group", a.configCache.IDP.Name) {
 			return subject, nil // TODO(msteffen): check if this IdP supports groups
 		}
 	}
@@ -2270,6 +2278,9 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 	}
 
 	// Validate new config
+	if req.Configuration == nil {
+		req.Configuration = &authclient.AuthConfig{}
+	}
 	canonicalConfig, err := validateConfig(req.Configuration, external)
 	if err != nil {
 		return nil, err
@@ -2279,13 +2290,24 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		var liveConfig authclient.AuthConfig
 		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
+			// Empty config case
+			if canonicalConfig.IsEmpty() {
+				liveConfig.Reset()
+				return nil
+			}
+
+			// Nonempty config case
 			liveConfigVersion := liveConfig.LiveConfigVersion
 			if liveConfigVersion != req.Configuration.LiveConfigVersion {
 				return fmt.Errorf("expected config version %d, but live config has version %d",
 					req.Configuration.LiveConfigVersion, liveConfigVersion)
 			}
+			liveConfigP, err := canonicalConfig.ToProto()
+			if err != nil {
+				return err
+			}
 			liveConfig.Reset()
-			liveConfig = *canonicalConfig.ToProto()
+			liveConfig = *liveConfigP
 			liveConfig.LiveConfigVersion = liveConfigVersion + 1
 			return nil
 		})

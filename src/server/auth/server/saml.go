@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
@@ -16,7 +17,14 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
+
+import (
+	"github.com/beevik/etree"
+)
+
+var dbgLog = logrus.New()
 
 // canonicalConfig contains the values specified in an auth.AuthConfig proto
 // message, but as structured Go types. This is populated and returned by
@@ -24,43 +32,72 @@ import (
 type canonicalConfig struct {
 	Version int64
 
-	ACSURL      *url.URL
-	MetadataURL *url.URL
-	DashURL     *url.URL
+	// Currently, both IDP and SAMLSvc must be set. They are separate structs to
+	// separate ambiguous names (e.g. IDP.MetadataURL is the ID provider's
+	// metadata URL, while SAMLSvc.MetadataURL is Pachyderm's metadata URL,
+	// configured by the cluster admin.
+	//
+	// Later, there may be multiple IDPs, or IDP may be set to a non-SAML source
+	// and SAMLSvc may not be set, but those aren't supported yet
+	IDP struct {
+		Name           string
+		Description    string
+		MetadataURL    *url.URL
+		Metadata       *saml.EntityDescriptor
+		GroupAttribute string
+	}
 
-	IDPName        string
-	IDPDescription string
-	IDPMetadataURL *url.URL
-	IDPMetadata    *saml.EntityDescriptor
+	SAMLSvc struct {
+		ACSURL          *url.URL
+		MetadataURL     *url.URL
+		DashURL         *url.URL
+		SessionDuration time.Duration
+	}
 }
 
-func (c *canonicalConfig) ToProto() *auth.AuthConfig {
-	if c == nil {
-		return &auth.AuthConfig{}
+func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
+	// ToProto may be called on an empty canonical config if the user is setting
+	// an empty config (the empty AuthConfig proto will be validated and then
+	// reverted to a proto before being written to etcd)
+	if c.IsEmpty() {
+		return &auth.AuthConfig{}, nil
 	}
-	metadataBytes, _ := xml.MarshalIndent(c.IDPMetadata, "", "  ")
+
+	// Non-empty config case
+	metadataBytes, err := xml.MarshalIndent(c.IDP.Metadata, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal ID provider metadata: %v", err)
+	}
 	samlIDP := &auth.IDProvider{
-		Name:        c.IDPName,
-		Description: c.IDPDescription,
+		Name:        c.IDP.Name,
+		Description: c.IDP.Description,
 		SAML: &auth.IDProvider_SAMLOptions{
-			IDPMetadata: metadataBytes,
+			MetadataXML:    metadataBytes,
+			GroupAttribute: c.IDP.GroupAttribute,
 		},
 	}
-	if c.IDPMetadataURL != nil {
-		samlIDP.SAML.MetadataURL = c.IDPMetadataURL.String()
+	if c.IDP.MetadataURL != nil {
+		samlIDP.SAML.MetadataURL = c.IDP.MetadataURL.String()
 	}
 
 	result := &auth.AuthConfig{
 		IDProviders: []*auth.IDProvider{samlIDP},
 		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
-			ACSURL:      c.ACSURL.String(),
-			MetadataURL: c.MetadataURL.String(),
+			ACSURL:      c.SAMLSvc.ACSURL.String(),
+			MetadataURL: c.SAMLSvc.MetadataURL.String(),
 		},
 	}
-	if c.DashURL != nil {
-		result.SAMLServiceOptions.DashURL = c.DashURL.String()
+	if c.SAMLSvc.DashURL != nil {
+		result.SAMLServiceOptions.DashURL = c.SAMLSvc.DashURL.String()
 	}
-	return result
+	if c.SAMLSvc.SessionDuration > 0 {
+		result.SAMLServiceOptions.SessionDuration = c.SAMLSvc.SessionDuration.String()
+	}
+	return result, nil
+}
+
+func (c *canonicalConfig) IsEmpty() bool {
+	return c == nil || c.IDP.Name == ""
 }
 
 // fetchRawIDPMetadata is a helper of validateConfig, below. It takes the URL
@@ -115,7 +152,130 @@ const (
 	external
 )
 
+func validateIDP(idp *auth.IDProvider, src configSource, c *canonicalConfig) error {
+	// Validate the ID Provider's name (must exist and must not be reserved)
+	if idp.Name == "" {
+		return errors.New("All ID providers must have a name specified (for use " +
+			"during authorization)")
+	}
+	// TODO(msteffen): make sure we don't have to extend this every time we add
+	// a new built-in backend.
+	switch idp.Name + ":" {
+	case auth.GitHubPrefix:
+		return errors.New("cannot configure auth backend with reserved prefix " +
+			auth.GitHubPrefix)
+	case auth.RobotPrefix:
+		return errors.New("cannot configure auth backend with reserved prefix " +
+			auth.RobotPrefix)
+	case auth.PipelinePrefix:
+		return errors.New("cannot configure auth backend with reserved prefix " +
+			auth.PipelinePrefix)
+	}
+
+	// Check if the IDP is a known type (right now the only type of IDP is SAML)
+	if idp.SAML == nil {
+		// render ID provider as json for error message
+		idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
+		idpConfigMsg := string(idpConfigAsJSON)
+		if err != nil {
+			idpConfigMsg = fmt.Sprintf("(could not marshal config json: %v)", err)
+		}
+		return fmt.Errorf("ID provider has unrecognized type: %v", idpConfigMsg)
+	}
+
+	// confirm that there is only one SAML IDP (requirement for now)
+	if c.IDP.Name != "" {
+		return fmt.Errorf("two SAML providers found in config, %q and %q, but "+
+			"only one is allowed", idp.Name, c.IDP.Name)
+	}
+	c.IDP.Name = idp.Name
+	c.IDP.Description = idp.Description
+	c.IDP.GroupAttribute = idp.SAML.GroupAttribute
+
+	// construct this SAML ID provider's metadata. There are three valid cases:
+	// 1. This is a user-provided config (i.e. it's coming from an RPC), and the
+	//    IDP's metadata was set directly in the config
+	// 2. This is a user-provided config, and the IDP's metadata was not set
+	//    in the config, but the config contains a URL where the IDP metadata
+	//    can be retrieved
+	// 3. This is an internal config (it has already been validated by a pachd
+	//    worker, and it's coming from etcd)
+	// Any other case should be rejected with an error
+	//
+	// Either download raw IDP metadata from metadata URL or get it from cfg
+	var rawIDPMetadata []byte
+	if idp.SAML.MetadataURL == "" {
+		if len(idp.SAML.MetadataXML) == 0 {
+			return fmt.Errorf("must set either idp_metadata or metadata_url for the "+
+				"SAML ID provider %q", idp.Name)
+		}
+		rawIDPMetadata = idp.SAML.MetadataXML
+	} else {
+		// Parse URL even if this is an internal cfg and IDPMetadata is already
+		// set, so that GetConfig can return it
+		var err error
+		c.IDP.MetadataURL, err = url.Parse(idp.SAML.MetadataURL)
+		if err != nil {
+			return fmt.Errorf("Could not parse SAML IDP metadata URL (%q) to query "+
+				"it: %v", idp.SAML.MetadataURL, err)
+		} else if c.IDP.MetadataURL.Scheme == "" {
+			return fmt.Errorf("SAML IDP metadata URL %q is invalid (no scheme)",
+				idp.SAML.MetadataURL)
+		}
+
+		switch src {
+		case external: // user-provided config
+			if len(idp.SAML.MetadataXML) > 0 {
+				return fmt.Errorf("cannot set both idp_metadata and metadata_url for "+
+					"the SAML ID provider %q", idp.Name)
+			}
+			rawIDPMetadata, err = fetchRawIDPMetadata(idp.Name, c.IDP.MetadataURL)
+			if err != nil {
+				return err
+			}
+
+		case internal: // config from etcd
+			if len(idp.SAML.MetadataXML) == 0 {
+				return fmt.Errorf("internal error: the SAML ID provider %q was "+
+					"persisted without IDP metadata", idp.Name)
+			}
+			rawIDPMetadata = idp.SAML.MetadataXML
+		}
+	}
+
+	// Parse IDP metadata. This code is heavily based on the
+	// crewjam/saml/samlsp.Middleware constructor
+	c.IDP.Metadata = &saml.EntityDescriptor{}
+	err := xml.Unmarshal(rawIDPMetadata, c.IDP.Metadata)
+	if err != nil {
+		// this comparison is ugly, but it is how the error is generated in
+		// encoding/xml
+		if err.Error() != "expected element type <EntityDescriptor> but have <EntitiesDescriptor>" {
+			return fmt.Errorf("could not unmarshal EntityDescriptor from IDP metadata: %v", err)
+		}
+		// Search through <EntitiesDescriptor> & find IDP entity
+		entities := &saml.EntitiesDescriptor{}
+		if err := xml.Unmarshal(rawIDPMetadata, entities); err != nil {
+			return fmt.Errorf("could not unmarshal EntitiesDescriptor from IDP metadata: %v", err)
+		}
+		for i, e := range entities.EntityDescriptors {
+			if len(e.IDPSSODescriptors) > 0 {
+				c.IDP.Metadata = &entities.EntityDescriptors[i]
+				break
+			}
+		}
+		// Make sure we found an IDP entity descriptor
+		if len(c.IDP.Metadata.IDPSSODescriptors) == 0 {
+			return fmt.Errorf("no entity found with IDPSSODescriptor")
+		}
+	}
+	return nil
+}
+
 func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig, error) {
+	if config == nil {
+		config = &auth.AuthConfig{}
+	}
 	c := &canonicalConfig{
 		Version: config.LiveConfigVersion,
 	}
@@ -124,130 +284,19 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 	// Validate all ID providers (and fetch IDP metadata for all SAML ID
 	// providers)
 	for _, idp := range config.IDProviders {
-		// Validate the ID Provider's name (must exist and must not be reserved)
-		if idp.Name == "" {
-			return nil, errors.New("All ID providers must have a name specified " +
-				"(for use during authorization)")
-		}
-		// TODO(msteffen): make sure we don't have to extend this every time we add
-		// a new built-in backend.
-		switch idp.Name + ":" {
-		case auth.GitHubPrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				auth.GitHubPrefix)
-		case auth.RobotPrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				auth.RobotPrefix)
-		case auth.PipelinePrefix:
-			return nil, errors.New("cannot configure auth backend with reserved prefix " +
-				auth.PipelinePrefix)
-		}
-
-		// Check if the IDP is a known type (right now the only type of IDP is SAML)
-		if idp.SAML == nil {
-			// render ID provider as json for error message
-			idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
-			idpConfigMsg := string(idpConfigAsJSON)
-			if err != nil {
-				idpConfigMsg = fmt.Sprintf("(could not marshal config json: %v)", err)
-			}
-			return nil, fmt.Errorf("ID provider has unrecognized type: %v", idpConfigMsg)
-		}
-
-		// confirm that there is only one SAML IDP (requirement for now)
-		if c.IDPName != "" {
-			return nil, fmt.Errorf("two SAML providers found in config, %q and %q, "+
-				"but only one is allowed", idp.Name, c.IDPName)
-		}
-		c.IDPName = idp.Name
-		c.IDPDescription = idp.Description
-
-		// construct this SAML ID provider's metadata. There are three valid cases:
-		// 1. This is a user-provided config (i.e. it's coming from an RPC), and the
-		//    IDP's metadata was set directly in the config
-		// 2. This is a user-provided config, and the IDP's metadata was not set
-		//    in the config, but the config contains a URL where the IDP metadata
-		//    can be retrieved
-		// 3. This is an internal config (it has already been validated by a pachd
-		//    worker, and it's coming from etcd)
-		// Any other case should be rejected with an error
-		//
-		// Either download raw IDP metadata from metadata URL or get it from cfg
-		var rawIDPMetadata []byte
-		if idp.SAML.MetadataURL == "" {
-			if len(idp.SAML.IDPMetadata) == 0 {
-				return nil, fmt.Errorf("must set either idp_metadata or metadata_url "+
-					"for the SAML ID provider %q", idp.Name)
-			}
-			rawIDPMetadata = idp.SAML.IDPMetadata
-		} else {
-			// Parse URL even if this is an internal cfg and IDPMetadata is already
-			// set, so that GetConfig works
-			c.IDPMetadataURL, err = url.Parse(idp.SAML.MetadataURL)
-			if err != nil {
-				return nil, fmt.Errorf("Could not parse SAML IDP metadata URL (%q) "+
-					"to query it: %v", idp.SAML.MetadataURL, err)
-			} else if c.IDPMetadataURL.Scheme == "" {
-				return nil, fmt.Errorf("SAML IDP metadata URL %q is invalid (no scheme)",
-					idp.SAML.MetadataURL)
-			}
-
-			switch src {
-			case external: // user-provided config
-				if len(idp.SAML.IDPMetadata) > 0 {
-					return nil, fmt.Errorf("cannot set both idp_metadata and "+
-						"metadata_url for the SAML ID provider %q", idp.Name)
-				}
-				rawIDPMetadata, err = fetchRawIDPMetadata(idp.Name, c.IDPMetadataURL)
-				if err != nil {
-					return nil, err
-				}
-
-			case internal: // config from etcd
-				if len(idp.SAML.IDPMetadata) == 0 {
-					return nil, fmt.Errorf("internal error: the SAML ID provider %q was "+
-						"persisted without IDP metadata", idp.Name)
-				}
-				rawIDPMetadata = idp.SAML.IDPMetadata
-			}
-		}
-
-		// Parse IDP metadata. This code is heavily based on the
-		// crewjam/saml/samlsp.Middleware constructor
-		c.IDPMetadata = &saml.EntityDescriptor{}
-		err = xml.Unmarshal(rawIDPMetadata, c.IDPMetadata)
-		if err != nil {
-			// this comparison is ugly, but it is how the error is generated in
-			// encoding/xml
-			if err.Error() != "expected element type <EntityDescriptor> but have <EntitiesDescriptor>" {
-				return nil, fmt.Errorf("could not unmarshal EntityDescriptor from IDP metadata: %v", err)
-			}
-			// Search through <EntitiesDescriptor> & find IDP entity
-			entities := &saml.EntitiesDescriptor{}
-			if err := xml.Unmarshal(rawIDPMetadata, entities); err != nil {
-				return nil, fmt.Errorf("could not unmarshal EntitiesDescriptor from IDP metadata: %v", err)
-			}
-			for i, e := range entities.EntityDescriptors {
-				if len(e.IDPSSODescriptors) > 0 {
-					c.IDPMetadata = &entities.EntityDescriptors[i]
-					break
-				}
-			}
-			// Make sure we found an IDP entity descriptor
-			if len(c.IDPMetadata.IDPSSODescriptors) == 0 {
-				return nil, fmt.Errorf("no entity found with IDPSSODescriptor")
-			}
+		if err := validateIDP(idp, src, c); err != nil {
+			return nil, err
 		}
 	}
 
 	// Make sure saml_svc_options are set if using SAML
-	if c.IDPName != "" && config.SAMLServiceOptions == nil {
+	if c.IDP.Name != "" && config.SAMLServiceOptions == nil {
 		return nil, errors.New("must set saml_svc_options if a SAML ID provider has been configured")
 	}
 
 	// Validate saml_svc_options
 	if config.SAMLServiceOptions != nil {
-		if c.IDPName == "" {
+		if c.IDP.Name == "" {
 			return nil, errors.New("cannot set saml_svc_options without configuring a SAML ID provider")
 		}
 		sso := config.SAMLServiceOptions
@@ -255,9 +304,9 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 		if sso.ACSURL == "" {
 			return nil, errors.New("invalid SAML service options: must set ACS URL")
 		}
-		if c.ACSURL, err = url.Parse(sso.ACSURL); err != nil {
+		if c.SAMLSvc.ACSURL, err = url.Parse(sso.ACSURL); err != nil {
 			return nil, fmt.Errorf("could not parse SAML config ACS URL (%q): %v", sso.ACSURL, err)
-		} else if c.ACSURL.Scheme == "" {
+		} else if c.SAMLSvc.ACSURL.Scheme == "" {
 			return nil, fmt.Errorf("ACS URL %q is invalid (no scheme)", sso.ACSURL)
 		}
 
@@ -265,18 +314,25 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 		if sso.MetadataURL == "" {
 			return nil, errors.New("invalid SAML service options: must set Metadata URL")
 		}
-		if c.MetadataURL, err = url.Parse(sso.MetadataURL); err != nil {
+		if c.SAMLSvc.MetadataURL, err = url.Parse(sso.MetadataURL); err != nil {
 			return nil, fmt.Errorf("could not parse SAML config metadata URL (%q): %v", sso.MetadataURL, err)
-		} else if c.MetadataURL.Scheme == "" {
+		} else if c.SAMLSvc.MetadataURL.Scheme == "" {
 			return nil, fmt.Errorf("Metadata URL %q is invalid (no scheme)", sso.MetadataURL)
 		}
 
 		// parse Dash URL
 		if sso.DashURL != "" {
-			if c.DashURL, err = url.Parse(sso.DashURL); err != nil {
+			if c.SAMLSvc.DashURL, err = url.Parse(sso.DashURL); err != nil {
 				return nil, fmt.Errorf("could not parse Pachyderm dashboard URL (%q): %v", sso.DashURL, err)
-			} else if c.DashURL.Scheme == "" {
+			} else if c.SAMLSvc.DashURL.Scheme == "" {
 				return nil, fmt.Errorf("Pachyderm dashboard URL %q is invalid (no scheme)", sso.DashURL)
+			}
+		}
+
+		// parse session duration
+		if sso.SessionDuration != "" {
+			if c.SAMLSvc.SessionDuration, err = time.ParseDuration(sso.SessionDuration); err != nil {
+				return nil, fmt.Errorf("could not parse SAML-based session duration: %v", err)
 			}
 		}
 	}
@@ -288,22 +344,25 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 // into the apiServer's config cache. The caller should already hold a.configMu
 // and a.samlSPMu (as this updates a.samlSP)
 func (a *apiServer) updateConfig(config *auth.AuthConfig) error {
-	if config != nil {
-		newConfig, err := validateConfig(config, internal)
-		if err != nil {
-			return err
-		}
-		a.configCache = newConfig
-	} else {
-		a.configCache = nil
+	if config == nil {
+		config = &auth.AuthConfig{}
 	}
-	if a.configCache != nil && a.configCache.IDPName != "" {
+	newConfig, err := validateConfig(config, internal)
+	if err != nil {
+		return err
+	}
+
+	// It's possible that 'config' is non-nil, but empty (this is the case when
+	// users clear the config from the command line). Therefore, check
+	// newConfig.IDP.Name != "" instead of config != nil.
+	if newConfig.IDP.Name != "" {
+		a.configCache = newConfig
 		// construct SAML handler
 		a.samlSP = &saml.ServiceProvider{
 			Logger:      logrus.New(),
-			IDPMetadata: a.configCache.IDPMetadata,
-			AcsURL:      *a.configCache.ACSURL,
-			MetadataURL: *a.configCache.MetadataURL,
+			IDPMetadata: a.configCache.IDP.Metadata,
+			AcsURL:      *a.configCache.SAMLSvc.ACSURL,
+			MetadataURL: *a.configCache.SAMLSvc.MetadataURL,
 
 			// Not set:
 			// Key: Private key for Pachyderm ACS. Unclear if needed
@@ -314,8 +373,9 @@ func (a *apiServer) updateConfig(config *auth.AuthConfig) error {
 			// MetadataValidDuration: (how long the SP endpoints are valid? Returned
 			//                        by the Metadata service)
 		}
-		a.redirectAddress = a.configCache.DashURL // Set redirect address from config as well
+		a.redirectAddress = a.configCache.SAMLSvc.DashURL // Set redirect address from config as well
 	} else {
+		a.configCache = nil
 		a.samlSP = nil
 		a.redirectAddress = nil
 	}
@@ -329,185 +389,112 @@ var defaultDashRedirectURL = &url.URL{
 	Path: path.Join("/", "auth", "autologin"),
 }
 
-func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, int, error) {
+// handleSAMLResponseInternal is a helper function called by handleSAMLResponse
+func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, string, *errutil.HTTPError) {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
+
 	if a.configCache == nil {
-		return "", http.StatusConflict, errors.New("auth has no active config (either never set or disabled)")
+		return "", "", errutil.NewHTTPError(http.StatusConflict, "auth has no active config (either never set or disabled)")
+
 	}
 	if a.samlSP == nil {
-		return "", http.StatusConflict, errors.New("SAML ACS has not been configured or was disabled")
+		return "", "", errutil.NewHTTPError(http.StatusConflict, "SAML ACS has not been configured or was disabled")
 	}
 	sp := a.samlSP
 
 	if err := req.ParseForm(); err != nil {
-		return "", http.StatusBadRequest, fmt.Errorf("Could not parse request form: %v", err)
+		return "", "", errutil.NewHTTPError(http.StatusConflict, "Could not parse request form: %v", err)
 	}
 	// No possible request IDs b/c only IdP-initiated auth is implemented for now
 	assertion, err := sp.ParseResponse(req, []string{""})
-
 	if err != nil {
 		errMsg := fmt.Sprintf("Error parsing SAML response: %v", err)
 		if invalidRespErr, ok := err.(*saml.InvalidResponseError); ok {
 			errMsg += "\n(" + invalidRespErr.PrivateErr.Error() + ")"
 		}
-		return "", http.StatusBadRequest, errors.New(errMsg)
+		return "", "", errutil.NewHTTPError(http.StatusBadRequest, errMsg)
 	}
+
+	/* >>> */
+	doc := etree.NewDocument()
+	doc.Element = *assertion.Element().Copy()
+	doc.Indent(2)
+	str, err := doc.WriteToString()
+	fmt.Printf("SAML assertion:\n%s\n(err: %v)\n", str, err)
+	/* >>> */
 
 	// Make sure all the fields we need are present (avoid segfault)
 	switch {
 	case assertion == nil:
-		return "", http.StatusBadRequest, errors.New("Error parsing SAML response: assertion is nil")
+		return "", "", errutil.NewHTTPError(http.StatusConflict, "Error parsing SAML response: assertion is nil")
 	case assertion.Subject == nil:
-		return "", http.StatusBadRequest, errors.New("Error parsing SAML response: assertion.Subject is nil")
+		return "", "", errutil.NewHTTPError(http.StatusConflict, "Error parsing SAML response: assertion.Subject is nil")
 	case assertion.Subject.NameID == nil:
-		return "", http.StatusBadRequest, errors.New("Error parsing SAML response: assertion.Subject.NameID is nil")
+		return "", "", errutil.NewHTTPError(http.StatusConflict, "Error parsing SAML response: assertion.Subject.NameID is nil")
 	case assertion.Subject.NameID.Value == "":
-		return "", http.StatusBadRequest, errors.New("Error parsing SAML response: assertion.Subject.NameID.Value is unset")
+		return "", "", errutil.NewHTTPError(http.StatusConflict, "Error parsing SAML response: assertion.Subject.NameID.Value is unset")
 	}
 
-	out := io.MultiWriter(w, os.Stdout)
-	possibleRequestIDs := []string{""} // only IdP-initiated auth enabled for now
-	dbgLog.Printf("(apiServer.handleSAMLResponse) req.PostFormValue(\"SAMLResponse\"): %s\n", req.PostFormValue("SAMLResponse"))
-	assertion, err := sp.ParseResponse(req, possibleRequestIDs)
-	healthyResponse := err == nil && assertion != nil &&
-		assertion.Subject != nil && assertion.Subject.NameID != nil
-	dbgLog.Printf("(apiServer.handleSAMLResponse) healthyResponse: %t\n", healthyResponse)
-	if !healthyResponse {
-		w.WriteHeader(http.StatusInternalServerError)
-		out.Write([]byte("<html><head></head><body>"))
-		switch {
-		case err != nil:
-			out.Write([]byte("Error parsing SAML response: "))
-			out.Write([]byte(err.Error()))
-			if invalidRespErr, ok := err.(*saml.InvalidResponseError); ok {
-				out.Write([]byte("\n(" + invalidRespErr.PrivateErr.Error() + ")"))
-			}
-		case assertion == nil:
-			out.Write([]byte("Error parsing SAML response: assertion is nil"))
-		case assertion.Subject == nil:
-			out.Write([]byte("Error parsing SAML response: assertion.Subject is nil"))
-		case assertion.Subject.NameID == nil:
-			out.Write([]byte("Error parsing SAML response: assertion.Subject.NameID is nil"))
-		default:
-			out.Write([]byte("Something went wrong"))
-			out.Write([]byte(fmt.Sprintf("<p>healthyResponse: %t", healthyResponse)))
-			out.Write([]byte(fmt.Sprintf("<p>err: %v", err)))
-			out.Write([]byte(fmt.Sprintf("<p>assertion: %v", assertion)))
-		}
-		out.Write([]byte("\n</body></html>"))
-		return
-	}
-	func() {
-		d := etree.NewDocument()
-		d.Element = *assertion.Element()
-		xml, err := d.WriteToString()
-		if err != nil {
-			dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall assertion: %v\n", err)
-		} else {
-			dbgLog.Printf("(apiServer.handleSAMLResponse) assertion: %s\n", string(xml))
-		}
-	}()
+	// User is successfully authenticated
+	subject := fmt.Sprintf("%s:%s", a.configCache.IDP.Name, assertion.Subject.NameID.Value)
 
-	// Extract expiration from config (or use default session duration)
+	// Get new OTP for user (exp. from config if set, or default session duration)
 	expiration := time.Now().Add(time.Duration(defaultSAMLTTLSecs) * time.Second)
-	cfgDur := a.configCache.SAMLServiceOptions.SessionDuration
-	if cfgDur != "" {
-		dur, err := time.ParseDuration(cfgDur)
-		if err != nil {
-			logrus.Errorf("could not parse session duration in config (session will be 24h instead): %v", err)
-		} else {
-			expiration = time.Now().Add(dur)
-		}
+	if a.configCache.SAMLSvc.SessionDuration != 0 {
+		expiration = time.Now().Add(a.configCache.SAMLSvc.SessionDuration)
 	}
-
-	// Success
-	username := fmt.Sprintf("%s:%s", a.configCache.IDPName, assertion.Subject.NameID.Value)
+	authCode, err := a.getAuthenticationCode(req.Context(), subject, expiration)
+	if err != nil {
+		return "", "", errutil.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
 	// Update group memberships
-	var samlIDPConfig *auth.IDProvider_SAMLOptions
-	for _, i := range a.configCache.IDProviders {
-		if i.SAML != nil {
-			samlIDPConfig = i.SAML
-			break
-		}
-	}
-	if samlIDPConfig != nil && samlIDPConfig.GroupAttribute != "" {
+	if a.configCache.IDP.GroupAttribute != "" {
 		for _, attribute := range assertion.AttributeStatements {
-			d := etree.NewDocument()
-			if attribute.Element().Parent() != nil {
-				d.Element = *attribute.Element().Parent()
-				xml, err := d.WriteToString()
-				if err != nil {
-					dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: %v\n", err)
-				} else {
-					dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement parent: %s\n", string(xml))
-				}
-			} else {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement parent: nil\n")
-			}
-			d.Element = *attribute.Element()
-			xml, err := d.WriteToString()
-			if err != nil {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute statement: %v\n", err)
-			} else {
-				dbgLog.Printf("(apiServer.handleSAMLResponse) attribute statement: %s\n", string(xml))
-			}
 			for _, attr := range attribute.Attributes {
-				d := etree.NewDocument()
-				d.Element = *attr.Element()
-				xml, err := d.WriteToString()
-				if err != nil {
-					dbgLog.Printf("(apiServer.handleSAMLResponse) could not marshall attribute: %v\n", err)
-				} else {
-					dbgLog.Printf("(apiServer.handleSAMLResponse) attribute: %s\n", string(xml))
-				}
-				if attr.Name != samlIDPConfig.GroupAttribute {
+				if attr.Name != a.configCache.IDP.GroupAttribute {
 					continue
 				}
 
+				// Collect groups specified in this attribute and record them
 				var groups []string
 				for _, v := range attr.Values {
-					groups = append(groups, path.Join("group", auth.SAMLPrefix)+v.Value)
+					groups = append(groups, fmt.Sprintf("group/%s:%s", a.configCache.IDP.Name, v.Value))
 				}
-				// TODO make this internal and call it
-				dbgLog.Printf("(apiServer.handleSAMLResponse) a.setGroupsForUser(ctx, %#v)", groups)
-				a.setGroupsForUser(context.Background(), username, groups)
+				if err := a.setGroupsForUserInternal(context.Background(), subject, groups); err != nil {
+					return "", "", errutil.NewHTTPError(http.StatusInternalServerError, err.Error())
+				}
 			}
 		}
 	}
 
-	return username, 0, nil
-
+	return subject, authCode, nil
 }
 
+// handleSAMLResponse is the HTTP handler for Pachyderm's ACS, which receives
+// signed SAML assertions from this cluster's SAML ID provider (if one is
+// configured)
 func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
-	var subject string
-	var err error
-	var errCode int
+	var subject, authCode string
+	var err *errutil.HTTPError
 
-	a.LogReq("SAML login request")
+	logRequest := "SAML login request"
+	a.LogReq(logRequest)
 	defer func(start time.Time) {
-		request := fmt.Sprintf("SAML login request for %s", subject)
-		if errCode == 0 {
-			errCode = http.StatusFound
+		if subject != "" {
+			logRequest = fmt.Sprintf("SAML login request for %s", subject)
 		}
-		a.LogResp(request, errCode, err, time.Since(start))
+		a.LogResp(logRequest, errutil.PrettyPrintCode(err), err, time.Since(start))
 	}(time.Now())
 
-	subject, errCode, err = a.handleSAMLResponseInternal(req)
+	subject, authCode, err = a.handleSAMLResponseInternal(req)
 	if err != nil {
-		if errCode == 0 {
-			errCode = http.StatusInternalServerError
-		}
-		http.Error(w, err.Error(), errCode)
+		http.Error(w, err.Error(), err.Code())
 		return
 	}
-
-	// Get new OTP for user
-	authCode, err := a.getAuthenticationCode(req.Context(), subject)
 
 	// Redirect caller back to dash with auth code
 	u := *defaultDashRedirectURL
