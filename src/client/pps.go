@@ -14,11 +14,6 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
-// NewJob creates a pps.Job.
-func NewJob(jobID string) *pps.Job {
-	return &pps.Job{ID: jobID}
-}
-
 const (
 	// PPSEtcdPrefixEnv is the environment variable that specifies the etcd
 	// prefix that PPS uses.
@@ -62,7 +57,18 @@ const (
 	// GCGenerationKey is the etcd key that stores a counter that the
 	// GC utility increments when it runs, so as to invalidate all cache.
 	GCGenerationKey = "gc-generation"
+	// JobIDEnv is an env var that is added to the environment of user pipeline
+	// code and indicates the id of the job currently being run.
+	JobIDEnv = "PACH_JOB_ID"
+	// OutputCommitIDEnv is an env var that is added to the environment of user
+	// pipelined code and indicates the id of the output commit.
+	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
 )
+
+// NewJob creates a pps.Job.
+func NewJob(jobID string) *pps.Job {
+	return &pps.Job{ID: jobID}
+}
 
 // DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
 // the prefix for datum output trees. This prefix allows us to do garbage
