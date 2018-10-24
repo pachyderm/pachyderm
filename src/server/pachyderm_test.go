@@ -2485,6 +2485,10 @@ func TestPipelineEnv(t *testing.T) {
 					"cat /var/secret/foo > /pfs/out/foo",
 					"echo $bar> /pfs/out/bar",
 					"echo $foo> /pfs/out/foo_env",
+					fmt.Sprintf("echo $%s >/pfs/out/job_id", client.JobIDEnv),
+					fmt.Sprintf("echo $%s >/pfs/out/output_commit_id", client.OutputCommitIDEnv),
+					fmt.Sprintf("echo $%s >/pfs/out/input", dataRepo),
+					fmt.Sprintf("echo $%s_COMMIT >/pfs/out/input_commit", dataRepo),
 				},
 				Env: map[string]string{"bar": "bar"},
 				Secrets: []*pps.Secret{
@@ -2503,24 +2507,31 @@ func TestPipelineEnv(t *testing.T) {
 		})
 	require.NoError(t, err)
 	// Do first commit to repo
-	commit, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.Equal(t, 1, len(jis))
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo", 0, 0, &buffer))
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo_env", 0, 0, &buffer))
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "foo_env", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "bar", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "job_id", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Job.ID), buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "output_commit_id", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].OutputCommit.ID), buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "input", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("/pfs/%s/file\n", dataRepo), buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "input_commit", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Input.Atom.Commit), buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
