@@ -360,6 +360,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 }
 
 func Walk(rs []*Reader, walkPath string, f func(path string, node *NodeProto) error) error {
+	walkPath = clean(walkPath)
 	return nodes(rs, func(path string, node *NodeProto) error {
 		if path != walkPath && !strings.HasPrefix(path, walkPath+"/") {
 			return nil
@@ -997,6 +998,7 @@ func (w *Writer) Index() ([]byte, error) {
 }
 
 func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
+	prefix = clean(prefix)
 	pbr := pbutil.NewReader(r)
 	idx := &Index{}
 	k := b(prefix)
@@ -1062,6 +1064,7 @@ func NewFilter(numTrees int64, tree int64) func(k []byte) (bool, error) {
 }
 
 func PathToTree(path string, numTrees int64) uint64 {
+	path = clean(path)
 	return pathToTree(b(path), numTrees)
 }
 
@@ -1429,11 +1432,13 @@ var globRegex = regexp.MustCompile(`[*?\[\]\{\}!]`)
 
 // IsGlob checks if the pattern contains a glob character
 func IsGlob(pattern string) bool {
+	pattern = clean(pattern)
 	return globRegex.Match([]byte(pattern))
 }
 
 // GlobLiteralPrefix returns the prefix before the first glob character
 func GlobLiteralPrefix(pattern string) string {
+	pattern = clean(pattern)
 	idx := globRegex.FindStringIndex(pattern)
 	if idx == nil {
 		return pattern
