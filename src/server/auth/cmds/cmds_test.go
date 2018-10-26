@@ -291,7 +291,7 @@ func TestConfig(t *testing.T) {
 		    "name": "idp",
 		    "description": "fake ID provider for testing",
 		    "saml": {
-		      "idp_metadata": "`+idpMetadata+`"
+		      "metadata_xml": "`+idpMetadata+`"
 		    }
 		  }],
 		  "saml_svc_options": {

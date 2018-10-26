@@ -206,7 +206,7 @@ func validateIDP(idp *auth.IDProvider, src configSource, c *canonicalConfig) err
 	var rawIDPMetadata []byte
 	if idp.SAML.MetadataURL == "" {
 		if len(idp.SAML.MetadataXML) == 0 {
-			return fmt.Errorf("must set either idp_metadata or metadata_url for the "+
+			return fmt.Errorf("must set either metadata_xml or metadata_url for the "+
 				"SAML ID provider %q", idp.Name)
 		}
 		rawIDPMetadata = idp.SAML.MetadataXML
@@ -226,7 +226,7 @@ func validateIDP(idp *auth.IDProvider, src configSource, c *canonicalConfig) err
 		switch src {
 		case external: // user-provided config
 			if len(idp.SAML.MetadataXML) > 0 {
-				return fmt.Errorf("cannot set both idp_metadata and metadata_url for "+
+				return fmt.Errorf("cannot set both metadata_xml and metadata_url for "+
 					"the SAML ID provider %q", idp.Name)
 			}
 			rawIDPMetadata, err = fetchRawIDPMetadata(idp.Name, c.IDP.MetadataURL)
