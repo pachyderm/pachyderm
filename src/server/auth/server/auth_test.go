@@ -2360,15 +2360,13 @@ func TestSetGroupsForUser(t *testing.T) {
 	}
 }
 
-func TestGetAllGroupsAndGetAllUsers(t *testing.T) {
+func TestGetGroupsEmpty(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	bob := tu.UniqueString("bob")
-	john := tu.UniqueString("john")
 	organization := tu.UniqueString("organization")
 	engineering := tu.UniqueString("engineering")
 	security := tu.UniqueString("security")
@@ -2380,24 +2378,15 @@ func TestGetAllGroupsAndGetAllUsers(t *testing.T) {
 		Groups:   []string{organization, engineering, security},
 	})
 	require.NoError(t, err)
-	_, err = adminClient.SetGroupsForUser(adminClient.Ctx(), &auth.SetGroupsForUserRequest{
-		Username: bob,
-		Groups:   []string{engineering},
-	})
-	require.NoError(t, err)
-	_, err = adminClient.ModifyMembers(adminClient.Ctx(), &auth.ModifyMembersRequest{
-		Group: organization,
-		Add:   []string{bob, john},
-	})
-	require.NoError(t, err)
 
-	users, err := adminClient.GetUsers(adminClient.Ctx(), &auth.GetUsersRequest{})
-	require.NoError(t, err)
-	require.ElementsEqual(t, []string{gh(alice), gh(bob), gh(john)}, users.Usernames)
-
-	groups, err := adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{})
+	aliceClient := getPachClient(t, alice)
+	groups, err := aliceClient.GetGroups(aliceClient.Ctx(), &auth.GetGroupsRequest{})
 	require.NoError(t, err)
 	require.ElementsEqual(t, []string{organization, engineering, security}, groups.Groups)
+
+	groups, err = adminClient.GetGroups(adminClient.Ctx(), &auth.GetGroupsRequest{})
+	require.NoError(t, err)
+	require.Equal(t, 0, len(groups.Groups))
 }
 
 // TestGetJobsBugFix tests the fix for https://github.com/pachyderm/pachyderm/issues/2879
