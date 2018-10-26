@@ -1377,7 +1377,7 @@ func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Ob
 	if err != nil {
 		return err
 	}
-	idxW, err := objClient.Writer(filepath.Join(path, hashtree.IndexPath))
+	idxW, err := objClient.Writer(path + hashtree.IndexPath)
 	if err != nil {
 		return err
 	}
