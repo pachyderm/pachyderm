@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
@@ -23,17 +24,19 @@ import (
 type workerOptions struct {
 	rcName string // Name of the replication controller managing workers
 
-	userImage        string            // The user's pipeline/job image
-	labels           map[string]string // k8s labels attached to the RC and workers
-	annotations      map[string]string // k8s annotations attached to the RC and workers
-	parallelism      int32             // Number of replicas the RC maintains
-	cacheSize        string            // Size of cache that sidecar uses
-	resourceRequests *v1.ResourceList  // Resources requested by pipeline/job pods
-	resourceLimits   *v1.ResourceList  // Resources requested by pipeline/job pods
-	workerEnv        []v1.EnvVar       // Environment vars set in the user container
-	volumes          []v1.Volume       // Volumes that we expose to the user container
-	volumeMounts     []v1.VolumeMount  // Paths where we mount each volume in 'volumes'
-	etcdPrefix       string            // the prefix in etcd to use
+	userImage        string              // The user's pipeline/job image
+	labels           map[string]string   // k8s labels attached to the RC and workers
+	annotations      map[string]string   // k8s annotations attached to the RC and workers
+	parallelism      int32               // Number of replicas the RC maintains
+	cacheSize        string              // Size of cache that sidecar uses
+	resourceRequests *v1.ResourceList    // Resources requested by pipeline/job pods
+	resourceLimits   *v1.ResourceList    // Resources requested by pipeline/job pods
+	workerEnv        []v1.EnvVar         // Environment vars set in the user container
+	volumes          []v1.Volume         // Volumes that we expose to the user container
+	volumeMounts     []v1.VolumeMount    // Paths where we mount each volume in 'volumes'
+	etcdPrefix       string              // the prefix in etcd to use
+	schedulingSpec   *pps.SchedulingSpec // the SchedulingSpec for the pipeline
+	podSpec          string
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -87,7 +90,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
-	// Explicitly set CPU and MEM requests to zero because some cloud
+	// Explicitly set CPU, MEM and DISK requests to zero because some cloud
 	// providers set their own defaults which are usually not what we want.
 	cpuZeroQuantity := resource.MustParse("0")
 	memZeroQuantity := resource.MustParse("0M")
@@ -123,7 +126,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Image:           workerImage,
 				Command:         []string{"/pach/worker.sh"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
-				Env:             options.workerEnv,
 				VolumeMounts:    options.volumeMounts,
 			},
 		},
@@ -134,13 +136,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
 				Env:             options.workerEnv,
-				Resources: v1.ResourceRequirements{
-					Requests: map[v1.ResourceName]resource.Quantity{
-						v1.ResourceCPU:    cpuZeroQuantity,
-						v1.ResourceMemory: memZeroQuantity,
-					},
-				},
-				VolumeMounts: userVolumeMounts,
+				VolumeMounts:    userVolumeMounts,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,
@@ -164,7 +160,16 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		SecurityContext:               &v1.PodSecurityContext{RunAsUser: &zeroVal},
 		ServiceAccountName:            assets.ServiceAccountName,
 	}
-	resourceRequirements := v1.ResourceRequirements{}
+	if options.schedulingSpec != nil {
+		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
+		podSpec.PriorityClassName = options.schedulingSpec.PriorityClassName
+	}
+	resourceRequirements := v1.ResourceRequirements{
+		Requests: map[v1.ResourceName]resource.Quantity{
+			v1.ResourceCPU:    cpuZeroQuantity,
+			v1.ResourceMemory: memZeroQuantity,
+		},
+	}
 	if options.resourceRequests != nil {
 		resourceRequirements.Requests = *options.resourceRequests
 	}
@@ -172,13 +177,18 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		resourceRequirements.Limits = *options.resourceLimits
 	}
 	podSpec.Containers[0].Resources = resourceRequirements
+	if options.podSpec != "" {
+		if err := json.Unmarshal([]byte(options.podSpec), &podSpec); err != nil {
+			return v1.PodSpec{}, err
+		}
+	}
 	return podSpec, nil
 }
 
 func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
-	transform *pps.Transform, cacheSize string,
-	service *pps.Service, specCommitID string) *workerOptions {
+	transform *pps.Transform, cacheSize string, service *pps.Service,
+	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string) *workerOptions {
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
@@ -328,6 +338,8 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		imagePullSecrets: imagePullSecrets,
 		cacheSize:        cacheSize,
 		service:          service,
+		schedulingSpec:   schedulingSpec,
+		podSpec:          podSpec,
 	}
 }
 

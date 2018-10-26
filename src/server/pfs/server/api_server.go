@@ -1,14 +1,7 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
-	"path"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/types"
@@ -16,12 +9,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 
 	"github.com/hashicorp/golang-lru"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
 
@@ -215,176 +206,22 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 }
 
 func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
-	ctx := putFileServer.Context()
+	s := newPutFileServer(putFileServer)
+	r, err := s.Peek()
+	if err != nil {
+		return err
+	}
+	request := *r
+	request.Value = nil
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	defer drainFileServer(putFileServer)
 	defer func() {
 		if err := putFileServer.SendAndClose(&types.Empty{}); err != nil && retErr == nil {
 			retErr = err
 		}
 	}()
-	request, err := putFileServer.Recv()
-	if err != nil && err != io.EOF {
-		return err
-	}
-	if err == io.EOF {
-		// tolerate people calling and immediately hanging up
-		return nil
-	}
-	// We remove request.Value from the logs otherwise they would be too big.
-	func() {
-		requestValue := request.Value
-		request.Value = nil
-		a.Log(request, nil, nil, 0)
-		request.Value = requestValue
-	}()
-	defer func(start time.Time) {
-		requestValue := request.Value
-		request.Value = nil
-		a.Log(request, nil, retErr, time.Since(start))
-		request.Value = requestValue
-	}(time.Now())
-	// not cleaning the path can result in weird effects like files called
-	// ./foo which won't display correctly when the filesystem is mounted
-	request.File.Path = path.Clean(request.File.Path)
-	var r io.Reader
-	if request.Url != "" {
-		url, err := url.Parse(request.Url)
-		if err != nil {
-			return err
-		}
-		switch url.Scheme {
-		case "http":
-			fallthrough
-		case "https":
-			resp, err := http.Get(request.Url)
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := resp.Body.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			r = resp.Body
-		case "pfs":
-			return a.putFilePfs(ctx, request, url)
-		default:
-			url, err := obj.ParseURL(request.Url)
-			if err != nil {
-				return fmt.Errorf("error parsing url %v: %v", request.Url, err)
-			}
-			objClient, err := obj.NewClientFromURLAndSecret(putFileServer.Context(), url)
-			if err != nil {
-				return err
-			}
-			return a.putFileObj(ctx, objClient, request, url.Object)
-		}
-	} else {
-		reader := putFileReader{
-			server: putFileServer,
-		}
-		_, err = reader.buffer.Write(request.Value)
-		if err != nil {
-			return err
-		}
-		r = &reader
-	}
-	return a.driver.putFile(ctx, request.File, request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
-}
-
-func (a *apiServer) putFilePfs(ctx context.Context, request *pfs.PutFileRequest, url *url.URL) error {
-	pClient, err := client.NewFromAddress(url.Host)
-	if err != nil {
-		return err
-	}
-	put := func(outPath string, inRepo string, inCommit string, inFile string) (retErr error) {
-		r, err := pClient.GetFileReader(inRepo, inCommit, inFile, 0, 0)
-		if err != nil {
-			return err
-		}
-		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, outPath), request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
-	}
-	splitPath := strings.Split(strings.TrimPrefix(url.Path, "/"), "/")
-	if len(splitPath) < 2 {
-		return fmt.Errorf("pfs put-file path must be of form repo/commit[/path/to/file] got: %s", url.Path)
-	}
-	repo := splitPath[0]
-	commit := splitPath[1]
-	file := ""
-	if len(splitPath) >= 3 {
-		file = filepath.Join(splitPath[2:]...)
-	}
-	if request.Recursive {
-		var eg errgroup.Group
-		if err := pClient.Walk(splitPath[0], commit, file, func(fileInfo *pfs.FileInfo) error {
-			if fileInfo.FileType != pfs.FileType_FILE {
-				return nil
-			}
-			eg.Go(func() error {
-				return put(filepath.Join(request.File.Path, strings.TrimPrefix(fileInfo.File.Path, file)), repo, commit, fileInfo.File.Path)
-			})
-			return nil
-		}); err != nil {
-			return err
-		}
-		return eg.Wait()
-	}
-	return put(request.File.Path, repo, commit, file)
-}
-
-func (a *apiServer) putFileObj(ctx context.Context, objClient obj.Client, request *pfs.PutFileRequest, object string) (retErr error) {
-	put := func(ctx context.Context, filePath string, objPath string) error {
-		logRequest := &pfs.PutFileRequest{
-			Delimiter: request.Delimiter,
-			Url:       objPath,
-			File: &pfs.File{
-				Path: filePath,
-			},
-			Recursive: request.Recursive,
-		}
-		a.Log(logRequest, nil, nil, 0)
-		defer func(start time.Time) {
-			a.Log(logRequest, nil, retErr, time.Since(start))
-		}(time.Now())
-		r, err := objClient.Reader(objPath, 0, 0)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := r.Close(); err != nil && retErr == nil {
-				retErr = err
-			}
-		}()
-		return a.driver.putFile(ctx, client.NewFile(request.File.Commit.Repo.Name, request.File.Commit.ID, filePath),
-			request.Delimiter, request.TargetFileDatums, request.TargetFileBytes, request.OverwriteIndex, r)
-	}
-	if request.Recursive {
-		eg, egContext := errgroup.WithContext(ctx)
-		path := strings.TrimPrefix(object, "/")
-		sem := make(chan struct{}, client.DefaultMaxConcurrentStreams)
-		objClient.Walk(path, func(name string) error {
-			eg.Go(func() error {
-				sem <- struct{}{}
-				defer func() {
-					<-sem
-				}()
-
-				if strings.HasSuffix(name, "/") {
-					// Amazon S3 supports objs w keys that end in a '/'
-					// PFS needs to treat such a key as a directory.
-					// In this case, we rely on the driver PutFile to
-					// construct the 'directory' diffs from the file prefix
-					logrus.Warnf("ambiguous key %v, not creating a directory or putting this entry as a file", name)
-					return nil
-				}
-				return put(egContext, filepath.Join(request.File.Path, strings.TrimPrefix(name, path)), name)
-			})
-			return nil
-		})
-		return eg.Wait()
-	}
-	// Joining Host and Path to retrieve the full path after "scheme://"
-	return put(ctx, request.File.Path, object)
+	return a.driver.putFiles(s)
 }
 
 func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
@@ -535,23 +372,6 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 		return nil, err
 	}
 	return &types.Empty{}, nil
-}
-
-type putFileReader struct {
-	server pfs.API_PutFileServer
-	buffer bytes.Buffer
-}
-
-func (r *putFileReader) Read(p []byte) (int, error) {
-	if r.buffer.Len() == 0 {
-		request, err := r.server.Recv()
-		if err != nil {
-			return 0, err
-		}
-		//buffer.Write cannot error
-		r.buffer.Write(request.Value)
-	}
-	return r.buffer.Read(p)
 }
 
 func drainFileServer(putFileServer interface {

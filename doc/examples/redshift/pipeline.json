@@ -25,7 +25,7 @@
         "secrets": [
             {
               "name": "pgpass-secret",
-              "mountPath": "/secrets/pgpass"
+              "mount_path": "/secrets/pgpass"
             }
         ]
     },

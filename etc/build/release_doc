@@ -17,6 +17,12 @@ NEW_DEB_URL="pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_amd64.de
 
 find doc -type f -exec sed -i'' 's@pachyderm\/releases\/download\/v.*\/pachctl_.*_amd64.deb@'"$NEW_DEB_URL"'@g' {} \;
 
+# Update 'other linux flavors' URL
+NEW_URL="pachyderm/releases/download/v${VERSION}/pachctl_${VERSION}_linux_amd64.tar.gz"
+find doc -type f -exec sed -i'' 's@pachyderm\/releases\/download\/v.*\/pachctl_.*_linux_amd64.tar.gz@'"$NEW_URL"'@g' {} \;
+# also need to replace the version elsewhere in that command:
+find doc -type f -exec sed -i'' 's@tmp\/pachctl_.*_linux_amd64\/pachctl@'"tmp/pachctl_${VERSION}_linux_amd64/pachctl"'@g' {} \;
+
 # Update brew formula (only needed when MAJOR_MINOR changes)
 find doc -type f -exec sed -i'' 's#pachyderm/tap/pachctl.*#pachyderm/tap/pachctl@'"$MAJOR_MINOR"'#g' {} \;
 
