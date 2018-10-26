@@ -238,6 +238,10 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		for _, c := range a.monitorCancels {
+			c()
+		}
+		a.monitorCancels = make(map[string]func())
 		log.Errorf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
@@ -330,7 +334,9 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			pipelineInfo.Transform,
 			pipelineInfo.CacheSize,
 			pipelineInfo.Service,
-			pipelineInfo.SpecCommit.ID)
+			pipelineInfo.SpecCommit.ID,
+			pipelineInfo.SchedulingSpec,
+			pipelineInfo.PodSpec)
 		// Set the pipeline name env
 		options.workerEnv = append(options.workerEnv, v1.EnvVar{
 			Name:  client.PPSPipelineNameEnv,

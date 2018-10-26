@@ -453,7 +453,7 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 // waitJob waits for the job in 'jobInfo' to finish, and then it collects the
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
-func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) error {
+func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
 	logger.Logf("waitJob: %s", jobInfo.Job.ID)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
@@ -521,7 +521,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			return err
 		}
 		afterTime := startTime.Add(timeout).Sub(time.Now())
-		logger.Logf("afterTime: %+v", afterTime)
+		logger.Logf("cancelling job at: %+v", afterTime)
 		timer := time.AfterFunc(afterTime, func() {
 			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx,
 				&pfs.FinishCommitRequest{
@@ -575,9 +575,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// Read the job document, and either resume (if we're recovering from a
 		// crash) or mark it running. Also write the input chunks calculated above
 		// into chunksCol
+		jobID := jobInfo.Job.ID
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
-			jobID := jobInfo.Job.ID
 			jobPtr := &pps.EtcdJobInfo{}
 			if err := jobs.Get(jobID, jobPtr); err != nil {
 				return err
@@ -598,6 +598,19 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}); err != nil {
 			return err
 		}
+
+		defer func() {
+			if retErr == nil {
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					locks := a.locks(jobID).ReadWrite(stm)
+					locks.DeleteAll()
+					chunksCol := a.chunks.ReadWrite(stm)
+					return chunksCol.Delete(jobID)
+				}); err != nil {
+					retErr = err
+				}
+			}
+		}()
 
 		// Watch the chunk locks in order, and merge chunk outputs into commit tree
 		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
@@ -701,7 +714,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				Commit: jobInfo.OutputCommit,
 				Tree:   object,
 			})
-			if err != nil {
+			if err != nil && !pfsserver.IsCommitFinishedErr(err) {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
 					// output commit was deleted during e.g. FinishCommit, which means this job
 					// should be deleted. Goro from top of waitJob() will observe the deletion,

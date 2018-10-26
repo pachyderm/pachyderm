@@ -6,34 +6,49 @@ set -e
 mkdir -p ~/.cache/go-build
 sudo chown -R `whoami` ~/.cache/go-build
 
+# See https://github.com/kubernetes/minikube/issues/2704
+minikube="minikube --bootstrapper=localkube"
+
+${minikube} delete || true  # In case we get a recycled machine
 make launch-kube
+sleep 5
 
 # Wait until a connection with kubernetes has been established
 echo "Waiting for connection to kubernetes..."
 max_t=90
 WHEEL="\|/-";
-until kubectl version >/dev/null 2>/dev/null; do
+until {
+  ${minikube} status 2>&1 >/dev/null
+  kubectl version 2>&1 >/dev/null
+}; do
   if ((max_t-- <= 0)); then
     echo "Could not connect to minikube"
     echo "minikube status --alsologtostderr --loglevel=0 -v9:"
     echo "==================================================="
-    minikube status --alsologtostderr --loglevel=0 -v9
+    ${minikube} status --alsologtostderr --loglevel=0 -v9
     exit 1
   fi
 	echo -en "\e[G$${WHEEL:0:1}";
 	WHEEL="$${WHEEL:1}$${WHEEL:0:1}";
 	sleep 1;
 done
+${minikube} status
+kubectl version
 
 echo "Running test suite based on BUCKET=$BUCKET"
 
 PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
 
+make install
 make docker-build
-make clean-launch-dev
-make launch-dev
+for i in $(seq 3); do
+  make clean-launch-dev || true # may be nothing to delete
+  make launch-dev && break
+  (( i < 3 )) # false if this is the last loop (causes exit)
+  sleep 10
+done
 
-go install ./src/server/cmd/match
+go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC" ]]; then
 	echo "Running misc test suite"
@@ -47,7 +62,7 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
 	BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS ))
 	MIN=$(( $BUCKET_SIZE * $(( $PART - 1 )) ))
 	#The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
-	MAX=$COUNT 
+	MAX=$COUNT
 	if [[ $PART -ne $NUM_BUCKETS ]]; then
 		MAX=$(( $MIN + $BUCKET_SIZE ))
     fi

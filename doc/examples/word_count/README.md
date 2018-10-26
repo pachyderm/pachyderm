@@ -25,7 +25,7 @@ Let's create the input repo and add one URL, Wikipedia:
 $ pachctl create-repo urls
 
 # We assume you're running this from the root of this example (pachyderm/doc/examples/word_count/):
-$ pachctl put-file urls master -c -f Wikipedia
+$ pachctl put-file urls master -f Wikipedia
 ```
 
 Then to actually scrape this site and save the data, we create the first pipeline based on the [scraper.json](scraper.json) pipeline specification:
@@ -69,13 +69,31 @@ Let's create the `map` pipeline:
 $ pachctl create-pipeline -f map.json
 ```
 
-As soon as you create this pipeline, it will start processing data from the `scraper` data repository. For each web page the `map.go` code processes, it writes a file for each encountered word.  These files have the word itself as a filename, and the content of each file is the number of occurrences of the respective word.  If multiple workers write to the same file, the content is appended.  As an example, a file `wikipedia` might look like this (assuming we have already processed multiple web sites referencing wikipedia):
+As soon as you create this pipeline, it will start processing data from the `scraper` data repository. For each web page the `map.go` code processes, it writes a file for each encountered word. In our case, the filename for each word is the name of the word itself. To see what I mean, lets run a `pachctl list-file` on the map repo:
 
 ```
-$ pachctl get-file map master wikipedia
-36
-11
-17
+$ pachctl list-file map master
+NAME          TYPE SIZE
+a             file 4B
+ability       file 2B
+about         file 3B
+aboutsite     file 2B
+absolute      file 3B
+accesskey     file 3B
+account       file 2B
+acnh          file 2B
+action        file 3B
+actions       file 2B
+activities    file 2B
+actor         file 2B
+...
+```
+As you can see, for every word on that page there is a seperate file. Inside that file is the numeric value for how many times that word appeared. You can do a `get-file` on say the "about" file to see how many times that word shows up in our scrape:
+
+```
+$ pachctl get-file map master about
+13
+
 ```
 
 By default, Pachyderm will spin up the same number of workers as the number of nodes in your cluster.  This can of course be customized or changed (see [here](http://docs.pachyderm.io/en/latest/fundamentals/distributed_computing.html#controlling-the-number-of-workers-parallelism) for more info on controlling the number of workers).

@@ -348,7 +348,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		}
 	}
 	if pipelineInfo.Transform.User != "" {
-		user, err := lookupUser(pipelineInfo.Transform.User)
+		user, err := lookupDockerUser(pipelineInfo.Transform.User)
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
@@ -961,12 +961,14 @@ func (a *APIServer) datum() []*pps.InputFile {
 	return result
 }
 
-func (a *APIServer) userCodeEnv(jobID string, data []*Input) []string {
+func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Input) []string {
 	result := os.Environ()
 	for _, input := range data {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
-	result = append(result, fmt.Sprintf("PACH_JOB_ID=%s", jobID))
+	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
+	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommitID))
 	return result
 }
 
@@ -1223,15 +1225,18 @@ func (a *APIServer) worker() {
 			// Inspect the job and make sure it's relevant, as this worker may be old
 			jobInfo, err := pachClient.InspectJob(jobID, false)
 			if err != nil {
-				if !col.IsErrNotFound(err) {
+				if col.IsErrNotFound(err) {
 					continue NextJob // job was deleted--no sense retrying
 				}
 				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
 			}
-			if jobInfo.PipelineVersion != a.pipelineInfo.Version {
-				return fmt.Errorf("job's version (%d) doesn't match pipeline's "+
+			if jobInfo.PipelineVersion < a.pipelineInfo.Version {
+				continue
+			}
+			if jobInfo.PipelineVersion > a.pipelineInfo.Version {
+				return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
 					"version (%d), this should automatically resolve when the worker "+
-					"is updated", jobInfo.PipelineVersion, a.pipelineInfo.Version)
+					"is updated", jobID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
 			}
 
 			// Read the chunks laid out by the master and create the datum factory
@@ -1369,7 +1374,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				return err
 			}
 
-			env := a.userCodeEnv(jobInfo.Job.ID, data)
+			env := a.userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, data)
 			var dir string
 			var failures int64
 			if err := backoff.RetryNotify(func() error {
@@ -1600,8 +1605,17 @@ func mergeStats(x, y *pps.ProcessStats) error {
 	return nil
 }
 
-// lookupUser is a reimplementation of user.Lookup that doesn't require cgo.
-func lookupUser(name string) (_ *user.User, retErr error) {
+// lookupDockerUser looks up users given the argument to a Dockerfile USER directive.
+// According to Docker's docs this directive looks like:
+// USER <user>[:<group>] or
+// USER <UID>[:<GID>]
+func lookupDockerUser(userArg string) (_ *user.User, retErr error) {
+	userParts := strings.Split(userArg, ":")
+	userOrUID := userParts[0]
+	groupOrGID := ""
+	if len(userParts) > 1 {
+		groupOrGID = userParts[1]
+	}
 	passwd, err := os.Open("/etc/passwd")
 	if err != nil {
 		return nil, err
@@ -1614,18 +1628,55 @@ func lookupUser(name string) (_ *user.User, retErr error) {
 	scanner := bufio.NewScanner(passwd)
 	for scanner.Scan() {
 		parts := strings.Split(scanner.Text(), ":")
-		if parts[0] == name {
-			return &user.User{
+		if parts[0] == userOrUID || parts[2] == userOrUID {
+			result := &user.User{
 				Username: parts[0],
 				Uid:      parts[2],
 				Gid:      parts[3],
 				Name:     parts[4],
 				HomeDir:  parts[5],
-			}, nil
+			}
+			if groupOrGID != "" {
+				if parts[0] == userOrUID {
+					// groupOrGid is a group
+					group, err := lookupGroup(groupOrGID)
+					if err != nil {
+						return nil, err
+					}
+					result.Gid = group.Gid
+				} else {
+					// groupOrGid is a gid
+					result.Gid = groupOrGID
+				}
+			}
+			return result, nil
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
-	return nil, fmt.Errorf("user %s not found", name)
+	return nil, fmt.Errorf("user %s not found", userArg)
+}
+
+func lookupGroup(group string) (_ *user.Group, retErr error) {
+	groupFile, err := os.Open("/etc/group")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := groupFile.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	scanner := bufio.NewScanner(groupFile)
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), ":")
+		if parts[0] == group {
+			return &user.Group{
+				Gid:  parts[2],
+				Name: parts[0],
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("group %s not found", group)
 }

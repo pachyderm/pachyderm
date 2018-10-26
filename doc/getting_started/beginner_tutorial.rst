@@ -37,15 +37,15 @@ Now that we've created a repo it's time to add some data. In Pachyderm, you writ
 
 Let's start by just adding a file, in this case an image, to a new commit. We've provided some sample images for you that we host on Imgur. 
 
-We'll use the ``put-file`` command along with two flags, ``-c`` and ``-f``. ``-f`` can take either a local file or a URL which it'll automatically scrape. In our case, we'll simply pass the URL.
+We'll use the ``put-file`` command along with the ``-f`` flag. ``-f`` can take either a local file, a URL, or a object sotrage bucket which it'll automatically scrape. In our case, we'll simply pass the URL.
 
-Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. The ``-c`` flag specifies that we want to start a new commit, add data, and finish the commit in a convenient one-liner.
+Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. `Put-file` automatically starts and finishes a commit for you so you can add files more easily. In a situation where you want to add many files over a period of time, you can do `start-commit` and `finish-commit` yourself.
 
 We also specify the repo name "images", the branch name "master", and what we want to name the file, "liberty.png".
 
 .. code-block:: shell
 
-	$ pachctl put-file images master liberty.png -c -f http://imgur.com/46Q8nDz.png
+	$ pachctl put-file images master liberty.png -f http://imgur.com/46Q8nDz.png
 
 Finally, we check to make sure the data we just added is in Pachyderm.
 
@@ -194,13 +194,13 @@ Processing More Data
 
 Pipelines will also automatically process the data from new commits as they are created. Think of pipelines as being subscribed to any new commits on their input repo(s). Also similar to Git, commits have a parental structure that tracks which files have changed. In this case we're going to be adding more images.
 
-Let's create two new commits in a parental structure. To do this we will simply do two more ``put-file`` commands with ``-c`` and by specifying ``master`` as the branch, it'll automatically parent our commits onto each other. Branch names are just references to a particular HEAD commit.
+Let's create two new commits in a parental structure. To do this we will simply do two more ``put-file`` commands and by specifying ``master`` as the branch, it'll automatically parent our commits onto each other. Branch names are just references to a particular HEAD commit.
 
 .. code-block:: shell
 
-  $ pachctl put-file images master AT-AT.png -c -f http://imgur.com/8MN9Kg0.png
+  $ pachctl put-file images master AT-AT.png -f http://imgur.com/8MN9Kg0.png
 
-  $ pachctl put-file images master kitten.png -c -f http://imgur.com/g2QnNqa.png
+  $ pachctl put-file images master kitten.png -f http://imgur.com/g2QnNqa.png
 
 Adding a new commit of data will automatically trigger the pipeline to run on the new data we've added. We'll see corresponding jobs get started and commits to the output "edges" repo. Let's also view our new outputs. 
 

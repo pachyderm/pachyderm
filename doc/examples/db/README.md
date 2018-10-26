@@ -166,7 +166,7 @@ In our [pipeline spec](query.json), we will do the following:
     "secrets": [ 
       {
         "name": "mongosecret",
-        "mountPath": "/tmp/mongosecret"
+        "mount_path": "/tmp/mongosecret"
       } 
     ]
   },

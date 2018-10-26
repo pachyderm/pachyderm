@@ -98,7 +98,11 @@ func ByteRangeSize(byteRange *pfs.ByteRange) uint64 {
 	return byteRange.Upper - byteRange.Lower
 }
 
-var commitNotFoundRe = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
+var (
+	commitNotFoundRe = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
+	commitDeletedRe  = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
+	commitFinishedRe = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
+)
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
 // ErrCommitNotFound
@@ -109,8 +113,6 @@ func IsCommitNotFoundErr(err error) bool {
 	return commitNotFoundRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }
 
-var commitDeletedRe = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
-
 // IsCommitDeletedErr returns true if 'err' has an error message that matches
 // ErrCommitDeleted
 func IsCommitDeletedErr(err error) bool {
@@ -118,4 +120,13 @@ func IsCommitDeletedErr(err error) bool {
 		return false
 	}
 	return commitDeletedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
+}
+
+// IsCommitFinishedErr returns true of 'err' has an error message that matches
+// ErrCommitFinished
+func IsCommitFinishedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return commitFinishedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
 }

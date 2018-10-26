@@ -85,10 +85,10 @@ func Serve(
 			_, certPathStatErr := os.Stat(certPath)
 			_, keyPathStatErr := os.Stat(keyPath)
 			if certPathStatErr != nil {
-				log.Warnf("TLS enabled but could not stat public cert at %s: %e", certPath, certPathStatErr)
+				log.Warnf("TLS disabled: could not stat public cert at %s: %v", certPath, certPathStatErr)
 			}
 			if keyPathStatErr != nil {
-				log.Warnf("TLS enabled but could not stat private key at %s: %e", keyPath, keyPathStatErr)
+				log.Warnf("TLS disabled: could not stat private key at %s: %v", keyPath, keyPathStatErr)
 			}
 			if certPathStatErr == nil && keyPathStatErr == nil {
 				// Read TLS cert and key

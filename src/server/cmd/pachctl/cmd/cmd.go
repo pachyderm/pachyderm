@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -197,6 +198,10 @@ Environment variables:
 	for _, cmd := range adminCmds {
 		rootCmd.AddCommand(cmd)
 	}
+	debugCmds := debugcmds.Cmds(&noMetrics)
+	for _, cmd := range debugCmds {
+		rootCmd.AddCommand(cmd)
+	}
 
 	var clientOnly bool
 	versionCmd := &cobra.Command{
@@ -315,6 +320,7 @@ This resets the cluster to its initial state.`,
 		}),
 	}
 	var port int
+	var samlPort int
 	var uiPort int
 	var uiWebsocketPort int
 	var kubeCtlFlags string
@@ -361,6 +367,21 @@ kubectl %s port-forward "$pod" %d:650
 			})
 
 			eg.Go(func() error {
+				fmt.Println("Forwarding the SAML ACS port...")
+				stdin := strings.NewReader(fmt.Sprintf(`
+pod=$(kubectl %s get pod -l suite=pachyderm,app=pachd  --output='jsonpath={.items[0].metadata.name}')
+kubectl %s port-forward "$pod" %d:654
+`, kubeCtlFlags, kubeCtlFlags, samlPort))
+				if err := cmdutil.RunIO(cmdutil.IO{
+					Stdin:  stdin,
+					Stderr: os.Stderr,
+				}, "sh"); err != nil {
+					return fmt.Errorf("Could not forward Pachyderm SAML ACS port")
+				}
+				return nil
+			})
+
+			eg.Go(func() error {
 				stdin := strings.NewReader(fmt.Sprintf(`
 pod=$(kubectl %s get pod -l app=dash --output='jsonpath={.items[0].metadata.name}')
 kubectl %s port-forward "$pod" %d:8080
@@ -368,7 +389,8 @@ kubectl %s port-forward "$pod" %d:8080
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
-					return fmt.Errorf("Could not forward dash websocket port")
+					fmt.Fprintf(os.Stderr, "Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
+					return fmt.Errorf("Could not forward dash UI port")
 				}
 				return nil
 			})
@@ -382,8 +404,7 @@ kubectl %v port-forward "$pod" %d:8081
 				if err := cmdutil.RunIO(cmdutil.IO{
 					Stdin: stdin,
 				}, "sh"); err != nil {
-					fmt.Printf("Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
-					return fmt.Errorf("Could not forward dash UI port")
+					return fmt.Errorf("Could not forward dash websocket port")
 				}
 				return nil
 			})
@@ -394,32 +415,12 @@ kubectl %v port-forward "$pod" %d:8081
 			return eg.Wait()
 		}),
 	}
-	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind to.")
-	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind to.")
+	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
+	portForward.Flags().IntVar(&samlPort, "saml-port", 30654, "The local port to bind pachd's SAML ACS to.")
+	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
+	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
-
-	garbageCollect := &cobra.Command{
-		Use:   "garbage-collect",
-		Short: "Garbage collect unused data.",
-		Long: `Garbage collect unused data.
-
-When a file/commit/repo is deleted, the data is not immediately removed from the underlying storage system (e.g. S3) for performance and architectural reasons.  This is similar to how when you delete a file on your computer, the file is not necessarily wiped from disk immediately.
-
-To actually remove the data, you will need to manually invoke garbage collection.  The easiest way to do it is through "pachctl garbage-collect".
-
-Currently "pachctl garbage-collect" can only be started when there are no active jobs running.  You also need to ensure that there's no ongoing "put-file".  Garbage collection puts the cluster into a readonly mode where no new jobs can be created and no data can be added.
-`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := client.NewOnUserMachine(!noMetrics, "user")
-			if err != nil {
-				return err
-			}
-
-			return client.GarbageCollect()
-		}),
-	}
 
 	completion := &cobra.Command{
 		Use:   "completion",
@@ -449,7 +450,6 @@ Currently "pachctl garbage-collect" can only be started when there are no active
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(deleteAll)
 	rootCmd.AddCommand(portForward)
-	rootCmd.AddCommand(garbageCollect)
 	rootCmd.AddCommand(completion)
 	return rootCmd, nil
 }
