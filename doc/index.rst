@@ -54,7 +54,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     deployment/openshift
     deployment/on_premises
     deployment/custom_object_stores
-    deplotmant/aws_cloudfront
+    deployment/aws_cloudfront
     deployment/upgrading
     deployment/migrations
     deployment/namespaces
