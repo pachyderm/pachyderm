@@ -752,7 +752,7 @@ func TestSAMLBasic(t *testing.T) {
 	require.NotEqual(t, "", otp)
 	newClient := getPachClient(t, "")
 	authResp, err := newClient.Authenticate(newClient.Ctx(), &auth.AuthenticateRequest{
-		PachAuthenticationCode: otp,
+		OneTimePassword: otp,
 	})
 	require.NoError(t, err)
 	newClient.SetAuthToken(authResp.PachToken)

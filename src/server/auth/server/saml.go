@@ -432,7 +432,7 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, strin
 	if a.configCache.SAMLSvc.SessionDuration != 0 {
 		expiration = time.Now().Add(a.configCache.SAMLSvc.SessionDuration)
 	}
-	authCode, err := a.getAuthenticationCode(req.Context(), subject, expiration)
+	authCode, err := a.getOneTimePassword(req.Context(), subject, expiration)
 	if err != nil {
 		return "", "", errutil.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
