@@ -20,12 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
-import (
-	"github.com/beevik/etree"
-)
-
-var dbgLog = logrus.New()
-
 // canonicalConfig contains the values specified in an auth.AuthConfig proto
 // message, but as structured Go types. This is populated and returned by
 // validateConfig
@@ -417,14 +411,6 @@ func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, strin
 		}
 		return "", "", errutil.NewHTTPError(http.StatusBadRequest, errMsg)
 	}
-
-	/* >>> */
-	doc := etree.NewDocument()
-	doc.Element = *assertion.Element().Copy()
-	doc.Indent(2)
-	str, err := doc.WriteToString()
-	fmt.Printf("SAML assertion:\n%s\n(err: %v)\n", str, err)
-	/* >>> */
 
 	// Make sure all the fields we need are present (avoid segfault)
 	switch {

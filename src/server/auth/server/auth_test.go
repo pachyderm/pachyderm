@@ -1246,12 +1246,14 @@ func TestUpdatePipelineResetsPrivileges(t *testing.T) {
 		"", // default output branch: master
 		true,
 	))
+	_, err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
+	require.NoError(t, err)
 	iter, err = aliceClient.FlushCommit(
 		[]*pfs.Commit{client.NewCommit(repo, "master")},
 		[]*pfs.Repo{client.NewRepo(pipeline)},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 90*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
