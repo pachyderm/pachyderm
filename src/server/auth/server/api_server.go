@@ -1302,7 +1302,7 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *authclien
 	// Get scope based on user's direct access
 	scope := acl.Entries[subject]
 
-	// Expand scope based on based on group access
+	// Expand scope based on group access
 	groups, err := a.getGroups(ctx, subject)
 	if err != nil {
 		return authclient.Scope_NONE, fmt.Errorf("could not retrieve caller's "+
