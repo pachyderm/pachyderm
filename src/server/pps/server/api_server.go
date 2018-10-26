@@ -579,10 +579,36 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // ListJobStream. When ListJob is removed, this should be inlined into
 // ListJobStream.
 func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline, outputCommit *pfs.Commit, inputCommits []*pfs.Commit, f func(*pps.JobInfo) error) error {
-	if err := checkLoggedIn(pachClient); err != nil {
+	authIsActive := true
+	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if auth.IsErrNotActivated(err) {
+		authIsActive = false
+	} else if err != nil {
 		return err
 	}
-	var err error
+	if authIsActive && pipeline != nil {
+		// If 'pipeline is set, check that caller has access to the pipeline's
+		// output repo; currently, that's all that's required for ListJob.
+		//
+		// If 'pipeline' isn't set, then we don't return an error (otherwise, a
+		// caller without access to a single pipeline's output repo couldn't run
+		// `pachctl list-job` at all) and instead silently skip jobs where the user
+		// doesn't have access to the job's output repo.
+		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
+			Repo:  pipeline.Name,
+			Scope: auth.Scope_READER,
+		})
+		if err != nil {
+			return err
+		}
+		if !resp.Authorized {
+			return &auth.ErrNotAuthorized{
+				Subject:  me.Username,
+				Repo:     pipeline.Name,
+				Required: auth.Scope_READER,
+			}
+		}
+	}
 	if outputCommit != nil {
 		outputCommit, err = a.resolveCommit(pachClient, outputCommit)
 		if err != nil {
@@ -601,7 +627,13 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr)
 		if err != nil {
 			if isNotFoundErr(err) {
+				// This can happen if a user deletes an upstream commit and thereby
+				// deletes this job's output commit, but doesn't delete the etcdJobInfo.
+				// In this case, the job is effectively deleted, but isn't removed from
+				// etcd yet.
 				return nil
+			} else if auth.IsErrNotAuthorized(err) {
+				return nil // skip job--see note under 'authIsActive && pipeline != nil'
 			}
 			return err
 		}
