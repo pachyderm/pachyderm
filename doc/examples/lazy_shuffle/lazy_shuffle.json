@@ -1,0 +1,35 @@
+{
+  "input": {
+    "union": [
+      {
+        "atom": {
+          "glob": "/*.jpeg",
+          "repo": "fruits",
+          "lazy": true
+        }
+      },
+      {
+        "atom": {
+          "glob": "/*.json",
+          "repo": "pricing",
+          "lazy": true
+        }
+      }
+    ]
+  },
+  "pipeline": {
+    "name": "lazy_shuffle"
+  },
+  "transform": {
+    "image": "ubuntu",
+    "cmd": ["/bin/bash"],
+    "stdin": [
+      "echo 'process fruits if any'",
+      "fn=$(find  -L /pfs -not -path \"*/\\.*\"  -type p \\( -path '*/fruits/*' \\))",
+      "for f in $fn; do fruit_name=$(basename $f .jpeg); mkdir -p /pfs/out/$fruit_name/; ln -s $f /pfs/out/$fruit_name/img.jpeg; done",
+      "echo 'process pricing if any'",
+      "fn=$(find  -L /pfs -not -path \"*/\\.*\"  -type p \\( -path '*/pricing/*' \\))",
+      "for f in $fn; do fruit_name=$(basename $f .json); mkdir -p /pfs/out/$fruit_name/; ln -s $f /pfs/out/$fruit_name/cost.json; done"
+    ]
+  }
+}

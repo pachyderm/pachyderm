@@ -26,7 +26,7 @@ ln -s /pfs/input/log.txt /pfs/out/logs/log.txt
 
 Under the hood, Pachyderm is smart enough to recognize that the output file simply symlinks to a file that already exists in Pachyderm, and therefore skips the upload altogether.
 
-Note that if your shuffling pipeline only needs the names of the input files but not their content, you can use [`lazy input`](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#atom-input).  That way, your shuffling pipeline can skip both the download and the upload.
+Note that if your shuffling pipeline only needs the names of the input files but not their content, you can use [`lazy input`](http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#atom-input).  That way, your shuffling pipeline can skip both the download and the upload. An example for this type of shuffle pipeline is [here](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/lazy_shuffle)
 
 ## Garbage collection
 
