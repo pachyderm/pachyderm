@@ -1054,14 +1054,15 @@ func TestPipelineRevoke(t *testing.T) {
 		entries(bob, "owner", pl(pipeline), "writer"), GetACL(t, bobClient, pipeline))
 	// bob adds alice as a reader of the pipeline's output repo, so alice can
 	// flush input commits (which requires her to inspect commits in the output)
+	// and update the pipeline
 	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     pipeline,
 		Username: alice,
-		Scope:    auth.Scope_READER,
+		Scope:    auth.Scope_WRITER,
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(bob, "owner", alice, "reader", pl(pipeline), "writer"),
+		entries(bob, "owner", alice, "writer", pl(pipeline), "writer"),
 		GetACL(t, bobClient, pipeline))
 
 	// alice commits to the input repo, and the pipeline runs successfully
@@ -1073,7 +1074,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]*pfs.Repo{client.NewRepo(pipeline)},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -1096,7 +1097,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]*pfs.Repo{client.NewRepo(pipeline)},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -1124,7 +1125,37 @@ func TestPipelineRevoke(t *testing.T) {
 	select {
 	case <-doneCh:
 		t.Fatal("pipeline should not be able to finish with no access")
-	case <-time.After(30 * time.Second):
+	case <-time.After(45 * time.Second):
+	}
+
+	// alice updates bob's pipline, but the pipeline still doesn't run
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		true,
+	))
+	_, err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
+	require.NoError(t, err)
+	doneCh = make(chan struct{})
+	go func() {
+		iter, err = aliceClient.FlushCommit(
+			[]*pfs.Commit{client.NewCommit(repo, "master")},
+			[]*pfs.Repo{client.NewRepo(pipeline)},
+		)
+		require.NoError(t, err)
+		_, err = iter.Next()
+		require.NoError(t, err)
+		close(doneCh)
+	}()
+	select {
+	case <-doneCh:
+		t.Fatal("pipeline should not be able to finish with no access")
+	case <-time.After(45 * time.Second):
 	}
 
 	// alice restores the pipeline's access to its input repo, and now the
@@ -1139,121 +1170,7 @@ func TestPipelineRevoke(t *testing.T) {
 		[]*pfs.Repo{client.NewRepo(pipeline)},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := iter.Next()
-		return err
-	})
-}
-
-// TestUpdatePipelineResetsPrivileges tests that if a pipeline's access to one
-// of its inputs is revoked, updating that pipeline will restore its access
-// (because CreatePipeline resets the pipeline's permissions on its input and
-// output repos)
-func TestUpdatePipelineResetsPrivileges(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	deleteAll(t)
-	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
-	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
-
-	// alice creates a repo, and adds bob as a reader
-	repo := tu.UniqueString("TestPipelineRevoke")
-	require.NoError(t, aliceClient.CreateRepo(repo))
-	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: bob,
-		Scope:    auth.Scope_READER,
-	})
-	require.NoError(t, err)
-	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo))
-
-	// bob creates a pipeline
-	pipeline := tu.UniqueString("bob-pipeline")
-	require.NoError(t, bobClient.CreatePipeline(
-		pipeline,
-		"", // default image: ubuntu:16.04
-		[]string{"bash"},
-		[]string{"cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
-		"", // default output branch: master
-		false,
-	))
-	require.ElementsEqual(t,
-		entries(bob, "owner", pl(pipeline), "writer"), GetACL(t, bobClient, pipeline))
-	// bob adds alice as a writer of the pipeline's output repo, so alice can
-	// flush input commits (which requires her to inspect commits in the output)
-	// and update the pipeline
-	_, err = bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     pipeline,
-		Username: alice,
-		Scope:    auth.Scope_WRITER,
-	})
-	require.NoError(t, err)
-	require.ElementsEqual(t,
-		entries(bob, "owner", alice, "writer", pl(pipeline), "writer"),
-		GetACL(t, bobClient, pipeline))
-
-	// alice commits to the input repo, and the pipeline runs successfully
-	require.NoError(t, err)
-	_, err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
-	require.NoError(t, err)
-	iter, err := bobClient.FlushCommit(
-		[]*pfs.Commit{client.NewCommit(repo, "master")},
-		[]*pfs.Repo{client.NewRepo(pipeline)},
-	)
-	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
-		_, err := iter.Next()
-		return err
-	})
-
-	// alice revokes the pipeline's access to 'repo', and the pipeline stops
-	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
-		Repo:     repo,
-		Username: pl(pipeline),
-		Scope:    auth.Scope_NONE,
-	})
-	_, err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
-	require.NoError(t, err)
-	doneCh := make(chan struct{})
-	go func() {
-		iter, err = aliceClient.FlushCommit(
-			[]*pfs.Commit{client.NewCommit(repo, "master")},
-			[]*pfs.Repo{client.NewRepo(pipeline)},
-		)
-		require.NoError(t, err)
-		_, err = iter.Next()
-		require.NoError(t, err)
-		close(doneCh)
-	}()
-	select {
-	case <-doneCh:
-		t.Fatal("pipeline should not be able to finish with no access")
-	case <-time.After(30 * time.Second):
-	}
-
-	// alice updates bob's pipline, and now the pipeline runs successfully
-	require.NoError(t, aliceClient.CreatePipeline(
-		pipeline,
-		"", // default image: ubuntu:16.04
-		[]string{"bash"},
-		[]string{"cp /pfs/*/* /pfs/out/"},
-		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
-		"", // default output branch: master
-		true,
-	))
-	_, err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
-	require.NoError(t, err)
-	iter, err = aliceClient.FlushCommit(
-		[]*pfs.Commit{client.NewCommit(repo, "master")},
-		[]*pfs.Repo{client.NewRepo(pipeline)},
-	)
-	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
@@ -1799,7 +1716,7 @@ func TestListDatum(t *testing.T) {
 		[]*pfs.Repo{client.NewRepo(pipeline)},
 	)
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 60*time.Second, func() error {
+	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})
