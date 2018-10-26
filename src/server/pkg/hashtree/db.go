@@ -165,7 +165,6 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
-// (bryce) This get implementation is very naive and will be changed later.
 func Get(rs []*Reader, filePath string) (*NodeProto, error) {
 	filePath = clean(filePath)
 	var fileNode *NodeProto
