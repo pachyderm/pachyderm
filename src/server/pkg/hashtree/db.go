@@ -31,7 +31,7 @@ const (
 	perm                    = 0666
 	DefaultBufSize          = 5 * (1 << (10 * 2))
 	DefaultMergeConcurrency = 10
-	IndexPath               = "/index"
+	IndexPath               = "-index"
 	IndexSize               = uint64(1 << (10 * 2))
 )
 

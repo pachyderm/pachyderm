@@ -2284,7 +2284,7 @@ func (d *driver) downloadTree(ctx context.Context, pachClient *client.APIClient,
 }
 
 func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
-	p := filepath.Join(path, hashtree.IndexPath)
+	p := path + hashtree.IndexPath
 	r, err := objClient.Reader(p, 0, 0)
 	if err != nil {
 		return 0, 0, err
