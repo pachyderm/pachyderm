@@ -1668,11 +1668,8 @@ func TestListDatum(t *testing.T) {
 	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
 
-	// bob cannot call ListJob or ListDatum
+	// bob cannot call ListDatum
 	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
-	require.YesError(t, err)
-	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-	_, err = bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
@@ -1734,6 +1731,101 @@ func TestListDatum(t *testing.T) {
 		"file1": struct{}{},
 		"file2": struct{}{},
 	}, files)
+}
+
+// TestListJob tests that you must have READER access to a pipeline's output
+// repo to call ListJob on that pipeline, but a blank ListJob always succeeds
+// (but doesn't return a given job if you don't have access to the job's output
+// repo)
+func TestListJob(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// alice creates a repo
+	repo := tu.UniqueString("TestListJob")
+	require.NoError(t, aliceClient.CreateRepo(repo))
+
+	// alice creates a pipeline
+	pipeline := tu.UniqueString("alice-pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// alice commits to the input repos, and the pipeline runs successfully
+	var err error
+	_, err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
+	require.NoError(t, err)
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)},
+	)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobID := jobs[0].Job.ID
+
+	// bob cannot call ListJob on 'pipeline'
+	_, err = bobClient.ListJob(pipeline, nil, nil)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	// bob can call blank ListJob, but gets no results
+	jobs, err = bobClient.ListJob("", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(jobs))
+
+	// alice adds bob to repo, but bob still can't call ListJob on 'pipeline' or
+	// get any output
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_READER,
+		Repo:     repo,
+	})
+	require.NoError(t, err)
+	_, err = bobClient.ListJob(pipeline, nil, nil)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	jobs, err = bobClient.ListJob("", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(jobs))
+
+	// alice removes bob from repo and adds bob to 'pipeline', and now bob can
+	// call listJob on 'pipeline', and gets results back from blank listJob
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_NONE,
+		Repo:     repo,
+	})
+	require.NoError(t, err)
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_READER,
+		Repo:     pipeline,
+	})
+	require.NoError(t, err)
+	jobs, err = bobClient.ListJob(pipeline, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	require.Equal(t, jobID, jobs[0].Job.ID)
+	jobs, err = bobClient.ListJob("", nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	require.Equal(t, jobID, jobs[0].Job.ID)
 }
 
 // TestInspectDatum tests InspectDatum runs even when auth is activated
