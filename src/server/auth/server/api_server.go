@@ -1181,7 +1181,7 @@ func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 		return true, nil
 	}
 
-	// Get scope based on based on group access
+	// Get scope based on group access
 	groups, err := a.getGroups(ctx, subject)
 	if err != nil {
 		return false, fmt.Errorf("could not retrieve caller's group memberships: %v", err)
