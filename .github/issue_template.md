@@ -11,13 +11,9 @@ Slack: http://slack.pachyderm.io/
 
 **What is the goal / desired outcome?**
 
-As a user, I want to be able to accomplish some goal ...
-
-**What is your proposal for a feature to solve this?**
-
-Detailed description of how this feature would work ...
-
 **If there is a way to accomplish this today via workaround, what does that require?**
+
+**(Optional) What is your proposal for a feature to solve this?**
 
 <!-- If the ask is specific to a version of k8s, cloud provider, etc, please provide these details -->
 **Environment?**:
