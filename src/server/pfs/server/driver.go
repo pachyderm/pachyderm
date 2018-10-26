@@ -2398,6 +2398,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
+	if commitInfo.Trees == nil {
+		return nil
+	}
 	var rs []*hashtree.Reader
 	var cleanup func() error
 	// Handles the case when looking for a specific file/directory
@@ -2496,6 +2499,9 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileI
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
+	if commitInfo.Trees == nil {
+		return nil
+	}
 	rs, cleanup, err := d.getTree(ctx, commitInfo, file.Path)
 	if err != nil {
 		return nil, err
@@ -2551,6 +2557,9 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
+	if commitInfo.Trees == nil {
+		return nil
+	}
 	rs, cleanup, err := d.getTrees(ctx, commitInfo, file.Path)
 	if err != nil {
 		return err
@@ -2589,6 +2598,9 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
+	if commitInfo.Trees == nil {
+		return nil
+	}
 	rs, cleanup, err := d.getTrees(ctx, commitInfo, file.Path)
 	if err != nil {
 		return err
@@ -2626,6 +2638,9 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 	// Handle commits to output repos
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
+	}
+	if commitInfo.Trees == nil {
+		return nil
 	}
 	var rs []*hashtree.Reader
 	var cleanup func() error
