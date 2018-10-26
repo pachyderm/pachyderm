@@ -826,3 +826,82 @@ func TestGroupsBasic(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "file contents", buf.String())
 }
+
+// TestConfigDeadlock tests that Pachyderm's SAML endpoint releases Pachyderm's
+// config mutex (a bug fix)
+func TestConfigDeadlock(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	adminClient := getPachClient(t, admin)
+
+	var (
+		pachdSAMLAddress = tu.GetACSAddress(t, adminClient.GetAddress())
+		pachdACSURL      = fmt.Sprintf("http://%s/saml/acs", pachdSAMLAddress)
+		pachdMetadataURL = fmt.Sprintf("http://%s/saml/metadata", pachdSAMLAddress)
+	)
+	testIDP := tu.NewTestIDP(t, pachdACSURL, pachdMetadataURL)
+
+	// Get current configuration, and then set a configuration (this may need to
+	// be retried if e.g. scraping metadata fails)
+	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: &auth.AuthConfig{
+			LiveConfigVersion: configResp.Configuration.LiveConfigVersion,
+			IDProviders: []*auth.IDProvider{
+				{
+					Name:        "idp_1",
+					Description: "fake IdP for testing",
+					SAML: &auth.IDProvider_SAMLOptions{
+						MetadataXML:    testIDP.Metadata(),
+						GroupAttribute: "memberOf",
+					},
+				},
+			},
+			SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+				ACSURL:      pachdACSURL,
+				MetadataURL: pachdMetadataURL,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	// Send a SAMLResponse to Pachyderm
+	alice, group := tu.UniqueString("alice"), tu.UniqueString("group")
+	aliceClient := getPachClient(t, "") // empty string b/c want anon client
+	tu.AuthenticateWithSAMLResponse(t, aliceClient, testIDP.NewSAMLResponse(alice, group))
+	who, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, "idp_1:"+alice, who.Username)
+
+	// get/set Pachyderm's configuration again, to make sure the config mutex has
+	// been released
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		configResp, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+		if err != nil {
+			return err
+		}
+		_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+			Configuration: &auth.AuthConfig{
+				LiveConfigVersion: configResp.Configuration.LiveConfigVersion,
+				IDProviders: []*auth.IDProvider{
+					{
+						Name:        "idp_2",
+						Description: "fake IdP for testing",
+						SAML: &auth.IDProvider_SAMLOptions{
+							MetadataXML:    testIDP.Metadata(),
+							GroupAttribute: "memberOf",
+						},
+					},
+				},
+				SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+					ACSURL:      pachdACSURL,
+					MetadataURL: pachdMetadataURL,
+				},
+			},
+		})
+		return err
+	})
+}
