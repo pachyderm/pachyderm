@@ -1,6 +1,6 @@
 ## Overview
 
-This guide will walk through testing Pachyderm's experimental SAML support.
+This guide will walk through using Pachyderm's SAML support.
 These features aren't integrated into mainline Pachyderm yet and aren't
 available in any official releases. This will describe the process of:
 
@@ -12,8 +12,8 @@ available in any official releases. This will describe the process of:
 
 ## Activation
 
-For testing, we **highly** recomment running Pachyderm in Minikube, in case any
-early bugs make it necessary to restart the cluster.
+When starting out, we **highly** recommend running Pachyderm in Minikube, in case
+any configuration bugs make it necessary to restart the cluster.
 
 To activate Pachyderm enterprise and Pachyderm auth:
 
@@ -24,10 +24,10 @@ pachctl auth activate --initial-admin=robot:admin
 
 At this point, Pachyderm is ready to authenticate & authorize users.
 
-What the `--initial-admin` flag does is:
+What the `--initial-admin` flag does is this:
 1. Pachyderm requires there to be at least one cluster admin if auth is
    activated
-1. Pachyderm's authentication is build around GitHub by default. Without this
+1. Pachyderm's authentication is built around GitHub by default. Without this
    flag, Pachyderm asks the caller to go through an OAuth flow with GitHub, and
    then at the conclusion, makes the caller the cluster admin. Then whoever
    activated Pachyderm's auth system can modify it by re-authenticating via
@@ -74,7 +74,7 @@ pachctl auth set-config <<EOF
       "description": "Okta test app",
       "saml": {
         "metadata_url": <okta app metadata URL>,
-        "group_attribute": "memberOf" # optional: enable experimental group support
+        "group_attribute": "memberOf" # optional: enable group support
       }
     }
   ],
@@ -102,27 +102,8 @@ This should allow you to log in at the Pachyderm dash. To log in with the
 Pachyderm CLI, get a One-Time Password from the Pachyderm dash, and then
 run `pachctl auth login --code=<one-time password>` in your terminal.
 
-## Other features
-### Debug Logging
-If we run into issues while deploying this, it may be useful to enable
-a collection of debug logs that we added during development. To do so,
-add the option `"debug_logging": true` to `"saml_svc_options"`:
-```
-pachctl auth set-config <<EOF
-{
-  ...
-  "saml_svc_options": {
-    ...
-    "debug_logging": true
-  }
-}
-EOF
-```
-
 ### Groups
-Pachyderm has very preliminary, experimental support for groups. While they won't
-appear in ACLs in the dash (and may have other issues), you can experiment using
-the CLI by setting `"group_attribute"` in the IDProvider field of the auth config:
+If your SAML ID provider supports setting group attributes, you can use groups to manage access in Pachyderm with the `"group_attribute"` in the IDProvider field of the auth config:
 ```
 pachctl auth set-config <<EOF
 {
