@@ -2490,7 +2490,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
 }
 
-func TestAuthenticationCode(t *testing.T) {
+func TestOneTimePassword(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2498,12 +2498,12 @@ func TestAuthenticationCode(t *testing.T) {
 
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
-	codeResp, err := aliceClient.GetAuthenticationCode(aliceClient.Ctx(),
-		&auth.GetAuthenticationCodeRequest{})
+	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{})
 	require.NoError(t, err)
 
 	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
-		PachAuthenticationCode: codeResp.Code,
+		OneTimePassword: codeResp.Code,
 	})
 	require.NoError(t, err)
 	anonClient.SetAuthToken(authResp.PachToken)
@@ -2512,7 +2512,23 @@ func TestAuthenticationCode(t *testing.T) {
 	require.Equal(t, auth.GitHubPrefix+alice, whoAmIResp.Username)
 }
 
-func TestAuthenticationCodeExpires(t *testing.T) {
+func TestOneTimePasswordOtherUserError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient := getPachClient(t, alice)
+	_, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{
+			Subject: bob,
+		})
+	require.YesError(t, err)
+	require.Matches(t, "GetOneTimePassword", err.Error())
+}
+
+func TestOneTimePasswordExpires(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2520,13 +2536,13 @@ func TestAuthenticationCodeExpires(t *testing.T) {
 
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
-	codeResp, err := aliceClient.GetAuthenticationCode(aliceClient.Ctx(),
-		&auth.GetAuthenticationCodeRequest{})
+	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(),
+		&auth.GetOneTimePasswordRequest{})
 	require.NoError(t, err)
 
 	time.Sleep(time.Duration(defaultAuthCodeTTLSecs+1) * time.Second)
 	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
-		PachAuthenticationCode: codeResp.Code,
+		OneTimePassword: codeResp.Code,
 	})
 	require.YesError(t, err)
 	require.Nil(t, authResp)

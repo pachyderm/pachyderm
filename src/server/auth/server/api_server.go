@@ -55,7 +55,7 @@ const (
 	defaultSAMLTTLSecs  = 24 * 60 * 60      // 24 hours
 
 	// defaultAuthCodeTTLSecs is the lifetime of an Authentication Code from
-	// GetAuthenticationCode
+	// GetOneTimePassword
 	defaultAuthCodeTTLSecs = 120
 
 	// magicUser is a special, unrevokable cluster administrator. It's not
@@ -879,11 +879,11 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 			return nil, fmt.Errorf("error storing auth token for user \"%s\": %v", username, err)
 		}
 
-	case req.PachAuthenticationCode != "":
+	case req.OneTimePassword != "":
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			// read short-lived authentication code (and delete it if found)
 			codes := a.authenticationCodes.ReadWrite(stm)
-			key := hashToken(req.PachAuthenticationCode)
+			key := hashToken(req.OneTimePassword)
 			var otpInfo authclient.OTPInfo
 			if err := codes.Get(key, &otpInfo); err != nil {
 				return err
@@ -945,7 +945,7 @@ func (a *apiServer) getCallerTTL(ctx context.Context) (int64, error) {
 	return ttl, nil
 }
 
-func (a *apiServer) GetAuthenticationCode(ctx context.Context, req *authclient.GetAuthenticationCodeRequest) (resp *authclient.GetAuthenticationCodeResponse, retErr error) {
+func (a *apiServer) GetOneTimePassword(ctx context.Context, req *authclient.GetOneTimePasswordRequest) (resp *authclient.GetOneTimePasswordResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -997,7 +997,7 @@ func (a *apiServer) GetAuthenticationCode(ctx context.Context, req *authclient.G
 		if !isAdmin && req.Subject != callerInfo.Subject {
 			return nil, &authclient.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
-				AdminOp: "GetAuthenticationCode on behalf of another user",
+				AdminOp: "GetOneTimePassword on behalf of another user",
 			}
 		}
 	}
@@ -1029,20 +1029,20 @@ func (a *apiServer) GetAuthenticationCode(ctx context.Context, req *authclient.G
 	}
 
 	// Generate authentication code with same (or slightly shorter) expiration
-	code, err := a.getAuthenticationCode(ctx, req.Subject, expiration)
+	code, err := a.getOneTimePassword(ctx, req.Subject, expiration)
 	if err != nil {
 		return nil, err
 	}
-	return &authclient.GetAuthenticationCodeResponse{
+	return &authclient.GetOneTimePasswordResponse{
 		Code: code,
 	}, nil
 }
 
-// getAuthenticationCode contains the implementation of GetAuthenticationCode,
+// getOneTimePassword contains the implementation of GetOneTimePassword,
 // but is also called directly by handleSAMLREsponse. It generates a
 // short-lived authentication code for 'username', writes it to
 // a.authenticationCodes, and returns it
-func (a *apiServer) getAuthenticationCode(ctx context.Context, username string, expiration time.Time) (code string, err error) {
+func (a *apiServer) getOneTimePassword(ctx context.Context, username string, expiration time.Time) (code string, err error) {
 	// Create OTPInfo that will be stored
 	otpInfo := &authclient.OTPInfo{
 		Subject: username,
@@ -1593,7 +1593,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		return nil, err
 	}
 
-	// TODO(msteffen): This code is duplicated here and in GetAuthenticationCode.
+	// TODO(msteffen): This code is duplicated here and in GetOneTimePassword.
 	// These two RPC handlers should probably be unified
 	// Canonicalize req.Subject, authorize caller
 	if req.Subject == "" {
@@ -1616,7 +1616,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		if !isAdmin && req.Subject != callerInfo.Subject {
 			return nil, &authclient.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
-				AdminOp: "GetAuthenticationCode on behalf of another user",
+				AdminOp: "GetOneTimePassword on behalf of another user",
 			}
 		}
 	}

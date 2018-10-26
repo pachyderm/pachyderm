@@ -164,7 +164,7 @@ func LoginCmd() *cobra.Command {
 				code = strings.TrimSpace(code) // drop trailing newline
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
-					&auth.AuthenticateRequest{PachAuthenticationCode: code})
+					&auth.AuthenticateRequest{OneTimePassword: code})
 			} else {
 				// Exchange GitHub token for Pachyderm token
 				token, err := githubLogin()

@@ -269,7 +269,7 @@ func AuthenticateWithSAMLResponse(t testing.TB, c *client.APIClient, samlRespons
 	require.NotEqual(t, "", otp)
 	authResp, err := c.Authenticate(c.Ctx(),
 		&auth.AuthenticateRequest{
-			PachAuthenticationCode: otp,
+			OneTimePassword: otp,
 		})
 	require.NoError(t, err)
 	c.SetAuthToken(authResp.PachToken)
