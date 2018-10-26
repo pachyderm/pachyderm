@@ -138,7 +138,6 @@ func DeactivateCmd() *cobra.Command {
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
 func LoginCmd() *cobra.Command {
-	var authCode string
 	var useOTP bool
 	login := &cobra.Command{
 		Use:   "login",
@@ -155,20 +154,14 @@ func LoginCmd() *cobra.Command {
 			// Issue authentication request to Pachyderm and get response
 			var resp *auth.AuthenticateResponse
 			var authErr error
-			if useOTP || authCode != "" {
-				var code string
-				if authCode == "" {
-					// Exhange short-lived Pachyderm auth code for long-lived Pachyderm token
-					fmt.Println("Please enter your Pachyderm One-Time Password:")
-					var err error
-					code, err = bufio.NewReader(os.Stdin).ReadString('\n')
-					if err != nil {
-						return fmt.Errorf("error reading One-Time Password: %v", err)
-					}
-					code = strings.TrimSpace(code) // drop trailing newline
-				} else {
-					code = authCode
+			if useOTP {
+				// Exhange short-lived Pachyderm auth code for long-lived Pachyderm token
+				fmt.Println("Please enter your Pachyderm One-Time Password:")
+				code, err := bufio.NewReader(os.Stdin).ReadString('\n')
+				if err != nil {
+					return fmt.Errorf("error reading One-Time Password: %v", err)
 				}
+				code = strings.TrimSpace(code) // drop trailing newline
 				resp, authErr = c.Authenticate(
 					c.Ctx(),
 					&auth.AuthenticateRequest{PachAuthenticationCode: code})
@@ -197,14 +190,9 @@ func LoginCmd() *cobra.Command {
 			return writePachTokenToCfg(resp.PachToken)
 		}),
 	}
-	login.PersistentFlags().BoolVarP(&useOTP, "otp", "o", false, "If set, "+
-		"authenticate with a Dash-provided One-Time Password, rather than via "+
-		"GitHub(similar to --code, one will be removed in the next point "+
-		"release, but we're not sure which)")
-	login.PersistentFlags().StringVar(&authCode, "code", "", "If set, "+
-		"authenticate with the given Dash-provided One-Time Password, rather "+
-		"than via GitHub (similar to --otp, one will be removed in the next "+
-		"point release, but we're not sure which)")
+	login.PersistentFlags().BoolVarP(&useOTP, "one-time-password", "o", false,
+		"If set, authenticate with a Dash-provided One-Time Password, rather than "+
+			"via GitHub")
 	return login
 }
 
