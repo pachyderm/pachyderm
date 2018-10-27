@@ -1297,7 +1297,7 @@ func (m *OverwriteIndex) GetIndex() int64 {
 	return 0
 }
 
-// Create separate pb object so we can distinguish between cases where header/footer
+// Metadata struct allows us to distinguish between cases where header/footer
 // are not specified vs explicitly empty
 type Metadata struct {
 	Value []byte `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`

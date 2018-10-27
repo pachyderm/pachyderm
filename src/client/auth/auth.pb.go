@@ -22,6 +22,7 @@
 		GetAdminsResponse
 		ModifyAdminsRequest
 		ModifyAdminsResponse
+		OTPInfo
 		TokenInfo
 		AuthenticateRequest
 		AuthenticateResponse
@@ -55,8 +56,8 @@
 		GetGroupsResponse
 		GetUsersRequest
 		GetUsersResponse
-		GetAuthenticationCodeRequest
-		GetAuthenticationCodeResponse
+		GetOneTimePasswordRequest
+		GetOneTimePasswordResponse
 */
 package auth
 
@@ -64,6 +65,7 @@ import proto "github.com/golang/protobuf/proto"
 import fmt "fmt"
 import math "math"
 import _ "github.com/gogo/protobuf/gogoproto"
+import google_protobuf1 "github.com/gogo/protobuf/types"
 
 import context "golang.org/x/net/context"
 import grpc "google.golang.org/grpc"
@@ -133,7 +135,7 @@ var TokenInfo_TokenSource_value = map[string]int32{
 func (x TokenInfo_TokenSource) String() string {
 	return proto.EnumName(TokenInfo_TokenSource_name, int32(x))
 }
-func (TokenInfo_TokenSource) EnumDescriptor() ([]byte, []int) { return fileDescriptorAuth, []int{14, 0} }
+func (TokenInfo_TokenSource) EnumDescriptor() ([]byte, []int) { return fileDescriptorAuth, []int{15, 0} }
 
 // ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
 // GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
@@ -250,15 +252,21 @@ func (m *IDProvider) GetSAML() *IDProvider_SAMLOptions {
 // SAMLOptions describes a SAML-based identity provider
 type IDProvider_SAMLOptions struct {
 	// metadata_url is the URL of the SAML ID provider's metadata service
-	// (which Pachd can query to get more info about the SAML ID provider).
-	// Exactly one of metadata_url and idp_metadata should be set.
+	// (which Pachd can query to get more info about the SAML ID provider)
 	MetadataURL string `protobuf:"bytes,1,opt,name=metadata_url,json=metadataUrl,proto3" json:"metadata_url,omitempty"`
-	// idp_metadata is a direct reproduction of the ID provider's metadata.
-	// This may be useful if the ID provider can't be reached from pachd (e.g.
-	// because it's on a separate network to which Pachyderm users also have
-	// access) or for testing.
-	// Exactly one of metadata_url and idp_metadata should be set
-	IDPMetadata []byte `protobuf:"bytes,2,opt,name=idp_metadata,json=idpMetadata,proto3" json:"idp_metadata,omitempty"`
+	// metadata_xml is a direct reproduction of the ID provider's metadata.
+	// Users can set this field in the argument to SetConfig if the ID provider
+	// can't be reached from pachd (e.g. because it's on a separate network to
+	// which Pachyderm users also have access) or for testing.  Exactly one of
+	// metadata_url and metadata_xml should be set in calls to SetConfig, but
+	// internally, if metadata_url is set, the result of scraping the metadata
+	// URL will be placed here in the result from GetConfig().
+	MetadataXML []byte `protobuf:"bytes,2,opt,name=metadata_xml,json=metadataXml,proto3" json:"metadata_xml,omitempty"`
+	// If this ID provider supports sending group memberships via attribute,
+	// then users can set group_attribute to the SAML attribute that indicates
+	// group mmbership, and Pachyderm will update users' group memberships when
+	// they authenticate.
+	GroupAttribute string `protobuf:"bytes,3,opt,name=group_attribute,json=groupAttribute,proto3" json:"group_attribute,omitempty"`
 }
 
 func (m *IDProvider_SAMLOptions) Reset()                    { *m = IDProvider_SAMLOptions{} }
@@ -273,11 +281,18 @@ func (m *IDProvider_SAMLOptions) GetMetadataURL() string {
 	return ""
 }
 
-func (m *IDProvider_SAMLOptions) GetIDPMetadata() []byte {
+func (m *IDProvider_SAMLOptions) GetMetadataXML() []byte {
 	if m != nil {
-		return m.IDPMetadata
+		return m.MetadataXML
 	}
 	return nil
+}
+
+func (m *IDProvider_SAMLOptions) GetGroupAttribute() string {
+	if m != nil {
+		return m.GroupAttribute
+	}
+	return ""
 }
 
 // Configure Pachyderm's auth system (particularly authentication backends
@@ -328,17 +343,26 @@ type AuthConfig_SAMLServiceOptions struct {
 	// private cluster, the cluster admin would be responsible for setting up a
 	// domain name/proxy to resolve to pachd:654/acs
 	ACSURL string `protobuf:"bytes,1,opt,name=acs_url,json=acsUrl,proto3" json:"acs_url,omitempty"`
-	// sp_metadata is the URL of Pachd's SAML metadata service (Okta, and any
-	// other SAML ID provider, will query this for info about Pachyderm's
-	// ACS, and use it to idenfity Pachyderm as a service provider). If
-	// Pachyderm is running in a private cluster, the cluster admin would be
-	// responsible for setting up this URL (which must resolve to
-	// pachd:654/meta)
+	// metadata_url is the public URL of Pachd's SAML metadata service (some
+	// SAML ID providers will query this for information about Pachyderm's SAML
+	// implementation and use it to idenfity Pachyderm as a service provider).
+	// If Pachyderm is running in a private cluster, the cluster admin would be
+	// responsible for creating this URL (which must resolve to
+	// pachd:654/saml/metadata)
 	MetadataURL string `protobuf:"bytes,2,opt,name=metadata_url,json=metadataUrl,proto3" json:"metadata_url,omitempty"`
 	// dash_url is the public address of this cluster's Pachyderm
 	// dashboard, if one exists; this option determines where users will be
 	// redirected after successfully authenticating
 	DashURL string `protobuf:"bytes,3,opt,name=dash_url,json=dashUrl,proto3" json:"dash_url,omitempty"`
+	// session_duration determines the duration of SAML-IdP-authenticated user
+	// sessions (specified as a Golang time duration, e.g. "24h" or "600m"). If
+	// unset, user sessions last 24 hours (a short default, as SAML assertions
+	// may contain group memberships that need to be refreshed)
+	SessionDuration string `protobuf:"bytes,4,opt,name=session_duration,json=sessionDuration,proto3" json:"session_duration,omitempty"`
+	// debug_logging determines whether pachd emits verbose logs (including
+	// SAML credentials) as it receives them, which may be helpful for
+	// debugging. This will probably not be present in any official releases.
+	DebugLogging bool `protobuf:"varint,5,opt,name=debug_logging,json=debugLogging,proto3" json:"debug_logging,omitempty"`
 }
 
 func (m *AuthConfig_SAMLServiceOptions) Reset()         { *m = AuthConfig_SAMLServiceOptions{} }
@@ -367,6 +391,20 @@ func (m *AuthConfig_SAMLServiceOptions) GetDashURL() string {
 		return m.DashURL
 	}
 	return ""
+}
+
+func (m *AuthConfig_SAMLServiceOptions) GetSessionDuration() string {
+	if m != nil {
+		return m.SessionDuration
+	}
+	return ""
+}
+
+func (m *AuthConfig_SAMLServiceOptions) GetDebugLogging() bool {
+	if m != nil {
+		return m.DebugLogging
+	}
+	return false
 }
 
 type GetConfigurationRequest struct {
@@ -476,6 +514,39 @@ func (m *ModifyAdminsResponse) String() string            { return proto.Compact
 func (*ModifyAdminsResponse) ProtoMessage()               {}
 func (*ModifyAdminsResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{13} }
 
+// OTPInfo is the analogue of 'TokenInfo' for Authentication Codes (short-lived,
+// one-time-use codes that are passed to the frontend and then exchanged for
+// longer-lived tokens)
+type OTPInfo struct {
+	// Subject (i.e. Pachyderm account) that a given OTP authenticates. This may
+	// be copied into the 'subject' field of a TokenInfo, and therefore has the
+	// same format, with the same prefixes.
+	Subject string `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
+	// session_expiration indicates when the subject's session expires, a.k.a.
+	// when the Token to which this OTP converts expires (likely later than this
+	// OTP expires, but never earlier).
+	SessionExpiration *google_protobuf1.Timestamp `protobuf:"bytes,2,opt,name=session_expiration,json=sessionExpiration" json:"session_expiration,omitempty"`
+}
+
+func (m *OTPInfo) Reset()                    { *m = OTPInfo{} }
+func (m *OTPInfo) String() string            { return proto.CompactTextString(m) }
+func (*OTPInfo) ProtoMessage()               {}
+func (*OTPInfo) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{14} }
+
+func (m *OTPInfo) GetSubject() string {
+	if m != nil {
+		return m.Subject
+	}
+	return ""
+}
+
+func (m *OTPInfo) GetSessionExpiration() *google_protobuf1.Timestamp {
+	if m != nil {
+		return m.SessionExpiration
+	}
+	return nil
+}
+
 // TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
 type TokenInfo struct {
 	// Subject (i.e. Pachyderm account) that a given token authorizes. Prefixed
@@ -488,7 +559,7 @@ type TokenInfo struct {
 func (m *TokenInfo) Reset()                    { *m = TokenInfo{} }
 func (m *TokenInfo) String() string            { return proto.CompactTextString(m) }
 func (*TokenInfo) ProtoMessage()               {}
-func (*TokenInfo) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{14} }
+func (*TokenInfo) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{15} }
 
 func (m *TokenInfo) GetSubject() string {
 	if m != nil {
@@ -511,15 +582,16 @@ type AuthenticateRequest struct {
 	// is that string (unless this "looks like" a GitHub access code, in which
 	// case Pachyderm does retrieve the corresponding GitHub username)
 	GitHubToken string `protobuf:"bytes,1,opt,name=github_token,json=githubToken,proto3" json:"github_token,omitempty"`
-	// This is a short-lived code generated by Pachyderm, for the purpose of
-	// propagating authentication to new clients (e.g. from the dash to pachd)
-	PachAuthenticationCode string `protobuf:"bytes,2,opt,name=pach_authentication_code,json=pachAuthenticationCode,proto3" json:"pach_authentication_code,omitempty"`
+	// This is a short-lived, one-time-use password generated by Pachyderm, for
+	// the purpose of propagating authentication to new clients (e.g. from the
+	// dash to pachd)
+	OneTimePassword string `protobuf:"bytes,2,opt,name=one_time_password,json=oneTimePassword,proto3" json:"one_time_password,omitempty"`
 }
 
 func (m *AuthenticateRequest) Reset()                    { *m = AuthenticateRequest{} }
 func (m *AuthenticateRequest) String() string            { return proto.CompactTextString(m) }
 func (*AuthenticateRequest) ProtoMessage()               {}
-func (*AuthenticateRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{15} }
+func (*AuthenticateRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{16} }
 
 func (m *AuthenticateRequest) GetGitHubToken() string {
 	if m != nil {
@@ -528,9 +600,9 @@ func (m *AuthenticateRequest) GetGitHubToken() string {
 	return ""
 }
 
-func (m *AuthenticateRequest) GetPachAuthenticationCode() string {
+func (m *AuthenticateRequest) GetOneTimePassword() string {
 	if m != nil {
-		return m.PachAuthenticationCode
+		return m.OneTimePassword
 	}
 	return ""
 }
@@ -545,7 +617,7 @@ type AuthenticateResponse struct {
 func (m *AuthenticateResponse) Reset()                    { *m = AuthenticateResponse{} }
 func (m *AuthenticateResponse) String() string            { return proto.CompactTextString(m) }
 func (*AuthenticateResponse) ProtoMessage()               {}
-func (*AuthenticateResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{16} }
+func (*AuthenticateResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{17} }
 
 func (m *AuthenticateResponse) GetPachToken() string {
 	if m != nil {
@@ -560,7 +632,7 @@ type WhoAmIRequest struct {
 func (m *WhoAmIRequest) Reset()                    { *m = WhoAmIRequest{} }
 func (m *WhoAmIRequest) String() string            { return proto.CompactTextString(m) }
 func (*WhoAmIRequest) ProtoMessage()               {}
-func (*WhoAmIRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{17} }
+func (*WhoAmIRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{18} }
 
 type WhoAmIResponse struct {
 	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
@@ -571,7 +643,7 @@ type WhoAmIResponse struct {
 func (m *WhoAmIResponse) Reset()                    { *m = WhoAmIResponse{} }
 func (m *WhoAmIResponse) String() string            { return proto.CompactTextString(m) }
 func (*WhoAmIResponse) ProtoMessage()               {}
-func (*WhoAmIResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{18} }
+func (*WhoAmIResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{19} }
 
 func (m *WhoAmIResponse) GetUsername() string {
 	if m != nil {
@@ -605,7 +677,7 @@ type ACL struct {
 func (m *ACL) Reset()                    { *m = ACL{} }
 func (m *ACL) String() string            { return proto.CompactTextString(m) }
 func (*ACL) ProtoMessage()               {}
-func (*ACL) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{19} }
+func (*ACL) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{20} }
 
 func (m *ACL) GetEntries() map[string]Scope {
 	if m != nil {
@@ -621,7 +693,7 @@ type Users struct {
 func (m *Users) Reset()                    { *m = Users{} }
 func (m *Users) String() string            { return proto.CompactTextString(m) }
 func (*Users) ProtoMessage()               {}
-func (*Users) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{20} }
+func (*Users) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{21} }
 
 func (m *Users) GetUsernames() map[string]bool {
 	if m != nil {
@@ -637,7 +709,7 @@ type Groups struct {
 func (m *Groups) Reset()                    { *m = Groups{} }
 func (m *Groups) String() string            { return proto.CompactTextString(m) }
 func (*Groups) ProtoMessage()               {}
-func (*Groups) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{21} }
+func (*Groups) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{22} }
 
 func (m *Groups) GetGroups() map[string]bool {
 	if m != nil {
@@ -656,7 +728,7 @@ type AuthorizeRequest struct {
 func (m *AuthorizeRequest) Reset()                    { *m = AuthorizeRequest{} }
 func (m *AuthorizeRequest) String() string            { return proto.CompactTextString(m) }
 func (*AuthorizeRequest) ProtoMessage()               {}
-func (*AuthorizeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{22} }
+func (*AuthorizeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{23} }
 
 func (m *AuthorizeRequest) GetRepo() string {
 	if m != nil {
@@ -682,7 +754,7 @@ type AuthorizeResponse struct {
 func (m *AuthorizeResponse) Reset()                    { *m = AuthorizeResponse{} }
 func (m *AuthorizeResponse) String() string            { return proto.CompactTextString(m) }
 func (*AuthorizeResponse) ProtoMessage()               {}
-func (*AuthorizeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{23} }
+func (*AuthorizeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{24} }
 
 func (m *AuthorizeResponse) GetAuthorized() bool {
 	if m != nil {
@@ -706,7 +778,7 @@ type GetScopeRequest struct {
 func (m *GetScopeRequest) Reset()                    { *m = GetScopeRequest{} }
 func (m *GetScopeRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetScopeRequest) ProtoMessage()               {}
-func (*GetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{24} }
+func (*GetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{25} }
 
 func (m *GetScopeRequest) GetUsername() string {
 	if m != nil {
@@ -732,7 +804,7 @@ type GetScopeResponse struct {
 func (m *GetScopeResponse) Reset()                    { *m = GetScopeResponse{} }
 func (m *GetScopeResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetScopeResponse) ProtoMessage()               {}
-func (*GetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{25} }
+func (*GetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{26} }
 
 func (m *GetScopeResponse) GetScopes() []Scope {
 	if m != nil {
@@ -759,7 +831,7 @@ type SetScopeRequest struct {
 func (m *SetScopeRequest) Reset()                    { *m = SetScopeRequest{} }
 func (m *SetScopeRequest) String() string            { return proto.CompactTextString(m) }
 func (*SetScopeRequest) ProtoMessage()               {}
-func (*SetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{26} }
+func (*SetScopeRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{27} }
 
 func (m *SetScopeRequest) GetUsername() string {
 	if m != nil {
@@ -788,7 +860,7 @@ type SetScopeResponse struct {
 func (m *SetScopeResponse) Reset()                    { *m = SetScopeResponse{} }
 func (m *SetScopeResponse) String() string            { return proto.CompactTextString(m) }
 func (*SetScopeResponse) ProtoMessage()               {}
-func (*SetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{27} }
+func (*SetScopeResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{28} }
 
 type GetACLRequest struct {
 	Repo string `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
@@ -797,7 +869,7 @@ type GetACLRequest struct {
 func (m *GetACLRequest) Reset()                    { *m = GetACLRequest{} }
 func (m *GetACLRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetACLRequest) ProtoMessage()               {}
-func (*GetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{28} }
+func (*GetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{29} }
 
 func (m *GetACLRequest) GetRepo() string {
 	if m != nil {
@@ -819,7 +891,7 @@ type ACLEntry struct {
 func (m *ACLEntry) Reset()                    { *m = ACLEntry{} }
 func (m *ACLEntry) String() string            { return proto.CompactTextString(m) }
 func (*ACLEntry) ProtoMessage()               {}
-func (*ACLEntry) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{29} }
+func (*ACLEntry) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{30} }
 
 func (m *ACLEntry) GetUsername() string {
 	if m != nil {
@@ -855,7 +927,7 @@ type GetACLResponse struct {
 func (m *GetACLResponse) Reset()                    { *m = GetACLResponse{} }
 func (m *GetACLResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetACLResponse) ProtoMessage()               {}
-func (*GetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{30} }
+func (*GetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{31} }
 
 func (m *GetACLResponse) GetEntries() []*ACLEntry {
 	if m != nil {
@@ -879,7 +951,7 @@ type SetACLRequest struct {
 func (m *SetACLRequest) Reset()                    { *m = SetACLRequest{} }
 func (m *SetACLRequest) String() string            { return proto.CompactTextString(m) }
 func (*SetACLRequest) ProtoMessage()               {}
-func (*SetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{31} }
+func (*SetACLRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{32} }
 
 func (m *SetACLRequest) GetRepo() string {
 	if m != nil {
@@ -901,7 +973,7 @@ type SetACLResponse struct {
 func (m *SetACLResponse) Reset()                    { *m = SetACLResponse{} }
 func (m *SetACLResponse) String() string            { return proto.CompactTextString(m) }
 func (*SetACLResponse) ProtoMessage()               {}
-func (*SetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{32} }
+func (*SetACLResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{33} }
 
 type GetAuthTokenRequest struct {
 	// The returned token will allow the caller to access resources as this
@@ -914,7 +986,7 @@ type GetAuthTokenRequest struct {
 func (m *GetAuthTokenRequest) Reset()                    { *m = GetAuthTokenRequest{} }
 func (m *GetAuthTokenRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetAuthTokenRequest) ProtoMessage()               {}
-func (*GetAuthTokenRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{33} }
+func (*GetAuthTokenRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{34} }
 
 func (m *GetAuthTokenRequest) GetSubject() string {
 	if m != nil {
@@ -940,7 +1012,7 @@ type GetAuthTokenResponse struct {
 func (m *GetAuthTokenResponse) Reset()                    { *m = GetAuthTokenResponse{} }
 func (m *GetAuthTokenResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetAuthTokenResponse) ProtoMessage()               {}
-func (*GetAuthTokenResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{34} }
+func (*GetAuthTokenResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{35} }
 
 func (m *GetAuthTokenResponse) GetSubject() string {
 	if m != nil {
@@ -966,7 +1038,7 @@ type ExtendAuthTokenRequest struct {
 func (m *ExtendAuthTokenRequest) Reset()                    { *m = ExtendAuthTokenRequest{} }
 func (m *ExtendAuthTokenRequest) String() string            { return proto.CompactTextString(m) }
 func (*ExtendAuthTokenRequest) ProtoMessage()               {}
-func (*ExtendAuthTokenRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{35} }
+func (*ExtendAuthTokenRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{36} }
 
 func (m *ExtendAuthTokenRequest) GetToken() string {
 	if m != nil {
@@ -988,7 +1060,7 @@ type ExtendAuthTokenResponse struct {
 func (m *ExtendAuthTokenResponse) Reset()                    { *m = ExtendAuthTokenResponse{} }
 func (m *ExtendAuthTokenResponse) String() string            { return proto.CompactTextString(m) }
 func (*ExtendAuthTokenResponse) ProtoMessage()               {}
-func (*ExtendAuthTokenResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{36} }
+func (*ExtendAuthTokenResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{37} }
 
 type RevokeAuthTokenRequest struct {
 	Token string `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
@@ -997,7 +1069,7 @@ type RevokeAuthTokenRequest struct {
 func (m *RevokeAuthTokenRequest) Reset()                    { *m = RevokeAuthTokenRequest{} }
 func (m *RevokeAuthTokenRequest) String() string            { return proto.CompactTextString(m) }
 func (*RevokeAuthTokenRequest) ProtoMessage()               {}
-func (*RevokeAuthTokenRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{37} }
+func (*RevokeAuthTokenRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{38} }
 
 func (m *RevokeAuthTokenRequest) GetToken() string {
 	if m != nil {
@@ -1012,7 +1084,7 @@ type RevokeAuthTokenResponse struct {
 func (m *RevokeAuthTokenResponse) Reset()                    { *m = RevokeAuthTokenResponse{} }
 func (m *RevokeAuthTokenResponse) String() string            { return proto.CompactTextString(m) }
 func (*RevokeAuthTokenResponse) ProtoMessage()               {}
-func (*RevokeAuthTokenResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{38} }
+func (*RevokeAuthTokenResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{39} }
 
 type SetGroupsForUserRequest struct {
 	Username string   `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
@@ -1022,7 +1094,7 @@ type SetGroupsForUserRequest struct {
 func (m *SetGroupsForUserRequest) Reset()                    { *m = SetGroupsForUserRequest{} }
 func (m *SetGroupsForUserRequest) String() string            { return proto.CompactTextString(m) }
 func (*SetGroupsForUserRequest) ProtoMessage()               {}
-func (*SetGroupsForUserRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{39} }
+func (*SetGroupsForUserRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{40} }
 
 func (m *SetGroupsForUserRequest) GetUsername() string {
 	if m != nil {
@@ -1044,7 +1116,7 @@ type SetGroupsForUserResponse struct {
 func (m *SetGroupsForUserResponse) Reset()                    { *m = SetGroupsForUserResponse{} }
 func (m *SetGroupsForUserResponse) String() string            { return proto.CompactTextString(m) }
 func (*SetGroupsForUserResponse) ProtoMessage()               {}
-func (*SetGroupsForUserResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{40} }
+func (*SetGroupsForUserResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{41} }
 
 type ModifyMembersRequest struct {
 	Group  string   `protobuf:"bytes,1,opt,name=group,proto3" json:"group,omitempty"`
@@ -1055,7 +1127,7 @@ type ModifyMembersRequest struct {
 func (m *ModifyMembersRequest) Reset()                    { *m = ModifyMembersRequest{} }
 func (m *ModifyMembersRequest) String() string            { return proto.CompactTextString(m) }
 func (*ModifyMembersRequest) ProtoMessage()               {}
-func (*ModifyMembersRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{41} }
+func (*ModifyMembersRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{42} }
 
 func (m *ModifyMembersRequest) GetGroup() string {
 	if m != nil {
@@ -1084,7 +1156,7 @@ type ModifyMembersResponse struct {
 func (m *ModifyMembersResponse) Reset()                    { *m = ModifyMembersResponse{} }
 func (m *ModifyMembersResponse) String() string            { return proto.CompactTextString(m) }
 func (*ModifyMembersResponse) ProtoMessage()               {}
-func (*ModifyMembersResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{42} }
+func (*ModifyMembersResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{43} }
 
 type GetGroupsRequest struct {
 	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
@@ -1093,7 +1165,7 @@ type GetGroupsRequest struct {
 func (m *GetGroupsRequest) Reset()                    { *m = GetGroupsRequest{} }
 func (m *GetGroupsRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetGroupsRequest) ProtoMessage()               {}
-func (*GetGroupsRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{43} }
+func (*GetGroupsRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{44} }
 
 func (m *GetGroupsRequest) GetUsername() string {
 	if m != nil {
@@ -1109,7 +1181,7 @@ type GetGroupsResponse struct {
 func (m *GetGroupsResponse) Reset()                    { *m = GetGroupsResponse{} }
 func (m *GetGroupsResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetGroupsResponse) ProtoMessage()               {}
-func (*GetGroupsResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{44} }
+func (*GetGroupsResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{45} }
 
 func (m *GetGroupsResponse) GetGroups() []string {
 	if m != nil {
@@ -1125,7 +1197,7 @@ type GetUsersRequest struct {
 func (m *GetUsersRequest) Reset()                    { *m = GetUsersRequest{} }
 func (m *GetUsersRequest) String() string            { return proto.CompactTextString(m) }
 func (*GetUsersRequest) ProtoMessage()               {}
-func (*GetUsersRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{45} }
+func (*GetUsersRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{46} }
 
 func (m *GetUsersRequest) GetGroup() string {
 	if m != nil {
@@ -1141,7 +1213,7 @@ type GetUsersResponse struct {
 func (m *GetUsersResponse) Reset()                    { *m = GetUsersResponse{} }
 func (m *GetUsersResponse) String() string            { return proto.CompactTextString(m) }
 func (*GetUsersResponse) ProtoMessage()               {}
-func (*GetUsersResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{46} }
+func (*GetUsersResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{47} }
 
 func (m *GetUsersResponse) GetUsernames() []string {
 	if m != nil {
@@ -1150,33 +1222,41 @@ func (m *GetUsersResponse) GetUsernames() []string {
 	return nil
 }
 
-// GetAuthenticationCode allows users to generate short-lived (~30s) codes that
-// can be passed to Authenticate() (via
-// AuthenticateRequest.pach_authentication_code) and exchanged for a
-// longer-lived pachyderm token. This is more secure than GetAuthToken, which
-// produces long-lived authorization tokens.
-type GetAuthenticationCodeRequest struct {
+// GetOneTimePassword allows users to generate short-lived (~30s) tokens that
+// can be passed to Authenticate() (via AuthenticateRequest.one_time_password)
+// and exchanged for a longer-lived pachyderm token. This is more secure than
+// GetAuthToken, which produces long-lived authorization tokens.
+type GetOneTimePasswordRequest struct {
+	// If the caller is an admin, GetOneTimePassword() can return a code for
+	// any user (useful for testing).
+	// If the caller is not an admin, GetOneTimePassword() will return an
+	// authentication code for the caller if username is unset or set to the
+	// caller's username (and will return an error otherwise)
+	Subject string `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
 }
 
-func (m *GetAuthenticationCodeRequest) Reset()         { *m = GetAuthenticationCodeRequest{} }
-func (m *GetAuthenticationCodeRequest) String() string { return proto.CompactTextString(m) }
-func (*GetAuthenticationCodeRequest) ProtoMessage()    {}
-func (*GetAuthenticationCodeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptorAuth, []int{47}
+func (m *GetOneTimePasswordRequest) Reset()                    { *m = GetOneTimePasswordRequest{} }
+func (m *GetOneTimePasswordRequest) String() string            { return proto.CompactTextString(m) }
+func (*GetOneTimePasswordRequest) ProtoMessage()               {}
+func (*GetOneTimePasswordRequest) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{48} }
+
+func (m *GetOneTimePasswordRequest) GetSubject() string {
+	if m != nil {
+		return m.Subject
+	}
+	return ""
 }
 
-type GetAuthenticationCodeResponse struct {
+type GetOneTimePasswordResponse struct {
 	Code string `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
 }
 
-func (m *GetAuthenticationCodeResponse) Reset()         { *m = GetAuthenticationCodeResponse{} }
-func (m *GetAuthenticationCodeResponse) String() string { return proto.CompactTextString(m) }
-func (*GetAuthenticationCodeResponse) ProtoMessage()    {}
-func (*GetAuthenticationCodeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptorAuth, []int{48}
-}
+func (m *GetOneTimePasswordResponse) Reset()                    { *m = GetOneTimePasswordResponse{} }
+func (m *GetOneTimePasswordResponse) String() string            { return proto.CompactTextString(m) }
+func (*GetOneTimePasswordResponse) ProtoMessage()               {}
+func (*GetOneTimePasswordResponse) Descriptor() ([]byte, []int) { return fileDescriptorAuth, []int{49} }
 
-func (m *GetAuthenticationCodeResponse) GetCode() string {
+func (m *GetOneTimePasswordResponse) GetCode() string {
 	if m != nil {
 		return m.Code
 	}
@@ -1200,6 +1280,7 @@ func init() {
 	proto.RegisterType((*GetAdminsResponse)(nil), "auth.GetAdminsResponse")
 	proto.RegisterType((*ModifyAdminsRequest)(nil), "auth.ModifyAdminsRequest")
 	proto.RegisterType((*ModifyAdminsResponse)(nil), "auth.ModifyAdminsResponse")
+	proto.RegisterType((*OTPInfo)(nil), "auth.OTPInfo")
 	proto.RegisterType((*TokenInfo)(nil), "auth.TokenInfo")
 	proto.RegisterType((*AuthenticateRequest)(nil), "auth.AuthenticateRequest")
 	proto.RegisterType((*AuthenticateResponse)(nil), "auth.AuthenticateResponse")
@@ -1233,8 +1314,8 @@ func init() {
 	proto.RegisterType((*GetGroupsResponse)(nil), "auth.GetGroupsResponse")
 	proto.RegisterType((*GetUsersRequest)(nil), "auth.GetUsersRequest")
 	proto.RegisterType((*GetUsersResponse)(nil), "auth.GetUsersResponse")
-	proto.RegisterType((*GetAuthenticationCodeRequest)(nil), "auth.GetAuthenticationCodeRequest")
-	proto.RegisterType((*GetAuthenticationCodeResponse)(nil), "auth.GetAuthenticationCodeResponse")
+	proto.RegisterType((*GetOneTimePasswordRequest)(nil), "auth.GetOneTimePasswordRequest")
+	proto.RegisterType((*GetOneTimePasswordResponse)(nil), "auth.GetOneTimePasswordResponse")
 	proto.RegisterEnum("auth.Scope", Scope_name, Scope_value)
 	proto.RegisterEnum("auth.TokenInfo_TokenSource", TokenInfo_TokenSource_name, TokenInfo_TokenSource_value)
 }
@@ -1275,7 +1356,7 @@ type APIClient interface {
 	ModifyMembers(ctx context.Context, in *ModifyMembersRequest, opts ...grpc.CallOption) (*ModifyMembersResponse, error)
 	GetGroups(ctx context.Context, in *GetGroupsRequest, opts ...grpc.CallOption) (*GetGroupsResponse, error)
 	GetUsers(ctx context.Context, in *GetUsersRequest, opts ...grpc.CallOption) (*GetUsersResponse, error)
-	GetAuthenticationCode(ctx context.Context, in *GetAuthenticationCodeRequest, opts ...grpc.CallOption) (*GetAuthenticationCodeResponse, error)
+	GetOneTimePassword(ctx context.Context, in *GetOneTimePasswordRequest, opts ...grpc.CallOption) (*GetOneTimePasswordResponse, error)
 }
 
 type aPIClient struct {
@@ -1466,9 +1547,9 @@ func (c *aPIClient) GetUsers(ctx context.Context, in *GetUsersRequest, opts ...g
 	return out, nil
 }
 
-func (c *aPIClient) GetAuthenticationCode(ctx context.Context, in *GetAuthenticationCodeRequest, opts ...grpc.CallOption) (*GetAuthenticationCodeResponse, error) {
-	out := new(GetAuthenticationCodeResponse)
-	err := grpc.Invoke(ctx, "/auth.API/GetAuthenticationCode", in, out, c.cc, opts...)
+func (c *aPIClient) GetOneTimePassword(ctx context.Context, in *GetOneTimePasswordRequest, opts ...grpc.CallOption) (*GetOneTimePasswordResponse, error) {
+	out := new(GetOneTimePasswordResponse)
+	err := grpc.Invoke(ctx, "/auth.API/GetOneTimePassword", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1503,7 +1584,7 @@ type APIServer interface {
 	ModifyMembers(context.Context, *ModifyMembersRequest) (*ModifyMembersResponse, error)
 	GetGroups(context.Context, *GetGroupsRequest) (*GetGroupsResponse, error)
 	GetUsers(context.Context, *GetUsersRequest) (*GetUsersResponse, error)
-	GetAuthenticationCode(context.Context, *GetAuthenticationCodeRequest) (*GetAuthenticationCodeResponse, error)
+	GetOneTimePassword(context.Context, *GetOneTimePasswordRequest) (*GetOneTimePasswordResponse, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -1870,20 +1951,20 @@ func _API_GetUsers_Handler(srv interface{}, ctx context.Context, dec func(interf
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_GetAuthenticationCode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetAuthenticationCodeRequest)
+func _API_GetOneTimePassword_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOneTimePasswordRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(APIServer).GetAuthenticationCode(ctx, in)
+		return srv.(APIServer).GetOneTimePassword(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/auth.API/GetAuthenticationCode",
+		FullMethod: "/auth.API/GetOneTimePassword",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(APIServer).GetAuthenticationCode(ctx, req.(*GetAuthenticationCodeRequest))
+		return srv.(APIServer).GetOneTimePassword(ctx, req.(*GetOneTimePasswordRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1973,8 +2054,8 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			Handler:    _API_GetUsers_Handler,
 		},
 		{
-			MethodName: "GetAuthenticationCode",
-			Handler:    _API_GetAuthenticationCode_Handler,
+			MethodName: "GetOneTimePassword",
+			Handler:    _API_GetOneTimePassword_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -2132,11 +2213,17 @@ func (m *IDProvider_SAMLOptions) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.MetadataURL)))
 		i += copy(dAtA[i:], m.MetadataURL)
 	}
-	if len(m.IDPMetadata) > 0 {
+	if len(m.MetadataXML) > 0 {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.IDPMetadata)))
-		i += copy(dAtA[i:], m.IDPMetadata)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.MetadataXML)))
+		i += copy(dAtA[i:], m.MetadataXML)
+	}
+	if len(m.GroupAttribute) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.GroupAttribute)))
+		i += copy(dAtA[i:], m.GroupAttribute)
 	}
 	return i, nil
 }
@@ -2218,6 +2305,22 @@ func (m *AuthConfig_SAMLServiceOptions) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.DashURL)))
 		i += copy(dAtA[i:], m.DashURL)
+	}
+	if len(m.SessionDuration) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.SessionDuration)))
+		i += copy(dAtA[i:], m.SessionDuration)
+	}
+	if m.DebugLogging {
+		dAtA[i] = 0x28
+		i++
+		if m.DebugLogging {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
 	}
 	return i, nil
 }
@@ -2431,6 +2534,40 @@ func (m *ModifyAdminsResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *OTPInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *OTPInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Subject) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
+		i += copy(dAtA[i:], m.Subject)
+	}
+	if m.SessionExpiration != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(m.SessionExpiration.Size()))
+		n5, err := m.SessionExpiration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
+	}
+	return i, nil
+}
+
 func (m *TokenInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2481,11 +2618,11 @@ func (m *AuthenticateRequest) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintAuth(dAtA, i, uint64(len(m.GitHubToken)))
 		i += copy(dAtA[i:], m.GitHubToken)
 	}
-	if len(m.PachAuthenticationCode) > 0 {
+	if len(m.OneTimePassword) > 0 {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintAuth(dAtA, i, uint64(len(m.PachAuthenticationCode)))
-		i += copy(dAtA[i:], m.PachAuthenticationCode)
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.OneTimePassword)))
+		i += copy(dAtA[i:], m.OneTimePassword)
 	}
 	return i, nil
 }
@@ -2795,21 +2932,21 @@ func (m *GetScopeResponse) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if len(m.Scopes) > 0 {
-		dAtA6 := make([]byte, len(m.Scopes)*10)
-		var j5 int
+		dAtA7 := make([]byte, len(m.Scopes)*10)
+		var j6 int
 		for _, num := range m.Scopes {
 			for num >= 1<<7 {
-				dAtA6[j5] = uint8(uint64(num)&0x7f | 0x80)
+				dAtA7[j6] = uint8(uint64(num)&0x7f | 0x80)
 				num >>= 7
-				j5++
+				j6++
 			}
-			dAtA6[j5] = uint8(num)
-			j5++
+			dAtA7[j6] = uint8(num)
+			j6++
 		}
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintAuth(dAtA, i, uint64(j5))
-		i += copy(dAtA[i:], dAtA6[:j5])
+		i = encodeVarintAuth(dAtA, i, uint64(j6))
+		i += copy(dAtA[i:], dAtA7[:j6])
 	}
 	return i, nil
 }
@@ -3407,7 +3544,7 @@ func (m *GetUsersResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *GetAuthenticationCodeRequest) Marshal() (dAtA []byte, err error) {
+func (m *GetOneTimePasswordRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -3417,15 +3554,21 @@ func (m *GetAuthenticationCodeRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *GetAuthenticationCodeRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *GetOneTimePasswordRequest) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
+	if len(m.Subject) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintAuth(dAtA, i, uint64(len(m.Subject)))
+		i += copy(dAtA[i:], m.Subject)
+	}
 	return i, nil
 }
 
-func (m *GetAuthenticationCodeResponse) Marshal() (dAtA []byte, err error) {
+func (m *GetOneTimePasswordResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -3435,7 +3578,7 @@ func (m *GetAuthenticationCodeResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *GetAuthenticationCodeResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *GetOneTimePasswordResponse) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -3519,7 +3662,11 @@ func (m *IDProvider_SAMLOptions) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
 	}
-	l = len(m.IDPMetadata)
+	l = len(m.MetadataXML)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	l = len(m.GroupAttribute)
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
 	}
@@ -3559,6 +3706,13 @@ func (m *AuthConfig_SAMLServiceOptions) Size() (n int) {
 	l = len(m.DashURL)
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
+	}
+	l = len(m.SessionDuration)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	if m.DebugLogging {
+		n += 2
 	}
 	return n
 }
@@ -3637,6 +3791,20 @@ func (m *ModifyAdminsResponse) Size() (n int) {
 	return n
 }
 
+func (m *OTPInfo) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Subject)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	if m.SessionExpiration != nil {
+		l = m.SessionExpiration.Size()
+		n += 1 + l + sovAuth(uint64(l))
+	}
+	return n
+}
+
 func (m *TokenInfo) Size() (n int) {
 	var l int
 	_ = l
@@ -3657,7 +3825,7 @@ func (m *AuthenticateRequest) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
 	}
-	l = len(m.PachAuthenticationCode)
+	l = len(m.OneTimePassword)
 	if l > 0 {
 		n += 1 + l + sovAuth(uint64(l))
 	}
@@ -4031,13 +4199,17 @@ func (m *GetUsersResponse) Size() (n int) {
 	return n
 }
 
-func (m *GetAuthenticationCodeRequest) Size() (n int) {
+func (m *GetOneTimePasswordRequest) Size() (n int) {
 	var l int
 	_ = l
+	l = len(m.Subject)
+	if l > 0 {
+		n += 1 + l + sovAuth(uint64(l))
+	}
 	return n
 }
 
-func (m *GetAuthenticationCodeResponse) Size() (n int) {
+func (m *GetOneTimePasswordResponse) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.Code)
@@ -4548,7 +4720,7 @@ func (m *IDProvider_SAMLOptions) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field IDPMetadata", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field MetadataXML", wireType)
 			}
 			var byteLen int
 			for shift := uint(0); ; shift += 7 {
@@ -4572,10 +4744,39 @@ func (m *IDProvider_SAMLOptions) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.IDPMetadata = append(m.IDPMetadata[:0], dAtA[iNdEx:postIndex]...)
-			if m.IDPMetadata == nil {
-				m.IDPMetadata = []byte{}
+			m.MetadataXML = append(m.MetadataXML[:0], dAtA[iNdEx:postIndex]...)
+			if m.MetadataXML == nil {
+				m.MetadataXML = []byte{}
 			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GroupAttribute", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.GroupAttribute = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -4847,6 +5048,55 @@ func (m *AuthConfig_SAMLServiceOptions) Unmarshal(dAtA []byte) error {
 			}
 			m.DashURL = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SessionDuration", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SessionDuration = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DebugLogging", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.DebugLogging = bool(v != 0)
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuth(dAtA[iNdEx:])
@@ -5421,6 +5671,118 @@ func (m *ModifyAdminsResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *OTPInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowAuth
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: OTPInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: OTPInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Subject", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Subject = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SessionExpiration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SessionExpiration == nil {
+				m.SessionExpiration = &google_protobuf1.Timestamp{}
+			}
+			if err := m.SessionExpiration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipAuth(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthAuth
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *TokenInfo) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -5579,7 +5941,7 @@ func (m *AuthenticateRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PachAuthenticationCode", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field OneTimePassword", wireType)
 			}
 			var stringLen uint64
 			for shift := uint(0); ; shift += 7 {
@@ -5604,7 +5966,7 @@ func (m *AuthenticateRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.PachAuthenticationCode = string(dAtA[iNdEx:postIndex])
+			m.OneTimePassword = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -8507,7 +8869,7 @@ func (m *GetUsersResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *GetAuthenticationCodeRequest) Unmarshal(dAtA []byte) error {
+func (m *GetOneTimePasswordRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -8530,12 +8892,41 @@ func (m *GetAuthenticationCodeRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: GetAuthenticationCodeRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: GetOneTimePasswordRequest: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: GetAuthenticationCodeRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: GetOneTimePasswordRequest: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Subject", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowAuth
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthAuth
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Subject = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipAuth(dAtA[iNdEx:])
@@ -8557,7 +8948,7 @@ func (m *GetAuthenticationCodeRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *GetAuthenticationCodeResponse) Unmarshal(dAtA []byte) error {
+func (m *GetOneTimePasswordResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -8580,10 +8971,10 @@ func (m *GetAuthenticationCodeResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: GetAuthenticationCodeResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: GetOneTimePasswordResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: GetAuthenticationCodeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: GetOneTimePasswordResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -8744,113 +9135,121 @@ var (
 func init() { proto.RegisterFile("client/auth/auth.proto", fileDescriptorAuth) }
 
 var fileDescriptorAuth = []byte{
-	// 1719 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x58, 0x5b, 0x73, 0xdb, 0xc6,
-	0x15, 0x26, 0x48, 0x89, 0x97, 0x43, 0x5d, 0xa0, 0x15, 0x4d, 0x51, 0xb0, 0x75, 0x29, 0x34, 0xd3,
-	0x6a, 0xda, 0x19, 0xd9, 0x95, 0xea, 0xd6, 0xb5, 0x3b, 0xed, 0x50, 0x14, 0x4d, 0xd3, 0xa5, 0x2e,
-	0x05, 0x28, 0xfb, 0x91, 0x03, 0x82, 0x6b, 0x09, 0xb5, 0x44, 0x30, 0x00, 0xc8, 0x89, 0xf3, 0x92,
-	0x64, 0xf2, 0x1b, 0x32, 0xc9, 0x4f, 0xca, 0x5b, 0xf2, 0x0b, 0x34, 0x19, 0xe6, 0x37, 0xe4, 0x3d,
-	0xb3, 0x37, 0x70, 0x01, 0x82, 0x8c, 0x9c, 0xbc, 0x48, 0xbb, 0xe7, 0xf2, 0xed, 0xb7, 0x67, 0x77,
-	0xcf, 0x39, 0x20, 0x94, 0xed, 0x1b, 0x07, 0xf7, 0x83, 0xc7, 0xd6, 0x30, 0xb8, 0xa6, 0x7f, 0x0e,
-	0x06, 0x9e, 0x1b, 0xb8, 0x68, 0x81, 0x8c, 0xb5, 0xd2, 0x95, 0x7b, 0xe5, 0x52, 0xc1, 0x63, 0x32,
-	0x62, 0x3a, 0xbd, 0x03, 0xab, 0x55, 0x3b, 0x70, 0x46, 0x56, 0x80, 0x0d, 0xfc, 0xc9, 0x10, 0xfb,
-	0x01, 0x3a, 0x84, 0xa5, 0x2b, 0x27, 0xb8, 0x1e, 0x76, 0x3b, 0x81, 0xfb, 0x1e, 0xf7, 0x2b, 0xca,
-	0xae, 0xb2, 0x5f, 0x38, 0x5e, 0x1d, 0xdf, 0xed, 0x14, 0x1b, 0x4e, 0xf0, 0x6a, 0xd8, 0x6d, 0x13,
-	0xb1, 0x51, 0x64, 0x46, 0x74, 0x82, 0x2a, 0x90, 0xf3, 0x87, 0xdd, 0xff, 0x63, 0x3b, 0xa8, 0xa4,
-	0x89, 0xb9, 0x21, 0xa6, 0xfa, 0x5f, 0x41, 0x9d, 0x2c, 0xe0, 0x0f, 0xdc, 0xbe, 0x8f, 0xd1, 0x16,
-	0xc0, 0xc0, 0xb2, 0xaf, 0x65, 0x7c, 0xa3, 0x40, 0x24, 0x14, 0x4c, 0x5f, 0x87, 0xb5, 0x13, 0x6c,
-	0x45, 0x59, 0xe9, 0x25, 0x40, 0xb2, 0x90, 0x21, 0xe9, 0x3f, 0x2b, 0x00, 0xcd, 0x93, 0x0b, 0xcf,
-	0x1d, 0x39, 0x3d, 0xec, 0x21, 0x04, 0x0b, 0x7d, 0xeb, 0x16, 0x73, 0x48, 0x3a, 0x46, 0xbb, 0x50,
-	0xec, 0x61, 0xdf, 0xf6, 0x9c, 0x41, 0xe0, 0xb8, 0x7d, 0x4e, 0x4f, 0x16, 0xa1, 0xe7, 0xb0, 0xe0,
-	0x5b, 0xb7, 0x37, 0x95, 0xcc, 0xae, 0xb2, 0x5f, 0x3c, 0x7c, 0x74, 0x40, 0x43, 0x37, 0x41, 0x3d,
-	0x30, 0xab, 0xa7, 0xad, 0x73, 0x6a, 0xea, 0x1f, 0xe7, 0xc7, 0x77, 0x3b, 0x0b, 0x44, 0x60, 0x50,
-	0x1f, 0x6d, 0x08, 0x45, 0x49, 0x4d, 0x62, 0x77, 0x8b, 0x03, 0xab, 0x67, 0x05, 0x56, 0x67, 0xe8,
-	0xdd, 0xc8, 0xb1, 0x3b, 0xe5, 0xf2, 0x4b, 0xa3, 0x65, 0x14, 0x85, 0xd1, 0xa5, 0x77, 0x43, 0x7c,
-	0x9c, 0xde, 0xa0, 0x23, 0x44, 0x94, 0xe1, 0x12, 0xf3, 0x69, 0x9e, 0x5c, 0x08, 0x37, 0xa3, 0xe8,
-	0xf4, 0x06, 0x62, 0xa2, 0x7f, 0x99, 0x01, 0xa8, 0x0e, 0x83, 0xeb, 0x9a, 0xdb, 0x7f, 0xe7, 0x5c,
-	0xa1, 0x03, 0x58, 0xbf, 0x71, 0x46, 0xb8, 0x63, 0xd3, 0x69, 0x67, 0x84, 0x3d, 0x9f, 0xec, 0x95,
-	0xac, 0x9e, 0x31, 0xd6, 0x88, 0x8a, 0x19, 0xbe, 0x61, 0x0a, 0x74, 0x42, 0x96, 0xec, 0x0c, 0xf8,
-	0x06, 0xfd, 0x4a, 0x7a, 0x37, 0xb3, 0x5f, 0x3c, 0x54, 0xe3, 0x3b, 0x0f, 0x49, 0x08, 0x43, 0x42,
-	0x22, 0x9c, 0x20, 0x0c, 0x2a, 0x89, 0x41, 0xc7, 0x1f, 0xd9, 0x1d, 0x97, 0x05, 0x80, 0xc7, 0x70,
-	0x8f, 0x21, 0x4d, 0x18, 0xd2, 0x18, 0x9a, 0xd8, 0x1b, 0x39, 0x36, 0x16, 0xa1, 0x2c, 0x8f, 0xef,
-	0x76, 0xd0, 0xb4, 0xdc, 0x58, 0x21, 0xa0, 0xe6, 0xc8, 0xe6, 0x73, 0xed, 0x6b, 0x05, 0x12, 0xcc,
-	0xd0, 0x1e, 0xe4, 0x2c, 0xdb, 0x97, 0xa2, 0x0c, 0xe3, 0xbb, 0x9d, 0x6c, 0xb5, 0x66, 0x92, 0x00,
-	0x67, 0x2d, 0xdb, 0xe7, 0xb1, 0x8d, 0x9c, 0x47, 0xfa, 0x1e, 0xe7, 0xf1, 0x47, 0xc8, 0xf7, 0x2c,
-	0xff, 0x9a, 0xda, 0x67, 0xa8, 0x7d, 0x71, 0x7c, 0xb7, 0x93, 0x3b, 0xb1, 0xfc, 0x6b, 0x62, 0x9b,
-	0x23, 0xca, 0x4b, 0xef, 0x46, 0xdf, 0x84, 0x8d, 0x06, 0x0e, 0xd8, 0xfe, 0x86, 0x9e, 0x45, 0x58,
-	0x89, 0xcb, 0x6a, 0x40, 0x65, 0x5a, 0xc5, 0x2f, 0xff, 0xdf, 0x61, 0xd9, 0x96, 0x15, 0x94, 0x7d,
-	0x18, 0xfc, 0x49, 0xc8, 0x8c, 0xa8, 0x99, 0xfe, 0x3f, 0xd8, 0x30, 0x93, 0x97, 0xfb, 0xcd, 0x90,
-	0x1a, 0x54, 0xcc, 0x19, 0x34, 0x75, 0x04, 0x6a, 0x03, 0x07, 0xd5, 0xde, 0xad, 0xd3, 0xf7, 0xc5,
-	0xb6, 0xfe, 0x02, 0x6b, 0x92, 0x8c, 0xef, 0xa7, 0x0c, 0x59, 0x8b, 0x4a, 0x2a, 0xca, 0x6e, 0x66,
-	0xbf, 0x60, 0xf0, 0x99, 0xfe, 0x1f, 0x58, 0x3f, 0x75, 0x7b, 0xce, 0xbb, 0x0f, 0x11, 0x0c, 0xa4,
-	0x42, 0xc6, 0xea, 0xf5, 0xb8, 0x2d, 0x19, 0x12, 0x00, 0x0f, 0xdf, 0xba, 0x23, 0x4c, 0xaf, 0x61,
-	0xc1, 0xe0, 0x33, 0xbd, 0x0c, 0xa5, 0x28, 0x00, 0x67, 0xf6, 0x8d, 0x02, 0x05, 0x9a, 0x28, 0x9a,
-	0xfd, 0x77, 0xae, 0x9c, 0x79, 0x94, 0x48, 0xe6, 0x41, 0x47, 0x90, 0xf5, 0xdd, 0xa1, 0x67, 0x63,
-	0x7a, 0xea, 0x2b, 0x87, 0x0f, 0x59, 0x38, 0x42, 0x57, 0x36, 0x32, 0xa9, 0x89, 0xc1, 0x4d, 0xf5,
-	0x17, 0x50, 0x94, 0xc4, 0xa8, 0x08, 0xb9, 0xe6, 0xd9, 0x9b, 0x6a, 0xab, 0x79, 0xa2, 0xa6, 0x90,
-	0x0a, 0x4b, 0xd5, 0xcb, 0xf6, 0xab, 0xfa, 0x59, 0xbb, 0x59, 0xab, 0xb6, 0xeb, 0xaa, 0x82, 0x96,
-	0xa1, 0xd0, 0xa8, 0xb7, 0x3b, 0xed, 0xf3, 0xff, 0xd6, 0xcf, 0xd4, 0xb4, 0xfe, 0x95, 0x02, 0xeb,
-	0x24, 0xda, 0xb8, 0x1f, 0x38, 0xf6, 0xef, 0xcc, 0xa8, 0xcf, 0xa0, 0x42, 0x73, 0xa4, 0x35, 0xc1,
-	0x73, 0xdc, 0x7e, 0xc7, 0x76, 0x7b, 0x98, 0xe7, 0xb0, 0x32, 0xd1, 0x57, 0x23, 0xea, 0x9a, 0xdb,
-	0xc3, 0xfa, 0x53, 0x28, 0x45, 0x49, 0xdc, 0x2f, 0xeb, 0xae, 0xc2, 0xf2, 0xdb, 0x6b, 0xb7, 0x7a,
-	0xdb, 0x14, 0xa7, 0xdd, 0x85, 0x15, 0x21, 0xe0, 0x08, 0x1a, 0xe4, 0x87, 0x3e, 0xf6, 0xa4, 0x14,
-	0x1b, 0xce, 0xd1, 0x26, 0xe4, 0x1d, 0xbf, 0x43, 0xcf, 0x9e, 0xf2, 0xcb, 0x1b, 0x39, 0xc7, 0xa7,
-	0x27, 0x87, 0x36, 0x21, 0x13, 0x04, 0xec, 0x2d, 0x65, 0x8e, 0x73, 0xe3, 0xbb, 0x9d, 0x4c, 0xbb,
-	0xdd, 0x32, 0x88, 0x4c, 0xff, 0x42, 0x81, 0x4c, 0xb5, 0xd6, 0x42, 0x4f, 0x20, 0x87, 0xfb, 0x81,
-	0xe7, 0x60, 0x76, 0x8b, 0x8a, 0x87, 0x65, 0x7e, 0x77, 0x6b, 0xad, 0x83, 0x3a, 0x53, 0x90, 0x7f,
-	0x1f, 0x0c, 0x61, 0xa6, 0x35, 0x60, 0x49, 0x56, 0x90, 0x7b, 0xf5, 0x1e, 0x7f, 0xe0, 0xb4, 0xc8,
-	0x10, 0xfd, 0x01, 0x16, 0x47, 0xd6, 0xcd, 0x50, 0x1c, 0x7f, 0x91, 0x21, 0x9a, 0xb6, 0x3b, 0xc0,
-	0x06, 0xd3, 0x3c, 0x4f, 0x3f, 0x53, 0xf4, 0xcf, 0x61, 0xf1, 0xd2, 0x27, 0xe9, 0xec, 0x19, 0x14,
-	0xc4, 0x6e, 0x04, 0x0b, 0x8d, 0xf9, 0x50, 0x3d, 0xfd, 0x4b, 0x95, 0x8c, 0xc9, 0xc4, 0x58, 0xfb,
-	0x17, 0xac, 0x44, 0x95, 0x09, 0x6c, 0x4a, 0x32, 0x9b, 0xbc, 0x4c, 0x60, 0x08, 0xd9, 0x86, 0xe7,
-	0x0e, 0x07, 0x3e, 0x7a, 0x02, 0xd9, 0x2b, 0x3a, 0xe2, 0xcb, 0x57, 0xd8, 0xf2, 0x4c, 0xcb, 0xff,
-	0xb1, 0xc5, 0xb9, 0x9d, 0xf6, 0x4f, 0x28, 0x4a, 0xe2, 0x8f, 0x5a, 0xb6, 0x09, 0x2a, 0xb9, 0x26,
-	0xae, 0xe7, 0x7c, 0x16, 0x5e, 0x54, 0x04, 0x0b, 0x1e, 0x1e, 0xb8, 0xa2, 0x7e, 0x92, 0x31, 0x09,
-	0xa3, 0x4f, 0x62, 0x96, 0x18, 0x46, 0xaa, 0xd1, 0x8f, 0x60, 0x4d, 0x82, 0xe2, 0x97, 0x65, 0x1b,
-	0xc0, 0x12, 0xc2, 0x1e, 0x45, 0xcc, 0x1b, 0x92, 0x44, 0xaf, 0xc1, 0x6a, 0x03, 0x07, 0x0c, 0x87,
-	0x2f, 0x3f, 0xef, 0x7e, 0x95, 0x60, 0x91, 0xd0, 0xf1, 0x79, 0x92, 0x60, 0x13, 0xfd, 0x1f, 0x34,
-	0x4b, 0x71, 0x10, 0xbe, 0xf0, 0x1e, 0x64, 0x29, 0x2d, 0x16, 0xc5, 0x18, 0x63, 0xae, 0xd2, 0x7b,
-	0xb0, 0x6a, 0x7e, 0xc4, 0xea, 0x22, 0x30, 0xe9, 0xa4, 0xc0, 0x64, 0x66, 0x06, 0x06, 0x81, 0x6a,
-	0xc6, 0xe8, 0xe9, 0x7b, 0xb0, 0x4c, 0x92, 0x68, 0xad, 0x35, 0x27, 0xe8, 0x7a, 0x13, 0xf2, 0xd5,
-	0x5a, 0x8b, 0x1d, 0xea, 0x3c, 0x5e, 0xf7, 0x38, 0x1c, 0x17, 0x56, 0xc4, 0x7a, 0x3c, 0x40, 0xfb,
-	0xf1, 0xc7, 0xb6, 0x12, 0x3e, 0xb6, 0xe8, 0x23, 0x43, 0x47, 0xb0, 0xec, 0xb9, 0x5d, 0x37, 0xe8,
-	0x08, 0xfb, 0x74, 0xa2, 0xfd, 0x12, 0x35, 0xe2, 0xcf, 0x51, 0x3f, 0x85, 0x65, 0xf3, 0xd7, 0x36,
-	0x28, 0x73, 0x48, 0xcf, 0xe5, 0xa0, 0xab, 0xb0, 0x62, 0x46, 0xf8, 0xeb, 0xaf, 0x61, 0x9d, 0xec,
-	0x68, 0x18, 0xb0, 0xcc, 0x25, 0x96, 0x99, 0x5d, 0x09, 0x78, 0x02, 0x4a, 0x27, 0x24, 0xa0, 0x97,
-	0x50, 0x8a, 0x62, 0xf1, 0x18, 0x95, 0x60, 0x51, 0xce, 0x93, 0x6c, 0x32, 0xa7, 0xcd, 0x6d, 0x42,
-	0xb9, 0xfe, 0x69, 0x80, 0xfb, 0xbd, 0x29, 0x5a, 0xc9, 0x48, 0x73, 0x28, 0x6d, 0xc2, 0xc6, 0x14,
-	0x14, 0xdf, 0xf9, 0x01, 0x94, 0x0d, 0x3c, 0x72, 0xdf, 0xe3, 0xfb, 0xad, 0x42, 0xa0, 0xa6, 0xec,
-	0x39, 0xd4, 0x29, 0x6d, 0x27, 0x58, 0xf2, 0x78, 0xe9, 0x7a, 0x24, 0x7f, 0xdd, 0xe7, 0x21, 0x94,
-	0xc3, 0x14, 0xc5, 0x8b, 0x35, 0x9b, 0xf1, 0x56, 0x22, 0x06, 0xc7, 0x97, 0x7a, 0x23, 0x0a, 0xf9,
-	0x29, 0xbe, 0xed, 0x92, 0x2e, 0x72, 0xc2, 0x99, 0x7a, 0x0b, 0xce, 0x74, 0x22, 0x1a, 0x84, 0x74,
-	0x52, 0x83, 0x90, 0x89, 0x34, 0x08, 0x1b, 0xf0, 0x20, 0x86, 0x1b, 0x86, 0x89, 0x64, 0x05, 0x46,
-	0xe6, 0x1e, 0x9b, 0xe2, 0x7d, 0x8d, 0xb0, 0x9f, 0xf4, 0x35, 0x52, 0x32, 0x9e, 0xec, 0xf4, 0x4f,
-	0x34, 0x6f, 0xd1, 0x92, 0x30, 0x77, 0x23, 0xfa, 0x13, 0xca, 0x82, 0x1b, 0x72, 0xd0, 0x47, 0xf1,
-	0x1a, 0x53, 0x90, 0xea, 0x88, 0xbe, 0x0d, 0x8f, 0xf8, 0x65, 0x8c, 0x96, 0x74, 0x51, 0x91, 0x8f,
-	0x60, 0x6b, 0x86, 0x9e, 0xc3, 0x23, 0x58, 0xa0, 0x0d, 0x02, 0x7f, 0x69, 0x64, 0xfc, 0xe7, 0xbf,
-	0xc1, 0x22, 0xcd, 0x07, 0x28, 0x0f, 0x0b, 0x67, 0xe7, 0x67, 0x75, 0x35, 0x85, 0x00, 0xb2, 0x46,
-	0xbd, 0x7a, 0x52, 0x37, 0x54, 0x85, 0x8c, 0xdf, 0x1a, 0xcd, 0x76, 0xdd, 0x50, 0xd3, 0xa8, 0x00,
-	0x8b, 0xe7, 0x6f, 0xcf, 0xea, 0x86, 0x9a, 0x39, 0xfc, 0xbe, 0x08, 0x99, 0xea, 0x45, 0x13, 0xbd,
-	0x80, 0xbc, 0xf8, 0x7c, 0x43, 0x0f, 0xf8, 0x13, 0x8d, 0x7e, 0x99, 0x69, 0xe5, 0xb8, 0x98, 0x9f,
-	0x42, 0x0a, 0x55, 0x01, 0x26, 0xdf, 0x6c, 0x68, 0x83, 0xd9, 0x4d, 0x7d, 0xda, 0x69, 0x95, 0x69,
-	0x45, 0x08, 0x61, 0xd2, 0x20, 0x46, 0x5a, 0x54, 0xb4, 0xc5, 0xcb, 0x62, 0x72, 0x37, 0xac, 0x6d,
-	0xcf, 0x52, 0xcb, 0xa0, 0xe6, 0x0c, 0x50, 0x73, 0x3e, 0xa8, 0x39, 0x1b, 0xf4, 0xdf, 0x50, 0x08,
-	0x9b, 0x63, 0x54, 0x0e, 0x39, 0x44, 0xba, 0x5f, 0x6d, 0x63, 0x4a, 0x1e, 0xfa, 0x37, 0x60, 0x49,
-	0x6e, 0x77, 0xd1, 0x26, 0x33, 0x4d, 0xe8, 0xa1, 0x35, 0x2d, 0x49, 0x25, 0x03, 0xc9, 0xfd, 0x9f,
-	0x00, 0x4a, 0x68, 0x4c, 0x05, 0x50, 0x52, 0xbb, 0xc8, 0x76, 0x14, 0x96, 0x75, 0xb1, 0xa3, 0x78,
-	0xcb, 0x20, 0x76, 0x34, 0x55, 0xff, 0xf5, 0x14, 0x7a, 0x0a, 0x59, 0xd6, 0x40, 0xa2, 0x75, 0x66,
-	0x14, 0xe9, 0x2f, 0xb5, 0x52, 0x54, 0x18, 0xba, 0xbd, 0x80, 0xbc, 0xa8, 0xe9, 0xe2, 0xca, 0xc5,
-	0x1a, 0x05, 0xad, 0x1c, 0x17, 0xcb, 0xce, 0x66, 0xcc, 0xd9, 0x4c, 0x76, 0x36, 0xa7, 0x9d, 0x9f,
-	0x42, 0x96, 0x95, 0x4a, 0x41, 0x38, 0x52, 0xa8, 0x05, 0xe1, 0x68, 0x35, 0x65, 0x6e, 0x66, 0xc4,
-	0xcd, 0x4c, 0x72, 0x33, 0xe3, 0x6e, 0x0d, 0x58, 0x92, 0x4b, 0x8f, 0x38, 0xa7, 0x84, 0xd2, 0x26,
-	0xce, 0x29, 0xa9, 0x52, 0xe9, 0x29, 0x74, 0x01, 0xab, 0xb1, 0x82, 0x81, 0xf8, 0x8f, 0x18, 0xc9,
-	0x25, 0x49, 0xdb, 0x9a, 0xa1, 0x95, 0x11, 0x63, 0x75, 0x43, 0x20, 0x26, 0x97, 0x1f, 0x81, 0x38,
-	0xab, 0xd8, 0x88, 0x27, 0x17, 0xa9, 0x0f, 0xd2, 0x93, 0x4b, 0x2a, 0x43, 0xd2, 0x93, 0x4b, 0x2e,
-	0x2b, 0x29, 0xf4, 0x1a, 0x96, 0x23, 0x05, 0x00, 0x45, 0x1e, 0x46, 0xb4, 0xda, 0x68, 0x0f, 0x13,
-	0x75, 0xb1, 0xe7, 0xcb, 0x1b, 0xf1, 0xc9, 0xfd, 0x8a, 0x14, 0x11, 0xe9, 0xf9, 0x46, 0x8b, 0x45,
-	0x78, 0x6b, 0xd9, 0x97, 0xc4, 0xe4, 0xd6, 0xca, 0x65, 0x42, 0xba, 0xb5, 0x91, 0xa2, 0xa0, 0xa7,
-	0x50, 0x17, 0x1e, 0x24, 0x26, 0x76, 0xa4, 0x47, 0x0e, 0x3e, 0xb1, 0x2a, 0x68, 0x7b, 0x73, 0x6d,
-	0xc4, 0x1a, 0xc7, 0xea, 0x77, 0xe3, 0x6d, 0xe5, 0x87, 0xf1, 0xb6, 0xf2, 0xe3, 0x78, 0x5b, 0xf9,
-	0xf6, 0xa7, 0xed, 0x54, 0x37, 0x4b, 0x7f, 0x02, 0x3c, 0xfa, 0x25, 0x00, 0x00, 0xff, 0xff, 0xb8,
-	0xd0, 0x72, 0xf1, 0x38, 0x14, 0x00, 0x00,
+	// 1850 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x58, 0x5b, 0x73, 0xe3, 0x48,
+	0x15, 0x8e, 0xed, 0xc4, 0x97, 0x63, 0x27, 0x56, 0x3a, 0x5e, 0xc7, 0xd1, 0xee, 0x24, 0x41, 0xa9,
+	0x62, 0xc3, 0x52, 0xe5, 0x19, 0x32, 0x0c, 0x2c, 0x3b, 0x14, 0x94, 0x93, 0x78, 0xbd, 0x5e, 0x9c,
+	0x0b, 0x92, 0x67, 0x66, 0x79, 0x72, 0xc9, 0x56, 0xc7, 0x11, 0x63, 0x5b, 0x46, 0x17, 0x33, 0xc3,
+	0x0b, 0xfc, 0x0b, 0x78, 0x82, 0x7f, 0x43, 0xf1, 0x08, 0x7f, 0x20, 0x45, 0x99, 0xe2, 0x7f, 0x50,
+	0x7d, 0x93, 0x5b, 0xb2, 0xec, 0xc9, 0xb2, 0x2f, 0x71, 0xf7, 0xb9, 0x7c, 0x7d, 0xfa, 0x74, 0xf7,
+	0xf9, 0x8e, 0x02, 0xd5, 0xc1, 0xc8, 0xc6, 0x13, 0xff, 0xa9, 0x19, 0xf8, 0xf7, 0xf4, 0x4f, 0x7d,
+	0xea, 0x3a, 0xbe, 0x83, 0x36, 0xc9, 0x58, 0xad, 0x0c, 0x9d, 0xa1, 0x43, 0x05, 0x4f, 0xc9, 0x88,
+	0xe9, 0xd4, 0xa3, 0xa1, 0xe3, 0x0c, 0x47, 0xf8, 0x29, 0x9d, 0xf5, 0x83, 0xbb, 0xa7, 0xbe, 0x3d,
+	0xc6, 0x9e, 0x6f, 0x8e, 0xa7, 0xcc, 0x40, 0xeb, 0x41, 0xb9, 0x31, 0xf0, 0xed, 0x99, 0xe9, 0x63,
+	0x1d, 0xff, 0x2e, 0xc0, 0x9e, 0x8f, 0xce, 0xa0, 0x34, 0xb4, 0xfd, 0xfb, 0xa0, 0xdf, 0xf3, 0x9d,
+	0xb7, 0x78, 0x52, 0x4b, 0x1d, 0xa7, 0x4e, 0x0b, 0xe7, 0xe5, 0xf9, 0xc3, 0x51, 0xb1, 0x65, 0xfb,
+	0x5f, 0x05, 0xfd, 0x2e, 0x11, 0xeb, 0x45, 0x66, 0x44, 0x27, 0xa8, 0x06, 0x39, 0x2f, 0xe8, 0xff,
+	0x16, 0x0f, 0xfc, 0x5a, 0x9a, 0x98, 0xeb, 0x62, 0xaa, 0xfd, 0x08, 0x94, 0xc5, 0x02, 0xde, 0xd4,
+	0x99, 0x78, 0x18, 0x3d, 0x01, 0x98, 0x9a, 0x83, 0x7b, 0x19, 0x5f, 0x2f, 0x10, 0x09, 0x05, 0xd3,
+	0xf6, 0x60, 0xf7, 0x12, 0x9b, 0xd1, 0xa8, 0xb4, 0x0a, 0x20, 0x59, 0xc8, 0x90, 0xb4, 0xbf, 0xa5,
+	0x01, 0xda, 0x97, 0xb7, 0xae, 0x33, 0xb3, 0x2d, 0xec, 0x22, 0x04, 0x9b, 0x13, 0x73, 0x8c, 0x39,
+	0x24, 0x1d, 0xa3, 0x63, 0x28, 0x5a, 0xd8, 0x1b, 0xb8, 0xf6, 0xd4, 0xb7, 0x9d, 0x09, 0x0f, 0x4f,
+	0x16, 0xa1, 0x2f, 0x60, 0xd3, 0x33, 0xc7, 0xa3, 0x5a, 0xe6, 0x38, 0x75, 0x5a, 0x3c, 0xfb, 0xa4,
+	0x4e, 0x73, 0xbb, 0x40, 0xad, 0x1b, 0x8d, 0xab, 0xce, 0x0d, 0x35, 0xf5, 0xce, 0xf3, 0xf3, 0x87,
+	0xa3, 0x4d, 0x22, 0xd0, 0xa9, 0x8f, 0xfa, 0xd7, 0x14, 0x14, 0x25, 0x3d, 0x49, 0xde, 0x18, 0xfb,
+	0xa6, 0x65, 0xfa, 0x66, 0x2f, 0x70, 0x47, 0x72, 0xf2, 0xae, 0xb8, 0xfc, 0x95, 0xde, 0xd1, 0x8b,
+	0xc2, 0xe8, 0x95, 0x3b, 0x8a, 0xf8, 0xbc, 0x1b, 0x8f, 0x68, 0x88, 0xa5, 0xa8, 0xcf, 0x37, 0x57,
+	0x92, 0xcf, 0x37, 0xe3, 0x11, 0xfa, 0x14, 0xca, 0x43, 0xd7, 0x09, 0xa6, 0x3d, 0xd3, 0xf7, 0x5d,
+	0xbb, 0x1f, 0xf8, 0x98, 0x86, 0x5f, 0xd0, 0x77, 0xa8, 0xb8, 0x21, 0xa4, 0xda, 0xbf, 0x32, 0x00,
+	0x8d, 0xc0, 0xbf, 0xbf, 0x70, 0x26, 0x77, 0xf6, 0x10, 0xd5, 0x61, 0x6f, 0x64, 0xcf, 0x70, 0x6f,
+	0x40, 0xa7, 0xbd, 0x19, 0x76, 0x3d, 0x92, 0x15, 0x12, 0x66, 0x46, 0xdf, 0x25, 0x2a, 0x66, 0xf8,
+	0x9a, 0x29, 0xd0, 0x25, 0x94, 0x6c, 0xab, 0x37, 0xe5, 0xa9, 0xf0, 0x6a, 0xe9, 0xe3, 0xcc, 0x69,
+	0xf1, 0x4c, 0x89, 0xe7, 0x88, 0x45, 0xbb, 0x98, 0x7b, 0x7a, 0xd1, 0xb6, 0xc2, 0x09, 0xc2, 0xa0,
+	0x90, 0x6c, 0xf5, 0xbc, 0xd9, 0xa0, 0xe7, 0xb0, 0x4c, 0xf1, 0x6c, 0x9f, 0x30, 0xa4, 0x45, 0x84,
+	0x34, 0xdb, 0x06, 0x76, 0x67, 0xf6, 0x00, 0x8b, 0xa4, 0x57, 0xe7, 0x0f, 0x47, 0x68, 0x59, 0xae,
+	0xef, 0x10, 0x50, 0x63, 0x36, 0xe0, 0x73, 0xf5, 0xbf, 0x29, 0x48, 0x30, 0x43, 0x27, 0x90, 0x33,
+	0x07, 0x9e, 0x74, 0x1c, 0x30, 0x7f, 0x38, 0xca, 0x36, 0x2e, 0x0c, 0x72, 0x12, 0x59, 0x73, 0xe0,
+	0xc5, 0x0f, 0x81, 0x58, 0xa6, 0x1f, 0x71, 0x70, 0xdf, 0x87, 0xbc, 0x65, 0x7a, 0xf7, 0xd4, 0x9e,
+	0x66, 0xff, 0xbc, 0x38, 0x7f, 0x38, 0xca, 0x5d, 0x9a, 0xde, 0x3d, 0xb1, 0xcd, 0x11, 0x25, 0xb1,
+	0xfb, 0x01, 0x28, 0x1e, 0xf6, 0x48, 0x3e, 0x7b, 0x56, 0xe0, 0x9a, 0xf4, 0x1e, 0x6e, 0xd2, 0xd3,
+	0x2a, 0x73, 0xf9, 0x25, 0x17, 0xa3, 0x13, 0xd8, 0xb6, 0x70, 0x3f, 0x18, 0xf6, 0x46, 0xce, 0x70,
+	0x68, 0x4f, 0x86, 0xb5, 0xad, 0xe3, 0xd4, 0x69, 0x5e, 0x2f, 0x51, 0x61, 0x87, 0xc9, 0xb4, 0x03,
+	0xd8, 0x6f, 0x61, 0x9f, 0xe5, 0x8b, 0x3b, 0x8a, 0x67, 0xa2, 0x43, 0x6d, 0x59, 0xc5, 0x9f, 0xdd,
+	0x4f, 0x60, 0x7b, 0x20, 0x2b, 0x68, 0x36, 0xc2, 0xc3, 0x5c, 0x1c, 0x81, 0x1e, 0x35, 0xd3, 0x7e,
+	0x0d, 0xfb, 0x46, 0xf2, 0x72, 0xff, 0x37, 0xa4, 0x0a, 0x35, 0x63, 0x45, 0x98, 0x1a, 0x02, 0xa5,
+	0x85, 0xfd, 0x86, 0x35, 0xb6, 0x27, 0x9e, 0xd8, 0xd6, 0x0f, 0x61, 0x57, 0x92, 0xf1, 0xfd, 0x54,
+	0x21, 0x6b, 0x52, 0x49, 0x2d, 0x75, 0x9c, 0x39, 0x2d, 0xe8, 0x7c, 0xa6, 0xfd, 0x12, 0xf6, 0xae,
+	0x1c, 0xcb, 0xbe, 0x7b, 0x1f, 0xc1, 0x40, 0x0a, 0x64, 0x4c, 0xcb, 0xe2, 0xb6, 0x64, 0x48, 0x00,
+	0x5c, 0x3c, 0x76, 0x66, 0x98, 0x5e, 0xeb, 0x82, 0xce, 0x67, 0x5a, 0x15, 0x2a, 0x51, 0x00, 0x1e,
+	0xd9, 0x04, 0x72, 0x37, 0xdd, 0xdb, 0xf6, 0xe4, 0xce, 0x91, 0x0b, 0x5e, 0x2a, 0x52, 0xf0, 0x50,
+	0x1b, 0x90, 0x38, 0x6c, 0xfc, 0x6e, 0x6a, 0xf3, 0xbc, 0xa4, 0x69, 0x5e, 0xd4, 0x3a, 0xab, 0xc7,
+	0x75, 0x51, 0x8f, 0xeb, 0x5d, 0x51, 0x8f, 0xf5, 0x5d, 0xee, 0xd5, 0x0c, 0x9d, 0xb4, 0x3f, 0xa7,
+	0xa0, 0x40, 0x4b, 0xe2, 0x07, 0x96, 0x7c, 0x0e, 0x59, 0xcf, 0x09, 0xdc, 0x01, 0xa6, 0xcb, 0xec,
+	0x9c, 0x7d, 0xcc, 0xd2, 0x1f, 0xba, 0xb2, 0x91, 0x41, 0x4d, 0x74, 0x6e, 0xaa, 0xbd, 0x84, 0xa2,
+	0x24, 0x46, 0x45, 0xc8, 0xb5, 0xaf, 0x5f, 0x37, 0x3a, 0xed, 0x4b, 0x65, 0x03, 0x29, 0x50, 0x6a,
+	0xbc, 0xea, 0x7e, 0xd5, 0xbc, 0xee, 0xb6, 0x2f, 0x1a, 0xdd, 0xa6, 0x92, 0x42, 0xdb, 0x50, 0x68,
+	0x35, 0xbb, 0xbd, 0xee, 0xcd, 0xaf, 0x9a, 0xd7, 0x4a, 0x5a, 0x0b, 0x60, 0x8f, 0x1c, 0x2e, 0x9e,
+	0xf8, 0xf6, 0xe0, 0x3b, 0x52, 0xc7, 0x67, 0xb0, 0xeb, 0x4c, 0x70, 0x8f, 0x10, 0x53, 0x6f, 0x6a,
+	0x7a, 0xde, 0xef, 0x1d, 0xd7, 0xe2, 0x55, 0xba, 0xec, 0x4c, 0x30, 0x49, 0xd0, 0x2d, 0x17, 0x6b,
+	0x2f, 0xa0, 0x12, 0x5d, 0xf6, 0x71, 0x84, 0x52, 0x86, 0xed, 0x37, 0xf7, 0x4e, 0x63, 0xdc, 0x16,
+	0xd7, 0xa9, 0x0f, 0x3b, 0x42, 0xc0, 0x11, 0x54, 0xc8, 0x07, 0x1e, 0x76, 0x25, 0xf6, 0x08, 0xe7,
+	0xe8, 0x00, 0xf2, 0xb6, 0xd7, 0xa3, 0x97, 0x8b, 0x06, 0x96, 0xd7, 0x73, 0xb6, 0x47, 0xaf, 0x06,
+	0x3a, 0x80, 0x8c, 0xef, 0xb3, 0xc7, 0x9f, 0x39, 0xcf, 0xcd, 0x1f, 0x8e, 0x32, 0xdd, 0x6e, 0x47,
+	0x27, 0x32, 0xed, 0x4f, 0x29, 0xc8, 0x34, 0x2e, 0x3a, 0xe8, 0x19, 0xe4, 0xf0, 0xc4, 0x77, 0x6d,
+	0xcc, 0xae, 0x69, 0xf1, 0xac, 0xca, 0x1f, 0xc7, 0x45, 0xa7, 0xde, 0x64, 0x0a, 0xf2, 0xf3, 0x5e,
+	0x17, 0x66, 0x6a, 0x0b, 0x4a, 0xb2, 0x82, 0x5c, 0xdc, 0xb7, 0xf8, 0x3d, 0x0f, 0x8b, 0x0c, 0xd1,
+	0xf7, 0x60, 0x6b, 0x66, 0x8e, 0x02, 0x71, 0xde, 0x45, 0x86, 0x68, 0x0c, 0x9c, 0x29, 0xd6, 0x99,
+	0xe6, 0x8b, 0xf4, 0xe7, 0x29, 0xed, 0x8f, 0xb0, 0xf5, 0xca, 0x23, 0xf5, 0xf7, 0x73, 0x28, 0x88,
+	0xdd, 0x88, 0x28, 0x54, 0xe6, 0x43, 0xf5, 0xf4, 0x2f, 0x55, 0xb2, 0x48, 0x16, 0xc6, 0xea, 0xcf,
+	0x61, 0x27, 0xaa, 0x4c, 0x88, 0xa6, 0x22, 0x47, 0x93, 0x97, 0x03, 0x08, 0x20, 0xdb, 0x22, 0x74,
+	0xe4, 0xa1, 0x67, 0x90, 0xa5, 0xc4, 0x24, 0x96, 0xaf, 0xb1, 0xe5, 0x99, 0x96, 0xff, 0xb0, 0xc5,
+	0xb9, 0x9d, 0xfa, 0x33, 0x28, 0x4a, 0xe2, 0x6f, 0xb5, 0x6c, 0x1b, 0x14, 0x72, 0x4d, 0x1c, 0xd7,
+	0xfe, 0x43, 0x78, 0x35, 0x11, 0x6c, 0xba, 0x78, 0xea, 0x88, 0xd6, 0x80, 0x8c, 0x49, 0x1a, 0x3d,
+	0x92, 0xb3, 0xc4, 0x34, 0x52, 0x8d, 0xf6, 0x1c, 0x76, 0x25, 0x28, 0x7e, 0x59, 0x0e, 0x01, 0x4c,
+	0x21, 0xb4, 0x28, 0x62, 0x5e, 0x97, 0x24, 0xda, 0x05, 0x94, 0x5b, 0xd8, 0x67, 0x38, 0x7c, 0xf9,
+	0x75, 0xf7, 0xab, 0x02, 0x5b, 0x24, 0x1c, 0x8f, 0x57, 0x21, 0x36, 0xd1, 0x7e, 0x4a, 0xcb, 0x20,
+	0x07, 0xe1, 0x0b, 0x9f, 0x40, 0x96, 0x86, 0xc5, 0xb2, 0x18, 0x8b, 0x98, 0xab, 0x34, 0x0b, 0xca,
+	0xc6, 0xb7, 0x58, 0x5d, 0x24, 0x26, 0x9d, 0x94, 0x98, 0xcc, 0xca, 0xc4, 0x20, 0x50, 0x8c, 0x58,
+	0x78, 0xda, 0x09, 0x6c, 0x93, 0x2a, 0x7d, 0xd1, 0x59, 0x93, 0x74, 0xad, 0x0d, 0xf9, 0xc6, 0x45,
+	0x87, 0x1d, 0xea, 0xba, 0xb8, 0x1e, 0x71, 0x38, 0x0e, 0xec, 0x88, 0xf5, 0x78, 0x82, 0x4e, 0xe3,
+	0x8f, 0x6d, 0x27, 0x7c, 0x6c, 0xd1, 0x47, 0x86, 0x9e, 0xc3, 0xb6, 0xeb, 0xf4, 0x1d, 0xbf, 0x27,
+	0xec, 0xd3, 0x89, 0xf6, 0x25, 0x6a, 0xc4, 0x9f, 0xa3, 0x76, 0x05, 0xdb, 0xc6, 0x87, 0x36, 0x28,
+	0xc7, 0x90, 0x5e, 0x1b, 0x83, 0xa6, 0xc0, 0x8e, 0x11, 0x89, 0x5f, 0xfb, 0x1a, 0xf6, 0xc8, 0x8e,
+	0x02, 0x9f, 0x55, 0x2e, 0xb1, 0xcc, 0xea, 0xd2, 0xcf, 0x0b, 0x50, 0x3a, 0xa1, 0x00, 0x7d, 0x09,
+	0x95, 0x28, 0x16, 0xcf, 0x51, 0x05, 0xb6, 0xe4, 0x3a, 0xc9, 0x26, 0x6b, 0x3a, 0xf8, 0x36, 0x54,
+	0x9b, 0xef, 0x7c, 0x3c, 0xb1, 0x96, 0xc2, 0x4a, 0x46, 0x5a, 0x13, 0xd2, 0x01, 0xec, 0x2f, 0x41,
+	0xf1, 0x9d, 0xd7, 0xa1, 0xaa, 0xe3, 0x99, 0xf3, 0x16, 0x3f, 0x6e, 0x15, 0x02, 0xb5, 0x64, 0xcf,
+	0xa1, 0xae, 0x68, 0xbf, 0xc2, 0x8a, 0xc7, 0x97, 0x8e, 0x4b, 0xea, 0xd7, 0x63, 0x1e, 0x42, 0x35,
+	0x2c, 0x51, 0xbc, 0x1b, 0x60, 0x33, 0xde, 0xab, 0xc4, 0xe0, 0xf8, 0x52, 0xaf, 0x45, 0xa7, 0x70,
+	0x85, 0xc7, 0x7d, 0xd2, 0xf6, 0x2e, 0x62, 0xa6, 0xde, 0x22, 0x66, 0x3a, 0x11, 0x1d, 0x48, 0x3a,
+	0xa9, 0x03, 0xc9, 0x44, 0x3a, 0x90, 0x7d, 0xf8, 0x28, 0x86, 0x1b, 0xa6, 0x89, 0x54, 0x05, 0x16,
+	0xcc, 0x23, 0x36, 0xc5, 0x1b, 0x27, 0x61, 0xbf, 0x68, 0x9c, 0xa4, 0x62, 0xbc, 0xd8, 0xe9, 0xa7,
+	0xb4, 0x6e, 0x51, 0x4a, 0x58, 0xbb, 0x11, 0xed, 0x19, 0x8d, 0x82, 0x1b, 0x72, 0xd0, 0x4f, 0xe2,
+	0x1c, 0x53, 0x90, 0x78, 0x44, 0x7b, 0x01, 0x07, 0x2d, 0xec, 0xdf, 0x44, 0xf9, 0xfc, 0x83, 0xd7,
+	0x5b, 0x7b, 0x06, 0x6a, 0x92, 0x1b, 0x5f, 0x12, 0xc1, 0xe6, 0xc0, 0xb1, 0xc2, 0xcf, 0x3d, 0x32,
+	0xfe, 0xec, 0xc7, 0xb0, 0x45, 0x6b, 0x04, 0xca, 0xc3, 0xe6, 0xf5, 0xcd, 0x75, 0x53, 0xd9, 0x40,
+	0x00, 0x59, 0xbd, 0xd9, 0xb8, 0x6c, 0xea, 0x4a, 0x8a, 0x8c, 0xdf, 0xe8, 0xed, 0x6e, 0x53, 0x57,
+	0xd2, 0xa8, 0x00, 0x5b, 0x37, 0x6f, 0xae, 0x9b, 0xba, 0x92, 0x39, 0xfb, 0x7b, 0x11, 0x32, 0x8d,
+	0xdb, 0x36, 0x7a, 0x09, 0x79, 0xf1, 0xb5, 0x8a, 0x3e, 0xe2, 0xcf, 0x36, 0xfa, 0x21, 0xaa, 0x56,
+	0xe3, 0x62, 0x7e, 0x32, 0x1b, 0xa8, 0x01, 0xb0, 0xf8, 0x44, 0x45, 0xfb, 0xcc, 0x6e, 0xe9, 0x4b,
+	0x56, 0xad, 0x2d, 0x2b, 0x42, 0x08, 0x83, 0x26, 0x36, 0xd2, 0x17, 0xa3, 0x27, 0x9c, 0x2a, 0x93,
+	0x5b, 0x70, 0xf5, 0x70, 0x95, 0x5a, 0x06, 0x35, 0x56, 0x80, 0x1a, 0xeb, 0x41, 0x8d, 0xd5, 0xa0,
+	0xbf, 0x80, 0x42, 0xd8, 0x91, 0xa3, 0x6a, 0x18, 0x43, 0xa4, 0xe5, 0x56, 0xf7, 0x97, 0xe4, 0xa1,
+	0x7f, 0x0b, 0x4a, 0x72, 0x8f, 0x8d, 0x0e, 0x98, 0x69, 0x42, 0xe3, 0xae, 0xaa, 0x49, 0x2a, 0x19,
+	0x48, 0xee, 0x09, 0x05, 0x50, 0x42, 0x7b, 0x2a, 0x80, 0x92, 0x5a, 0x48, 0xb6, 0xa3, 0x90, 0xea,
+	0xc5, 0x8e, 0xe2, 0x6d, 0x84, 0xd8, 0xd1, 0x52, 0x4f, 0xa0, 0x6d, 0xa0, 0x17, 0x90, 0x65, 0x4d,
+	0x25, 0xda, 0x63, 0x46, 0x91, 0x9e, 0x53, 0xad, 0x44, 0x85, 0xa1, 0xdb, 0x4b, 0xc8, 0x0b, 0x9e,
+	0x17, 0x57, 0x2e, 0xd6, 0x3c, 0xa8, 0xd5, 0xb8, 0x58, 0x76, 0x36, 0x62, 0xce, 0x46, 0xb2, 0xb3,
+	0xb1, 0xec, 0xfc, 0x02, 0xb2, 0x8c, 0x3e, 0x45, 0xc0, 0x11, 0xf2, 0x16, 0x01, 0x47, 0x19, 0x96,
+	0xb9, 0x19, 0x11, 0x37, 0x23, 0xc9, 0xcd, 0x88, 0xbb, 0xb5, 0xa0, 0x24, 0xd3, 0x91, 0x38, 0xa7,
+	0x04, 0xba, 0x13, 0xe7, 0x94, 0xc4, 0x5e, 0xda, 0x06, 0xba, 0x85, 0x72, 0x8c, 0x44, 0x10, 0xff,
+	0x9f, 0x4d, 0x32, 0x4d, 0xa9, 0x4f, 0x56, 0x68, 0x65, 0xc4, 0x18, 0x97, 0x08, 0xc4, 0x64, 0x4a,
+	0x12, 0x88, 0xab, 0x08, 0x48, 0x3c, 0xb9, 0x08, 0x67, 0x48, 0x4f, 0x2e, 0x89, 0x9a, 0xa4, 0x27,
+	0x97, 0x4c, 0x35, 0x1b, 0xe8, 0x6b, 0xd8, 0x8e, 0x90, 0x02, 0x8a, 0x3c, 0x8c, 0x28, 0x03, 0xa9,
+	0x1f, 0x27, 0xea, 0x62, 0xcf, 0x97, 0x37, 0xe7, 0x8b, 0xfb, 0x15, 0x21, 0x16, 0xe9, 0xf9, 0x46,
+	0x09, 0x24, 0xbc, 0xb5, 0xec, 0xeb, 0x62, 0x71, 0x6b, 0x65, 0xea, 0x90, 0x6e, 0x6d, 0x84, 0x28,
+	0xb4, 0x0d, 0xf4, 0x1b, 0x40, 0xcb, 0x55, 0x1d, 0x1d, 0x85, 0xf6, 0xc9, 0x34, 0xa1, 0x1e, 0xaf,
+	0x36, 0x10, 0xd0, 0xe7, 0xca, 0x3f, 0xe6, 0x87, 0xa9, 0x7f, 0xce, 0x0f, 0x53, 0xff, 0x9e, 0x1f,
+	0xa6, 0xfe, 0xf2, 0x9f, 0xc3, 0x8d, 0x7e, 0x96, 0x7e, 0x6b, 0x3f, 0xff, 0x5f, 0x00, 0x00, 0x00,
+	0xff, 0xff, 0xc6, 0x6c, 0x41, 0xd5, 0x3f, 0x15, 0x00, 0x00,
 }

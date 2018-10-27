@@ -997,12 +997,12 @@ type ResourceSpec struct {
 	// The number of CPUs each worker needs (partial values are allowed, and
 	// encouraged)
 	Cpu float32 `protobuf:"fixed32,1,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	// The amount of memory, in bytes, each worker needs (in bytes, with allowed
+	// The amount of memory each worker needs (in bytes, with allowed
 	// SI suffixes (M, K, G, Mi, Ki, Gi, etc).
 	Memory string `protobuf:"bytes,2,opt,name=memory,proto3" json:"memory,omitempty"`
 	// The number of GPUs each worker needs.
 	Gpu int64 `protobuf:"varint,3,opt,name=gpu,proto3" json:"gpu,omitempty"`
-	// The amount of ephemeral stoage, in bytes, each worker needs (in bytes, with allowed
+	// The amount of ephemeral storage each worker needs (in bytes, with allowed
 	// SI suffixes (M, K, G, Mi, Ki, Gi, etc).
 	Disk string `protobuf:"bytes,4,opt,name=disk,proto3" json:"disk,omitempty"`
 }
