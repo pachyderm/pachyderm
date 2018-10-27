@@ -2,6 +2,7 @@ syntax = "proto3";
 package auth;
 
 import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
 
 /* A note on users
  *
@@ -74,14 +75,20 @@ message IDProvider {
     // (which Pachd can query to get more info about the SAML ID provider)
     string metadata_url = 1 [(gogoproto.customname) = "MetadataURL"];
 
-    // idp_metadata is a direct reproduction of the ID provider's metadata.
+    // metadata_xml is a direct reproduction of the ID provider's metadata.
     // Users can set this field in the argument to SetConfig if the ID provider
     // can't be reached from pachd (e.g. because it's on a separate network to
     // which Pachyderm users also have access) or for testing.  Exactly one of
-    // metadata_url and idp_metadata should be set in calls to SetConfig, but
+    // metadata_url and metadata_xml should be set in calls to SetConfig, but
     // internally, if metadata_url is set, the result of scraping the metadata
     // URL will be placed here in the result from GetConfig().
-    bytes idp_metadata = 2 [(gogoproto.customname) = "IDPMetadata"];
+    bytes metadata_xml = 2 [(gogoproto.customname) = "MetadataXML"];
+
+    // If this ID provider supports sending group memberships via attribute,
+    // then users can set group_attribute to the SAML attribute that indicates
+    // group mmbership, and Pachyderm will update users' group memberships when
+    // they authenticate.
+    string group_attribute = 3;
   }
   SAMLOptions saml = 3 [(gogoproto.customname) = "SAML"];
 }
@@ -108,12 +115,12 @@ message AuthConfig {
     // domain name/proxy to resolve to pachd:654/acs
     string acs_url = 1 [(gogoproto.customname) = "ACSURL"];
 
-    // sp_metadata is the URL of Pachd's SAML metadata service (Okta, and any
-    // other SAML ID provider, will query this for info about Pachyderm's
-    // ACS, and use it to idenfity Pachyderm as a service provider). If
-    // Pachyderm is running in a private cluster, the cluster admin would be
-    // responsible for setting up this URL (which must resolve to
-    // pachd:654/meta)
+    // metadata_url is the public URL of Pachd's SAML metadata service (some
+    // SAML ID providers will query this for information about Pachyderm's SAML
+    // implementation and use it to idenfity Pachyderm as a service provider).
+    // If Pachyderm is running in a private cluster, the cluster admin would be
+    // responsible for creating this URL (which must resolve to
+    // pachd:654/saml/metadata)
     string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
 
     // dash_url is the public address of this cluster's Pachyderm
@@ -121,10 +128,16 @@ message AuthConfig {
     // redirected after successfully authenticating
     string dash_url = 3 [(gogoproto.customname) = "DashURL"];
 
+    // session_duration determines the duration of SAML-IdP-authenticated user
+    // sessions (specified as a Golang time duration, e.g. "24h" or "600m"). If
+    // unset, user sessions last 24 hours (a short default, as SAML assertions
+    // may contain group memberships that need to be refreshed)
+    string session_duration = 4;
+
     // debug_logging determines whether pachd emits verbose logs (including
     // SAML credentials) as it receives them, which may be helpful for
     // debugging. This will probably not be present in any official releases.
-    // bool debug_logging = 4;
+    bool debug_logging = 5;
   }
   SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
 }
@@ -154,6 +167,21 @@ message ModifyAdminsResponse {}
 
 //// Authentication data structures
 
+// OTPInfo is the analogue of 'TokenInfo' for Authentication Codes (short-lived,
+// one-time-use codes that are passed to the frontend and then exchanged for
+// longer-lived tokens)
+message OTPInfo {
+  // Subject (i.e. Pachyderm account) that a given OTP authenticates. This may
+  // be copied into the 'subject' field of a TokenInfo, and therefore has the
+  // same format, with the same prefixes.
+  string subject = 1;
+
+  // session_expiration indicates when the subject's session expires, a.k.a.
+  // when the Token to which this OTP converts expires (likely later than this
+  // OTP expires, but never earlier).
+  google.protobuf.Timestamp session_expiration = 2;
+}
+
 // TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
 message TokenInfo {
   // Subject (i.e. Pachyderm account) that a given token authorizes. Prefixed
@@ -172,7 +200,7 @@ message TokenInfo {
 //// Authentication API
 
 message AuthenticateRequest {
-  // Exactly one of 'github_token' or 'pach_authentication_code' must be set:
+  // Exactly one of 'github_token' or 'one_time_password' must be set:
 
   // This is the token returned by GitHub and used to authenticate the caller.
   // When Pachyderm is deployed locally, setting this value to a given string
@@ -181,9 +209,10 @@ message AuthenticateRequest {
   // case Pachyderm does retrieve the corresponding GitHub username)
   string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
 
-  // This is a short-lived code generated by Pachyderm, for the purpose of
-  // propagating authentication to new clients (e.g. from the dash to pachd)
-  string pach_authentication_code = 2;
+  // This is a short-lived, one-time-use password generated by Pachyderm, for
+  // the purpose of propagating authentication to new clients (e.g. from the
+  // dash to pachd)
+  string one_time_password = 2;
 }
 
 message AuthenticateResponse {
@@ -391,13 +420,20 @@ message GetUsersResponse {
   repeated string usernames = 1;
 }
 
-// GetAuthenticationCode allows users to generate short-lived (~30s) codes that
-// can be passed to Authenticate() (via
-// AuthenticateRequest.pach_authentication_code) and exchanged for a
-// longer-lived pachyderm token. This is more secure than GetAuthToken, which
-// produces long-lived authorization tokens.
-message GetAuthenticationCodeRequest {}
-message GetAuthenticationCodeResponse {
+// GetOneTimePassword allows users to generate short-lived (~30s) tokens that
+// can be passed to Authenticate() (via AuthenticateRequest.one_time_password)
+// and exchanged for a longer-lived pachyderm token. This is more secure than
+// GetAuthToken, which produces long-lived authorization tokens.
+message GetOneTimePasswordRequest {
+  // If the caller is an admin, GetOneTimePassword() can return a code for
+  // any user (useful for testing).
+  // If the caller is not an admin, GetOneTimePassword() will return an
+  // authentication code for the caller if username is unset or set to the
+  // caller's username (and will return an error otherwise)
+  string subject = 1;
+}
+
+message GetOneTimePasswordResponse {
   string code = 1;
 }
 
@@ -434,5 +470,5 @@ service API {
   rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
   rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
 
-  rpc GetAuthenticationCode(GetAuthenticationCodeRequest) returns (GetAuthenticationCodeResponse) {}
+  rpc GetOneTimePassword(GetOneTimePasswordRequest) returns (GetOneTimePasswordResponse) {}
 }

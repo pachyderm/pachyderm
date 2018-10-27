@@ -112,7 +112,7 @@ func (a *InactiveAPIServer) GetConfiguration(context.Context, *auth.GetConfigura
 	return nil, auth.ErrNotActivated
 }
 
-// GetAuthenticationCode implements the GetAuthenticationCode RPC, but just returns NotActivatedError
-func (a *InactiveAPIServer) GetAuthenticationCode(context.Context, *auth.GetAuthenticationCodeRequest) (*auth.GetAuthenticationCodeResponse, error) {
+// GetOneTimePassword implements the GetOneTimePassword RPC, but just returns NotActivatedError
+func (a *InactiveAPIServer) GetOneTimePassword(context.Context, *auth.GetOneTimePasswordRequest) (*auth.GetOneTimePasswordResponse, error) {
 	return nil, auth.ErrNotActivated
 }
