@@ -7,7 +7,7 @@ cache:
     - /home/travis/.cache/go-build
 language: go
 go:
-- 1.10beta1
+- "1.11.1"
 env:
 - BUCKET=MISC
 # If you want to update the number of PPS workers, you'll also need to update
