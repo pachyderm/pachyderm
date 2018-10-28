@@ -37,7 +37,7 @@ Now that we've created a repo it's time to add some data. In Pachyderm, you writ
 
 Let's start by just adding a file, in this case an image, to a new commit. We've provided some sample images for you that we host on Imgur. 
 
-We'll use the ``put-file`` command along with the ``-f`` flag. ``-f`` can take either a local file, a URL, or a object sotrage bucket which it'll automatically scrape. In our case, we'll simply pass the URL.
+We'll use the ``put-file`` command along with the ``-f`` flag. ``-f`` can take either a local file, a URL, or a object storage bucket which it'll automatically scrape. In our case, we'll simply pass the URL.
 
 Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. `Put-file` automatically starts and finishes a commit for you so you can add files more easily. In a situation where you want to add many files over a period of time, you can do `start-commit` and `finish-commit` yourself.
 
