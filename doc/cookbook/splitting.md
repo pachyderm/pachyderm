@@ -80,6 +80,7 @@ $ cat users.csv
 id,name,email
 4,alice,aaa@place.com
 7,bob,bbb@place.com
+
 # Take the raw CSV data minus the header and split it into multiple files:
 $ cat users.csv | tail -n +2 | pachctl put-file bar master users --split line
 Reading from stdin.
@@ -93,16 +94,27 @@ NAME                    TYPE SIZE
 # Before we set the header, we just see the raw data when we issue a get-file
 $ pachctl get-file bar master /users/0000000000000000
 4,alice,aaa@place.com
+
 # Now we take the CSV header and apply it to the directory:
 $ cat users.csv | head -n 1 | pachctl put-header bar master users 
 # Now when we read an individual file, we see the header plus the contents
 $ pachctl get-file bar master /users/0000000000000000
 id,name,email
 4,alice,aaa@place.com
+
+# If you issue a get-file on the directory, it returns just the header/footer
 $ pachctl get-file bar master /users
 id,name,email
-$ pachctl get-file bar master /users/**
+# We can get the entire CSV file back with:
+$ pachctl get-file bar master /users/*
 id,name,email
+4,alice,aaa@place.com
+7,bob,bbb@place.com
+
+# Delete the existing header:
+$ echo "" | pachctl put-header repo branch path -f -
+# We've now deleted the header
+pachctl get-file bar master /users/*
 4,alice,aaa@place.com
 7,bob,bbb@place.com
 ```
@@ -203,9 +215,9 @@ the data by doing something like:
 $ cat /pfs/data/users/* | sudo -u postgres psql
 ```
 
-And with a glob pattern like `/*` this code would load the raw postgres chunk
+And with a glob pattern `/*` this code would load each raw postgres chunk
 into your postgres instance for processing by your pipeline.
 
 For this use case, you'll likely want to use `--target-file-datums` or 
 `--target-file-bytes` since it's likely that you'll want to run your queries
-against a bunch of rows at a time.
+against many rows at a time.
