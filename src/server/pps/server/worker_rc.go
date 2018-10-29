@@ -67,7 +67,8 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
 	var sidecarVolumeMounts []v1.VolumeMount
-	userVolumeMounts := options.volumeMounts
+	userVolumeMounts := make([]v1.VolumeMount, len(options.volumeMounts))
+	copy(userVolumeMounts, options.volumeMounts)
 	if a.storageHostPath != "" {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: storageVolumeName,
