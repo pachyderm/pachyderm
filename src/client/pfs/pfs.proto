@@ -356,8 +356,10 @@ message InspectFileRequest {
 }
 
 message ListFileRequest {
-  // File is the parent directory of the files we want to list. This fixes the
-  // repo, the commit/branch, and path prefix of files we're interested it
+  // File is the parent directory of the files we want to list. This sets the
+  // repo, the commit/branch, and path prefix of files we're interested in
+  // If the "path" field is omitted, a list of files at the top level of the repo
+  // is returned
   File file = 1;
 
   // Full indicates whether the result should include file contents, which may
