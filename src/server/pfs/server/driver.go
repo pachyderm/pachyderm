@@ -2399,7 +2399,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return nil
+		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 	var rs []*hashtree.Reader
 	var cleanup func() error
@@ -2500,7 +2500,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileI
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return nil
+		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 	rs, cleanup, err := d.getTree(ctx, commitInfo, file.Path)
 	if err != nil {
