@@ -244,8 +244,9 @@ func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 }
 
 func List(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	if pattern != "/" {
-		pattern = clean(pattern)
+	pattern = clean(pattern)
+	if pattern == "" {
+		pattern = "/"
 	}
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
@@ -265,7 +266,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 		if err != nil {
 			return err
 		}
-		return f(pattern, node)
+		return f(externalDefault(pattern), node)
 	}
 
 	g, err := globlib.Compile(pattern, '/')
@@ -279,7 +280,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 			if node.Unmarshal(v); err != nil {
 				return err
 			}
-			if err := f(s(k), node); err != nil {
+			if err := f(externalDefault(s(k)), node); err != nil {
 				if err == errutil.ErrBreak {
 					return nil
 				}
@@ -316,7 +317,7 @@ func Glob(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retEr
 	}
 	return nodes(rs, func(path string, node *NodeProto) error {
 		if g.Match(path) {
-			return f(path, node)
+			return f(externalDefault(path), node)
 		}
 		return nil
 	})
@@ -361,6 +362,9 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 func Walk(rs []*Reader, walkPath string, f func(path string, node *NodeProto) error) error {
 	walkPath = clean(walkPath)
 	return nodes(rs, func(path string, node *NodeProto) error {
+		if path == "" {
+			path = "/"
+		}
 		if path != walkPath && !strings.HasPrefix(path, walkPath+"/") {
 			return nil
 		}
