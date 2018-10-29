@@ -2400,6 +2400,9 @@ func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
+				// (bryce) This needs some notion of active blockrefs since these trees do not use objects
+				addActiveObjects(ci.Trees...)
+				addActiveObjects(ci.Datums)
 				return addActiveTree(ci.Tree)
 			})
 			return nil
@@ -2432,7 +2435,9 @@ func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
-				return addActiveTree(resp.Object)
+				// (bryce) Same as above
+				addActiveObjects(resp.Object)
+				return nil
 			})
 		}
 	}
