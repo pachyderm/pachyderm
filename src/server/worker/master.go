@@ -566,15 +566,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		if len(failedInputs) > 0 {
 			reason := fmt.Sprintf("inputs %s failed", strings.Join(failedInputs, ", "))
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				jobs := a.jobs.ReadWrite(stm)
-				jobID := jobInfo.Job.ID
-				jobPtr := &pps.EtcdJobInfo{}
-				if err := jobs.Get(jobID, jobPtr); err != nil {
-					return err
-				}
-				return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_FAILURE, reason)
-			}); err != nil {
+			if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_FAILURE, reason); err != nil {
 				return err
 			}
 			_, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
@@ -625,7 +617,17 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}); err != nil {
 			return err
 		}
-
+		// Handle the case when there are no datums
+		if df.Len() == 0 {
+			if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
+				return err
+			}
+			_, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+				Commit: jobInfo.OutputCommit,
+				Empty:  true,
+			})
+			return err
+		}
 		// Watch the chunks in order
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 		var failedDatumID string
@@ -692,128 +694,97 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			//	return err
 			//}
 		}
-		// We only do this if failedDatumID == "", which is to say that all of the chunks succeeded.
-		if failedDatumID == "" {
-			// Wait for all merges to happen.
-			merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
-			var trees []*pfs.Object
-			var size uint64
-			for merge := int64(0); merge < plan.Merges; merge++ {
-				if err := func() error {
-					mergeState := &MergeState{}
-					watcher, err := merges.WatchOne(fmt.Sprint(merge))
-					if err != nil {
-						return err
-					}
-					defer watcher.Close()
-				EventLoop:
-					for {
-						select {
-						case e := <-watcher.Watch():
-							var key string
-							if err := e.Unmarshal(&key, mergeState); err != nil {
-								return err
-							}
-							if key != fmt.Sprint(merge) {
-								continue
-							}
-							if mergeState.State != State_RUNNING {
-								if mergeState.State == State_FAILED {
-									// TODO handle failure
-								}
-								trees = append(trees, mergeState.Tree)
-								size += mergeState.SizeBytes
-								break EventLoop
-							}
-						case <-ctx.Done():
-							return context.Canceled
-						}
-					}
-					return nil
-				}(); err != nil {
-					return err
-				}
-			}
-			// Write out the datums processed/skipped and merged for this job
-			buf := &bytes.Buffer{}
-			pbw := pbutil.NewWriter(buf)
-			for i := 0; i < df.Len(); i++ {
-				files := df.Datum(i)
-				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-				if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
-					return err
-				}
-			}
-			datums, _, err := pachClient.PutObject(buf)
-			if err != nil {
-				return err
-			}
-			// Finish the job's output commit
-			_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit:    jobInfo.OutputCommit,
-				Trees:     trees,
-				SizeBytes: size,
-				Datums:    datums,
-			})
-			if err != nil && !pfsserver.IsCommitFinishedErr(err) {
-				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
-					// output commit was deleted during e.g. FinishCommit, which means this job
-					// should be deleted. Goro from top of waitJob() will observe the deletion,
-					// delete the jobPtr and call cancel()--wait for that.
-					<-ctx.Done() // wait for cancel()
-					return nil
-				}
-				return err
-			}
-
-			// Handle egress
-			if err := a.egress(pachClient, logger, jobInfo); err != nil {
-				reason := fmt.Sprintf("egress error: %v", err)
-				_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					jobs := a.jobs.ReadWrite(stm)
-					jobID := jobInfo.Job.ID
-					jobPtr := &pps.EtcdJobInfo{}
-					if err := jobs.Get(jobID, jobPtr); err != nil {
-						return err
-					}
-					jobPtr.StatsCommit = statsCommit
-					return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_FAILURE, reason)
-				})
-				// returning nil so we don't retry
-				logger.Logf("possibly a bug -- returning \"%v\"", err)
-				return err
-			}
-		}
-
-		// Record the job's output commit and 'Finished' timestamp, and mark the job
-		// as a SUCCESS
-		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			jobs := a.jobs.ReadWrite(stm)
-			jobID := jobInfo.Job.ID
-			jobPtr := &pps.EtcdJobInfo{}
-			if err := jobs.Get(jobID, jobPtr); err != nil {
-				return err
-			}
-			jobPtr.StatsCommit = statsCommit
-			if failedDatumID != "" {
-				return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_FAILURE, fmt.Sprintf("failed to process datum: %v", failedDatumID))
-			}
-			return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_SUCCESS, "")
-		}); err != nil {
-			return err
-		}
-		// if the job failed we finish the commit with an empty tree but only
+		// If the job failed we finish the commit with an empty tree but only
 		// after we've set the state, otherwise the job will be considered
 		// killed.
 		if failedDatumID != "" {
-			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+			reason := fmt.Sprintf("failed to process datum: %v", failedDatumID)
+			if err := a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_FAILURE, reason); err != nil {
+				return err
+			}
+			_, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit: jobInfo.OutputCommit,
 				Empty:  true,
-			}); err != nil {
+			})
+			return err
+		}
+		// Wait for all merges to happen.
+		merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
+		var trees []*pfs.Object
+		var size uint64
+		for merge := int64(0); merge < plan.Merges; merge++ {
+			if err := func() error {
+				mergeState := &MergeState{}
+				watcher, err := merges.WatchOne(fmt.Sprint(merge))
+				if err != nil {
+					return err
+				}
+				defer watcher.Close()
+			EventLoop:
+				for {
+					select {
+					case e := <-watcher.Watch():
+						var key string
+						if err := e.Unmarshal(&key, mergeState); err != nil {
+							return err
+						}
+						if key != fmt.Sprint(merge) {
+							continue
+						}
+						if mergeState.State != State_RUNNING {
+							if mergeState.State == State_FAILED {
+								// TODO handle failure
+							}
+							trees = append(trees, mergeState.Tree)
+							size += mergeState.SizeBytes
+							break EventLoop
+						}
+					case <-ctx.Done():
+						return context.Canceled
+					}
+				}
+				return nil
+			}(); err != nil {
 				return err
 			}
 		}
-		return nil
+		// Write out the datums processed/skipped and merged for this job
+		buf := &bytes.Buffer{}
+		pbw := pbutil.NewWriter(buf)
+		for i := 0; i < df.Len(); i++ {
+			files := df.Datum(i)
+			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
+				return err
+			}
+		}
+		datums, _, err := pachClient.PutObject(buf)
+		if err != nil {
+			return err
+		}
+		// Finish the job's output commit
+		_, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+			Commit:    jobInfo.OutputCommit,
+			Trees:     trees,
+			SizeBytes: size,
+			Datums:    datums,
+		})
+		if err != nil && !pfsserver.IsCommitFinishedErr(err) {
+			if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+				// output commit was deleted during e.g. FinishCommit, which means this job
+				// should be deleted. Goro from top of waitJob() will observe the deletion,
+				// delete the jobPtr and call cancel()--wait for that.
+				<-ctx.Done() // wait for cancel()
+				return nil
+			}
+			return err
+		}
+		// Handle egress
+		if err := a.egress(pachClient, logger, jobInfo); err != nil {
+			reason := fmt.Sprintf("egress error: %v", err)
+			return a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_FAILURE, reason)
+		}
+		return a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_SUCCESS, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		logger.Logf("error in waitJob %v, retrying in %v", err, d)
 		select {
@@ -862,6 +833,20 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		return nil
 	})
 	return nil
+}
+
+func (a *APIServer) updateJobState(ctx context.Context, info *pps.JobInfo, stats *pfs.Commit, state pps.JobState, reason string) error {
+	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		jobs := a.jobs.ReadWrite(stm)
+		jobID := info.Job.ID
+		jobPtr := &pps.EtcdJobInfo{}
+		if err := jobs.Get(jobID, jobPtr); err != nil {
+			return err
+		}
+		jobPtr.StatsCommit = stats
+		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, state, reason)
+	})
+	return err
 }
 
 func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) error {
