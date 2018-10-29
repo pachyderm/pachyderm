@@ -37,6 +37,13 @@ func internalDefault(s string) string {
 	return s
 }
 
+func externalDefault(s string) string {
+	if s == "" {
+		return "/"
+	}
+	return s
+}
+
 // clean canonicalizes 'path' for internal use: leading slash and no trailing
 // slash. Also, clean the result with internalDefault.
 func clean(p string) string {
