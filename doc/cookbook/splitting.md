@@ -66,3 +66,158 @@ $ pachctl put-file users master -c -f user_data.json --split json --target-file-
 # bytes chunk into the split files.
 $ pachctl put-file users master -c -f user_data.txt --split line --target-file-bytes 100
 ```  
+
+## Specifying Header/Footer
+
+Additionally, if your data has a common header or footer, you can specify these
+manually via `pachctl put-header` or `pachctl put-footer`. This is helpful for CSV data.
+
+To do this, you'll need to specify the header/footer on the _parent directory_ of your data. It's a little "magical", but you're essentially embedding the header/footer into the directory and then Pachyderm will apply that header/footer to all the files in that directory. Below we have an example of splitting a CSV with a header, then setting the header explicitly. Notice that once we've set the header, whenever we get a file under that directory, the header is applied. You can still use glob patterns to get all the data under the directory, and in that case the header is still applied.
+
+```
+# Raw CSV
+$ cat users.csv 
+id,name,email
+4,alice,aaa@place.com
+7,bob,bbb@place.com
+
+# Take the raw CSV data minus the header and split it into multiple files:
+$ cat users.csv | tail -n +2 | pachctl put-file bar master users --split line
+Reading from stdin.
+$ pachctl list-file bar master
+NAME  TYPE SIZE 
+users dir  42B  
+$ pachctl list-file bar master /users/
+NAME                    TYPE SIZE 
+/users/0000000000000000 file 22B  
+/users/0000000000000001 file 20B  
+# Before we set the header, we just see the raw data when we issue a get-file
+$ pachctl get-file bar master /users/0000000000000000
+4,alice,aaa@place.com
+
+# Now we take the CSV header and apply it to the directory:
+$ cat users.csv | head -n 1 | pachctl put-header bar master users 
+# Now when we read an individual file, we see the header plus the contents
+$ pachctl get-file bar master /users/0000000000000000
+id,name,email
+4,alice,aaa@place.com
+
+# If you issue a get-file on the directory, it returns just the header/footer
+$ pachctl get-file bar master /users
+id,name,email
+# We can get the entire CSV file back with:
+$ pachctl get-file bar master /users/*
+id,name,email
+4,alice,aaa@place.com
+7,bob,bbb@place.com
+
+# Delete the existing header:
+$ echo "" | pachctl put-header repo branch path -f -
+# We've now deleted the header
+pachctl get-file bar master /users/*
+4,alice,aaa@place.com
+7,bob,bbb@place.com
+```
+
+For more info, such as how to delete a header/footer, see `pachctl put-header --help`.
+
+## PG Dump / SQL Support
+
+You can also ingest data from postgres using split file.
+
+1) Generate your PG Dump file
+
+```
+$ pg_dump -t users -f users.pgdump
+$ cat users.pgdump 
+--
+-- PostgreSQL database dump
+--
+
+-- Dumped from database version 9.5.12
+-- Dumped by pg_dump version 9.5.12
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET client_min_messages = warning;
+SET row_security = off;
+
+SET default_tablespace = '';
+
+SET default_with_oids = false;
+
+--
+-- Name: users; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.users (
+    id integer NOT NULL,
+    name text NOT NULL,
+    saying text NOT NULL
+);
+
+
+ALTER TABLE public.users OWNER TO postgres;
+
+--
+-- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.users (id, name, saying) FROM stdin;
+0	wile E Coyote	...
+1	road runner	\\.
+\.
+
+
+--
+-- PostgreSQL database dump complete
+--
+```
+
+
+2) Ingest SQL data using split file
+
+When you use `pachctl put-file --split sql ...` your pg dump file is split into
+three parts - the header, rows, and the footer. The header contains all the SQL
+statements in the pg dump that setup the schema and tables. The rows are split
+into individual files (or if you specify the `--target-file-datums` or 
+`--target-file-bytes` multiple rows per file). The footer contains the remaining
+SQL statements for setting up the tables.
+
+The header and footer are stored on the directory containing the rows. This way,
+if you request a `get-file` on the directory, you'll get just the header and
+footer. If you request an individual file, you'll see the header plus the row(s)
+plus the footer. If you request all the files with a glob pattern, e.g.
+`/directoryname/*`, you'll receive the header plus all the rows plus the footer,
+recreating the full pg dump. In this way, you can construct full or partial 
+pg dump files so that you can load full or partial data sets.
+
+```
+$ pachctl put-file data master -f users.pgdump --split sql
+$ pachctl put-file data master users --split sql -f users.pgdump 
+$ pachctl list-file data master
+NAME         TYPE SIZE 
+users        dir  914B 
+$ pachctl list-file data master /users
+NAME                           TYPE SIZE 
+/users/0000000000000000        file 20B  
+/users/0000000000000001        file 18B  
+```
+
+Then in your pipeline (where you've started and forked postgres), you can load
+the data by doing something like:
+
+```
+$ cat /pfs/data/users/* | sudo -u postgres psql
+```
+
+And with a glob pattern `/*` this code would load each raw postgres chunk
+into your postgres instance for processing by your pipeline.
+
+For this use case, you'll likely want to use `--target-file-datums` or 
+`--target-file-bytes` since it's likely that you'll want to run your queries
+against many rows at a time.
