@@ -42,6 +42,7 @@ type amazonClient struct {
 	cloudfrontURLSigner    *sign.URLSigner
 	s3                     *s3.S3
 	uploader               *s3manager.Uploader
+	reversed               bool
 }
 
 type vaultCredentialsProvider struct {
@@ -154,7 +155,7 @@ type AmazonCreds struct {
 	VaultToken   string
 }
 
-func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string) (*amazonClient, error) {
+func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, reversed ...bool) (*amazonClient, error) {
 	// set up aws config, including credentials (if neither creds.ID nor
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
 	awsConfig := &aws.Config{
@@ -178,10 +179,17 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 
 	// Create new session using awsConfig
 	session := session.New(awsConfig)
+	var r bool
+	if len(reversed) > 0 {
+		r = reversed[0]
+	} else {
+		r = true
+	}
 	awsClient := &amazonClient{
 		bucket:   bucket,
 		s3:       s3.New(session),
 		uploader: s3manager.NewUploader(session),
+		reversed: r,
 	}
 
 	// Set awsClient.cloudfrontURLSigner and cloudfrontDistribution (if Pachd is
@@ -211,7 +219,9 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 }
 
 func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
-	name = reverse(name)
+	if c.reversed {
+		name = reverse(name)
+	}
 	return newBackoffWriteCloser(c, newWriter(c, name)), nil
 }
 
@@ -223,7 +233,11 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 		},
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, object := range listObjectsOutput.Contents {
-				if strings.HasPrefix(reverse(*object.Key), name) {
+				key := *object.Key
+				if c.reversed {
+					key = reverse(key)
+				}
+				if strings.HasPrefix(key, name) {
 					if err := fn(*object.Key); err != nil {
 						fnErr = err
 						return false
@@ -239,7 +253,9 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 }
 
 func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	name = reverse(name)
+	if c.reversed {
+		name = reverse(name)
+	}
 	byteRange := byteRange(offset, size)
 	if byteRange != "" {
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
@@ -296,7 +312,9 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 }
 
 func (c *amazonClient) Delete(name string) error {
-	name = reverse(name)
+	if c.reversed {
+		name = reverse(name)
+	}
 	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
@@ -305,7 +323,9 @@ func (c *amazonClient) Delete(name string) error {
 }
 
 func (c *amazonClient) Exists(name string) bool {
-	name = reverse(name)
+	if c.reversed {
+		name = reverse(name)
+	}
 	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),

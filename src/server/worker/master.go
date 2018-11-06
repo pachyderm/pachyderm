@@ -863,7 +863,7 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 			if err != nil {
 				return err
 			}
-			objClient, err := obj.NewClientFromURLAndSecret(pachClient.Ctx(), url)
+			objClient, err := obj.NewClientFromURLAndSecret(pachClient.Ctx(), url, false)
 			if err != nil {
 				return err
 			}
