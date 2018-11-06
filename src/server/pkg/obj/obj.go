@@ -280,8 +280,8 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (C
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string) (Client, error) {
-	return newAmazonClient(region, bucket, creds, distribution)
+func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, reversed ...bool) (Client, error) {
+	return newAmazonClient(region, bucket, creds, distribution, reversed...)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
@@ -350,7 +350,7 @@ func NewMinioClientFromEnv() (Client, error) {
 // NewAmazonClientFromSecret constructs an amazon client by reading credentials
 // from a mounted AmazonSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
-func NewAmazonClientFromSecret(bucket string) (Client, error) {
+func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) {
 	// Get AWS region (required for constructing an AWS client)
 	region, err := readSecretFile("/amazon-region")
 	if err != nil {
@@ -400,7 +400,7 @@ func NewAmazonClientFromSecret(bucket string) (Client, error) {
 	} else {
 		log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
 	}
-	return NewAmazonClient(region, bucket, &creds, distribution)
+	return NewAmazonClient(region, bucket, &creds, distribution, reversed...)
 }
 
 // NewAmazonClientFromEnv creates a Amazon client based on environment variables.
@@ -428,10 +428,10 @@ func NewAmazonClientFromEnv() (Client, error) {
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL) (Client, error) {
+func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL, reversed ...bool) (Client, error) {
 	switch url.Store {
 	case "s3":
-		return NewAmazonClientFromSecret(url.Bucket)
+		return NewAmazonClientFromSecret(url.Bucket, reversed...)
 	case "gcs":
 		fallthrough
 	case "gs":
