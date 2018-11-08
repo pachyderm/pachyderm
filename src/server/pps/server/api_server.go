@@ -52,6 +52,9 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 )
 
+import golog "log"
+import "os"
+
 const (
 	// DefaultUserImage is the image used for jobs when the user does not specify
 	// an image.
@@ -575,6 +578,8 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	return jobInfo, nil
 }
 
+var dbgLog = golog.New(os.Stdout, "", golog.Lshortfile|golog.LstdFlags)
+
 // listJob is the internal implementation of ListJob shared between ListJob and
 // ListJobStream. When ListJob is removed, this should be inlined into
 // ListJobStream.
@@ -583,14 +588,18 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		return err
 	}
 	var err error
+	dbgLog.Printf("about to resolve output commit")
 	if outputCommit != nil {
 		outputCommit, err = a.resolveCommit(pachClient, outputCommit)
+		dbgLog.Printf("done resolving output commit/err=%v", err)
 		if err != nil {
 			return err
 		}
 	}
+	dbgLog.Printf("about to resolve input commits")
 	for i, inputCommit := range inputCommits {
 		inputCommits[i], err = a.resolveCommit(pachClient, inputCommit)
+		dbgLog.Printf("done resolving input commit in %s/err=%v", inputCommit.Repo.Name, err)
 		if err != nil {
 			return err
 		}
@@ -598,7 +607,9 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	jobs := a.jobs.ReadOnly(pachClient.Ctx())
 	jobPtr := &pps.EtcdJobInfo{}
 	_f := func(key string) error {
+		dbgLog.Printf("about to call a.jobInfoFromPtr()")
 		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr)
+		dbgLog.Printf("done calling a.jobInfoFromPtr()/err=%v", err)
 		if err != nil {
 			if isNotFoundErr(err) {
 				return nil
@@ -625,10 +636,13 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		return f(jobInfo)
 	}
 	if pipeline != nil {
+		dbgLog.Printf("jobs.GetByIndex(...pipeline...)")
 		return jobs.GetByIndex(ppsdb.JobsPipelineIndex, pipeline, jobPtr, col.DefaultOptions, _f)
 	} else if outputCommit != nil {
+		dbgLog.Printf("jobs.GetByIndex(...outputCommit...)")
 		return jobs.GetByIndex(ppsdb.JobsOutputIndex, outputCommit, jobPtr, col.DefaultOptions, _f)
 	} else {
+		dbgLog.Printf("jobs.List()")
 		return jobs.List(jobPtr, col.DefaultOptions, _f)
 	}
 }

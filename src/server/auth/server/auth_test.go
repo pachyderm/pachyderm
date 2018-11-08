@@ -1674,6 +1674,7 @@ func TestListDatum(t *testing.T) {
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 	_, err = bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
 	require.YesError(t, err)
+	t.Logf("ListJob => %v", err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 
 	// alice adds bob to repoA, but bob still can't call GetLogs
@@ -1734,6 +1735,150 @@ func TestListDatum(t *testing.T) {
 		"file1": struct{}{},
 		"file2": struct{}{},
 	}, files)
+}
+
+func TestListJobAndDatum(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
+
+	// alice creates a repo
+	repoA := tu.UniqueString("TestListJobAndDatum")
+	require.NoError(t, aliceClient.CreateRepo(repoA))
+	repoB := tu.UniqueString("TestListJobAndDatum")
+	require.NoError(t, aliceClient.CreateRepo(repoB))
+
+	// alice creates a pipeline
+	pipeline := tu.UniqueString("alice-pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"ls /pfs/*/*; cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewCrossInput(
+			client.NewAtomInput(repoA, "/*"),
+			client.NewAtomInput(repoB, "/*"),
+		),
+		"", // default output branch: master
+		false,
+	))
+
+	// alice commits to the input repos, and the pipeline runs successfully
+	var commit *pfs.Commit
+	for i, repo := range []string{repoA, repoB} {
+		var err error
+		commit, err = aliceClient.StartCommit(repo, "master")
+		require.NoError(t, err)
+		file := fmt.Sprintf("/file%d", i+1)
+		_, err = aliceClient.PutFile(repo, commit.ID, file, strings.NewReader("test"))
+		require.NoError(t, err)
+		require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
+	}
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{commit},
+		[]*pfs.Repo{{Name: pipeline}},
+	)
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobs))
+	jobID := jobs[0].Job.ID
+
+	// Without any access, Bob cannot call ListJob or ListDatum
+	_, err = bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+
+	// alice adds bob to repoB and the output repo, but bob can't call ListJob or
+	// ListDatum (missing repoA)
+	for _, repo := range []string{repoB, pipeline} {
+		_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+			Username: bob,
+			Scope:    auth.Scope_READER,
+			Repo:     repo,
+		})
+		require.NoError(t, err)
+	}
+	_, err = bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+
+	// alice removes bob from repoB and adds bob to repoA, but bob still can't
+	// call ListDatum (missing repoB)
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_NONE,
+		Repo:     repoB,
+	})
+	require.NoError(t, err)
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_READER,
+		Repo:     repoA,
+	})
+	require.NoError(t, err)
+	_, err = bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+
+	// alice adds bob to repoB and removes him from the output repo, but bob
+	// still can't call ListDatum
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_NONE,
+		Repo:     pipeline,
+	})
+	require.NoError(t, err)
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_READER,
+		Repo:     repoB,
+	})
+	require.NoError(t, err)
+	_, err = bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+	_, err = bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	require.YesError(t, err)
+	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
+
+	// Finally, alice adds bob to the output repo, and now bob can call ListJob
+	// and ListDatum
+	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
+		Username: bob,
+		Scope:    auth.Scope_READER,
+		Repo:     pipeline,
+	})
+	require.NoError(t, err)
+
+	jobInfos, err := bobClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(jobInfos))
+
+	datumResp, err := bobClient.ListDatum(jobID, 0 /*pageSize*/, 0 /*page*/)
+	require.ElementsEqualUnderFn(t, []string{"file1", "file2"}, datumResp.DatumInfos, func(d interface{}) interface{} {
+		di, ok := d.(*pps.DatumInfo)
+		require.True(t, ok)
+		require.Equal(t, 1, len(di.Data))
+		return path.Base(di.Data[0].File.Path)
+	})
 }
 
 // TestInspectDatum tests InspectDatum runs even when auth is activated
