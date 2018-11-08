@@ -316,12 +316,16 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 // This should be used to access Pachyderm from within a Kubernetes cluster
 // with Pachyderm running on it.
 func NewInCluster(options ...Option) (*APIClient, error) {
-	addr := os.Getenv("PACHD_PORT_650_TCP_ADDR")
-	if addr == "" {
-		return nil, fmt.Errorf("PACHD_PORT_650_TCP_ADDR not set")
+	host, ok := os.LookupEnv("PACHD_SERVICE_HOST")
+	if !ok {
+		return nil, fmt.Errorf("PACHD_SERVICE_HOST not set")
+	}
+	port, ok := os.LookupEnv("PACHD_SERVICE_PORT")
+	if !ok {
+		return nil, fmt.Errorf("PACHD_SERVICE_PORT not set")
 	}
 	// create new pachctl client
-	return NewFromAddress(addr, options...)
+	return NewFromAddress(fmt.Sprintf("%s:%s", host, port), options...)
 }
 
 // Close the connection to gRPC
