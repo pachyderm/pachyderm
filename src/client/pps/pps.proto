@@ -117,6 +117,8 @@ message ParallelismSpec {
   double coefficient = 3;
 }
 
+// HashTreeSpec sets the number of shards into which pps splits a pipeline's
+// output commits (sharded commits are implemented in Pachyderm 1.8+ only)
 message HashtreeSpec {
   uint64 constant = 1;
 }
@@ -191,12 +193,16 @@ message ResourceSpec {
   // encouraged)
   float cpu = 1;
 
-  // The amount of memory, in bytes, each worker needs (in bytes, with allowed
+  // The amount of memory each worker needs (in bytes, with allowed
   // SI suffixes (M, K, G, Mi, Ki, Gi, etc).
   string memory = 2;
 
   // The number of GPUs each worker needs.
   int64 gpu = 3;
+
+  // The amount of ephemeral storage each worker needs (in bytes, with allowed
+  // SI suffixes (M, K, G, Mi, Ki, Gi, etc).
+  string disk = 4;
 }
 
 // EtcdJobInfo is the portion of the JobInfo that gets stored in etcd during
@@ -262,6 +268,8 @@ message JobInfo {
   google.protobuf.Duration datum_timeout = 38;
   google.protobuf.Duration job_timeout = 39;
   int64 datum_tries = 41;
+  SchedulingSpec scheduling_spec = 42;
+  string pod_spec = 43;
 }
 
 enum WorkerState {
@@ -331,7 +339,7 @@ message PipelineInfo {
   uint64 version = 11;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
-  HashtreeSpec hashtree_spec = 41;
+	HashtreeSpec hashtree_spec = 42;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
 
@@ -370,6 +378,8 @@ message PipelineInfo {
   pfs.Commit spec_commit = 36;
   bool standby = 37;
   int64 datum_tries = 39;
+  SchedulingSpec scheduling_spec = 40;
+  string pod_spec = 41;
 }
 
 message PipelineInfos {
@@ -505,12 +515,17 @@ message ChunkSpec {
   int64 size_bytes = 2;
 }
 
+message SchedulingSpec {
+  map<string, string> node_selector = 1;
+  string priority_class_name = 2;
+}
+
 message CreatePipelineRequest {
   reserved 3, 4;
   Pipeline pipeline = 1;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
-  HashtreeSpec hashtree_spec = 29;
+  HashtreeSpec hashtree_spec = 31;
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
@@ -534,6 +549,8 @@ message CreatePipelineRequest {
   string salt = 26;
   bool standby = 27;
   int64 datum_tries = 28;
+  SchedulingSpec scheduling_spec = 29;
+  string pod_spec = 30;
 }
 
 message InspectPipelineRequest {
@@ -564,7 +581,12 @@ message RerunPipelineRequest {
   repeated pfs.Commit include = 3;
 }
 
-message GarbageCollectRequest {}
+message GarbageCollectRequest {
+    // Memory is how much memory to use in computing which objects are alive. A
+    // larger number will result in more precise garbage collection (at the
+    // cost of more memory usage).
+    int64 memory_bytes = 1;
+}
 message GarbageCollectResponse {}
 
 message ActivateAuthRequest {}
