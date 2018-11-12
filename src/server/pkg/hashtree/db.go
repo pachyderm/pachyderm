@@ -9,6 +9,7 @@ import (
 	"os"
 	pathlib "path"
 	"regexp"
+	"sort"
 	"strings"
 
 	"golang.org/x/sync/errgroup"
@@ -867,8 +868,8 @@ func (h *dbHashTree) DeleteFile(path string) error {
 }
 
 type mergeNode struct {
-	k, v []byte
-	node *NodeProto
+	k, v      []byte
+	nodeProto *NodeProto
 }
 
 type Reader struct {
@@ -937,22 +938,22 @@ func NewWriter(w io.Writer) *Writer {
 
 func (w *Writer) Write(n *mergeNode) error {
 	// Marshal node if it was merged
-	if n.node != nil {
+	if n.nodeProto != nil {
 		var err error
-		n.v, err = n.node.Marshal()
+		n.v, err = n.nodeProto.Marshal()
 		if err != nil {
 			return err
 		}
 	}
 	// Get size info from root node
 	if bytes.Equal(n.k, nullByte) {
-		if n.node == nil {
-			n.node = &NodeProto{}
-			if err := n.node.Unmarshal(n.v); err != nil {
+		if n.nodeProto == nil {
+			n.nodeProto = &NodeProto{}
+			if err := n.nodeProto.Unmarshal(n.v); err != nil {
 				return err
 			}
 		}
-		w.size = uint64(n.node.SubtreeSize)
+		w.size = uint64(n.nodeProto.SubtreeSize)
 	}
 	// Write index for every index size bytes
 	if w.offset > uint64(len(w.idxs)+1)*IndexSize {
@@ -1130,30 +1131,29 @@ func (mq *mergePQ) next() ([]*mergeNode, error) {
 
 func merge(ns []*mergeNode) (*mergeNode, error) {
 	base := ns[0]
-	if base.node == nil {
-		base.node = &NodeProto{}
-		if err := base.node.Unmarshal(base.v); err != nil {
+	if base.nodeProto == nil {
+		base.nodeProto = &NodeProto{}
+		if err := base.nodeProto.Unmarshal(base.v); err != nil {
 			return nil, err
 		}
 	}
 	for i := 1; i < len(ns); i++ {
 		n := ns[i]
-		n.node = &NodeProto{}
-		if err := n.node.Unmarshal(n.v); err != nil {
+		n.nodeProto = &NodeProto{}
+		if err := n.nodeProto.Unmarshal(n.v); err != nil {
 			return nil, err
 		}
 		// Check for inconsistent node types
-		if base.node.nodetype() != n.node.nodetype() {
+		if base.nodeProto.nodetype() != n.nodeProto.nodetype() {
 			return nil, errorf(PathConflict, "could not merge path \"%s\" "+
 				"which is a different type in different hashtrees", s(base.k))
 		}
 		// Merge file content
-		if base.node.nodetype() == file {
-			base.node.FileNode.BlockRefs = append(base.node.FileNode.BlockRefs, n.node.FileNode.BlockRefs...)
+		if base.nodeProto.nodetype() == file {
+			base.nodeProto.FileNode.BlockRefs = append(base.nodeProto.FileNode.BlockRefs, n.nodeProto.FileNode.BlockRefs...)
 
 		}
-		// (bryce) Add hash stuff
-		base.node.SubtreeSize += n.node.SubtreeSize
+		base.nodeProto.SubtreeSize += n.nodeProto.SubtreeSize
 	}
 	return base, nil
 }
@@ -1220,7 +1220,7 @@ func Merge(w *Writer, rs []*Reader) (uint64, error) {
 	return w.size, nil
 }
 
-func nodes(rs []*Reader, f func(path string, node *NodeProto) error) error {
+func nodes(rs []*Reader, f func(path string, nodeProto *NodeProto) error) error {
 	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
 	// Setup first set of nodes
 	for _, r := range rs {
@@ -1236,11 +1236,11 @@ func nodes(rs []*Reader, f func(path string, node *NodeProto) error) error {
 		}
 		// Unmarshal node and run callback
 		n := ns[0]
-		n.node = &NodeProto{}
-		if err := n.node.Unmarshal(n.v); err != nil {
+		n.nodeProto = &NodeProto{}
+		if err := n.nodeProto.Unmarshal(n.v); err != nil {
 			return err
 		}
-		if err := f(s(n.k), n.node); err != nil {
+		if err := f(s(n.k), n.nodeProto); err != nil {
 			return err
 		}
 	}
@@ -1574,89 +1574,179 @@ func compare(a, b *childCursor) int {
 	}
 }
 
-// Datum is an in memory version of the hashtree that is optimized and only works for sequential inserts followed by serialization.
-// This data structure is useful for datum output because a datum's hashtree is created by walking the local filesystem then is uploaded.
-type Datum struct {
-	fs       []*datumNode
-	dirStack []*datumNode
+// Ordered is an in memory version of the hashtree that is optimized and only works for lexicographically ordered inserts followed by serialization.
+type Ordered struct {
+	fs       []*node
+	dirStack []*node
+	root     string
 }
 
-type datumNode struct {
-	path string
-	node *NodeProto
-	hash hash.Hash
+type node struct {
+	path      string
+	nodeProto *NodeProto
+	hash      hash.Hash
 }
 
-func NewDatum(path string) *Datum {
-	path = clean(path)
-	n := &datumNode{
-		path: path,
-		node: &NodeProto{
-			Name:    base(path),
+func NewOrdered(root string) *Ordered {
+	root = clean(root)
+	o := &Ordered{}
+	n := &node{
+		path: "",
+		nodeProto: &NodeProto{
+			Name:    "",
 			DirNode: &DirectoryNodeProto{},
 		},
 		hash: sha256.New(),
 	}
-	return &Datum{
-		fs:       []*datumNode{n},
-		dirStack: []*datumNode{n},
+	o.fs = append(o.fs, n)
+	o.dirStack = append(o.dirStack, n)
+	o.mkdirAll(root)
+	o.root = root
+	return o
+}
+
+func (o *Ordered) mkdirAll(path string) {
+	var paths []string
+	for path != "" {
+		paths = append(paths, path)
+		path, _ = split(path)
+	}
+	for i := len(paths) - 1; i >= 0; i-- {
+		o.PutDir(paths[i])
 	}
 }
 
-func (d *Datum) PutDir(path string) {
+func (o *Ordered) PutDir(path string) {
 	path = clean(path)
-	d.handleEndOfDirectory(path)
-	n := &datumNode{
-		path: path,
-		node: &NodeProto{
-			Name:    base(path),
-			DirNode: &DirectoryNodeProto{},
-		},
-		hash: sha256.New(),
+	if path == "" {
+		return
 	}
-	d.fs = append(d.fs, n)
-	d.dirStack = append(d.dirStack, n)
+	nodeProto := &NodeProto{
+		Name:    base(path),
+		DirNode: &DirectoryNodeProto{},
+	}
+	o.putDir(path, nodeProto)
 }
 
-func (d *Datum) PutFile(path string, hash []byte, size int64, fileNode *FileNodeProto) {
+func (o *Ordered) putDir(path string, nodeProto *NodeProto) {
+	path = join(o.root, path)
+	o.handleEndOfDirectory(path)
+	n := &node{
+		path:      path,
+		nodeProto: nodeProto,
+		hash:      sha256.New(),
+	}
+	o.fs = append(o.fs, n)
+	o.dirStack = append(o.dirStack, n)
+}
+
+func (o *Ordered) PutFile(path string, hash []byte, size int64, fileNodeProto *FileNodeProto) {
 	path = clean(path)
-	d.handleEndOfDirectory(path)
-	n := &datumNode{
-		path: path,
-		node: &NodeProto{
-			Name:        base(path),
-			Hash:        hash,
-			SubtreeSize: size,
-			FileNode:    fileNode,
-		},
+	nodeProto := &NodeProto{
+		Name:        base(path),
+		Hash:        hash,
+		SubtreeSize: size,
+		FileNode:    fileNodeProto,
 	}
-	d.fs = append(d.fs, n)
-	d.dirStack[len(d.dirStack)-1].hash.Write([]byte(fmt.Sprintf("%s:%s:", n.node.Name, n.node.Hash)))
-	d.dirStack[len(d.dirStack)-1].node.SubtreeSize += size
+	o.putFile(path, nodeProto)
 }
 
-func (d *Datum) handleEndOfDirectory(path string) {
+func (o *Ordered) putFile(path string, nodeProto *NodeProto) {
+	path = join(o.root, path)
+	o.handleEndOfDirectory(path)
+	n := &node{
+		path:      path,
+		nodeProto: nodeProto,
+	}
+	o.fs = append(o.fs, n)
+	o.dirStack[len(o.dirStack)-1].hash.Write([]byte(fmt.Sprintf("%s:%s:", n.nodeProto.Name, n.nodeProto.Hash)))
+	o.dirStack[len(o.dirStack)-1].nodeProto.SubtreeSize += nodeProto.SubtreeSize
+}
+
+func (o *Ordered) handleEndOfDirectory(path string) {
 	parent, _ := split(path)
-	if parent != d.dirStack[len(d.dirStack)-1].path {
-		child := d.dirStack[len(d.dirStack)-1]
-		child.node.Hash = child.hash.Sum(nil)
-		d.dirStack = d.dirStack[:len(d.dirStack)-1]
-		parent := d.dirStack[len(d.dirStack)-1]
-		parent.hash.Write([]byte(fmt.Sprintf("%s:%s:", child.node.Name, child.node.Hash)))
-		parent.node.SubtreeSize += child.node.SubtreeSize
+	if parent != o.dirStack[len(o.dirStack)-1].path {
+		child := o.dirStack[len(o.dirStack)-1]
+		child.nodeProto.Hash = child.hash.Sum(nil)
+		o.dirStack = o.dirStack[:len(o.dirStack)-1]
+		parent := o.dirStack[len(o.dirStack)-1]
+		parent.hash.Write([]byte(fmt.Sprintf("%s:%s:", child.nodeProto.Name, child.nodeProto.Hash)))
+		parent.nodeProto.SubtreeSize += child.nodeProto.SubtreeSize
 	}
 }
 
-func (d *Datum) Serialize(_w io.Writer) error {
-	w := pbutil.NewWriter(_w)
-	d.fs[0].node.Hash = d.fs[0].hash.Sum(nil)
-	for _, n := range d.fs {
-		if _, err := w.WriteBytes(b(n.path)); err != nil {
-			return err
-		}
-		if _, err := w.Write(n.node); err != nil {
+func (o *Ordered) Serialize(_w io.Writer) error {
+	w := NewWriter(_w)
+	o.fs[0].nodeProto.Hash = o.fs[0].hash.Sum(nil)
+	for _, n := range o.fs {
+		if err := w.Write(&mergeNode{
+			k:         b(n.path),
+			nodeProto: n.nodeProto,
+		}); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+type Unordered struct {
+	fs   map[string]*NodeProto
+	root string
+}
+
+func NewUnordered(root string) *Unordered {
+	return &Unordered{
+		fs:   make(map[string]*NodeProto),
+		root: clean(root),
+	}
+}
+
+func (u *Unordered) PutFile(path string, hash []byte, size int64, blockRefs ...*pfs.BlockRef) {
+	path = join(u.root, path)
+	nodeProto := &NodeProto{
+		Name:        base(path),
+		Hash:        hash,
+		SubtreeSize: size,
+		FileNode: &FileNodeProto{
+			BlockRefs: blockRefs,
+		},
+	}
+	u.fs[path] = nodeProto
+	u.createParents(path)
+}
+
+func (u *Unordered) createParents(path string) {
+	if path != "" {
+		path, _ = split(path)
+		path = clean(path)
+		if _, ok := u.fs[path]; ok {
+			return
+		}
+		nodeProto := &NodeProto{
+			Name:    base(path),
+			DirNode: &DirectoryNodeProto{},
+		}
+		u.fs[path] = nodeProto
+		u.createParents(path)
+	}
+}
+
+func (u *Unordered) Ordered() *Ordered {
+	paths := make([]string, len(u.fs))
+	i := 0
+	for path := range u.fs {
+		paths[i] = path
+		i++
+	}
+	sort.Strings(paths)
+	o := NewOrdered("")
+	for _, path := range paths {
+		n := u.fs[path]
+		if n.DirNode != nil {
+			o.putDir(path, n)
+		} else {
+			o.putFile(path, n)
+		}
+	}
+	return o
 }
