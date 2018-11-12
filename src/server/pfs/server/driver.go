@@ -2419,17 +2419,19 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 	}()
 	blockRefs := []*pfs.BlockRef{}
 	var totalSize int64
+	var found bool
 	if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
 		}
 		blockRefs = append(blockRefs, node.FileNode.BlockRefs...)
 		totalSize += node.SubtreeSize
+		found = true
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	if len(blockRefs) <= 0 {
+	if !found {
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
