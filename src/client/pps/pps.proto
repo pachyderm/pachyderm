@@ -117,6 +117,12 @@ message ParallelismSpec {
   double coefficient = 3;
 }
 
+// HashTreeSpec sets the number of shards into which pps splits a pipeline's
+// output commits (sharded commits are implemented in Pachyderm 1.8+ only)
+message HashtreeSpec {
+  uint64 constant = 1;
+}
+
 message InputFile {
   // This file's absolute path within its pfs repo.
   string path = 4;
@@ -219,10 +225,10 @@ message EtcdJobInfo {
   ProcessStats stats = 9;
 
   pfs.Commit stats_commit = 10;
-
   JobState state = 11;
-
   string reason = 12;
+  google.protobuf.Timestamp started = 13;
+  google.protobuf.Timestamp finished = 14;
 }
 
 message JobInfo {
@@ -333,6 +339,7 @@ message PipelineInfo {
   uint64 version = 11;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
+	HashtreeSpec hashtree_spec = 42;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
 
@@ -518,6 +525,7 @@ message CreatePipelineRequest {
   Pipeline pipeline = 1;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
+  HashtreeSpec hashtree_spec = 31;
   Egress egress = 9;
   bool update = 5;
   string output_branch = 10;
