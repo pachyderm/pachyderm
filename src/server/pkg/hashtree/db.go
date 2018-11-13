@@ -1677,6 +1677,15 @@ func (o *Ordered) handleEndOfDirectory(path string) {
 
 func (o *Ordered) Serialize(_w io.Writer) error {
 	w := NewWriter(_w)
+	// Unwind directory stack
+	for len(o.dirStack) > 1 {
+		child := o.dirStack[len(o.dirStack)-1]
+		child.nodeProto.Hash = child.hash.Sum(nil)
+		o.dirStack = o.dirStack[:len(o.dirStack)-1]
+		parent := o.dirStack[len(o.dirStack)-1]
+		parent.hash.Write([]byte(fmt.Sprintf("%s:%s:", child.nodeProto.Name, child.nodeProto.Hash)))
+		parent.nodeProto.SubtreeSize += child.nodeProto.SubtreeSize
+	}
 	o.fs[0].nodeProto.Hash = o.fs[0].hash.Sum(nil)
 	for _, n := range o.fs {
 		if err := w.Write(&mergeNode{
