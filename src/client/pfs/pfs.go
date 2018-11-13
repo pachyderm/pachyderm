@@ -28,6 +28,11 @@ func EncodeHash(bytes []byte) string {
 	return hex.EncodeToString(bytes)
 }
 
+// DecodeHash decodes a hash into bytes.
+func DecodeHash(hash string) ([]byte, error) {
+	return hex.DecodeString(hash)
+}
+
 // GetBlock encodes a hash into a readable format in the form of a Block.
 func GetBlock(hash hash.Hash) *Block {
 	return &Block{

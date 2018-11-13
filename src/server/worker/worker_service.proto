@@ -45,6 +45,8 @@ message MergeState {
   State state = 1;
   pfs.Object tree = 2;
   uint64 size_bytes = 3;
+  pfs.Object stats_tree = 4;
+  uint64 stats_size_bytes = 5;
 }
 
 message Plan {
