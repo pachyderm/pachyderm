@@ -4217,7 +4217,7 @@ func TestStartCommitOutputBranch(t *testing.T) {
 }
 
 func TestWalk(t *testing.T) {
-	c := getPachClient(t)
+	c := GetPachClient(t)
 	repo := "repo"
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.PutFile(repo, "master", "dir/bar", strings.NewReader("bar"))

@@ -485,6 +485,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 }
 
 func TestMultipleInputsFromTheSameRepoDifferentBranchesIncremental(t *testing.T) {
+	t.Skip("Skipping incremental for 1.8.0")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -2260,7 +2261,7 @@ func TestManyFilesSingleCommit(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	// Request enough to require more than one page of results
-	numFiles := 20000
+	numFiles := 5000
 	_, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -2700,17 +2701,29 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	require.NoError(t, err)
 	outputFooFileInfo, err := c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "foo")
 	require.NoError(t, err)
-	require.Equal(t, inputFooFileInfo.Objects, outputFooFileInfo.Objects)
+	for i, object := range inputFooFileInfo.Objects {
+		info, err := c.InspectObject(object.Hash)
+		require.NoError(t, err)
+		require.Equal(t, info.BlockRef, outputFooFileInfo.BlockRefs[i])
+	}
 	inputFooFileInfo, err = c.InspectFile(dataRepo, commit.ID, "dir1/bar")
 	require.NoError(t, err)
 	outputFooFileInfo, err = c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "bar")
 	require.NoError(t, err)
-	require.Equal(t, inputFooFileInfo.Objects, outputFooFileInfo.Objects)
+	for i, object := range inputFooFileInfo.Objects {
+		info, err := c.InspectObject(object.Hash)
+		require.NoError(t, err)
+		require.Equal(t, info.BlockRef, outputFooFileInfo.BlockRefs[i])
+	}
 	inputFooFileInfo, err = c.InspectFile(dataRepo, commit.ID, "dir2/foo")
 	require.NoError(t, err)
 	outputFooFileInfo, err = c.InspectFile(pipelineName, commitInfos[0].Commit.ID, "dir/dir2/foo")
 	require.NoError(t, err)
-	require.Equal(t, inputFooFileInfo.Objects, outputFooFileInfo.Objects)
+	for i, object := range inputFooFileInfo.Objects {
+		info, err := c.InspectObject(object.Hash)
+		require.NoError(t, err)
+		require.Equal(t, info.BlockRef, outputFooFileInfo.BlockRefs[i])
+	}
 }
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/issues/797
@@ -4152,6 +4165,7 @@ func TestUnionInput(t *testing.T) {
 }
 
 func TestIncrementalOverwritePipeline(t *testing.T) {
+	t.Skip("Skipping incremental for 1.8.0")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4203,6 +4217,7 @@ func TestIncrementalOverwritePipeline(t *testing.T) {
 }
 
 func TestIncrementalAppendPipeline(t *testing.T) {
+	t.Skip("Skipping incremental for 1.8.0")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4256,6 +4271,7 @@ func TestIncrementalAppendPipeline(t *testing.T) {
 }
 
 func TestIncrementalDownstream(t *testing.T) {
+	t.Skip("Skipping incremental for 1.8.0")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4337,6 +4353,7 @@ func TestIncrementalDownstream(t *testing.T) {
 }
 
 func TestIncrementalOneFile(t *testing.T) {
+	t.Skip("Skipping incremental for 1.8.0")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4387,6 +4404,7 @@ func TestIncrementalOneFile(t *testing.T) {
 }
 
 func TestIncrementalFailure(t *testing.T) {
+	t.Skip("Skipping incremental for 1.8.0")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -4588,7 +4606,7 @@ func TestPipelineWithStats(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineWithStats_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 500
+	numFiles := 10
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -4629,10 +4647,10 @@ func TestPipelineWithStats(t *testing.T) {
 	require.Equal(t, 1, len(resp.DatumInfos[0].Data))
 
 	// Check we can list datums before job completion w pagination
-	resp, err = c.ListDatum(jobs[0].Job.ID, 100, 0)
+	resp, err = c.ListDatum(jobs[0].Job.ID, 5, 0)
 	require.NoError(t, err)
-	require.Equal(t, 100, len(resp.DatumInfos))
-	require.Equal(t, int64(numFiles/100), resp.TotalPages)
+	require.Equal(t, 5, len(resp.DatumInfos))
+	require.Equal(t, int64(numFiles/5), resp.TotalPages)
 	require.Equal(t, int64(0), resp.Page)
 
 	// Block on the job being complete before we call ListDatum again so we're
@@ -4667,7 +4685,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineWithStatsFailedDatums_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 200
+	numFiles := 10
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -4682,7 +4700,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					"if [ $RANDOM -gt 15000 ]; then exit 1; fi",
+					fmt.Sprintf("if [ -f /pfs/%s/file-5 ]; then exit 1; fi", dataRepo),
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
@@ -4732,7 +4750,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	numPages := int64(2)
-	pageSize := int64(100)
+	pageSize := int64(10)
 	numFiles := int(numPages * pageSize)
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
@@ -4748,7 +4766,7 @@ func TestPipelineWithStatsPaginated(t *testing.T) {
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
-					"if [ $RANDOM -gt 15000 ]; then exit 1; fi",
+					fmt.Sprintf("if [ -f /pfs/%s/file-5 ]; then exit 1; fi", dataRepo),
 					fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
 				},
 			},
@@ -4810,7 +4828,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPipelineWithStatsAcrossJobs_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	numFiles := 500
+	numFiles := 10
 	commit1, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
@@ -5045,6 +5063,7 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 }
 
 func TestIncrementalSharedProvenance(t *testing.T) {
+	t.Skip("Skipping incremental for 1.8.0")
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -5307,69 +5326,70 @@ func TestCronPipeline(t *testing.T) {
 		require.Equal(t, 1, len(commitInfos))
 	})
 
-	t.Run("CronIncremental", func(t *testing.T) {
-		pipeline := tu.UniqueString("CronIncremental-")
-		req := &pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{Name: pipeline},
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					"cat /pfs/time/time >> /pfs/out/time",
-					"echo \"\" >> /pfs/out/time",
-				},
-			},
-			Input:       client.NewCronInput("time", "@every 10s"),
-			Incremental: true,
-		}
-		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
-		require.NoError(t, err)
+	// Skipping incremental for 1.8.0
+	//t.Run("CronIncremental", func(t *testing.T) {
+	//	pipeline := tu.UniqueString("CronIncremental-")
+	//	req := &pps.CreatePipelineRequest{
+	//		Pipeline: &pps.Pipeline{Name: pipeline},
+	//		Transform: &pps.Transform{
+	//			Cmd: []string{"bash"},
+	//			Stdin: []string{
+	//				"cat /pfs/time/time >> /pfs/out/time",
+	//				"echo \"\" >> /pfs/out/time",
+	//			},
+	//		},
+	//		Input:       client.NewCronInput("time", "@every 10s"),
+	//		Incremental: true,
+	//	}
+	//	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	//	require.NoError(t, err)
 
-		// subscribe to the pipeline1 cron repo and wait for inputs
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
-		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-		for i := 0; i < 5; i++ {
-			commitInfo, err := iter.Next()
-			require.NoError(t, err)
-			_, err = c.BlockCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
-			require.NoError(t, err)
-			var buf bytes.Buffer
-			require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "time", 0, 0, &buf))
-			require.Equal(t, i+2, len(strings.Split(buf.String(), "\n")))
-		}
-	})
+	//	// subscribe to the pipeline1 cron repo and wait for inputs
+	//	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	//	defer cancel() //cleanup resources
+	//	iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
+	//	require.NoError(t, err)
+	//	for i := 0; i < 5; i++ {
+	//		commitInfo, err := iter.Next()
+	//		require.NoError(t, err)
+	//		_, err = c.BlockCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+	//		require.NoError(t, err)
+	//		var buf bytes.Buffer
+	//		require.NoError(t, c.GetFile(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID, "time", 0, 0, &buf))
+	//		require.Equal(t, i+2, len(strings.Split(buf.String(), "\n")))
+	//	}
+	//})
 
-	t.Run("CronIncrementalFailures", func(t *testing.T) {
-		pipeline := tu.UniqueString("CronIncremental-")
-		req := &pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{Name: pipeline},
-			Transform: &pps.Transform{
-				Cmd: []string{"bash"},
-				Stdin: []string{
-					"FLIP=$(($(($RANDOM%10))%2))",
-					"if [ $FLIP -eq 0 ]; then exit 1; fi",
-					"cat /pfs/time/time >> /pfs/out/time",
-					"echo \"\" >> /pfs/out/time",
-				},
-			},
-			Input:       client.NewCronInput("time", "@every 10s"),
-			Incremental: true,
-		}
-		_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
-		require.NoError(t, err)
+	//t.Run("CronIncrementalFailures", func(t *testing.T) {
+	//	pipeline := tu.UniqueString("CronIncremental-")
+	//	req := &pps.CreatePipelineRequest{
+	//		Pipeline: &pps.Pipeline{Name: pipeline},
+	//		Transform: &pps.Transform{
+	//			Cmd: []string{"bash"},
+	//			Stdin: []string{
+	//				"FLIP=$(($(($RANDOM%10))%2))",
+	//				"if [ $FLIP -eq 0 ]; then exit 1; fi",
+	//				"cat /pfs/time/time >> /pfs/out/time",
+	//				"echo \"\" >> /pfs/out/time",
+	//			},
+	//		},
+	//		Input:       client.NewCronInput("time", "@every 10s"),
+	//		Incremental: true,
+	//	}
+	//	_, err := c.PpsAPIClient.CreatePipeline(c.Ctx(), req)
+	//	require.NoError(t, err)
 
-		// subscribe to the pipeline1 cron repo and wait for inputs
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
-		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
-		require.NoError(t, err)
-		for i := 0; i < 5; i++ {
-			commitInfo, err := iter.Next()
-			require.NoError(t, err)
-			_, err = c.BlockCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
-		}
-	})
+	//	// subscribe to the pipeline1 cron repo and wait for inputs
+	//	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	//	defer cancel() //cleanup resources
+	//	iter, err := c.WithCtx(ctx).SubscribeCommit(pipeline, "master", "", pfs.CommitState_STARTED)
+	//	require.NoError(t, err)
+	//	for i := 0; i < 5; i++ {
+	//		commitInfo, err := iter.Next()
+	//		require.NoError(t, err)
+	//		_, err = c.BlockCommit(commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+	//	}
+	//})
 }
 
 func TestSelfReferentialPipeline(t *testing.T) {
