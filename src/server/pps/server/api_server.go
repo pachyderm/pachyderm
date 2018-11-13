@@ -967,20 +967,6 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		}
 		datumFileInfos = append(datumFileInfos, f)
 	}
-	// Sort results (failed first)
-	sort.Slice(datumFileInfos, func(i, j int) bool {
-		return datumFileToState(datumFileInfos[i], jobInfo.Job.ID) < datumFileToState(datumFileInfos[j], jobInfo.Job.ID)
-	})
-	if pageSize > 0 {
-		response.Page = page
-		response.TotalPages = getTotalPages(len(datumFileInfos))
-		start, end, err := getPageBounds(len(datumFileInfos))
-		if err != nil {
-			return nil, err
-		}
-		datumFileInfos = datumFileInfos[start:end]
-	}
-
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
 	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
@@ -1005,6 +991,19 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	}
 	if err = egGetDatums.Wait(); err != nil {
 		return nil, err
+	}
+	// Sort results (failed first)
+	sort.Slice(datumInfos, func(i, j int) bool {
+		return datumInfos[i].State < datumInfos[j].State
+	})
+	if pageSize > 0 {
+		response.Page = page
+		response.TotalPages = getTotalPages(len(datumInfos))
+		start, end, err := getPageBounds(len(datumInfos))
+		if err != nil {
+			return nil, err
+		}
+		datumInfos = datumInfos[start:end]
 	}
 	response.DatumInfos = datumInfos
 	return response, nil
@@ -1055,18 +1054,6 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 		sent++
 	}
 	return nil
-}
-
-func datumFileToState(f *pfs.FileInfo, jobID string) pps.DatumState {
-	for _, childFileName := range f.Children {
-		if strings.HasPrefix(childFileName, "job") && strings.Split(childFileName, ":")[1] != jobID {
-			return pps.DatumState_SKIPPED
-		}
-		if childFileName == "failure" {
-			return pps.DatumState_FAILED
-		}
-	}
-	return pps.DatumState_SUCCESS
 }
 
 func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumFactory) (datumInfo *pps.DatumInfo, retErr error) {
