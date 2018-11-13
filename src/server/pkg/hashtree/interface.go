@@ -110,28 +110,11 @@ type HashTree interface {
 	// the size of the objects removed.
 	PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error
 
-	PutFileBlockRefs(path string, blockRefs []*pfs.BlockRef, size int64) error
-
 	// PutDir creates a directory (or does nothing if one exists).
 	PutDir(path string) error
 
 	// DeleteFile deletes a regular file or directory (along with its children).
 	DeleteFile(path string) error
-
-	// PutObject puts an object into the object table.
-	PutObject(object *pfs.Object, blockRef *pfs.BlockRef) error
-
-	// GetObject returns the BlockRef for an object.
-	GetObject(object *pfs.Object) (*pfs.BlockRef, error)
-
-	// PutDatum records a datum as being part of this HashTree.
-	PutDatum(datum string) error
-
-	// HasDatum checks if a datum is a part of this HashTree.
-	HasDatum(datum string) (bool, error)
-
-	// DiffDatums checks if the datums in this HashTree are a subset of the input datums.
-	DiffDatums(datums chan string) (bool, error)
 
 	// Hash updates all of the hashes and node size metadata, it also checks
 	// for conflicts.

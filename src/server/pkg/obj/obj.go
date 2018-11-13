@@ -44,7 +44,7 @@ const (
 // Microsoft environment variables
 const (
 	MicrosoftContainerEnvVar = "MICROSOFT_CONTAINER"
-	MicrosoftIdEnvVar        = "MICROSOFT_ID"
+	MicrosoftIDEnvVar        = "MICROSOFT_ID"
 	MicrosoftSecretEnvVar    = "MICROSOFT_SECRET"
 )
 
@@ -62,7 +62,7 @@ const (
 const (
 	AmazonRegionEnvVar       = "AMAZON_REGION"
 	AmazonBucketEnvVar       = "AMAZON_BUCKET"
-	AmazonIdEnvVar           = "AMAZON_ID"
+	AmazonIDEnvVar           = "AMAZON_ID"
 	AmazonSecretEnvVar       = "AMAZON_SECRET"
 	AmazonTokenEnvVar        = "AMAZON_TOKEN"
 	AmazonVaultAddrEnvVar    = "AMAZON_VAULT_ADDR"
@@ -71,7 +71,7 @@ const (
 	AmazonDistributionEnvVar = "AMAZON_DISTRIBUTION"
 )
 
-// Environment variable name to secret key mapping
+// EnvVarToSecretKey is an environment variable name to secret key mapping
 // This is being used to temporarily bridge the gap as we transition to a model
 // where object storage access in the workers is based on environment variables
 // and a library rather than mounting a secret to a sidecar container which
@@ -80,7 +80,7 @@ var EnvVarToSecretKey = map[string]string{
 	GoogleBucketEnvVar:       "google-bucket",
 	GoogleCredEnvVar:         "google-cred",
 	MicrosoftContainerEnvVar: "microsoft-container",
-	MicrosoftIdEnvVar:        "microsoft-id",
+	MicrosoftIDEnvVar:        "microsoft-id",
 	MicrosoftSecretEnvVar:    "microsoft-secret",
 	MinioBucketEnvVar:        "minio-bucket",
 	MinioEndpointEnvVar:      "minio-endpoint",
@@ -90,7 +90,7 @@ var EnvVarToSecretKey = map[string]string{
 	MinioSignatureEnvVar:     "minio-signature",
 	AmazonRegionEnvVar:       "amazon-region",
 	AmazonBucketEnvVar:       "amazon-bucket",
-	AmazonIdEnvVar:           "amazon-id",
+	AmazonIDEnvVar:           "amazon-id",
 	AmazonSecretEnvVar:       "amazon-secret",
 	AmazonTokenEnvVar:        "amazon-token",
 	AmazonVaultAddrEnvVar:    "amazon-vault-addr",
@@ -99,6 +99,7 @@ var EnvVarToSecretKey = map[string]string{
 	AmazonDistributionEnvVar: "amazon-distribution",
 }
 
+// StorageRootFromEnv gets the storage root based on environment variables.
 func StorageRootFromEnv() (string, error) {
 	storageRoot, ok := os.LookupEnv(PachRootEnvVar)
 	if !ok {
@@ -120,6 +121,7 @@ func StorageRootFromEnv() (string, error) {
 	return storageRoot, nil
 }
 
+// BlockPathFromEnv gets the path to an object storage block based on environment variables.
 func BlockPathFromEnv(block *pfs.Block) (string, error) {
 	storageRoot, err := StorageRootFromEnv()
 	if err != nil {
@@ -248,9 +250,9 @@ func NewMicrosoftClientFromEnv() (Client, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s not found", MicrosoftContainerEnvVar)
 	}
-	id, ok := os.LookupEnv(MicrosoftIdEnvVar)
+	id, ok := os.LookupEnv(MicrosoftIDEnvVar)
 	if !ok {
-		return nil, fmt.Errorf("%s not found", MicrosoftIdEnvVar)
+		return nil, fmt.Errorf("%s not found", MicrosoftIDEnvVar)
 	}
 	secret, ok := os.LookupEnv(MicrosoftSecretEnvVar)
 	if !ok {
@@ -415,7 +417,7 @@ func NewAmazonClientFromEnv() (Client, error) {
 	}
 
 	var creds AmazonCreds
-	creds.ID, _ = os.LookupEnv(AmazonIdEnvVar)
+	creds.ID, _ = os.LookupEnv(AmazonIDEnvVar)
 	creds.Secret, _ = os.LookupEnv(AmazonSecretEnvVar)
 	creds.Token, _ = os.LookupEnv(AmazonTokenEnvVar)
 	creds.VaultAddress, _ = os.LookupEnv(AmazonVaultAddrEnvVar)

@@ -8,13 +8,11 @@ import (
 	"os"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -24,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -330,84 +327,6 @@ func (a *APIServer) chunks(jobID string) col.Collection {
 
 func (a *APIServer) merges(jobID string) col.Collection {
 	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, mergePrefix, jobID), nil, &MergeState{}, nil, nil)
-}
-
-// collectDatum collects the output and stats output from a datum, and merges
-// it into the passed trees. It errors if it can't find the tree object for
-// this datum, unless failed is true in which case it tolerates missing trees.
-func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files []*Input, logger *taggedLogger,
-	tree hashtree.HashTree, statsTree hashtree.HashTree, treeMu *sync.Mutex, failed bool) error {
-	datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-	ok, err := tree.HasDatum(datumHash)
-	if err != nil {
-		return err
-	}
-	if ok {
-		return nil
-	}
-	datumID := a.DatumID(files)
-	tag := &pfs.Tag{datumHash}
-	statsTag := &pfs.Tag{datumHash + statsTagSuffix}
-
-	var eg errgroup.Group
-	var subTree hashtree.HashTree
-	var statsSubtree hashtree.HashTree
-	eg.Go(func() error {
-		var err error
-		subTree, err = hashtree.GetHashTreeTag(pachClient, a.hashtreeStorage, tag)
-		if err != nil && !failed {
-			return fmt.Errorf("failed to retrieve hashtree after processing for datum %v: %v", files, err)
-		}
-		return nil
-	})
-	if a.pipelineInfo.EnableStats {
-		eg.Go(func() error {
-			var err error
-			if statsSubtree, err = hashtree.GetHashTreeTag(pachClient, a.hashtreeStorage, statsTag); err != nil {
-				logger.Logf("failed to read stats tree, this is non-fatal but will result in some missing stats")
-				return nil
-			}
-			indexObject, length, err := pachClient.PutObject(strings.NewReader(fmt.Sprint(index)))
-			if err != nil {
-				logger.Logf("failed to write stats tree, this is non-fatal but will result in some missing stats")
-				return nil
-			}
-			treeMu.Lock()
-			defer treeMu.Unlock()
-			// Add a file to statsTree indicating the index of this
-			// datum in the datum factory.
-			if err := statsTree.PutFile(fmt.Sprintf("%v/index", datumID), []*pfs.Object{indexObject}, length); err != nil {
-				logger.Logf("failed to write index file, this is non-fatal but will result in some missing stats")
-				return nil
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-	treeMu.Lock()
-	defer treeMu.Unlock()
-	if statsSubtree != nil {
-		//if err := statsTree.Merge(statsSubtree); err != nil {
-		//	logger.Logf("failed to merge into stats tree: %v", err)
-		//}
-		if err := statsSubtree.Destroy(); err != nil {
-			return err
-		}
-	}
-	if subTree != nil {
-		//if err := tree.Merge(subTree); err != nil {
-		//	return err
-		//}
-		if err := subTree.Destroy(); err != nil {
-			return err
-		}
-	}
-	if err := tree.PutDatum(datumHash); err != nil {
-		return err
-	}
-	return nil
 }
 
 func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *Plan {

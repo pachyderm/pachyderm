@@ -25,23 +25,26 @@ import (
 )
 
 const (
-	FsBucket                = "fs"
-	ChangedBucket           = "changed"
-	ObjectBucket            = "object"
-	DatumBucket             = "datum"
-	perm                    = 0666
-	DefaultBufSize          = 5 * (1 << (10 * 2))
+	// FsBucket is the filesystem bucket
+	FsBucket = "fs"
+	// ChangedBucket is the changed bucket
+	ChangedBucket = "changed"
+	perm          = 0666
+	// DefaultMergeConcurrency is the default concurrency when merging hashtrees.
 	DefaultMergeConcurrency = 10
-	IndexPath               = "-index"
-	IndexSize               = uint64(1 << (10 * 2))
+	// IndexPath is the suffix to append to the path of a hashtree for the index.
+	IndexPath = "-index"
+	// IndexSize is the size of the index chunks.
+	IndexSize = uint64(1 << (10 * 2))
 )
 
 var (
-	buckets   = []string{DatumBucket, FsBucket, ChangedBucket, ObjectBucket}
+	buckets   = []string{FsBucket, ChangedBucket}
 	exists    = []byte{1}
 	nullByte  = []byte{0}
 	slashByte = []byte{'/'}
-	// A path should not have a globbing character
+	// SentinelByte is the delimiter for hashtree buckets.
+	// A path should not have a globbing character.
 	SentinelByte = []byte{'*'}
 )
 
@@ -51,14 +54,6 @@ func fs(tx *bolt.Tx) *bolt.Bucket {
 
 func changed(tx *bolt.Tx) *bolt.Bucket {
 	return tx.Bucket(b(ChangedBucket))
-}
-
-func object(tx *bolt.Tx) *bolt.Bucket {
-	return tx.Bucket(b(ObjectBucket))
-}
-
-func datum(tx *bolt.Tx) *bolt.Bucket {
-	return tx.Bucket(b(DatumBucket))
 }
 
 type dbHashTree struct {
@@ -94,6 +89,7 @@ func dbFile(storageRoot string) string {
 	return fmt.Sprintf("%s/hashtree/%s", storageRoot, uuid.NewWithoutDashes())
 }
 
+// NewDBHashTree creates a database (bolt) backed hashtree.
 func NewDBHashTree(storageRoot string) (HashTree, error) {
 	file := dbFile(storageRoot)
 	if err := os.MkdirAll(pathlib.Dir(file), 0777); err != nil {
@@ -109,6 +105,7 @@ func NewDBHashTree(storageRoot string) (HashTree, error) {
 	return result, err
 }
 
+// DeserializeDBHashTree deserializes a hashtree into a database (bolt) backed hashtree.
 func DeserializeDBHashTree(storageRoot string, r io.Reader) (_ HashTree, retErr error) {
 	result, err := NewDBHashTree(storageRoot)
 	if err != nil {
@@ -153,6 +150,7 @@ func get(tx *bolt.Tx, path string) (*NodeProto, error) {
 	return node, nil
 }
 
+// Get gets a hashtree node.
 func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	path = clean(path)
 	var node *NodeProto
@@ -166,6 +164,7 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
+// Get gets a hashtree node.
 func Get(rs []*Reader, filePath string) (*NodeProto, error) {
 	filePath = clean(filePath)
 	var fileNode *NodeProto
@@ -224,8 +223,7 @@ func list(tx *bolt.Tx, path string, f func(*NodeProto) error) error {
 	})
 }
 
-// List retrieves the list of files and subdirectories of the directory at
-// 'path'.
+// List executes a callback for each file under a directory (or a file if the path is a file).
 func (h *dbHashTree) List(path string, f func(*NodeProto) error) error {
 	path = clean(path)
 	return h.View(func(tx *bolt.Tx) error {
@@ -233,6 +231,7 @@ func (h *dbHashTree) List(path string, f func(*NodeProto) error) error {
 	})
 }
 
+// ListAll retrieves all the files under a directory (or a file if the path is a file).
 func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 	var result []*NodeProto
 	if err := h.List(path, func(node *NodeProto) error {
@@ -244,6 +243,7 @@ func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 	return result, nil
 }
 
+// List executes a callback for each file under a directory (or a file if the path is a file).
 func List(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retErr error) {
 	pattern = clean(pattern)
 	if pattern == "" {
@@ -292,6 +292,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 	return nil
 }
 
+// Glob executes a callback for each path that matches the glob pattern.
 func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) error {
 	pattern = clean(pattern)
 	return h.View(func(tx *bolt.Tx) error {
@@ -299,6 +300,7 @@ func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) erro
 	})
 }
 
+// GlobAll retrieves all the nodes that match the glob pattern.
 func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
 	res := make(map[string]*NodeProto)
 	if err := h.Glob(pattern, func(path string, node *NodeProto) error {
@@ -310,6 +312,7 @@ func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
 	return res, nil
 }
 
+// Glob executes a callback for each path that matches the glob pattern.
 func Glob(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retErr error) {
 	pattern = clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
@@ -324,6 +327,7 @@ func Glob(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retEr
 	})
 }
 
+// FSSize gets the size of the hashtree
 func (h *dbHashTree) FSSize() int64 {
 	rootNode, err := h.Get("/")
 	if err != nil {
@@ -332,6 +336,7 @@ func (h *dbHashTree) FSSize() int64 {
 	return rootNode.SubtreeSize
 }
 
+// Walk executes a callback against every node in the subtree of path.
 func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) error) error {
 	path = clean(path)
 	return h.View(func(tx *bolt.Tx) error {
@@ -360,6 +365,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 	})
 }
 
+// Walk executes a callback against every node in the subtree of path.
 func Walk(rs []*Reader, walkPath string, f func(path string, node *NodeProto) error) error {
 	walkPath = clean(walkPath)
 	return nodes(rs, func(path string, node *NodeProto) error {
@@ -392,7 +398,7 @@ func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth 
 		(newNode != nil && oldNode != nil && bytes.Equal(newNode.Hash, oldNode.Hash)) {
 		return nil
 	}
-	var newC *childCursor
+	var newC *ChildCursor
 	if newNode != nil {
 		if newNode.FileNode != nil || recursiveDepth == 0 {
 			if err := f(newPath, newNode, true); err != nil {
@@ -402,7 +408,7 @@ func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth 
 			newC = NewChildCursor(newTx, newPath)
 		}
 	}
-	var oldC *childCursor
+	var oldC *ChildCursor
 	if oldNode != nil {
 		if oldNode.FileNode != nil || recursiveDepth == 0 {
 			if err := f(oldPath, oldNode, false); err != nil {
@@ -462,6 +468,7 @@ func diff(newTx, oldTx *bolt.Tx, newPath string, oldPath string, recursiveDepth 
 	return nil
 }
 
+// Diff returns the diff of two hashtrees at particular paths.
 func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, recursiveDepth int64, f func(path string, node *NodeProto, new bool) error) (retErr error) {
 	// Setup a txn for each hashtree, this is a bit complicated because we don't want to make 2 read tx to the same tree, if we did then should someone start a write tx inbetween them we would have a deadlock
 	old := oldHashTree.(*dbHashTree)
@@ -499,6 +506,7 @@ func (h *dbHashTree) Diff(oldHashTree HashTree, newPath string, oldPath string, 
 	return diff(newTx, oldTx, newPath, oldPath, recursiveDepth, f)
 }
 
+// Serialize serializes a binary version of the hashtree.
 func (h *dbHashTree) Serialize(_w io.Writer) error {
 	w := pbutil.NewWriter(_w)
 	return h.View(func(tx *bolt.Tx) error {
@@ -531,6 +539,7 @@ type keyValue struct {
 	k, v []byte
 }
 
+// Deserialize deserializes a hashtree.
 func (h *dbHashTree) Deserialize(_r io.Reader) error {
 	r := pbutil.NewReader(_r)
 	hdr := &BucketHeader{}
@@ -601,6 +610,7 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 	return eg.Wait()
 }
 
+// Copy returns a copy of the hashtree.
 func (h *dbHashTree) Copy() (HashTree, error) {
 	if err := h.Hash(); err != nil {
 		return nil, err
@@ -627,6 +637,7 @@ func (h *dbHashTree) Copy() (HashTree, error) {
 	return result, nil
 }
 
+// Destroy cleans up the on disk structures for the hashtree.
 func (h *dbHashTree) Destroy() error {
 	path := h.Path()
 	if err := h.Close(); err != nil {
@@ -681,10 +692,15 @@ func visit(tx *bolt.Tx, path string, update updateFn) error {
 	return nil
 }
 
+// PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *dbHashTree) PutFile(path string, objects []*pfs.Object, size int64) error {
 	return h.putFile(path, objects, nil, size)
 }
 
+// PutFileOverwrite is the same as PutFile, except that instead of
+// appending the objects to the end of the given file, the objects
+// are inserted to the given index, and the existing objects starting
+// from the given index are removed.
 func (h *dbHashTree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
 	return h.putFile(path, objects, overwriteIndex, sizeDelta)
 }
@@ -727,44 +743,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, overwriteIndex 
 	})
 }
 
-func (h *dbHashTree) PutFileBlockRefs(path string, blockRefs []*pfs.BlockRef, size int64) error {
-	return h.putFileBlockRefs(path, blockRefs, size)
-}
-
-func (h *dbHashTree) putFileBlockRefs(path string, blockRefs []*pfs.BlockRef, sizeDelta int64) error {
-	path = clean(path)
-	return h.Batch(func(tx *bolt.Tx) error {
-		node, err := get(tx, path)
-		if err != nil && Code(err) != PathNotFound {
-			return err
-		}
-		if node == nil {
-			node = &NodeProto{
-				Name:     base(path),
-				FileNode: &FileNodeProto{},
-			}
-		} else if node.nodetype() != file {
-			return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
-				"type %s is already there", path, node.nodetype().tostring())
-		}
-		node.SubtreeSize += sizeDelta
-		node.FileNode.BlockRefs = append(node.FileNode.BlockRefs, blockRefs...)
-		// Put the node
-		if err := put(tx, path, node); err != nil {
-			return err
-		}
-		return visit(tx, path, func(node *NodeProto, parent, child string) error {
-			if node.DirNode == nil {
-				// node created as part of this visit call, fill in the basics
-				node.Name = base(parent)
-				node.DirNode = &DirectoryNodeProto{}
-			}
-			node.SubtreeSize += sizeDelta
-			return nil
-		})
-	})
-}
-
+// PutDir creates a directory (or does nothing if one exists).
 func (h *dbHashTree) PutDir(path string) error {
 	path = clean(path)
 	return h.Batch(func(tx *bolt.Tx) error {
@@ -810,6 +789,7 @@ func deleteDir(tx *bolt.Tx, path string) error {
 	return fs(tx).Delete(b(path))
 }
 
+// DeleteFile deletes a regular file or directory (along with its children).
 func (h *dbHashTree) DeleteFile(path string) error {
 	path = clean(path)
 
@@ -867,16 +847,19 @@ func (h *dbHashTree) DeleteFile(path string) error {
 	})
 }
 
-type mergeNode struct {
+// MergeNode is a node that is typically used for merging.
+type MergeNode struct {
 	k, v      []byte
 	nodeProto *NodeProto
 }
 
+// Reader can read a serialized hashtree into a sequence of merge nodes.
 type Reader struct {
 	pbr    pbutil.Reader
 	filter func(k []byte) (bool, error)
 }
 
+// NewReader creates a new hashtree reader.
 func NewReader(r io.Reader, filter func(k []byte) (bool, error)) *Reader {
 	return &Reader{
 		pbr:    pbutil.NewReader(r),
@@ -884,7 +867,8 @@ func NewReader(r io.Reader, filter func(k []byte) (bool, error)) *Reader {
 	}
 }
 
-func (r *Reader) Read() (*mergeNode, error) {
+// Read reads the next merge node.
+func (r *Reader) Read() (*MergeNode, error) {
 	_k, err := r.pbr.ReadBytes()
 	if err != nil {
 		return nil, err
@@ -917,12 +901,13 @@ func (r *Reader) Read() (*mergeNode, error) {
 	}
 	v := make([]byte, len(_v))
 	copy(v, _v)
-	return &mergeNode{
+	return &MergeNode{
 		k: k,
 		v: v,
 	}, nil
 }
 
+// Writer can write a serialized hashtree from a sequence of merge nodes.
 type Writer struct {
 	pbw    pbutil.Writer
 	size   uint64
@@ -930,13 +915,15 @@ type Writer struct {
 	offset uint64
 }
 
+// NewWriter creates a new hashtree writer.
 func NewWriter(w io.Writer) *Writer {
 	return &Writer{
 		pbw: pbutil.NewWriter(w),
 	}
 }
 
-func (w *Writer) Write(n *mergeNode) error {
+// Write writes the next merge node.
+func (w *Writer) Write(n *MergeNode) error {
 	// Marshal node if it was merged
 	if n.nodeProto != nil {
 		var err error
@@ -975,6 +962,7 @@ func (w *Writer) Write(n *mergeNode) error {
 	return nil
 }
 
+// Copy copies a hashtree reader in a writer.
 func (w *Writer) Copy(r *Reader) error {
 	for {
 		n, err := r.Read()
@@ -990,6 +978,7 @@ func (w *Writer) Copy(r *Reader) error {
 	}
 }
 
+// Index returns the index for a hashtree writer.
 func (w *Writer) Index() ([]byte, error) {
 	buf := &bytes.Buffer{}
 	pbw := pbutil.NewWriter(buf)
@@ -1001,6 +990,7 @@ func (w *Writer) Index() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// GetRangeFromIndex returns a subtree byte range in a serialized hashtree based on a passed in prefix.
 func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 	prefix = clean(prefix)
 	pbr := pbutil.NewReader(r)
@@ -1058,6 +1048,7 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 	return lower, upper - lower, nil
 }
 
+// NewFilter creates a filter for a hashtree shard.
 func NewFilter(numTrees int64, tree int64) func(k []byte) (bool, error) {
 	return func(k []byte) (bool, error) {
 		if pathToTree(k, numTrees) == uint64(tree) {
@@ -1067,6 +1058,7 @@ func NewFilter(numTrees int64, tree int64) func(k []byte) (bool, error) {
 	}
 }
 
+// PathToTree computes the hashtree shard for a path.
 func PathToTree(path string, numTrees int64) uint64 {
 	path = clean(path)
 	return pathToTree(b(path), numTrees)
@@ -1077,7 +1069,7 @@ func pathToTree(k []byte, numTrees int64) uint64 {
 }
 
 type nodeStream struct {
-	node *mergeNode
+	node *MergeNode
 	r    *Reader
 }
 
@@ -1114,8 +1106,8 @@ func (mq *mergePQ) insert(s *nodeStream) error {
 	return nil
 }
 
-func (mq *mergePQ) next() ([]*mergeNode, error) {
-	ns := []*mergeNode{mq.q[1].node}
+func (mq *mergePQ) next() ([]*MergeNode, error) {
+	ns := []*MergeNode{mq.q[1].node}
 	if err := mq.fill(); err != nil {
 		return nil, err
 	}
@@ -1129,7 +1121,7 @@ func (mq *mergePQ) next() ([]*mergeNode, error) {
 	return ns, nil
 }
 
-func merge(ns []*mergeNode) (*mergeNode, error) {
+func merge(ns []*MergeNode) (*MergeNode, error) {
 	base := ns[0]
 	if base.nodeProto == nil {
 		base.nodeProto = &NodeProto{}
@@ -1193,6 +1185,7 @@ func (mq *mergePQ) swap(i, j int) {
 	mq.q[j] = tmp
 }
 
+// Merge merges a collection of hashtree readers into a hashtree writer.
 func Merge(w *Writer, rs []*Reader) (uint64, error) {
 	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
 	// Setup first set of nodes
@@ -1245,76 +1238,6 @@ func nodes(rs []*Reader, f func(path string, nodeProto *NodeProto) error) error 
 		}
 	}
 	return nil
-}
-
-func (h *dbHashTree) PutObject(o *pfs.Object, blockRef *pfs.BlockRef) error {
-	data, err := blockRef.Marshal()
-	if err != nil {
-		return err
-	}
-	return h.Batch(func(tx *bolt.Tx) error {
-		return object(tx).Put(b(o.Hash), data)
-	})
-}
-
-func (h *dbHashTree) GetObject(o *pfs.Object) (*pfs.BlockRef, error) {
-	result := &pfs.BlockRef{}
-	if err := h.View(func(tx *bolt.Tx) error {
-		data := object(tx).Get(b(o.Hash))
-		if data == nil {
-			return errorf(ObjectNotFound, "object \"%s\" not found", o.Hash)
-		}
-		return result.Unmarshal(data)
-	}); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-func (h *dbHashTree) PutDatum(d string) error {
-	return h.Batch(func(tx *bolt.Tx) error {
-		return datum(tx).Put(b(d), exists)
-	})
-}
-
-func (h *dbHashTree) HasDatum(d string) (bool, error) {
-	var result bool
-	if err := h.View(func(tx *bolt.Tx) error {
-		val := datum(tx).Get(b(d))
-		if val != nil {
-			result = true
-		}
-		return nil
-	}); err != nil {
-		return false, err
-	}
-	return result, nil
-}
-
-func (h *dbHashTree) DiffDatums(datums chan string) (bool, error) {
-	var result bool
-	if err := h.Update(func(tx *bolt.Tx) error {
-		for d := range datums {
-			val := datum(tx).Get(b(d))
-			if val != nil {
-				if err := datum(tx).Put(b(d), nullByte); err != nil {
-					return err
-				}
-			}
-		}
-		if err := datum(tx).ForEach(func(k, v []byte) error {
-			if string(v) != string(nullByte) {
-				result = true
-			}
-			return datum(tx).Put(k, exists)
-		}); err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return false, err
-	}
-	return result, nil
 }
 
 func hasChanged(tx *bolt.Tx, path string) bool {
@@ -1377,6 +1300,8 @@ func canonicalize(tx *bolt.Tx, path string) error {
 	return changed(tx).Delete(b(path))
 }
 
+// Hash updates all of the hashes and node size metadata, it also checks
+// for conflicts.
 func (h *dbHashTree) Hash() error {
 	return h.Batch(func(tx *bolt.Tx) error {
 		return canonicalize(tx, "")
@@ -1456,7 +1381,7 @@ func GetHashTreeObject(pachClient *client.APIClient, storageRoot string, treeRef
 	})
 }
 
-// GetHashTreeObject is a convenience function to deserialize a HashTree from an tagged object in the object store.
+// GetHashTreeTag is a convenience function to deserialize a HashTree from an tagged object in the object store.
 func GetHashTreeTag(pachClient *client.APIClient, storageRoot string, treeRef *pfs.Tag) (HashTree, error) {
 	return getHashTree(storageRoot, func(w io.Writer) error {
 		return pachClient.GetTag(treeRef.Name, w)
@@ -1513,8 +1438,8 @@ func PutHashTree(pachClient *client.APIClient, tree HashTree, tags ...string) (*
 	return treeRef, nil
 }
 
-// childCursor efficiently iterates the children of a directory
-type childCursor struct {
+// ChildCursor efficiently iterates the children of a directory
+type ChildCursor struct {
 	c *bolt.Cursor
 	// childCursor efficiently iterates the children of a directory
 	dir []byte
@@ -1522,7 +1447,8 @@ type childCursor struct {
 	v   []byte
 }
 
-func NewChildCursor(tx *bolt.Tx, path string) *childCursor {
+// NewChildCursor creates a new child cursor.
+func NewChildCursor(tx *bolt.Tx, path string) *ChildCursor {
 	path = clean(path)
 	c := fs(tx).Cursor()
 	dir := b(path)
@@ -1533,7 +1459,7 @@ func NewChildCursor(tx *bolt.Tx, path string) *childCursor {
 	if !bytes.HasPrefix(k, dir) {
 		k, v = nil, nil
 	}
-	return &childCursor{
+	return &ChildCursor{
 		c:   c,
 		dir: dir,
 		k:   k,
@@ -1541,15 +1467,18 @@ func NewChildCursor(tx *bolt.Tx, path string) *childCursor {
 	}
 }
 
-func (d *childCursor) K() []byte {
+// K gets the key.
+func (d *ChildCursor) K() []byte {
 	return d.k
 }
 
-func (d *childCursor) V() []byte {
+// V gets the value.
+func (d *ChildCursor) V() []byte {
 	return d.v
 }
 
-func (d *childCursor) Next() ([]byte, []byte) {
+// Next gets the next key, value pair.
+func (d *ChildCursor) Next() ([]byte, []byte) {
 	if d.k == nil {
 		return nil, nil
 	}
@@ -1561,7 +1490,7 @@ func (d *childCursor) Next() ([]byte, []byte) {
 	return k, v
 }
 
-func compare(a, b *childCursor) int {
+func compare(a, b *ChildCursor) int {
 	switch {
 	case a.k == nil && b.k == nil:
 		return 0
@@ -1587,6 +1516,7 @@ type node struct {
 	hash      hash.Hash
 }
 
+// NewOrdered creates a new ordered hashtree.
 func NewOrdered(root string) *Ordered {
 	root = clean(root)
 	o := &Ordered{}
@@ -1616,6 +1546,7 @@ func (o *Ordered) mkdirAll(path string) {
 	}
 }
 
+// PutDir puts a directory in the hashtree.
 func (o *Ordered) PutDir(path string) {
 	path = clean(path)
 	if path == "" {
@@ -1640,6 +1571,7 @@ func (o *Ordered) putDir(path string, nodeProto *NodeProto) {
 	o.dirStack = append(o.dirStack, n)
 }
 
+// PutFile puts a file in the hashtree.
 func (o *Ordered) PutFile(path string, hash []byte, size int64, fileNodeProto *FileNodeProto) {
 	path = clean(path)
 	nodeProto := &NodeProto{
@@ -1675,6 +1607,7 @@ func (o *Ordered) handleEndOfDirectory(path string) {
 	}
 }
 
+// Serialize serializes an ordered hashtree.
 func (o *Ordered) Serialize(_w io.Writer) error {
 	w := NewWriter(_w)
 	// Unwind directory stack
@@ -1688,7 +1621,7 @@ func (o *Ordered) Serialize(_w io.Writer) error {
 	}
 	o.fs[0].nodeProto.Hash = o.fs[0].hash.Sum(nil)
 	for _, n := range o.fs {
-		if err := w.Write(&mergeNode{
+		if err := w.Write(&MergeNode{
 			k:         b(n.path),
 			nodeProto: n.nodeProto,
 		}); err != nil {
@@ -1698,11 +1631,13 @@ func (o *Ordered) Serialize(_w io.Writer) error {
 	return nil
 }
 
+// Unordered is an in memory version of the hashtree that supports random inserts. This will look more like the old version of hashtrees over time, with the key differences being that it supports arbitrary rooting and can easily be converted into a sorted tree.
 type Unordered struct {
 	fs   map[string]*NodeProto
 	root string
 }
 
+// NewUnordered creates a new unordered hashtree.
 func NewUnordered(root string) *Unordered {
 	return &Unordered{
 		fs:   make(map[string]*NodeProto),
@@ -1710,6 +1645,7 @@ func NewUnordered(root string) *Unordered {
 	}
 }
 
+// PutFile puts a file in the hashtree.
 func (u *Unordered) PutFile(path string, hash []byte, size int64, blockRefs ...*pfs.BlockRef) {
 	path = join(u.root, path)
 	nodeProto := &NodeProto{
@@ -1740,6 +1676,7 @@ func (u *Unordered) createParents(path string) {
 	}
 }
 
+// Ordered converts an unordered hashtree into an ordered hashtree.
 func (u *Unordered) Ordered() *Ordered {
 	paths := make([]string, len(u.fs))
 	i := 0
