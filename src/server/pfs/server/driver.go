@@ -2378,6 +2378,9 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		var objects []*pfs.Object
 		var totalSize uint64
 		for _, node := range paths {
+			if node.FileNode == nil {
+				continue
+			}
 			objects = append(objects, node.FileNode.Objects...)
 			totalSize += uint64(node.SubtreeSize)
 		}
