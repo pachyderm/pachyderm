@@ -7,10 +7,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Cache is an LRU cache for hashtrees.
 type Cache struct {
 	*lru.Cache
 }
 
+// NewCache creates a new cache.
 func NewCache(size int) (*Cache, error) {
 	c, err := lru.NewWithEvict(size, func(key interface{}, value interface{}) {
 		trees, ok := value.([]*dbHashTree)

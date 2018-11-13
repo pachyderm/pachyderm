@@ -1308,6 +1308,7 @@ func (w *putObjectWriteCloser) Close() error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// PutObjectWriteCloserAsync wraps a put object call in an asynchronous buffered writer.
 type PutObjectWriteCloserAsync struct {
 	client    pfs.ObjectAPI_PutObjectClient
 	request   *pfs.PutObjectRequest
@@ -1346,6 +1347,7 @@ func (c APIClient) newPutObjectWriteCloserAsync(tags []*pfs.Tag) (*PutObjectWrit
 	return w, nil
 }
 
+// Write performs a write.
 func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
 	select {
 	case err := <-w.errChan:
@@ -1362,6 +1364,7 @@ func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// Close closes the writer.
 func (w *PutObjectWriteCloserAsync) Close() error {
 	w.writeChan <- w.buf
 	close(w.writeChan)
@@ -1373,6 +1376,9 @@ func (w *PutObjectWriteCloserAsync) Close() error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// Object gets the pfs object for this writer.
+// This can only be called when the writer is closed (the put object
+// call is complete)
 func (w *PutObjectWriteCloserAsync) Object() (*pfs.Object, error) {
 	select {
 	case err := <-w.errChan:
