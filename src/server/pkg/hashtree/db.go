@@ -1122,12 +1122,14 @@ func (mq *mergePQ) next() ([]*MergeNode, error) {
 }
 
 func merge(ns []*MergeNode) (*MergeNode, error) {
+	// Skip deserialization if possible
+	if len(ns) == 1 {
+		return ns[0], nil
+	}
 	base := ns[0]
-	if base.nodeProto == nil {
-		base.nodeProto = &NodeProto{}
-		if err := base.nodeProto.Unmarshal(base.v); err != nil {
-			return nil, err
-		}
+	base.nodeProto = &NodeProto{}
+	if err := base.nodeProto.Unmarshal(base.v); err != nil {
+		return nil, err
 	}
 	for i := 1; i < len(ns); i++ {
 		n := ns[i]
