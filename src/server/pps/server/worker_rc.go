@@ -86,7 +86,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	userVolumeMounts := options.volumeMounts
 	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
-	options.volumeMounts = append(options.volumeMounts, secretMount)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
 	userVolumeMounts = append(userVolumeMounts, secretMount)
 
@@ -158,7 +157,6 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: &zeroVal,
 		SecurityContext:               &v1.PodSecurityContext{RunAsUser: &zeroVal},
-		ServiceAccountName:            assets.ServiceAccountName,
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
