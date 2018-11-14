@@ -58,12 +58,14 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 
 6) Run `docker login` (as the release script pushes new versions of the pachd and job-shim binaries to dockerhub)
 
-7) Run `make point-release` or `make VERSION_ADDITIONAL=rc1 release-candidate`
+7) Run `make GITHUB_OAUTH_TOKEN=<persional access token from #1> goxc-generate-local` if you have not yet (or the next step will fail)
 
-8) Commit the changes (the dash compatibility file will have been newly created), e.g.:
+8) Run `make point-release` or `make VERSION_ADDITIONAL=rc1 release-candidate`
+
+9) Commit the changes (the dash compatibility file will have been newly created), e.g.:
 
 ```
-$git status
+$ git status
 On branch master
 Your branch is ahead of 'origin/master' by 4 commits.
   (use "git push" to publish your local commits)
@@ -73,8 +75,8 @@ Untracked files:
 	etc/compatibility/1.6.4
 
 nothing added to commit but untracked files present (use "git add" to track)
-$git add etc/compatibility/1.6.4 
-$git commit -a -m "Update dash compatibility for pachctl 1.6.4"
+$ git add etc/compatibility/1.6.4 
+$ git commit -a -m "Update dash compatibility for pachctl 1.6.4"
 [master e7009a3] Update dash compatibility for pachctl 1.6.4
  1 file changed, 1 insertion(+)
  create mode 100644 etc/compatibility/1.6.4
