@@ -1201,7 +1201,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 								retErr = err
 							}
 						}()
-						rs = append(rs, hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil))
+						rs = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, rs...)
 					}
 					tree, size, err = a.merge(pachClient, objClient, nil, rs)
 					if err != nil {
@@ -1230,7 +1230,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 								retErr = err
 							}
 						}()
-						rs = append(rs, hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil))
+						rs = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, rs...)
 					}
 					statsTree, statsSize, err = a.merge(pachClient, objClient, nil, rs)
 					if err != nil {
