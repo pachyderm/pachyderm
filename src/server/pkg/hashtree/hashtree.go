@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	pathlib "path"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -498,91 +497,15 @@ func (h *hashtree) Finish() (HashTree, error) {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *hashtree) PutFile(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size, 0)
-}
-
-// PutFileSplit appends data to a file (and creates the file if it doesn't exist).
-func (h *hashtree) PutFileSplit(path string, objects []*pfs.Object, size int64, headerFooterSize int64) error {
-	return h.putFile(path, objects, nil, size, headerFooterSize)
+	return h.putFile(path, objects, nil, size)
 }
 
 func (h *hashtree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
-	return h.putFile(path, objects, overwriteIndex, sizeDelta, 0)
-}
-
-func (h *hashtree) PutHeaderFooter(path string, header *pfs.Object, footer *pfs.Object, headerFooterSize int64) error {
-	path = clean(path)
-
-	// detect any path conflicts before modifying 'h'
-	if err := h.visit(path, nop); err != nil {
-		return err
-	}
-
-	// get/create file node to which we'll append 'objects', or dir node to
-	// which we'll add header/footer
-	node, ok := h.fs[path]
-	if !ok {
-		node = &NodeProto{
-			Name: base(path),
-		}
-		node.DirNode = &DirectoryNodeProto{}
-		h.fs[path] = node
-	} else if node.nodetype() != directory {
-		return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
-			"type %s is already there", path, node.nodetype().tostring())
-	}
-	emptyObject := pfs.Object{}
-	if header != nil {
-		if *header == emptyObject {
-			node.DirNode.Header = nil
-		} else {
-			node.DirNode.Header = header
-		}
-	}
-	if footer != nil {
-		if *footer == emptyObject {
-			node.DirNode.Footer = nil
-		} else {
-			node.DirNode.Footer = footer
-		}
-	}
-	node.SubtreeSize += headerFooterSize
-	h.changed[path] = true
-	// Add 'path' to parent (if it's new) & mark nodes as 'changed' back to root
-	return h.visit(path, func(node *NodeProto, parent, child string) error {
-		if node == nil {
-			node = &NodeProto{
-				Name:    base(parent),
-				DirNode: &DirectoryNodeProto{},
-			}
-			if child == filepath.Dir(path) {
-				emptyObject := pfs.Object{}
-				if header != nil {
-					if *header == emptyObject {
-						node.DirNode.Header = nil
-					} else {
-						node.DirNode.Header = header
-					}
-				}
-				if footer != nil {
-					if *footer == emptyObject {
-						node.DirNode.Footer = nil
-					} else {
-						node.DirNode.Footer = footer
-					}
-				}
-			}
-			h.fs[parent] = node
-		}
-		insertStr(&node.DirNode.Children, child)
-		node.SubtreeSize += headerFooterSize
-		h.changed[parent] = true
-		return nil
-	})
+	return h.putFile(path, objects, overwriteIndex, sizeDelta)
 }
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
-func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, headerFooterSize int64) error {
+func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
 	path = clean(path)
 
 	// Detect any path conflicts before modifying 'h'
@@ -608,7 +531,6 @@ func (h *hashtree) putFile(path string, objects []*pfs.Object, overwriteIndex *p
 		node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
 	}
 	node.SubtreeSize += sizeDelta
-	node.SubtreeSize += headerFooterSize
 	node.FileNode.Objects = append(node.FileNode.Objects, objects...)
 	h.changed[path] = true
 
