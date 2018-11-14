@@ -36,7 +36,12 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 
 2) Make sure that you have no uncommitted files in the current branch. Note that `make doc` (next step) will fail if there are any uncommited changes in the current branch
 
-3) Update `src/client/version/client.go` and `doc/conf.py` version values, and **commit the change** (locally—you'll push it to GitHub in the next step, but this allows `make doc` to run)
+3) Update `src/client/version/client.go` and `doc/conf.py` version values, build a new local version of pachctl, and **commit the change** (locally—you'll push it to GitHub in the next step, but this allows `make doc` to run):
+    ```
+    > make install
+    > git add src/client/version/client.go doc/conf.py
+    > git commit -m"Increment version for $(pachctl version --client-only) point release"
+    ```
 
 4) Run `make doc` or `make VERSION_ADDITIONAL=<rc/version suffix> doc-custom` with the new version values.
 
@@ -51,8 +56,8 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 5) At this point, all of our auto-generated documentation should be updated. Push a new commit (to master) with:
 
   ```
-  > git add <all docs files>
-  > git commit -m"(Update version and) run make doc for <version> (point release|release candidate|etc)" (e.g. "Update version and run make doc for 1.0.0 point release" or "Run make doc for 1.0.0rc1 release candidate")
+  > git add doc
+  > git commit -m"Run make doc for $(pachctl version --client-only) (point release|release candidate|etc)"
   > git push origin master
   ```
 
@@ -64,23 +69,19 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
 
 9) Commit the changes (the dash compatibility file will have been newly created), e.g.:
 
-```
-$ git status
-On branch master
-Your branch is ahead of 'origin/master' by 4 commits.
-  (use "git push" to publish your local commits)
-Untracked files:
-  (use "git add <file>..." to include in what will be committed)
+    ```
+    > git status
+    On branch master
+    ....
+    Untracked files:
+      (use "git add <file>..." to include in what will be committed)
 
-	etc/compatibility/1.6.4
+            etc/compatibility/1.6.4
 
-nothing added to commit but untracked files present (use "git add" to track)
-$ git add etc/compatibility/1.6.4 
-$ git commit -a -m "Update dash compatibility for pachctl 1.6.4"
-[master e7009a3] Update dash compatibility for pachctl 1.6.4
- 1 file changed, 1 insertion(+)
- create mode 100644 etc/compatibility/1.6.4
-```
+    nothing added to commit but untracked files present (use "git add" to track)
+    > git add etc/compatibility/$(pachctl version --client-only) 
+    > git commit -m "Update dash compatibility for pachctl $(pachctl version --client-only)"
+    ```
 
 ### If the release failed
 You'll need to do two things: remove the relevant tags in GitHub, and re-build the docs in ReadTheDocs
