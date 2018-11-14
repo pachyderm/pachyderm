@@ -1147,6 +1147,9 @@ func merge(ns []*MergeNode) (*MergeNode, error) {
 			base.nodeProto.FileNode.BlockRefs = append(base.nodeProto.FileNode.BlockRefs, n.nodeProto.FileNode.BlockRefs...)
 
 		}
+		hasher := pfs.NewHash()
+		hasher.Write(append(base.nodeProto.Hash, n.nodeProto.Hash...))
+		base.nodeProto.Hash = hasher.Sum(nil)
 		base.nodeProto.SubtreeSize += n.nodeProto.SubtreeSize
 	}
 	return base, nil
