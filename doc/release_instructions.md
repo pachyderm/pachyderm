@@ -81,6 +81,7 @@ If you're doing a custom release (off a branch that isn't master), [skip to the 
     nothing added to commit but untracked files present (use "git add" to track)
     > git add etc/compatibility/$(pachctl version --client-only) 
     > git commit -m "Update dash compatibility for pachctl $(pachctl version --client-only)"
+    > git push origin master
     ```
 
 ### If the release failed
