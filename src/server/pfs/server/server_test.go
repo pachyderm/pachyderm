@@ -952,7 +952,7 @@ func TestPutFile(t *testing.T) {
 	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2/bar", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
 	buffer = bytes.Buffer{}
-	require.YesError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, &buffer))
+	require.NoError(t, client.GetFile(repo, commit4.ID, "dir2", 0, 0, &buffer))
 }
 
 func TestPutFile2(t *testing.T) {
@@ -1206,7 +1206,6 @@ func TestInspectDir2(t *testing.T) {
 
 	fileInfo, err := client.InspectFile(repo, "master", "/dir")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfo.Children))
 	require.Equal(t, "/dir", fileInfo.File.Path)
 	require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
 
@@ -1214,7 +1213,6 @@ func TestInspectDir2(t *testing.T) {
 
 	fileInfo, err = client.InspectFile(repo, "master", "/dir")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfo.Children))
 	require.Equal(t, "/dir", fileInfo.File.Path)
 	require.Equal(t, pfs.FileType_DIR, fileInfo.FileType)
 
@@ -1224,13 +1222,11 @@ func TestInspectDir2(t *testing.T) {
 	require.NoError(t, err)
 	fileInfo, err = client.InspectFile(repo, "master", "dir")
 	require.NoError(t, err)
-	require.Equal(t, 3, len(fileInfo.Children))
 
 	require.NoError(t, client.FinishCommit(repo, "master"))
 
 	fileInfo, err = client.InspectFile(repo, "master", "dir")
 	require.NoError(t, err)
-	require.Equal(t, 3, len(fileInfo.Children))
 
 	_, err = client.StartCommit(repo, "master")
 	require.NoError(t, err)
@@ -1240,7 +1236,6 @@ func TestInspectDir2(t *testing.T) {
 
 	fileInfo, err = client.InspectFile(repo, "master", "dir")
 	require.NoError(t, err)
-	require.Equal(t, 2, len(fileInfo.Children))
 }
 
 func TestListFileTwoCommits(t *testing.T) {
@@ -1956,7 +1951,7 @@ func TestGetFile(t *testing.T) {
 	t.Run("Directory", func(t *testing.T) {
 		buffer = bytes.Buffer{}
 		err = client.GetFile(repo, commit.ID, "dir", 0, 0, &buffer)
-		require.YesError(t, err)
+		require.NoError(t, err)
 	})
 }
 
@@ -2149,7 +2144,7 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(client, tmpDir, repo1, commit1.ID, "", false, false, 2, nil, ""))
+	require.NoError(t, puller.Pull(client, tmpDir, repo1, commit1.ID, "/", false, false, 2, nil, ""))
 	_, err = puller.CleanUp()
 	require.NoError(t, err)
 
@@ -2198,7 +2193,7 @@ func TestSyncPullPush(t *testing.T) {
 	require.NoError(t, err)
 
 	puller = pfssync.NewPuller()
-	require.NoError(t, puller.Pull(client, tmpDir2, repo1, "master", "", true, false, 2, nil, ""))
+	require.NoError(t, puller.Pull(client, tmpDir2, repo1, "master", "/", true, false, 2, nil, ""))
 
 	data, err := ioutil.ReadFile(path.Join(tmpDir2, "dir/bar"))
 	require.NoError(t, err)
@@ -2275,7 +2270,7 @@ func TestSyncEmptyDir(t *testing.T) {
 	dir := filepath.Join(tmpDir, "tmp")
 
 	puller := pfssync.NewPuller()
-	require.NoError(t, puller.Pull(client, dir, repo, commit.ID, "", false, false, 0, nil, ""))
+	require.NoError(t, puller.Pull(client, dir, repo, commit.ID, "/", false, false, 0, nil, ""))
 	_, err = os.Stat(dir)
 	require.NoError(t, err)
 	_, err = puller.CleanUp()
@@ -2799,11 +2794,11 @@ func TestGlob(t *testing.T) {
 
 	output = strings.Builder{}
 	err = c.GetFile(repo, "master", "dir?", 0, 0, &output)
-	require.YesError(t, err)
+	require.NoError(t, err)
 
 	output = strings.Builder{}
 	err = c.GetFile(repo, "master", "", 0, 0, &output)
-	require.YesError(t, err)
+	require.NoError(t, err)
 
 	output = strings.Builder{}
 	err = c.GetFile(repo, "master", "garbage", 0, 0, &output)
