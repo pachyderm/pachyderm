@@ -463,26 +463,26 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
 		return "", err
 	}
-	var incremental bool
-	if parentTag != nil {
-		if err := func() error {
-			tree, err := hashtree.GetHashTreeTag(pachClient, a.hashtreeStorage, parentTag)
-			if err != nil {
-				// This likely means that the parent job errored in some way,
-				// this doesn't prevent us from running the job, it just means
-				// we have to run it in an un-incremental fashion, as if this
-				// were the first input commit.
-				return nil
-			}
-			incremental = true
-			if err := puller.PullTree(pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
-				return fmt.Errorf("error pulling output tree: %+v", err)
-			}
-			return nil
-		}(); err != nil {
-			return "", err
-		}
-	}
+	//var incremental bool
+	//if parentTag != nil {
+	//	if err := func() error {
+	//		tree, err := hashtree.GetHashTreeTag(pachClient, a.hashtreeStorage, parentTag)
+	//		if err != nil {
+	//			// This likely means that the parent job errored in some way,
+	//			// this doesn't prevent us from running the job, it just means
+	//			// we have to run it in an un-incremental fashion, as if this
+	//			// were the first input commit.
+	//			return nil
+	//		}
+	//		incremental = true
+	//		if err := puller.PullTree(pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
+	//			return fmt.Errorf("error pulling output tree: %+v", err)
+	//		}
+	//		return nil
+	//	}(); err != nil {
+	//		return "", err
+	//	}
+	//}
 	for _, input := range inputs {
 		if input.GitURL != "" {
 			if err := a.downloadGitData(pachClient, dir, input); err != nil {
