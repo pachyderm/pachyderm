@@ -6,7 +6,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/pachyderm/pachyderm)](https://goreportcard.com/report/github.com/pachyderm/pachyderm)
 [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
-# Pachyderm: Data Pipelines
+# Pachyderm: Data Versioning, Data Pipelines, and Data Lineage
 
 Pachyderm is a tool for production data pipelines. If you need to chain
 together data scraping, ingestion, cleaning, munging, wrangling, processing,
