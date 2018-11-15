@@ -311,11 +311,11 @@ launch-kube: check-kubectl
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
 	@if [ -z "${ADDRESS}" ]; then \
-		echo -e"Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+		echo -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		echo -e"Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
+		echo -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
 	  exit 1; \
 	fi
 	# Making sure minikube isn't still up from a previous run...
@@ -437,7 +437,7 @@ test: clean-launch-dev launch-dev test-misc test-pps
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
-	if grep --files-with-matches --exclude=Makefile --exclude-from=.gitignore -r -e 'eyJ0b2tl' . ; \
+	if grep --files-with-matches --exclude=Makefile --exclude-from=.gitignore -r -e 'RM2o1Qit6YlZhS1RGdXVac' . ; \
 	then \
 	  $$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
 	  false; \
@@ -485,6 +485,7 @@ test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	# (bryce) Add this back once hashtree tests have been updated
 	#go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
+	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
@@ -653,7 +654,7 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 lint:
-	@go get -u github.com/golang/lint/golint
+	@go get -u golang.org/x/lint/golint
 	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do \
 	  golint $$file; \
 	  if [ -n "$$(golint $$file)" ]; then \

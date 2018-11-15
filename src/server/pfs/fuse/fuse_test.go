@@ -114,6 +114,18 @@ func TestSeek(t *testing.T) {
 	})
 }
 
+func TestHeadlessBranch(t *testing.T) {
+	c := server.GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	require.NoError(t, c.CreateBranch("repo", "master", "", nil))
+	mount(t, c, nil, func(mountPoint string) {
+		fis, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		// Headless branches display with 0 files.
+		require.Equal(t, 0, len(fis))
+	})
+}
+
 func mount(tb testing.TB, c *client.APIClient, commits map[string]string, f func(mountPoint string)) {
 	dir, err := ioutil.TempDir("", "pfs")
 	require.NoError(tb, err)

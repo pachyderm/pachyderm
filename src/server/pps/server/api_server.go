@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
@@ -34,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
+	"github.com/willf/bloom"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -60,8 +62,9 @@ const (
 )
 
 var (
-	zeroVal = int64(0)
-	suite   = "pachyderm"
+	zeroVal         = int64(0)
+	suite           = "pachyderm"
+	defaultGCMemory = 20 * 1024 * 1024 // 20 MB
 )
 
 func newErrJobNotFound(job string) error {
@@ -576,10 +579,36 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 // ListJobStream. When ListJob is removed, this should be inlined into
 // ListJobStream.
 func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline, outputCommit *pfs.Commit, inputCommits []*pfs.Commit, f func(*pps.JobInfo) error) error {
-	if err := checkLoggedIn(pachClient); err != nil {
+	authIsActive := true
+	me, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{})
+	if auth.IsErrNotActivated(err) {
+		authIsActive = false
+	} else if err != nil {
 		return err
 	}
-	var err error
+	if authIsActive && pipeline != nil {
+		// If 'pipeline is set, check that caller has access to the pipeline's
+		// output repo; currently, that's all that's required for ListJob.
+		//
+		// If 'pipeline' isn't set, then we don't return an error (otherwise, a
+		// caller without access to a single pipeline's output repo couldn't run
+		// `pachctl list-job` at all) and instead silently skip jobs where the user
+		// doesn't have access to the job's output repo.
+		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
+			Repo:  pipeline.Name,
+			Scope: auth.Scope_READER,
+		})
+		if err != nil {
+			return err
+		}
+		if !resp.Authorized {
+			return &auth.ErrNotAuthorized{
+				Subject:  me.Username,
+				Repo:     pipeline.Name,
+				Required: auth.Scope_READER,
+			}
+		}
+	}
 	if outputCommit != nil {
 		outputCommit, err = a.resolveCommit(pachClient, outputCommit)
 		if err != nil {
@@ -598,7 +627,13 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr)
 		if err != nil {
 			if isNotFoundErr(err) {
+				// This can happen if a user deletes an upstream commit and thereby
+				// deletes this job's output commit, but doesn't delete the etcdJobInfo.
+				// In this case, the job is effectively deleted, but isn't removed from
+				// etcd yet.
 				return nil
+			} else if auth.IsErrNotAuthorized(err) {
+				return nil // skip job--see note under 'authIsActive && pipeline != nil'
 			}
 			return err
 		}
@@ -698,6 +733,8 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.DatumTimeout = pipelineInfo.DatumTimeout
 	result.JobTimeout = pipelineInfo.JobTimeout
 	result.DatumTries = pipelineInfo.DatumTries
+	result.SchedulingSpec = pipelineInfo.SchedulingSpec
+	result.PodSpec = pipelineInfo.PodSpec
 	return result, nil
 }
 
@@ -1743,6 +1780,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		JobTimeout:       request.JobTimeout,
 		Standby:          request.Standby,
 		DatumTries:       request.DatumTries,
+		SchedulingSpec:   request.SchedulingSpec,
+		PodSpec:          request.PodSpec,
 	}
 	setPipelineDefaults(pipelineInfo)
 
@@ -1842,8 +1881,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 	} else {
-		// Create output repo, where we'll store the pipeline spec, future pipeline
-		// output, and pipeline stats
+		// Create output repo, pipeline output, and stats
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 			Repo: &pfs.Repo{pipelineName},
 		}); err != nil && !isAlreadyExistsErr(err) {
@@ -1993,6 +2031,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 	if err := checkLoggedIn(pachClient); err != nil {
 		return nil, err
 	}
+	name, ancestors := ancestry.Parse(name)
 	pipelinePtr := pps.EtcdPipelineInfo{}
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
@@ -2000,6 +2039,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		}
 		return nil, err
 	}
+	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
 	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
 	if err != nil {
 		return nil, err
@@ -2345,10 +2385,27 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	return &types.Empty{}, nil
 }
 
-//CollectActiveObjectsAndTags collects all objects/tags that are not deleted or eligible for garbage collection
-func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, storageRoot string) (map[string]bool, map[string]bool, error) {
-	// The set of objects that are in use.
-	activeObjects := make(map[string]bool)
+// ActiveStat contains stats about the object objects and tags in the
+// filesystem. It is returned by CollectActiveObjectsAndTags.
+type ActiveStat struct {
+	Objects  *bloom.BloomFilter
+	NObjects int
+	Tags     *bloom.BloomFilter
+	NTags    int
+}
+
+// CollectActiveObjectsAndTags collects all objects/tags that are not deleted
+// or eligible for garbage collection
+func CollectActiveObjectsAndTags(ctx context.Context, pachClient *client.APIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, memoryAllowance int, storageRoot string) (*ActiveStat, error) {
+	if memoryAllowance == 0 {
+		memoryAllowance = defaultGCMemory
+	}
+	result := &ActiveStat{
+		// Each bloom filter gets half the memory allowance, times 8 to convert
+		// from bytes to bits.
+		Objects: bloom.New(uint(memoryAllowance*8/2), 10),
+		Tags:    bloom.New(uint(memoryAllowance*8/2), 10),
+	}
 	var activeObjectsMu sync.Mutex
 	// A helper function for adding active objects in a thread-safe way
 	addActiveObjects := func(objects ...*pfs.Object) {
@@ -2356,7 +2413,8 @@ func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.
 		defer activeObjectsMu.Unlock()
 		for _, object := range objects {
 			if object != nil {
-				activeObjects[object.Hash] = true
+				result.NObjects++
+				result.Objects.AddString(object.Hash)
 			}
 		}
 	}
@@ -2383,7 +2441,20 @@ func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.
 	limiter := limit.New(100)
 	var eg errgroup.Group
 	for _, repo := range repoInfos {
-		if err := pachClient.ListCommitF(repo.Repo.Name, "", "", 0, func(ci *pfs.CommitInfo) error {
+		repo := repo
+		client, err := pachClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
+			Repo: repo.Repo,
+		})
+		if err != nil {
+			return nil, err
+		}
+		for {
+			ci, err := client.Recv()
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				return nil, grpcutil.ScrubGRPC(err)
+			}
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
@@ -2392,33 +2463,29 @@ func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.
 				addActiveObjects(ci.Datums)
 				return addActiveTree(ci.Tree)
 			})
-			return nil
-		}); err != nil {
-			return nil, nil, err
 		}
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	eg = errgroup.Group{}
-	// The set of tags that are active
-	activeTags := make(map[string]bool)
 	for _, pipelineInfo := range pipelineInfos {
 		tags, err := pachClient.ObjectAPIClient.ListTags(pachClient.Ctx(), &pfs.ListTagsRequest{
 			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
 		if err != nil {
-			return nil, nil, fmt.Errorf("error listing tagged objects: %v", err)
+			return nil, fmt.Errorf("error listing tagged objects: %v", err)
 		}
 
 		for resp, err := tags.Recv(); err != io.EOF; resp, err = tags.Recv() {
 			resp := resp
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
-			activeTags[resp.Tag.Name] = true
+			result.Tags.AddString(resp.Tag.Name)
+			result.NTags++
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
@@ -2429,10 +2496,10 @@ func CollectActiveObjectsAndTags(pachClient *client.APIClient, repoInfos []*pfs.
 		}
 	}
 	if err := eg.Wait(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return activeObjects, activeTags, nil
+	return result, nil
 }
 
 func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
@@ -2473,7 +2540,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
-	activeObjects, activeTags, err := CollectActiveObjectsAndTags(pachClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, a.storageRoot)
+	activeStat, err := CollectActiveObjectsAndTags(ctx, pachClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, int(request.MemoryBytes), a.storageRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -2500,7 +2567,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		if err != nil {
 			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
 		}
-		if !activeObjects[object.Hash] {
+		if !activeStat.Objects.TestString(object.Hash) {
 			objectsToDelete = append(objectsToDelete, object)
 		}
 		// Delete objects in batches
@@ -2533,7 +2600,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		if err != nil {
 			return nil, fmt.Errorf("error receiving tags from ListTags: %v", err)
 		}
-		if !activeTags[resp.Tag.Name] {
+		if !activeStat.Tags.TestString(resp.Tag.Name) {
 			tagsToDelete = append(tagsToDelete, resp.Tag)
 		}
 		if err := deleteTagsIfMoreThan(100); err != nil {

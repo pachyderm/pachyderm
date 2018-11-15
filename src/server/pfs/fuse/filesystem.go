@@ -75,6 +75,10 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 		if err != nil {
 			return nil, toStatus(err)
 		}
+		if commit == "" {
+			// master branch has no head, so we report an empty dir
+			return result, fuse.OK
+		}
 		if err := fs.c.ListFileF(r.Name, commit, "", func(fi *pfs.FileInfo) error {
 			result = append(result, fileDirEntry(fi))
 			return nil
@@ -82,6 +86,10 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 			return nil, toStatus(err)
 		}
 	case f != nil:
+		if f.Commit.ID == "" {
+			// master branch has no head, so we report an empty dir
+			return result, fuse.OK
+		}
 		if err := fs.c.ListFileF(f.Commit.Repo.Name, f.Commit.ID, f.Path, func(fi *pfs.FileInfo) error {
 			result = append(result, fileDirEntry(fi))
 			return nil
@@ -130,8 +138,12 @@ func (fs *filesystem) commit(repo string) (string, error) {
 	}
 	fs.commitsMu.Lock()
 	defer fs.commitsMu.Unlock()
-	fs.commits[repo] = bi.Head.ID
-	return bi.Head.ID, nil
+	if bi.Head != nil {
+		fs.commits[repo] = bi.Head.ID
+	} else {
+		fs.commits[repo] = ""
+	}
+	return fs.commits[repo], nil
 }
 
 func (fs *filesystem) parsePath(name string) (*pfs.Repo, *pfs.File, error) {

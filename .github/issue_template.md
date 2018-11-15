@@ -9,15 +9,11 @@ Slack: http://slack.pachyderm.io/
 
 <!-- If this is a feature request, fill this section out -->
 
-**What is the ask?**
-
-I need ...
-
 **What is the goal / desired outcome?**
 
-So that I can accomplish my goal ...
-
 **If there is a way to accomplish this today via workaround, what does that require?**
+
+**(Optional) What is your proposal for a feature to solve this?**
 
 <!-- If the ask is specific to a version of k8s, cloud provider, etc, please provide these details -->
 **Environment?**:

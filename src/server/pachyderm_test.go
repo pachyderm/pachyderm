@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -32,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
@@ -53,8 +53,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
-	kube "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 )
 
 const (
@@ -2457,7 +2455,7 @@ func TestPipelineEnv(t *testing.T) {
 	}
 
 	// make a secret to reference
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	secretName := tu.UniqueString("test-secret")
 	_, err := k.CoreV1().Secrets(v1.NamespaceDefault).Create(
 		&v1.Secret{
@@ -2488,6 +2486,10 @@ func TestPipelineEnv(t *testing.T) {
 					"cat /var/secret/foo > /pfs/out/foo",
 					"echo $bar> /pfs/out/bar",
 					"echo $foo> /pfs/out/foo_env",
+					fmt.Sprintf("echo $%s >/pfs/out/job_id", client.JobIDEnv),
+					fmt.Sprintf("echo $%s >/pfs/out/output_commit_id", client.OutputCommitIDEnv),
+					fmt.Sprintf("echo $%s >/pfs/out/input", dataRepo),
+					fmt.Sprintf("echo $%s_COMMIT >/pfs/out/input_commit", dataRepo),
 				},
 				Env: map[string]string{"bar": "bar"},
 				Secrets: []*pps.Secret{
@@ -2506,24 +2508,31 @@ func TestPipelineEnv(t *testing.T) {
 		})
 	require.NoError(t, err)
 	// Do first commit to repo
-	commit, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo\n"))
 	require.NoError(t, err)
-	_, err = c.PutFile(dataRepo, commit.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.Equal(t, 1, len(jis))
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo", 0, 0, &buffer))
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "foo", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "foo_env", 0, 0, &buffer))
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "foo_env", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 	buffer.Reset()
-	require.NoError(t, c.GetFile(pipelineName, commitInfos[0].Commit.ID, "bar", 0, 0, &buffer))
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "bar", 0, 0, &buffer))
 	require.Equal(t, "bar\n", buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "job_id", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Job.ID), buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "output_commit_id", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].OutputCommit.ID), buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "input", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("/pfs/%s/file\n", dataRepo), buffer.String())
+	buffer.Reset()
+	require.NoError(t, c.GetFile(pipelineName, jis[0].OutputCommit.ID, "input_commit", 0, 0, &buffer))
+	require.Equal(t, fmt.Sprintf("%s\n", jis[0].Input.Atom.Commit), buffer.String())
 }
 
 func TestPipelineWithFullObjects(t *testing.T) {
@@ -2915,12 +2924,12 @@ func TestParallelismSpec(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	kubeclient := getKubeClient(t)
+	kubeclient := tu.GetKubeClient(t)
 	nodes, err := kubeclient.CoreV1().Nodes().List(metav1.ListOptions{})
 	numNodes := len(nodes.Items)
 
 	// Test Constant strategy
-	parellelism, err := ppsutil.GetExpectedNumWorkers(getKubeClient(t), &pps.ParallelismSpec{
+	parellelism, err := ppsutil.GetExpectedNumWorkers(tu.GetKubeClient(t), &pps.ParallelismSpec{
 		Constant: 7,
 	})
 	require.NoError(t, err)
@@ -3477,7 +3486,7 @@ func TestSystemResourceRequests(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 
 	// Expected resource requests for pachyderm system pods:
 	defaultLocalMem := map[string]string{
@@ -3556,6 +3565,8 @@ func TestPipelineResourceRequest(t *testing.T) {
 			ResourceRequests: &pps.ResourceSpec{
 				Memory: "100M",
 				Cpu:    0.5,
+				// TODO reenable this once we test against kube 1.12
+				// Disk:   "10M",
 			},
 			Input: &pps.Input{
 				Atom: &pps.AtomInput{
@@ -3573,7 +3584,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 
 	var container v1.Container
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(
 			metav1.ListOptions{
@@ -3600,6 +3611,10 @@ func TestPipelineResourceRequest(t *testing.T) {
 	require.Equal(t, "100M", mem.String())
 	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
 	require.False(t, ok)
+	// TODO reenable this once we test against kube 1.12
+	// disk, ok := container.Resources.Requests[v1.ResourceStorage]
+	// require.True(t, ok)
+	// require.Equal(t, "10M", disk.String())
 }
 
 func TestPipelineResourceLimit(t *testing.T) {
@@ -3644,7 +3659,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 
 	var container v1.Container
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -3711,7 +3726,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 
 	var container v1.Container
 	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := getKubeClient(t)
+	kubeClient := tu.GetKubeClient(t)
 	err = backoff.Retry(func() error {
 		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
 			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
@@ -3810,6 +3825,81 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
+}
+
+func TestPodSpecOpts(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestPodSpecOpts_data")
+	pipelineName := tu.UniqueString("TestPodSpecOpts")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	priorityClassName := "system-cluster-critical"
+	// Resources are not yet in client.CreatePipeline() (we may add them later)
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: &pps.Pipeline{pipelineName},
+			Transform: &pps.Transform{
+				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input: &pps.Input{
+				Atom: &pps.AtomInput{
+					Repo:   dataRepo,
+					Branch: "master",
+					Glob:   "/*",
+				},
+			},
+			SchedulingSpec: &pps.SchedulingSpec{
+				// This NodeSelector will cause the worker pod to fail to
+				// schedule, but the test can still pass because we just check
+				// for values on the pod, it doesn't need to actually come up.
+				NodeSelector: map[string]string{
+					"foo": "bar",
+				},
+				PriorityClassName: priorityClassName,
+			},
+			PodSpec: `{
+				"hostname": "hostname"
+			}`,
+		})
+	require.NoError(t, err)
+
+	// Get info about the pipeline pods from k8s & check for resources
+	pipelineInfo, err := c.InspectPipeline(pipelineName)
+	require.NoError(t, err)
+
+	var pod v1.Pod
+	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+	kubeClient := tu.GetKubeClient(t)
+	err = backoff.Retry(func() error {
+		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+				map[string]string{"app": rcName, "suite": "pachyderm"},
+			)),
+		})
+		if err != nil {
+			return err // retry
+		}
+		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+		}
+		pod = podList.Items[0]
+		return nil // no more retries
+	}, backoff.NewTestingBackOff())
+	require.NoError(t, err)
+	// Make sure a CPU and Memory request are both set
+	require.Equal(t, "bar", pod.Spec.NodeSelector["foo"])
+	// TODO reenable this when we test on a more recent version of k8s
+	// require.Equal(t, priorityClassName, pod.Spec.PriorityClassName)
+	require.Equal(t, "hostname", pod.Spec.Hostname)
 }
 
 func TestPipelineLargeOutput(t *testing.T) {
@@ -4463,7 +4553,7 @@ func TestGarbageCollection(t *testing.T) {
 	// Delete everything, then run garbage collection and finally check that
 	// we're at a baseline of 0 tags and 0 objects.
 	require.NoError(t, c.DeleteAll())
-	require.NoError(t, c.GarbageCollect())
+	require.NoError(t, c.GarbageCollect(0))
 	originalObjects := getAllObjects(t, c)
 	originalTags := getAllTags(t, c)
 	require.Equal(t, 0, len(originalObjects))
@@ -4511,11 +4601,11 @@ func TestGarbageCollection(t *testing.T) {
 	tagsBefore := getAllTags(t, c)
 	specObjectCountBefore := getObjectCountForRepo(t, c, ppsconsts.SpecRepo)
 	// Try to GC without stopping the pipeline.
-	require.YesError(t, c.GarbageCollect())
+	require.YesError(t, c.GarbageCollect(0))
 
 	// Now stop the pipeline  and GC
 	require.NoError(t, c.StopPipeline(pipeline))
-	require.NoError(t, backoff.Retry(c.GarbageCollect, backoff.NewTestingBackOff()))
+	require.NoError(t, backoff.Retry(func() error { return c.GarbageCollect(0) }, backoff.NewTestingBackOff()))
 
 	// Check that data still exists in the input repo
 	var buf bytes.Buffer
@@ -4552,7 +4642,7 @@ func TestGarbageCollection(t *testing.T) {
 
 	// Now delete the pipeline and GC
 	require.NoError(t, c.DeletePipeline(pipeline, false))
-	require.NoError(t, c.GarbageCollect())
+	require.NoError(t, c.GarbageCollect(0))
 
 	// We should've deleted one tag since the pipeline has only processed
 	// one datum.
@@ -4567,7 +4657,7 @@ func TestGarbageCollection(t *testing.T) {
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
-	require.NoError(t, c.GarbageCollect())
+	require.NoError(t, c.GarbageCollect(0))
 
 	// Since we've now deleted everything that we created in this test,
 	// the tag count and object count should be back to the originals.
@@ -5849,7 +5939,7 @@ func TestService(t *testing.T) {
 		// Get k8s service corresponding to pachyderm service above--must access
 		// via internal cluster IP, but we don't know what that is
 		var address string
-		kubeClient := getKubeClient(t)
+		kubeClient := tu.GetKubeClient(t)
 		backoff.Retry(func() error {
 			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
 			require.NoError(t, err)
@@ -8089,14 +8179,49 @@ func TestInspectJob(t *testing.T) {
 	require.True(t, strings.Contains(err.Error(), "not found"))
 }
 
+func TestPipelineVersions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineVersions_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("TestPipelineVersions")
+	nVersions := 5
+	for i := 0; i < nVersions; i++ {
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{fmt.Sprintf("%d", i)}, // an obviously illegal command, but the pipeline will never run
+			nil,
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewAtomInput(dataRepo, "/*"),
+			"",
+			i != 0,
+		))
+	}
+
+	for i := 0; i < nVersions; i++ {
+		pi, err := c.InspectPipeline(ancestry.Add(pipeline, nVersions-1-i))
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("%d", i), pi.Transform.Cmd[0])
+	}
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
 	repoInfo, err := pachClient.InspectRepo(repo)
 	require.NoError(t, err)
-	activeObjects, _, err := pps_server.CollectActiveObjectsAndTags(c, []*pfs.RepoInfo{repoInfo}, pipelineInfos, "")
+	activeStat, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c, []*pfs.RepoInfo{repoInfo}, pipelineInfos, 0, "")
 	require.NoError(t, err)
-	return len(activeObjects)
+	return activeStat.NObjects
 }
 
 func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
@@ -8122,7 +8247,7 @@ func getAllTags(t testing.TB, c *client.APIClient) []string {
 }
 
 func restartAll(t *testing.T) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
 	podList, err := podsInterface.List(
 		metav1.ListOptions{
@@ -8138,7 +8263,7 @@ func restartAll(t *testing.T) {
 }
 
 func restartOne(t *testing.T) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	podsInterface := k.CoreV1().Pods(v1.NamespaceDefault)
 	podList, err := podsInterface.List(
 		metav1.ListOptions{
@@ -8182,7 +8307,7 @@ func podRunningAndReady(e watch.Event) (bool, error) {
 }
 
 func waitForReadiness(t testing.TB) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	deployment := pachdDeployment(t)
 	for {
 		newDeployment, err := k.Apps().Deployments(v1.NamespaceDefault).Get(deployment.Name, metav1.GetOptions{})
@@ -8236,7 +8361,7 @@ func simulateGitPush(t *testing.T, pathToPayload string) {
 }
 
 func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*v1.ReplicationController, error) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	rc := k.CoreV1().ReplicationControllers(v1.NamespaceDefault)
 	return rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
@@ -8244,7 +8369,7 @@ func pipelineRc(t testing.TB, pipelineInfo *pps.PipelineInfo) (*v1.ReplicationCo
 }
 
 func pachdDeployment(t testing.TB) *apps.Deployment {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	result, err := k.Apps().Deployments(v1.NamespaceDefault).Get("pachd", metav1.GetOptions{})
 	require.NoError(t, err)
 	return result
@@ -8272,7 +8397,7 @@ func scalePachdRandom(t testing.TB, up bool) {
 
 // scalePachdN scales the number of pachd nodes to N
 func scalePachdN(t testing.TB, n int) {
-	k := getKubeClient(t)
+	k := tu.GetKubeClient(t)
 	// Modify the type metadata of the Deployment spec we read from k8s, so that
 	// k8s will accept it if we're talking to a 1.7 cluster
 	pachdDeployment := pachdDeployment(t)
@@ -8297,84 +8422,6 @@ func scalePachd(t testing.TB) {
 	n, err := strconv.Atoi(nStr)
 	require.NoError(t, err)
 	scalePachdN(t, n)
-}
-
-func getKubeClient(t testing.TB) *kube.Clientset {
-	var config *rest.Config
-	host := os.Getenv("KUBERNETES_SERVICE_HOST")
-	if host != "" {
-		var err error
-		config, err = rest.InClusterConfig()
-		require.NoError(t, err)
-	} else {
-		// Use kubectl binary to parse .kube/config and get address of current
-		// cluster. Hopefully, once we upgrade to k8s.io/client-go, we will be able
-		// to do this in-process with a library
-		// First, figure out if we're talking to minikube or localhost
-		cmd := exec.Command("kubectl", "config", "current-context")
-		if context, err := cmd.Output(); err == nil {
-			context = bytes.TrimSpace(context)
-			// kubectl has a context -- not talking to localhost
-			// Get cluster and user name from kubectl
-			buf := &bytes.Buffer{}
-			cmd := tu.BashCmd(strings.Join([]string{
-				`kubectl config get-contexts "{{.context}}" | tail -n+2 | awk '{print $3}'`,
-				`kubectl config get-contexts "{{.context}}" | tail -n+2 | awk '{print $4}'`,
-			}, "\n"),
-				"context", string(context))
-			cmd.Stdout = buf
-			require.NoError(t, cmd.Run(), "couldn't get kubernetes context info")
-			lines := strings.Split(buf.String(), "\n")
-			clustername, username := lines[0], lines[1]
-
-			// Get user info
-			buf.Reset()
-			cmd = tu.BashCmd(strings.Join([]string{
-				`cluster="$(kubectl config view -o json | jq -r '.users[] | select(.name == "{{.user}}") | .user' )"`,
-				`echo "${cluster}" | jq -r '.["client-certificate"]'`,
-				`echo "${cluster}" | jq -r '.["client-key"]'`,
-			}, "\n"),
-				"user", username)
-			cmd.Stdout = buf
-			require.NoError(t, cmd.Run(), "couldn't get kubernetes user info")
-			lines = strings.Split(buf.String(), "\n")
-			clientCert, clientKey := lines[0], lines[1]
-
-			// Get cluster info
-			buf.Reset()
-			cmd = tu.BashCmd(strings.Join([]string{
-				`cluster="$(kubectl config view -o json | jq -r '.clusters[] | select(.name == "{{.cluster}}") | .cluster')"`,
-				`echo "${cluster}" | jq -r .server`,
-				`echo "${cluster}" | jq -r '.["certificate-authority"]'`,
-			}, "\n"),
-				"cluster", clustername)
-			cmd.Stdout = buf
-			require.NoError(t, cmd.Run(), "couldn't get kubernetes cluster info: %s", buf.String())
-			lines = strings.Split(buf.String(), "\n")
-			address, CAKey := lines[0], lines[1]
-
-			// Generate config
-			config = &rest.Config{
-				Host: address,
-				TLSClientConfig: rest.TLSClientConfig{
-					CertFile: clientCert,
-					KeyFile:  clientKey,
-					CAFile:   CAKey,
-				},
-			}
-		} else {
-			// no context -- talking to localhost
-			config = &rest.Config{
-				Host: "http://0.0.0.0:8080",
-				TLSClientConfig: rest.TLSClientConfig{
-					Insecure: false,
-				},
-			}
-		}
-	}
-	k, err := kube.NewForConfig(config)
-	require.NoError(t, err)
-	return k
 }
 
 var pachClient *client.APIClient

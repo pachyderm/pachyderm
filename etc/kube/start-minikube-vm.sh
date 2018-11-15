@@ -76,8 +76,9 @@ set -x
 export ADDRESS=$(minikube ip):30650
 
 # Push pachyderm images to minikube VM
-dash_image="$(pc deploy local -d --dry-run | jq -r '.. | select(.name? == "dash" and has("image")).image')"
-grpc_proxy_image="$(pc deploy local -d --dry-run | jq -r '.. | select(.name? == "grpc-proxy").image')"
+# (extract correct dash image from pachctl deploy)
+dash_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "dash" and has("image")).image')"
+grpc_proxy_image="$(pachctl deploy local -d --dry-run | jq -r '.. | select(.name? == "grpc-proxy").image')"
 etcd_image="quay.io/coreos/etcd:v3.3.5"
 docker pull ${etcd_image}
 docker pull ${grpc_proxy_image}
