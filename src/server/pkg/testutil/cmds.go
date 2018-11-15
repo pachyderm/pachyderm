@@ -98,7 +98,7 @@ func BashCmd(cmd string, subs ...string) *TestCmd {
 set -e -o pipefail
 which match >/dev/null || {
 	echo "You must have 'match' installed to run these tests. Please run:" >&2
-	echo "  cd ${GOPATH}/src/github.com/pachyderm/pachyderm/ && go install ./src/server/cmd/match" >&2
+	echo "  cd ${GOPATH}/src/github.com/pachyderm/pachyderm/ && go install ./src/testing/match" >&2
 	exit 1
 }`)
 	buf.WriteRune('\n')

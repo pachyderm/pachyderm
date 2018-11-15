@@ -54,6 +54,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     deployment/openshift
     deployment/on_premises
     deployment/custom_object_stores
+    deployment/aws_cloudfront
     deployment/upgrading
     deployment/migrations
     deployment/namespaces
@@ -65,6 +66,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
 
     managing_pachyderm/autoscaling
     managing_pachyderm/data_management
+    managing_pachyderm/sharing_gpu_resources
     managing_pachyderm/general_troubleshooting
     managing_pachyderm/deploy_troubleshooting
 
@@ -84,6 +86,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     cookbook/time_windows
     cookbook/gpus
     cookbook/cron
+    cookbook/deferred_processing
     cookbook/ingressing_from_diff_cloud
     cookbook/vault
  

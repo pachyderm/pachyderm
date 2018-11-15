@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.7.10
+
+- Adds `put-file --split` support for SQL dumps. (#3064)
+- Adds support for headers and footers for data types passed to `--split` such as CSV and the above mentioned SQL. (#3064)
+- Adds support for accessing previous versions of pipelines using the same syntax as is used with commits. I.e. `pachctl inspect-pipeline foo^` will give the previous version of `foo`. (#3159)
+- Adds support in pipelines for additional Kubernetes primitives on workers, including: node selectors, priority class and storage requests and limits. Additionally there is now a field in the pipeline spec `pod_spec` that allows you to set any field on the pod using json. (#3169)
+
+## 1.7.9
+
+- Moves garbage collection over to a bloom filter based indexing method. This
+greatly decreases the amount of memory that garbage collection requires, at the
+cost of a small probability of not deleting objects that should be. Garbage
+collection can be made more accurate by using more memory with the flag
+`--memory` passed to `pachctl garbage-collect`. (#3161)
+
+## 1.7.8
+
+- Fixes multiple issues that could cause jobs to hang when they encountered intermittent errors such as network hiccups. (#3155)
+
 ## 1.7.7
 
 - Greatly improves the performance of the pfs FUSE implementation. Performance should be close to on par with the that of pachctl get-file. The only trade-off is that the new implementation will use disk space to cache file contents. (#3140)

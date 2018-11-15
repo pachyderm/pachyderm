@@ -500,8 +500,8 @@ $ pachctl subscribe-commit test master --new
 	var head string
 	createBranch := &cobra.Command{
 		Use:   "create-branch <repo-name> <branch-name> [flags]",
-		Short: "Create a new branch on a repo",
-		Long:  "Create a new branch on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
+		Short: "Create a new branch, or update an existing branch, on a repo.",
+		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
@@ -549,8 +549,8 @@ $ pachctl subscribe-commit test master --new
 
 	setBranch := &cobra.Command{
 		Use:   "set-branch repo-name commit-id/branch-name new-branch-name",
-		Short: "Set a commit and its ancestors to a branch",
-		Long: `Set a commit and its ancestors to a branch.
+		Short: "DEPRECATED Set a commit and its ancestors to a branch",
+		Long: `DEPRECATED Set a commit and its ancestors to a branch.
 
 Examples:
 
@@ -562,6 +562,7 @@ $ pachctl set-branch foo XXX master
 # same commit.
 $ pachctl set-branch foo test master` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+			fmt.Fprintf(os.Stderr, "set-branch is DEPRECATED, use create-branch instead.\n")
 			client, err := client.NewOnUserMachine(metrics, "user")
 			if err != nil {
 				return err
@@ -612,7 +613,7 @@ $ pachctl set-branch foo test master` + codeend,
 ` + codestart + `# Put data from stdin as repo/branch/path:
 $ echo "data" | pachctl put-file repo branch path
 
-# Put data from stding as repo/branch/path and start / finish a new commit on the branch.
+# Put data from stdin as repo/branch/path and start / finish a new commit on the branch.
 $ echo "data" | pachctl put-file -c repo branch path
 
 # Put a file from the local filesystem as repo/branch/path:

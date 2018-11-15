@@ -14,11 +14,6 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
-// NewJob creates a pps.Job.
-func NewJob(jobID string) *pps.Job {
-	return &pps.Job{ID: jobID}
-}
-
 const (
 	// PPSEtcdPrefixEnv is the environment variable that specifies the etcd
 	// prefix that PPS uses.
@@ -62,7 +57,18 @@ const (
 	// GCGenerationKey is the etcd key that stores a counter that the
 	// GC utility increments when it runs, so as to invalidate all cache.
 	GCGenerationKey = "gc-generation"
+	// JobIDEnv is an env var that is added to the environment of user pipeline
+	// code and indicates the id of the job currently being run.
+	JobIDEnv = "PACH_JOB_ID"
+	// OutputCommitIDEnv is an env var that is added to the environment of user
+	// pipelined code and indicates the id of the output commit.
+	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
 )
+
+// NewJob creates a pps.Job.
+func NewJob(jobID string) *pps.Job {
+	return &pps.Job{ID: jobID}
+}
 
 // DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
 // the prefix for datum output trees. This prefix allows us to do garbage
@@ -625,13 +631,19 @@ func (c APIClient) CreatePipelineService(
 	return grpcutil.ScrubGRPC(err)
 }
 
-// GarbageCollect garbage collects unused data.  Currently GC needs to be
-// run while no data is being added or removed (which, among other things,
-// implies that there shouldn't be jobs actively running).
-func (c APIClient) GarbageCollect() error {
+// GarbageCollect garbage collects unused data.  Currently GC needs to be run
+// while no data is being added or removed (which, among other things, implies
+// that there shouldn't be jobs actively running).  Pfs Garbage collection uses
+// bloom filters to keep track of live objects because it can store more
+// objects than can be indexed in memory. This means that there is a chance for
+// unreferenced objects to not be GCed, this chance increases as the number of
+// objects in the system increases. You can tradeoff using more memory to get a
+// lower chance of collisions, the default value is 10 MB and collisions should
+// be unlikely until you have 10 million objects.
+func (c APIClient) GarbageCollect(memoryBytes int64) error {
 	_, err := c.PpsAPIClient.GarbageCollect(
 		c.Ctx(),
-		&pps.GarbageCollectRequest{},
+		&pps.GarbageCollectRequest{MemoryBytes: memoryBytes},
 	)
 	return grpcutil.ScrubGRPC(err)
 }

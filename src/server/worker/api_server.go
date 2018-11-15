@@ -975,12 +975,14 @@ func (a *APIServer) datum() []*pps.InputFile {
 	return result
 }
 
-func (a *APIServer) userCodeEnv(jobID string, data []*Input) []string {
+func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Input) []string {
 	result := os.Environ()
 	for _, input := range data {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
+		result = append(result, fmt.Sprintf("%s_COMMIT=%s", input.Name, input.FileInfo.File.Commit.ID))
 	}
-	result = append(result, fmt.Sprintf("PACH_JOB_ID=%s", jobID))
+	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
+	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommitID))
 	return result
 }
 
@@ -1720,7 +1722,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				return err
 			}
 
-			env := a.userCodeEnv(jobInfo.Job.ID, data)
+			env := a.userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, data)
 			var dir string
 			var failures int64
 			if err := backoff.RetryNotify(func() error {
