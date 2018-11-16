@@ -21,12 +21,20 @@ It's also good idea to version or otherwise save the Pachyderm deploy commands (
 
 Upgrading your Pachyderm version is as easy as:
 
-1. [Upgrading `pachctl`](#upgrading-pachctl)
-2. [Re-deploying Pachyderm](#re-deploying-pachyderm)
+1. [Spin down current pachd server](#spin-down-old-cluster)
+2. [Upgrading `pachctl`](#upgrading-pachctl)
+3. [Re-deploying Pachyderm](#re-deploying-pachyderm)
+
+
+### Spin down old cluster
+
+```
+pachctl undeploy
+```
 
 ### Upgrading `pachctl`
 
-To deploy an upgraded Pachyderm, we need to retrieve the latest version of `pachctl`. Details on installing the latest version can be found [here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html#pachctl). You should be able to upgrade via `brew` or `apt` depending on your environment.
+To deploy an upgraded Pachyderm, we need to retrieve the latest version of `pachctl`. Details on installing the latest version can be found [here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html#pachctl). You should be able to upgrade via `brew upgrade` or `apt` depending on your environment.
 
 Once you install the new version of `pachctl` (e.g., 1.7.0 in our example), you can confirm this via:
 
