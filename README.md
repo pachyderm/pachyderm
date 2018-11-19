@@ -57,7 +57,7 @@ Send us PRs, we would love to see what you do! You can also check our GH issues 
 
 ### Join Us
 
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](https://jobs.lever.co/pachyderm/) and email us at jobs@pachyderm.io.
 
 ## Usage Metrics
 
