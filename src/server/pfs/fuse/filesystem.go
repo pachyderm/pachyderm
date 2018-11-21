@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -225,7 +226,7 @@ func (fs *filesystem) fileAttr(f *pfs.File) (*fuse.Attr, fuse.Status) {
 func fileDirEntry(fi *pfs.FileInfo) fuse.DirEntry {
 	return fuse.DirEntry{
 		Mode: fileMode(fi),
-		Name: fi.File.Path,
+		Name: filepath.Base(fi.File.Path),
 	}
 }
 
