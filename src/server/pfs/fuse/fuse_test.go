@@ -25,7 +25,8 @@ const (
 func TestBasic(t *testing.T) {
 	c := server.GetPachClient(t)
 	require.NoError(t, c.CreateRepo("repo"))
-	_, err := c.PutFile("repo", "master", "file", strings.NewReader("foo"))
+	_, err := c.PutFile("repo", "master", "dir/file1", strings.NewReader("foo"))
+	_, err = c.PutFile("repo", "master", "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 	mount(t, c, nil, func(mountPoint string) {
 		repos, err := ioutil.ReadDir(mountPoint)
@@ -36,9 +37,15 @@ func TestBasic(t *testing.T) {
 		files, err := ioutil.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
-		require.Equal(t, "file", filepath.Base(files[0].Name()))
+		require.Equal(t, "dir", filepath.Base(files[0].Name()))
 
-		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "file"))
+		files, err = ioutil.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "file1", filepath.Base(files[0].Name()))
+		require.Equal(t, "file2", filepath.Base(files[1].Name()))
+
+		data, err := ioutil.ReadFile(filepath.Join(mountPoint, "repo", "dir", "file1"))
 		require.NoError(t, err)
 		require.Equal(t, "foo", string(data))
 	})
