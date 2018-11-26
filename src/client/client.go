@@ -298,7 +298,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	return fmt.Sprintf("0.0.0.0:%d", DefaultPachdNodePort), options, nil
+	return fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort), options, nil
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -334,7 +334,7 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 			// Check for errors in approximate order of helpfulness
 			if port != "" && port != DefaultPachdPort && port != DefaultPachdNodePort {
 				return nil, fmt.Errorf("could not connect (note: port is usually "+
-					"%d or %d, but is currently set to %q--is this right?): %v", DefaultPachdNodePort, DefaultPachdPort, port, err)
+					"%s or %s, but is currently set to %q--is this right?): %v", DefaultPachdNodePort, DefaultPachdPort, port, err)
 			}
 			if strings.HasPrefix(addr, "0.0.0.0") ||
 				strings.HasPrefix(addr, "127.0.0.1") ||
