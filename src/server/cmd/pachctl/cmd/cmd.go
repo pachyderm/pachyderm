@@ -204,6 +204,7 @@ Environment variables:
 	}
 
 	var clientOnly bool
+	var timeoutFlag string
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Return version information.",
@@ -228,6 +229,8 @@ Environment variables:
 					finishMetricsWait()
 				}()
 			}
+
+			// Print header + client version
 			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			if raw {
 				if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
@@ -241,7 +244,19 @@ Environment variables:
 				}
 			}
 
-			pachClient, err := client.NewOnUserMachine(false, "user")
+			// Dial pachd & get server version
+			var pachClient *client.APIClient
+			var err error
+			if timeoutFlag != "default" {
+				var timeout time.Duration
+				timeout, err = time.ParseDuration(timeoutFlag)
+				if err != nil {
+					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
+				}
+				pachClient, err = client.NewOnUserMachine(false, "user", client.WithDialTimeout(timeout))
+			} else {
+				pachClient, err = client.NewOnUserMachine(false, "user")
+			}
 			if err != nil {
 				return err
 			}
@@ -257,6 +272,7 @@ Environment variables:
 				return errors.New(buf.String())
 			}
 
+			// print server version
 			if raw {
 				if err := marshaller.Marshal(os.Stdout, version); err != nil {
 					return err
@@ -274,6 +290,9 @@ Environment variables:
 		"only print pachctl's version, but don't make any RPCs to pachd. Useful "+
 		"if pachd is unavailable")
 	rawFlag(versionCmd)
+	versionCmd.Flags().StringVar(&timeoutFlag, "timeout", "default", "If set, "+
+		"pachctl version will timeout after the given duration. If --client-only "+
+		"is set, this flag is ignored")
 
 	deleteAll := &cobra.Command{
 		Use:   "delete-all",
