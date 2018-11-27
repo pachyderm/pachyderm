@@ -291,8 +291,10 @@ Environment variables:
 		"if pachd is unavailable")
 	rawFlag(versionCmd)
 	versionCmd.Flags().StringVar(&timeoutFlag, "timeout", "default", "If set, "+
-		"pachctl version will timeout after the given duration. If --client-only "+
-		"is set, this flag is ignored")
+		"pachctl version will timeout after the given duration (formatted as a "+
+		"golang time duration--a number followed by ns, us, ms, s, m, or h). If "+
+		"--client-only is set, this flag is ignored. If unset, pachctl will use a "+
+		"default timeout; if set to 0s, the call will never time out.")
 
 	deleteAll := &cobra.Command{
 		Use:   "delete-all",
