@@ -250,7 +250,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 				return fmt.Errorf("os.RemoveAll: %v", err)
 			}
 		}
-		dir, err = a.downloadData(pachClient, logger, data, puller, nil, &pps.ProcessStats{}, nil)
+		dir, err = a.downloadData(pachClient, logger, data, puller, &pps.ProcessStats{}, nil)
 		if err != nil {
 			return err
 		}

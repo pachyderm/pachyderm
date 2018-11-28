@@ -725,7 +725,6 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.ResourceRequests = pipelineInfo.ResourceRequests
 	result.ResourceLimits = pipelineInfo.ResourceLimits
 	result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
-	result.Incremental = pipelineInfo.Incremental
 	result.EnableStats = pipelineInfo.EnableStats
 	result.Salt = pipelineInfo.Salt
 	result.Batch = pipelineInfo.Batch
@@ -1462,32 +1461,6 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 	if _, err := resource.ParseQuantity(pipelineInfo.CacheSize); err != nil {
 		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
 	}
-	if pipelineInfo.Incremental {
-		// for incremental jobs we can't have shared provenance
-		key := path.Join
-		provMap := make(map[string]bool)
-		for _, branch := range pps.InputBranches(pipelineInfo.Input) {
-			// Add the branches themselves to provMap
-			if provMap[key(branch.Repo.Name, branch.Name)] {
-				return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
-			}
-			provMap[key(branch.Repo.Name, branch.Name)] = true
-			// Add the input branches' provenance to provMap
-			resp, err := pachClient.InspectBranch(branch.Repo.Name, branch.Name)
-			if err != nil {
-				if isNotFoundErr(err) {
-					continue // input branch doesn't exist--will be created w/ empty provenance
-				}
-				return err
-			}
-			for _, provBranch := range resp.Provenance {
-				if provMap[key(provBranch.Repo.Name, provBranch.Name)] {
-					return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
-				}
-				provMap[key(provBranch.Repo.Name, provBranch.Name)] = true
-			}
-		}
-	}
 	if pipelineInfo.JobTimeout != nil {
 		_, err := types.DurationFromProto(pipelineInfo.JobTimeout)
 		if err != nil {
@@ -1768,7 +1741,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ResourceRequests: request.ResourceRequests,
 		ResourceLimits:   request.ResourceLimits,
 		Description:      request.Description,
-		Incremental:      request.Incremental,
 		CacheSize:        request.CacheSize,
 		EnableStats:      request.EnableStats,
 		Salt:             request.Salt,

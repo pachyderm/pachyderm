@@ -264,7 +264,6 @@ func pipelineInfoToRequest(pi *pps.PipelineInfo) *pps.CreatePipelineRequest {
 		ResourceLimits:     pi.ResourceLimits,
 		Input:              pi.Input,
 		Description:        pi.Description,
-		Incremental:        pi.Incremental,
 		CacheSize:          pi.CacheSize,
 		EnableStats:        pi.EnableStats,
 		Batch:              pi.Batch,

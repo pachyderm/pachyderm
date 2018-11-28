@@ -232,7 +232,7 @@ message EtcdJobInfo {
 }
 
 message JobInfo {
-  reserved 4, 5;
+  reserved 4, 5, 28;
   Job job = 1;
   Transform transform = 2;
   Pipeline pipeline = 3;
@@ -259,7 +259,6 @@ message JobInfo {
   ResourceSpec resource_limits = 36;
   Input input = 26;
   pfs.BranchInfo new_branch = 27;
-  bool incremental = 28;
   pfs.Commit stats_commit = 29;
   bool enable_stats = 32;
   string salt = 33;
@@ -333,7 +332,7 @@ message EtcdPipelineInfo {
 }
 
 message PipelineInfo {
-  reserved 3, 4, 26;
+  reserved 3, 4, 22, 26;
   string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
@@ -361,7 +360,6 @@ message PipelineInfo {
   ResourceSpec resource_limits = 31;
   Input input = 20;
   string description = 21;
-  bool incremental = 22;
   string cache_size = 23;
   bool enable_stats = 24;
   string salt = 25;
@@ -521,7 +519,7 @@ message SchedulingSpec {
 }
 
 message CreatePipelineRequest {
-  reserved 3, 4;
+  reserved 3, 4, 15;
   Pipeline pipeline = 1;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 7;
@@ -534,7 +532,6 @@ message CreatePipelineRequest {
   ResourceSpec resource_limits = 22;
   Input input = 13;
   string description = 14;
-  bool incremental = 15;
   string cache_size = 16;
   bool enable_stats = 17;
   // Reprocess forces the pipeline to reprocess all datums.
