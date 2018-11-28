@@ -85,7 +85,8 @@ func TestStripS3Prefix(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "bucket", string(bucketName)) // "s3://" removed
 
-			break // done--success
+			return // done--success
 		}
 	}
+	t.Fatalf("could not find storage secret in kubernetes manifest")
 }
