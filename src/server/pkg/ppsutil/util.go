@@ -243,7 +243,6 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		ResourceLimits:     pipelineInfo.ResourceLimits,
 		Input:              pipelineInfo.Input,
 		Description:        pipelineInfo.Description,
-		Incremental:        pipelineInfo.Incremental,
 		CacheSize:          pipelineInfo.CacheSize,
 		EnableStats:        pipelineInfo.EnableStats,
 		Batch:              pipelineInfo.Batch,

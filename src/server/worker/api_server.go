@@ -24,7 +24,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
@@ -448,7 +447,7 @@ func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessS
 	}
 }
 
-func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
+func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
 	defer a.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -463,26 +462,6 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
 		return "", err
 	}
-	//var incremental bool
-	//if parentTag != nil {
-	//	if err := func() error {
-	//		tree, err := hashtree.GetHashTreeTag(pachClient, a.hashtreeStorage, parentTag)
-	//		if err != nil {
-	//			// This likely means that the parent job errored in some way,
-	//			// this doesn't prevent us from running the job, it just means
-	//			// we have to run it in an un-incremental fashion, as if this
-	//			// were the first input commit.
-	//			return nil
-	//		}
-	//		incremental = true
-	//		if err := puller.PullTree(pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
-	//			return fmt.Errorf("error pulling output tree: %+v", err)
-	//		}
-	//		return nil
-	//	}(); err != nil {
-	//		return "", err
-	//	}
-	//}
 	for _, input := range inputs {
 		if input.GitURL != "" {
 			if err := a.downloadGitData(pachClient, dir, input); err != nil {
@@ -497,19 +476,9 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			statsTree.PutDir(input.Name)
 			statsRoot = path.Join(input.Name, file.Path)
 		}
-		// Skipping incremental for 1.8.0
-		//if incremental && input.ParentCommit != nil {
-		//	if err := puller.PullDiff(pachClient, root,
-		//		file.Commit.Repo.Name, file.Commit.ID, file.Path,
-		//		input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
-		//		true, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
-		//		return "", err
-		//	}
-		//} else {
 		if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, statsRoot); err != nil {
 			return "", err
 		}
-		//}
 	}
 	return dir, nil
 }
@@ -1717,10 +1686,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					}
 				}()
 			}
-			parentTag, err := a.parentTag(pachClient, jobInfo, data)
-			if err != nil {
-				return err
-			}
 
 			env := a.userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, data)
 			var dir string
@@ -1733,7 +1698,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				puller := filesync.NewPuller()
 				// TODO parent tag shouldn't be nil
 				var err error
-				dir, err = a.downloadData(pachClient, logger, data, puller, parentTag, subStats, inputTree)
+				dir, err = a.downloadData(pachClient, logger, data, puller, subStats, inputTree)
 				// We run these cleanup functions no matter what, so that if
 				// downloadData partially succeeded, we still clean up the resources.
 				defer func() {
@@ -1924,82 +1889,6 @@ func (a *APIServer) setupStats(pachClient *client.APIClient, objClient obj.Clien
 		})
 		return err
 	}
-}
-
-func (a *APIServer) parentTag(pachClient *client.APIClient, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
-	if !jobInfo.Incremental {
-		return nil, nil // don't bother downloading the parent for non-incremental jobs
-	}
-	ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-	if err != nil {
-		return nil, fmt.Errorf("could not get output commit's commitInfo: %v", err)
-	}
-	if ci.ParentCommit == nil {
-		return nil, nil
-	}
-	parentCi, err := pachClient.InspectCommit(ci.ParentCommit.Repo.Name, ci.ParentCommit.ID)
-	if err != nil {
-		return nil, fmt.Errorf("could not get output commit's parent's commitInfo: %v", err)
-	}
-
-	// compare provenance of ci and parentCi to figure out which commit is new
-	key := path.Join
-	parentProv := make(map[string]*pfs.Commit)
-	for i, commit := range parentCi.Provenance {
-		parentProv[key(commit.Repo.Name, parentCi.BranchProvenance[i].Name)] = commit
-	}
-	newInputCommits := make(map[string]*pfs.Commit)
-	for i, c := range ci.Provenance {
-		pc, ok := parentProv[key(c.Repo.Name, ci.BranchProvenance[i].Name)]
-		if !ok {
-			return nil, nil // 'c' has no parent, so there's no parent tag
-		}
-		if pc.ID != c.ID {
-			newInputCommits[key(c.Repo.Name, ci.BranchProvenance[i].Name)] = c
-		}
-	}
-	var parentFiles []*Input // the equivalent datum to 'files', which the parent job processed
-	var newFiles int
-	for _, file := range files {
-		parentFile := proto.Clone(file).(*Input)
-		newInputCommit, ok := newInputCommits[key(file.FileInfo.File.Commit.Repo.Name, file.Branch)]
-		if ok && file.FileInfo.File.Commit.Repo.Name == newInputCommit.Repo.Name && file.FileInfo.File.Commit.ID == newInputCommit.ID {
-			newInputCommitParent, ok := parentProv[key(file.FileInfo.File.Commit.Repo.Name, file.Branch)]
-			if !ok {
-				// This should be impossible since we'll only add
-				// newInputCommit to newInputCommits if the parent exists.
-				return nil, fmt.Errorf("parent expected but not found (this is likely a bug)")
-			}
-			newFiles++
-			// 'file' from datumFactory is in the new input commit
-			parentFileInfo, err := pachClient.InspectFile(
-				newInputCommitParent.Repo.Name, newInputCommitParent.ID, file.FileInfo.File.Path)
-			if err != nil {
-				if !isNotFoundErr(err) {
-					return nil, err
-				}
-				// we didn't find a match for this file,
-				// so we know there's no matching datum
-				break
-			}
-			parentFile.FileInfo = parentFileInfo
-			// also tell downloadData to make a diff for 'file'
-			// side effect of the main work (derive _parentOutputTag)
-			file.ParentCommit = newInputCommitParent
-		}
-		parentFiles = append(parentFiles, parentFile)
-	}
-	if newFiles > 1 {
-		// Multiple new files means we can't do incremental and must run everything from scratch.
-		return nil, nil
-	}
-
-	// We have derived what files the parent saw -- compute the tag
-	if len(parentFiles) == len(files) {
-		_parentOutputTag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, parentFiles)
-		return &pfs.Tag{Name: _parentOutputTag}, nil
-	}
-	return nil, nil
 }
 
 // mergeStats merges y into x
