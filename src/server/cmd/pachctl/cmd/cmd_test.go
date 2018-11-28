@@ -1,8 +1,14 @@
 package cmd
 
 import (
+	"bytes"
+	"io/ioutil"
+	"os"
 	"sync"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
 var stdoutMutex = &sync.Mutex{}
@@ -25,6 +31,39 @@ func TestMetricsDevDeployment(t *testing.T) {
 func TestMetricsDevDeploymentNoMetricsFlagSet(t *testing.T) {
 	// Run deploy w dev flag, should see METRICS=false
 	testDeploy(t, true, true, false)
+}
+
+func TestPortForwardError(t *testing.T) {
+	os.Setenv("ADDRESS", "localhost:30650")
+	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	var errMsg bytes.Buffer
+	c.Stdout = ioutil.Discard
+	c.Stderr = &errMsg
+	err := c.Run()
+	require.YesError(t, err) // 1ns should prevent even local connections
+	require.Matches(t, "port-forward", errMsg.String())
+}
+
+func TestNoPortError(t *testing.T) {
+	os.Setenv("ADDRESS", "127.127.127.0")
+	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	var errMsg bytes.Buffer
+	c.Stdout = ioutil.Discard
+	c.Stderr = &errMsg
+	err := c.Run()
+	require.YesError(t, err) // 1ns should prevent even local connections
+	require.Matches(t, "does not seem to be host:port", errMsg.String())
+}
+
+func TestWeirdPortError(t *testing.T) {
+	os.Setenv("ADDRESS", "localhost:30560")
+	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	var errMsg bytes.Buffer
+	c.Stdout = ioutil.Discard
+	c.Stderr = &errMsg
+	err := c.Run()
+	require.YesError(t, err) // 1ns should prevent even local connections
+	require.Matches(t, "30650", errMsg.String())
 }
 
 func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue bool) {

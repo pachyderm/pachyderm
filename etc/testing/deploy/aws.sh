@@ -14,15 +14,15 @@ which jq
 
 delete_resources() {
   local name=${1}
-  [[ -e ${HOME}/.pachyderm/${name}-info.json ]] || aws s3 cp "${KOPS_BUCKET}/${name}-info.json" "${HOME}/.pachyderm/${name}-info.json" 
+  [[ -e ${HOME}/.pachyderm/${name}-info.json ]] || aws s3 cp "${KOPS_BUCKET}/${name}-info.json" "${HOME}/.pachyderm/${name}-info.json"
   kops --state=${KOPS_BUCKET} delete cluster --name=${name} --yes
-  aws s3 rb --region ${REGION} --force "s3://$(jq --raw-output .pachyderm_bucket ${HOME}/.pachyderm/${name}-info.json)" >/dev/null 
+  aws s3 rb --region ${REGION} --force "s3://$(jq --raw-output .pachyderm_bucket ${HOME}/.pachyderm/${name}-info.json)" >/dev/null
   aws s3 rm "${KOPS_BUCKET}/${name}-info.json"
   sudo rm "${HOME}/.pachyderm/${name}-info.json"
 }
 
 ZONE="${ZONE:-us-west-1b}"
-KOPS_BUCKET=s3://pachyderm-travis-state-store-v1
+KOPS_BUCKET=${KOPS_BUCKET:-s3://pachyderm-travis-state-store-v1}
 OP=-
 CLOUDFRONT=
 DEPLOY_PACHD="true"  # By default, aws.sh deploys pachyderm in its k8s cluster
@@ -43,8 +43,8 @@ while true; do
     --delete)
       OP=delete
       CLUSTER_NAME="${2}"
-      shift 2 
-      ;; 
+      shift 2
+      ;;
     --delete-all)
       OP=delete-all
       shift
@@ -60,9 +60,9 @@ while true; do
     --use-cloudfront)
       # Default is not to provide the flag
       CLOUDFRONT="--use-cloudfront"
-      shift 
-      ;; 
-    --no-pachyderm) 
+      shift
+      ;;
+    --no-pachyderm)
       DEPLOY_PACHD="false" # default is true, see top of file
       shift
       ;;

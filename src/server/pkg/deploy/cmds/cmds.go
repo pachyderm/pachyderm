@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -31,6 +32,10 @@ import (
 )
 
 var defaultDashImage = "pachyderm/dash:1.7-preview-11"
+
+var awsAccessKeyIDRE = regexp.MustCompile("^[A-Z0-9]{20}$")
+var awsSecretRE = regexp.MustCompile("^[A-Za-z0-9/+=]{40}$")
+var awsRegionRE = regexp.MustCompile("^[a-z]{2}(?:-gov)?-[a-z]+-[0-9]$")
 
 // BytesEncoder is an Encoder with bytes content.
 type BytesEncoder interface {
@@ -105,7 +110,7 @@ func getEncoder(outputFormat string) BytesEncoder {
 	}
 }
 
-func maybeKcCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts, metrics bool) error {
+func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts, metrics bool) error {
 	if dryRun {
 		_, err := os.Stdout.Write(manifest.Buffer().Bytes())
 		return err
@@ -127,6 +132,17 @@ func maybeKcCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts, m
 	fmt.Println("")
 
 	return nil
+}
+
+// containsEmpty is a helper function used for validation (particularly for
+// validating that creds arguments aren't empty
+func containsEmpty(vals []string) bool {
+	for _, val := range vals {
+		if val == "" {
+			return true
+		}
+	}
+	return false
 }
 
 // DeployCmd returns a cobra.Command to deploy pachyderm.
@@ -197,7 +213,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts, metrics)
+			return kubectlCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
@@ -239,7 +255,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err = assets.WriteGoogleAssets(manifest, opts, args[0], cred, volumeSize); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts, metrics)
+			return kubectlCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 
@@ -264,7 +280,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts, metrics)
+			return kubectlCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
@@ -301,15 +317,10 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if creds == "" && vault == "" && iamRole == "" {
 				return fmt.Errorf("One of --credentials, --vault, or --iam-role needs to be provided")
 			}
-			containsEmpty := func(vals []string) bool {
-				for _, val := range vals {
-					if val == "" {
-						return true
-					}
-				}
-				return false
-			}
+
+			// populate 'amazonCreds' & validate
 			var amazonCreds *assets.AmazonCreds
+			s := bufio.NewScanner(os.Stdin)
 			if creds != "" {
 				parts := strings.Split(creds, ",")
 				if len(parts) < 2 || len(parts) > 3 || containsEmpty(parts[:2]) {
@@ -318,6 +329,22 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				amazonCreds = &assets.AmazonCreds{ID: parts[0], Secret: parts[1]}
 				if len(parts) > 2 {
 					amazonCreds.Token = parts[2]
+				}
+
+				if !awsAccessKeyIDRE.MatchString(amazonCreds.ID) {
+					fmt.Printf("The AWS Access Key seems invalid (does not match %q). "+
+						"Do you want to continue deploying? [yN]\n", awsAccessKeyIDRE)
+					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
+						os.Exit(1)
+					}
+				}
+
+				if !awsSecretRE.MatchString(amazonCreds.Secret) {
+					fmt.Printf("The AWS Secret seems invalid (does not match %q). "+
+						"Do you want to continue deploying? [yN]\n", awsSecretRE)
+					if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
+						os.Exit(1)
+					}
 				}
 			}
 			if vault != "" {
@@ -344,12 +371,21 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 				fmt.Printf("WARNING: You specified a cloudfront distribution. Deploying on AWS with cloudfront is currently " +
 					"an alpha feature. No security restrictions have been applied to cloudfront, making all data public (obscured but not secured)\n")
 			}
-			manifest := getEncoder(outputFormat)
+			bucket, region := strings.TrimPrefix(args[0], "s3://"), args[1]
+			if !awsRegionRE.MatchString(region) {
+				fmt.Printf("The AWS region seems invalid (does not match %q). "+
+					"Do you want to continue deploying? [yN]\n", awsRegionRE)
+				if s.Scan(); s.Text()[0] != 'y' && s.Text()[0] != 'Y' {
+					os.Exit(1)
+				}
+			}
 
-			if err = assets.WriteAmazonAssets(manifest, opts, args[1], args[0], volumeSize, amazonCreds, cloudfrontDistribution); err != nil {
+			// generate manifest and write assets
+			manifest := getEncoder(outputFormat)
+			if err = assets.WriteAmazonAssets(manifest, opts, region, bucket, volumeSize, amazonCreds, cloudfrontDistribution); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts, metrics)
+			return kubectlCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
@@ -394,7 +430,7 @@ func DeployCmd(noMetrics *bool) *cobra.Command {
 			if err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeSize); err != nil {
 				return err
 			}
-			return maybeKcCreate(dryRun, manifest, opts, metrics)
+			return kubectlCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
 
@@ -703,7 +739,7 @@ removed.`)
 				DashImage: dashImage,
 			}
 			assets.WriteDashboardAssets(manifest, opts)
-			return maybeKcCreate(updateDashDryRun, manifest, opts, false)
+			return kubectlCreate(updateDashDryRun, manifest, opts, false)
 		}),
 	}
 	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")
