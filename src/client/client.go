@@ -41,6 +41,14 @@ const (
 	// StorageSecretName is the name of the Kubernetes secret in which
 	// storage credentials are stored.
 	StorageSecretName = "pachyderm-storage-secret"
+
+	// DefaultPachdNodePort is the pachd kubernetes service's default
+	// NodePort.Port setting.
+	DefaultPachdNodePort = "30650"
+
+	// DefaultPachdPort is the pachd kubernetes service's default
+	// Port (often used with Pachyderm ELBs)
+	DefaultPachdPort = "650"
 )
 
 // PfsAPIClient is an alias for pfs.APIClient.
@@ -122,8 +130,13 @@ func (c *APIClient) GetAddress() string {
 // DefaultMaxConcurrentStreams defines the max number of Putfiles or Getfiles happening simultaneously
 const DefaultMaxConcurrentStreams = 100
 
+// DefaultDialTimeout is the max amount of time APIClient.connect() will wait
+// for a connection to be established unless overridden by WithDialTimeout()
+const DefaultDialTimeout = 30 * time.Second
+
 type clientSettings struct {
 	maxConcurrentStreams int
+	dialTimeout          time.Duration
 	caCerts              *x509.CertPool
 }
 
@@ -132,6 +145,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 	// Apply creation options
 	settings := clientSettings{
 		maxConcurrentStreams: DefaultMaxConcurrentStreams,
+		dialTimeout:          DefaultDialTimeout,
 	}
 	for _, option := range options {
 		if err := option(&settings); err != nil {
@@ -143,7 +157,7 @@ func NewFromAddress(addr string, options ...Option) (*APIClient, error) {
 		caCerts: settings.caCerts,
 		limiter: limit.New(settings.maxConcurrentStreams),
 	}
-	if err := c.connect(); err != nil {
+	if err := c.connect(settings.dialTimeout); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -198,6 +212,15 @@ func WithAdditionalRootCAs(pemBytes []byte) Option {
 	}
 }
 
+// WithDialTimeout instructs the New* functions to use 't' as the deadline to
+// connect to pachd
+func WithDialTimeout(t time.Duration) Option {
+	return func(settings *clientSettings) error {
+		settings.dialTimeout = t
+		return nil
+	}
+}
+
 // WithAdditionalPachdCert instructs the New* functions to additionally trust
 // the signed cert mounted in Pachd's cert volume. This is used by Pachd
 // when connecting to itself (if no cert is present, the clients cert pool
@@ -244,7 +267,10 @@ func getCertOptionsFromEnv() ([]Option, error) {
 	return options, nil
 }
 
-func getAddrAndExtraOptionsOnUserMachine(cfg *config.Config) (string, []Option, error) {
+// getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
+// environment variables, config files, etc to figure out which address a user
+// running a command should connect to.
+func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	// 1) ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
 		options, err := getCertOptionsFromEnv()
@@ -272,7 +298,7 @@ func getAddrAndExtraOptionsOnUserMachine(cfg *config.Config) (string, []Option, 
 	if err != nil {
 		return "", nil, err
 	}
-	return "0.0.0.0:30650", options, nil
+	return fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort), options, nil
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -292,13 +318,38 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 	}
 
 	// create new pachctl client
-	addr, cfgOptions, err := getAddrAndExtraOptionsOnUserMachine(cfg)
+	addr, cfgOptions, err := getUserMachineAddrAndOpts(cfg)
 	if err != nil {
 		return nil, err
 	}
 	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "context deadline exceeded") {
+			// port always starts after last colon, but net.SplitHostPort returns an
+			// error on a hostport without a colon, which this might be
+			port := ""
+			if colonIdx := strings.LastIndexByte(addr, ':'); colonIdx >= 0 {
+				port = addr[colonIdx+1:]
+			}
+			// Check for errors in approximate order of helpfulness
+			if port != "" && port != DefaultPachdPort && port != DefaultPachdNodePort {
+				return nil, fmt.Errorf("could not connect (note: port is usually "+
+					"%s or %s, but is currently set to %q--is this right?): %v", DefaultPachdNodePort, DefaultPachdPort, port, err)
+			}
+			if strings.HasPrefix(addr, "0.0.0.0") ||
+				strings.HasPrefix(addr, "127.0.0.1") ||
+				strings.HasPrefix(addr, "[::1]") ||
+				strings.HasPrefix(addr, "localhost") {
+				return nil, fmt.Errorf("could not connect (note: address %q looks "+
+					"like loopback, check that 'pachctl port-forward' is running): %v",
+					addr, err)
+			}
+			if port == "" {
+				return nil, fmt.Errorf("could not connect (note: address %q does not "+
+					"seem to be host:port): %v", addr, err)
+			}
+		}
+		return nil, fmt.Errorf("could not connect to pachd at %q: %v", addr, err)
 	}
 
 	// Add metrics info & authentication token
@@ -382,21 +433,21 @@ func DefaultDialOptions() []grpc.DialOption {
 	}
 }
 
-func (c *APIClient) connect() error {
+func (c *APIClient) connect(timeout time.Duration) error {
 	keepaliveOpt := grpc.WithKeepaliveParams(keepalive.ClientParameters{
 		Time:                20 * time.Second, // if 20s since last msg (any kind), ping
 		Timeout:             20 * time.Second, // if no response to ping for 20s, reset
 		PermitWithoutStream: true,             // send ping even if no active RPCs
 	})
-	var dialOptions []grpc.DialOption
+	dialOptions := append(DefaultDialOptions(), keepaliveOpt)
 	if c.caCerts == nil {
-		dialOptions = append(DefaultDialOptions(), grpc.WithInsecure(), keepaliveOpt)
+		dialOptions = append(dialOptions, grpc.WithInsecure())
 	} else {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
-		dialOptions = append(DefaultDialOptions(),
-			grpc.WithTransportCredentials(tlsCreds),
-			keepaliveOpt)
+		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
+	dialOptions = append(dialOptions, grpc.WithTimeout(timeout))
+	// TODO(msteffen) switch to grpc.DialContext instead
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
 		return err

@@ -6,7 +6,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/pachyderm/pachyderm)](https://goreportcard.com/report/github.com/pachyderm/pachyderm)
 [![Slack Status](http://slack.pachyderm.io/badge.svg)](http://slack.pachyderm.io)
 
-# Pachyderm: Data Pipelines
+# Pachyderm: Data Versioning, Data Pipelines, and Data Lineage
 
 Pachyderm is a tool for production data pipelines. If you need to chain
 together data scraping, ingestion, cleaning, munging, wrangling, processing,
@@ -57,7 +57,7 @@ Send us PRs, we would love to see what you do! You can also check our GH issues 
 
 ### Join Us
 
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](http://www.pachyderm.io/jobs.html) and email us at jobs@pachyderm.io.
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](https://jobs.lever.co/pachyderm/) and email us at jobs@pachyderm.io.
 
 ## Usage Metrics
 
