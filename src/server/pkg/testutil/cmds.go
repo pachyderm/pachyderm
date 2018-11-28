@@ -114,7 +114,7 @@ which match >/dev/null || {
 
 // Run wraps (*exec.Cmd).Run(), though in the particular case that the command
 // is run on Linux and fails with a SIGPIPE error (which often happens because
-// TestCmd is created by BashCmd() above, which also sets -o pipefail), this
+// TestCmd is created by BashCmd() above, which needs to set -o pipefail), this
 // throws away the error. See "The Infamous SIGPIPE Signal"
 // http://www.tldp.org/LDP/lpg/node20.html
 func (c *TestCmd) Run() error {
