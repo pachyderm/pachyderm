@@ -429,7 +429,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-libs test-vault test-auth test-enterprise test-worker
+test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev test-misc test-pps
@@ -461,6 +461,8 @@ test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
 	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 
+test-deploy-cmds:
+	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
 
 test-pps:
 	@# Travis uses the helper directly because it needs to specify a
