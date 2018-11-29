@@ -35,6 +35,13 @@ func i(ss ...string) []string {
 	return result
 }
 
+func TestFmtNodeType(t *testing.T) {
+	require.Equal(t, "directory", fmt.Sprintf("%s", directory))
+	require.Equal(t, "file", fmt.Sprintf("%s", file))
+	require.Equal(t, "none", fmt.Sprintf("%s", none))
+	require.Equal(t, "unknown", fmt.Sprintf("%s", unrecognized))
+}
+
 func getT(t *testing.T, h HashTree, path string) *NodeProto {
 	t.Helper()
 	node, err := h.Get(path)
@@ -403,17 +410,17 @@ func TestRewriteChangesHash(t *testing.T) {
 }
 
 func TestIsGlob(t *testing.T) {
-	require.True(t, isGlob(`*`))
-	require.True(t, isGlob(`path/to*/file`))
-	require.True(t, isGlob(`path/**/file`))
-	require.True(t, isGlob(`path/to/f?le`))
-	require.True(t, isGlob(`pa!h/to/file`))
-	require.True(t, isGlob(`pa[th]/to/file`))
-	require.True(t, isGlob(`pa{th}/to/file`))
-	require.True(t, isGlob(`*/*`))
-	require.False(t, isGlob(`path`))
-	require.False(t, isGlob(`path/to/file1.txt`))
-	require.False(t, isGlob(`path/to_test-a/file.txt`))
+	require.True(t, IsGlob(`*`))
+	require.True(t, IsGlob(`path/to*/file`))
+	require.True(t, IsGlob(`path/**/file`))
+	require.True(t, IsGlob(`path/to/f?le`))
+	require.True(t, IsGlob(`pa!h/to/file`))
+	require.True(t, IsGlob(`pa[th]/to/file`))
+	require.True(t, IsGlob(`pa{th}/to/file`))
+	require.True(t, IsGlob(`*/*`))
+	require.False(t, IsGlob(`path`))
+	require.False(t, IsGlob(`path/to/file1.txt`))
+	require.False(t, IsGlob(`path/to_test-a/file.txt`))
 }
 
 func TestGlobFile(t *testing.T) {
@@ -429,7 +436,7 @@ func TestGlobFile(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(paths))
 		for path := range paths {
-			require.EqualOneOf(t, i(""), path)
+			require.EqualOneOf(t, i("/"), path)
 		}
 	}
 
@@ -452,70 +459,6 @@ func TestGlobFile(t *testing.T) {
 			require.EqualOneOf(t, i("/dir/bar", "/dir/buzz"), path)
 		}
 	}
-}
-
-func TestMerge(t *testing.T) {
-	l, r := newHashTree(t), newHashTree(t)
-	require.NoError(t, l.PutFile("/foo-left", obj(`hash:"20c27"`), 1))
-	require.NoError(t, l.PutFile("/dir-left/bar-left", obj(`hash:"ebc57"`), 1))
-	require.NoError(t, l.PutFile("/dir-shared/buzz-left", obj(`hash:"8e02c"`), 1))
-	require.NoError(t, l.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1))
-	require.NoError(t, r.PutFile("/foo-right", obj(`hash:"20c27"`), 1))
-	require.NoError(t, r.PutFile("/dir-right/bar-right", obj(`hash:"ebc57"`), 1))
-	require.NoError(t, r.PutFile("/dir-shared/buzz-right", obj(`hash:"8e02c"`), 1))
-	require.NoError(t, r.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1))
-	require.NoError(t, l.Hash())
-	require.NoError(t, r.Hash())
-
-	expected := newHashTree(t)
-	require.NoError(t, expected.PutFile("/foo-left", obj(`hash:"20c27"`), 1))
-	require.NoError(t, expected.PutFile("/dir-left/bar-left", obj(`hash:"ebc57"`), 1))
-	require.NoError(t, expected.PutFile("/dir-shared/buzz-left", obj(`hash:"8e02c"`), 1))
-	require.NoError(t, expected.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1))
-	require.NoError(t, expected.PutFile("/foo-right", obj(`hash:"20c27"`), 1))
-	require.NoError(t, expected.PutFile("/dir-right/bar-right", obj(`hash:"ebc57"`), 1))
-	require.NoError(t, expected.PutFile("/dir-shared/buzz-right", obj(`hash:"8e02c"`), 1))
-	require.NoError(t, expected.PutFile("/dir-shared/file-shared", obj(`hash:"9d432"`), 1))
-	require.NoError(t, expected.Hash())
-
-	lCopy, err := l.Copy()
-	require.NoError(t, err)
-	require.NoError(t, lCopy.Merge(r))
-	require.NoError(t, lCopy.Hash())
-	requireSame(t, expected, lCopy)
-
-	rCopy, err := r.Copy()
-	require.NoError(t, err)
-	require.NoError(t, rCopy.Merge(l))
-	require.NoError(t, rCopy.Hash())
-	requireSame(t, expected, rCopy)
-
-	h := newHashTree(t)
-	err = h.Merge(l, r)
-	require.NoError(t, err)
-	require.NoError(t, h.Hash())
-	requireSame(t, expected, h)
-}
-
-// Test that Merge() works with empty hash trees
-func TestMergeEmpty(t *testing.T) {
-	expected := newHashTree(t)
-	require.NoError(t, expected.PutFile("/foo", obj(`hash:"20c27"`), 1))
-	require.NoError(t, expected.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
-	require.NoError(t, expected.Hash())
-
-	// Merge empty tree into full tree
-	l, err := expected.Copy()
-	require.NoError(t, err)
-	r := newHashTree(t)
-	require.NoError(t, l.Merge(r))
-	require.NoError(t, l.Hash())
-	requireSame(t, expected, l)
-
-	// Merge full tree into empty tree
-	require.NoError(t, r.Merge(l))
-	require.NoError(t, r.Hash())
-	requireSame(t, expected, r)
 }
 
 // Test that Walk() works
