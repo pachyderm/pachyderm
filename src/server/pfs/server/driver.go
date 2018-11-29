@@ -2818,6 +2818,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 			indexOffset++ // start writing to the file after the last file
 		}
+		// TODO(msteffen): apply header and footer
 		for i, record := range records.Records {
 			if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 				return err
