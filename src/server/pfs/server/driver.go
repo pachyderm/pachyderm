@@ -60,8 +60,6 @@ const (
 )
 
 var (
-	// Memory limiter (Useful for limiting operations that could use a lot of memory)
-	memoryLimiter *semaphore.Weighted
 	// Limit the number of outstanding put object requests
 	putObjectLimiter = limit.New(100)
 )
@@ -122,6 +120,9 @@ type driver struct {
 
 	// storageRoot where we store hashtrees
 	storageRoot string
+
+	// memory limiter (useful for limiting operations that could use a lot of memory)
+	memoryLimiter *semaphore.Weighted
 }
 
 // newDriver is used to create a new Driver instance
@@ -155,9 +156,9 @@ func newDriver(address string, etcdAddresses []string, etcdPrefix string, treeCa
 		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
 		treeCache:   treeCache,
 		storageRoot: storageRoot,
+		// Allow up to a third of the requested memory to be used for memory intensive operations
+		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
 	}
-	// Allow up to a third of the requested memory to be used for memory intensive operations
-	memoryLimiter = semaphore.NewWeighted(memoryRequest / 3)
 	go func() { d.getPachClient(context.Background()) }() // Begin dialing connection on startup
 	return d, nil
 }
@@ -1971,11 +1972,11 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				_buffer := buffer
 				_bufferLen := int64(_buffer.Len())
 				index := filesPut
-				memoryLimiter.Acquire(ctx, _bufferLen)
+				d.memoryLimiter.Acquire(ctx, _bufferLen)
 				putObjectLimiter.Acquire()
 				eg.Go(func() error {
 					defer putObjectLimiter.Release()
-					defer memoryLimiter.Release(_bufferLen)
+					defer d.memoryLimiter.Release(_bufferLen)
 					object, size, err := pachClient.PutObject(_buffer)
 					if err != nil {
 						return err
