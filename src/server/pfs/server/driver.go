@@ -38,6 +38,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/sirupsen/logrus"
@@ -1929,17 +1930,21 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, record)
 		}
 	} else {
-		buffer := &bytes.Buffer{}
-		var datumsWritten int64
-		var bytesWritten int64
-		var filesPut int
-		EOF := false
-		var eg errgroup.Group
-		decoder := json.NewDecoder(reader)
-		bufioR := bufio.NewReader(reader)
-
-		indexToRecord := make(map[int]*pfs.PutFileRecord)
-		var mu sync.Mutex
+		var (
+			buffer        = &bytes.Buffer{}
+			datumsWritten int64
+			bytesWritten  int64
+			filesPut      int
+			header        *pfs.Header
+			footer        *pfs.Footer
+			EOF           = false
+			eg            errgroup.Group
+			decoder       = json.NewDecoder(reader)
+			bufioR        = bufio.NewReader(reader)
+			sqlReader     = sql.NewPGDumpReader(bufioR)
+			indexToRecord = make(map[int]*pfs.PutFileRecord)
+			mu            sync.Mutex
+		)
 		for !EOF {
 			var err error
 			var value []byte
@@ -1950,6 +1955,12 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				value = jsonValue
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
+			case pfs.Delimiter_SQL:
+				value, err = sqlReader.ReadRow()
+				if err == io.EOF {
+					header = &pfs.Header{Value: sqlReader.Header}
+					footer = &pfs.Footer{Value: sqlReader.Footer}
+				}
 			default:
 				return nil, fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
@@ -1990,7 +2001,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				})
 				datumsWritten = 0
 				bytesWritten = 0
-				buffer = &bytes.Buffer{}
+				buffer = &bytes.Buffer{} // can't reset buffer b/c _buffer still in use
 				filesPut++
 			}
 		}
@@ -2001,6 +2012,34 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		records.Split = true
 		for i := 0; i < len(indexToRecord); i++ {
 			records.Records = append(records.Records, indexToRecord[i])
+		}
+
+		// Put 'header' and 'footer' in PutFileRecords
+		setHeaderFooter := func(value []byte, hf **pfs.PutFileRecord) {
+			// always put empty header b/c otherwise can't add a header later
+			*hf = &pfs.PutFileRecord{}
+			if len(value) > 0 {
+				putObjectLimiter.Acquire()
+				eg.Go(func() error {
+					defer putObjectLimiter.Release()
+					object, size, err := pachClient.PutObject(bytes.NewReader(value))
+					if err != nil {
+						return err
+					}
+					(*hf).SizeBytes = size
+					(*hf).ObjectHash = object.Hash
+					return nil
+				})
+			}
+		}
+		if header != nil {
+			setHeaderFooter(header.Value, &records.Header)
+		}
+		if footer != nil {
+			setHeaderFooter(footer.Value, &records.Footer)
+		}
+		if err := eg.Wait(); err != nil {
+			return nil, err
 		}
 	}
 	return records, nil
@@ -2342,12 +2381,49 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		}
 		var objects []*pfs.Object
 		var totalSize uint64
-		for _, node := range paths {
+		var footer *pfs.Object
+		var prevDir string
+		for p, node := range paths {
 			if node.FileNode == nil {
 				continue
 			}
+
+			// add footer + header for next dir. If a user calls e.g.
+			// 'GetFile("/*/*")', then the output looks like:
+			// [d1 header][d1/1]...[d1/n][d1 footer] [d2 header]...[d2 footer] ...
+			parentPath := path.Dir(p)
+			if parentPath != prevDir {
+				if footer != nil {
+					objects = append(objects, footer)
+				}
+				footer = nil // don't apply footer twice if next dir has no footer
+				prevDir = parentPath
+				if node.FileNode.HasHeaderFooter {
+					// if any child of 'node's parent directory has HasHeaderFooter set,
+					// then they all should
+					parentNode, err := tree.Get(parentPath)
+					if err != nil {
+						return nil, fmt.Errorf("file %q has a header, but could not "+
+							"retrieve parent node at %q to get header content: %v", p,
+							parentPath, err)
+					}
+					if parentNode.DirNode == nil {
+						return nil, fmt.Errorf("parent of %q is not a directory—this is "+
+							"likely an internal error", p)
+					}
+					if parentNode.DirNode.Header != nil {
+						objects = append(objects, parentNode.DirNode.Header)
+					}
+					if parentNode.DirNode.Footer != nil {
+						footer = parentNode.DirNode.Footer
+					}
+				}
+			}
 			objects = append(objects, node.FileNode.Objects...)
 			totalSize += uint64(node.SubtreeSize)
+		}
+		if footer != nil {
+			objects = append(objects, footer) // apply final footer
 		}
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
@@ -2758,6 +2834,8 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			}
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
+			existingRecords.Header = newRecords.Header
+			existingRecords.Footer = newRecords.Footer
 			return nil
 		})
 	})
@@ -2818,10 +2896,26 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 			indexOffset++ // start writing to the file after the last file
 		}
-		// TODO(msteffen): apply header and footer
 		for i, record := range records.Records {
-			if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
-				return err
+			if records.Header != nil || records.Footer != nil {
+				var headerObj, footerObj *pfs.Object
+				if records.Header != nil {
+					headerObj = &pfs.Object{records.Header.ObjectHash}
+				}
+				if records.Footer != nil {
+					footerObj = &pfs.Object{records.Footer.ObjectHash}
+				}
+				headerFooterSize := records.Header.SizeBytes + records.Footer.SizeBytes
+				if err := tree.PutFileHeaderFooter(
+					path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
+					[]*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes,
+					headerObj, footerObj, headerFooterSize); err != nil {
+					return err
+				}
+			} else {
+				if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+					return err
+				}
 			}
 		}
 	}
