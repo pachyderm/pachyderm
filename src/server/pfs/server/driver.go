@@ -2526,10 +2526,10 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 // nodeToFileInfoInputCommit is like nodeToFileInfo, but handles the case (which
 // currently only occurs in input commits) where files have a header that is
 // stored in their parent directory
-func (d *driver) nodeToFileInfoInputCommit(file *pfs.File,
+func nodeToFileInfoInputCommit(commit *pfs.Commit, filePath string,
 	node *hashtree.NodeProto, tree hashtree.HashTree, full bool) (*pfs.FileInfo, error) {
 	if node.FileNode == nil || !node.FileNode.HasHeaderFooter {
-		return nodeToFileInfo(file.Commit, file.Path, node, full), nil
+		return nodeToFileInfo(commit, filePath, node, full), nil
 	}
 	node = proto.Clone(node).(*hashtree.NodeProto)
 	// validate baseFileInfo for logic below--if input hashtrees start using
@@ -2540,20 +2540,20 @@ func (d *driver) nodeToFileInfoInputCommit(file *pfs.File,
 
 	// 'file' includes header from parent—construct synthetic file info that
 	// includes header in list of objects & hash
-	parentPath := path.Dir(file.Path)
+	parentPath := path.Dir(filePath)
 	parentNode, err := tree.Get(parentPath)
 	if err != nil {
 		return nil, fmt.Errorf("file %q has a header, but could not "+
-			"retrieve parent node at %q to get header content: %v", file.Path,
+			"retrieve parent node at %q to get header content: %v", filePath,
 			parentPath, err)
 	}
 	if parentNode.DirNode == nil {
 		return nil, fmt.Errorf("parent of %q is not a directory; this is "+
-			"likely an internal error", file.Path)
+			"likely an internal error", filePath)
 	}
 	if parentNode.DirNode.Shared == nil {
 		return nil, fmt.Errorf("file %q has a shared header or footer, "+
-			"but parent directory does not permit shared data", file.Path)
+			"but parent directory does not permit shared data", filePath)
 	}
 
 	var newObjects []*pfs.Object
@@ -2572,7 +2572,7 @@ func (d *driver) nodeToFileInfoInputCommit(file *pfs.File,
 	node.FileNode.Objects = newObjects
 	node.SubtreeSize += parentNode.DirNode.Shared.DataSize
 	node.Hash = hashtree.HashFileNode(node.FileNode)
-	return nodeToFileInfo(file.Commit, file.Path, node, full), nil
+	return nodeToFileInfo(commit, filePath, node, full), nil
 }
 
 func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
@@ -2595,7 +2595,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileI
 		if err != nil {
 			return nil, pfsserver.ErrFileNotFound{file}
 		}
-		return nodeToFileInfo(file.Commit, file.Path, node, true), nil
+		return nodeToFileInfoInputCommit(file.Commit, file.Path, node, tree, true)
 	}
 	// Handle commits to output repos
 	if commitInfo.Finished == nil {
@@ -2643,7 +2643,11 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 		}
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
-				return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
+				fi, err := nodeToFileInfoInputCommit(file.Commit, rootPath, rootNode, tree, full)
+				if err != nil {
+					return err
+				}
+				return f(fi)
 			}
 			return tree.List(rootPath, func(node *hashtree.NodeProto) error {
 				path := filepath.Join(rootPath, node.Name)
@@ -2651,7 +2655,11 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 					// Don't return the file now, it will be returned later by Glob
 					return nil
 				}
-				return f(nodeToFileInfo(file.Commit, path, node, full))
+				fi, err := nodeToFileInfoInputCommit(file.Commit, path, node, tree, full)
+				if err != nil {
+					return err
+				}
+				return f(fi)
 			})
 		})
 	}
@@ -2693,7 +2701,11 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 			return err
 		}
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
-			return f(nodeToFileInfo(file.Commit, path, node, false))
+			fi, err := nodeToFileInfoInputCommit(file.Commit, path, node, tree, false)
+			if err != nil {
+				return err
+			}
+			return f(fi)
 		})
 	}
 	// Handle commits to output repos
@@ -2734,7 +2746,11 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 			return err
 		}
 		return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
-			return f(nodeToFileInfo(commit, path, node, false))
+			fi, err := nodeToFileInfoInputCommit(commit, path, node, tree, false)
+			if err != nil {
+				return err
+			}
+			return f(fi)
 		})
 	}
 	// Handle commits to output repos
@@ -2770,13 +2786,11 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	ctx = pachClient.Ctx()
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		//	if oldFile != nil {
 		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		//	if newFile != nil {
 		if err := d.checkIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
@@ -2809,9 +2823,17 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	}
 	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, new bool) error {
 		if new {
-			newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, path, node, false))
+			fi, err := nodeToFileInfoInputCommit(newFile.Commit, path, node, newTree, false)
+			if err != nil {
+				return err
+			}
+			newFileInfos = append(newFileInfos, fi)
 		} else {
-			oldFileInfos = append(oldFileInfos, nodeToFileInfo(oldFile.Commit, path, node, false))
+			fi, err := nodeToFileInfoInputCommit(oldFile.Commit, path, node, oldTree, false)
+			if err != nil {
+				return err
+			}
+			oldFileInfos = append(oldFileInfos, fi)
 		}
 		return nil
 	}); err != nil {
