@@ -2974,20 +2974,30 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 			indexOffset++ // start writing to the file after the last file
 		}
+
+		// Upsert parent directory w/ headers if needed
+		// (hashtree.PutFileHeaderFooter requires it to already exist)
+		if records.Header != nil || records.Footer != nil {
+			var headerObj, footerObj *pfs.Object
+			if records.Header != nil {
+				headerObj = &pfs.Object{records.Header.ObjectHash}
+			}
+			if records.Footer != nil {
+				footerObj = &pfs.Object{records.Footer.ObjectHash}
+			}
+			headerFooterSize := records.Header.SizeBytes + records.Footer.SizeBytes
+			if err := tree.PutDirHeaderFooter(
+				key, headerObj, footerObj, headerFooterSize); err != nil {
+				return err
+			}
+		}
+
+		// Put individual objects into hashtree
 		for i, record := range records.Records {
 			if records.Header != nil || records.Footer != nil {
-				var headerObj, footerObj *pfs.Object
-				if records.Header != nil {
-					headerObj = &pfs.Object{records.Header.ObjectHash}
-				}
-				if records.Footer != nil {
-					footerObj = &pfs.Object{records.Footer.ObjectHash}
-				}
-				headerFooterSize := records.Header.SizeBytes + records.Footer.SizeBytes
 				if err := tree.PutFileHeaderFooter(
 					path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
-					[]*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes,
-					headerObj, footerObj, headerFooterSize); err != nil {
+					[]*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
 					return err
 				}
 			} else {
