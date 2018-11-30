@@ -105,24 +105,38 @@ type HashTree interface {
 
 	// Write methods
 
-	// PutFile appends data to a file (and creates the file if it doesn't exist).
-	PutFile(path string, objects []*pfs.Object, size int64) error
-
-	// PutFileHeaderFooter appends data to the file at 'path', and marks it as
-	// having a header set by the parent directory. Header and Footer will
-	// overwrite the parent directory's header and footer data.
+	// PutDirHeaderFooter creates a directory at 'path' with the given header and/or footer,
+	// or updates the header used by the directory at 'path' if one is already set
+	// (if a directory was created without header/footer metadata, PutDirHeaderFooter
+	// cannot convert it to a header/footer directory, and will simply return an error.
 	//
-	// TODO: It should be possible to add data without overwiting the header/footer
-	// OR even knowing if the parent directory has them. Like ifyou have one huge
-	// pgdump file and you want to add stuff to it, it seems like you should be
-	// able to use the existing header?
+	// If a directory is a header/footer directory, files that it directly contains
+	// will inherit the header/footer that the directory stores without incurring
+	// any extra storage themselves. Also, this header metadata will be exposed to
+	// PFS, allowing for nice semantics there (for example, pfs.GetFile with a glob
+	// argument will only append the header data once to the concatenated contents
+	// of all matching files, so that uploading header-containing data with
+	// PutFileSplit and then downloading it with GetFile+glob yields the original
+	// data. Also, pfs.InspectFile will make sure file hashes reflect the header
+	// content, even if it changes after the file is initially created and the
+	// file's non-header content stays unchanged, etc)
 	//
 	// Note: If 'header' or 'footer' is empty, then header data will no longer be
 	// appended to children of 'file's parent directory, but because
 	// HasHeaderFooter will still be set on all of those children, Pachyderm will
-	// still check the parent directory for header data in the future)
-	PutFileHeaderFooter(path string, objects []*pfs.Object, size int64, header,
-		footer *pfs.Object, headerFooterSize int64) error
+	// still check the parent directory for header data in the future).
+	PutDirHeaderFooter(path string, header, footer *pfs.Object, headerFooterSize int64) error
+
+	// PutFile appends data to a file (and creates the file if it doesn't exist).
+	PutFile(path string, objects []*pfs.Object, size int64) error
+
+	// PutFileHeaderFooter is the same as PutFile, except that it marks the
+	// FileNode at 'path' as having a header stored in its parent directory and
+	// validates that the parent directory has the right header/footer data
+	// structures (see PutDirHeaderFooter). Note that before calling
+	// PutFileHeaderFooter(path, ...), you must call
+	// PutDirHeaderFooter(dir(path)) to create the parent directory correctly
+	PutFileHeaderFooter(path string, objects []*pfs.Object, size int64) error
 
 	// PutFileOverwrite is the same as PutFile, except that instead of
 	// appending the objects to the end of the given file, the objects
