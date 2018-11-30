@@ -53,6 +53,13 @@ const (
 	// ObjectNotFound is returned when GetObject() is called with an object
 	// that doesn't exist.
 	ObjectNotFound
+
+	// HeaderFooterConflict is returned when PutFileHeaderFooter is called on a
+	// path of the form parent/child, but the DirectoryNode at 'parent' doesn't
+	// have a header or footer (headers and footers cannot be added to directories
+	// retroactively, as that would require modifying all of the directory's
+	// children to indicate that they include header data in their parent)
+	HeaderFooterConflict
 )
 
 // HashTree is the signature of a hash tree provided by this library. To get a
@@ -100,6 +107,22 @@ type HashTree interface {
 
 	// PutFile appends data to a file (and creates the file if it doesn't exist).
 	PutFile(path string, objects []*pfs.Object, size int64) error
+
+	// PutFileHeaderFooter appends data to the file at 'path', and marks it as
+	// having a header set by the parent directory. Header and Footer will
+	// overwrite the parent directory's header and footer data.
+	//
+	// TODO: It should be possible to add data without overwiting the header/footer
+	// OR even knowing if the parent directory has them. Like ifyou have one huge
+	// pgdump file and you want to add stuff to it, it seems like you should be
+	// able to use the existing header?
+	//
+	// Note: If 'header' or 'footer' is empty, then header data will no longer be
+	// appended to children of 'file's parent directory, but because
+	// HasHeaderFooter will still be set on all of those children, Pachyderm will
+	// still check the parent directory for header data in the future)
+	PutFileHeaderFooter(path string, objects []*pfs.Object, size int64, header,
+		footer *pfs.Object, headerFooterSize int64) error
 
 	// PutFileOverwrite is the same as PutFile, except that instead of
 	// appending the objects to the end of the given file, the objects

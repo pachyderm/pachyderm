@@ -42,11 +42,11 @@ message DirectoryNodeProto {
 
   // header, if set, references data that will be prepended to all direct
   // children of this directory with has_header_footer set to true.
-  pfs.BlockRef header = 4;
+  pfs.Object header = 4;
 
   // footer, if set, references data that will be appended to all direct
   // children of this directory with has_header_footer set to true.
-  pfs.BlockRef footer = 5;
+  pfs.Object footer = 5;
 }
 
 // NodeProto is a node in the file tree (either a file or a directory)
