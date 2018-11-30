@@ -485,8 +485,7 @@ test-client:
 
 test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
-	# (bryce) Add this back once hashtree tests have been updated
-	#go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
+	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
 
 test-vault:

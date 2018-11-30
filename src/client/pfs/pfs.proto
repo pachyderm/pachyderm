@@ -305,8 +305,16 @@ message OverwriteIndex {
   int64 index = 1;
 }
 
+message Header {
+  bytes value = 1;
+}
+
+message Footer {
+  bytes value = 1;
+}
+
 message PutFileRequest {
-  reserved 2;
+  reserved 2, 4;
   File file = 1;
   bytes value = 3;
   string url = 5;
@@ -325,6 +333,20 @@ message PutFileRequest {
   // overwrite_index is the object index where the write starts from.  All
   // existing objects starting from the index are deleted.
   OverwriteIndex overwrite_index = 10;
+
+  // header indicates data indicates data that should be prepended to each
+  // written file (only used if delimiter is not NONE). This allows for sensible
+  // semantics when splitting e.g. .csv or .pgdump files, where reading any
+  // shard (as in a pipeline) will return the header data required to interpret
+  // that shard, but reading all shards (as with a glob pattern) will not repeat
+  // the header but only include it once at the beginning.
+  Header header = 11;
+
+  // footer is similar to 'header', but it indicates data indicates data that
+  // should be appended written file (again, only used if delimiter is not
+  // NONE). This allows for the same sensible semantics as 'header' but with
+  // respect to data that should appear at the end of any shard(s).
+  Footer footer = 12;
 }
 
 // PutFileRecord is used to record PutFile requests in etcd temporarily.
@@ -338,6 +360,8 @@ message PutFileRecords {
   bool split = 1;
   repeated PutFileRecord records = 2;
   bool tombstone = 3;
+  PutFileRecord header = 4;
+  PutFileRecord footer = 5;
 }
 
 message CopyFileRequest {
