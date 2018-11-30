@@ -321,9 +321,13 @@ func (s *objBlockAPIServer) PutObjects(server pfsclient.ObjectAPI_PutObjectsServ
 	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
 	defer drainObjectServer(server)
 	request, err := server.Recv()
-	if err != nil || request.Block == nil {
+	if err != nil {
 		return err
 	}
+	if request.Block == nil {
+		return fmt.Errorf("first put objects request should include a block")
+	}
+
 	blockPath := s.blockPath(request.Block)
 	putObjectReader := &putObjectReader{
 		server: server,
