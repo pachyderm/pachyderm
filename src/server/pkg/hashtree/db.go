@@ -694,7 +694,7 @@ func visit(tx *bolt.Tx, path string, update updateFn) error {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *dbHashTree) PutFile(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size, nil, nil, 0)
+	return h.putFile(path, objects, nil, size, false)
 }
 
 // PutFileOverwrite is the same as PutFile, except that instead of
@@ -702,25 +702,71 @@ func (h *dbHashTree) PutFile(path string, objects []*pfs.Object, size int64) err
 // are inserted to the given index, and the existing objects starting
 // from the given index are removed.
 func (h *dbHashTree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
-	return h.putFile(path, objects, overwriteIndex, sizeDelta, nil, nil, 0)
+	return h.putFile(path, objects, overwriteIndex, sizeDelta, false)
 }
 
-// lPutFileHeaderFooter is the same as PutFile, except that it also sets a header
-// and/or footer on the parent directory of the file at 'path'--other files that
-// are put in the same directory as 'path' via 'PutFileHeader' will inherit the
-// same header/footer without incurring any extra storage, along with other nice
-// semantics
-func (h *dbHashTree) PutFileHeaderFooter(path string, objects []*pfs.Object, size int64, header,
-	footer *pfs.Object, headerFooterSize int64) error {
-	return h.putFile(path, objects, nil, size, header, footer, headerFooterSize)
+// PutDirHeaderFooter implements the hashtree.PutDirHeaderFooter interface
+// method
+func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object, headerFooterSize int64) error {
+	path = clean(path)
+	return h.Batch(func(tx *bolt.Tx) error {
+		// validation: 'path' must point to directory (or nothing--may not be
+		// created yet)
+		node, err := get(tx, path)
+		if err != nil && Code(err) != PathNotFound {
+			return errorf(Internal, "could not get node at %q: %v", path, err)
+		}
+		if node != nil && node.nodetype() != directory {
+			return errorf(PathConflict, "cannot add header to non-directory file "+
+				"at %q; a file of type %s is already there", path, node.nodetype())
+		}
+
+		// Upsert directory at 'path' with 'Shared' field
+		var newNode bool
+		if node == nil {
+			newNode = true
+			node = &NodeProto{
+				Name:        base(path),
+				SubtreeSize: headerFooterSize,
+				DirNode: &DirectoryNodeProto{
+					Shared: &Shared{},
+				},
+			}
+		}
+
+		// only write node to db if the node is new, or the header or footer
+		// changed
+		headerSame := (node.DirNode.Shared.Header == nil && header == nil) ||
+			(node.DirNode.Shared.Header != nil && node.DirNode.Shared.Header.Hash == header.Hash)
+		footerSame := (node.DirNode.Shared.Footer == nil && footer == nil) ||
+			(node.DirNode.Shared.Footer != nil && node.DirNode.Shared.Footer.Hash == footer.Hash)
+		if newNode || !headerSame || !footerSame {
+			node.DirNode.Shared = &Shared{
+				Header:   header,
+				Footer:   footer,
+				DataSize: headerFooterSize,
+			}
+			return put(tx, path, node)
+		}
+		return nil
+	})
+}
+
+// PutFileHeaderFooter is the same as PutFile, except that it marks the FileNode
+// at 'path' as having a header stored in its parent directory (other files in
+// the same parent directory should inherit the same header), and validates that
+// the parent directory has the right header/footer data structures. Note that
+// before calling PutFileHeaderFooter(path, ...), you must call
+// PutDirHeaderFooter(dir(path)) to create the parent directory correctly
+func (h *dbHashTree) PutFileHeaderFooter(path string, objects []*pfs.Object, size int64) error {
+	return h.putFile(path, objects, nil, size, true)
 }
 
 func (h *dbHashTree) putFile(path string, objects []*pfs.Object,
-	overwriteIndex *pfs.OverwriteIndex, sizeDelta int64,
-	header, footer *pfs.Object, headerFooterSize int64) error {
+	overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, hasHeaderFooter bool) error {
 	path = clean(path)
 	return h.Batch(func(tx *bolt.Tx) error {
-		// validation: 'path' must point to NodeProto
+		// validation: 'path' must point to file
 		node, err := get(tx, path)
 		if err != nil && Code(err) != PathNotFound {
 			return errorf(Internal, "could not get node at %q: %v", path, err)
@@ -730,21 +776,24 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object,
 				"type %s is already there", path, node.nodetype())
 		}
 
-		// validation: 'header' & 'footer' can be set only if parent dir 'header' and
-		// 'footer' are set
-		reqHasHeaderFooter := header != nil || footer != nil
-		parentPath, _ := split(path)
-		parent, err := get(tx, parentPath)
-		if err != nil && Code(err) != PathNotFound {
-			return errorf(Internal, "could not get parent path %q: %v", parentPath, err)
-		}
-		if parent != nil {
+		// validation: 'hasHeaderFooter' can be set only if parent dir has 'Shared'
+		// field for header and footer data (indicating other children of this dir
+		// have headers too--can't mix header and non-header files)
+		if hasHeaderFooter {
+			parentPath, _ := split(path)
+			parent, err := get(tx, parentPath)
+			if err != nil {
+				// Note that ErrNotFound gets returned here too--you must create the
+				// parent directory with PutDirHeaderFooter before adding children with
+				// PutFileHeaderFooter
+				return errorf(Internal, "could not get parent path %q: %v", parentPath, err)
+			}
 			if parent.nodetype() != directory {
-				return errorf(PathConflict, "could not put file at %q; a non-"+
-					"directory file of type %s is already at %q", path,
+				return errorf(PathConflict, "could not put regular file at %q; a non-"+
+					"directory file of type %s is already at parent path %q", path,
 					parent.nodetype(), parentPath)
 			}
-			if reqHasHeaderFooter && parent.DirNode.Shared == nil {
+			if parent.DirNode.Shared == nil {
 				return errorf(HeaderFooterConflict, "could not put header/footer in "+
 					"directory at %q as it was not initialized with a header/footer, "+
 					"and headers/footers cannot be added after creation", parentPath)
@@ -754,42 +803,13 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object,
 		// Request is valid--update node at 'path'
 		if node == nil {
 			node = &NodeProto{
-				Name:     base(path),
-				FileNode: &FileNodeProto{},
+				Name: base(path),
+				FileNode: &FileNodeProto{
+					HasHeaderFooter: hasHeaderFooter,
+				},
 			}
 		}
-		if reqHasHeaderFooter {
-			node.FileNode.HasHeaderFooter = true
-			// just update direct parent here instead of trying to do it at the right
-			// level of 'visit' below
-			if parent == nil {
-				parent = &NodeProto{
-					Name: base(parentPath),
-					DirNode: &DirectoryNodeProto{
-						Shared: &Shared{},
-					},
-				}
-			}
-			headerSame := (parent.DirNode.Shared.Header == nil && header == nil) ||
-				(parent.DirNode.Shared.Header != nil && parent.DirNode.Shared.Header.Hash == header.Hash)
-			footerSame := (parent.DirNode.Shared.Footer == nil && footer == nil) ||
-				(parent.DirNode.Shared.Footer != nil && parent.DirNode.Shared.Footer.Hash == footer.Hash)
-			if !headerSame || !footerSame {
-				// only write parent back to db if header or footer changed
-				parent.DirNode.Shared = &Shared{
-					Header:   header,
-					Footer:   footer,
-					DataSize: headerFooterSize,
-				}
-				if err := put(tx, parentPath, parent); err != nil {
-					return err
-				}
-			}
-			// Compare parent header/footer to new header/footer. If different, put
-			// parent in bolt
-			// if parent.DirNode.
-			// Set Header/Footer in parent directory
-		}
+
 		// Append new objects.  Remove existing objects if overwriting.
 		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
 			node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
@@ -806,7 +826,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object,
 				node.Name = base(parent)
 				node.DirNode = &DirectoryNodeProto{}
 			}
-			node.SubtreeSize += sizeDelta + headerFooterSize
+			node.SubtreeSize += sizeDelta
 			return nil
 		})
 	})
