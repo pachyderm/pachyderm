@@ -7710,6 +7710,138 @@ func TestPipelineVersions(t *testing.T) {
 	}
 }
 
+// TestSplitFileHeader tests putting data in Pachyderm with delimiter == SQL,
+// and makes sure that every pipeline worker gets a copy of the file header. As
+// well, adding more data with the same header should not change the contents of
+// existing data.
+func TestSplitFileHeader(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// put a SQL file w/ header
+	repo := tu.UniqueString("TestSplitFileHeader")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, false,
+		strings.NewReader(tu.TestPGDump))
+	require.NoError(t, err)
+
+	// Create a pipeline that roughly validates the header
+	pipeline := tu.UniqueString("TestSplitFileHeaderPipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"/bin/bash"},
+		[]string{
+			`ls /pfs/*/d/*`, // for debugging
+			`cars_tables="$(grep "CREATE TABLE public.cars" /pfs/*/d/* | sort -u  | wc -l)"`,
+			`(( cars_tables == 1 )) && exit 0 || exit 1`,
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/d/*"),
+		"",
+		false,
+	))
+
+	// wait for job to run & check that all rows were processed
+	var jobCount int
+	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+		func(jobInfo *pps.JobInfo) error {
+			jobCount++
+			require.Equal(t, 1, jobCount)
+			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+			require.Equal(t, int64(5), jobInfo.DataProcessed)
+			require.Equal(t, int64(0), jobInfo.DataSkipped)
+			return nil
+		})
+
+	// Add new rows with same header data
+	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, false,
+		strings.NewReader(tu.TestPGDumpNewRows))
+	require.NoError(t, err)
+
+	// old data should be skipped, even though header was uploaded twice (new
+	// header shouldn't append or change the hash or anything)
+	jobCount = 0
+	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+		func(jobInfo *pps.JobInfo) error {
+			jobCount++
+			require.Equal(t, 1, jobCount)
+			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+			require.Equal(t, int64(3), jobInfo.DataProcessed) // added 3 new rows
+			require.Equal(t, int64(5), jobInfo.DataSkipped)
+			return nil
+		})
+}
+
+func TestNewHeaderCausesReprocess(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// put a SQL file w/ header
+	repo := tu.UniqueString("TestSplitFileHeader")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, false,
+		strings.NewReader(tu.TestPGDump))
+	require.NoError(t, err)
+
+	// Create a pipeline that roughly validates the header
+	pipeline := tu.UniqueString("TestSplitFileReprocessPL")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"/bin/bash"},
+		[]string{
+			`ls /pfs/*/d/*`, // for debugging
+			`cars_tables="$(grep "CREATE TABLE public.cars" /pfs/*/d/* | sort -u  | wc -l)"`,
+			`(( cars_tables == 1 )) && exit 0 || exit 1`,
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/d/*"),
+		"",
+		false,
+	))
+
+	// wait for job to run & check that all rows were processed
+	var jobCount int
+	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+		func(jobInfo *pps.JobInfo) error {
+			jobCount++
+			require.Equal(t, 1, jobCount)
+			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+			require.Equal(t, int64(5), jobInfo.DataProcessed)
+			require.Equal(t, int64(0), jobInfo.DataSkipped)
+			return nil
+		})
+
+	// put empty dataset w/ new header
+	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, false,
+		strings.NewReader(tu.TestPGDumpNewHeader))
+	require.NoError(t, err)
+
+	// everything gets reprocessed (hashes all change even though the files
+	// themselves weren't altered)
+	jobCount = 0
+	c.FlushJob([]*pfs.Commit{client.NewCommit(repo, "master")}, nil,
+		func(jobInfo *pps.JobInfo) error {
+			jobCount++
+			require.Equal(t, 1, jobCount)
+			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+			require.Equal(t, int64(5), jobInfo.DataProcessed) // added 3 new rows
+			require.Equal(t, int64(0), jobInfo.DataSkipped)
+			return nil
+		})
+}
+
+// TestEmptyHeader
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
