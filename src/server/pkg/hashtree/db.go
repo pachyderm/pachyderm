@@ -1185,9 +1185,7 @@ func (mq *mergePQ) fill() error {
 }
 
 func (mq *mergePQ) swap(i, j int) {
-	tmp := mq.q[i]
-	mq.q[i] = mq.q[j]
-	mq.q[j] = tmp
+	mq.q[i], mq.q[j] = mq.q[j], mq.q[i]
 }
 
 // Merge merges a collection of hashtree readers into a hashtree writer.
