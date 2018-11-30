@@ -1935,8 +1935,8 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			datumsWritten int64
 			bytesWritten  int64
 			filesPut      int
-			header        *pfs.Header
-			footer        *pfs.Footer
+			header        *[]byte // these are pointers to slices because we want to
+			footer        *[]byte // distinguish between empty header and no header
 			EOF           = false
 			eg            errgroup.Group
 			decoder       = json.NewDecoder(reader)
@@ -1958,8 +1958,8 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
 				if err == io.EOF {
-					header = &pfs.Header{Value: sqlReader.Header}
-					footer = &pfs.Footer{Value: sqlReader.Footer}
+					header = &sqlReader.Header
+					footer = &sqlReader.Footer
 				}
 			default:
 				return nil, fmt.Errorf("unrecognized delimiter %s", delimiter.String())
@@ -2033,10 +2033,10 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			}
 		}
 		if header != nil {
-			setHeaderFooter(header.Value, &records.Header)
+			setHeaderFooter(*header, &records.Header)
 		}
 		if footer != nil {
-			setHeaderFooter(footer.Value, &records.Footer)
+			setHeaderFooter(*footer, &records.Footer)
 		}
 		if err := eg.Wait(); err != nil {
 			return nil, err
@@ -2411,11 +2411,15 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 						return nil, fmt.Errorf("parent of %q is not a directory—this is "+
 							"likely an internal error", p)
 					}
-					if parentNode.DirNode.Header != nil {
-						objects = append(objects, parentNode.DirNode.Header)
+					if parentNode.DirNode.Shared == nil {
+						return nil, fmt.Errorf("file %q has a shared header or footer, "+
+							"but parent directory does not permit shared data", p)
 					}
-					if parentNode.DirNode.Footer != nil {
-						footer = parentNode.DirNode.Footer
+					if parentNode.DirNode.Shared.Header != nil {
+						objects = append(objects, parentNode.DirNode.Shared.Header)
+					}
+					if parentNode.DirNode.Shared.Footer != nil {
+						footer = parentNode.DirNode.Shared.Footer
 					}
 				}
 			}
@@ -2517,6 +2521,58 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 		}
 	}
 	return fileInfo
+}
+
+// nodeToFileInfoInputCommit is like nodeToFileInfo, but handles the case (which
+// currently only occurs in input commits) where files have a header that is
+// stored in their parent directory
+func (d *driver) nodeToFileInfoInputCommit(file *pfs.File,
+	node *hashtree.NodeProto, tree hashtree.HashTree, full bool) (*pfs.FileInfo, error) {
+	if node.FileNode == nil || !node.FileNode.HasHeaderFooter {
+		return nodeToFileInfo(file.Commit, file.Path, node, full), nil
+	}
+	node = proto.Clone(node).(*hashtree.NodeProto)
+	// validate baseFileInfo for logic below--if input hashtrees start using
+	// blockrefs instead of objects, this logic will need to be adjusted
+	if node.FileNode.Objects == nil {
+		return nil, fmt.Errorf("input commit node uses blockrefs; cannot apply header")
+	}
+
+	// 'file' includes header from parent—construct synthetic file info that
+	// includes header in list of objects & hash
+	parentPath := path.Dir(file.Path)
+	parentNode, err := tree.Get(parentPath)
+	if err != nil {
+		return nil, fmt.Errorf("file %q has a header, but could not "+
+			"retrieve parent node at %q to get header content: %v", file.Path,
+			parentPath, err)
+	}
+	if parentNode.DirNode == nil {
+		return nil, fmt.Errorf("parent of %q is not a directory; this is "+
+			"likely an internal error", file.Path)
+	}
+	if parentNode.DirNode.Shared == nil {
+		return nil, fmt.Errorf("file %q has a shared header or footer, "+
+			"but parent directory does not permit shared data", file.Path)
+	}
+
+	var newObjects []*pfs.Object
+	if parentNode.DirNode.Shared.Header != nil {
+		// cap := len+1 => newObjects is right whether or not we append() a footer
+		newL := len(node.FileNode.Objects) + 1
+		newObjects = make([]*pfs.Object, newL, newL+1)
+		newObjects[0] = parentNode.DirNode.Shared.Header
+		copy(newObjects[1:], node.FileNode.Objects)
+	} else {
+		newObjects = node.FileNode.Objects
+	}
+	if parentNode.DirNode.Shared.Footer != nil {
+		newObjects = append(newObjects, parentNode.DirNode.Shared.Footer)
+	}
+	node.FileNode.Objects = newObjects
+	node.SubtreeSize += parentNode.DirNode.Shared.DataSize
+	node.Hash = hashtree.HashFileNode(node.FileNode)
+	return nodeToFileInfo(file.Commit, file.Path, node, full), nil
 }
 
 func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
