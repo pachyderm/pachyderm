@@ -719,7 +719,7 @@ func (h *dbHashTree) putFile(path string, objects []*pfs.Object, overwriteIndex 
 			}
 		} else if node.nodetype() != file {
 			return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
-				"type %s is already there", path, node.nodetype().tostring())
+				"type %s is already there", path, node.nodetype())
 		}
 		// Append new objects.  Remove existing objects if overwriting.
 		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
@@ -756,7 +756,7 @@ func (h *dbHashTree) PutDir(path string) error {
 				return nil
 			} else if node.nodetype() != none {
 				return errorf(PathConflict, "could not create directory at \"%s\"; a "+
-					"file of type %s is already there", path, node.nodetype().tostring())
+					"file of type %s is already there", path, node.nodetype())
 			}
 		}
 		node = &NodeProto{
@@ -1333,7 +1333,7 @@ func (n *NodeProto) nodetype() nodetype {
 	}
 }
 
-func (n nodetype) tostring() string {
+func (n nodetype) String() string {
 	switch n {
 	case none:
 		return "none"
