@@ -1187,8 +1187,11 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, 
 			delimiter = pfsclient.Delimiter_JSON
 		case "sql":
 			delimiter = pfsclient.Delimiter_SQL
+		case "csv":
+			delimiter = pfsclient.Delimiter_CSV
 		default:
-			return fmt.Errorf("unrecognized delimiter '%s'; only accepts 'json', 'line', or 'sql'", split)
+			return fmt.Errorf("unrecognized delimiter '%s'; only accepts one of "+
+				"{json,line,sql,csv}", split)
 		}
 		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader)
 		return err
