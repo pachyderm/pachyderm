@@ -707,7 +707,7 @@ func (h *dbHashTree) PutFileOverwrite(path string, objects []*pfs.Object, overwr
 
 // PutDirHeaderFooter implements the hashtree.PutDirHeaderFooter interface
 // method
-func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object, headerFooterSize int64) error {
+func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object, headerSize, footerSize int64) error {
 	path = clean(path)
 	return h.Batch(func(tx *bolt.Tx) error {
 		// validation: 'path' must point to directory (or nothing--may not be
@@ -726,11 +726,13 @@ func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object,
 		if node == nil {
 			newNode = true
 			node = &NodeProto{
-				Name:        base(path),
-				SubtreeSize: headerFooterSize,
+				Name: base(path),
 				DirNode: &DirectoryNodeProto{
 					Shared: &Shared{},
 				},
+				// header/footer size are also stored in Shared (for CopyFile) but
+				// adding it here makes size calculation in canonicalize() work
+				SubtreeSize: headerSize + footerSize,
 			}
 		}
 
@@ -742,9 +744,10 @@ func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object,
 			(node.DirNode.Shared.Footer != nil && node.DirNode.Shared.Footer.Hash == footer.Hash)
 		if newNode || !headerSame || !footerSame {
 			node.DirNode.Shared = &Shared{
-				Header:   header,
-				Footer:   footer,
-				DataSize: headerFooterSize,
+				Header:     header,
+				Footer:     footer,
+				HeaderSize: headerSize,
+				FooterSize: footerSize,
 			}
 			return put(tx, path, node)
 		}
