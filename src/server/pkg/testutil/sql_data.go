@@ -98,7 +98,7 @@ ALTER TABLE public.cars OWNER TO postgres;
 
 COPY public.cars (make, model, year, note) FROM stdin;
 Fiat	Panda	1981	If you extend the middle, it makes a great limo
-Fisher-Price	Little Tykes Cozy Coupe	2018	Roomier than the panda, but the headlights are actually eyes
+Little Tikes	Cozy Coupe	2018	Roomier than the panda, but the headlights are actually eyes
 Sun Fresh	Russet	2019	literally a potato
 \.
 

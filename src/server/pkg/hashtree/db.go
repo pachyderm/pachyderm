@@ -752,12 +752,7 @@ func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object,
 	})
 }
 
-// PutFileHeaderFooter is the same as PutFile, except that it marks the FileNode
-// at 'path' as having a header stored in its parent directory (other files in
-// the same parent directory should inherit the same header), and validates that
-// the parent directory has the right header/footer data structures. Note that
-// before calling PutFileHeaderFooter(path, ...), you must call
-// PutDirHeaderFooter(dir(path)) to create the parent directory correctly
+// PutFileHeaderFooter implements the HashTree PutFileHeaderFooter method
 func (h *dbHashTree) PutFileHeaderFooter(path string, objects []*pfs.Object, size int64) error {
 	return h.putFile(path, objects, nil, size, true)
 }
