@@ -2184,7 +2184,6 @@ func TestManyFilesSingleCommit(t *testing.T) {
 	dataRepo := tu.UniqueString("TestManyFilesSingleCommit_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	// Request enough to require more than one page of results
 	numFiles := 5000
 	_, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)

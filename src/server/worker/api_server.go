@@ -1679,9 +1679,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					return err
 				}
 				statsTree.PutFile("index", h, size, objectInfo.BlockRef)
-				writeStats := a.setupStats(pachClient, objClient, tag, subStats, logger, inputTree, outputTree, statsTree)
 				defer func() {
-					if err := writeStats(); err != nil && retErr == nil {
+					if err := a.writeStats(pachClient, objClient, tag, subStats, logger, inputTree, outputTree, statsTree); err != nil && retErr == nil {
 						retErr = err
 					}
 				}()
@@ -1831,20 +1830,34 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	return result, nil
 }
 
-func (a *APIServer) setupStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger *taggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered) func() error {
-	return func() error {
-		// Store stats and add stats file
-		marshaler := &jsonpb.Marshaler{}
-		statsString, err := marshaler.MarshalToString(stats)
-		if err != nil {
-			logger.stderrLog.Printf("could not serialize stats: %s\n", err)
-			return err
-		}
-		object, size, err := pachClient.PutObject(strings.NewReader(statsString))
-		if err != nil {
-			logger.stderrLog.Printf("could not put stats object: %s\n", err)
-			return err
-		}
+func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger *taggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered) error {
+	// Store stats and add stats file
+	marshaler := &jsonpb.Marshaler{}
+	statsString, err := marshaler.MarshalToString(stats)
+	if err != nil {
+		logger.stderrLog.Printf("could not serialize stats: %s\n", err)
+		return err
+	}
+	object, size, err := pachClient.PutObject(strings.NewReader(statsString))
+	if err != nil {
+		logger.stderrLog.Printf("could not put stats object: %s\n", err)
+		return err
+	}
+	objectInfo, err := pachClient.InspectObject(object.Hash)
+	if err != nil {
+		return err
+	}
+	h, err := pfs.DecodeHash(object.Hash)
+	if err != nil {
+		return err
+	}
+	statsTree.PutFile("stats", h, size, objectInfo.BlockRef)
+	// Store logs and add logs file
+	object, size, err = logger.Close()
+	if err != nil {
+		return err
+	}
+	if object != nil {
 		objectInfo, err := pachClient.InspectObject(object.Hash)
 		if err != nil {
 			return err
@@ -1853,42 +1866,26 @@ func (a *APIServer) setupStats(pachClient *client.APIClient, objClient obj.Clien
 		if err != nil {
 			return err
 		}
-		statsTree.PutFile("stats", h, size, objectInfo.BlockRef)
-		// Store logs and add logs file
-		object, size, err = logger.Close()
-		if err != nil {
-			return err
-		}
-		if object != nil {
-			objectInfo, err := pachClient.InspectObject(object.Hash)
-			if err != nil {
-				return err
-			}
-			h, err := pfs.DecodeHash(object.Hash)
-			if err != nil {
-				return err
-			}
-			statsTree.PutFile("logs", h, size, objectInfo.BlockRef)
-		}
-		// Merge stats trees (input, output, stats) and write out
-		inputBuf := &bytes.Buffer{}
-		inputTree.Serialize(inputBuf)
-		outputBuf := &bytes.Buffer{}
-		outputTree.Serialize(outputBuf)
-		statsBuf := &bytes.Buffer{}
-		statsTree.Ordered().Serialize(statsBuf)
-		objW, err := pachClient.PutObjectAsync([]*pfs.Tag{&pfs.Tag{tag + statsTagSuffix}})
-		if err != nil {
-			return err
-		}
-		defer objW.Close()
-		_, err = hashtree.Merge(hashtree.NewWriter(objW), []*hashtree.Reader{
-			hashtree.NewReader(inputBuf, nil),
-			hashtree.NewReader(outputBuf, nil),
-			hashtree.NewReader(statsBuf, nil),
-		})
+		statsTree.PutFile("logs", h, size, objectInfo.BlockRef)
+	}
+	// Merge stats trees (input, output, stats) and write out
+	inputBuf := &bytes.Buffer{}
+	inputTree.Serialize(inputBuf)
+	outputBuf := &bytes.Buffer{}
+	outputTree.Serialize(outputBuf)
+	statsBuf := &bytes.Buffer{}
+	statsTree.Ordered().Serialize(statsBuf)
+	objW, err := pachClient.PutObjectAsync([]*pfs.Tag{&pfs.Tag{tag + statsTagSuffix}})
+	if err != nil {
 		return err
 	}
+	defer objW.Close()
+	_, err = hashtree.Merge(hashtree.NewWriter(objW), []*hashtree.Reader{
+		hashtree.NewReader(inputBuf, nil),
+		hashtree.NewReader(outputBuf, nil),
+		hashtree.NewReader(statsBuf, nil),
+	})
+	return err
 }
 
 // mergeStats merges y into x

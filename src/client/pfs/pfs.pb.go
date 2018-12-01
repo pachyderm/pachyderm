@@ -1779,7 +1779,7 @@ func (m *PutObjectRequest) GetBlock() *Block {
 type GetObjectsRequest struct {
 	Objects     []*Object `protobuf:"bytes,1,rep,name=objects" json:"objects,omitempty"`
 	OffsetBytes uint64    `protobuf:"varint,2,opt,name=offset_bytes,json=offsetBytes,proto3" json:"offset_bytes,omitempty"`
-	// The number of bytes we intend to read.
+	// The number of bytes requested.
 	SizeBytes uint64 `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	// The total amount of bytes in these objects.  It's OK if it's not
 	// entirely accurate or if it's unknown (in which case it'd be set to 0).
@@ -1823,7 +1823,7 @@ func (m *GetObjectsRequest) GetTotalSize() uint64 {
 type GetBlocksRequest struct {
 	BlockRefs   []*BlockRef `protobuf:"bytes,1,rep,name=blockRefs" json:"blockRefs,omitempty"`
 	OffsetBytes uint64      `protobuf:"varint,2,opt,name=offset_bytes,json=offsetBytes,proto3" json:"offset_bytes,omitempty"`
-	// The number of bytes we intend to read.
+	// The number of bytes requested.
 	SizeBytes uint64 `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
 	// The total amount of bytes in these blocks.  It's OK if it's not
 	// entirely accurate or if it's unknown (in which case it'd be set to 0).
