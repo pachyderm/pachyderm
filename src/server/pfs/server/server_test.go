@@ -68,6 +68,10 @@ func RepoToName(repo interface{}) interface{} {
 	return repo.(*pfs.Repo).Name
 }
 
+func FileInfoToPath(fileInfo interface{}) interface{} {
+	return fileInfo.(*pfs.FileInfo).File.Path
+}
+
 func TestInvalidRepo(t *testing.T) {
 	client := GetPachClient(t)
 	require.YesError(t, client.CreateRepo("/repo"))
@@ -2615,7 +2619,7 @@ func TestPutFileSplitSQL(t *testing.T) {
 	// Get one of the SQL records & validate it
 	var contents bytes.Buffer
 	c.GetFile(repo, "master", "/sql/0000000000000000", 0, 0, &contents)
-	// Validate a that the recieved pgdump file creates the cars table
+	// Validate that the recieved pgdump file creates the cars table
 	require.Matches(t, "CREATE TABLE public\\.cars", contents.String())
 	// Validate the SQL header more generally by passing the output of GetFile
 	// back through the SQL library & confirm that it parses correctly but only
@@ -2661,15 +2665,14 @@ func TestPutFileSplitSQL(t *testing.T) {
 	require.Equal(t, io.EOF, err)
 }
 
-func TestPutFileHeaderBasic(t *testing.T) {
+func TestPutFileHeaderRecordsBasic(t *testing.T) {
 	c := GetPachClient(t)
 	// create repos
-	repo := tu.UniqueString("TestPutFileHeaderBasic")
+	repo := tu.UniqueString("TestPutFileHeaderRecordsBasic")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Put simple CSV document, which should become a header and two records
 	_, err := c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 1, false,
-		// Weird CSV, but this is actually two lines (is\na is quoted, so one cell)
 		strings.NewReader("h_1,h_2,h_3,h_4\n"+
 			"this,is,a,test\n"+
 			"this,is,another,test\n"))
@@ -2710,7 +2713,6 @@ func TestPutFileHeaderBasic(t *testing.T) {
 	// files should be unchanged, but GetFile should yield new results.
 	// InspectFile should reveal the new headers
 	_, err = c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 1, false,
-		// Weird CSV, but this is actually two lines (is\na is quoted, so one cell)
 		strings.NewReader("h_one,h_two,h_three,h_four\n"))
 
 	// New header from GetFile
@@ -3107,6 +3109,77 @@ func TestCopyFile(t *testing.T) {
 	b.Reset()
 	require.NoError(t, c.GetFile(repo, "other", "files", 0, 0, &b))
 	require.Equal(t, "foo 0\n", b.String())
+}
+
+func TestCopyFileHeaderFooter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := GetPachClient(t)
+	repo := tu.UniqueString("TestCopyFileHeaderFooterOne")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFileSplit(repo, "master", "/data", pfs.Delimiter_CSV, 0, 0, 1, false,
+		strings.NewReader("h_1,h_2,h_3,h_4\n"+
+			"this,is,a,test\n"+
+			"this,is,another,test\n"))
+
+	// 1) Try copying the header/footer dir into an open commit
+	_, err = c.StartCommit(repo, "target-branch-unfinished")
+	require.NoError(t, err)
+	require.NoError(t, c.CopyFile(repo, "master", "/data", repo, "target-branch-unfinished", "/data", false))
+	require.NoError(t, c.FinishCommit(repo, "target-branch-unfinished"))
+
+	fs, _ := c.ListFile(repo, "target-branch-unfinished", "/*")
+	require.ElementsEqualUnderFn(t,
+		[]string{"/data/0000000000000000", "/data/0000000000000001"},
+		fs,
+		func(fii interface{}) interface{} {
+			fi := fii.(*pfs.FileInfo)
+			return fi.File.Path
+		})
+
+	// In target branch, header should be preserved--should be returned by
+	// GetFile, and should appear exactly once at the beginning
+	var contents bytes.Buffer
+	c.GetFile(repo, "target-branch-unfinished", "/data/0000000000000000", 0, 0, &contents)
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\n", contents.String())
+	contents.Reset()
+	c.GetFile(repo, "target-branch-unfinished", "/data/0000000000000001", 0, 0, &contents)
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,another,test\n",
+		contents.String())
+	// Confirm header only appears once in target-branch, even though the
+	// contents of two files are concatenated and returned
+	contents.Reset()
+	c.GetFile(repo, "target-branch-unfinished", "/data/*", 0, 0, &contents)
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\nthis,is,another,test\n",
+		contents.String())
+
+	// 2) Try copying the header/footer dir into a branch
+	err = c.CreateBranch(repo, "target-branch-finished", "", nil)
+	require.NoError(t, err)
+	require.NoError(t, c.CopyFile(repo, "master", "/data", repo, "target-branch-finished", "/data", false))
+
+	fs, _ = c.ListFile(repo, "target-branch-finished", "/*")
+	require.ElementsEqualUnderFn(t,
+		[]string{"/data/0000000000000000", "/data/0000000000000001"},
+		fs, FileInfoToPath)
+
+	// In target branch, header should be preserved--should be returned by
+	// GetFile, and should appear exactly once at the beginning
+	contents.Reset()
+	c.GetFile(repo, "target-branch-finished", "/data/0000000000000000", 0, 0, &contents)
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\n", contents.String())
+	contents.Reset()
+	c.GetFile(repo, "target-branch-finished", "/data/0000000000000001", 0, 0, &contents)
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,another,test\n",
+		contents.String())
+	// Confirm header only appears once in target-branch, even though the
+	// contents of two files are concatenated and returned
+	contents.Reset()
+	c.GetFile(repo, "target-branch-finished", "/data/*", 0, 0, &contents)
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\nthis,is,another,test\n",
+		contents.String())
 }
 
 func TestBuildCommit(t *testing.T) {
