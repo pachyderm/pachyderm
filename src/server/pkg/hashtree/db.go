@@ -165,7 +165,7 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 }
 
 // Get gets a hashtree node.
-func Get(rs []*Reader, filePath string) (*NodeProto, error) {
+func Get(rs []io.ReadCloser, filePath string) (*NodeProto, error) {
 	filePath = clean(filePath)
 	var fileNode *NodeProto
 	if err := nodes(rs, func(path string, node *NodeProto) error {
@@ -244,7 +244,7 @@ func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 }
 
 // List executes a callback for each file under a directory (or a file if the path is a file).
-func List(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retErr error) {
+func List(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
 	pattern = clean(pattern)
 	if pattern == "" {
 		pattern = "/"
@@ -313,7 +313,7 @@ func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
 }
 
 // Glob executes a callback for each path that matches the glob pattern.
-func Glob(rs []*Reader, pattern string, f func(string, *NodeProto) error) (retErr error) {
+func Glob(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
 	pattern = clean(pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
@@ -366,7 +366,7 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 }
 
 // Walk executes a callback against every node in the subtree of path.
-func Walk(rs []*Reader, walkPath string, f func(path string, node *NodeProto) error) error {
+func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodeProto) error) error {
 	walkPath = clean(walkPath)
 	return nodes(rs, func(path string, node *NodeProto) error {
 		if path == "" {
@@ -1216,11 +1216,11 @@ func Merge(w *Writer, rs []*Reader) (uint64, error) {
 	return w.size, nil
 }
 
-func nodes(rs []*Reader, f func(path string, nodeProto *NodeProto) error) error {
+func nodes(rs []io.ReadCloser, f func(path string, nodeProto *NodeProto) error) error {
 	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
 	// Setup first set of nodes
 	for _, r := range rs {
-		if err := mq.insert(&nodeStream{r: r}); err != nil {
+		if err := mq.insert(&nodeStream{r: NewReader(r, nil)}); err != nil {
 			return err
 		}
 	}
