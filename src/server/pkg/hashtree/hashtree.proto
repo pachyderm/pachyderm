@@ -36,8 +36,9 @@ message Shared {
   pfs.Object header = 1;
   pfs.Object footer = 2;
 
-  // The size of header + footer
-  int64 data_size = 3;
+  // The size of header & footer (must be separated for Copy())
+  int64 header_size = 3;
+  int64 footer_size = 4;
 }
 
 // DirectoryNodeProto is a node corresponding to a directory.
