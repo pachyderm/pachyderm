@@ -2670,7 +2670,7 @@ func TestPutFileHeaderBasic(t *testing.T) {
 	// Put simple CSV document, which should become a header and two records
 	_, err := c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 1, false,
 		// Weird CSV, but this is actually two lines (is\na is quoted, so one cell)
-		strings.NewReader("word_1,word_2,word_3,word_4\n"+
+		strings.NewReader("h_1,h_2,h_3,h_4\n"+
 			"this,is,a,test\n"+
 			"this,is,another,test\n"))
 	require.NoError(t, err)
@@ -2682,16 +2682,16 @@ func TestPutFileHeaderBasic(t *testing.T) {
 	// beginning
 	var contents bytes.Buffer
 	c.GetFile(repo, "master", "/data/0000000000000000", 0, 0, &contents)
-	require.Equal(t, "word_1,word_2,word_3,word_4\nthis,is,a,test\n", contents.String())
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\n", contents.String())
 	contents.Reset()
 	c.GetFile(repo, "master", "/data/0000000000000001", 0, 0, &contents)
-	require.Equal(t, "word_1,word_2,word_3,word_4\nthis,is,another,test\n",
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,another,test\n",
 		contents.String())
 	// Header only appears once, even though the contents of two files are
 	// concatenated and returned
 	contents.Reset()
 	c.GetFile(repo, "master", "/data/*", 0, 0, &contents)
-	require.Equal(t, "word_1,word_2,word_3,word_4\nthis,is,a,test\nthis,is,another,test\n",
+	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\nthis,is,another,test\n",
 		contents.String())
 
 	// Header should be included in FileInfo
@@ -2711,21 +2711,21 @@ func TestPutFileHeaderBasic(t *testing.T) {
 	// InspectFile should reveal the new headers
 	_, err = c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 1, false,
 		// Weird CSV, but this is actually two lines (is\na is quoted, so one cell)
-		strings.NewReader("word_one,word_two,word_three,word_four\n"))
+		strings.NewReader("h_one,h_two,h_three,h_four\n"))
 
 	// New header from GetFile
 	contents.Reset()
 	c.GetFile(repo, "master", "/data/0000000000000000", 0, 0, &contents)
-	require.Equal(t, "word_one,word_two,word_three,word_four\nthis,is,a,test\n", contents.String())
+	require.Equal(t, "h_one,h_two,h_three,h_four\nthis,is,a,test\n", contents.String())
 	contents.Reset()
 	c.GetFile(repo, "master", "/data/0000000000000001", 0, 0, &contents)
-	require.Equal(t, "word_one,word_two,word_three,word_four\nthis,is,another,test\n",
+	require.Equal(t, "h_one,h_two,h_three,h_four\nthis,is,another,test\n",
 		contents.String())
 	// Header only appears once, even though the contents of two files are
 	// concatenated and returned
 	contents.Reset()
 	c.GetFile(repo, "master", "/data/*", 0, 0, &contents)
-	require.Equal(t, "word_one,word_two,word_three,word_four\nthis,is,a,test\nthis,is,another,test\n",
+	require.Equal(t, "h_one,h_two,h_three,h_four\nthis,is,a,test\nthis,is,another,test\n",
 		contents.String())
 
 	// Header should be included in FileInfo
