@@ -1048,6 +1048,9 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	if userCommit == nil {
 		return nil, fmt.Errorf("cannot resolve nil commit")
 	}
+	if userCommit.ID == "" {
+		return nil, fmt.Errorf("cannot resolve commit with no ID or branch")
+	}
 	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~ and ^)
 	var ancestryLength int
@@ -2065,7 +2068,7 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		// Put 'header' and 'footer' in PutFileRecords
 		setHeaderFooter := func(value []byte, hf **pfs.PutFileRecord) {
 			// always put empty header, even if 'value' is empty, so
-      // that the parent dir is a header/footer dir
+			// that the parent dir is a header/footer dir
 			*hf = &pfs.PutFileRecord{}
 			if len(value) > 0 {
 				putObjectLimiter.Acquire()
@@ -2094,6 +2097,64 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 	return records, nil
 }
 
+// headerDirToPutFileRecords is a helper for copyFile that handles copying
+// header/footer directories.
+//
+// Copy uses essentially the same codepath as putFile--it converts hashtree
+// node(s) to PutFileRecords and then uses applyWrite to put the records back
+// in the target hashtree. In putFile, the only way to create a headerDir is
+// with PutFileSplit (PutFileRecord with Split==true). Rather than split the
+// putFile codepath by adding a special case to applyWrite that was valid for
+// copyFile but invalid for putFile, we use heaaderDirToPutFileRecords to
+// convert a DirectoryNode to a PutFileRecord+Split==true, which applyWrite
+// will correctly convert back to a header dir in the target hashtree via the
+// regular putFile codepath.
+func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtree.NodeProto) (*pfs.PutFileRecords, error) {
+	if node.DirNode == nil || node.DirNode.Shared == nil {
+		return nil, fmt.Errorf("headerDirToPutFileRecords only works on header/footer dirs")
+	}
+	s := node.DirNode.Shared
+	pfr := &pfs.PutFileRecords{
+		Split: true,
+	}
+	if s.Header != nil {
+		pfr.Header = &pfs.PutFileRecord{
+			SizeBytes:  s.HeaderSize,
+			ObjectHash: s.Header.Hash,
+		}
+	}
+	if s.Footer != nil {
+		pfr.Footer = &pfs.PutFileRecord{
+			SizeBytes:  s.FooterSize,
+			ObjectHash: s.Footer.Hash,
+		}
+	}
+	if err := tree.List(path, func(child *hashtree.NodeProto) error {
+		if child.FileNode == nil {
+			return fmt.Errorf("header/footer dir contains child subdirectory, " +
+				"which is invalid--header/footer dirs must be created by PutFileSplit")
+		}
+		for i, o := range child.FileNode.Objects {
+			// same hack as copyFile--set size of first object to the size of the
+			// whole subtree (and size of other objects to 0). I don't think
+			// PutFileSplit files can have more than one object, but that invariant
+			// isn't necessary to this code's correctness, so don't verify it.
+			var size int64
+			if i == 0 {
+				size = child.SubtreeSize
+			}
+			pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
+				SizeBytes:  size,
+				ObjectHash: o.Hash,
+			})
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return pfr, nil // TODO(msteffen) put something real here
+}
+
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
@@ -2110,17 +2171,21 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if !uuid.IsUUIDWithoutDashes(dst.Commit.ID) {
 		branch = dst.Commit.ID
 	}
-	ci, err := d.inspectCommit(ctx, dst.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
+	var dstIsOpenCommit bool
+	if ci, err := d.inspectCommit(ctx, dst.Commit, pfs.CommitState_STARTED); err != nil {
+		if !isNoHeadErr(err) {
+			return err
+		}
+	} else if ci.Finished == nil {
+		dstIsOpenCommit = true
 	}
-	if ci.Finished != nil && branch == "" {
+	if !dstIsOpenCommit && branch == "" {
 		return pfsserver.ErrCommitFinished{dst.Commit}
 	}
 	var paths []string
-	var records []*pfs.PutFileRecords
+	var records []*pfs.PutFileRecords // used if 'dst' is finished (atomic put-file)
 	if overwrite {
-		if ci.Finished == nil {
+		if dstIsOpenCommit {
 			if err := d.deleteFile(ctx, dst); err != nil {
 				return err
 			}
@@ -2137,21 +2202,33 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if !strings.HasPrefix(src.Path, "/") {
 		src.Path = "/" + src.Path
 	}
-	var recordsMu sync.Mutex
 	var eg errgroup.Group
 	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
-		if node.FileNode == nil {
-			return nil
+		relPath, err := filepath.Rel(src.Path, walkPath)
+		if err != nil {
+			return fmt.Errorf("error from filepath.Rel (likely a bug): %v", err)
 		}
-		eg.Go(func() error {
-			relPath, err := filepath.Rel(src.Path, walkPath)
+		target := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
+		// Populate 'record' appropriately for this node (or skip it)
+		record := &pfs.PutFileRecords{}
+		if node.DirNode != nil && node.DirNode.Shared != nil {
+			var err error
+			record, err = headerDirToPutFileRecords(srcTree, walkPath, node)
 			if err != nil {
-				// This shouldn't be possible
-				return fmt.Errorf("error from filepath.Rel: %+v (this is likely a bug)", err)
+				return err
 			}
-			record := &pfs.PutFileRecords{}
-			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
+		} else if node.FileNode == nil {
+			return nil
+		} else if node.FileNode.HasHeaderFooter {
+			return nil // parent dir will be copied as a PutFileRecord w/ Split==true
+		} else {
 			for i, object := range node.FileNode.Objects {
+				// We only have the whole file size in src file, so mark the first object
+				// as the size of the whole file and all the rest as size 0; applyWrite
+				// will compute the right sum size for the target file
+				// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
+				// only record the sum size of all PutFileRecord messages as well, or
+				// FileNodeProto should record the size of every object
 				var size int64
 				if i == 0 {
 					size = node.SubtreeSize
@@ -2161,15 +2238,18 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 					ObjectHash: object.Hash,
 				})
 			}
-			if ci.Finished == nil {
-				return d.upsertPutFileRecords(ctx, file, record)
-			}
-			recordsMu.Lock()
-			defer recordsMu.Unlock()
-			paths = append(paths, file.Path)
+		}
+
+		// Either upsert 'record' to etcd (if 'dst' is in an open commit) or add it
+		// to 'records' to be put at the end
+		if dstIsOpenCommit {
+			eg.Go(func() error {
+				return d.upsertPutFileRecords(ctx, target, record)
+			})
+		} else {
+			paths = append(paths, target.Path)
 			records = append(records, record)
-			return nil
-		})
+		}
 		return nil
 	}); err != nil {
 		return err
@@ -2177,7 +2257,8 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	if ci.Finished != nil {
+	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
+	if !dstIsOpenCommit {
 		_, err = d.makeCommit(ctx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
 		return err
 	}
@@ -2596,21 +2677,23 @@ func nodeToFileInfoHeaderFooter(commit *pfs.Commit, filePath string,
 			"but parent directory does not permit shared data", filePath)
 	}
 
+	s := parentNode.DirNode.Shared
 	var newObjects []*pfs.Object
-	if parentNode.DirNode.Shared.Header != nil {
+	if s.Header != nil {
 		// cap := len+1 => newObjects is right whether or not we append() a footer
 		newL := len(node.FileNode.Objects) + 1
 		newObjects = make([]*pfs.Object, newL, newL+1)
-		newObjects[0] = parentNode.DirNode.Shared.Header
+
+		newObjects[0] = s.Header
 		copy(newObjects[1:], node.FileNode.Objects)
 	} else {
 		newObjects = node.FileNode.Objects
 	}
-	if parentNode.DirNode.Shared.Footer != nil {
-		newObjects = append(newObjects, parentNode.DirNode.Shared.Footer)
+	if s.Footer != nil {
+		newObjects = append(newObjects, s.Footer)
 	}
 	node.FileNode.Objects = newObjects
-	node.SubtreeSize += parentNode.DirNode.Shared.DataSize
+	node.SubtreeSize += s.HeaderSize + s.FooterSize
 	node.Hash = hashtree.HashFileNode(node.FileNode)
 	return nodeToFileInfo(commit, filePath, node, full), nil
 }
@@ -3026,17 +3109,17 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 		// (hashtree.PutFileHeaderFooter requires it to already exist)
 		if records.Header != nil || records.Footer != nil {
 			var headerObj, footerObj *pfs.Object
-			var headerFooterSize int64
+			var headerSize, footerSize int64
 			if records.Header != nil {
 				headerObj = &pfs.Object{records.Header.ObjectHash}
-				headerFooterSize += records.Header.SizeBytes
+				headerSize = records.Header.SizeBytes
 			}
 			if records.Footer != nil {
 				footerObj = &pfs.Object{records.Footer.ObjectHash}
-				headerFooterSize += records.Footer.SizeBytes
+				footerSize = records.Footer.SizeBytes
 			}
 			if err := tree.PutDirHeaderFooter(
-				key, headerObj, footerObj, headerFooterSize); err != nil {
+				key, headerObj, footerObj, headerSize, footerSize); err != nil {
 				return err
 			}
 		}
