@@ -296,6 +296,7 @@ enum Delimiter {
   JSON = 1;
   LINE = 2;
   SQL = 3;
+  CSV = 4;
 }
 
 // An OverwriteIndex specifies the index of objects from which new writes
