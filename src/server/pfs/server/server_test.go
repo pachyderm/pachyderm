@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -24,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	pfssync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -1934,7 +1936,7 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, client.CreateRepo(repo))
 	commit, err := client.StartCommit(repo, "")
 	require.NoError(t, err)
-	w, err := client.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, false)
+	w, err := client.PutFileSplitWriter(repo, commit.ID, "foo", pfs.Delimiter_NONE, 0, 0, 0, false)
 	require.NoError(t, err)
 	require.NoError(t, w.Close())
 	require.NoError(t, client.FinishCommit(repo, commit.ID))
@@ -2454,23 +2456,23 @@ func TestPutFileSplit(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "none", pfs.Delimiter_NONE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line2", pfs.Delimiter_LINE, 2, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line2", pfs.Delimiter_LINE, 2, 0, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "line3", pfs.Delimiter_LINE, 0, 8, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
+	_, err = c.PutFileSplit(repo, commit.ID, "line3", pfs.Delimiter_LINE, 0, 8, 0, false, strings.NewReader("foo\nbar\nbuz\nfiz\n"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "json2", pfs.Delimiter_JSON, 2, 0, false, strings.NewReader("{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit.ID, "json2", pfs.Delimiter_JSON, 2, 0, 0, false, strings.NewReader("{}{}{}{}"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit.ID, "json3", pfs.Delimiter_JSON, 0, 4, false, strings.NewReader("{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit.ID, "json3", pfs.Delimiter_JSON, 0, 4, 0, false, strings.NewReader("{}{}{}{}"))
 	require.NoError(t, err)
 
 	files, err := c.ListFile(repo, commit.ID, "line2")
@@ -2483,9 +2485,9 @@ func TestPutFileSplit(t *testing.T) {
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	commit2, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit2.ID, "line", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, commit2.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, commit2.ID, "json", pfs.Delimiter_JSON, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
+	_, err = c.PutFileSplit(repo, commit2.ID, "json", pfs.Delimiter_JSON, 0, 0, 0, false, strings.NewReader("{}{}{}{}{}{}{}{}{}{}"))
 	require.NoError(t, err)
 
 	files, err = c.ListFile(repo, commit2.ID, "line")
@@ -2560,7 +2562,7 @@ func TestPutFileSplitBig(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	w, err := c.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, false)
+	w, err := c.PutFileSplitWriter(repo, commit.ID, "line", pfs.Delimiter_LINE, 0, 0, 0, false)
 	require.NoError(t, err)
 	for i := 0; i < 1000; i++ {
 		_, err = w.Write([]byte("foo\n"))
@@ -2581,9 +2583,10 @@ func TestPutFileSplitCSV(t *testing.T) {
 	// create repos
 	repo := tu.UniqueString("TestPutFileSplitCSV")
 	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, false,
-		// Weird CSV, but this is actually two lines (is\na is quoted, so one cell)
-		strings.NewReader("this,is,a,test\n\"\"\"this\"\"\",\"is\nonly\",\"a,test\""))
+	_, err := c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 0, false,
+		// Weird, but this is actually two lines ("is\na" is quoted, so one cell)
+		strings.NewReader("this,is,a,test\n"+
+			"\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n"))
 	require.NoError(t, err)
 	fileInfos, err := c.ListFile(repo, "master", "/data")
 	require.NoError(t, err)
@@ -2594,6 +2597,148 @@ func TestPutFileSplitCSV(t *testing.T) {
 	contents.Reset()
 	c.GetFile(repo, "master", "/data/0000000000000001", 0, 0, &contents)
 	require.Equal(t, "\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n", contents.String())
+}
+
+func TestPutFileSplitSQL(t *testing.T) {
+	c := GetPachClient(t)
+	// create repos
+	repo := tu.UniqueString("TestPutFileSplitSQL")
+	require.NoError(t, c.CreateRepo(repo))
+
+	_, err := c.PutFileSplit(repo, "master", "/sql", pfs.Delimiter_SQL, 0, 0, 0,
+		false, strings.NewReader(tu.TestPGDump))
+	require.NoError(t, err)
+	fileInfos, err := c.ListFile(repo, "master", "/sql")
+	require.NoError(t, err)
+	require.Equal(t, 5, len(fileInfos))
+
+	// Get one of the SQL records & validate it
+	var contents bytes.Buffer
+	c.GetFile(repo, "master", "/sql/0000000000000000", 0, 0, &contents)
+	// Validate a that the recieved pgdump file creates the cars table
+	require.Matches(t, "CREATE TABLE public\\.cars", contents.String())
+	// Validate the SQL header more generally by passing the output of GetFile
+	// back through the SQL library & confirm that it parses correctly but only
+	// has one row
+	pgReader := sql.NewPGDumpReader(bufio.NewReader(bytes.NewReader(contents.Bytes())))
+	record, err := pgReader.ReadRow()
+	require.NoError(t, err)
+	require.Equal(t, "Tesla\tRoadster\t2008\tliterally a rocket\n", string(record))
+	record, err = pgReader.ReadRow()
+	require.YesError(t, err)
+	require.Equal(t, io.EOF, err)
+
+	// Create a new commit that overwrites all existing data & puts it back with
+	// --header-records=1
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteFile(repo, commit.ID, "/sql"))
+	_, err = c.PutFileSplit(repo, commit.ID, "/sql", pfs.Delimiter_SQL, 0, 0, 1,
+		false, strings.NewReader(tu.TestPGDump))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+	fileInfos, err = c.ListFile(repo, "master", "/sql")
+	require.NoError(t, err)
+	require.Equal(t, 4, len(fileInfos))
+
+	// Get one of the SQL records & validate it
+	contents.Reset()
+	c.GetFile(repo, "master", "/sql/0000000000000003", 0, 0, &contents)
+	// Validate a that the recieved pgdump file creates the cars table
+	require.Matches(t, "CREATE TABLE public\\.cars", contents.String())
+	// Validate the SQL header more generally by passing the output of GetFile
+	// back through the SQL library & confirm that it parses correctly but only
+	// has one row
+	pgReader = sql.NewPGDumpReader(bufio.NewReader(strings.NewReader(contents.String())))
+	record, err = pgReader.ReadRow()
+	require.NoError(t, err)
+	require.Equal(t, "Tesla\tRoadster\t2008\tliterally a rocket\n", string(record))
+	record, err = pgReader.ReadRow()
+	require.NoError(t, err)
+	require.Equal(t, "Toyota\tCorolla\t2005\tgreatest car ever made\n", string(record))
+	record, err = pgReader.ReadRow()
+	require.YesError(t, err)
+	require.Equal(t, io.EOF, err)
+}
+
+func TestPutFileHeaderBasic(t *testing.T) {
+	c := GetPachClient(t)
+	// create repos
+	repo := tu.UniqueString("TestPutFileHeaderBasic")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Put simple CSV document, which should become a header and two records
+	_, err := c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 1, false,
+		// Weird CSV, but this is actually two lines (is\na is quoted, so one cell)
+		strings.NewReader("word_1,word_2,word_3,word_4\n"+
+			"this,is,a,test\n"+
+			"this,is,another,test\n"))
+	require.NoError(t, err)
+	fileInfos, err := c.ListFile(repo, "master", "/data")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	// Header should be returned by GetFile, and should appear exactly once at the
+	// beginning
+	var contents bytes.Buffer
+	c.GetFile(repo, "master", "/data/0000000000000000", 0, 0, &contents)
+	require.Equal(t, "word_1,word_2,word_3,word_4\nthis,is,a,test\n", contents.String())
+	contents.Reset()
+	c.GetFile(repo, "master", "/data/0000000000000001", 0, 0, &contents)
+	require.Equal(t, "word_1,word_2,word_3,word_4\nthis,is,another,test\n",
+		contents.String())
+	// Header only appears once, even though the contents of two files are
+	// concatenated and returned
+	contents.Reset()
+	c.GetFile(repo, "master", "/data/*", 0, 0, &contents)
+	require.Equal(t, "word_1,word_2,word_3,word_4\nthis,is,a,test\nthis,is,another,test\n",
+		contents.String())
+
+	// Header should be included in FileInfo
+	fileOneInfo, err := c.InspectFile(repo, "master", "/data/0000000000000000")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileOneInfo.Objects))
+	fileTwoInfo, err := c.InspectFile(repo, "master", "/data/0000000000000000")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileTwoInfo.Objects))
+
+	// Both headers should be the same object
+	require.Equal(t, fileOneInfo.Objects[0].Hash, fileTwoInfo.Objects[0].Hash)
+	firstHeaderHash := fileOneInfo.Objects[0].Hash
+
+	// Put a new CSV document with a new header (and no new rows). The number of
+	// files should be unchanged, but GetFile should yield new results.
+	// InspectFile should reveal the new headers
+	_, err = c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 1, false,
+		// Weird CSV, but this is actually two lines (is\na is quoted, so one cell)
+		strings.NewReader("word_one,word_two,word_three,word_four\n"))
+
+	// New header from GetFile
+	contents.Reset()
+	c.GetFile(repo, "master", "/data/0000000000000000", 0, 0, &contents)
+	require.Equal(t, "word_one,word_two,word_three,word_four\nthis,is,a,test\n", contents.String())
+	contents.Reset()
+	c.GetFile(repo, "master", "/data/0000000000000001", 0, 0, &contents)
+	require.Equal(t, "word_one,word_two,word_three,word_four\nthis,is,another,test\n",
+		contents.String())
+	// Header only appears once, even though the contents of two files are
+	// concatenated and returned
+	contents.Reset()
+	c.GetFile(repo, "master", "/data/*", 0, 0, &contents)
+	require.Equal(t, "word_one,word_two,word_three,word_four\nthis,is,a,test\nthis,is,another,test\n",
+		contents.String())
+
+	// Header should be included in FileInfo
+	fileOneInfo, err = c.InspectFile(repo, "master", "/data/0000000000000000")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileOneInfo.Objects))
+	fileTwoInfo, err = c.InspectFile(repo, "master", "/data/0000000000000000")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileTwoInfo.Objects))
+
+	// Both headers should be the same object, and distinct from the first header
+	require.Equal(t, fileOneInfo.Objects[0].Hash, fileTwoInfo.Objects[0].Hash)
+	require.NotEqual(t, firstHeaderHash, fileTwoInfo.Objects[0].Hash)
 }
 
 func TestDiff(t *testing.T) {
@@ -2897,9 +3042,9 @@ func TestOverwrite(t *testing.T) {
 	_, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = c.PutFile(repo, "master", "file1", strings.NewReader("foo"))
-	_, err = c.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, "master", "file2", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, false, strings.NewReader("foo\nbar\nbuz\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	_, err = c.StartCommit(repo, "master")
@@ -2908,7 +3053,7 @@ func TestOverwrite(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.PutFileOverwrite(repo, "master", "file2", strings.NewReader("buzz"), 0)
 	require.NoError(t, err)
-	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, true, strings.NewReader("0\n1\n2\n"))
+	_, err = c.PutFileSplit(repo, "master", "file3", pfs.Delimiter_LINE, 0, 0, 0, true, strings.NewReader("0\n1\n2\n"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, "master"))
 	var buffer bytes.Buffer
