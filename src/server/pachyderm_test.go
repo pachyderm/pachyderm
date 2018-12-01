@@ -7725,7 +7725,7 @@ func TestSplitFileHeader(t *testing.T) {
 	// put a SQL file w/ header
 	repo := tu.UniqueString("TestSplitFileHeader")
 	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, false,
+	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
 		strings.NewReader(tu.TestPGDump))
 	require.NoError(t, err)
 
@@ -7759,7 +7759,7 @@ func TestSplitFileHeader(t *testing.T) {
 		})
 
 	// Add new rows with same header data
-	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, false,
+	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
 		strings.NewReader(tu.TestPGDumpNewRows))
 	require.NoError(t, err)
 
@@ -7788,7 +7788,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 	// put a SQL file w/ header
 	repo := tu.UniqueString("TestSplitFileHeader")
 	require.NoError(t, c.CreateRepo(repo))
-	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, false,
+	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
 		strings.NewReader(tu.TestPGDump))
 	require.NoError(t, err)
 
@@ -7822,7 +7822,7 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 		})
 
 	// put empty dataset w/ new header
-	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, false,
+	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
 		strings.NewReader(tu.TestPGDumpNewHeader))
 	require.NoError(t, err)
 
