@@ -2576,6 +2576,26 @@ func TestPutFileSplitBig(t *testing.T) {
 	}
 }
 
+func TestPutFileSplitCSV(t *testing.T) {
+	c := GetPachClient(t)
+	// create repos
+	repo := tu.UniqueString("TestPutFileSplitCSV")
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, false,
+		// Weird CSV, but this is actually two lines (is\na is quoted, so one cell)
+		strings.NewReader("this,is,a,test\n\"\"\"this\"\"\",\"is\nonly\",\"a,test\""))
+	require.NoError(t, err)
+	fileInfos, err := c.ListFile(repo, "master", "/data")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+	var contents bytes.Buffer
+	c.GetFile(repo, "master", "/data/0000000000000000", 0, 0, &contents)
+	require.Equal(t, "this,is,a,test\n", contents.String())
+	contents.Reset()
+	c.GetFile(repo, "master", "/data/0000000000000001", 0, 0, &contents)
+	require.Equal(t, "\"\"\"this\"\"\",\"is\nonly\",\"a,test\"\n", contents.String())
+}
+
 func TestDiff(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

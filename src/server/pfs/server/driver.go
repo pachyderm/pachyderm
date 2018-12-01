@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1939,15 +1940,21 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			footer        *[]byte // distinguish between empty header and no header
 			EOF           = false
 			eg            errgroup.Group
-			decoder       = json.NewDecoder(reader)
 			bufioR        = bufio.NewReader(reader)
+			decoder       = json.NewDecoder(bufioR)
 			sqlReader     = sql.NewPGDumpReader(bufioR)
+			csvReader     = csv.NewReader(bufioR)
+			csvBuffer     bytes.Buffer
+			csvWriter     = csv.NewWriter(&csvBuffer)
 			indexToRecord = make(map[int]*pfs.PutFileRecord)
 			mu            sync.Mutex
 		)
+		csvReader.FieldsPerRecord = -1 // ignore unexpected # of fields, for now
+		csvReader.ReuseRecord = true   // returned rows are written to buffer immediately
 		for !EOF {
 			var err error
 			var value []byte
+			var csvRow []string // only used if delimiter == CSV
 			switch delimiter {
 			case pfs.Delimiter_JSON:
 				var jsonValue json.RawMessage
@@ -1960,6 +1967,19 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				if err == io.EOF {
 					header = &sqlReader.Header
 					footer = &sqlReader.Footer
+				}
+			case pfs.Delimiter_CSV:
+				csvBuffer.Reset()
+				if csvRow, err = csvReader.Read(); err == nil {
+					fmt.Printf(">>> csv row %+v\n", csvRow)
+					if err := csvWriter.Write(csvRow); err != nil {
+						return nil, fmt.Errorf("error parsing csv record: %v", err)
+					}
+					if csvWriter.Flush(); csvWriter.Error() != nil {
+						return nil, fmt.Errorf("error copying csv record: %v", csvWriter.Error())
+					}
+					value = csvBuffer.Bytes()
+					fmt.Printf(">>> csv value %q\n", string(value))
 				}
 			default:
 				return nil, fmt.Errorf("unrecognized delimiter %s", delimiter.String())
@@ -2523,10 +2543,10 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 	return fileInfo
 }
 
-// nodeToFileInfoInputCommit is like nodeToFileInfo, but handles the case (which
+// nodeToFileInfoHeaderFooter is like nodeToFileInfo, but handles the case (which
 // currently only occurs in input commits) where files have a header that is
 // stored in their parent directory
-func nodeToFileInfoInputCommit(commit *pfs.Commit, filePath string,
+func nodeToFileInfoHeaderFooter(commit *pfs.Commit, filePath string,
 	node *hashtree.NodeProto, tree hashtree.HashTree, full bool) (*pfs.FileInfo, error) {
 	if node.FileNode == nil || !node.FileNode.HasHeaderFooter {
 		return nodeToFileInfo(commit, filePath, node, full), nil
@@ -2595,7 +2615,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileI
 		if err != nil {
 			return nil, pfsserver.ErrFileNotFound{file}
 		}
-		return nodeToFileInfoInputCommit(file.Commit, file.Path, node, tree, true)
+		return nodeToFileInfoHeaderFooter(file.Commit, file.Path, node, tree, true)
 	}
 	// Handle commits to output repos
 	if commitInfo.Finished == nil {
@@ -2643,7 +2663,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 		}
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
-				fi, err := nodeToFileInfoInputCommit(file.Commit, rootPath, rootNode, tree, full)
+				fi, err := nodeToFileInfoHeaderFooter(file.Commit, rootPath, rootNode, tree, full)
 				if err != nil {
 					return err
 				}
@@ -2655,7 +2675,7 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 					// Don't return the file now, it will be returned later by Glob
 					return nil
 				}
-				fi, err := nodeToFileInfoInputCommit(file.Commit, path, node, tree, full)
+				fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, full)
 				if err != nil {
 					return err
 				}
@@ -2701,7 +2721,7 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 			return err
 		}
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
-			fi, err := nodeToFileInfoInputCommit(file.Commit, path, node, tree, false)
+			fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, false)
 			if err != nil {
 				return err
 			}
@@ -2746,7 +2766,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 			return err
 		}
 		return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
-			fi, err := nodeToFileInfoInputCommit(commit, path, node, tree, false)
+			fi, err := nodeToFileInfoHeaderFooter(commit, path, node, tree, false)
 			if err != nil {
 				return err
 			}
@@ -2823,13 +2843,13 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	}
 	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, new bool) error {
 		if new {
-			fi, err := nodeToFileInfoInputCommit(newFile.Commit, path, node, newTree, false)
+			fi, err := nodeToFileInfoHeaderFooter(newFile.Commit, path, node, newTree, false)
 			if err != nil {
 				return err
 			}
 			newFileInfos = append(newFileInfos, fi)
 		} else {
-			fi, err := nodeToFileInfoInputCommit(oldFile.Commit, path, node, oldTree, false)
+			fi, err := nodeToFileInfoHeaderFooter(oldFile.Commit, path, node, oldTree, false)
 			if err != nil {
 				return err
 			}
