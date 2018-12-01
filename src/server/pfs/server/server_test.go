@@ -2698,7 +2698,7 @@ func TestPutFileHeaderBasic(t *testing.T) {
 	fileOneInfo, err := c.InspectFile(repo, "master", "/data/0000000000000000")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileOneInfo.Objects))
-	fileTwoInfo, err := c.InspectFile(repo, "master", "/data/0000000000000000")
+	fileTwoInfo, err := c.InspectFile(repo, "master", "/data/0000000000000001")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileTwoInfo.Objects))
 
@@ -2732,7 +2732,7 @@ func TestPutFileHeaderBasic(t *testing.T) {
 	fileOneInfo, err = c.InspectFile(repo, "master", "/data/0000000000000000")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileOneInfo.Objects))
-	fileTwoInfo, err = c.InspectFile(repo, "master", "/data/0000000000000000")
+	fileTwoInfo, err = c.InspectFile(repo, "master", "/data/0000000000000001")
 	require.NoError(t, err)
 	require.Equal(t, 2, len(fileTwoInfo.Objects))
 
