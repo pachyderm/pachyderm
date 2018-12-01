@@ -604,6 +604,7 @@ $ pachctl set-branch foo test master` + codeend,
 	var split string
 	var targetFileDatums uint
 	var targetFileBytes uint
+	var headerRecords uint
 	var putFileCommit bool
 	var overwrite bool
 	putFile := &cobra.Command{
@@ -734,19 +735,19 @@ want to consider using commit IDs directly.
 						return fmt.Errorf("must specify filename when reading data from stdin")
 					}
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, joinPaths("", source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
 					})
 				} else if len(sources) == 1 && len(args) == 3 {
 					// We have a single source and the user has specified a path,
 					// we use the path and ignore source (in terms of naming the file).
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, path, source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
 					})
 				} else if len(sources) > 1 && len(args) == 3 {
 					// We have multiple sources and the user has specified a path,
 					// we use that path as a prefix for the filepaths.
 					eg.Go(func() error {
-						return putFileHelper(c, pfc, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+						return putFileHelper(c, pfc, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
 					})
 				}
 			}
@@ -760,6 +761,7 @@ want to consider using commit IDs directly.
 	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
+	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
 	putFile.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (only allowed with -c)")
@@ -1162,9 +1164,11 @@ func parseCommits(args []string) (map[string]string, error) {
 	return result, nil
 }
 
-func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, path, source string,
-	recursive bool, overwrite bool, limiter limit.ConcurrencyLimiter, split string,
-	targetFileDatums uint, targetFileBytes uint, filesPut *gosync.Map) (retErr error) {
+func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
+	repo, commit, path, source string, recursive, overwrite bool, // destination
+	limiter limit.ConcurrencyLimiter,
+	split string, targetFileDatums, targetFileBytes, headerRecords uint, // split
+	filesPut *gosync.Map) (retErr error) {
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
 			"some files may already have been put and should be cleaned up with "+
@@ -1193,7 +1197,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, 
 			return fmt.Errorf("unrecognized delimiter '%s'; only accepts one of "+
 				"{json,line,sql,csv}", split)
 		}
-		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), overwrite, reader)
+		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), int64(headerRecords), overwrite, reader)
 		return err
 	}
 
@@ -1222,8 +1226,14 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient, repo, commit, 
 			if info.IsDir() {
 				return nil
 			}
+			childDest := filepath.Join(path, strings.TrimPrefix(filePath, source))
 			eg.Go(func() error {
-				return putFileHelper(c, pfc, repo, commit, filepath.Join(path, strings.TrimPrefix(filePath, source)), filePath, false, overwrite, limiter, split, targetFileDatums, targetFileBytes, filesPut)
+				// don't do a second recursive put-file, just put the one file at
+				// filePath into childDest, and then this walk loop will go on to the
+				// next one
+				return putFileHelper(c, pfc, repo, commit, childDest, filePath, false,
+					overwrite, limiter, split, targetFileDatums, targetFileBytes,
+					headerRecords, filesPut)
 			})
 			return nil
 		}); err != nil {
