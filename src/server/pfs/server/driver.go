@@ -1859,7 +1859,8 @@ func (d *driver) putFiles(s *putFileServer) error {
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
 	if err := forEachPutFile(s, func(req *pfs.PutFileRequest, r io.Reader) error {
-		records, err := d.putFile(ctx, req.File, req.Delimiter, req.TargetFileDatums, req.TargetFileBytes, req.OverwriteIndex, r)
+		records, err := d.putFile(ctx, req.File, req.Delimiter, req.TargetFileDatums,
+			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
 		if err != nil {
 			return err
 		}
@@ -1888,12 +1889,17 @@ func (d *driver) putFiles(s *putFileServer) error {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex,
+	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
 	reader io.Reader) (*pfs.PutFileRecords, error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
+	}
+	//  validation -- make sure the various putFileSplit options are coherent
+	hasPutFileOptions := targetFileBytes != 0 || targetFileDatums != 0 || headerRecords != 0
+	if hasPutFileOptions && delimiter == pfs.Delimiter_NONE {
+		return nil, fmt.Errorf("cannot set split options--targetFileBytes, targetFileDatums, or headerRecords--with delimiter == NONE, split disabled")
 	}
 	records := &pfs.PutFileRecords{}
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
@@ -1936,16 +1942,24 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			datumsWritten int64
 			bytesWritten  int64
 			filesPut      int
-			header        *[]byte // these are pointers to slices because we want to
-			footer        *[]byte // distinguish between empty header and no header
-			EOF           = false
-			eg            errgroup.Group
-			bufioR        = bufio.NewReader(reader)
-			decoder       = json.NewDecoder(bufioR)
-			sqlReader     = sql.NewPGDumpReader(bufioR)
-			csvReader     = csv.NewReader(bufioR)
-			csvBuffer     bytes.Buffer
-			csvWriter     = csv.NewWriter(&csvBuffer)
+			// Note: this code generally distinguishes between nil header/footer (no
+			// header) and empty header/footer. To create a header-enabled directory
+			// with an empty header, allocate an empty slice & store it here
+			header    []byte
+			footer    []byte
+			EOF       = false
+			eg        errgroup.Group
+			bufioR    = bufio.NewReader(reader)
+			decoder   = json.NewDecoder(bufioR)
+			sqlReader = sql.NewPGDumpReader(bufioR)
+			csvReader = csv.NewReader(bufioR)
+			csvBuffer bytes.Buffer
+			csvWriter = csv.NewWriter(&csvBuffer)
+			// indexToRecord serves as a de-facto slice of PutFileRecords. We can't
+			// use a real slice of PutFileRecords b/c indexToRecord has data appended
+			// to it by concurrent processes, and you can't append() to a slice
+			// concurrently (append() might allocate a new slice while a goro holds an
+			// stale pointer)
 			indexToRecord = make(map[int]*pfs.PutFileRecord)
 			mu            sync.Mutex
 		)
@@ -1965,13 +1979,18 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			case pfs.Delimiter_SQL:
 				value, err = sqlReader.ReadRow()
 				if err == io.EOF {
-					header = &sqlReader.Header
-					footer = &sqlReader.Footer
+					if header == nil {
+						header = sqlReader.Header
+					} else {
+						// header contains SQL records if anything, which should come after
+						// the sqlReader header, which creates tables & initializes the DB
+						header = append(sqlReader.Header, header...)
+					}
+					footer = sqlReader.Footer
 				}
 			case pfs.Delimiter_CSV:
 				csvBuffer.Reset()
 				if csvRow, err = csvReader.Read(); err == nil {
-					fmt.Printf(">>> csv row %+v\n", csvRow)
 					if err := csvWriter.Write(csvRow); err != nil {
 						return nil, fmt.Errorf("error parsing csv record: %v", err)
 					}
@@ -1979,7 +1998,6 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 						return nil, fmt.Errorf("error copying csv record: %v", csvWriter.Error())
 					}
 					value = csvBuffer.Bytes()
-					fmt.Printf(">>> csv value %q\n", string(value))
 				}
 			default:
 				return nil, fmt.Errorf("unrecognized delimiter %s", delimiter.String())
@@ -1994,35 +2012,44 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			buffer.Write(value)
 			bytesWritten += int64(len(value))
 			datumsWritten++
+			var (
+				headerDone         = headerRecords == 0 || header != nil
+				headerReady        = !headerDone && datumsWritten >= headerRecords
+				hitFileBytesLimit  = headerDone && targetFileBytes != 0 && bytesWritten >= targetFileBytes
+				hitFileDatumsLimit = headerDone && targetFileDatums != 0 && datumsWritten >= targetFileDatums
+				noLimitsSet        = headerDone && targetFileBytes == 0 && targetFileDatums == 0
+			)
 			if buffer.Len() != 0 &&
-				((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
-					(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
-					(targetFileBytes == 0 && targetFileDatums == 0) ||
-					EOF) {
+				(headerReady || hitFileBytesLimit || hitFileDatumsLimit || noLimitsSet || EOF) {
 				_buffer := buffer
-				_bufferLen := int64(_buffer.Len())
-				index := filesPut
-				memoryLimiter.Acquire(ctx, _bufferLen)
-				putObjectLimiter.Acquire()
-				eg.Go(func() error {
-					defer putObjectLimiter.Release()
-					defer memoryLimiter.Release(_bufferLen)
-					object, size, err := pachClient.PutObject(_buffer)
-					if err != nil {
-						return err
-					}
-					mu.Lock()
-					defer mu.Unlock()
-					indexToRecord[index] = &pfs.PutFileRecord{
-						SizeBytes:  size,
-						ObjectHash: object.Hash,
-					}
-					return nil
-				})
+				if !headerDone /* implies headerReady || EOF */ {
+					header = _buffer.Bytes() // record header
+				} else {
+					// put contents
+					_bufferLen := int64(_buffer.Len())
+					index := filesPut
+					filesPut++
+					memoryLimiter.Acquire(ctx, _bufferLen)
+					putObjectLimiter.Acquire()
+					eg.Go(func() error {
+						defer putObjectLimiter.Release()
+						defer memoryLimiter.Release(_bufferLen)
+						object, size, err := pachClient.PutObject(_buffer)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						indexToRecord[index] = &pfs.PutFileRecord{
+							SizeBytes:  size,
+							ObjectHash: object.Hash,
+						}
+						return nil
+					})
+				}
+				buffer = &bytes.Buffer{} // can't reset buffer b/c _buffer still in use
 				datumsWritten = 0
 				bytesWritten = 0
-				buffer = &bytes.Buffer{} // can't reset buffer b/c _buffer still in use
-				filesPut++
 			}
 		}
 		if err := eg.Wait(); err != nil {
@@ -2053,10 +2080,10 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			}
 		}
 		if header != nil {
-			setHeaderFooter(*header, &records.Header)
+			setHeaderFooter(header, &records.Header)
 		}
 		if footer != nil {
-			setHeaderFooter(*footer, &records.Footer)
+			setHeaderFooter(footer, &records.Footer)
 		}
 		if err := eg.Wait(); err != nil {
 			return nil, err
@@ -2841,8 +2868,8 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	if shallow {
 		recursiveDepth = 1
 	}
-	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, new bool) error {
-		if new {
+	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, isNewFile bool) error {
+		if isNewFile {
 			fi, err := nodeToFileInfoHeaderFooter(newFile.Commit, path, node, newTree, false)
 			if err != nil {
 				return err
@@ -2999,13 +3026,15 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 		// (hashtree.PutFileHeaderFooter requires it to already exist)
 		if records.Header != nil || records.Footer != nil {
 			var headerObj, footerObj *pfs.Object
+			var headerFooterSize int64
 			if records.Header != nil {
 				headerObj = &pfs.Object{records.Header.ObjectHash}
+				headerFooterSize += records.Header.SizeBytes
 			}
 			if records.Footer != nil {
 				footerObj = &pfs.Object{records.Footer.ObjectHash}
+				headerFooterSize += records.Footer.SizeBytes
 			}
-			headerFooterSize := records.Header.SizeBytes + records.Footer.SizeBytes
 			if err := tree.PutDirHeaderFooter(
 				key, headerObj, footerObj, headerFooterSize); err != nil {
 				return err
