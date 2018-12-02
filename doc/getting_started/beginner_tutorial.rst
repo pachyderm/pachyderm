@@ -300,7 +300,7 @@ And you can view the generated montage image via:
 Exploring your DAG in the Pachyderm dashboard
 --------------------------------------------
 
-When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You should see something similar to this:
+When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your DAG (directed acyclic graph), visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You should see something similar to this:
 
 .. image:: dashboard1.png
 
@@ -319,4 +319,4 @@ Pachyderm is now running locally with data and a pipeline! To play with Pachyder
 - :doc:`../fundamentals/getting_data_into_pachyderm`
 - :doc:`../fundamentals/creating_analysis_pipelines`
 
-We'd love to help and see what you come up with, so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at support@pachyderm.io if you want to show off anything nifty you've created!
+We'd love to help and see what you come up with, so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_, `Slack <http://slack.pachyderm.io>`_, or email at support@pachyderm.io if you want to show off anything nifty you've created!
