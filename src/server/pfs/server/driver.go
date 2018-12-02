@@ -2491,21 +2491,17 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		if err != nil {
 			return nil, err
 		}
-		// TODO this should use the Glob method and a callback
-		paths, err := tree.GlobAll(file.Path)
-		if err != nil {
-			return nil, err
-		}
-		if len(paths) <= 0 {
-			return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
-		}
-		var objects []*pfs.Object
-		var totalSize uint64
-		var footer *pfs.Object
-		var prevDir string
-		for p, node := range paths {
+		var (
+			pathsFound int
+			objects    []*pfs.Object
+			totalSize  uint64
+			footer     *pfs.Object
+			prevDir    string
+		)
+		if err := tree.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
+			pathsFound++
 			if node.FileNode == nil {
-				continue
+				return nil
 			}
 
 			// add footer + header for next dir. If a user calls e.g.
@@ -2523,16 +2519,16 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 					// then they all should
 					parentNode, err := tree.Get(parentPath)
 					if err != nil {
-						return nil, fmt.Errorf("file %q has a header, but could not "+
+						return fmt.Errorf("file %q has a header, but could not "+
 							"retrieve parent node at %q to get header content: %v", p,
 							parentPath, err)
 					}
 					if parentNode.DirNode == nil {
-						return nil, fmt.Errorf("parent of %q is not a directory—this is "+
+						return fmt.Errorf("parent of %q is not a directory—this is "+
 							"likely an internal error", p)
 					}
 					if parentNode.DirNode.Shared == nil {
-						return nil, fmt.Errorf("file %q has a shared header or footer, "+
+						return fmt.Errorf("file %q has a shared header or footer, "+
 							"but parent directory does not permit shared data", p)
 					}
 					if parentNode.DirNode.Shared.Header != nil {
@@ -2545,10 +2541,18 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 			}
 			objects = append(objects, node.FileNode.Objects...)
 			totalSize += uint64(node.SubtreeSize)
+			return nil
+		}); err != nil {
+			return nil, err
 		}
 		if footer != nil {
 			objects = append(objects, footer) // apply final footer
 		}
+		if pathsFound == 0 {
+			return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+		}
+
+		// retrieve the content of all objects in 'objects'
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
 			&pfs.GetObjectsRequest{

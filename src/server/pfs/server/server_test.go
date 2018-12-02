@@ -2673,7 +2673,7 @@ func TestPutFileHeaderRecordsBasic(t *testing.T) {
 
 	// Put simple CSV document, which should become a header and two records
 	_, err := c.PutFileSplit(repo, "master", "data", pfs.Delimiter_CSV, 0, 0, 1, false,
-		strings.NewReader("h_1,h_2,h_3,h_4\n"+
+		strings.NewReader("A,B,C,D\n"+
 			"this,is,a,test\n"+
 			"this,is,another,test\n"))
 	require.NoError(t, err)
@@ -2685,16 +2685,16 @@ func TestPutFileHeaderRecordsBasic(t *testing.T) {
 	// beginning
 	var contents bytes.Buffer
 	c.GetFile(repo, "master", "/data/0000000000000000", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\n", contents.String())
+	require.Equal(t, "A,B,C,D\nthis,is,a,test\n", contents.String())
 	contents.Reset()
 	c.GetFile(repo, "master", "/data/0000000000000001", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,another,test\n",
+	require.Equal(t, "A,B,C,D\nthis,is,another,test\n",
 		contents.String())
 	// Header only appears once, even though the contents of two files are
 	// concatenated and returned
 	contents.Reset()
 	c.GetFile(repo, "master", "/data/*", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\nthis,is,another,test\n",
+	require.Equal(t, "A,B,C,D\nthis,is,a,test\nthis,is,another,test\n",
 		contents.String())
 
 	// Header should be included in FileInfo
@@ -3054,6 +3054,31 @@ func TestGlob(t *testing.T) {
 	require.Equal(t, 0, len(fileInfos))
 }
 
+// TestGetFileGlobOrder checks that GetFile(glob) streams data back in the
+// right order. GetFile(glob) is supposed to return a stream of data of the
+// form file1 + file2 + .. + fileN, where file1 is the lexicographically lowest
+// file matching 'glob', file2 is the next lowest, etc.
+func TestGetFileGlobOrder(t *testing.T) {
+	c := GetPachClient(t)
+	// create repos
+	repo := tu.UniqueString("TestGetFileGlobOrder")
+	require.NoError(t, c.CreateRepo(repo))
+
+	var expected bytes.Buffer
+	commit, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	for i := 0; i < 25; i++ {
+		next := fmt.Sprintf("%d,%d,%d,%d\n", 4*i, (4*i)+1, (4*i)+2, (4*i)+3)
+		expected.WriteString(next)
+		c.PutFile(repo, commit.ID, fmt.Sprintf("/data/%010d", i), strings.NewReader(next))
+	}
+	require.NoError(t, c.FinishCommit(repo, commit.ID))
+
+	var output bytes.Buffer
+	require.NoError(t, c.GetFile(repo, "master", "/data/*", 0, 0, &output))
+	require.Equal(t, expected.String(), output.String())
+}
+
 func TestApplyWriteOrder(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -3166,7 +3191,7 @@ func TestCopyFileHeaderFooter(t *testing.T) {
 	repo := tu.UniqueString("TestCopyFileHeaderFooterOne")
 	require.NoError(t, c.CreateRepo(repo))
 	_, err := c.PutFileSplit(repo, "master", "/data", pfs.Delimiter_CSV, 0, 0, 1, false,
-		strings.NewReader("h_1,h_2,h_3,h_4\n"+
+		strings.NewReader("A,B,C,D\n"+
 			"this,is,a,test\n"+
 			"this,is,another,test\n"))
 
@@ -3189,16 +3214,16 @@ func TestCopyFileHeaderFooter(t *testing.T) {
 	// GetFile, and should appear exactly once at the beginning
 	var contents bytes.Buffer
 	c.GetFile(repo, "target-branch-unfinished", "/data/0000000000000000", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\n", contents.String())
+	require.Equal(t, "A,B,C,D\nthis,is,a,test\n", contents.String())
 	contents.Reset()
 	c.GetFile(repo, "target-branch-unfinished", "/data/0000000000000001", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,another,test\n",
+	require.Equal(t, "A,B,C,D\nthis,is,another,test\n",
 		contents.String())
 	// Confirm header only appears once in target-branch, even though the
 	// contents of two files are concatenated and returned
 	contents.Reset()
 	c.GetFile(repo, "target-branch-unfinished", "/data/*", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\nthis,is,another,test\n",
+	require.Equal(t, "A,B,C,D\nthis,is,a,test\nthis,is,another,test\n",
 		contents.String())
 
 	// 2) Try copying the header/footer dir into a branch
@@ -3215,16 +3240,16 @@ func TestCopyFileHeaderFooter(t *testing.T) {
 	// GetFile, and should appear exactly once at the beginning
 	contents.Reset()
 	c.GetFile(repo, "target-branch-finished", "/data/0000000000000000", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\n", contents.String())
+	require.Equal(t, "A,B,C,D\nthis,is,a,test\n", contents.String())
 	contents.Reset()
 	c.GetFile(repo, "target-branch-finished", "/data/0000000000000001", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,another,test\n",
+	require.Equal(t, "A,B,C,D\nthis,is,another,test\n",
 		contents.String())
 	// Confirm header only appears once in target-branch, even though the
 	// contents of two files are concatenated and returned
 	contents.Reset()
 	c.GetFile(repo, "target-branch-finished", "/data/*", 0, 0, &contents)
-	require.Equal(t, "h_1,h_2,h_3,h_4\nthis,is,a,test\nthis,is,another,test\n",
+	require.Equal(t, "A,B,C,D\nthis,is,a,test\nthis,is,another,test\n",
 		contents.String())
 }
 
