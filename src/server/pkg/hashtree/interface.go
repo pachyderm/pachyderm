@@ -79,9 +79,6 @@ type HashTree interface {
 	// Glob calls f with the file/directory paths and nodes that match 'pattern'.
 	Glob(pattern string, f func(path string, node *NodeProto) error) error
 
-	// GlobAll is like Glob but aggregates its results into a map
-	GlobAll(pattern string) (map[string]*NodeProto, error)
-
 	// FSSize gets the size of the file system that this tree represents.
 	// It's essentially a helper around h.Get("/").SubtreeBytes
 	FSSize() int64
