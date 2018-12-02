@@ -29,6 +29,18 @@ message FileNodeProto {
   bool has_header_footer = 6;
 }
 
+// Shared refers to data common to all direct children of a directory (i.e.
+// headers and footers)
+message Shared {
+  // At least one of header or footer must be set
+  pfs.Object header = 1;
+  pfs.Object footer = 2;
+
+  // The size of header & footer (must be separated for Copy())
+  int64 header_size = 3;
+  int64 footer_size = 4;
+}
+
 // DirectoryNodeProto is a node corresponding to a directory.
 message DirectoryNodeProto {
   reserved 1, 2;
@@ -40,13 +52,10 @@ message DirectoryNodeProto {
   // overwriting an existing one.
   repeated string children = 3;
 
-  // header, if set, references data that will be prepended to all direct
-  // children of this directory with has_header_footer set to true.
-  pfs.BlockRef header = 4;
-
-  // footer, if set, references data that will be appended to all direct
-  // children of this directory with has_header_footer set to true.
-  pfs.BlockRef footer = 5;
+  // shared, if set, references data that will be prepended and appended to all
+  // direct children of this directory (which must all have has_header_footer
+  // set to true).
+  Shared shared = 4;
 }
 
 // NodeProto is a node in the file tree (either a file or a directory)

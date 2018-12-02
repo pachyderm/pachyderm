@@ -34,6 +34,15 @@ func (r *PGDumpReader) ReadRow() ([]byte, error) {
 	}
 	endLine := "\\.\n" // Trailing '\.' denotes the end of the row inserts
 	row, err := r.rd.ReadBytes('\n')
+	if err != nil && err != io.EOF {
+		return nil, fmt.Errorf("error reading pgdump row: %v", err)
+	}
+	// corner case: some pgdump files separate lines with \r\n (even on linux),
+	// so clean this case up so all handling below is unified
+	if len(row) >= 2 && row[len(row)-2] == '\r' {
+		row[len(row)-2] = '\n'
+		row = row[:len(row)-1]
+	}
 	if string(row) == endLine {
 		r.Footer = append(r.Footer, row...)
 		err = r.readFooter()
