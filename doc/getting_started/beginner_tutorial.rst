@@ -7,7 +7,7 @@ Image processing with OpenCV
 
 This guide will walk you through the deployment of a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's built in processing primatives, we'll be able to keep our code simple but still run the pipeline in a distributed, streaming fashion. Moreover, as new data is added, the pipeline will automatically process it and output the results.
 
-If you hit any errors not covered in this guide, get help in our `public commity Slack <http://slack.pachyderm.io>`_, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_. We are more than happy to help!
+If you hit any errors not covered in this guide, get help in our `public community Slack <http://slack.pachyderm.io>`_, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_. We are more than happy to help!
 
 Prerequisites
 ^^^^^^^^^^^^^
@@ -16,7 +16,7 @@ This guide assumes that you already have Pachyderm running locally. Check out ou
 Create a Repo
 ^^^^^^^^^^^^^
 
-A ``repo`` is the highest level data primitive in Pachyderm. Like many things in Pachyderm, it shares it's name with primitives in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them.
+A ``repo`` is the highest level data primitive in Pachyderm. Like many things in Pachyderm, it shares its name with primitives in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them.
 
 For this demo, we'll simply create a repo called ``images`` to hold the data we want to process:
 
@@ -39,9 +39,9 @@ Let's start by just adding a file, in this case an image, to a new commit. We've
 
 We'll use the ``put-file`` command along with the ``-f`` flag. ``-f`` can take either a local file, a URL, or a object storage bucket which it'll automatically scrape. In our case, we'll simply pass the URL.
 
-Unlike Git though, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. `Put-file` automatically starts and finishes a commit for you so you can add files more easily. In a situation where you want to add many files over a period of time, you can do `start-commit` and `finish-commit` yourself.
+Unlike Git, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. `Put-file` automatically starts and finishes a commit for you so you can add files more easily. If you want to add many files over a period of time, you can do `start-commit` and `finish-commit` yourself.
 
-We also specify the repo name "images", the branch name "master", and what we want to name the file, "liberty.png".
+We also specify the repo name "images", the branch name "master", and the file name: "liberty.png".
 
 .. code-block:: shell
 
@@ -81,7 +81,7 @@ Create a Pipeline
 
 Now that we've got some data in our repo, it's time to do something with it. ``Pipelines`` are the core processing primitive in Pachyderm and they're specified with a JSON encoding. For this example, we've already created the pipeline for you and you can find the `code on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/opencv>`_. 
 
-When you want to create your own pipelines later, you can refer to the full :doc:`../reference/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of the pre-built Docker image we'll be using here.
+When you want to create your own pipelines later, you can refer to the full :doc:`../reference/pipeline_spec` to use more advanced options. Options include building your own code into a container instead of the pre-built Docker image we'll be using here.
 
 For now, we're going to create a single pipeline that takes in images and does some simple edge detection.
 
@@ -111,7 +111,7 @@ Below is the pipeline spec and python code we're using. Let's walk through the d
 
 Our pipeline spec contains a few simple sections. First is the pipeline ``name``, edges. Then we have the ``transform`` which specifies the docker image we want to use, ``pachyderm/opencv`` (defaults to DockerHub as the registry), and the entry point ``edges.py``. Lastly, we specify the input.  Here we only have one "atom" input, our images repo with a particular glob pattern. 
 
-The glob pattern defines how the input data can be broken up if we wanted to distribute our computation. ``/*`` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../reference/pipeline_spec`.
+The glob pattern defines how the input data can be broken up if we want to distribute our computation. ``/*`` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../reference/pipeline_spec`.
 
 .. code-block:: python
 
@@ -135,9 +135,9 @@ The glob pattern defines how the input data can be broken up if we wanted to dis
      for file in files:
          make_edges(os.path.join(dirpath, file))
 
-Our python code is really straight forward. We're simply walking over all the images in ``/pfs/images``, do our edge detection and write to ``/pfs/out``. 
+We simply walk over all the images in ``/pfs/images``, do our edge detection, and write to ``/pfs/out``. 
 
-``/pfs/images`` and ``/pfs/out`` are special local directories that Pachyderm creates within the container for you. All the input data for a pipeline will be found in ``/pfs/<input_repo_name>`` and your code should always write out to ``/pfs/out``. Pachyderm will automatically gather everything you write to ``/pfs/out`` and version it as this pipeline's output.
+``/pfs/images`` and ``/pfs/out`` are special local directories that Pachyderm creates within the container automatically. All the input data for a pipeline will be found in ``/pfs/<input_repo_name>`` and your code should always write out to ``/pfs/out``. Pachyderm will automatically gather everything you write to ``/pfs/out`` and version it as this pipeline's output.
 
 Now let's create the pipeline in Pachyderm:
 
@@ -150,9 +150,9 @@ Now let's create the pipeline in Pachyderm:
 What Happens When You Create a Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Creating a pipeline tells Pachyderm to run your code on the data currently in your input repo (the HEAD commit) as well as **all future commits** that happen after the pipeline is created. Our repo already had a commit, so Pachyderm automatically launched a ``job`` to process that data. 
+Creating a pipeline tells Pachyderm to run your code on the data in your input repo (the HEAD commit) as well as **all future commits** that occur after the pipeline is created. Our repo already had a commit, so Pachyderm automatically launched a ``job`` to process that data. 
 
-This first time Pachyderm runs a pipeline job, it needs to download the Docker image (specified in the pipeline spec) from the specified Docker registry (DockerHub in this case). As such, this first run this might take a minute or so, depending on your Internet connection. Subsequent runs will be much faster. 
+This first time Pachyderm runs a pipeline job, it needs to download the Docker image (specified in the pipeline spec) from the specified Docker registry (DockerHub in this case). This first run this might take a minute or so because of the image download, depending on your Internet connection. Subsequent runs will be much faster. 
 
 You can view the job with:
 
@@ -230,7 +230,7 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
 Adding Another Pipeline
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-We have succesfully deployed and utilized a single stage Pachyderm pipeline, but now let's add a processing stage to illustrate a multi-stage Pachyderm pipeline. Specifically, let's add a ``montage`` pipeline that take our original and edge detected images and arranges them into a single montage of images:
+We have succesfully deployed and used a single stage Pachyderm pipeline. Now let's add a processing stage to illustrate a multi-stage Pachyderm pipeline. Specifically, let's add a ``montage`` pipeline that take our original and edge detected images and arranges them into a single montage of images:
 
 .. image:: opencv-liberty-montage.png
 
@@ -264,17 +264,17 @@ Below is the pipeline spec for this new pipeline:
     }
   }
 
-This pipeline spec is very similar to our ``edges`` pipeline except, for ``montage``: (1) we are using a different Docker image that has imagemagick installed, (2) we are executing a ``sh`` command with ``stdin`` instead of a python script, and (3) we have multiple input data repositories.  
+This ``montage`` pipeline spec is similar to our ``edges`` pipeline spec except for three differences: (1) we are using a different Docker image that has imagemagick installed, (2) we are executing a ``sh`` command with ``stdin`` instead of a python script, and (3) we have multiple input data repositories.  
 
-In this case we are combining our multiple input data repositories using a ``cross`` pattern.  There are multiple interesting ways to combine data in Pachyderm, which are further discussed `here <http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required>`_ and `here <http://pachyderm.readthedocs.io/en/latest/cookbook/combining.html>`_.  For the purposes of this example, suffice it to say that this ``cross`` pattern creates a single pairing of our input images with our edge detected images.
+In the ``montage`` pipeline we are combining our multiple input data repositories using a ``cross`` pattern. This ``cross`` pattern creates a single pairing of our input images with our edge detected images. There are several interesting ways to combine data in Pachyderm, which are discussed `here <http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required>`_ and `here <http://pachyderm.readthedocs.io/en/latest/cookbook/combining.html>`_. 
 
-We create this next pipeline as before, with ``pachctl``:
+We create the ``montage`` pipeline as before, with ``pachctl``:
 
 .. code-block:: shell
 
   $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/opencv/montage.json
 
-This will automatically trigger a job that generates a montage for all the current HEAD commits of the input repos:
+Pipeline creating triggers a job that generates a montage for all the current HEAD commits of the input repos:
 
 .. code-block:: shell
 
@@ -300,7 +300,7 @@ And you can view the generated montage image via:
 Exploring your DAG in the Pachyderm dashboard
 --------------------------------------------
 
-When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You will see something similar to this:
+When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You should see something similar to this:
 
 .. image:: dashboard1.png
 
@@ -313,10 +313,10 @@ Enter your email address if you would like to obtain a free trial token for the 
 Next Steps
 ----------
 
-We've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, you can  use what you've learned to build on or change this pipeline. You can also dig in and learn more details about:
+Pachyderm is now running locally with data and a pipeline! To play with Pachyderm locally, you can use what you've learned to build on or change this pipeline. You can also dig in and learn more details about:
 
 - `Deploying Pachyderm to the cloud or on prem <http://pachyderm.readthedocs.io/en/latest/deployment/deploy_intro.html>`_
 - :doc:`../fundamentals/getting_data_into_pachyderm`
 - :doc:`../fundamentals/creating_analysis_pipelines`
 
-We'd love to help and see what you come up with so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at support@pachyderm.io if you want to show off anything nifty you've created!
+We'd love to help and see what you come up with, so submit any issues/questions you come across on `GitHub <https://github.com/pachyderm/pachyderm>`_ , `Slack <http://slack.pachyderm.io>`_ or email at support@pachyderm.io if you want to show off anything nifty you've created!
