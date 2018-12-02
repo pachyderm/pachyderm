@@ -694,7 +694,7 @@ func visit(tx *bolt.Tx, path string, update updateFn) error {
 
 // PutFile appends data to a file (and creates the file if it doesn't exist).
 func (h *dbHashTree) PutFile(path string, objects []*pfs.Object, size int64) error {
-	return h.putFile(path, objects, nil, size)
+	return h.putFile(path, objects, nil, size, false)
 }
 
 // PutFileOverwrite is the same as PutFile, except that instead of
@@ -702,25 +702,112 @@ func (h *dbHashTree) PutFile(path string, objects []*pfs.Object, size int64) err
 // are inserted to the given index, and the existing objects starting
 // from the given index are removed.
 func (h *dbHashTree) PutFileOverwrite(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
-	return h.putFile(path, objects, overwriteIndex, sizeDelta)
+	return h.putFile(path, objects, overwriteIndex, sizeDelta, false)
 }
 
-func (h *dbHashTree) putFile(path string, objects []*pfs.Object, overwriteIndex *pfs.OverwriteIndex, sizeDelta int64) error {
+// PutDirHeaderFooter implements the hashtree.PutDirHeaderFooter interface
+// method
+func (h *dbHashTree) PutDirHeaderFooter(path string, header, footer *pfs.Object, headerSize, footerSize int64) error {
 	path = clean(path)
 	return h.Batch(func(tx *bolt.Tx) error {
+		// validation: 'path' must point to directory (or nothing--may not be
+		// created yet)
 		node, err := get(tx, path)
 		if err != nil && Code(err) != PathNotFound {
-			return err
+			return errorf(Internal, "could not get node at %q: %v", path, err)
 		}
+		if node != nil && node.nodetype() != directory {
+			return errorf(PathConflict, "cannot add header to non-directory file "+
+				"at %q; a file of type %s is already there", path, node.nodetype())
+		}
+
+		// Upsert directory at 'path' with 'Shared' field
+		var newNode bool
 		if node == nil {
+			newNode = true
 			node = &NodeProto{
-				Name:     base(path),
-				FileNode: &FileNodeProto{},
+				Name: base(path),
+				DirNode: &DirectoryNodeProto{
+					Shared: &Shared{},
+				},
+				// header/footer size are also stored in Shared (for CopyFile) but
+				// adding it here makes size calculation in canonicalize() work
+				SubtreeSize: headerSize + footerSize,
 			}
-		} else if node.nodetype() != file {
-			return errorf(PathConflict, "could not put file at \"%s\"; a file of "+
+		}
+
+		// only write node to db if the node is new, or the header or footer
+		// changed
+		headerSame := (node.DirNode.Shared.Header == nil && header == nil) ||
+			(node.DirNode.Shared.Header != nil && node.DirNode.Shared.Header.Hash == header.Hash)
+		footerSame := (node.DirNode.Shared.Footer == nil && footer == nil) ||
+			(node.DirNode.Shared.Footer != nil && node.DirNode.Shared.Footer.Hash == footer.Hash)
+		if newNode || !headerSame || !footerSame {
+			node.DirNode.Shared = &Shared{
+				Header:     header,
+				Footer:     footer,
+				HeaderSize: headerSize,
+				FooterSize: footerSize,
+			}
+			return put(tx, path, node)
+		}
+		return nil
+	})
+}
+
+// PutFileHeaderFooter implements the HashTree PutFileHeaderFooter method
+func (h *dbHashTree) PutFileHeaderFooter(path string, objects []*pfs.Object, size int64) error {
+	return h.putFile(path, objects, nil, size, true)
+}
+
+func (h *dbHashTree) putFile(path string, objects []*pfs.Object,
+	overwriteIndex *pfs.OverwriteIndex, sizeDelta int64, hasHeaderFooter bool) error {
+	path = clean(path)
+	return h.Batch(func(tx *bolt.Tx) error {
+		// validation: 'path' must point to file
+		node, err := get(tx, path)
+		if err != nil && Code(err) != PathNotFound {
+			return errorf(Internal, "could not get node at %q: %v", path, err)
+		}
+		if node != nil && node.nodetype() != file {
+			return errorf(PathConflict, "could not put file at %q; a file of "+
 				"type %s is already there", path, node.nodetype())
 		}
+
+		// validation: 'hasHeaderFooter' can be set only if parent dir has 'Shared'
+		// field for header and footer data (indicating other children of this dir
+		// have headers too--can't mix header and non-header files)
+		if hasHeaderFooter {
+			parentPath, _ := split(path)
+			parent, err := get(tx, parentPath)
+			if err != nil {
+				// Note that ErrNotFound gets returned here too--you must create the
+				// parent directory with PutDirHeaderFooter before adding children with
+				// PutFileHeaderFooter
+				return errorf(Internal, "could not get parent path %q: %v", parentPath, err)
+			}
+			if parent.nodetype() != directory {
+				return errorf(PathConflict, "could not put regular file at %q; a non-"+
+					"directory file of type %s is already at parent path %q", path,
+					parent.nodetype(), parentPath)
+			}
+			if parent.DirNode.Shared == nil {
+				return errorf(HeaderFooterConflict, "could not put header/footer in "+
+					"directory at %q as it was not initialized with a header/footer, "+
+					"and headers/footers cannot be added after creation", parentPath)
+			}
+		}
+
+		// Request is valid--update node at 'path'
+		if node == nil {
+			node = &NodeProto{
+				Name: base(path),
+				FileNode: &FileNodeProto{
+					HasHeaderFooter: hasHeaderFooter,
+				},
+			}
+		}
+
 		// Append new objects.  Remove existing objects if overwriting.
 		if overwriteIndex != nil && overwriteIndex.Index <= int64(len(node.FileNode.Objects)) {
 			node.FileNode.Objects = node.FileNode.Objects[:overwriteIndex.Index]
@@ -1247,6 +1334,20 @@ func hasChanged(tx *bolt.Tx, path string) bool {
 	return changed(tx).Get(b(path)) != nil
 }
 
+// HashFileNode computes the hash of 'node' and writes
+// the result into node.Hash. Exported so that PFS
+// can compute the hash of synthetic nodes (filenodes
+// that inherit headers/footers from their parent
+// directories)
+func HashFileNode(n *FileNodeProto) []byte {
+	hash := sha256.New()
+	// Compute n.Hash by concatenating all BlockRef hashes in n.FileNode.
+	for _, object := range n.Objects {
+		hash.Write([]byte(object.Hash))
+	}
+	return hash.Sum(nil)
+}
+
 func canonicalize(tx *bolt.Tx, path string) error {
 	path = clean(path)
 	if !hasChanged(tx, path) {
@@ -1261,9 +1362,9 @@ func canonicalize(tx *bolt.Tx, path string) error {
 	}
 
 	// Compute hash of 'n'
-	hash := sha256.New()
 	switch n.nodetype() {
 	case directory:
+		hash := sha256.New()
 		// Compute n.Hash by concatenating name + hash of all children of n.DirNode
 		// Note that the order of the children of n.DirNode are sorted when iterating.
 		if err := iterDir(tx, path, func(k, _ []byte, _ *bolt.Cursor) error {
@@ -1285,18 +1386,15 @@ func canonicalize(tx *bolt.Tx, path string) error {
 		}); err != nil {
 			return err
 		}
+		// Update hash of 'n'
+		n.Hash = hash.Sum(nil)
 	case file:
-		// Compute n.Hash by concatenating all BlockRef hashes in n.FileNode.
-		for _, object := range n.FileNode.Objects {
-			hash.Write([]byte(object.Hash))
-		}
+		n.Hash = HashFileNode(n.FileNode)
 	default:
 		return errorf(Internal,
 			"malformed file at \"%s\" is neither a file nor a directory", path)
 	}
 
-	// Update hash of 'n'
-	n.Hash = hash.Sum(nil)
 	if err := put(tx, path, n); err != nil {
 		return err
 	}

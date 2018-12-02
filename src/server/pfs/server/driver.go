@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/sirupsen/logrus"
@@ -1046,6 +1048,9 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	if userCommit == nil {
 		return nil, fmt.Errorf("cannot resolve nil commit")
 	}
+	if userCommit.ID == "" {
+		return nil, fmt.Errorf("cannot resolve commit with no ID or branch")
+	}
 	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~ and ^)
 	var ancestryLength int
@@ -1858,7 +1863,8 @@ func (d *driver) putFiles(s *putFileServer) error {
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
 	if err := forEachPutFile(s, func(req *pfs.PutFileRequest, r io.Reader) error {
-		records, err := d.putFile(ctx, req.File, req.Delimiter, req.TargetFileDatums, req.TargetFileBytes, req.OverwriteIndex, r)
+		records, err := d.putFile(ctx, req.File, req.Delimiter, req.TargetFileDatums,
+			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
 		if err != nil {
 			return err
 		}
@@ -1887,12 +1893,17 @@ func (d *driver) putFiles(s *putFileServer) error {
 }
 
 func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Delimiter,
-	targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex,
+	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
 	reader io.Reader) (*pfs.PutFileRecords, error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
+	}
+	//  validation -- make sure the various putFileSplit options are coherent
+	hasPutFileOptions := targetFileBytes != 0 || targetFileDatums != 0 || headerRecords != 0
+	if hasPutFileOptions && delimiter == pfs.Delimiter_NONE {
+		return nil, fmt.Errorf("cannot set split options--targetFileBytes, targetFileDatums, or headerRecords--with delimiter == NONE, split disabled")
 	}
 	records := &pfs.PutFileRecords{}
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
@@ -1930,20 +1941,38 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			records.Records = append(records.Records, record)
 		}
 	} else {
-		buffer := &bytes.Buffer{}
-		var datumsWritten int64
-		var bytesWritten int64
-		var filesPut int
-		EOF := false
-		var eg errgroup.Group
-		decoder := json.NewDecoder(reader)
-		bufioR := bufio.NewReader(reader)
-
-		indexToRecord := make(map[int]*pfs.PutFileRecord)
-		var mu sync.Mutex
+		var (
+			buffer        = &bytes.Buffer{}
+			datumsWritten int64
+			bytesWritten  int64
+			filesPut      int
+			// Note: this code generally distinguishes between nil header/footer (no
+			// header) and empty header/footer. To create a header-enabled directory
+			// with an empty header, allocate an empty slice & store it here
+			header    []byte
+			footer    []byte
+			EOF       = false
+			eg        errgroup.Group
+			bufioR    = bufio.NewReader(reader)
+			decoder   = json.NewDecoder(bufioR)
+			sqlReader = sql.NewPGDumpReader(bufioR)
+			csvReader = csv.NewReader(bufioR)
+			csvBuffer bytes.Buffer
+			csvWriter = csv.NewWriter(&csvBuffer)
+			// indexToRecord serves as a de-facto slice of PutFileRecords. We can't
+			// use a real slice of PutFileRecords b/c indexToRecord has data appended
+			// to it by concurrent processes, and you can't append() to a slice
+			// concurrently (append() might allocate a new slice while a goro holds an
+			// stale pointer)
+			indexToRecord = make(map[int]*pfs.PutFileRecord)
+			mu            sync.Mutex
+		)
+		csvReader.FieldsPerRecord = -1 // ignore unexpected # of fields, for now
+		csvReader.ReuseRecord = true   // returned rows are written to buffer immediately
 		for !EOF {
 			var err error
 			var value []byte
+			var csvRow []string // only used if delimiter == CSV
 			switch delimiter {
 			case pfs.Delimiter_JSON:
 				var jsonValue json.RawMessage
@@ -1951,6 +1980,29 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 				value = jsonValue
 			case pfs.Delimiter_LINE:
 				value, err = bufioR.ReadBytes('\n')
+			case pfs.Delimiter_SQL:
+				value, err = sqlReader.ReadRow()
+				if err == io.EOF {
+					if header == nil {
+						header = sqlReader.Header
+					} else {
+						// header contains SQL records if anything, which should come after
+						// the sqlReader header, which creates tables & initializes the DB
+						header = append(sqlReader.Header, header...)
+					}
+					footer = sqlReader.Footer
+				}
+			case pfs.Delimiter_CSV:
+				csvBuffer.Reset()
+				if csvRow, err = csvReader.Read(); err == nil {
+					if err := csvWriter.Write(csvRow); err != nil {
+						return nil, fmt.Errorf("error parsing csv record: %v", err)
+					}
+					if csvWriter.Flush(); csvWriter.Error() != nil {
+						return nil, fmt.Errorf("error copying csv record: %v", csvWriter.Error())
+					}
+					value = csvBuffer.Bytes()
+				}
 			default:
 				return nil, fmt.Errorf("unrecognized delimiter %s", delimiter.String())
 			}
@@ -1964,35 +2016,44 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 			buffer.Write(value)
 			bytesWritten += int64(len(value))
 			datumsWritten++
+			var (
+				headerDone         = headerRecords == 0 || header != nil
+				headerReady        = !headerDone && datumsWritten >= headerRecords
+				hitFileBytesLimit  = headerDone && targetFileBytes != 0 && bytesWritten >= targetFileBytes
+				hitFileDatumsLimit = headerDone && targetFileDatums != 0 && datumsWritten >= targetFileDatums
+				noLimitsSet        = headerDone && targetFileBytes == 0 && targetFileDatums == 0
+			)
 			if buffer.Len() != 0 &&
-				((targetFileBytes != 0 && bytesWritten >= targetFileBytes) ||
-					(targetFileDatums != 0 && datumsWritten >= targetFileDatums) ||
-					(targetFileBytes == 0 && targetFileDatums == 0) ||
-					EOF) {
+				(headerReady || hitFileBytesLimit || hitFileDatumsLimit || noLimitsSet || EOF) {
 				_buffer := buffer
-				_bufferLen := int64(_buffer.Len())
-				index := filesPut
-				d.memoryLimiter.Acquire(ctx, _bufferLen)
-				putObjectLimiter.Acquire()
-				eg.Go(func() error {
-					defer putObjectLimiter.Release()
-					defer d.memoryLimiter.Release(_bufferLen)
-					object, size, err := pachClient.PutObject(_buffer)
-					if err != nil {
-						return err
-					}
-					mu.Lock()
-					defer mu.Unlock()
-					indexToRecord[index] = &pfs.PutFileRecord{
-						SizeBytes:  size,
-						ObjectHash: object.Hash,
-					}
-					return nil
-				})
+				if !headerDone /* implies headerReady || EOF */ {
+					header = _buffer.Bytes() // record header
+				} else {
+					// put contents
+					_bufferLen := int64(_buffer.Len())
+					index := filesPut
+					filesPut++
+					d.memoryLimiter.Acquire(ctx, _bufferLen)
+					putObjectLimiter.Acquire()
+					eg.Go(func() error {
+						defer putObjectLimiter.Release()
+						defer d.memoryLimiter.Release(_bufferLen)
+						object, size, err := pachClient.PutObject(_buffer)
+						if err != nil {
+							return err
+						}
+						mu.Lock()
+						defer mu.Unlock()
+						indexToRecord[index] = &pfs.PutFileRecord{
+							SizeBytes:  size,
+							ObjectHash: object.Hash,
+						}
+						return nil
+					})
+				}
+				buffer = &bytes.Buffer{} // can't reset buffer b/c _buffer still in use
 				datumsWritten = 0
 				bytesWritten = 0
-				buffer = &bytes.Buffer{}
-				filesPut++
 			}
 		}
 		if err := eg.Wait(); err != nil {
@@ -2003,8 +2064,95 @@ func (d *driver) putFile(ctx context.Context, file *pfs.File, delimiter pfs.Deli
 		for i := 0; i < len(indexToRecord); i++ {
 			records.Records = append(records.Records, indexToRecord[i])
 		}
+
+		// Put 'header' and 'footer' in PutFileRecords
+		setHeaderFooter := func(value []byte, hf **pfs.PutFileRecord) {
+			// always put empty header, even if 'value' is empty, so
+			// that the parent dir is a header/footer dir
+			*hf = &pfs.PutFileRecord{}
+			if len(value) > 0 {
+				putObjectLimiter.Acquire()
+				eg.Go(func() error {
+					defer putObjectLimiter.Release()
+					object, size, err := pachClient.PutObject(bytes.NewReader(value))
+					if err != nil {
+						return err
+					}
+					(*hf).SizeBytes = size
+					(*hf).ObjectHash = object.Hash
+					return nil
+				})
+			}
+		}
+		if header != nil {
+			setHeaderFooter(header, &records.Header)
+		}
+		if footer != nil {
+			setHeaderFooter(footer, &records.Footer)
+		}
+		if err := eg.Wait(); err != nil {
+			return nil, err
+		}
 	}
 	return records, nil
+}
+
+// headerDirToPutFileRecords is a helper for copyFile that handles copying
+// header/footer directories.
+//
+// Copy uses essentially the same codepath as putFile--it converts hashtree
+// node(s) to PutFileRecords and then uses applyWrite to put the records back
+// in the target hashtree. In putFile, the only way to create a headerDir is
+// with PutFileSplit (PutFileRecord with Split==true). Rather than split the
+// putFile codepath by adding a special case to applyWrite that was valid for
+// copyFile but invalid for putFile, we use heaaderDirToPutFileRecords to
+// convert a DirectoryNode to a PutFileRecord+Split==true, which applyWrite
+// will correctly convert back to a header dir in the target hashtree via the
+// regular putFile codepath.
+func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtree.NodeProto) (*pfs.PutFileRecords, error) {
+	if node.DirNode == nil || node.DirNode.Shared == nil {
+		return nil, fmt.Errorf("headerDirToPutFileRecords only works on header/footer dirs")
+	}
+	s := node.DirNode.Shared
+	pfr := &pfs.PutFileRecords{
+		Split: true,
+	}
+	if s.Header != nil {
+		pfr.Header = &pfs.PutFileRecord{
+			SizeBytes:  s.HeaderSize,
+			ObjectHash: s.Header.Hash,
+		}
+	}
+	if s.Footer != nil {
+		pfr.Footer = &pfs.PutFileRecord{
+			SizeBytes:  s.FooterSize,
+			ObjectHash: s.Footer.Hash,
+		}
+	}
+	if err := tree.List(path, func(child *hashtree.NodeProto) error {
+		if child.FileNode == nil {
+			return fmt.Errorf("header/footer dir contains child subdirectory, " +
+				"which is invalid--header/footer dirs must be created by PutFileSplit")
+		}
+		for i, o := range child.FileNode.Objects {
+			// same hack as copyFile--set size of first object to the size of the
+			// whole subtree (and size of other objects to 0). I don't think
+			// PutFileSplit files can have more than one object, but that invariant
+			// isn't necessary to this code's correctness, so don't verify it.
+			var size int64
+			if i == 0 {
+				size = child.SubtreeSize
+			}
+			pfr.Records = append(pfr.Records, &pfs.PutFileRecord{
+				SizeBytes:  size,
+				ObjectHash: o.Hash,
+			})
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return pfr, nil // TODO(msteffen) put something real here
 }
 
 func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, overwrite bool) error {
@@ -2023,17 +2171,21 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if !uuid.IsUUIDWithoutDashes(dst.Commit.ID) {
 		branch = dst.Commit.ID
 	}
-	ci, err := d.inspectCommit(ctx, dst.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
+	var dstIsOpenCommit bool
+	if ci, err := d.inspectCommit(ctx, dst.Commit, pfs.CommitState_STARTED); err != nil {
+		if !isNoHeadErr(err) {
+			return err
+		}
+	} else if ci.Finished == nil {
+		dstIsOpenCommit = true
 	}
-	if ci.Finished != nil && branch == "" {
+	if !dstIsOpenCommit && branch == "" {
 		return pfsserver.ErrCommitFinished{dst.Commit}
 	}
 	var paths []string
-	var records []*pfs.PutFileRecords
+	var records []*pfs.PutFileRecords // used if 'dst' is finished (atomic put-file)
 	if overwrite {
-		if ci.Finished == nil {
+		if dstIsOpenCommit {
 			if err := d.deleteFile(ctx, dst); err != nil {
 				return err
 			}
@@ -2050,21 +2202,33 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if !strings.HasPrefix(src.Path, "/") {
 		src.Path = "/" + src.Path
 	}
-	var recordsMu sync.Mutex
 	var eg errgroup.Group
 	if err := srcTree.Walk(src.Path, func(walkPath string, node *hashtree.NodeProto) error {
-		if node.FileNode == nil {
-			return nil
+		relPath, err := filepath.Rel(src.Path, walkPath)
+		if err != nil {
+			return fmt.Errorf("error from filepath.Rel (likely a bug): %v", err)
 		}
-		eg.Go(func() error {
-			relPath, err := filepath.Rel(src.Path, walkPath)
+		target := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
+		// Populate 'record' appropriately for this node (or skip it)
+		record := &pfs.PutFileRecords{}
+		if node.DirNode != nil && node.DirNode.Shared != nil {
+			var err error
+			record, err = headerDirToPutFileRecords(srcTree, walkPath, node)
 			if err != nil {
-				// This shouldn't be possible
-				return fmt.Errorf("error from filepath.Rel: %+v (this is likely a bug)", err)
+				return err
 			}
-			record := &pfs.PutFileRecords{}
-			file := client.NewFile(dst.Commit.Repo.Name, dst.Commit.ID, path.Clean(path.Join(dst.Path, relPath)))
+		} else if node.FileNode == nil {
+			return nil
+		} else if node.FileNode.HasHeaderFooter {
+			return nil // parent dir will be copied as a PutFileRecord w/ Split==true
+		} else {
 			for i, object := range node.FileNode.Objects {
+				// We only have the whole file size in src file, so mark the first object
+				// as the size of the whole file and all the rest as size 0; applyWrite
+				// will compute the right sum size for the target file
+				// TODO(msteffen): this is a bit of a hack--either PutFileRecords should
+				// only record the sum size of all PutFileRecord messages as well, or
+				// FileNodeProto should record the size of every object
 				var size int64
 				if i == 0 {
 					size = node.SubtreeSize
@@ -2074,15 +2238,18 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 					ObjectHash: object.Hash,
 				})
 			}
-			if ci.Finished == nil {
-				return d.upsertPutFileRecords(ctx, file, record)
-			}
-			recordsMu.Lock()
-			defer recordsMu.Unlock()
-			paths = append(paths, file.Path)
+		}
+
+		// Either upsert 'record' to etcd (if 'dst' is in an open commit) or add it
+		// to 'records' to be put at the end
+		if dstIsOpenCommit {
+			eg.Go(func() error {
+				return d.upsertPutFileRecords(ctx, target, record)
+			})
+		} else {
+			paths = append(paths, target.Path)
 			records = append(records, record)
-			return nil
-		})
+		}
 		return nil
 	}); err != nil {
 		return err
@@ -2090,7 +2257,8 @@ func (d *driver) copyFile(ctx context.Context, src *pfs.File, dst *pfs.File, ove
 	if err := eg.Wait(); err != nil {
 		return err
 	}
-	if ci.Finished != nil {
+	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
+	if !dstIsOpenCommit {
 		_, err = d.makeCommit(ctx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
 		return err
 	}
@@ -2323,23 +2491,68 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, offset int64, size
 		if err != nil {
 			return nil, err
 		}
-		// TODO this should use the Glob method and a callback
-		paths, err := tree.GlobAll(file.Path)
-		if err != nil {
-			return nil, err
-		}
-		if len(paths) <= 0 {
-			return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
-		}
-		var objects []*pfs.Object
-		var totalSize uint64
-		for _, node := range paths {
+		var (
+			pathsFound int
+			objects    []*pfs.Object
+			totalSize  uint64
+			footer     *pfs.Object
+			prevDir    string
+		)
+		if err := tree.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
+			pathsFound++
 			if node.FileNode == nil {
-				continue
+				return nil
+			}
+
+			// add footer + header for next dir. If a user calls e.g.
+			// 'GetFile("/*/*")', then the output looks like:
+			// [d1 header][d1/1]...[d1/n][d1 footer] [d2 header]...[d2 footer] ...
+			parentPath := path.Dir(p)
+			if parentPath != prevDir {
+				if footer != nil {
+					objects = append(objects, footer)
+				}
+				footer = nil // don't apply footer twice if next dir has no footer
+				prevDir = parentPath
+				if node.FileNode.HasHeaderFooter {
+					// if any child of 'node's parent directory has HasHeaderFooter set,
+					// then they all should
+					parentNode, err := tree.Get(parentPath)
+					if err != nil {
+						return fmt.Errorf("file %q has a header, but could not "+
+							"retrieve parent node at %q to get header content: %v", p,
+							parentPath, err)
+					}
+					if parentNode.DirNode == nil {
+						return fmt.Errorf("parent of %q is not a directory—this is "+
+							"likely an internal error", p)
+					}
+					if parentNode.DirNode.Shared == nil {
+						return fmt.Errorf("file %q has a shared header or footer, "+
+							"but parent directory does not permit shared data", p)
+					}
+					if parentNode.DirNode.Shared.Header != nil {
+						objects = append(objects, parentNode.DirNode.Shared.Header)
+					}
+					if parentNode.DirNode.Shared.Footer != nil {
+						footer = parentNode.DirNode.Shared.Footer
+					}
+				}
 			}
 			objects = append(objects, node.FileNode.Objects...)
 			totalSize += uint64(node.SubtreeSize)
+			return nil
+		}); err != nil {
+			return nil, err
 		}
+		if footer != nil {
+			objects = append(objects, footer) // apply final footer
+		}
+		if pathsFound == 0 {
+			return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+		}
+
+		// retrieve the content of all objects in 'objects'
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
 			&pfs.GetObjectsRequest{
@@ -2435,6 +2648,60 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 	return fileInfo
 }
 
+// nodeToFileInfoHeaderFooter is like nodeToFileInfo, but handles the case (which
+// currently only occurs in input commits) where files have a header that is
+// stored in their parent directory
+func nodeToFileInfoHeaderFooter(commit *pfs.Commit, filePath string,
+	node *hashtree.NodeProto, tree hashtree.HashTree, full bool) (*pfs.FileInfo, error) {
+	if node.FileNode == nil || !node.FileNode.HasHeaderFooter {
+		return nodeToFileInfo(commit, filePath, node, full), nil
+	}
+	node = proto.Clone(node).(*hashtree.NodeProto)
+	// validate baseFileInfo for logic below--if input hashtrees start using
+	// blockrefs instead of objects, this logic will need to be adjusted
+	if node.FileNode.Objects == nil {
+		return nil, fmt.Errorf("input commit node uses blockrefs; cannot apply header")
+	}
+
+	// 'file' includes header from parent—construct synthetic file info that
+	// includes header in list of objects & hash
+	parentPath := path.Dir(filePath)
+	parentNode, err := tree.Get(parentPath)
+	if err != nil {
+		return nil, fmt.Errorf("file %q has a header, but could not "+
+			"retrieve parent node at %q to get header content: %v", filePath,
+			parentPath, err)
+	}
+	if parentNode.DirNode == nil {
+		return nil, fmt.Errorf("parent of %q is not a directory; this is "+
+			"likely an internal error", filePath)
+	}
+	if parentNode.DirNode.Shared == nil {
+		return nil, fmt.Errorf("file %q has a shared header or footer, "+
+			"but parent directory does not permit shared data", filePath)
+	}
+
+	s := parentNode.DirNode.Shared
+	var newObjects []*pfs.Object
+	if s.Header != nil {
+		// cap := len+1 => newObjects is right whether or not we append() a footer
+		newL := len(node.FileNode.Objects) + 1
+		newObjects = make([]*pfs.Object, newL, newL+1)
+
+		newObjects[0] = s.Header
+		copy(newObjects[1:], node.FileNode.Objects)
+	} else {
+		newObjects = node.FileNode.Objects
+	}
+	if s.Footer != nil {
+		newObjects = append(newObjects, s.Footer)
+	}
+	node.FileNode.Objects = newObjects
+	node.SubtreeSize += s.HeaderSize + s.FooterSize
+	node.Hash = hashtree.HashFileNode(node.FileNode)
+	return nodeToFileInfo(commit, filePath, node, full), nil
+}
+
 func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
 	pachClient := d.getPachClient(ctx)
 	ctx = pachClient.Ctx()
@@ -2455,7 +2722,7 @@ func (d *driver) inspectFile(ctx context.Context, file *pfs.File) (fi *pfs.FileI
 		if err != nil {
 			return nil, pfsserver.ErrFileNotFound{file}
 		}
-		return nodeToFileInfo(file.Commit, file.Path, node, true), nil
+		return nodeToFileInfoHeaderFooter(file.Commit, file.Path, node, tree, true)
 	}
 	// Handle commits to output repos
 	if commitInfo.Finished == nil {
@@ -2505,7 +2772,11 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 		}
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
-				return f(nodeToFileInfo(file.Commit, rootPath, rootNode, full))
+				fi, err := nodeToFileInfoHeaderFooter(file.Commit, rootPath, rootNode, tree, full)
+				if err != nil {
+					return err
+				}
+				return f(fi)
 			}
 			return tree.List(rootPath, func(node *hashtree.NodeProto) error {
 				path := filepath.Join(rootPath, node.Name)
@@ -2513,7 +2784,11 @@ func (d *driver) listFile(ctx context.Context, file *pfs.File, full bool, f func
 					// Don't return the file now, it will be returned later by Glob
 					return nil
 				}
-				return f(nodeToFileInfo(file.Commit, path, node, full))
+				fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, full)
+				if err != nil {
+					return err
+				}
+				return f(fi)
 			})
 		})
 	}
@@ -2557,7 +2832,11 @@ func (d *driver) walkFile(ctx context.Context, file *pfs.File, f func(*pfs.FileI
 			return err
 		}
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
-			return f(nodeToFileInfo(file.Commit, path, node, false))
+			fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, false)
+			if err != nil {
+				return err
+			}
+			return f(fi)
 		})
 	}
 	// Handle commits to output repos
@@ -2600,7 +2879,11 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, pattern strin
 			return err
 		}
 		return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
-			return f(nodeToFileInfo(commit, path, node, false))
+			fi, err := nodeToFileInfoHeaderFooter(commit, path, node, tree, false)
+			if err != nil {
+				return err
+			}
+			return f(fi)
 		})
 	}
 	// Handle commits to output repos
@@ -2637,13 +2920,11 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	ctx = pachClient.Ctx()
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		//	if oldFile != nil {
 		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		//	if newFile != nil {
 		if err := d.checkIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
@@ -2674,11 +2955,19 @@ func (d *driver) diffFile(ctx context.Context, newFile *pfs.File, oldFile *pfs.F
 	if shallow {
 		recursiveDepth = 1
 	}
-	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, new bool) error {
-		if new {
-			newFileInfos = append(newFileInfos, nodeToFileInfo(newFile.Commit, path, node, false))
+	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, isNewFile bool) error {
+		if isNewFile {
+			fi, err := nodeToFileInfoHeaderFooter(newFile.Commit, path, node, newTree, false)
+			if err != nil {
+				return err
+			}
+			newFileInfos = append(newFileInfos, fi)
 		} else {
-			oldFileInfos = append(oldFileInfos, nodeToFileInfo(oldFile.Commit, path, node, false))
+			fi, err := nodeToFileInfoHeaderFooter(oldFile.Commit, path, node, oldTree, false)
+			if err != nil {
+				return err
+			}
+			oldFileInfos = append(oldFileInfos, fi)
 		}
 		return nil
 	}); err != nil {
@@ -2757,6 +3046,8 @@ func (d *driver) upsertPutFileRecords(ctx context.Context, file *pfs.File, newRe
 			}
 			existingRecords.Split = newRecords.Split
 			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
+			existingRecords.Header = newRecords.Header
+			existingRecords.Footer = newRecords.Footer
 			return nil
 		})
 	})
@@ -2817,9 +3108,38 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 			indexOffset++ // start writing to the file after the last file
 		}
-		for i, record := range records.Records {
-			if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+
+		// Upsert parent directory w/ headers if needed
+		// (hashtree.PutFileHeaderFooter requires it to already exist)
+		if records.Header != nil || records.Footer != nil {
+			var headerObj, footerObj *pfs.Object
+			var headerSize, footerSize int64
+			if records.Header != nil {
+				headerObj = &pfs.Object{records.Header.ObjectHash}
+				headerSize = records.Header.SizeBytes
+			}
+			if records.Footer != nil {
+				footerObj = &pfs.Object{records.Footer.ObjectHash}
+				footerSize = records.Footer.SizeBytes
+			}
+			if err := tree.PutDirHeaderFooter(
+				key, headerObj, footerObj, headerSize, footerSize); err != nil {
 				return err
+			}
+		}
+
+		// Put individual objects into hashtree
+		for i, record := range records.Records {
+			if records.Header != nil || records.Footer != nil {
+				if err := tree.PutFileHeaderFooter(
+					path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))),
+					[]*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+					return err
+				}
+			} else {
+				if err := tree.PutFile(path.Join(key, fmt.Sprintf(splitSuffixFmt, i+int(indexOffset))), []*pfs.Object{{Hash: record.ObjectHash}}, record.SizeBytes); err != nil {
+					return err
+				}
 			}
 		}
 	}
