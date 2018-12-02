@@ -2743,6 +2743,52 @@ func TestPutFileHeaderRecordsBasic(t *testing.T) {
 	require.NotEqual(t, firstHeaderHash, fileTwoInfo.Objects[0].Hash)
 }
 
+// TestGetFileGlobMultipleHeaders tests the case where a commit contains two
+// header/footer directories, say a/* and b/*, and a user calls
+// GetFile("/*/*"). We expect the data to come back
+// a_header + a/1 + ... + a/N + a_footer + b_header + b/1 + ... + b/N + b_footer
+func TestGetFileGlobMultipleHeaders(t *testing.T) {
+	c := GetPachClient(t)
+	// create repos
+	repo := tu.UniqueString("TestGetFileGlobMultipleHeaders")
+	require.NoError(t, c.CreateRepo(repo))
+
+	// Put two header directories
+	_, err := c.PutFileSplit(repo, "master", "/a", pfs.Delimiter_CSV, 0, 0, 1, false,
+		strings.NewReader("AA,AB,AC,AD\n"+
+			"a11,a12,a13,a14\n"+
+			"a21,a22,a23,a24\n"))
+	require.NoError(t, err)
+	fileInfos, err := c.ListFile(repo, "master", "/a")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+	_, err = c.PutFileSplit(repo, "master", "/b", pfs.Delimiter_CSV, 0, 0, 1, false,
+		strings.NewReader("BA,BB,BC,BD\n"+
+			"b11,b12,b13,b14\n"+
+			"b21,b22,b23,b24\n"))
+	require.NoError(t, err)
+	fileInfos, err = c.ListFile(repo, "master", "/b")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(fileInfos))
+
+	// Headers appear at the beinning of data from /a and /b
+	var contents bytes.Buffer
+	c.GetFile(repo, "master", "/a/*", 0, 0, &contents)
+	require.Equal(t, "AA,AB,AC,AD\na11,a12,a13,a14\na21,a22,a23,a24\n",
+		contents.String())
+	contents.Reset()
+	c.GetFile(repo, "master", "/b/*", 0, 0, &contents)
+	require.Equal(t, "BA,BB,BC,BD\nb11,b12,b13,b14\nb21,b22,b23,b24\n",
+		contents.String())
+
+	// Getting data from both should yield text as described at the top
+	contents.Reset()
+	c.GetFile(repo, "master", "/*/*", 0, 0, &contents)
+	require.Equal(t, "AA,AB,AC,AD\na11,a12,a13,a14\na21,a22,a23,a24\n"+
+		"BA,BB,BC,BD\nb11,b12,b13,b14\nb21,b22,b23,b24\n",
+		contents.String())
+}
+
 func TestDiff(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
