@@ -130,6 +130,7 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 		result = append(result, datumFactory.Datum(i%datumFactory.Len())...)
 		i /= datumFactory.Len()
 	}
+	sortInputs(result)
 	return result
 }
 
@@ -205,4 +206,10 @@ func NewDatumFactory(pachClient *client.APIClient, input *pps.Input) (DatumFacto
 		return newGitDatumFactory(pachClient, input.Git)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
+}
+
+func sortInputs(inputs []*Input) {
+	sort.Slice(inputs, func(i, j int) bool {
+		return inputs[i].Name < inputs[j].Name
+	})
 }

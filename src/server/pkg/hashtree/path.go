@@ -37,6 +37,13 @@ func internalDefault(s string) string {
 	return s
 }
 
+func externalDefault(s string) string {
+	if s == "" {
+		return "/"
+	}
+	return s
+}
+
 // clean canonicalizes 'path' for internal use: leading slash and no trailing
 // slash. Also, clean the result with internalDefault.
 func clean(p string) string {
@@ -72,7 +79,7 @@ func ValidatePath(path string) error {
 		return fmt.Errorf("path (%v) invalid: only printable ASCII characters allowed", path)
 	}
 
-	if isGlob(path) {
+	if IsGlob(path) {
 		return fmt.Errorf("path (%v) invalid: globbing character (%v) not allowed in path", path, globRegex.FindString(path))
 	}
 

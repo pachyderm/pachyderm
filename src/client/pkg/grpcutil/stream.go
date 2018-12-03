@@ -2,6 +2,7 @@ package grpcutil
 
 import (
 	"bytes"
+	"context"
 	"io"
 
 	"github.com/gogo/protobuf/types"
@@ -61,13 +62,14 @@ type StreamingBytesClient interface {
 }
 
 // NewStreamingBytesReader returns an io.Reader for a StreamingBytesClient.
-func NewStreamingBytesReader(streamingBytesClient StreamingBytesClient) io.Reader {
-	return &streamingBytesReader{streamingBytesClient: streamingBytesClient}
+func NewStreamingBytesReader(streamingBytesClient StreamingBytesClient, cancel context.CancelFunc) io.ReadCloser {
+	return &streamingBytesReader{streamingBytesClient: streamingBytesClient, cancel: cancel}
 }
 
 type streamingBytesReader struct {
 	streamingBytesClient StreamingBytesClient
 	buffer               bytes.Buffer
+	cancel               context.CancelFunc
 }
 
 func (s *streamingBytesReader) Read(p []byte) (int, error) {
@@ -77,11 +79,19 @@ func (s *streamingBytesReader) Read(p []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
+		s.buffer.Reset()
 		if _, err := s.buffer.Write(value.Value); err != nil {
 			return 0, err
 		}
 	}
 	return s.buffer.Read(p)
+}
+
+func (s *streamingBytesReader) Close() error {
+	if s.cancel != nil {
+		s.cancel()
+	}
+	return nil
 }
 
 // NewStreamingBytesWriter returns an io.Writer for a StreamingBytesServer.

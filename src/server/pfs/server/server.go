@@ -2,8 +2,7 @@ package server
 
 import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
-
-	"github.com/hashicorp/golang-lru"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 )
 
 // Valid object storage backends
@@ -26,8 +25,8 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *lru.Cache) (APIServer, error) {
-	return newAPIServer(address, etcdAddresses, etcdPrefix, treeCache)
+func NewAPIServer(address string, etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (APIServer, error) {
+	return newAPIServer(address, etcdAddresses, etcdPrefix, treeCache, storageRoot, memoryRequest)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in

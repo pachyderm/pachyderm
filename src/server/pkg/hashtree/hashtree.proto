@@ -7,21 +7,55 @@ import "client/pfs/pfs.proto";
 
 // FileNodeProto is a node corresponding to a file (which is also a leaf node).
 message FileNodeProto {
-  // Object references an object in the object store which contains the content
-  // of the data.
+  reserved 1, 2, 3;
+
+  // objects are references to the object store, whose targets contain this
+  // file's contents. Exactly one of objects or block_refs should be set.
   repeated pfs.Object objects = 4;
+
+  // block_refs are direct references to blocks in object storage that contain
+  // this file's contents. Unlike objects, using block_refs precludes
+  // deduplication, but halves the number of object store requests needed to
+  // read a file. Exactly one of objects or block_refs should be set.
+  repeated pfs.BlockRef block_refs = 5;
+
+  // has_header_footer indicates whether the File corresponding to this node
+  // inherits header or footer data from the parent directory. Typically this
+  // is false, and when it's true, determining this file's contents requires
+  // reading the parent directory's metadata in addition to this file's
+  // block_refs/objects. Without this signal, all calls to pfs.GetFile() would
+  // need to check the parent directory's metadata before beginning to return
+  // the file's contents, which would be slow.)
+  bool has_header_footer = 6;
+}
+
+// Shared refers to data common to all direct children of a directory (i.e.
+// headers and footers)
+message Shared {
+  // At least one of header or footer must be set
+  pfs.Object header = 1;
+  pfs.Object footer = 2;
+
+  // The size of header & footer (must be separated for Copy())
+  int64 header_size = 3;
+  int64 footer_size = 4;
 }
 
 // DirectoryNodeProto is a node corresponding to a directory.
 message DirectoryNodeProto {
+  reserved 1, 2;
+
   // Children of this directory. Note that paths are relative, so if "/foo/bar"
   // has a child "baz", that means that there is a file at "/foo/bar/baz".
   //
   // 'Children' is ordered alphabetically, to quickly check if a new file is
   // overwriting an existing one.
   repeated string children = 3;
-  pfs.Object header = 4;
-  pfs.Object footer = 5;
+
+  // shared, if set, references data that will be prepended and appended to all
+  // direct children of this directory (which must all have has_header_footer
+  // set to true).
+  Shared shared = 4;
 }
 
 // NodeProto is a node in the file tree (either a file or a directory)
@@ -34,7 +68,7 @@ message NodeProto {
   // detect if the name or contents have changed between versions.
   bytes hash = 2;
 
-  // subtree_size is the of the subtree under node; i.e. if this is a directory,
+  // subtree_size is the size of the subtree under node; i.e. if this is a directory,
   // subtree_size includes all children.
   int64 subtree_size = 3;
 
@@ -61,6 +95,15 @@ message HashTreeProto {
   // Note that the key must end in "/" if an only if the value has .dir_node set
   // (i.e. iff the path points to a directory).
   map<string, NodeProto> fs = 2;
+}
+
+message BucketHeader {
+  string bucket = 1;
+}
+
+message Index {
+	bytes k = 1;
+	uint64 offset = 2;
 }
 
 /// Potential Optimizations

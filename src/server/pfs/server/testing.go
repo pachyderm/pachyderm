@@ -9,7 +9,6 @@ import (
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -19,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"google.golang.org/grpc"
 )
@@ -98,11 +98,11 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, etcdAddress)
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
-	treeCache, err := lru.New(testingTreeCacheSize)
+	treeCache, err := hashtree.NewCache(testingTreeCacheSize)
 	if err != nil {
 		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
 	}
-	apiServer, err := newAPIServer(serveAddress, []string{"localhost:32379"}, etcdPrefix, treeCache)
+	apiServer, err := newAPIServer(serveAddress, []string{"localhost:32379"}, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
 	runServers(t, servePort, apiServer, blockAPIServer)
 	c, err := client.NewFromAddress(serveAddress)

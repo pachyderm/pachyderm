@@ -473,7 +473,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 			Pipeline:     request.Pipeline,
 			Stats:        &pps.ProcessStats{},
 		}
-		return a.updateJobState(stm, jobPtr, pps.JobState_JOB_STARTING)
+		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_STARTING, "")
 	})
 	if err != nil {
 		return nil, err
@@ -679,6 +679,8 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		StatsCommit:   jobPtr.StatsCommit,
 		State:         jobPtr.State,
 		Reason:        jobPtr.Reason,
+		Started:       jobPtr.Started,
+		Finished:      jobPtr.Finished,
 	}
 	commitInfo, err := pachClient.InspectCommit(jobPtr.OutputCommit.Repo.Name, jobPtr.OutputCommit.ID)
 	if err != nil {
@@ -690,8 +692,6 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		}
 		return nil, err
 	}
-	result.Started = commitInfo.Started
-	result.Finished = commitInfo.Finished
 	var specCommit *pfs.Commit
 	for i, provCommit := range commitInfo.Provenance {
 		provBranch := commitInfo.BranchProvenance[i]
@@ -725,7 +725,6 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.ResourceRequests = pipelineInfo.ResourceRequests
 	result.ResourceLimits = pipelineInfo.ResourceLimits
 	result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
-	result.Incremental = pipelineInfo.Incremental
 	result.EnableStats = pipelineInfo.EnableStats
 	result.Salt = pipelineInfo.Salt
 	result.Batch = pipelineInfo.Batch
@@ -1004,20 +1003,6 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		}
 		datumFileInfos = append(datumFileInfos, f)
 	}
-	// Sort results (failed first)
-	sort.Slice(datumFileInfos, func(i, j int) bool {
-		return datumFileToState(datumFileInfos[i], jobInfo.Job.ID) < datumFileToState(datumFileInfos[j], jobInfo.Job.ID)
-	})
-	if pageSize > 0 {
-		response.Page = page
-		response.TotalPages = getTotalPages(len(datumFileInfos))
-		start, end, err := getPageBounds(len(datumFileInfos))
-		if err != nil {
-			return nil, err
-		}
-		datumFileInfos = datumFileInfos[start:end]
-	}
-
 	var egGetDatums errgroup.Group
 	limiter := limit.New(200)
 	datumInfos := make([]*pps.DatumInfo, len(datumFileInfos))
@@ -1042,6 +1027,19 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	}
 	if err = egGetDatums.Wait(); err != nil {
 		return nil, err
+	}
+	// Sort results (failed first)
+	sort.Slice(datumInfos, func(i, j int) bool {
+		return datumInfos[i].State < datumInfos[j].State
+	})
+	if pageSize > 0 {
+		response.Page = page
+		response.TotalPages = getTotalPages(len(datumInfos))
+		start, end, err := getPageBounds(len(datumInfos))
+		if err != nil {
+			return nil, err
+		}
+		datumInfos = datumInfos[start:end]
 	}
 	response.DatumInfos = datumInfos
 	return response, nil
@@ -1092,18 +1090,6 @@ func (a *apiServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_List
 		sent++
 	}
 	return nil
-}
-
-func datumFileToState(f *pfs.FileInfo, jobID string) pps.DatumState {
-	for _, childFileName := range f.Children {
-		if strings.HasPrefix(childFileName, "job") && strings.Split(childFileName, ":")[1] != jobID {
-			return pps.DatumState_SKIPPED
-		}
-		if childFileName == "failure" {
-			return pps.DatumState_FAILED
-		}
-	}
-	return pps.DatumState_SUCCESS
 }
 
 func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *pfs.Commit, jobID string, datumID string, df workerpkg.DatumFactory) (datumInfo *pps.DatumInfo, retErr error) {
@@ -1464,37 +1450,16 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 			return fmt.Errorf("services can only be run with a constant parallelism of 1")
 		}
 	}
+	if pipelineInfo.HashtreeSpec != nil {
+		if pipelineInfo.HashtreeSpec.Constant <= 0 {
+			return fmt.Errorf("HashtreeSpec.Constant must be > 0")
+		}
+	}
 	if pipelineInfo.OutputBranch == "" {
 		return fmt.Errorf("pipeline needs to specify an output branch")
 	}
 	if _, err := resource.ParseQuantity(pipelineInfo.CacheSize); err != nil {
 		return fmt.Errorf("could not parse cacheSize '%s': %v", pipelineInfo.CacheSize, err)
-	}
-	if pipelineInfo.Incremental {
-		// for incremental jobs we can't have shared provenance
-		key := path.Join
-		provMap := make(map[string]bool)
-		for _, branch := range pps.InputBranches(pipelineInfo.Input) {
-			// Add the branches themselves to provMap
-			if provMap[key(branch.Repo.Name, branch.Name)] {
-				return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
-			}
-			provMap[key(branch.Repo.Name, branch.Name)] = true
-			// Add the input branches' provenance to provMap
-			resp, err := pachClient.InspectBranch(branch.Repo.Name, branch.Name)
-			if err != nil {
-				if isNotFoundErr(err) {
-					continue // input branch doesn't exist--will be created w/ empty provenance
-				}
-				return err
-			}
-			for _, provBranch := range resp.Provenance {
-				if provMap[key(provBranch.Repo.Name, provBranch.Name)] {
-					return fmt.Errorf("can't create an incremental pipeline with inputs that share provenance")
-				}
-				provMap[key(provBranch.Repo.Name, provBranch.Name)] = true
-			}
-		}
 	}
 	if pipelineInfo.JobTimeout != nil {
 		_, err := types.DurationFromProto(pipelineInfo.JobTimeout)
@@ -1768,6 +1733,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Version:          1,
 		Transform:        request.Transform,
 		ParallelismSpec:  request.ParallelismSpec,
+		HashtreeSpec:     request.HashtreeSpec,
 		Input:            request.Input,
 		OutputBranch:     request.OutputBranch,
 		Egress:           request.Egress,
@@ -1775,7 +1741,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		ResourceRequests: request.ResourceRequests,
 		ResourceLimits:   request.ResourceLimits,
 		Description:      request.Description,
-		Incremental:      request.Incremental,
 		CacheSize:        request.CacheSize,
 		EnableStats:      request.EnableStats,
 		Salt:             request.Salt,
@@ -2403,7 +2368,7 @@ type ActiveStat struct {
 
 // CollectActiveObjectsAndTags collects all objects/tags that are not deleted
 // or eligible for garbage collection
-func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPIClient, objClient client.ObjectAPIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, memoryAllowance int) (*ActiveStat, error) {
+func CollectActiveObjectsAndTags(ctx context.Context, pachClient *client.APIClient, repoInfos []*pfs.RepoInfo, pipelineInfos []*pps.PipelineInfo, memoryAllowance int, storageRoot string) (*ActiveStat, error) {
 	if memoryAllowance == 0 {
 		memoryAllowance = defaultGCMemory
 	}
@@ -2432,21 +2397,10 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 			return nil
 		}
 		addActiveObjects(object)
-		getObjectClient, err := objClient.GetObject(ctx, object)
-		if err != nil {
-			return fmt.Errorf("error getting commit tree: %v", err)
-		}
-
-		var buf bytes.Buffer
-		if err := grpcutil.WriteFromStreamingBytesClient(getObjectClient, &buf); err != nil {
-			return fmt.Errorf("error reading commit tree: %v", err)
-		}
-
-		tree, err := hashtree.Deserialize(buf.Bytes())
+		tree, err := hashtree.GetHashTreeObject(pachClient, storageRoot, object)
 		if err != nil {
 			return err
 		}
-
 		return tree.Walk("/", func(path string, node *hashtree.NodeProto) error {
 			if node.FileNode != nil {
 				addActiveObjects(node.FileNode.Objects...)
@@ -2460,14 +2414,14 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 	var eg errgroup.Group
 	for _, repo := range repoInfos {
 		repo := repo
-		client, err := pfsClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
+		client, err := pachClient.ListCommitStream(ctx, &pfs.ListCommitRequest{
 			Repo: repo.Repo,
 		})
 		if err != nil {
 			return nil, err
 		}
 		for {
-			commit, err := client.Recv()
+			ci, err := client.Recv()
 			if err == io.EOF {
 				break
 			} else if err != nil {
@@ -2476,7 +2430,10 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
-				return addActiveTree(commit.Tree)
+				// (bryce) This needs some notion of active blockrefs since these trees do not use objects
+				addActiveObjects(ci.Trees...)
+				addActiveObjects(ci.Datums)
+				return addActiveTree(ci.Tree)
 			})
 		}
 	}
@@ -2484,8 +2441,9 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 		return nil, err
 	}
 
+	eg = errgroup.Group{}
 	for _, pipelineInfo := range pipelineInfos {
-		tags, err := objClient.ListTags(ctx, &pfs.ListTagsRequest{
+		tags, err := pachClient.ObjectAPIClient.ListTags(pachClient.Ctx(), &pfs.ListTagsRequest{
 			Prefix:        client.DatumTagPrefix(pipelineInfo.Salt),
 			IncludeObject: true,
 		})
@@ -2503,7 +2461,9 @@ func CollectActiveObjectsAndTags(ctx context.Context, pfsClient client.PfsAPICli
 			limiter.Acquire()
 			eg.Go(func() error {
 				defer limiter.Release()
-				return addActiveTree(resp.Object)
+				// (bryce) Same as above
+				addActiveObjects(resp.Object)
+				return nil
 			})
 		}
 	}
@@ -2552,7 +2512,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	if err != nil {
 		return nil, err
 	}
-	activeStat, err := CollectActiveObjectsAndTags(ctx, pfsClient, objClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, int(request.MemoryBytes))
+	activeStat, err := CollectActiveObjectsAndTags(ctx, pachClient, append(repoInfos.RepoInfo, specRepoInfo), pipelineInfos.PipelineInfo, int(request.MemoryBytes), a.storageRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -2757,25 +2717,6 @@ func (a *apiServer) updatePipelineSpecCommit(pachClient *client.APIClient, pipel
 		return newErrPipelineNotFound(pipelineName)
 	}
 	return err
-}
-
-func (a *apiServer) updateJobState(stm col.STM, jobPtr *pps.EtcdJobInfo, state pps.JobState) error {
-	pipelines := a.pipelines.ReadWrite(stm)
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
-		return err
-	}
-	if pipelinePtr.JobCounts == nil {
-		pipelinePtr.JobCounts = make(map[int32]int32)
-	}
-	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-		pipelinePtr.JobCounts[int32(jobPtr.State)]--
-	}
-	pipelinePtr.JobCounts[int32(state)]++
-	pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr)
-	jobPtr.State = state
-	jobs := a.jobs.ReadWrite(stm)
-	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }
 
 func (a *apiServer) getPachClient() *client.APIClient {

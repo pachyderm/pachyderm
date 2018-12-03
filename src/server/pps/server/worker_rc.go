@@ -62,10 +62,16 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
 	}}
+	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
+	workerEnv := options.workerEnv
+	workerEnv = append(options.workerEnv, v1.EnvVar{Name: "PACH_ROOT", Value: a.storageRoot})
+	workerEnv = append(workerEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	// This only happens in local deployment.  We want the workers to be
 	// able to read from/write to the hostpath volume as well.
 	storageVolumeName := "pach-disk"
 	var sidecarVolumeMounts []v1.VolumeMount
+	userVolumeMounts := make([]v1.VolumeMount, len(options.volumeMounts))
+	copy(userVolumeMounts, options.volumeMounts)
 	if a.storageHostPath != "" {
 		options.volumes = append(options.volumes, v1.Volume{
 			Name: storageVolumeName,
@@ -75,15 +81,13 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				},
 			},
 		})
-
-		sidecarVolumeMounts = []v1.VolumeMount{
-			{
-				Name:      storageVolumeName,
-				MountPath: a.storageRoot,
-			},
+		storageMount := v1.VolumeMount{
+			Name:      storageVolumeName,
+			MountPath: a.storageRoot,
 		}
+		sidecarVolumeMounts = append(sidecarVolumeMounts, storageMount)
+		userVolumeMounts = append(userVolumeMounts, storageMount)
 	}
-	userVolumeMounts := options.volumeMounts
 	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
 	sidecarVolumeMounts = append(sidecarVolumeMounts, secretMount)
@@ -134,8 +138,14 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				Image:           options.userImage,
 				Command:         []string{"/pach-bin/worker"},
 				ImagePullPolicy: v1.PullPolicy(pullPolicy),
-				Env:             options.workerEnv,
-				VolumeMounts:    userVolumeMounts,
+				Env:             workerEnv,
+				Resources: v1.ResourceRequirements{
+					Requests: map[v1.ResourceName]resource.Quantity{
+						v1.ResourceCPU:    cpuZeroQuantity,
+						v1.ResourceMemory: memZeroQuantity,
+					},
+				},
+				VolumeMounts: userVolumeMounts,
 			},
 			{
 				Name:            client.PPSWorkerSidecarContainerName,

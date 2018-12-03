@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	auth "github.com/pachyderm/pachyderm/src/server/auth/server"
 	pfs "github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
 	"k8s.io/api/core/v1"
@@ -361,6 +362,33 @@ func GetBackendSecretVolumeAndMount(backend string) (v1.Volume, v1.VolumeMount) 
 		}
 }
 
+// GetSecretEnvVars returns the environment variable specs for the storage secret.
+func GetSecretEnvVars(storageBackend string) []v1.EnvVar {
+	var envVars []v1.EnvVar
+	if storageBackend != "" {
+		envVars = append(envVars, v1.EnvVar{
+			Name:  obj.StorageBackendEnvVar,
+			Value: storageBackend,
+		})
+	}
+	trueVal := true
+	for envVar, secretKey := range obj.EnvVarToSecretKey {
+		envVars = append(envVars, v1.EnvVar{
+			Name: envVar,
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{
+						Name: client.StorageSecretName,
+					},
+					Key:      secretKey,
+					Optional: &trueVal,
+				},
+			},
+		})
+	}
+	return envVars
+}
+
 func versionedPachdImage(opts *AssetOpts) string {
 	if opts.Version != "" {
 		return fmt.Sprintf("%s:%s", pachdImage, opts.Version)
@@ -468,7 +496,7 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 						{
 							Name:  pachdName,
 							Image: image,
-							Env: []v1.EnvVar{
+							Env: append([]v1.EnvVar{
 								{Name: "PACH_ROOT", Value: "/pach"},
 								{Name: "ETCD_PREFIX", Value: opts.EtcdPrefix},
 								{Name: "NUM_SHARDS", Value: fmt.Sprintf("%d", opts.PachdShards)},
@@ -494,8 +522,17 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 										},
 									},
 								},
+								{
+									Name: "PACHD_MEMORY_REQUEST",
+									ValueFrom: &v1.EnvVarSource{
+										ResourceFieldRef: &v1.ResourceFieldSelector{
+											ContainerName: "pachd",
+											Resource:      "requests.memory",
+										},
+									},
+								},
 								{Name: "EXPOSE_OBJECT_API", Value: strconv.FormatBool(opts.ExposeObjectAPI)},
-							},
+							}, GetSecretEnvVars("")...),
 							Ports: []v1.ContainerPort{
 								{
 									ContainerPort: 650, // also set in cmd/pachd/main.go
