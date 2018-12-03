@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"path/filepath"
 	"sync"
 
 	"github.com/gogo/protobuf/types"
@@ -13,9 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
-
-//MaxHeaderFooterSize defines the largest header/footer that can be sent with put-file
-const MaxHeaderFooterSize = 1024 * 1024 // 1MB
 
 // NewRepo creates a pfs.Repo.
 func NewRepo(repoName string) *pfs.Repo {
@@ -505,6 +501,15 @@ func (c APIClient) SubscribeCommitF(repo, branch, from string, state pfs.CommitS
 	}
 }
 
+// PutObjectAsync puts a value into the object store asynchronously.
+func (c APIClient) PutObjectAsync(tags []*pfs.Tag) (*PutObjectWriteCloserAsync, error) {
+	w, err := c.newPutObjectWriteCloserAsync(tags)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return w, nil
+}
+
 // PutObject puts a value into the object store and tags it with 0 or more tags.
 func (c APIClient) PutObject(_r io.Reader, tags ...string) (object *pfs.Object, _ int64, retErr error) {
 	r := grpcutil.ReaderWrapper{_r}
@@ -570,6 +575,19 @@ func (c APIClient) GetObject(hash string, writer io.Writer) error {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
+}
+
+// GetObjectReader returns a reader for an object in object store by hash.
+func (c APIClient) GetObjectReader(hash string) (io.ReadCloser, error) {
+	ctx, cancel := context.WithCancel(c.Ctx())
+	getObjectClient, err := c.ObjectAPIClient.GetObject(
+		ctx,
+		&pfs.Object{Hash: hash},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.NewStreamingBytesReader(getObjectClient, cancel), nil
 }
 
 // ReadObject gets an object by hash and returns it directly as []byte.
@@ -679,6 +697,19 @@ func (c APIClient) GetTag(tag string, writer io.Writer) error {
 	return nil
 }
 
+// GetTagReader returns a reader for an object in object store by tag.
+func (c APIClient) GetTagReader(tag string) (io.ReadCloser, error) {
+	ctx, cancel := context.WithCancel(c.Ctx())
+	getTagClient, err := c.ObjectAPIClient.GetTag(
+		ctx,
+		&pfs.Tag{Name: tag},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.NewStreamingBytesReader(getTagClient, cancel), nil
+}
+
 // ReadTag gets an object by tag and returns it directly as []byte.
 func (c APIClient) ReadTag(tag string) ([]byte, error) {
 	var buffer bytes.Buffer
@@ -730,7 +761,7 @@ type PutFileClient interface {
 	// that is written to it.
 	// NOTE: PutFileSplitWriter returns an io.WriteCloser that you must call Close on when
 	// you are done writing.
-	PutFileSplitWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, header []byte, footer []byte) (io.WriteCloser, error)
+	PutFileSplitWriter(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool) (io.WriteCloser, error)
 
 	// PutFile writes a file to PFS from a reader.
 	PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error)
@@ -743,7 +774,7 @@ type PutFileClient interface {
 
 	// PutFileSplit writes a file to PFS from a reader.
 	// delimiter is used to tell PFS how to break the input into blocks.
-	PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader, header []byte, footer []byte) (_ int, retErr error)
+	PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) (_ int, retErr error)
 
 	// PutFileURL puts a file using the content found at a URL.
 	// The URL is sent to the server which performs the request.
@@ -782,7 +813,7 @@ func (c APIClient) newOneoffPutFileClient() (PutFileClient, error) {
 // NOTE: PutFileWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c *putFileClient) PutFileWriter(repoName, commitID, path string) (io.WriteCloser, error) {
-	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, nil, nil, nil)
+	return c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, 0, nil)
 }
 
 // PutFileSplitWriter writes a multiple files to PFS by splitting up the data
@@ -790,17 +821,18 @@ func (c *putFileClient) PutFileWriter(repoName, commitID, path string) (io.Write
 // NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c *putFileClient) PutFileSplitWriter(repoName string, commitID string, path string,
-	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, header []byte, footer []byte) (io.WriteCloser, error) {
+	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool) (io.WriteCloser, error) {
+	// TODO(msteffen) add headerRecords
 	var overwriteIndex *pfs.OverwriteIndex
 	if overwrite {
 		overwriteIndex = &pfs.OverwriteIndex{0}
 	}
-	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwriteIndex, header, footer)
+	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwriteIndex)
 }
 
 // PutFile writes a file to PFS from a reader.
 func (c *putFileClient) PutFile(repoName string, commitID string, path string, reader io.Reader) (_ int, retErr error) {
-	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, false, reader, nil, nil)
+	return c.PutFileSplit(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, 0, false, reader)
 }
 
 // PutFileOverwrite is like PutFile but it overwrites the file rather than
@@ -808,7 +840,7 @@ func (c *putFileClient) PutFile(repoName string, commitID string, path string, r
 // object starting from which you'd like to overwrite.  If you want to
 // overwrite the entire file, specify an index of 0.
 func (c *putFileClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error) {
-	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, &pfs.OverwriteIndex{overwriteIndex}, nil, nil)
+	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, 0, &pfs.OverwriteIndex{overwriteIndex})
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
 	}
@@ -823,14 +855,8 @@ func (c *putFileClient) PutFileOverwrite(repoName string, commitID string, path 
 
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
-func (c *putFileClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader, header []byte, footer []byte) (_ int, retErr error) {
-	if len(header) > MaxHeaderFooterSize {
-		return 0, fmt.Errorf("header size %v is greater than max %v", len(header), MaxHeaderFooterSize)
-	}
-	if len(footer) > MaxHeaderFooterSize {
-		return 0, fmt.Errorf("footer size %v is greater than max %v", len(footer), MaxHeaderFooterSize)
-	}
-	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite, header, footer)
+func (c *putFileClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
+	writer, err := c.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwrite)
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
 	}
@@ -839,11 +865,10 @@ func (c *putFileClient) PutFileSplit(repoName string, commitID string, path stri
 			retErr = err
 		}
 	}()
-	if reader != nil {
-		written, err := io.Copy(writer, reader)
-		return int(written), grpcutil.ScrubGRPC(err)
-	}
-	return 0, nil
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	written, err := io.CopyBuffer(writer, reader, buf)
+	return int(written), grpcutil.ScrubGRPC(err)
 }
 
 // PutFileURL puts a file using the content found at a URL.
@@ -897,12 +922,12 @@ func (c APIClient) PutFileWriter(repoName string, commitID string, path string) 
 // NOTE: PutFileSplitWriter returns an io.WriteCloser you must call Close on it when
 // you are done writing.
 func (c APIClient) PutFileSplitWriter(repoName string, commitID string, path string,
-	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, header []byte, footer []byte) (io.WriteCloser, error) {
+	delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool) (io.WriteCloser, error) {
 	pfc, err := c.newOneoffPutFileClient()
 	if err != nil {
 		return nil, err
 	}
-	return pfc.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite, header, footer)
+	return pfc.PutFileSplitWriter(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwrite)
 }
 
 // PutFile writes a file to PFS from a reader.
@@ -928,12 +953,13 @@ func (c APIClient) PutFileOverwrite(repoName string, commitID string, path strin
 
 //PutFileSplit writes a file to PFS from a reader
 // delimiter is used to tell PFS how to break the input into blocks
-func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwrite bool, reader io.Reader, header []byte, footer []byte) (_ int, retErr error) {
+func (c APIClient) PutFileSplit(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwrite bool, reader io.Reader) (_ int, retErr error) {
+	// TODO(msteffen) update
 	pfc, err := c.newOneoffPutFileClient()
 	if err != nil {
 		return 0, err
 	}
-	return pfc.PutFileSplit(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, overwrite, reader, header, footer)
+	return pfc.PutFileSplit(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwrite, reader)
 }
 
 // PutFileURL puts a file using the content found at a URL.
@@ -991,7 +1017,7 @@ func (c APIClient) GetFileReader(repoName string, commitID string, path string, 
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	return grpcutil.NewStreamingBytesReader(apiGetFileClient), nil
+	return grpcutil.NewStreamingBytesReader(apiGetFileClient, nil), nil
 }
 
 // GetFileReadSeeker returns a reader for the contents of a file at a specific
@@ -1142,20 +1168,27 @@ type WalkFn func(*pfs.FileInfo) error
 
 // Walk walks the pfs filesystem rooted at path. walkFn will be called for each
 // file found under path, this includes both regular files and directories.
-func (c APIClient) Walk(repoName string, commitID string, path string, walkFn WalkFn) error {
-	fileInfo, err := c.InspectFile(repoName, commitID, path)
+func (c APIClient) Walk(repoName string, commitID string, path string, f WalkFn) error {
+	fs, err := c.PfsAPIClient.WalkFile(
+		c.Ctx(),
+		&pfs.WalkFileRequest{File: NewFile(repoName, commitID, path)})
 	if err != nil {
-		return err
+		return grpcutil.ScrubGRPC(err)
 	}
-	if err := walkFn(fileInfo); err != nil {
-		return err
-	}
-	for _, childPath := range fileInfo.Children {
-		if err := c.Walk(repoName, commitID, filepath.Join(path, childPath), walkFn); err != nil {
+	for {
+		fi, err := fs.Recv()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(fi); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
 			return err
 		}
 	}
-	return nil
 }
 
 // DeleteFile deletes a file from a Commit.
@@ -1179,24 +1212,16 @@ type putFileWriteCloser struct {
 	c       *putFileClient
 }
 
-func (c *putFileClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, overwriteIndex *pfs.OverwriteIndex, header []byte, footer []byte) (*putFileWriteCloser, error) {
+func (c *putFileClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
 	c.mu.Lock() // Unlocked in Close()
-	var headerValue, footerValue *pfs.Metadata
-	if header != nil {
-		headerValue = &pfs.Metadata{Value: header}
-	}
-	if footer != nil {
-		footerValue = &pfs.Metadata{Value: footer}
-	}
 	return &putFileWriteCloser{
 		request: &pfs.PutFileRequest{
 			File:             NewFile(repoName, commitID, path),
 			Delimiter:        delimiter,
 			TargetFileDatums: targetFileDatums,
 			TargetFileBytes:  targetFileBytes,
+			HeaderRecords:    headerRecords,
 			OverwriteIndex:   overwriteIndex,
-			Header:           headerValue,
-			Footer:           footerValue,
 		},
 		c: c,
 	}, nil
@@ -1222,7 +1247,9 @@ func (w *putFileWriteCloser) Write(p []byte) (int, error) {
 		}
 		w.sent = true
 		w.request.Value = nil
-		// File is only needed on the first request
+		// File must only be set on the first request containing data written to
+		// that path
+		// TODO(msteffen): can other fields be zeroed as well?
 		w.request.File = nil
 		bytesWritten += len(actualP)
 	}
@@ -1276,6 +1303,7 @@ func (w *putObjectWriteCloser) Write(p []byte) (int, error) {
 	if err := w.client.Send(w.request); err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
 	}
+	w.request.Tags = nil
 	return len(p), nil
 }
 
@@ -1283,6 +1311,89 @@ func (w *putObjectWriteCloser) Close() error {
 	var err error
 	w.object, err = w.client.CloseAndRecv()
 	return grpcutil.ScrubGRPC(err)
+}
+
+// PutObjectWriteCloserAsync wraps a put object call in an asynchronous buffered writer.
+type PutObjectWriteCloserAsync struct {
+	client    pfs.ObjectAPI_PutObjectClient
+	request   *pfs.PutObjectRequest
+	buf       []byte
+	writeChan chan []byte
+	errChan   chan error
+	object    *pfs.Object
+}
+
+func (c APIClient) newPutObjectWriteCloserAsync(tags []*pfs.Tag) (*PutObjectWriteCloserAsync, error) {
+	client, err := c.ObjectAPIClient.PutObject(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	w := &PutObjectWriteCloserAsync{
+		client: client,
+		request: &pfs.PutObjectRequest{
+			Tags: tags,
+		},
+		buf:       grpcutil.GetBuffer()[:0],
+		writeChan: make(chan []byte, 5),
+		errChan:   make(chan error),
+	}
+	go func() {
+		for buf := range w.writeChan {
+			w.request.Value = buf
+			if err := w.client.Send(w.request); err != nil {
+				w.errChan <- err
+				break
+			}
+			w.request.Tags = nil
+			grpcutil.PutBuffer(buf[:cap(buf)])
+		}
+		close(w.errChan)
+	}()
+	return w, nil
+}
+
+// Write performs a write.
+func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
+	select {
+	case err := <-w.errChan:
+		if err != nil {
+			return 0, grpcutil.ScrubGRPC(err)
+		}
+	default:
+		if len(w.buf)+len(p) > cap(w.buf) {
+			w.writeChan <- w.buf
+			w.buf = grpcutil.GetBuffer()[:0]
+		}
+		w.buf = append(w.buf, p...)
+	}
+	return len(p), nil
+}
+
+// Close closes the writer.
+func (w *PutObjectWriteCloserAsync) Close() error {
+	w.writeChan <- w.buf
+	close(w.writeChan)
+	err := <-w.errChan
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	w.object, err = w.client.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
+}
+
+// Object gets the pfs object for this writer.
+// This can only be called when the writer is closed (the put object
+// call is complete)
+func (w *PutObjectWriteCloserAsync) Object() (*pfs.Object, error) {
+	select {
+	case err := <-w.errChan:
+		if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		return w.object, nil
+	default:
+		return nil, fmt.Errorf("attempting to get object before closing object writer")
+	}
 }
 
 type putObjectSplitWriteCloser struct {

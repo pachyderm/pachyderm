@@ -30,16 +30,26 @@ service Worker {
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
 }
 
+enum State {
+  RUNNING = 0;
+  COMPLETE = 1;
+  FAILED = 3;
+}
+
 message ChunkState {
-  enum State {
-    RUNNING = 0;
-    COMPLETE = 1;
-    FAILED = 3;
-  }
   State state = 1;
   string datum_id = 2 [(gogoproto.customname) = "DatumID"];
 }
 
-message Chunks {
+message MergeState {
+  State state = 1;
+  pfs.Object tree = 2;
+  uint64 size_bytes = 3;
+  pfs.Object stats_tree = 4;
+  uint64 stats_size_bytes = 5;
+}
+
+message Plan {
   repeated int64 chunks = 1;
+  int64 merges = 2;
 }

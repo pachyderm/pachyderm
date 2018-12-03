@@ -40,6 +40,9 @@ func (c *localClient) Reader(path string, offset uint64, size uint64) (io.ReadCl
 	if err != nil {
 		return nil, err
 	}
+	if _, err := file.Seek(int64(offset), 0); err != nil {
+		return nil, err
+	}
 
 	if size == 0 {
 		if _, err := file.Seek(int64(offset), 0); err != nil {

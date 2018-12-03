@@ -144,7 +144,7 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 // tree is a hashtree to mirror the pulled content into (it may be left nil)
 // treeRoot is the root the data is mirrored to within tree
 func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
-	pipes bool, emptyFiles bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
+	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
@@ -152,16 +152,21 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 		if err != nil {
 			return err
 		}
-		if tree != nil {
-			treePath := path.Join(treeRoot, basepath)
+		if statsTree != nil {
+			statsPath := filepath.Join(statsRoot, basepath)
 			if fileInfo.FileType == pfs.FileType_DIR {
-				if err := tree.PutDir(treePath); err != nil {
-					return err
-				}
+				statsTree.PutDir(statsPath)
 			} else {
-				if err := tree.PutFile(treePath, fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
-					return err
+				var blockRefs []*pfs.BlockRef
+				for _, object := range fileInfo.Objects {
+					objectInfo, err := client.InspectObject(object.Hash)
+					if err != nil {
+						return err
+					}
+					blockRefs = append(blockRefs, objectInfo.BlockRef)
 				}
+				blockRefs = append(blockRefs, fileInfo.BlockRefs...)
+				statsTree.PutFile(statsPath, fileInfo.Hash, int64(fileInfo.SizeBytes), &hashtree.FileNodeProto{BlockRefs: blockRefs})
 			}
 		}
 		path := filepath.Join(root, basepath)
@@ -195,7 +200,7 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 // will be downloaded and they will be downloaded under root. Otherwise new and
 // old files will be downloaded under root/new and root/old respectively.
 func (p *Puller) PullDiff(client *pachclient.APIClient, root string, newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath string,
-	newOnly bool, pipes bool, emptyFiles bool, concurrency int, tree hashtree.OpenHashTree, treeRoot string) error {
+	newOnly bool, pipes bool, emptyFiles bool, concurrency int, tree hashtree.HashTree, treeRoot string) error {
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	newFiles, oldFiles, err := client.DiffFile(newRepo, newCommit, newPath, oldRepo, oldCommit, oldPath, false)

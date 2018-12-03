@@ -26,9 +26,11 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -153,6 +155,17 @@ func GetExpectedNumWorkers(kubeClient *kube.Clientset, spec *ppsclient.Paralleli
 	return 0, fmt.Errorf("Unable to interpret ParallelismSpec %+v", spec)
 }
 
+// GetExpectedNumHashtrees computes the expected number of hashtrees that
+// Pachyderm will create given the HashtreeSpec 'spec'.
+func GetExpectedNumHashtrees(spec *ppsclient.HashtreeSpec) (int64, error) {
+	if spec == nil || spec.Constant == 0 {
+		return 1, nil
+	} else if spec.Constant > 0 {
+		return int64(spec.Constant), nil
+	}
+	return 0, fmt.Errorf("unable to interpret HashtreeSpec %+v", spec)
+}
+
 // GetPipelineInfo retrieves and returns a valid PipelineInfo from PFS. It does
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
 func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
@@ -222,6 +235,7 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		Pipeline:           pipelineInfo.Pipeline,
 		Transform:          pipelineInfo.Transform,
 		ParallelismSpec:    pipelineInfo.ParallelismSpec,
+		HashtreeSpec:       pipelineInfo.HashtreeSpec,
 		Egress:             pipelineInfo.Egress,
 		OutputBranch:       pipelineInfo.OutputBranch,
 		ScaleDownThreshold: pipelineInfo.ScaleDownThreshold,
@@ -229,7 +243,6 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 		ResourceLimits:     pipelineInfo.ResourceLimits,
 		Input:              pipelineInfo.Input,
 		Description:        pipelineInfo.Description,
-		Incremental:        pipelineInfo.Incremental,
 		CacheSize:          pipelineInfo.CacheSize,
 		EnableStats:        pipelineInfo.EnableStats,
 		Batch:              pipelineInfo.Batch,
@@ -336,4 +349,37 @@ func IsTerminal(state pps.JobState) bool {
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
 	}
+}
+
+// UpdateJobState performs the operations involved with a job state transition.
+func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollection, jobPtr *pps.EtcdJobInfo, state pps.JobState, reason string) error {
+	// Update pipeline
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := pipelines.Get(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+		return err
+	}
+	if pipelinePtr.JobCounts == nil {
+		pipelinePtr.JobCounts = make(map[int32]int32)
+	}
+	if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+		pipelinePtr.JobCounts[int32(jobPtr.State)]--
+	}
+	pipelinePtr.JobCounts[int32(state)]++
+	if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
+		return err
+	}
+
+	// Update job info
+	var err error
+	if state == pps.JobState_JOB_STARTING {
+		jobPtr.Started, err = types.TimestampProto(time.Now())
+	} else if IsTerminal(state) {
+		jobPtr.Finished, err = types.TimestampProto(time.Now())
+	}
+	if err != nil {
+		return err
+	}
+	jobPtr.State = state
+	jobPtr.Reason = reason
+	return jobs.Put(jobPtr.Job.ID, jobPtr)
 }

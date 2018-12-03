@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/user"
@@ -23,9 +24,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
-	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/go-playground/webhooks.v3/github"
@@ -40,11 +39,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -54,11 +55,13 @@ import (
 
 const (
 	// The maximum number of concurrent download/upload operations
-	concurrency = 10
+	concurrency = 100
 	logBuffer   = 25
 
-	chunksPrefix = "/chunks"
-	lockPrefix   = "/locks"
+	planPrefix        = "/plan"
+	chunkPrefix       = "/chunk"
+	mergePrefix       = "/merge"
+	parentTreeBufSize = 50 * (1 << (10 * 2))
 )
 
 var (
@@ -106,21 +109,20 @@ type APIServer struct {
 	// The pipelines collection
 	pipelines col.Collection
 	// The progress collection
-	chunks col.Collection
+	plans col.Collection
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
 	runMu sync.Mutex
-
-	// datumCache is used by the master to keep track of the datums that
-	// have already been processed.
-	datumCache *lru.Cache
 
 	// We only export application statistics if enterprise is enabled
 	exportStats bool
 
 	uid uint32
 	gid uint32
+
+	// hashtreeStorage is the where we store on disk hashtrees
+	hashtreeStorage string
 }
 
 type putObjectResponse struct {
@@ -277,7 +279,7 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 }
 
 // NewAPIServer creates an APIServer for a given pipeline
-func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
+func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreeStorage string) (*APIServer, error) {
 	initPrometheus()
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
@@ -286,10 +288,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	kubeClient, err := kube.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
-	}
-	datumCache, err := lru.New(numCachedDatums)
-	if err != nil {
-		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
 	server := &APIServer{
 		pachClient:   pachClient,
@@ -301,12 +299,12 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			PipelineName: pipelineInfo.Pipeline.Name,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
-		workerName: workerName,
-		namespace:  namespace,
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		chunks:     col.NewCollection(etcdClient, path.Join(etcdPrefix, chunksPrefix), nil, &Chunks{}, nil, nil),
-		datumCache: datumCache,
+		workerName:      workerName,
+		namespace:       namespace,
+		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
+		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
+		hashtreeStorage: hashtreeStorage,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
 	if err != nil {
@@ -449,7 +447,7 @@ func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessS
 	}
 }
 
-func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, parentTag *pfs.Tag, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsPath string) (_ string, retErr error) {
+func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
 	defer a.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -464,30 +462,6 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
 		return "", err
 	}
-	var incremental bool
-	if parentTag != nil {
-		if err := func() error {
-			var buffer bytes.Buffer
-			if err := pachClient.GetTag(parentTag.Name, &buffer); err != nil {
-				// This likely means that the parent job errored in some way,
-				// this doesn't prevent us from running the job, it just means
-				// we have to run it in an un-incremental fashion, as if this
-				// were the first input commit.
-				return nil
-			}
-			incremental = true
-			tree, err := hashtree.Deserialize(buffer.Bytes())
-			if err != nil {
-				return fmt.Errorf("failed to deserialize parent hashtree: %v", err)
-			}
-			if err := puller.PullTree(pachClient, path.Join(dir, "out"), tree, false, concurrency); err != nil {
-				return fmt.Errorf("error pulling output tree: %+v", err)
-			}
-			return nil
-		}(); err != nil {
-			return "", err
-		}
-	}
 	for _, input := range inputs {
 		if input.GitURL != "" {
 			if err := a.downloadGitData(pachClient, dir, input); err != nil {
@@ -497,18 +471,13 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		}
 		file := input.FileInfo.File
 		root := filepath.Join(dir, input.Name, file.Path)
-		treeRoot := path.Join(statsPath, input.Name, file.Path)
-		if incremental && input.ParentCommit != nil {
-			if err := puller.PullDiff(pachClient, root,
-				file.Commit.Repo.Name, file.Commit.ID, file.Path,
-				input.ParentCommit.Repo.Name, input.ParentCommit.ID, file.Path,
-				true, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
-				return "", err
-			}
-		} else {
-			if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, treeRoot); err != nil {
-				return "", err
-			}
+		var statsRoot string
+		if statsTree != nil {
+			statsTree.PutDir(input.Name)
+			statsRoot = path.Join(input.Name, file.Path)
+		}
+		if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, statsRoot); err != nil {
+			return "", err
 		}
 	}
 	return dir, nil
@@ -676,7 +645,7 @@ func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, 
 	}
 }
 
-func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree hashtree.OpenHashTree, statsRoot string) (retErr error) {
+func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (retErr error) {
 	defer a.reportUploadStats(time.Now(), stats, logger)
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -686,183 +655,197 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			logger.Logf("finished uploading output after %v", time.Since(start))
 		}
 	}(time.Now())
-	// hashtree is not thread-safe--guard with 'lock'
-	var lock sync.Mutex
-	tree := hashtree.NewHashTree()
+	// Setup client for writing file data
+	putObjsClient, err := pachClient.ObjectAPIClient.PutObjects(pachClient.Ctx())
+	if err != nil {
+		return err
+	}
+	block := &pfs.Block{Hash: uuid.NewWithoutDashes()}
+	if err := putObjsClient.Send(&pfs.PutObjectRequest{
+		Block: block,
+	}); err != nil {
+		return err
+	}
 	outputPath := filepath.Join(dir, "out")
-
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	var offset uint64
+	var tree *hashtree.Ordered
 	// Upload all files in output directory
-	var g errgroup.Group
-	limiter := limit.New(concurrency)
 	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		g.Go(func() (retErr error) {
-			limiter.Acquire()
-			defer limiter.Release()
-			if filePath == outputPath {
-				return nil
-			}
-
-			relPath, err := filepath.Rel(outputPath, filePath)
-			if err != nil {
-				return err
-			}
-
-			// Put directory. Even if the directory is empty, that may be useful to
-			// users
-			// TODO(msteffen) write a test pipeline that outputs an empty directory and
-			// make sure it's preserved
-			if info.IsDir() {
-				lock.Lock()
-				defer lock.Unlock()
-				tree.PutDir(relPath)
-				return nil
-			}
-
-			// Under some circumstances, the user might have copied
-			// some pipes from the input directory to the output directory.
-			// Reading from these files will result in job blocking.  Thus
-			// we preemptively detect if the file is a named pipe.
-			if (info.Mode() & os.ModeNamedPipe) > 0 {
-				logger.Logf("cannot upload named pipe: %v", relPath)
-				return errSpecialFile
-			}
-
-			// If the output file is a symlink to an input file, we can skip
-			// the uploading.
-			if (info.Mode() & os.ModeSymlink) > 0 {
-				realPath, err := os.Readlink(filePath)
-				if err != nil {
-					return err
-				}
-				if strings.HasPrefix(realPath, client.PPSInputPrefix) {
-					var pathWithInput string
-					var err error
-					if strings.HasPrefix(realPath, dir) {
-						pathWithInput, err = filepath.Rel(dir, realPath)
-					} else {
-						pathWithInput, err = filepath.Rel(client.PPSInputPrefix, realPath)
-					}
-					if err == nil {
-						// We can only skip the upload if the real path is
-						// under /pfs, meaning that it's a file that already
-						// exists in PFS.
-
-						// The name of the input
-						inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-						var input *Input
-						for _, i := range inputs {
-							if i.Name == inputName {
-								input = i
-							}
-						}
-						// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
-						realPath = filepath.Join(dir, pathWithInput)
-						if input != nil {
-							return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
-								if err != nil {
-									return err
-								}
-								rel, err := filepath.Rel(realPath, filePath)
-								if err != nil {
-									return err
-								}
-								subRelPath := filepath.Join(relPath, rel)
-								// The path of the input file
-								pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
-								if err != nil {
-									return err
-								}
-
-								if info.IsDir() {
-									lock.Lock()
-									defer lock.Unlock()
-									tree.PutDir(subRelPath)
-									return nil
-								}
-
-								fc := input.FileInfo.File.Commit
-								fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
-								if err != nil {
-									return err
-								}
-
-								lock.Lock()
-								defer lock.Unlock()
-								if statsTree != nil {
-									if err := statsTree.PutFile(path.Join(statsRoot, subRelPath), fileInfo.Objects, int64(fileInfo.SizeBytes)); err != nil {
-										return err
-									}
-								}
-								return tree.PutFile(subRelPath, fileInfo.Objects, int64(fileInfo.SizeBytes))
-							})
-						}
-					}
-				}
-			}
-
-			f, err := os.Open(filePath)
-			if err != nil {
-				return fmt.Errorf("os.Open(%s): %v", filePath, err)
-			}
-			defer func() {
-				if err := f.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-
-			putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
-			if err != nil {
-				return err
-			}
-			size, err := grpcutil.ChunkReader(f, func(chunk []byte) error {
-				return putObjClient.Send(&pfs.PutObjectRequest{
-					Value: chunk,
-				})
-			})
-			if err != nil {
-				return fmt.Errorf("Read(%s): %v", filePath, err)
-			}
-			object, err := putObjClient.CloseAndRecv()
-			if err != nil {
-				return err
-			}
-
-			lock.Lock()
-			defer lock.Unlock()
-			atomic.AddUint64(&stats.UploadBytes, uint64(size))
+		if filePath == outputPath {
+			tree = hashtree.NewOrdered("/")
+			return nil
+		}
+		relPath, err := filepath.Rel(outputPath, filePath)
+		if err != nil {
+			return err
+		}
+		// Put directory. Even if the directory is empty, that may be useful to
+		// users
+		// TODO(msteffen) write a test pipeline that outputs an empty directory and
+		// make sure it's preserved
+		if info.IsDir() {
+			tree.PutDir(relPath)
 			if statsTree != nil {
-				if err := statsTree.PutFile(path.Join(statsRoot, relPath), []*pfs.Object{object}, int64(size)); err != nil {
-					return err
+				statsTree.PutDir(relPath)
+			}
+			return nil
+		}
+		// Under some circumstances, the user might have copied
+		// some pipes from the input directory to the output directory.
+		// Reading from these files will result in job blocking.  Thus
+		// we preemptively detect if the file is a named pipe.
+		if (info.Mode() & os.ModeNamedPipe) > 0 {
+			logger.Logf("cannot upload named pipe: %v", relPath)
+			return errSpecialFile
+		}
+		// If the output file is a symlink to an input file, we can skip
+		// the uploading.
+		if (info.Mode() & os.ModeSymlink) > 0 {
+			realPath, err := os.Readlink(filePath)
+			if err != nil {
+				return err
+			}
+			if strings.HasPrefix(realPath, client.PPSInputPrefix) {
+				var pathWithInput string
+				var err error
+				if strings.HasPrefix(realPath, dir) {
+					pathWithInput, err = filepath.Rel(dir, realPath)
+				} else {
+					pathWithInput, err = filepath.Rel(client.PPSInputPrefix, realPath)
+				}
+				if err == nil {
+					// We can only skip the upload if the real path is
+					// under /pfs, meaning that it's a file that already
+					// exists in PFS.
+
+					// The name of the input
+					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
+					var input *Input
+					for _, i := range inputs {
+						if i.Name == inputName {
+							input = i
+						}
+					}
+					// this changes realPath from `/pfs/input/...` to `/scratch/<id>/input/...`
+					realPath = filepath.Join(dir, pathWithInput)
+					if input != nil {
+						return filepath.Walk(realPath, func(filePath string, info os.FileInfo, err error) error {
+							if err != nil {
+								return err
+							}
+							rel, err := filepath.Rel(realPath, filePath)
+							if err != nil {
+								return err
+							}
+							subRelPath := filepath.Join(relPath, rel)
+							// The path of the input file
+							pfsPath, err := filepath.Rel(filepath.Join(dir, input.Name), filePath)
+							if err != nil {
+								return err
+							}
+							if info.IsDir() {
+								tree.PutDir(subRelPath)
+								if statsTree != nil {
+									statsTree.PutDir(subRelPath)
+								}
+								return nil
+							}
+							fc := input.FileInfo.File.Commit
+							fileInfo, err := pachClient.InspectFile(fc.Repo.Name, fc.ID, pfsPath)
+							if err != nil {
+								return err
+							}
+							var blockRefs []*pfs.BlockRef
+							for _, object := range fileInfo.Objects {
+								objectInfo, err := pachClient.InspectObject(object.Hash)
+								if err != nil {
+									return err
+								}
+								blockRefs = append(blockRefs, objectInfo.BlockRef)
+							}
+							blockRefs = append(blockRefs, fileInfo.BlockRefs...)
+							n := &hashtree.FileNodeProto{BlockRefs: blockRefs}
+							tree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+							if statsTree != nil {
+								statsTree.PutFile(subRelPath, fileInfo.Hash, int64(fileInfo.SizeBytes), n)
+							}
+							return nil
+						})
+					}
 				}
 			}
-			return tree.PutFile(relPath, []*pfs.Object{object}, int64(size))
-		})
+		}
+		// Open local file that is being uploaded
+		f, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("os.Open(%s): %v", filePath, err)
+		}
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		var size int64
+		h := pfs.NewHash()
+		r := io.TeeReader(f, h)
+		// Write local file to object storage block
+		for {
+			n, err := r.Read(buf)
+			if n == 0 && err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			if err := putObjsClient.Send(&pfs.PutObjectRequest{
+				Value: buf[:n],
+			}); err != nil {
+				return err
+			}
+			size += int64(n)
+		}
+		n := &hashtree.FileNodeProto{
+			BlockRefs: []*pfs.BlockRef{
+				&pfs.BlockRef{
+					Block: block,
+					Range: &pfs.ByteRange{
+						Lower: offset,
+						Upper: offset + uint64(size),
+					},
+				},
+			},
+		}
+		hash := h.Sum(nil)
+		tree.PutFile(relPath, hash, size, n)
+		if statsTree != nil {
+			statsTree.PutFile(relPath, hash, size, n)
+		}
+		offset += uint64(size)
+		stats.UploadBytes += uint64(size)
 		return nil
 	}); err != nil {
 		return fmt.Errorf("error walking output: %v", err)
 	}
-
-	if err := g.Wait(); err != nil {
+	if err := putObjsClient.CloseSend(); err != nil {
 		return err
 	}
-
-	finTree, err := tree.Finish()
+	w, err := pachClient.PutObjectAsync([]*pfs.Tag{&pfs.Tag{tag}})
 	if err != nil {
 		return err
 	}
-
-	treeBytes, err := hashtree.Serialize(finTree)
-	if err != nil {
+	defer func() {
+		if err := w.Close(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	if err := tree.Serialize(w); err != nil {
 		return err
 	}
-
-	if _, _, err := pachClient.PutObject(bytes.NewReader(treeBytes), tag); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -1000,26 +983,23 @@ type processResult struct {
 
 type processFunc func(low, high int64) (*processResult, error)
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chunks, logger *taggedLogger, process processFunc) error {
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger, process processFunc) error {
 	complete := false
 	for !complete {
 		// func to defer cancel in
 		if err := func() error {
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
-			var low int64
-			var high int64
 			var found bool
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				// Reinitialize closed upon variables.
-				low, high = 0, 0
-				found = false
-				locks := a.locks(jobID).ReadWrite(stm)
-				// we set complete to true and then unset it if we find an incomplete chunk
-				complete = true
-				for _, high = range chunks.Chunks {
+			low, high := int64(0), int64(0)
+			// we set complete to true and then unset it if we find an incomplete chunk
+			complete = true
+			for _, high = range plan.Chunks {
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					found = false
+					chunks := a.chunks(jobID).ReadWrite(stm)
 					var chunkState ChunkState
-					if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+					if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
 						if col.IsErrNotFound(err) {
 							found = true
 						} else {
@@ -1028,20 +1008,20 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					}
 					// This gets triggered either if we found a chunk that wasn't
 					// complete or if we didn't find a chunk at all.
-					if chunkState.State == ChunkState_RUNNING {
+					if chunkState.State == State_RUNNING {
 						complete = false
 					}
 					if found {
-						break
+						return chunks.PutTTL(fmt.Sprint(high), &ChunkState{State: State_RUNNING}, ttl)
 					}
-					low = high
+					return nil
+				}); err != nil {
+					return err
 				}
 				if found {
-					return locks.PutTTL(fmt.Sprint(high), &ChunkState{State: ChunkState_RUNNING}, ttl)
+					break
 				}
-				return nil
-			}); err != nil {
-				return err
+				low = high
 			}
 			if found {
 				go func() {
@@ -1053,13 +1033,13 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 							break Renew
 						}
 						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-							locks := a.locks(jobID).ReadWrite(stm)
+							chunks := a.chunks(jobID).ReadWrite(stm)
 							var chunkState ChunkState
-							if err := locks.Get(fmt.Sprint(high), &chunkState); err != nil {
+							if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
 								return err
 							}
-							if chunkState.State == ChunkState_RUNNING {
-								return locks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
+							if chunkState.State == State_RUNNING {
+								return chunks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
 							}
 							return nil
 						}); err != nil {
@@ -1085,14 +1065,14 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 					}); err != nil {
 						return err
 					}
-					locks := a.locks(jobID).ReadWrite(stm)
+					chunks := a.chunks(jobID).ReadWrite(stm)
 					if processResult.failedDatumID != "" {
-						return locks.Put(fmt.Sprint(high), &ChunkState{
-							State:   ChunkState_FAILED,
+						return chunks.Put(fmt.Sprint(high), &ChunkState{
+							State:   State_FAILED,
 							DatumID: processResult.failedDatumID,
 						})
 					}
-					return locks.Put(fmt.Sprint(high), &ChunkState{State: ChunkState_COMPLETE})
+					return chunks.Put(fmt.Sprint(high), &ChunkState{State: State_COMPLETE})
 				}); err != nil {
 					return err
 				}
@@ -1103,6 +1083,320 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, chunks *Chu
 		}
 	}
 	return nil
+}
+
+func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, tags []*pfs.Tag, useParentHashTree bool) error {
+	complete := false
+	for !complete {
+		// func to defer cancel in
+		if err := func() (retErr error) {
+			ctx, cancel := context.WithCancel(ctx)
+			defer cancel()
+			var merge int64
+			var found bool
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				// Reinitialize closed upon variables.
+				found = false
+				merges := a.merges(jobID).ReadWrite(stm)
+				// we set complete to true and then unset it if we find an incomplete chunk
+				complete = true
+				for merge = 0; merge < plan.Merges; merge++ {
+					var mergeState MergeState
+					if err := merges.Get(fmt.Sprint(merge), &mergeState); err != nil {
+						if col.IsErrNotFound(err) {
+							found = true
+						} else {
+							return err
+						}
+					}
+					// This gets triggered either if we found a chunk that wasn't
+					// complete or if we didn't find a chunk at all.
+					if mergeState.State == State_RUNNING {
+						complete = false
+					}
+					if found {
+						break
+					}
+				}
+				if found {
+					return merges.PutTTL(fmt.Sprint(merge), &MergeState{State: State_RUNNING}, ttl)
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			if found {
+				go func() {
+				Renew:
+					for {
+						select {
+						case <-time.After((time.Second * time.Duration(ttl)) / 2):
+						case <-ctx.Done():
+							break Renew
+						}
+						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+							merges := a.merges(jobID).ReadWrite(stm)
+							var mergeState MergeState
+							if err := merges.Get(fmt.Sprint(merge), &mergeState); err != nil {
+								return err
+							}
+							if mergeState.State == State_RUNNING {
+								return merges.PutTTL(fmt.Sprint(merge), &mergeState, ttl)
+							}
+							return nil
+						}); err != nil {
+							cancel()
+							logger.Logf("failed to renew lock: %v", err)
+						}
+					}
+				}()
+				// Merge
+				objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
+				if err != nil {
+					return err
+				}
+				var tree *pfs.Object
+				var size uint64
+				if jobInfo.DataFailed == 0 {
+					rs, err := a.getHashtrees(ctx, pachClient, objClient, tags, hashtree.NewFilter(plan.Merges, merge))
+					if err != nil {
+						return err
+					}
+					if useParentHashTree {
+						r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.OutputCommit, merge)
+						if err != nil {
+							return err
+						}
+						defer func() {
+							if err := r.Close(); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+						rs = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, rs...)
+					}
+					tree, size, err = a.merge(pachClient, objClient, nil, rs)
+					if err != nil {
+						return err
+					}
+				}
+				// Merge stats
+				var statsTree *pfs.Object
+				var statsSize uint64
+				if a.pipelineInfo.EnableStats {
+					var statsTags []*pfs.Tag
+					for _, tag := range tags {
+						statsTags = append(statsTags, &pfs.Tag{tag.Name + statsTagSuffix})
+					}
+					rs, err := a.getHashtrees(ctx, pachClient, objClient, statsTags, hashtree.NewFilter(plan.Merges, merge))
+					if err != nil {
+						return err
+					}
+					if useParentHashTree {
+						r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.StatsCommit, merge)
+						if err != nil {
+							return err
+						}
+						defer func() {
+							if err := r.Close(); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+						rs = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, rs...)
+					}
+					statsTree, statsSize, err = a.merge(pachClient, objClient, nil, rs)
+					if err != nil {
+						return err
+					}
+				}
+				// Finish commit
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					merges := a.merges(jobID).ReadWrite(stm)
+					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE, Tree: tree, SizeBytes: size, StatsTree: statsTree, StatsSizeBytes: statsSize})
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}(); err != nil {
+			return err
+		}
+	}
+	return nil
+
+}
+
+func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, rs []*hashtree.Reader) (*pfs.Object, uint64, error) {
+	var tree *pfs.Object
+	var size uint64
+	if err := func() error {
+		objW, err := pachClient.PutObjectAsync(tags)
+		if err != nil {
+			return err
+		}
+		w := hashtree.NewWriter(objW)
+		size, err = hashtree.Merge(w, rs)
+		if err != nil {
+			return err
+		}
+		// Get object hash for hashtree
+		// (bryce) make this deferred
+		if err := objW.Close(); err != nil {
+			return err
+		}
+		tree, err = objW.Object()
+		if err != nil {
+			return err
+		}
+		// Get index and write it out
+		idx, err := w.Index()
+		if err != nil {
+			return err
+		}
+		return writeIndex(pachClient, objClient, tree, idx)
+	}(); err != nil {
+		return nil, 0, err
+	}
+	return tree, size, nil
+}
+
+func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+		&pfs.InspectCommitRequest{
+			Commit: commit,
+		})
+	if err != nil {
+		return nil, err
+	}
+	for commitInfo.ParentCommit != nil {
+		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
+			&pfs.InspectCommitRequest{
+				Commit:     commitInfo.ParentCommit,
+				BlockState: pfs.CommitState_FINISHED,
+			})
+		if err != nil {
+			return nil, err
+		}
+		if parentCommitInfo.Trees != nil {
+			return parentCommitInfo, nil
+		}
+		commitInfo = parentCommitInfo
+	}
+	return nil, nil
+}
+
+func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, filter func(k []byte) (bool, error)) ([]*hashtree.Reader, error) {
+	limiter := limit.New(hashtree.DefaultMergeConcurrency)
+	var eg errgroup.Group
+	var mu sync.Mutex
+	var rs []*hashtree.Reader
+	for _, tag := range tags {
+		tag := tag
+		limiter.Acquire()
+		eg.Go(func() (retErr error) {
+			defer limiter.Release()
+			// Get datum hashtree info
+			info, err := pachClient.InspectTag(ctx, tag)
+			if err != nil {
+				return err
+			}
+			path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+			if err != nil {
+				return err
+			}
+			// Read the full datum hashtree in memory
+			objR, err := objClient.Reader(path, 0, 0)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := objR.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			fullTree, err := ioutil.ReadAll(objR)
+			if err != nil {
+				return err
+			}
+			// Filter out unecessary keys
+			filteredTree := &bytes.Buffer{}
+			w := hashtree.NewWriter(filteredTree)
+			r := hashtree.NewReader(bytes.NewBuffer(fullTree), filter)
+			if err := w.Copy(r); err != nil {
+				return err
+			}
+			// Add it to the list of readers
+			mu.Lock()
+			defer mu.Unlock()
+			rs = append(rs, hashtree.NewReader(filteredTree, nil))
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	return rs, nil
+}
+
+func (a *APIServer) getCommitDatums(ctx context.Context, pachClient *client.APIClient, commitInfo *pfs.CommitInfo) (datums map[string]struct{}, retErr error) {
+	r, err := pachClient.GetObjectReader(commitInfo.Datums.Hash)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := r.Close(); err != nil && retErr != nil {
+			retErr = err
+		}
+	}()
+	pbr := pbutil.NewReader(r)
+	datums = make(map[string]struct{})
+	for {
+		k, err := pbr.ReadBytes()
+		if err != nil {
+			if err == io.EOF {
+				return
+			}
+			return nil, err
+		}
+		datums[string(k)] = struct{}{}
+	}
+}
+
+func (a *APIServer) getParentHashTree(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, commit *pfs.Commit, merge int64) (io.ReadCloser, error) {
+	parentCommitInfo, err := a.getParentCommitInfo(ctx, pachClient, commit)
+	if err != nil {
+		return nil, err
+	}
+	info, err := pachClient.InspectObject(parentCommitInfo.Trees[merge].Hash)
+	if err != nil {
+		return nil, err
+	}
+	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+	if err != nil {
+		return nil, err
+	}
+	return objClient.Reader(path, 0, 0)
+}
+
+func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Object, idx []byte) (retErr error) {
+	info, err := pachClient.InspectObject(tree.Hash)
+	if err != nil {
+		return err
+	}
+	path, err := obj.BlockPathFromEnv(info.BlockRef.Block)
+	if err != nil {
+		return err
+	}
+	idxW, err := objClient.Writer(path + hashtree.IndexPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := idxW.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	_, err = idxW.Write(idx)
+	return err
 }
 
 func isDone(ctx context.Context) bool {
@@ -1177,7 +1471,7 @@ func (a *APIServer) worker() {
 	logger := a.getWorkerLogger() // this worker's formatting logger
 
 	// Process incoming jobs
-	backoff.RetryNotify(func() error {
+	backoff.RetryNotify(func() (retErr error) {
 		retryCtx, retryCancel := context.WithCancel(a.pachClient.Ctx())
 		defer retryCancel()
 		watcher, err := a.jobs.ReadOnly(retryCtx).WatchByIndex(ppsdb.JobsPipelineIndex, a.pipelineInfo.Pipeline)
@@ -1240,8 +1534,8 @@ func (a *APIServer) worker() {
 			}
 
 			// Read the chunks laid out by the master and create the datum factory
-			chunks := &Chunks{}
-			if err := a.chunks.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
+			plan := &Plan{}
+			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return err
 			}
 			df, err := NewDatumFactory(pachClient, jobInfo.Input)
@@ -1249,14 +1543,39 @@ func (a *APIServer) worker() {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}
 
+			// Compute the datums to skip
+			skip := make(map[string]struct{})
+			var useParentHashTree bool
+			parentCommitInfo, err := a.getParentCommitInfo(jobCtx, pachClient, jobInfo.OutputCommit)
+			if err != nil {
+				return err
+			}
+			if parentCommitInfo != nil {
+				var err error
+				skip, err = a.getCommitDatums(jobCtx, pachClient, parentCommitInfo)
+				if err != nil {
+					return err
+				}
+				var count int
+				for i := 0; i < df.Len(); i++ {
+					files := df.Datum(i)
+					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+					if _, ok := skip[datumHash]; ok {
+						count++
+					}
+				}
+				if len(skip) == count {
+					useParentHashTree = true
+				}
+			}
 			// If a datum fails, acquireDatums updates the relevant lock in
 			// etcd, which causes the master to fail the job (which is
 			// handled above in the JOB_FAILURE case). There's no need to
 			// handle failed datums here, just failed etcd writes.
 			if err := a.acquireDatums(
-				jobCtx, jobID, chunks, logger,
+				jobCtx, jobID, plan, logger,
 				func(low, high int64) (*processResult, error) {
-					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high)
+					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip)
 					if err != nil {
 						return nil, err
 					}
@@ -1267,6 +1586,26 @@ func (a *APIServer) worker() {
 					continue NextJob // job cancelled--don't restart, just wait for next job
 				}
 				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
+			}
+			var tags []*pfs.Tag
+			for i := 0; i < df.Len(); i++ {
+				files := df.Datum(int(i))
+				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+				if _, ok := skip[datumHash]; ok && useParentHashTree {
+					continue
+				}
+				tags = append(tags, &pfs.Tag{datumHash})
+			}
+			skip = nil
+			jobInfo, err = pachClient.InspectJob(jobID, false)
+			if err != nil {
+				return err
+			}
+			if err := a.mergeDatums(jobCtx, pachClient, jobInfo, jobID, plan, logger, tags, useParentHashTree); err != nil {
+				if jobCtx.Err() == context.Canceled {
+					continue NextJob // job cancelled--don't restart, just wait for next job
+				}
+				return fmt.Errorf("merge datums for job %s exited with err: %v", jobID, err)
 			}
 		}
 		return fmt.Errorf("worker: jobs.WatchByIndex(pipeline = %s) closed unexpectedly", a.pipelineInfo.Pipeline.Name)
@@ -1279,8 +1618,12 @@ func (a *APIServer) worker() {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64) (*processResult, error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64, skip map[string]struct{}) (*processResult, error) {
 	ctx := pachClient.Ctx()
+	objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
+	if err != nil {
+		return nil, err
+	}
 	stats := &pps.ProcessStats{}
 	var statsMu sync.Mutex
 	result := &processResult{}
@@ -1302,76 +1645,45 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
+			if _, ok := skip[tag]; ok {
+				atomic.AddInt64(&result.datumsSkipped, 1)
+				logger.Logf("skipping datum")
+				return nil
+			}
 			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
 			}
-			var statsTag *pfs.Tag
-			if a.pipelineInfo.EnableStats {
-				statsTag = &pfs.Tag{tag + statsTagSuffix}
-			}
 			subStats := &pps.ProcessStats{}
-			statsPath := path.Join("/", logger.template.DatumID)
-			var statsTree hashtree.OpenHashTree
+			var inputTree, outputTree *hashtree.Ordered
+			var statsTree *hashtree.Unordered
 			if a.pipelineInfo.EnableStats {
-				statsTree = hashtree.NewHashTree()
-				if err := statsTree.PutFile(path.Join(statsPath, fmt.Sprintf("job:%s", jobInfo.Job.ID)), nil, 0); err != nil {
-					logger.stderrLog.Printf("error from hashtree.PutFile for job object: %s\n", err)
+				statsRoot := path.Join("/", logger.template.DatumID)
+				inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
+				outputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs", "out"))
+				statsTree = hashtree.NewUnordered(statsRoot)
+				// Write job id to stats tree
+				statsTree.PutFile(fmt.Sprintf("job:%s", jobInfo.Job.ID), nil, 0)
+				// Write index in datum factory to stats tree
+				object, size, err := pachClient.PutObject(strings.NewReader(fmt.Sprint(int(i))))
+				if err != nil {
+					return err
 				}
+				objectInfo, err := pachClient.InspectObject(object.Hash)
+				if err != nil {
+					return err
+				}
+				h, err := pfs.DecodeHash(object.Hash)
+				if err != nil {
+					return err
+				}
+				statsTree.PutFile("index", h, size, objectInfo.BlockRef)
 				defer func() {
-					if retErr != nil {
-						return
-					}
-					finStatsTree, err := statsTree.Finish()
-					if err != nil {
+					if err := a.writeStats(pachClient, objClient, tag, subStats, logger, inputTree, outputTree, statsTree); err != nil && retErr == nil {
 						retErr = err
-						return
-					}
-					statsTreeBytes, err := hashtree.Serialize(finStatsTree)
-					if err != nil {
-						retErr = err
-						return
-					}
-					if _, _, err := pachClient.PutObject(bytes.NewReader(statsTreeBytes), statsTag.Name); err != nil {
-						retErr = err
-						return
 					}
 				}()
-				defer func() {
-					object, size, err := logger.Close()
-					if err != nil && retErr == nil {
-						retErr = err
-						return
-					}
-					if object != nil && a.pipelineInfo.EnableStats {
-						if err := statsTree.PutFile(path.Join(statsPath, "logs"), []*pfs.Object{object}, size); err != nil && retErr == nil {
-							retErr = err
-							return
-						}
-					}
-				}()
-				defer func() {
-					marshaler := &jsonpb.Marshaler{}
-					statsString, err := marshaler.MarshalToString(subStats)
-					if err != nil {
-						logger.stderrLog.Printf("could not serialize stats: %s\n", err)
-						return
-					}
-					object, size, err := pachClient.PutObject(strings.NewReader(statsString))
-					if err != nil {
-						logger.stderrLog.Printf("could not put stats object: %s\n", err)
-						return
-					}
-					if err := statsTree.PutFile(path.Join(statsPath, "stats"), []*pfs.Object{object}, size); err != nil {
-						logger.stderrLog.Printf("could not put-file stats object: %s\n", err)
-						return
-					}
-				}()
-			}
-			parentTag, err := a.parentTag(pachClient, jobInfo, data)
-			if err != nil {
-				return err
 			}
 
 			env := a.userCodeEnv(jobInfo.Job.ID, jobInfo.OutputCommit.ID, data)
@@ -1385,7 +1697,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				puller := filesync.NewPuller()
 				// TODO parent tag shouldn't be nil
 				var err error
-				dir, err = a.downloadData(pachClient, logger, data, puller, parentTag, subStats, statsTree, path.Join(statsPath, "pfs"))
+				dir, err = a.downloadData(pachClient, logger, data, puller, subStats, inputTree)
 				// We run these cleanup functions no matter what, so that if
 				// downloadData partially succeeded, we still clean up the resources.
 				defer func() {
@@ -1453,7 +1765,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				a.reportDownloadSizeStats(float64(downSize), logger)
-				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, statsTree, path.Join(statsPath, "pfs", "out"))
+				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
@@ -1466,9 +1778,15 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						if err != nil {
 							logger.stderrLog.Printf("could not put error object: %s\n", err)
 						} else {
-							if err := statsTree.PutFile(path.Join(statsPath, "failure"), []*pfs.Object{object}, size); err != nil {
-								logger.stderrLog.Printf("could not put-file error object: %s\n", err)
+							objectInfo, err := pachClient.InspectObject(object.Hash)
+							if err != nil {
+								return err
 							}
+							h, err := pfs.DecodeHash(object.Hash)
+							if err != nil {
+								return err
+							}
+							statsTree.PutFile("failure", h, size, objectInfo.BlockRef)
 						}
 					}
 					return err
@@ -1512,80 +1830,62 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	return result, nil
 }
 
-func (a *APIServer) parentTag(pachClient *client.APIClient, jobInfo *pps.JobInfo, files []*Input) (*pfs.Tag, error) {
-	if !jobInfo.Incremental {
-		return nil, nil // don't bother downloading the parent for non-incremental jobs
-	}
-	ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
+func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger *taggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered) error {
+	// Store stats and add stats file
+	marshaler := &jsonpb.Marshaler{}
+	statsString, err := marshaler.MarshalToString(stats)
 	if err != nil {
-		return nil, fmt.Errorf("could not get output commit's commitInfo: %v", err)
+		logger.stderrLog.Printf("could not serialize stats: %s\n", err)
+		return err
 	}
-	if ci.ParentCommit == nil {
-		return nil, nil
-	}
-	parentCi, err := pachClient.InspectCommit(ci.ParentCommit.Repo.Name, ci.ParentCommit.ID)
+	object, size, err := pachClient.PutObject(strings.NewReader(statsString))
 	if err != nil {
-		return nil, fmt.Errorf("could not get output commit's parent's commitInfo: %v", err)
+		logger.stderrLog.Printf("could not put stats object: %s\n", err)
+		return err
 	}
-
-	// compare provenance of ci and parentCi to figure out which commit is new
-	key := path.Join
-	parentProv := make(map[string]*pfs.Commit)
-	for i, commit := range parentCi.Provenance {
-		parentProv[key(commit.Repo.Name, parentCi.BranchProvenance[i].Name)] = commit
+	objectInfo, err := pachClient.InspectObject(object.Hash)
+	if err != nil {
+		return err
 	}
-	newInputCommits := make(map[string]*pfs.Commit)
-	for i, c := range ci.Provenance {
-		pc, ok := parentProv[key(c.Repo.Name, ci.BranchProvenance[i].Name)]
-		if !ok {
-			return nil, nil // 'c' has no parent, so there's no parent tag
+	h, err := pfs.DecodeHash(object.Hash)
+	if err != nil {
+		return err
+	}
+	statsTree.PutFile("stats", h, size, objectInfo.BlockRef)
+	// Store logs and add logs file
+	object, size, err = logger.Close()
+	if err != nil {
+		return err
+	}
+	if object != nil {
+		objectInfo, err := pachClient.InspectObject(object.Hash)
+		if err != nil {
+			return err
 		}
-		if pc.ID != c.ID {
-			newInputCommits[key(c.Repo.Name, ci.BranchProvenance[i].Name)] = c
+		h, err := pfs.DecodeHash(object.Hash)
+		if err != nil {
+			return err
 		}
+		statsTree.PutFile("logs", h, size, objectInfo.BlockRef)
 	}
-	var parentFiles []*Input // the equivalent datum to 'files', which the parent job processed
-	var newFiles int
-	for _, file := range files {
-		parentFile := proto.Clone(file).(*Input)
-		newInputCommit, ok := newInputCommits[key(file.FileInfo.File.Commit.Repo.Name, file.Branch)]
-		if ok && file.FileInfo.File.Commit.Repo.Name == newInputCommit.Repo.Name && file.FileInfo.File.Commit.ID == newInputCommit.ID {
-			newInputCommitParent, ok := parentProv[key(file.FileInfo.File.Commit.Repo.Name, file.Branch)]
-			if !ok {
-				// This should be impossible since we'll only add
-				// newInputCommit to newInputCommits if the parent exists.
-				return nil, fmt.Errorf("parent expected but not found (this is likely a bug)")
-			}
-			newFiles++
-			// 'file' from datumFactory is in the new input commit
-			parentFileInfo, err := pachClient.InspectFile(
-				newInputCommitParent.Repo.Name, newInputCommitParent.ID, file.FileInfo.File.Path)
-			if err != nil {
-				if !isNotFoundErr(err) {
-					return nil, err
-				}
-				// we didn't find a match for this file,
-				// so we know there's no matching datum
-				break
-			}
-			parentFile.FileInfo = parentFileInfo
-			// also tell downloadData to make a diff for 'file'
-			// side effect of the main work (derive _parentOutputTag)
-			file.ParentCommit = newInputCommitParent
-		}
-		parentFiles = append(parentFiles, parentFile)
+	// Merge stats trees (input, output, stats) and write out
+	inputBuf := &bytes.Buffer{}
+	inputTree.Serialize(inputBuf)
+	outputBuf := &bytes.Buffer{}
+	outputTree.Serialize(outputBuf)
+	statsBuf := &bytes.Buffer{}
+	statsTree.Ordered().Serialize(statsBuf)
+	objW, err := pachClient.PutObjectAsync([]*pfs.Tag{&pfs.Tag{tag + statsTagSuffix}})
+	if err != nil {
+		return err
 	}
-	if newFiles > 1 {
-		// Multiple new files means we can't do incremental and must run everything from scratch.
-		return nil, nil
-	}
-
-	// We have derived what files the parent saw -- compute the tag
-	if len(parentFiles) == len(files) {
-		_parentOutputTag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, parentFiles)
-		return &pfs.Tag{Name: _parentOutputTag}, nil
-	}
-	return nil, nil
+	defer objW.Close()
+	_, err = hashtree.Merge(hashtree.NewWriter(objW), []*hashtree.Reader{
+		hashtree.NewReader(inputBuf, nil),
+		hashtree.NewReader(outputBuf, nil),
+		hashtree.NewReader(statsBuf, nil),
+	})
+	return err
 }
 
 // mergeStats merges y into x

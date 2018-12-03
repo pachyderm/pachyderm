@@ -13,6 +13,10 @@ import (
 	"fmt"
 	"math/rand"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/src/client/limit"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"golang.org/x/sync/errgroup"
 )
 
 // BenchmarkPutFile tests the amount of time it takes to PutFile 'cnt' files
@@ -34,12 +38,20 @@ func benchmarkPutFileN(b *testing.B, cnt int) {
 	// Add 'cnt' files
 	r := rand.New(rand.NewSource(0))
 	for n := 0; n < b.N; n++ {
-		h := NewHashTree()
+		h := newHashTree(b)
+		l := limit.New(1000)
+		var eg errgroup.Group
 		for i := 0; i < cnt; i++ {
-			h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
-				obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
+			i := i
+			l.Acquire()
+			eg.Go(func() error {
+				defer l.Release()
+				return h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
+					obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
+			})
 		}
-		h.Finish()
+		require.NoError(b, eg.Wait())
+		h.Hash()
 	}
 }
 
@@ -53,53 +65,6 @@ func BenchmarkPutFile10k(b *testing.B) {
 
 func BenchmarkPutFile100k(b *testing.B) {
 	benchmarkPutFileN(b, 1e5)
-}
-
-// BenchmarkMerge measures how long it takes to merge 'cnt' trees, each of which
-// has a single small file, into one central hash tree. This is similar to what
-// happens at the completion of a job. Because all re-hashing is saved until the
-// end, this is O(n) with respect to 'cnt', making it much faster than calling
-// PutFile 'cnt' times.
-//
-// Benchmarked times at rev. 6b8e9df38e42f624d2da0aaa785753e9e1d68c0d
-//  cnt |  time (s)
-// -----+-------------
-// 1k   | 0.006 s/op
-// 10k  | 0.082 s/op
-// 100k | 2.750 s/op
-func benchmarkMergeN(b *testing.B, cnt int) {
-	// Merge 'cnt' trees, each with 1 file (simulating a job)
-	trees := make([]HashTree, cnt)
-	r := rand.New(rand.NewSource(0))
-	var err error
-	for i := 0; i < cnt; i++ {
-		t := NewHashTree()
-		t.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
-			obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
-		trees[i], err = t.Finish()
-		if err != nil {
-			b.Fatal("could not run benchmark: " + err.Error())
-		}
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		h := NewHashTree()
-		h.Merge(trees...)
-		h.Finish()
-	}
-}
-
-func BenchmarkMerge1k(b *testing.B) {
-	benchmarkMergeN(b, 1e3)
-}
-
-func BenchmarkMerge10k(b *testing.B) {
-	benchmarkMergeN(b, 1e4)
-}
-
-func BenchmarkMerge100k(b *testing.B) {
-	benchmarkMergeN(b, 1e5)
 }
 
 // BenchmarkClone is idential to BenchmarkDelete, except that it doesn't
@@ -117,7 +82,7 @@ func BenchmarkMerge100k(b *testing.B) {
 func benchmarkCloneN(b *testing.B, cnt int) {
 	// Create a tree with 'cnt' files
 	r := rand.New(rand.NewSource(0))
-	h := NewHashTree().(*hashtree)
+	h := newHashTree(b)
 	for i := 0; i < cnt; i++ {
 		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
@@ -125,7 +90,7 @@ func benchmarkCloneN(b *testing.B, cnt int) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h.clone()
+		h.Copy()
 	}
 }
 
@@ -155,7 +120,7 @@ func BenchmarkClone100k(b *testing.B) {
 func benchmarkDeleteN(b *testing.B, cnt int) {
 	// Create a tree with 'cnt' files
 	r := rand.New(rand.NewSource(0))
-	h := NewHashTree().(*hashtree)
+	h := newHashTree(b)
 	for i := 0; i < cnt; i++ {
 		h.PutFile(fmt.Sprintf("/foo/shard-%05d", i),
 			obj(fmt.Sprintf(`hash:"%x"`, r.Uint32())), 1)
@@ -163,7 +128,7 @@ func benchmarkDeleteN(b *testing.B, cnt int) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		h2, err := h.clone()
+		h2, err := h.Copy()
 		if err != nil {
 			b.Fatal("could not clone hashtree in BenchmarkDelete")
 		}

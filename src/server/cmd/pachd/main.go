@@ -40,13 +40,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
+	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 
-	"github.com/hashicorp/golang-lru"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -103,6 +103,7 @@ type appEnv struct {
 	ImagePullSecret       string `env:"IMAGE_PULL_SECRET,default="`
 	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
+	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 }
 
 func main() {
@@ -191,7 +192,7 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
 	}
-	treeCache, err := lru.New(pfsCacheSize)
+	treeCache, err := hashtree.NewCache(pfsCacheSize)
 	if err != nil {
 		return fmt.Errorf("lru.New: %v", err)
 	}
@@ -213,7 +214,11 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 				}
 				pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 
-				pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
+				memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
+				if err != nil {
+					return err
+				}
+				pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
 				if err != nil {
 					return fmt.Errorf("pfs.NewAPIServer: %v", err)
 				}
@@ -333,7 +338,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 	if pfsCacheSize == 0 {
 		pfsCacheSize = defaultTreeCacheSize
 	}
-	treeCache, err := lru.New(pfsCacheSize)
+	treeCache, err := hashtree.NewCache(pfsCacheSize)
 	if err != nil {
 		return fmt.Errorf("lru.New: %v", err)
 	}
@@ -378,7 +383,11 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 				MaxMsgSize:           grpcutil.MaxMsgSize,
 				PublicPortTLSAllowed: true,
 				RegisterFunc: func(s *grpc.Server) error {
-					pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
+					memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
+					if err != nil {
+						return err
+					}
+					pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
 					if err != nil {
 						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
@@ -487,8 +496,12 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					}
 					pfsclient.RegisterObjectAPIServer(s, blockAPIServer)
 
+					memoryRequestBytes, err := units.RAMInBytes(appEnv.MemoryRequest)
+					if err != nil {
+						return err
+					}
 					pfsAPIServer, err := pfs_server.NewAPIServer(
-						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache)
+						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
 					if err != nil {
 						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}

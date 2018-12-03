@@ -36,3 +36,35 @@ func TestCommit(t *testing.T) {
 		"repo", tu.UniqueString("TestCommit-repo"),
 	).Run())
 }
+
+func TestPutFileSplit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	require.NoError(t, tu.BashCmd(`
+		pachctl create-repo {{.repo}}
+
+		pachctl put-file {{.repo}} master /data --split=csv --header-records=1 <<EOF
+		name,job
+		alice,accountant
+		bob,baker
+		EOF
+
+		pachctl get-file {{.repo}} master /data/*0 \
+		  | match "name,job" \
+			| match "alice,accountant" \
+			| match -v "bob,baker"
+
+		pachctl get-file {{.repo}} master /data/*1 \
+		  | match "name,job" \
+			| match -v "alice,accountant" \
+			| match "bob,baker"
+
+		pachctl get-file {{.repo}} master /data/* \
+		  | match "name,job" \
+			| match "alice,accountant" \
+			| match "bob,baker"
+		`,
+		"repo", tu.UniqueString("TestPutFileSplit-repo"),
+	).Run())
+}
