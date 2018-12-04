@@ -300,18 +300,6 @@ func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) erro
 	})
 }
 
-// GlobAll retrieves all the nodes that match the glob pattern.
-func (h *dbHashTree) GlobAll(pattern string) (map[string]*NodeProto, error) {
-	res := make(map[string]*NodeProto)
-	if err := h.Glob(pattern, func(path string, node *NodeProto) error {
-		res[path] = node
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
 // Glob executes a callback for each path that matches the glob pattern.
 func Glob(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
 	pattern = clean(pattern)
