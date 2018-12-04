@@ -59,6 +59,6 @@ for more info.
 - PRs for code should update docs to make them reflect the code that's being merged in
 rather than be done in separate PRs.
 
-- Docs-only PRs (such as typos) of course a great place to start and we welcome your help!
+- Docs-only PRs (such as typos) of course a great place to start and we welcome your help! If Travis-CI fails your pull request due to an error activating Pachyderm authentication you can ignore that.
 
 - For most docs PRs, you'll need to `make assets` and push the new assets.go file as well. 
