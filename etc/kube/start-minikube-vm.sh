@@ -56,7 +56,7 @@ Running:
   get_images
   minikube start ${MINIKUBE_FLAGS[@]}
 EOF
-cat <<EOF | tail -c+1 | xargs -d\\n -n1 -P3 -- /bin/bash -c
+cat <<EOF | tail -c+1 | xargs -0 -n1 -P3 -- /bin/bash -c
 get_images
 minikube start ${MINIKUBE_FLAGS[@]}
 EOF
