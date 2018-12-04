@@ -87,10 +87,10 @@ $ STORAGE_KEY="$(az storage account keys list \
 
 ```shell
 # For OSX:
-$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.7
+$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.7.11/pachctl_1.7.11_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.0/pachctl_1.8.0_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version` to check that this worked correctly:
