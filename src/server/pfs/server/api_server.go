@@ -27,7 +27,7 @@ var (
 //
 // TODO(msteffen): client initialization (both etcd and pachd) might be better
 // placed happen in server.go, near main(), so that we only pay the dial cost
-// once, and so that pps doesn't need to have its own initialization code
+// once, and so that pfs doesn't need to have its own initialization code
 func (a *apiServer) getPachClient(ctx context.Context) *client.APIClient {
 	a.pachClientOnce.Do(func() {
 		var err error
