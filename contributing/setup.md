@@ -1,16 +1,4 @@
-# Setup For Contributors
-
-If you're contributing to pachyderm, you may need the following additional setup.
-
-1. General requirements
-2. bash helpers
-3. protoc
-4. gcloud CLI
-5. kubectl
-6. pachctl
-7. Special macOS configuration
-
----
+# Setup For contributors
 
 ## General requirements
 
@@ -18,6 +6,8 @@ First, go through the general local installation instructions [here](http://docs
 
 - golang 1.11+
 - docker
+- [jq](https://stedolan.github.io/jq/)
+- [pv](http://ivarch.com/programs/pv.shtml)
 
 ## Bash helpers
 
@@ -36,104 +26,13 @@ Then update your `~/.bash_profile` by adding the line:
 
 And you'll stay up to date!
 
-
-## Protoc
+## Protocol buffers
 
 Install protoc 3+. On macOS, this can be done via `brew install protobuf`. Then installed protoc-gen-go by doing:
 
     go get -u -v github.com/golang/protobuf/proto
     go get -u -v github.com/golang/protobuf/protoc-gen-go
     go get -u -v github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
-
-## gcloud CLI
-
-Internally we develop using containerized kubernetes using GKE. The following instructions outline how to set this up.
-
-[Download Page](https://cloud.google.com/sdk/)
-
-Setup Google Cloud Platform via the web
-
-- login with your Gmail or G Suite account
-  - click the silhouette in the upper right to make sure you're logged in with the right account
-- get your owner/admin to setup a project for you (e.g. YOURNAME-dev)
-- then they need to go into the project > settings > permissions and add you
-  - hint to owner/admin: its the permissions button in one of the left hand popin menus (GKE UI can be confusing)
-- you should have an email invite to accept
-- click 'use google APIS' (or something along the lines of enable/manage APIs)
-- click through to google compute engine API and enable it or click the 'get started' button to make it provision
-
-Then, locally, run the following commands one at a time:
-
-    gcloud auth login
-    gcloud init
-
-    # This should have you logged in / w gcloud
-    # The following will only work after your GKE owner/admin adds you to the right project on gcloud:
-
-    gcloud config set project YOURNAME-dev
-    gcloud compute instances list
-
-    # Now create instance using our bash helper
-    create_docker_machine
-
-    # And attach to the right docker daemon
-    eval "$(docker-machine env dev)"
-
-Setup a project on gcloud
-
-- go to console.cloud.google.com/start
-- make sure you're logged in w your gmail account
-- create project 'YOURNAME-dev'
-
-## kubectl
-
-Again, [the bash_profile helpers are here](https://github.com/pachyderm/pachyderm/blob/master/contributing/bash_helpers)
-
-Now that you have gcloud, just do:
-
-    gcloud components update kubectl
-    # Now you need to start port forwarding to allow kubectl client talk to the kubernetes service on GCE
-
-    portfowarding
-    # To see this alias, look at the bash_helpers
-
-    kubectl version
-    # should report a client version, not a server version yet
-
-    make launch-kube
-    # to deploy kubernetes service
-
-    kubectl version
-    # now you should see a client and server version
-
-    docker ps
-    # you should see a few processes
-
-    kubectl get all
-    # and you should see the kubernetes controller running
-
-## Pachyderm cluster deployment
-
-    make launch
-
-And now you should see rethink/pachd/etcd pods running when you do:
-
-    kubectl get all    
-
-
-## pachctl
-
-To install this tool, you'll need the code!
-
-    mkdir -p $GOPATH/src/github.com/pachyderm
-    cd $GOPATH/src/github.com/pachyderm
-    git clone git@github.com:pachyderm/pachyderm
-    cd pachyderm
-    make install
-    pachctl version
-
-And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
-
 
 ## Special macOS configuration
 
@@ -165,7 +64,7 @@ To make sure all of these settings are working, you can test that you have the p
 
 If this fails w a timeout, you'll probably also see 'too many files' type of errors. If that test passes, you're all good!
 
-### Timeout Helper
+### Timeout helper
 
 You'll need the `timeout` utility to run the `make launch` task. To install on mac, do:
 
@@ -174,3 +73,19 @@ You'll need the `timeout` utility to run the `make launch` task. To install on m
 And then make sure to prepend the following to your path:
 
     PATH="/usr/local/opt/coreutils/libexec/gnubin:$PATH"
+
+## Dev cluster
+
+Now launch the dev cluster: `make launch-dev-vm`.
+
+And check it's status: `kubectl get all`
+
+## pachctl
+
+This will install the dev version of `pachctl`:
+
+    cd $GOPATH/src/github.com/pachyderm/pachyderm
+    make install
+    pachctl version
+
+And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
