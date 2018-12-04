@@ -431,33 +431,30 @@ func TestGlobFile(t *testing.T) {
 	require.NoError(t, h.Hash())
 
 	// patterns that match the whole repo ("/")
-	for _, pattern := range []string{"", "/"} {
-		paths, err := h.GlobAll(pattern)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(paths))
-		for path := range paths {
-			require.EqualOneOf(t, i("/"), path)
+	addTo := func(ss *[]string) func(string, *NodeProto) error {
+		return func(s string, _ *NodeProto) error {
+			*ss = append(*ss, s)
+			return nil
 		}
+	}
+	for _, pattern := range []string{"", "/"} {
+		var paths []string
+		require.NoError(t, h.Glob(pattern, addTo(&paths)))
+		require.ElementsEqual(t, i("/"), paths)
 	}
 
 	// patterns that match top-level dirs/files
 	for _, pattern := range []string{"*", "/*"} {
-		paths, err := h.GlobAll(pattern)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(paths))
-		for path := range paths {
-			require.EqualOneOf(t, i("/foo", "/dir"), path)
-		}
+		var paths []string
+		require.NoError(t, h.Glob(pattern, addTo(&paths)))
+		require.ElementsEqual(t, i("/foo", "/dir"), paths)
 	}
 
 	// patterns that match second-level dirs/files
 	for _, pattern := range []string{"dir/*", "/dir/*", "*/*", "/*/*"} {
-		paths, err := h.GlobAll(pattern)
-		require.NoError(t, err)
-		require.Equal(t, 2, len(paths))
-		for path := range paths {
-			require.EqualOneOf(t, i("/dir/bar", "/dir/buzz"), path)
-		}
+		var paths []string
+		require.NoError(t, h.Glob(pattern, addTo(&paths)))
+		require.ElementsEqual(t, i("/dir/bar", "/dir/buzz"), paths)
 	}
 }
 
@@ -547,21 +544,17 @@ func TestSerialize(t *testing.T) {
 func TestListEmpty(t *testing.T) {
 	tree := newHashTree(t)
 	_, err := tree.ListAll("/")
-	require.NoError(t, err)
-	_, err = tree.GlobAll("*")
-	require.NoError(t, err)
-	_, err = tree.GlobAll("/*")
-	require.NoError(t, err)
+	nop := func(string, *NodeProto) error { return nil }
+	require.NoError(t, tree.Glob("*", nop))
+	require.NoError(t, tree.Glob("/*", nop))
 
 	require.NoError(t, tree.DeleteFile("/"))
 	require.NoError(t, tree.DeleteFile(""))
 
 	_, err = tree.ListAll("/")
 	require.NoError(t, err)
-	_, err = tree.GlobAll("*")
-	require.NoError(t, err)
-	_, err = tree.GlobAll("/*")
-	require.NoError(t, err)
+	require.NoError(t, tree.Glob("*", nop))
+	require.NoError(t, tree.Glob("/*", nop))
 }
 
 func diffTrees(t *testing.T, new, old HashTree, path string) ([]string, []string) {
