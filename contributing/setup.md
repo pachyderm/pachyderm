@@ -2,26 +2,22 @@
 
 If you're contributing to pachyderm, you may need the following additional setup.
 
-1. General Requirements
-  - golang version 1.9
-  - docker
-  - FUSE
+1. General requirements
 2. bash helpers
 3. protoc
 4. gcloud CLI
 5. kubectl
 6. pachctl
-7. Special Mac OS X Configuration
+7. Special macOS configuration
 
 ---
 
-## General Requirements
+## General requirements
 
-Install:
+First, go through the general local installation instructions [here](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html). Additionally, make sure you have the following installed:
 
-- golang 1.9
+- golang 1.11+
 - docker
-- FUSE
 
 ## Bash helpers
 
@@ -43,18 +39,7 @@ And you'll stay up to date!
 
 ## Protoc
 
-[Download Page](https://github.com/google/protobuf/releases)
-
-Mac OS X Note: brew install for mac didn't provide the right version - namely proto3
-
-- I used [this version](https://github.com/google/protobuf/releases/download/v3.0.0-beta-2/protoc-3.0.0-beta-2-osx-x86_64.zip)
-- then move the binary to your path (/usr/local/bin)
-- I have the following version installed:
-
-    $ protoc --version
-    libprotoc 3.0.0
-
-Then installed protoc-gen-go by doing:
+Install protoc 3+. On macOS, this can be done via `brew install protobuf`. Then installed protoc-gen-go by doing:
 
     go get -u -v github.com/golang/protobuf/proto
     go get -u -v github.com/golang/protobuf/protoc-gen-go
@@ -150,7 +135,7 @@ To install this tool, you'll need the code!
 And make sure that `$GOPATH/bin` is on your `$PATH` somewhere
 
 
-## Special Mac OS X Configuration
+## Special macOS configuration
 
 ### File Descriptor Limit
 
