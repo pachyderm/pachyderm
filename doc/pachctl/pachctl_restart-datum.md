@@ -1,6 +1,6 @@
 ## ./pachctl restart-datum
 
-Restart a datum.
+`restart-datum` is only meant to be called on an actively-running job/datum. It's for when a datum is stuck/hung. If a job is completed, you need to trigger a new job, not use restart-datum.
 
 ### Synopsis
 
