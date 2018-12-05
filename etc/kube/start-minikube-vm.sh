@@ -49,17 +49,8 @@ while true; do
   esac
 done
 
-
-# In parallel, start minikube, build pachctl, and get/build the pachd and worker images
-cat <<EOF
-Running:
-  get_images
-  minikube start ${MINIKUBE_FLAGS[@]}
-EOF
-cat <<EOF | tail -c+1 | xargs -0 -n1 -P3 -- /bin/bash -c
 get_images
-minikube start ${MINIKUBE_FLAGS[@]}
-EOF
+minikube start $MINIKUBE_FLAGS[@]
 
 # Print a spinning wheel while waiting for minikube to come up
 set +x
