@@ -10,20 +10,6 @@ function die {
 }
 export -f die
 
-# get_images builds or download pachd and worker images
-function get_images {
-  if [[ "${PACH_VERSION}" = local ]]; then
-    make install || die "could not build pachctl"
-    make docker-build || die "could not build pachd/worker"
-  else
-    for i in pachd worker; do
-      echo docker pull pachyderm/${i}:${PACH_VERSION}
-      docker pull pachyderm/${i}:${PACH_VERSION}
-    done
-  fi
-}
-export -f get_images
-
 ## If the caller provided a tag, build and use that
 export PACH_VERSION=local
 MINIKUBE_FLAGS=()
@@ -49,17 +35,17 @@ while true; do
   esac
 done
 
+if [[ "${PACH_VERSION}" = local ]]; then
+  make install || die "could not build pachctl"
+  make docker-build || die "could not build pachd/worker"
+else
+  for i in pachd worker; do
+    echo docker pull pachyderm/${i}:${PACH_VERSION}
+    docker pull pachyderm/${i}:${PACH_VERSION}
+  done
+fi
 
-# In parallel, start minikube, build pachctl, and get/build the pachd and worker images
-cat <<EOF
-Running:
-  get_images
-  minikube start ${MINIKUBE_FLAGS[@]}
-EOF
-cat <<EOF | tail -c+1 | xargs -d\\n -n1 -P3 -- /bin/bash -c
-get_images
-minikube start ${MINIKUBE_FLAGS[@]}
-EOF
+minikube start $MINIKUBE_FLAGS[@]
 
 # Print a spinning wheel while waiting for minikube to come up
 set +x
