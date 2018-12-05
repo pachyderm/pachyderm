@@ -204,10 +204,7 @@ sensitive data such as credentials. Secrets reference Kubernetes secrets by
 name and specify a path that the secrets should be mounted to, or an
 environment variable (`env_var`) that the value should be bound to. Secrets
 must set `name` which should be the name of a secret in Kubernetes. Secrets
-must also specify either `mount_path` or `env_var` and `key`.
-
-
-[here](https://kubernetes.io/docs/concepts/configuration/secret/).
+must also specify either `mount_path` or `env_var` and `key`. See more information about kubernetes secrets [here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.image_pull_secrets` is an array of image pull secrets, image pull
 secrets are similar to secrets except that they're mounted before the
