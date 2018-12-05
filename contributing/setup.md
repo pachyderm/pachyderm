@@ -4,6 +4,7 @@
 
 First, go through the general local installation instructions [here](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html). Additionally, make sure you have the following installed:
 
+- etcd
 - golang 1.11+
 - docker
 - [jq](https://stedolan.github.io/jq/)
@@ -60,9 +61,9 @@ And just see `unlimited`, don't worry, it took effect.
 
 To make sure all of these settings are working, you can test that you have the proper setup by running:
 
-    CGO_ENABLED=0 GO15VENDOREXPERIMENT=1 go test -timeout 10s -p 1 -parallel 1 -short ./src/server/pfs/server
+    make test-pfs-server
 
-If this fails w a timeout, you'll probably also see 'too many files' type of errors. If that test passes, you're all good!
+If this fails with a timeout, you'll probably also see 'too many files' type of errors. If that test passes, you're all good!
 
 ### Timeout helper
 
