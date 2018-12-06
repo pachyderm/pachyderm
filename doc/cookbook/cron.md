@@ -11,7 +11,7 @@ You can schedule pipelines like these to run regularly with Pachyderm's built-in
 
 ## Cron Example
 
-Let's say that we want to query a database every 10 seconds and update our dataset every time the pipeline is triggered. We could do this with a non-incremental `cron` input as follows:
+Let's say that we want to query a database every 10 seconds and update our dataset every time the pipeline is triggered. We could do this with `cron` input as follows:
 
 ```
   "input": {
