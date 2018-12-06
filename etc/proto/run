@@ -10,8 +10,8 @@ if [[ "${max_age}" -gt "$(cat /last_run_time)" ]]; then
   echo -e "\e[1;31m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\e[0m" >/dev/stderr
   echo -e "${PRE} \e[1;31mWARNING:\e[0m pachyderm_proto is out of date" >/dev/stderr
   echo -e "${PRE} please run" >/dev/stderr
-  echo -e "${PRE}   docker ps -a -q | xargs docker rm  "\#" rm all docker containers" >/dev/stderr
-  echo -e "${PRE}   docker images -a -q pachyderm_proto | xargs docker rmi" >/dev/stderr
+  echo -e "${PRE}   docker ps -aq --filter=ancestor=pachyderm_proto | xargs docker rm  "\#" rm all docker containers" >/dev/stderr
+  echo -e "${PRE}   docker images -aq pachyderm_proto | xargs docker rmi" >/dev/stderr
   echo -e "${PRE}   docker image prune" >/dev/stderr
   echo -e "${PRE} and then re-run 'make proto'" >/dev/stderr
   echo -e "\e[1;31m~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\e[0m" >/dev/stderr
