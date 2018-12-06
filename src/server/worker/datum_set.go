@@ -17,12 +17,12 @@ type DatumFactory interface {
 	Datum(i int) []*Input
 }
 
-type atomDatumFactory struct {
+type pfsDatumFactory struct {
 	inputs []*Input
 }
 
-func newAtomDatumFactory(pachClient *client.APIClient, input *pps.AtomInput) (DatumFactory, error) {
-	result := &atomDatumFactory{}
+func newPFSDatumFactory(pachClient *client.APIClient, input *pps.PFSInput) (DatumFactory, error) {
+	result := &pfsDatumFactory{}
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
 		// before all commits have inputs
@@ -64,12 +64,22 @@ func newAtomDatumFactory(pachClient *client.APIClient, input *pps.AtomInput) (Da
 	return result, nil
 }
 
-func (d *atomDatumFactory) Len() int {
+func (d *pfsDatumFactory) Len() int {
 	return len(d.inputs)
 }
 
-func (d *atomDatumFactory) Datum(i int) []*Input {
+func (d *pfsDatumFactory) Datum(i int) []*Input {
 	return []*Input{d.inputs[i]}
+}
+
+func newAtomDatumFactory(pachClient *client.APIClient, input *pps.AtomInput) (DatumFactory, error) {
+	return newPFSDatumFactory(pachClient, &pps.PFSInput{
+		Name: input.Name,
+		Repo: input.Repo,
+		Branch: input.Branch,
+		Glob: input.Glob,
+		Lazy: input.Lazy,
+	})
 }
 
 type unionDatumFactory struct {
@@ -182,7 +192,7 @@ func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input) (Dat
 }
 
 func newCronDatumFactory(pachClient *client.APIClient, input *pps.CronInput) (DatumFactory, error) {
-	return newAtomDatumFactory(pachClient, &pps.AtomInput{
+	return newPFSDatumFactory(pachClient, &pps.PFSInput{
 		Name:   input.Name,
 		Repo:   input.Repo,
 		Branch: "master",
@@ -196,6 +206,8 @@ func NewDatumFactory(pachClient *client.APIClient, input *pps.Input) (DatumFacto
 	switch {
 	case input.Atom != nil:
 		return newAtomDatumFactory(pachClient, input.Atom)
+	case input.Pfs != nil:
+		return newPFSDatumFactory(pachClient, input.Pfs)
 	case input.Union != nil:
 		return newUnionDatumFactory(pachClient, input.Union)
 	case input.Cross != nil:

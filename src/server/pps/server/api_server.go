@@ -141,6 +141,11 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 			return fmt.Errorf(`name "%s" was used more than once`, input.Atom.Name)
 		}
 		names[input.Atom.Name] = true
+	case input.Pfs != nil:
+		if names[input.Pfs.Name] {
+			return fmt.Errorf(`name "%s" was used more than once`, input.Pfs.Name)
+		}
+		names[input.Pfs.Name] = true
 	case input.Cron != nil:
 		if names[input.Cron.Name] {
 			return fmt.Errorf(`name "%s" was used more than once`, input.Cron.Name)
@@ -207,6 +212,35 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 				} else {
 					// for pipelines we only check that the repo exists
 					if _, err := pachClient.InspectRepo(input.Atom.Repo); err != nil {
+						return err
+					}
+				}
+			}
+			if input.Pfs != nil {
+				set = true
+				switch {
+				case len(input.Pfs.Name) == 0:
+					return fmt.Errorf("input must specify a name")
+				case input.Pfs.Name == "out":
+					return fmt.Errorf("input cannot be named \"out\", as pachyderm " +
+						"already creates /pfs/out to collect job output")
+				case input.Pfs.Repo == "":
+					return fmt.Errorf("input must specify a repo")
+				case input.Pfs.Branch == "" && !job:
+					return fmt.Errorf("input must specify a branch")
+				case len(input.Pfs.Glob) == 0:
+					return fmt.Errorf("input must specify a glob")
+				}
+				// Note that input.Pfs.Commit is empty if a) this is a job b) one of
+				// the job pipeline's input branches has no commits yet
+				if job && input.Pfs.Commit != "" {
+					// for jobs we check that the input commit exists
+					if _, err := pachClient.InspectCommit(input.Pfs.Repo, input.Pfs.Commit); err != nil {
+						return err
+					}
+				} else {
+					// for pipelines we only check that the repo exists
+					if _, err := pachClient.InspectRepo(input.Pfs.Repo); err != nil {
 						return err
 					}
 				}
@@ -383,14 +417,20 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 		var eg errgroup.Group
 		done := make(map[string]struct{}) // don't double-authorize repos
 		pps.VisitInput(input, func(in *pps.Input) {
-			if in.Atom == nil {
+			var repo string
+
+			if in.Pfs != nil {
+				repo = in.Pfs.Repo
+			} else if in.Atom != nil {
+				repo = in.Atom.Repo
+			} else {
 				return
 			}
-			repo := in.Atom.Repo
+
 			if _, ok := done[repo]; ok {
 				return
 			}
-			done[in.Atom.Repo] = struct{}{}
+			done[repo] = struct{}{}
 			eg.Go(func() error {
 				resp, err := pachClient.Authorize(ctx, &auth.AuthorizeRequest{
 					Repo:  repo,
@@ -643,6 +683,13 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 				if in.Atom != nil {
 					for i, inputCommit := range inputCommits {
 						if in.Atom.Commit == inputCommit.ID {
+							found[i] = true
+						}
+					}
+				}
+				if in.Pfs != nil {
+					for i, inputCommit := range inputCommits {
+						if in.Pfs.Commit == inputCommit.ID {
 							found[i] = true
 						}
 					}
@@ -1483,6 +1530,9 @@ func branchProvenance(input *pps.Input) []*pfs.Branch {
 		if input.Atom != nil {
 			result = append(result, client.NewBranch(input.Atom.Repo, input.Atom.Branch))
 		}
+		if input.Pfs != nil {
+			result = append(result, client.NewBranch(input.Pfs.Repo, input.Pfs.Branch))
+		}
 		if input.Cron != nil {
 			result = append(result, client.NewBranch(input.Cron.Repo, "master"))
 		}
@@ -1622,6 +1672,8 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 			switch {
 			case input.Atom != nil:
 				repo = input.Atom.Repo
+			case input.Pfs != nil:
+				repo = input.Pfs.Repo
 			case input.Cron != nil:
 				repo = input.Cron.Repo
 			case input.Git != nil:
@@ -1651,6 +1703,8 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 			switch {
 			case input.Atom != nil:
 				repo = input.Atom.Repo
+			case input.Pfs != nil:
+				repo = input.Pfs.Repo
 			case input.Cron != nil:
 				repo = input.Cron.Repo
 			case input.Git != nil:
@@ -1947,6 +2001,14 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			}
 			if input.Atom.Name == "" {
 				input.Atom.Name = input.Atom.Repo
+			}
+		}
+		if input.Pfs != nil {
+			if input.Pfs.Branch == "" {
+				input.Pfs.Branch = "master"
+			}
+			if input.Pfs.Name == "" {
+				input.Pfs.Name = input.Pfs.Repo
 			}
 		}
 		if input.Cron != nil {

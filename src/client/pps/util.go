@@ -30,6 +30,8 @@ func InputName(input *Input) string {
 	switch {
 	case input.Atom != nil:
 		return input.Atom.Name
+	case input.Pfs != nil:
+		return input.Pfs.Name
 	case input.Cross != nil:
 		if len(input.Cross) > 0 {
 			return InputName(input.Cross[0])
@@ -65,6 +67,12 @@ func InputBranches(input *Input) []*pfs.Branch {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{Name: input.Atom.Repo},
 				Name: input.Atom.Branch,
+			})
+		}
+		if input.Pfs != nil {
+			result = append(result, &pfs.Branch{
+				Repo: &pfs.Repo{Name: input.Pfs.Repo},
+				Name: input.Pfs.Branch,
 			})
 		}
 		if input.Cron != nil {

@@ -81,7 +81,7 @@ func DatumTagPrefix(salt string) string {
 	return hex.EncodeToString(h.Sum(nil))[:4]
 }
 
-// NewAtomInput returns a new atom input. It only includes required options.
+// Deprecated: Use `NewPFSInput`
 func NewAtomInput(repo string, glob string) *pps.Input {
 	return &pps.Input{
 		Atom: &pps.AtomInput{
@@ -91,10 +91,33 @@ func NewAtomInput(repo string, glob string) *pps.Input {
 	}
 }
 
-// NewAtomInputOpts returns a new atom input. It includes all options.
+// Deprecated: Use `NewPFSInputOpts`
 func NewAtomInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
 	return &pps.Input{
 		Atom: &pps.AtomInput{
+			Name:   name,
+			Repo:   repo,
+			Branch: branch,
+			Glob:   glob,
+			Lazy:   lazy,
+		},
+	}
+}
+
+// NewPFSInput returns a new PFS input. It only includes required options.
+func NewPFSInput(repo string, glob string) *pps.Input {
+	return &pps.Input{
+		Pfs: &pps.PFSInput{
+			Repo: repo,
+			Glob: glob,
+		},
+	}
+}
+
+// Deprecated: NewPFSInputOpts returns a new PFS input. It includes all options.
+func NewPFSInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
+	return &pps.Input{
+		Pfs: &pps.PFSInput{
 			Name:   name,
 			Repo:   repo,
 			Branch: branch,

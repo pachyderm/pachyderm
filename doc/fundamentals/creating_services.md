@@ -10,7 +10,7 @@ is an example of Jupyter service:
 ```json
 {
     "input": {
-        "atom": {
+        "pfs": {
             "glob": "/",
             "repo": "input"
         }
