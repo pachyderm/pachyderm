@@ -87,9 +87,6 @@ pachctl auth set-config <<EOF
     "acs_url": "http://localhost:30654/saml/acs",
     "metadata_url": "http://localhost:30654/saml/metadata",
     "dash_url": "http://localhost:30080/auth/autologin",
-
-    # optional: enable verbose logging from auth, to fix bugs
-    "debug_logging": true
   }
 }
 EOF
