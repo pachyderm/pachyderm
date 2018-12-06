@@ -1,7 +1,7 @@
 # Coding Conventions
 
 All code in this repo should be written in Go, Shell or Make.  Exceptions are
-made for things under `doc/examples` because we want to be able to give people
+made for things under `examples` because we want to be able to give people
 examples of using the product in other languages. And for things like
 `doc/conf.py` which configures an outside tool we want to use for docs. However
 in choosing outside tooling we prefer tools that we can interface with entirely

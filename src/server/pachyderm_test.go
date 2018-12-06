@@ -4871,13 +4871,13 @@ func TestOpencvDemo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFileURL("images", "master", "46Q8nDz.jpg", "http://imgur.com/46Q8nDz.jpg", false, false))
 	require.NoError(t, c.FinishCommit("images", "master"))
-	bytes, err := ioutil.ReadFile("../../doc/examples/opencv/edges.json")
+	bytes, err := ioutil.ReadFile("../../examples/opencv/edges.json")
 	require.NoError(t, err)
 	createPipelineRequest := &pps.CreatePipelineRequest{}
 	require.NoError(t, json.Unmarshal(bytes, createPipelineRequest))
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest)
 	require.NoError(t, err)
-	bytes, err = ioutil.ReadFile("../../doc/examples/opencv/montage.json")
+	bytes, err = ioutil.ReadFile("../../examples/opencv/montage.json")
 	require.NoError(t, err)
 	createPipelineRequest = &pps.CreatePipelineRequest{}
 	require.NoError(t, json.Unmarshal(bytes, createPipelineRequest))
