@@ -67,7 +67,7 @@ const (
 
 // NewJob creates a pps.Job.
 func NewJob(jobID string) *pps.Job {
-	return NewJob(jobID)
+	return &pps.Job{ID: jobID}
 }
 
 // DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
