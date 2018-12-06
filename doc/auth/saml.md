@@ -9,8 +9,8 @@ This guide will walk through an example of using Pachyderm's SAML support. Speci
 
 ## Activation
 
-When starting out, we **highly** recommend running Pachyderm in Minikube, in case
-any configuration bugs make it necessary to restart the cluster.
+When starting out, we **highly** recommend running Pachyderm in Minikube, as
+mistakes in this configuration could lock you out of your cluster.
 
 To activate Pachyderm enterprise and Pachyderm auth:
 
