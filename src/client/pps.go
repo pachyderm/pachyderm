@@ -67,7 +67,7 @@ const (
 
 // NewJob creates a pps.Job.
 func NewJob(jobID string) *pps.Job {
-	return &pps.Job{ID: jobID}
+	return NewJob(jobID)
 }
 
 // DatumTagPrefix hashes a pipeline salt to a string of a fixed size for use as
@@ -331,7 +331,7 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job:      &pps.Job{jobID},
+			Job:      NewJob(jobID),
 			PageSize: pageSize,
 			Page:     page,
 		},
@@ -363,7 +363,7 @@ func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(d
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job:      &pps.Job{jobID},
+			Job:      NewJob(jobID),
 			PageSize: pageSize,
 			Page:     page,
 		},
@@ -394,7 +394,7 @@ func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, e
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
 				ID:  datumID,
-				Job: &pps.Job{jobID},
+				Job: NewJob(jobID),
 			},
 		},
 	)
@@ -460,15 +460,15 @@ func (c APIClient) GetLogs(
 	}
 	resp := &LogsIter{}
 	if pipelineName != "" {
-		request.Pipeline = &pps.Pipeline{pipelineName}
+		request.Pipeline = NewPipeline(pipelineName)
 	}
 	if jobID != "" {
-		request.Job = &pps.Job{jobID}
+		request.Job = NewJob(jobID)
 	}
 	request.DataFilters = data
 	if datumID != "" {
 		request.Datum = &pps.Datum{
-			Job: &pps.Job{jobID},
+			Job: NewJob(jobID),
 			ID:  datumID,
 		}
 	}
