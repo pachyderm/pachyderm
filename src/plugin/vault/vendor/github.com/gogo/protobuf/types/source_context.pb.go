@@ -7,6 +7,8 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
+import bytes "bytes"
+
 import strings "strings"
 import reflect "reflect"
 
@@ -17,17 +19,54 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // `SourceContext` represents information about the source of a
 // protobuf element, like the file in which it is defined.
 type SourceContext struct {
 	// The path-qualified name of the .proto file that contained the associated
 	// protobuf element.  For example: `"google/protobuf/source_context.proto"`.
-	FileName string `protobuf:"bytes,1,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`
+	FileName             string   `protobuf:"bytes,1,opt,name=file_name,json=fileName,proto3" json:"file_name,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *SourceContext) Reset()                    { *m = SourceContext{} }
-func (*SourceContext) ProtoMessage()               {}
-func (*SourceContext) Descriptor() ([]byte, []int) { return fileDescriptorSourceContext, []int{0} }
+func (m *SourceContext) Reset()      { *m = SourceContext{} }
+func (*SourceContext) ProtoMessage() {}
+func (*SourceContext) Descriptor() ([]byte, []int) {
+	return fileDescriptor_source_context_b387e69fb08d10e5, []int{0}
+}
+func (m *SourceContext) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *SourceContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_SourceContext.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *SourceContext) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SourceContext.Merge(dst, src)
+}
+func (m *SourceContext) XXX_Size() int {
+	return m.Size()
+}
+func (m *SourceContext) XXX_DiscardUnknown() {
+	xxx_messageInfo_SourceContext.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SourceContext proto.InternalMessageInfo
 
 func (m *SourceContext) GetFileName() string {
 	if m != nil {
@@ -36,6 +75,9 @@ func (m *SourceContext) GetFileName() string {
 	return ""
 }
 
+func (*SourceContext) XXX_MessageName() string {
+	return "google.protobuf.SourceContext"
+}
 func init() {
 	proto.RegisterType((*SourceContext)(nil), "google.protobuf.SourceContext")
 }
@@ -70,6 +112,9 @@ func (this *SourceContext) Compare(that interface{}) int {
 		}
 		return 1
 	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
+	}
 	return 0
 }
 func (this *SourceContext) Equal(that interface{}) bool {
@@ -94,6 +139,9 @@ func (this *SourceContext) Equal(that interface{}) bool {
 	if this.FileName != that1.FileName {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *SourceContext) GoString() string {
@@ -103,6 +151,9 @@ func (this *SourceContext) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.SourceContext{")
 	s = append(s, "FileName: "+fmt.Sprintf("%#v", this.FileName)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -135,6 +186,9 @@ func (m *SourceContext) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintSourceContext(dAtA, i, uint64(len(m.FileName)))
 		i += copy(dAtA[i:], m.FileName)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -151,6 +205,7 @@ func NewPopulatedSourceContext(r randySourceContext, easy bool) *SourceContext {
 	this := &SourceContext{}
 	this.FileName = string(randStringSourceContext(r))
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedSourceContext(r, 2)
 	}
 	return this
 }
@@ -228,11 +283,17 @@ func encodeVarintPopulateSourceContext(dAtA []byte, v uint64) []byte {
 	return dAtA
 }
 func (m *SourceContext) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.FileName)
 	if l > 0 {
 		n += 1 + l + sovSourceContext(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -256,6 +317,7 @@ func (this *SourceContext) String() string {
 	}
 	s := strings.Join([]string{`&SourceContext{`,
 		`FileName:` + fmt.Sprintf("%v", this.FileName) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -338,6 +400,7 @@ func (m *SourceContext) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -452,22 +515,24 @@ var (
 	ErrIntOverflowSourceContext   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("google/protobuf/source_context.proto", fileDescriptorSourceContext) }
+func init() {
+	proto.RegisterFile("google/protobuf/source_context.proto", fileDescriptor_source_context_b387e69fb08d10e5)
+}
 
-var fileDescriptorSourceContext = []byte{
+var fileDescriptor_source_context_b387e69fb08d10e5 = []byte{
 	// 212 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x52, 0x49, 0xcf, 0xcf, 0x4f,
 	0xcf, 0x49, 0xd5, 0x2f, 0x28, 0xca, 0x2f, 0xc9, 0x4f, 0x2a, 0x4d, 0xd3, 0x2f, 0xce, 0x2f, 0x2d,
 	0x4a, 0x4e, 0x8d, 0x4f, 0xce, 0xcf, 0x2b, 0x49, 0xad, 0x28, 0xd1, 0x03, 0x8b, 0x0b, 0xf1, 0x43,
 	0x54, 0xe9, 0xc1, 0x54, 0x29, 0xe9, 0x70, 0xf1, 0x06, 0x83, 0x15, 0x3a, 0x43, 0xd4, 0x09, 0x49,
 	0x73, 0x71, 0xa6, 0x65, 0xe6, 0xa4, 0xc6, 0xe7, 0x25, 0xe6, 0xa6, 0x4a, 0x30, 0x2a, 0x30, 0x6a,
-	0x70, 0x06, 0x71, 0x80, 0x04, 0xfc, 0x12, 0x73, 0x53, 0x9d, 0x3a, 0x19, 0x2f, 0x3c, 0x94, 0x63,
-	0xb8, 0xf1, 0x50, 0x8e, 0xe1, 0xc3, 0x43, 0x39, 0xc6, 0x1f, 0x0f, 0xe5, 0x18, 0x1b, 0x1e, 0xc9,
-	0x31, 0xae, 0x78, 0x24, 0xc7, 0x78, 0xe2, 0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e,
-	0xc9, 0x31, 0xbe, 0x78, 0x24, 0xc7, 0xf0, 0x01, 0x24, 0xfe, 0x58, 0x8e, 0x91, 0x4b, 0x38, 0x39,
+	0x70, 0x06, 0x71, 0x80, 0x04, 0xfc, 0x12, 0x73, 0x53, 0x9d, 0x3a, 0x19, 0x6f, 0x3c, 0x94, 0x63,
+	0xf8, 0xf0, 0x50, 0x8e, 0xf1, 0xc7, 0x43, 0x39, 0xc6, 0x86, 0x47, 0x72, 0x8c, 0x2b, 0x1e, 0xc9,
+	0x31, 0x9e, 0x78, 0x24, 0xc7, 0x78, 0xe1, 0x91, 0x1c, 0xe3, 0x83, 0x47, 0x72, 0x8c, 0x2f, 0x1e,
+	0xc9, 0x31, 0x7c, 0x00, 0x89, 0x3f, 0x96, 0x63, 0x3c, 0xf1, 0x58, 0x8e, 0x91, 0x4b, 0x38, 0x39,
 	0x3f, 0x57, 0x0f, 0xcd, 0x56, 0x27, 0x21, 0x14, 0x3b, 0x03, 0x40, 0xc2, 0x01, 0x8c, 0x51, 0xac,
 	0x25, 0x95, 0x05, 0xa9, 0xc5, 0x8b, 0x98, 0x98, 0xdd, 0x03, 0x9c, 0x56, 0x31, 0xc9, 0xb9, 0x43,
 	0x34, 0x05, 0x40, 0x35, 0xe9, 0x85, 0xa7, 0xe6, 0xe4, 0x78, 0xe7, 0xe5, 0x97, 0xe7, 0x85, 0x80,
-	0x94, 0x25, 0xb1, 0x81, 0x4d, 0x33, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0x4b, 0x7a, 0x1a, 0x45,
+	0x94, 0x25, 0xb1, 0x81, 0x4d, 0x33, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xb8, 0x37, 0x2a, 0xa1,
 	0xf9, 0x00, 0x00, 0x00,
 }
