@@ -1,6 +1,8 @@
 ## ./pachctl glob-file
 
-Return files that match a glob pattern in a commit.
+Return files that match a glob pattern in a commit.  
+
+**Note**: When working with glob patterns it's recommended that you wrap your pattern in quotes to eliminate any issues with your shell interpreting your input as an expression. For example, `pachctl glob-file foo master /*` might throw an error, where `pachctl glob-file foo master "/*"` will not. 
 
 ### Synopsis
 
@@ -24,7 +26,7 @@ $ pachctl glob-file foo master "data/*"
 ```
 
 ```
-./pachctl glob-file repo-name commit-id pattern
+./pachctl glob-file repo-name commit-id "pattern"
 ```
 
 ### Options
