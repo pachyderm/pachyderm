@@ -14,7 +14,7 @@ libraries you want. It can be as simple as a bash command or as complicated as
 a TensorFlow neural network.  At the end of the day, all your code and
 dependencies will be built into a container that can run anywhere (including
 inside of Pachyderm). We've got demonstrative [examples on
-GitHub](https://github.com/pachyderm/pachyderm/tree/master/doc/examples) using
+GitHub](https://github.com/pachyderm/pachyderm/tree/master/examples) using
 bash, Python, TensorFlow, and OpenCV and we're constantly adding more.
 
 As we touch on briefly in the [beginner

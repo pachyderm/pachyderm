@@ -79,7 +79,7 @@ We can also view the file we just added to Pachyderm. Since this is an image, we
 Create a Pipeline
 ^^^^^^^^^^^^^^^^^
 
-Now that we've got some data in our repo, it's time to do something with it. ``Pipelines`` are the core processing primitive in Pachyderm and they're specified with a JSON encoding. For this example, we've already created the pipeline for you and you can find the `code on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/opencv>`_. 
+Now that we've got some data in our repo, it's time to do something with it. ``Pipelines`` are the core processing primitive in Pachyderm and they're specified with a JSON encoding. For this example, we've already created the pipeline for you and you can find the `code on Github <https://github.com/pachyderm/pachyderm/blob/master/examples/opencv>`_. 
 
 When you want to create your own pipelines later, you can refer to the full :doc:`../reference/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of the pre-built Docker image we'll be using here.
 
@@ -143,7 +143,7 @@ Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
-  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/opencv/edges.json
+  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 
 
 
@@ -272,7 +272,7 @@ We create this next pipeline as before, with ``pachctl``:
 
 .. code-block:: shell
 
-  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/opencv/montage.json
+  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
 
 This will automatically trigger a job that generates a montage for all the current HEAD commits of the input repos:
 

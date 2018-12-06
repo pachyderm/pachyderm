@@ -38,7 +38,7 @@ We'll use the `put-file` command along with a flag, `-f`. `-f` can take either a
  We also specificy the repo name `data`, the branch name `master`, and the path `/sales` to which the data will be written  (under the hood, `put-file` creates a new commit in whatever branch it's passed).
 
 ```sh
-$ pachctl put-file data master /sales -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/doc/examples/fruit_stand/set1.txt
+$ pachctl put-file data master /sales -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/examples/fruit_stand/set1.txt
 ```
 
 Finally, we can see the data we just added to Pachyderm.
@@ -64,7 +64,7 @@ apple	6
 
 ## Create a Pipeline
 
-Now that we've got some data in our repo, it's time to do something with it. `Pipelines` are the core primitive for Pachyderm's processing system (pps) and they're specified with a JSON encoding. For this example, we've already created two pipelines for you, which can be found at [examples/fruit_stand/pipeline.json on Github](https://github.com/pachyderm/pachyderm/blob/v1.7.3/doc/examples/fruit_stand/pipeline.json). Please open a new tab to view the pipeline while we talk through it.
+Now that we've got some data in our repo, it's time to do something with it. `Pipelines` are the core primitive for Pachyderm's processing system (pps) and they're specified with a JSON encoding. For this example, we've already created two pipelines for you, which can be found at [examples/fruit_stand/pipeline.json on Github](https://github.com/pachyderm/pachyderm/blob/v1.7.3/examples/fruit_stand/pipeline.json). Please open a new tab to view the pipeline while we talk through it.
 
 When you want to create your own pipelines later, you can refer to the full [pipeline spec](http://docs.pachyderm.io/en/v1.7.3/reference/pipeline_spec.html) to use more advanced options. This includes building your own code into a container instead of just using simple shell commands as we're doing here.
 
@@ -83,7 +83,7 @@ The second step of this pipeline takes each file, removes the fruit name, and su
 Now let's create the pipeline in Pachyderm:
 
 ```sh
-$ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/doc/examples/fruit_stand/pipeline.json
+$ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/examples/fruit_stand/pipeline.json
 ```
 
 ## What Happens When You Create a Pipeline
@@ -127,7 +127,7 @@ In this case, we're going to be adding more data to the file "sales". Our fruit 
 Let's create a new commit with our previous commit as the parent and add more sample data (set2.txt) to "sales":
 
 ```sh
-$ pachctl put-file data master sales -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/doc/examples/fruit_stand/set2.txt
+$ pachctl put-file data master sales -f https://raw.githubusercontent.com/pachyderm/pachyderm/v1.7.3/examples/fruit_stand/set2.txt
 ```
 
 Adding a new commit of data will automatically trigger the pipeline to run on the new data we've added. We'll see a corresponding commit to the output "sum" repo with files "apple", "orange" and "banana" each containing the cumulative total of purchases. Let's read the "apples" file again and see the new total number of apples sold.
@@ -152,7 +152,7 @@ $ pachctl get-file sum master /apple
 ## Next Steps
 You've now got Pachyderm running locally with data and a pipeline! If you want to keep playing with Pachyderm locally, here are some ideas to expand on your working setup.
 
-  - Write a script to stream more data into Pachyderm. We already have one in Golang for you on [GitHub](https://github.com/pachyderm/pachyderm/tree/v1.7.3/doc/examples/fruit_stand/generate) if you want to use it.
+  - Write a script to stream more data into Pachyderm. We already have one in Golang for you on [GitHub](https://github.com/pachyderm/pachyderm/tree/v1.7.3/examples/fruit_stand/generate) if you want to use it.
   - Add a new pipeline that does something interesting with the "sum" repo as an input.
   - Add your own data set and `grep` for different terms. This example can be generalized to generic word count.
 
