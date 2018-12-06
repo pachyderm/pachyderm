@@ -358,6 +358,8 @@ func ShorthandInput(input *ppsclient.Input) string {
 	switch {
 	case input.Atom != nil:
 		return fmt.Sprintf("%s:%s", input.Atom.Repo, input.Atom.Glob)
+	case input.Pfs != nil:
+		return fmt.Sprintf("%s:%s", input.Pfs.Repo, input.Pfs.Glob)
 	case input.Cross != nil:
 		var subInput []string
 		for _, input := range input.Cross {

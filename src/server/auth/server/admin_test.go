@@ -460,7 +460,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
+		client.NewPFSInput(repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
@@ -702,7 +702,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
+		client.NewPFSInput(repo, "/*"),
 		"",    // default output branch: master
 		false, // no update
 	))
@@ -967,7 +967,7 @@ func TestGetAuthToken(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
+		client.NewPFSInput(repo, "/*"),
 		"",    // default output branch: master
 		false, // no update
 	))
@@ -1002,7 +1002,7 @@ func TestGetAuthToken(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
+		client.NewPFSInput(repo, "/*"),
 		"",   // default output branch: master
 		true, // update
 	))
@@ -1386,7 +1386,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 		[]string{"bash"},
 		[]string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", repo)},
 		&pps.ParallelismSpec{Constant: 1},
-		client.NewAtomInput(repo, "/*"),
+		client.NewPFSInput(repo, "/*"),
 		"", // default output branch: master
 		false,
 	))
