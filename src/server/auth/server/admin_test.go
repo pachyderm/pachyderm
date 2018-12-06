@@ -858,8 +858,15 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 		Repo: repo,
 	})
 	require.NoError(t, err)
+	aclEntries := make([]aclEntry, 0, len(aclResp.Entries))
+	for _, e := range aclResp.Entries {
+		aclEntries = append(aclEntries, aclEntry{
+			Username: e.Username,
+			Scope:    e.Scope,
+		})
+	}
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), aclResp.Entries)
+		entries(alice, "owner", "carol", "reader"), aclEntries)
 
 	// admin can call SetAcl on repo
 	_, err = adminClient.SetACL(adminClient.Ctx(), &auth.SetACLRequest{
