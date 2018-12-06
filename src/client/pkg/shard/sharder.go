@@ -798,7 +798,10 @@ func (a *sharder) fillRoles(
 				}
 				wg.Wait()
 				if removeShardErr != nil {
-					log.Error(&RemoveServerRole{&serverRole, removeShardErr.Error()})
+					log.Error(&RemoveServerRole{
+						ServerRole: &serverRole,
+						Error:      removeShardErr.Error(),
+					})
 					return removeShardErr
 				}
 			}
