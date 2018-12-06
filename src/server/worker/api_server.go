@@ -834,7 +834,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	if err := putObjsClient.CloseSend(); err != nil {
 		return err
 	}
-	w, err := pachClient.PutObjectAsync([]*pfs.Tag{&pfs.Tag{tag}})
+	w, err := pachClient.PutObjectAsync([]*pfs.Tag{client.NewTag(tag)})
 	if err != nil {
 		return err
 	}
@@ -1185,7 +1185,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 				if a.pipelineInfo.EnableStats {
 					var statsTags []*pfs.Tag
 					for _, tag := range tags {
-						statsTags = append(statsTags, &pfs.Tag{tag.Name + statsTagSuffix})
+						statsTags = append(statsTags, client.NewTag(tag.Name+statsTagSuffix))
 					}
 					rs, err := a.getHashtrees(ctx, pachClient, objClient, statsTags, hashtree.NewFilter(plan.Merges, merge))
 					if err != nil {
@@ -1594,7 +1594,7 @@ func (a *APIServer) worker() {
 				if _, ok := skip[datumHash]; ok && useParentHashTree {
 					continue
 				}
-				tags = append(tags, &pfs.Tag{datumHash})
+				tags = append(tags, client.NewTag(datumHash))
 			}
 			skip = nil
 			jobInfo, err = pachClient.InspectJob(jobID, false)
@@ -1650,7 +1650,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				logger.Logf("skipping datum")
 				return nil
 			}
-			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+			if _, err := pachClient.InspectTag(ctx, client.NewTag(tag)); err == nil {
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
@@ -1875,7 +1875,7 @@ func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Clien
 	outputTree.Serialize(outputBuf)
 	statsBuf := &bytes.Buffer{}
 	statsTree.Ordered().Serialize(statsBuf)
-	objW, err := pachClient.PutObjectAsync([]*pfs.Tag{&pfs.Tag{tag + statsTagSuffix}})
+	objW, err := pachClient.PutObjectAsync([]*pfs.Tag{client.NewTag(tag + statsTagSuffix)})
 	if err != nil {
 		return err
 	}

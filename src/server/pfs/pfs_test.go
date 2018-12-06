@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/stretchr/testify/require"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 func TestErrorMatching(t *testing.T) {
