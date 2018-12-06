@@ -42,6 +42,12 @@ What the `--initial-admin` flag does is this:
    $ # you are now robot:admin, cluster administrator
    ```
 
+The rest of this example assumes that your Pachyderm cluster is running in
+minikube, and you're accessing it via `pachctl port-forward`. Many of the
+SAML service provider URLs below are set to some variation of `localhost`,
+which will only work if you're using port-forward and your browser is able
+to access Pachyderm via `localhost` on `pachctl port-forward`'s usual ports.
+
 ## Create IdP test app
 The ID provider (IdP) that this example uses is Okta. Here is an example
 configuration for an Okta test app that authenticates Okta users
@@ -56,8 +62,9 @@ app here:
 
 ## Write Pachyderm config
 Broadly, setting an auth config is what enables SAML in Pachyderm
-(specifically, it enables Pachyderm's ACS). Here is an example config that will
-allow users to authenticate in your Pachyderm cluster using the Okta app above:
+(specifically, it enables Pachyderm's ACS). Below is an example config that will
+allow users to authenticate in your Pachyderm cluster using the Okta app above.
+Note that this example assumes
 
 ```
 # Lookup current config version--pachyderm config has a barrier to prevent
