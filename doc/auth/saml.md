@@ -3,10 +3,9 @@
 This guide will walk through an example of using Pachyderm's SAML support. Specifically, we will:
 
 1. Activate Pachyderm enterprise and Pachyderm auth
-2. Configure Pachyderm's auth system to enable its SAML ACS and receive SAML
-    assertions
+2. Configure Pachyderm's auth system to enable its SAML ACS, receive SAML
+   assertions, and allow us to log in via Okta
 3. Log in to both the dash and CLI
-4. Enable debug logging in case anything goes wrong
 
 ## Activation
 
@@ -47,10 +46,12 @@ What the `--initial-admin` flag does is this:
 The ID provider (IdP) that this example uses is Okta. Here is an example
 configuration for an Okta test app that authenticates Okta users
 with Pachyderm:
+
 ![Okta test app config](https://github.com/pachyderm/pachyderm/blob/handle_requests_crewjam/doc/auth/okta_form.png)
 
 Once created, you can get the IdP Metadata URL associated with the test Okta
 app here:
+
 ![Metadata image](https://github.com/pachyderm/pachyderm/blob/handle_requests_crewjam/doc/auth/IdPMetadata_highlight.png)
 
 ## Write Pachyderm config
