@@ -24,7 +24,6 @@ import "google/protobuf/timestamp.proto";
  *      "pipeline:terasort"
  */
 
-
 //// Activation API
 
 // ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via

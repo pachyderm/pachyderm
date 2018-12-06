@@ -12,7 +12,7 @@ import bytes "bytes"
 import strings "strings"
 import reflect "reflect"
 
-import binary "encoding/binary"
+import encoding_binary "encoding/binary"
 
 import io "io"
 
@@ -21,18 +21,55 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion2 // please upgrade the proto package
+
 // Wrapper message for `double`.
 //
 // The JSON representation for `DoubleValue` is JSON number.
 type DoubleValue struct {
 	// The double value.
-	Value float64 `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                float64  `protobuf:"fixed64,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *DoubleValue) Reset()                    { *m = DoubleValue{} }
-func (*DoubleValue) ProtoMessage()               {}
-func (*DoubleValue) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{0} }
-func (*DoubleValue) XXX_WellKnownType() string   { return "DoubleValue" }
+func (m *DoubleValue) Reset()      { *m = DoubleValue{} }
+func (*DoubleValue) ProtoMessage() {}
+func (*DoubleValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{0}
+}
+func (*DoubleValue) XXX_WellKnownType() string { return "DoubleValue" }
+func (m *DoubleValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DoubleValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DoubleValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *DoubleValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DoubleValue.Merge(dst, src)
+}
+func (m *DoubleValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *DoubleValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_DoubleValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DoubleValue proto.InternalMessageInfo
 
 func (m *DoubleValue) GetValue() float64 {
 	if m != nil {
@@ -41,18 +78,53 @@ func (m *DoubleValue) GetValue() float64 {
 	return 0
 }
 
+func (*DoubleValue) XXX_MessageName() string {
+	return "google.protobuf.DoubleValue"
+}
+
 // Wrapper message for `float`.
 //
 // The JSON representation for `FloatValue` is JSON number.
 type FloatValue struct {
 	// The float value.
-	Value float32 `protobuf:"fixed32,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                float32  `protobuf:"fixed32,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *FloatValue) Reset()                    { *m = FloatValue{} }
-func (*FloatValue) ProtoMessage()               {}
-func (*FloatValue) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{1} }
-func (*FloatValue) XXX_WellKnownType() string   { return "FloatValue" }
+func (m *FloatValue) Reset()      { *m = FloatValue{} }
+func (*FloatValue) ProtoMessage() {}
+func (*FloatValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{1}
+}
+func (*FloatValue) XXX_WellKnownType() string { return "FloatValue" }
+func (m *FloatValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FloatValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FloatValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *FloatValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FloatValue.Merge(dst, src)
+}
+func (m *FloatValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *FloatValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_FloatValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FloatValue proto.InternalMessageInfo
 
 func (m *FloatValue) GetValue() float32 {
 	if m != nil {
@@ -61,18 +133,53 @@ func (m *FloatValue) GetValue() float32 {
 	return 0
 }
 
+func (*FloatValue) XXX_MessageName() string {
+	return "google.protobuf.FloatValue"
+}
+
 // Wrapper message for `int64`.
 //
 // The JSON representation for `Int64Value` is JSON string.
 type Int64Value struct {
 	// The int64 value.
-	Value int64 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                int64    `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Int64Value) Reset()                    { *m = Int64Value{} }
-func (*Int64Value) ProtoMessage()               {}
-func (*Int64Value) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{2} }
-func (*Int64Value) XXX_WellKnownType() string   { return "Int64Value" }
+func (m *Int64Value) Reset()      { *m = Int64Value{} }
+func (*Int64Value) ProtoMessage() {}
+func (*Int64Value) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{2}
+}
+func (*Int64Value) XXX_WellKnownType() string { return "Int64Value" }
+func (m *Int64Value) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Int64Value) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Int64Value.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *Int64Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Int64Value.Merge(dst, src)
+}
+func (m *Int64Value) XXX_Size() int {
+	return m.Size()
+}
+func (m *Int64Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_Int64Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Int64Value proto.InternalMessageInfo
 
 func (m *Int64Value) GetValue() int64 {
 	if m != nil {
@@ -81,18 +188,53 @@ func (m *Int64Value) GetValue() int64 {
 	return 0
 }
 
+func (*Int64Value) XXX_MessageName() string {
+	return "google.protobuf.Int64Value"
+}
+
 // Wrapper message for `uint64`.
 //
 // The JSON representation for `UInt64Value` is JSON string.
 type UInt64Value struct {
 	// The uint64 value.
-	Value uint64 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                uint64   `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UInt64Value) Reset()                    { *m = UInt64Value{} }
-func (*UInt64Value) ProtoMessage()               {}
-func (*UInt64Value) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{3} }
-func (*UInt64Value) XXX_WellKnownType() string   { return "UInt64Value" }
+func (m *UInt64Value) Reset()      { *m = UInt64Value{} }
+func (*UInt64Value) ProtoMessage() {}
+func (*UInt64Value) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{3}
+}
+func (*UInt64Value) XXX_WellKnownType() string { return "UInt64Value" }
+func (m *UInt64Value) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UInt64Value) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UInt64Value.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *UInt64Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UInt64Value.Merge(dst, src)
+}
+func (m *UInt64Value) XXX_Size() int {
+	return m.Size()
+}
+func (m *UInt64Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_UInt64Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UInt64Value proto.InternalMessageInfo
 
 func (m *UInt64Value) GetValue() uint64 {
 	if m != nil {
@@ -101,18 +243,53 @@ func (m *UInt64Value) GetValue() uint64 {
 	return 0
 }
 
+func (*UInt64Value) XXX_MessageName() string {
+	return "google.protobuf.UInt64Value"
+}
+
 // Wrapper message for `int32`.
 //
 // The JSON representation for `Int32Value` is JSON number.
 type Int32Value struct {
 	// The int32 value.
-	Value int32 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                int32    `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Int32Value) Reset()                    { *m = Int32Value{} }
-func (*Int32Value) ProtoMessage()               {}
-func (*Int32Value) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{4} }
-func (*Int32Value) XXX_WellKnownType() string   { return "Int32Value" }
+func (m *Int32Value) Reset()      { *m = Int32Value{} }
+func (*Int32Value) ProtoMessage() {}
+func (*Int32Value) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{4}
+}
+func (*Int32Value) XXX_WellKnownType() string { return "Int32Value" }
+func (m *Int32Value) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Int32Value) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Int32Value.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *Int32Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Int32Value.Merge(dst, src)
+}
+func (m *Int32Value) XXX_Size() int {
+	return m.Size()
+}
+func (m *Int32Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_Int32Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Int32Value proto.InternalMessageInfo
 
 func (m *Int32Value) GetValue() int32 {
 	if m != nil {
@@ -121,18 +298,53 @@ func (m *Int32Value) GetValue() int32 {
 	return 0
 }
 
+func (*Int32Value) XXX_MessageName() string {
+	return "google.protobuf.Int32Value"
+}
+
 // Wrapper message for `uint32`.
 //
 // The JSON representation for `UInt32Value` is JSON number.
 type UInt32Value struct {
 	// The uint32 value.
-	Value uint32 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                uint32   `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *UInt32Value) Reset()                    { *m = UInt32Value{} }
-func (*UInt32Value) ProtoMessage()               {}
-func (*UInt32Value) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{5} }
-func (*UInt32Value) XXX_WellKnownType() string   { return "UInt32Value" }
+func (m *UInt32Value) Reset()      { *m = UInt32Value{} }
+func (*UInt32Value) ProtoMessage() {}
+func (*UInt32Value) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{5}
+}
+func (*UInt32Value) XXX_WellKnownType() string { return "UInt32Value" }
+func (m *UInt32Value) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *UInt32Value) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_UInt32Value.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *UInt32Value) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UInt32Value.Merge(dst, src)
+}
+func (m *UInt32Value) XXX_Size() int {
+	return m.Size()
+}
+func (m *UInt32Value) XXX_DiscardUnknown() {
+	xxx_messageInfo_UInt32Value.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UInt32Value proto.InternalMessageInfo
 
 func (m *UInt32Value) GetValue() uint32 {
 	if m != nil {
@@ -141,18 +353,53 @@ func (m *UInt32Value) GetValue() uint32 {
 	return 0
 }
 
+func (*UInt32Value) XXX_MessageName() string {
+	return "google.protobuf.UInt32Value"
+}
+
 // Wrapper message for `bool`.
 //
 // The JSON representation for `BoolValue` is JSON `true` and `false`.
 type BoolValue struct {
 	// The bool value.
-	Value bool `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                bool     `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *BoolValue) Reset()                    { *m = BoolValue{} }
-func (*BoolValue) ProtoMessage()               {}
-func (*BoolValue) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{6} }
-func (*BoolValue) XXX_WellKnownType() string   { return "BoolValue" }
+func (m *BoolValue) Reset()      { *m = BoolValue{} }
+func (*BoolValue) ProtoMessage() {}
+func (*BoolValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{6}
+}
+func (*BoolValue) XXX_WellKnownType() string { return "BoolValue" }
+func (m *BoolValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *BoolValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_BoolValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *BoolValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BoolValue.Merge(dst, src)
+}
+func (m *BoolValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *BoolValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_BoolValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BoolValue proto.InternalMessageInfo
 
 func (m *BoolValue) GetValue() bool {
 	if m != nil {
@@ -161,18 +408,53 @@ func (m *BoolValue) GetValue() bool {
 	return false
 }
 
+func (*BoolValue) XXX_MessageName() string {
+	return "google.protobuf.BoolValue"
+}
+
 // Wrapper message for `string`.
 //
 // The JSON representation for `StringValue` is JSON string.
 type StringValue struct {
 	// The string value.
-	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                string   `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *StringValue) Reset()                    { *m = StringValue{} }
-func (*StringValue) ProtoMessage()               {}
-func (*StringValue) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{7} }
-func (*StringValue) XXX_WellKnownType() string   { return "StringValue" }
+func (m *StringValue) Reset()      { *m = StringValue{} }
+func (*StringValue) ProtoMessage() {}
+func (*StringValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{7}
+}
+func (*StringValue) XXX_WellKnownType() string { return "StringValue" }
+func (m *StringValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *StringValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_StringValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *StringValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StringValue.Merge(dst, src)
+}
+func (m *StringValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *StringValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_StringValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StringValue proto.InternalMessageInfo
 
 func (m *StringValue) GetValue() string {
 	if m != nil {
@@ -181,18 +463,53 @@ func (m *StringValue) GetValue() string {
 	return ""
 }
 
+func (*StringValue) XXX_MessageName() string {
+	return "google.protobuf.StringValue"
+}
+
 // Wrapper message for `bytes`.
 //
 // The JSON representation for `BytesValue` is JSON string.
 type BytesValue struct {
 	// The bytes value.
-	Value []byte `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Value                []byte   `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *BytesValue) Reset()                    { *m = BytesValue{} }
-func (*BytesValue) ProtoMessage()               {}
-func (*BytesValue) Descriptor() ([]byte, []int) { return fileDescriptorWrappers, []int{8} }
-func (*BytesValue) XXX_WellKnownType() string   { return "BytesValue" }
+func (m *BytesValue) Reset()      { *m = BytesValue{} }
+func (*BytesValue) ProtoMessage() {}
+func (*BytesValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_wrappers_c5239a825c7dfb53, []int{8}
+}
+func (*BytesValue) XXX_WellKnownType() string { return "BytesValue" }
+func (m *BytesValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *BytesValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_BytesValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (dst *BytesValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BytesValue.Merge(dst, src)
+}
+func (m *BytesValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *BytesValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_BytesValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_BytesValue proto.InternalMessageInfo
 
 func (m *BytesValue) GetValue() []byte {
 	if m != nil {
@@ -201,6 +518,9 @@ func (m *BytesValue) GetValue() []byte {
 	return nil
 }
 
+func (*BytesValue) XXX_MessageName() string {
+	return "google.protobuf.BytesValue"
+}
 func init() {
 	proto.RegisterType((*DoubleValue)(nil), "google.protobuf.DoubleValue")
 	proto.RegisterType((*FloatValue)(nil), "google.protobuf.FloatValue")
@@ -243,6 +563,9 @@ func (this *DoubleValue) Compare(that interface{}) int {
 		}
 		return 1
 	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
+	}
 	return 0
 }
 func (this *FloatValue) Compare(that interface{}) int {
@@ -275,6 +598,9 @@ func (this *FloatValue) Compare(that interface{}) int {
 			return -1
 		}
 		return 1
+	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
 	}
 	return 0
 }
@@ -309,6 +635,9 @@ func (this *Int64Value) Compare(that interface{}) int {
 		}
 		return 1
 	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
+	}
 	return 0
 }
 func (this *UInt64Value) Compare(that interface{}) int {
@@ -341,6 +670,9 @@ func (this *UInt64Value) Compare(that interface{}) int {
 			return -1
 		}
 		return 1
+	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
 	}
 	return 0
 }
@@ -375,6 +707,9 @@ func (this *Int32Value) Compare(that interface{}) int {
 		}
 		return 1
 	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
+	}
 	return 0
 }
 func (this *UInt32Value) Compare(that interface{}) int {
@@ -407,6 +742,9 @@ func (this *UInt32Value) Compare(that interface{}) int {
 			return -1
 		}
 		return 1
+	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
 	}
 	return 0
 }
@@ -441,6 +779,9 @@ func (this *BoolValue) Compare(that interface{}) int {
 		}
 		return 1
 	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
+	}
 	return 0
 }
 func (this *StringValue) Compare(that interface{}) int {
@@ -474,6 +815,9 @@ func (this *StringValue) Compare(that interface{}) int {
 		}
 		return 1
 	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
+	}
 	return 0
 }
 func (this *BytesValue) Compare(that interface{}) int {
@@ -504,6 +848,9 @@ func (this *BytesValue) Compare(that interface{}) int {
 	if c := bytes.Compare(this.Value, that1.Value); c != 0 {
 		return c
 	}
+	if c := bytes.Compare(this.XXX_unrecognized, that1.XXX_unrecognized); c != 0 {
+		return c
+	}
 	return 0
 }
 func (this *DoubleValue) Equal(that interface{}) bool {
@@ -526,6 +873,9 @@ func (this *DoubleValue) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Value != that1.Value {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -552,6 +902,9 @@ func (this *FloatValue) Equal(that interface{}) bool {
 	if this.Value != that1.Value {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *Int64Value) Equal(that interface{}) bool {
@@ -574,6 +927,9 @@ func (this *Int64Value) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Value != that1.Value {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -600,6 +956,9 @@ func (this *UInt64Value) Equal(that interface{}) bool {
 	if this.Value != that1.Value {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *Int32Value) Equal(that interface{}) bool {
@@ -622,6 +981,9 @@ func (this *Int32Value) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Value != that1.Value {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -648,6 +1010,9 @@ func (this *UInt32Value) Equal(that interface{}) bool {
 	if this.Value != that1.Value {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *BoolValue) Equal(that interface{}) bool {
@@ -670,6 +1035,9 @@ func (this *BoolValue) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Value != that1.Value {
+		return false
+	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
 		return false
 	}
 	return true
@@ -696,6 +1064,9 @@ func (this *StringValue) Equal(that interface{}) bool {
 	if this.Value != that1.Value {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *BytesValue) Equal(that interface{}) bool {
@@ -720,6 +1091,9 @@ func (this *BytesValue) Equal(that interface{}) bool {
 	if !bytes.Equal(this.Value, that1.Value) {
 		return false
 	}
+	if !bytes.Equal(this.XXX_unrecognized, that1.XXX_unrecognized) {
+		return false
+	}
 	return true
 }
 func (this *DoubleValue) GoString() string {
@@ -729,6 +1103,9 @@ func (this *DoubleValue) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.DoubleValue{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -739,6 +1116,9 @@ func (this *FloatValue) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.FloatValue{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -749,6 +1129,9 @@ func (this *Int64Value) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.Int64Value{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -759,6 +1142,9 @@ func (this *UInt64Value) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.UInt64Value{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -769,6 +1155,9 @@ func (this *Int32Value) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.Int32Value{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -779,6 +1168,9 @@ func (this *UInt32Value) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.UInt32Value{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -789,6 +1181,9 @@ func (this *BoolValue) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.BoolValue{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -799,6 +1194,9 @@ func (this *StringValue) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.StringValue{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -809,6 +1207,9 @@ func (this *BytesValue) GoString() string {
 	s := make([]string, 0, 5)
 	s = append(s, "&types.BytesValue{")
 	s = append(s, "Value: "+fmt.Sprintf("%#v", this.Value)+",\n")
+	if this.XXX_unrecognized != nil {
+		s = append(s, "XXX_unrecognized:"+fmt.Sprintf("%#v", this.XXX_unrecognized)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -838,8 +1239,11 @@ func (m *DoubleValue) MarshalTo(dAtA []byte) (int, error) {
 	if m.Value != 0 {
 		dAtA[i] = 0x9
 		i++
-		binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Value))))
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Value))))
 		i += 8
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -862,8 +1266,11 @@ func (m *FloatValue) MarshalTo(dAtA []byte) (int, error) {
 	if m.Value != 0 {
 		dAtA[i] = 0xd
 		i++
-		binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Value))))
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Value))))
 		i += 4
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -888,6 +1295,9 @@ func (m *Int64Value) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintWrappers(dAtA, i, uint64(m.Value))
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -910,6 +1320,9 @@ func (m *UInt64Value) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x8
 		i++
 		i = encodeVarintWrappers(dAtA, i, uint64(m.Value))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -934,6 +1347,9 @@ func (m *Int32Value) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintWrappers(dAtA, i, uint64(m.Value))
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -956,6 +1372,9 @@ func (m *UInt32Value) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x8
 		i++
 		i = encodeVarintWrappers(dAtA, i, uint64(m.Value))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -985,6 +1404,9 @@ func (m *BoolValue) MarshalTo(dAtA []byte) (int, error) {
 		}
 		i++
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -1008,6 +1430,9 @@ func (m *StringValue) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintWrappers(dAtA, i, uint64(len(m.Value)))
 		i += copy(dAtA[i:], m.Value)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return i, nil
 }
@@ -1033,6 +1458,9 @@ func (m *BytesValue) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintWrappers(dAtA, i, uint64(len(m.Value)))
 		i += copy(dAtA[i:], m.Value)
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	return i, nil
 }
 
@@ -1052,6 +1480,7 @@ func NewPopulatedDoubleValue(r randyWrappers, easy bool) *DoubleValue {
 		this.Value *= -1
 	}
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1063,6 +1492,7 @@ func NewPopulatedFloatValue(r randyWrappers, easy bool) *FloatValue {
 		this.Value *= -1
 	}
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1074,6 +1504,7 @@ func NewPopulatedInt64Value(r randyWrappers, easy bool) *Int64Value {
 		this.Value *= -1
 	}
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1082,6 +1513,7 @@ func NewPopulatedUInt64Value(r randyWrappers, easy bool) *UInt64Value {
 	this := &UInt64Value{}
 	this.Value = uint64(uint64(r.Uint32()))
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1093,6 +1525,7 @@ func NewPopulatedInt32Value(r randyWrappers, easy bool) *Int32Value {
 		this.Value *= -1
 	}
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1101,6 +1534,7 @@ func NewPopulatedUInt32Value(r randyWrappers, easy bool) *UInt32Value {
 	this := &UInt32Value{}
 	this.Value = uint32(r.Uint32())
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1109,6 +1543,7 @@ func NewPopulatedBoolValue(r randyWrappers, easy bool) *BoolValue {
 	this := &BoolValue{}
 	this.Value = bool(bool(r.Intn(2) == 0))
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1117,6 +1552,7 @@ func NewPopulatedStringValue(r randyWrappers, easy bool) *StringValue {
 	this := &StringValue{}
 	this.Value = string(randStringWrappers(r))
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1129,6 +1565,7 @@ func NewPopulatedBytesValue(r randyWrappers, easy bool) *BytesValue {
 		this.Value[i] = byte(r.Intn(256))
 	}
 	if !easy && r.Intn(10) != 0 {
+		this.XXX_unrecognized = randUnrecognizedWrappers(r, 2)
 	}
 	return this
 }
@@ -1206,84 +1643,138 @@ func encodeVarintPopulateWrappers(dAtA []byte, v uint64) []byte {
 	return dAtA
 }
 func (m *DoubleValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Value != 0 {
 		n += 9
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *FloatValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Value != 0 {
 		n += 5
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *Int64Value) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Value != 0 {
 		n += 1 + sovWrappers(uint64(m.Value))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
 
 func (m *UInt64Value) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Value != 0 {
 		n += 1 + sovWrappers(uint64(m.Value))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
 
 func (m *Int32Value) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Value != 0 {
 		n += 1 + sovWrappers(uint64(m.Value))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
 
 func (m *UInt32Value) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Value != 0 {
 		n += 1 + sovWrappers(uint64(m.Value))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *BoolValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	if m.Value {
 		n += 2
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *StringValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Value)
 	if l > 0 {
 		n += 1 + l + sovWrappers(uint64(l))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
 	return n
 }
 
 func (m *BytesValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
 	var l int
 	_ = l
 	l = len(m.Value)
 	if l > 0 {
 		n += 1 + l + sovWrappers(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
 	}
 	return n
 }
@@ -1307,6 +1798,7 @@ func (this *DoubleValue) String() string {
 	}
 	s := strings.Join([]string{`&DoubleValue{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1317,6 +1809,7 @@ func (this *FloatValue) String() string {
 	}
 	s := strings.Join([]string{`&FloatValue{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1327,6 +1820,7 @@ func (this *Int64Value) String() string {
 	}
 	s := strings.Join([]string{`&Int64Value{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1337,6 +1831,7 @@ func (this *UInt64Value) String() string {
 	}
 	s := strings.Join([]string{`&UInt64Value{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1347,6 +1842,7 @@ func (this *Int32Value) String() string {
 	}
 	s := strings.Join([]string{`&Int32Value{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1357,6 +1853,7 @@ func (this *UInt32Value) String() string {
 	}
 	s := strings.Join([]string{`&UInt32Value{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1367,6 +1864,7 @@ func (this *BoolValue) String() string {
 	}
 	s := strings.Join([]string{`&BoolValue{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1377,6 +1875,7 @@ func (this *StringValue) String() string {
 	}
 	s := strings.Join([]string{`&StringValue{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1387,6 +1886,7 @@ func (this *BytesValue) String() string {
 	}
 	s := strings.Join([]string{`&BytesValue{`,
 		`Value:` + fmt.Sprintf("%v", this.Value) + `,`,
+		`XXX_unrecognized:` + fmt.Sprintf("%v", this.XXX_unrecognized) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1436,7 +1936,7 @@ func (m *DoubleValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 8) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint64(binary.LittleEndian.Uint64(dAtA[iNdEx:]))
+			v = uint64(encoding_binary.LittleEndian.Uint64(dAtA[iNdEx:]))
 			iNdEx += 8
 			m.Value = float64(math.Float64frombits(v))
 		default:
@@ -1451,6 +1951,7 @@ func (m *DoubleValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1497,7 +1998,7 @@ func (m *FloatValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + 4) > l {
 				return io.ErrUnexpectedEOF
 			}
-			v = uint32(binary.LittleEndian.Uint32(dAtA[iNdEx:]))
+			v = uint32(encoding_binary.LittleEndian.Uint32(dAtA[iNdEx:]))
 			iNdEx += 4
 			m.Value = float32(math.Float32frombits(v))
 		default:
@@ -1512,6 +2013,7 @@ func (m *FloatValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1581,6 +2083,7 @@ func (m *Int64Value) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1650,6 +2153,7 @@ func (m *UInt64Value) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1719,6 +2223,7 @@ func (m *Int32Value) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1788,6 +2293,7 @@ func (m *UInt32Value) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1858,6 +2364,7 @@ func (m *BoolValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -1937,6 +2444,7 @@ func (m *StringValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2018,6 +2526,7 @@ func (m *BytesValue) Unmarshal(dAtA []byte) error {
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
 			iNdEx += skippy
 		}
 	}
@@ -2132,9 +2641,11 @@ var (
 	ErrIntOverflowWrappers   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("google/protobuf/wrappers.proto", fileDescriptorWrappers) }
+func init() {
+	proto.RegisterFile("google/protobuf/wrappers.proto", fileDescriptor_wrappers_c5239a825c7dfb53)
+}
 
-var fileDescriptorWrappers = []byte{
+var fileDescriptor_wrappers_c5239a825c7dfb53 = []byte{
 	// 285 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4b, 0xcf, 0xcf, 0x4f,
 	0xcf, 0x49, 0xd5, 0x2f, 0x28, 0xca, 0x2f, 0xc9, 0x4f, 0x2a, 0x4d, 0xd3, 0x2f, 0x2f, 0x4a, 0x2c,
@@ -2146,12 +2657,12 @@ var fileDescriptorWrappers = []byte{
 	0x08, 0x8b, 0x1a, 0x56, 0x34, 0x83, 0xb0, 0x2a, 0xe2, 0x85, 0x29, 0x52, 0xe4, 0xe2, 0x74, 0xca,
 	0xcf, 0xcf, 0xc1, 0xa2, 0x84, 0x03, 0xc9, 0x9c, 0xe0, 0x92, 0xa2, 0xcc, 0xbc, 0x74, 0x2c, 0x8a,
 	0x38, 0x91, 0x1c, 0xe4, 0x54, 0x59, 0x92, 0x5a, 0x8c, 0x45, 0x0d, 0x0f, 0x54, 0x8d, 0x53, 0x3b,
-	0xe3, 0x85, 0x87, 0x72, 0x0c, 0x37, 0x1e, 0xca, 0x31, 0x7c, 0x78, 0x28, 0xc7, 0xf8, 0xe3, 0xa1,
-	0x1c, 0x63, 0xc3, 0x23, 0x39, 0xc6, 0x15, 0x8f, 0xe4, 0x18, 0x4f, 0x3c, 0x92, 0x63, 0xbc, 0xf0,
-	0x48, 0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x17, 0x8f, 0xe4, 0x18, 0x3e, 0x80, 0xc4, 0x1f, 0xcb,
+	0xe3, 0x8d, 0x87, 0x72, 0x0c, 0x1f, 0x1e, 0xca, 0x31, 0xfe, 0x78, 0x28, 0xc7, 0xd8, 0xf0, 0x48,
+	0x8e, 0x71, 0xc5, 0x23, 0x39, 0xc6, 0x13, 0x8f, 0xe4, 0x18, 0x2f, 0x3c, 0x92, 0x63, 0x7c, 0xf0,
+	0x48, 0x8e, 0xf1, 0xc5, 0x23, 0x39, 0x86, 0x0f, 0x20, 0xf1, 0xc7, 0x72, 0x8c, 0x27, 0x1e, 0xcb,
 	0x31, 0x72, 0x09, 0x27, 0xe7, 0xe7, 0xea, 0xa1, 0x45, 0x87, 0x13, 0x6f, 0x38, 0x34, 0xbe, 0x02,
 	0x40, 0x22, 0x01, 0x8c, 0x51, 0xac, 0x25, 0x95, 0x05, 0xa9, 0xc5, 0x3f, 0x18, 0x19, 0x17, 0x31,
 	0x31, 0xbb, 0x07, 0x38, 0xad, 0x62, 0x92, 0x73, 0x87, 0x68, 0x09, 0x80, 0x6a, 0xd1, 0x0b, 0x4f,
 	0xcd, 0xc9, 0xf1, 0xce, 0xcb, 0x2f, 0xcf, 0x0b, 0x01, 0xa9, 0x4c, 0x62, 0x03, 0x9b, 0x65, 0x0c,
-	0x08, 0x00, 0x00, 0xff, 0xff, 0xd6, 0x02, 0xeb, 0x7c, 0x0a, 0x02, 0x00, 0x00,
+	0x08, 0x00, 0x00, 0xff, 0xff, 0x31, 0x55, 0x64, 0x90, 0x0a, 0x02, 0x00, 0x00,
 }
