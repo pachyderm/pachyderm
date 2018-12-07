@@ -61,7 +61,6 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "URL": "s3://bucket/dir"
   },
   "standby": bool,
-  "incremental": bool,
   "cache_size": string,
   "enable_stats": bool,
   "service": {
@@ -204,10 +203,7 @@ sensitive data such as credentials. Secrets reference Kubernetes secrets by
 name and specify a path that the secrets should be mounted to, or an
 environment variable (`env_var`) that the value should be bound to. Secrets
 must set `name` which should be the name of a secret in Kubernetes. Secrets
-must also specify either `mount_path` or `env_var` and `key`.
-
-
-[here](https://kubernetes.io/docs/concepts/configuration/secret/).
+must also specify either `mount_path` or `env_var` and `key`. See more information about kubernetes secrets [here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.image_pull_secrets` is an array of image pull secrets, image pull
 secrets are similar to secrets except that they're mounted before the
@@ -528,22 +524,6 @@ no data for it to process.  A pipeline in standby will have no pods running and
 thus will consume no resources, it's state will be displayed as "standby".
 
 Standby replaces `scale_down_threshold` from releases prior to 1.7.1.
-
-### Incremental (optional)
-
-Incremental, if set will cause the pipeline to be run "incrementally". This
-means that when a datum changes it won't be reprocessed from scratch, instead
-`/pfs/out` will be populated with the previous results of processing that datum
-and instead of seeing the full datum under `/pfs/repo` you will see only
-new/modified values. Incremental pipelines are discussed in more detail [here](../fundamentals/incrementality.html).
-
-Incremental processing is useful for [online
-algorithms](https://en.wikipedia.org/wiki/Online_algorithm), a canonical
-example is summing a set of numbers since the new numbers can be added to the
-old total without having to reconsider the numbers which went into that old
-total. Incremental is designed to work nicely with the `--split` flag to
-`put-file` because it will cause only the new chunks of the file to be
-displayed to each step of the pipeline.
 
 ### Cache Size (optional)
 

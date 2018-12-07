@@ -1,5 +1,5 @@
-FROM golang:1.8.3
-LABEL maintainer="derek@pachyderm.io"
+FROM golang:1.11.2
+LABEL maintainer="msteffen@pachyderm.io"
 
 RUN apt-get update -yq
 RUN apt-get install -yq unzip
@@ -11,6 +11,7 @@ RUN cp -r /include /bin
 RUN go get -u -v github.com/golang/protobuf/proto
 RUN go get -u -v github.com/gogo/protobuf/protoc-gen-gofast
 RUN go get -u github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
+RUN date +%s >/last_run_time
 
 ADD run /
 ENTRYPOINT ["/run"]

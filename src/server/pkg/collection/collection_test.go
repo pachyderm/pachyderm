@@ -39,16 +39,16 @@ func TestIndex(t *testing.T) {
 	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
-		Job:      &pps.Job{"j1"},
-		Pipeline: &pps.Pipeline{"p1"},
+		Job:      client.NewJob("j1"),
+		Pipeline: client.NewPipeline("p1"),
 	}
 	j2 := &pps.JobInfo{
-		Job:      &pps.Job{"j2"},
-		Pipeline: &pps.Pipeline{"p1"},
+		Job:      client.NewJob("j2"),
+		Pipeline: client.NewPipeline("p1"),
 	}
 	j3 := &pps.JobInfo{
-		Job:      &pps.Job{"j3"},
-		Pipeline: &pps.Pipeline{"p2"},
+		Job:      client.NewJob("j3"),
+		Pipeline: client.NewPipeline("p2"),
 	}
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
@@ -99,8 +99,8 @@ func TestIndexWatch(t *testing.T) {
 	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
 
 	j1 := &pps.JobInfo{
-		Job:      &pps.Job{"j1"},
-		Pipeline: &pps.Pipeline{"p1"},
+		Job:      client.NewJob("j1"),
+		Pipeline: client.NewPipeline("p1"),
 	}
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
@@ -138,8 +138,8 @@ func TestIndexWatch(t *testing.T) {
 	}
 
 	j2 := &pps.JobInfo{
-		Job:      &pps.Job{"j2"},
-		Pipeline: &pps.Pipeline{"p1"},
+		Job:      client.NewJob("j2"),
+		Pipeline: client.NewPipeline("p1"),
 	}
 
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
@@ -157,8 +157,8 @@ func TestIndexWatch(t *testing.T) {
 	require.Equal(t, j2, job)
 
 	j1Prime := &pps.JobInfo{
-		Job:      &pps.Job{"j1"},
-		Pipeline: &pps.Pipeline{"p3"},
+		Job:      client.NewJob("j1"),
+		Pipeline: client.NewPipeline("p3"),
 	}
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		jobInfos := jobInfos.ReadWrite(stm)
