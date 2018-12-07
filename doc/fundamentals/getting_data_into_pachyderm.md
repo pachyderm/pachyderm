@@ -22,11 +22,7 @@ changes over time.
 Regardless of the method you use to get data into Pachyderm (CLI, language client, etc.), 
 the mechanism that is used is a "commit" of data into a data
 repository. In order to put data into Pachyderm, a commit must be "started" (aka
-an "open commit").  Data can then be put into Pachyderm as part of that open commit and will
-be available once the commit is "finished" (aka a "closed commit").
-Although you have to do this opening, putting, and closing for all data that is
-committed into Pachyderm, we have built in some convenient ways to do that with our
-CLI tool and clients (see below). 
+an "open commit").  Data can then be put into Pachyderm as part of that open commit and will be available once the commit is "finished" (aka a "closed commit").
 
 ## How to get data into Pachyderm
 
@@ -55,48 +51,47 @@ $ pachctl create-repo <repo name>
 
 Then, to put data into the created repo, you use the `put-file` command. Below
 are a few example uses of `put-file`, but you can see the complete
-documentation [here](../pachctl/pachctl_put-file.html). Note again, commits in
-Pachyderm must be explicitly started and finished, so `put-file` can only be
-called on an open commit (started, but not finished). The `-c` is a convenient option that allows
-you to start and finish a commit in addition to putting data as a one-line
-command. 
+documentation [here](../pachctl/pachctl_put-file.html).
 
-Add a single file to a new branch:
+If there is an open commit, `put-file` will add files to that commit. This example will add two files to a new commit, then close the commit:
 
 ```sh
 # first start a commit
 $ pachctl start-commit <repo> <branch>
 
-# then put <file> at <path> in the <repo> on <branch>
-$ pachctl put-file <repo> <branch> </path/to/file> -f <file>
+# put <file1> in the <repo> on <branch>
+$ pachctl put-file <repo> <branch> </path/to/file1> -f <file1>
+
+# put <file2> in the <repo> on <branch>
+$ pachctl put-file <repo> <branch> </path/to/file2> -f <file2>
 
 # then finish the commit
 $ pachctl finish-commit <repo> <branch>
 ```
 
-Start and finish a commit while adding a file using `-c`:
+If there is not an open commit, `put-file` will implicitly start and finish the commit. This is called an atomic commit:
 
 ```sh
-$ pachctl put-file <repo> <branch> </path/to/file> -c -f <file> 
+$ pachctl put-file <repo> <branch> </path/to/file> -f <file> 
 ```
 
 Put data from a URL:
 
 ```sh
-$ pachctl put-file <repo> <branch> </path/to/file> -c -f http://url_path
+$ pachctl put-file <repo> <branch> </path/to/file> -f http://url_path
 ```
 
 Put data directly from an object store:
 
 ```sh
 # here you can use s3://, gcs://, or as://
-$ pachctl put-file <repo> <branch> </path/to/file> -c -f s3://object_store_url
+$ pachctl put-file <repo> <branch> </path/to/file> -f s3://object_store_url
 ```
 
 Put data directly from another location within Pachyderm:
 
 ```sh
-$ pachctl put-file <repo> <branch> </path/to/file> -c -f pfs://pachyderm_location
+$ pachctl put-file <repo> <branch> </path/to/file> -f pfs://pachyderm_location
 ```
 
 Add multiple files at once by using the `-i` option or multiple `-f` flags. In
@@ -104,7 +99,7 @@ the case of `-i`, the target file should be a list of files, paths, or URLs
 that you want to input all at once:
 
 ```sh
-$ pachctl put-file <repo> <branch> -c -i <file containing list of files, paths, or URLs>
+$ pachctl put-file <repo> <branch> -i <file containing list of files, paths, or URLs>
 ```
 
 Pipe data from stdin into a data repository:
@@ -118,7 +113,7 @@ HTTP(S) or object store URL, `s3://`, `gcs://`, and `as://`) by using the
 recursive flag, `-r`:
 
 ```sh
-$ pachctl put-file <repo> <branch> -c -r <dir>
+$ pachctl put-file <repo> <branch> -r <dir>
 ```
 
 ### Pachyderm Language Clients
