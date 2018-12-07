@@ -563,14 +563,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err != nil {
 		logrus.Errorf("failed to get worker status with err: %s", err.Error())
 	} else {
-		// It's possible that the workers might be working on datums for other
-		// jobs, we omit those since they're not part of the status for this
-		// job.
-		for _, status := range workerStatus {
-			if status.JobID == jobInfo.Job.ID {
-				jobInfo.WorkerStatus = append(jobInfo.WorkerStatus, status)
-			}
-		}
+		jobInfo.WorkerStatus = workerStatus
 	}
 	return jobInfo, nil
 }
