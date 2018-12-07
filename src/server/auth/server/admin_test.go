@@ -106,7 +106,7 @@ func TestAdminRWO(t *testing.T) {
 	// alice creates a repo (that only she owns) and puts a file
 	repo := tu.UniqueString("TestAdminRWO")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 	commit, err := aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	_, err = aliceClient.PutFile(repo, commit.ID, "/file", strings.NewReader("test data"))
@@ -136,7 +136,7 @@ func TestAdminRWO(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo)) // check that ACL wasn't updated
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo)) // check that ACL wasn't updated
 
 	// 'admin' makes bob an admin
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
@@ -172,7 +172,7 @@ func TestAdminRWO(t *testing.T) {
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
 
 	// 'admin' revokes bob's admin status
 	_, err = adminClient.ModifyAdmins(adminClient.Ctx(),
@@ -208,7 +208,7 @@ func TestAdminRWO(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", "carol", "reader"), getACL(t, aliceClient, repo))
 }
 
 // TestAdminFixBrokenRepo tests that an admin can modify the ACL of a repo even
@@ -225,7 +225,7 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	// alice creates a repo (that only she owns) and puts a file
 	repo := tu.UniqueString("TestAdmin")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// admin deletes the repo's ACL
 	_, err := adminClient.AuthAPIClient.SetACL(adminClient.Ctx(),
@@ -236,7 +236,7 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that the ACL is empty
-	require.Equal(t, entries(), GetACL(t, adminClient, repo))
+	require.Equal(t, entries(), getACL(t, adminClient, repo))
 
 	// alice cannot write to the repo
 	_, err = aliceClient.StartCommit(repo, "master")
@@ -254,7 +254,7 @@ func TestAdminFixBrokenRepo(t *testing.T) {
 			},
 		})
 	require.NoError(t, err)
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// now alice can write to the repo
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -592,7 +592,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
 	// We don't delete the ACL because the user might re-enable enterprise pachyderm
-	require.Equal(t, entries(alice, "owner"), GetACL(t, adminClient, repo)) // check that ACL wasn't updated
+	require.Equal(t, entries(alice, "owner"), getACL(t, adminClient, repo)) // check that ACL wasn't updated
 
 	// alice also can't re-authenticate
 	_, err = aliceClient.Authenticate(context.Background(),
@@ -621,7 +621,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), GetACL(t, adminClient, repo))
+		entries(alice, "owner", "carol", "reader"), getACL(t, adminClient, repo))
 
 	// admin can re-authenticate
 	resp, err := adminClient.Authenticate(context.Background(),
@@ -678,7 +678,7 @@ func TestExpirationRepoOnlyAccessibleToAdmins(t *testing.T) {
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "writer"), GetACL(t, adminClient, repo))
+		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
@@ -692,7 +692,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// alice creates a repo
 	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -709,7 +709,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	require.OneOfEquals(t, pipeline, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too,
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", pl(pipeline), "writer"), getACL(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -779,7 +779,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	// alice creates a repo
 	repo := tu.UniqueString("TestGetSetScopeAndAclWithExpiredToken")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// Make current enterprise token expire
 	adminClient.Enterprise.Activate(adminClient.Ctx(),
@@ -815,7 +815,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
-	require.Equal(t, entries(alice, "owner"), GetACL(t, adminClient, repo))
+	require.Equal(t, entries(alice, "owner"), getACL(t, adminClient, repo))
 
 	// alice can't call GetAcl on repo
 	_, err = aliceClient.GetACL(aliceClient.Ctx(), &auth.GetACLRequest{
@@ -834,7 +834,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Matches(t, "not active", err.Error())
-	require.Equal(t, entries(alice, "owner"), GetACL(t, adminClient, repo))
+	require.Equal(t, entries(alice, "owner"), getACL(t, adminClient, repo))
 
 	// admin *can* call GetScope on repo
 	resp, err := adminClient.GetScope(adminClient.Ctx(), &auth.GetScopeRequest{
@@ -851,15 +851,22 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), GetACL(t, adminClient, repo))
+		entries(alice, "owner", "carol", "reader"), getACL(t, adminClient, repo))
 
 	// admin can call GetAcl on repo
 	aclResp, err := adminClient.GetACL(adminClient.Ctx(), &auth.GetACLRequest{
 		Repo: repo,
 	})
 	require.NoError(t, err)
+	aclEntries := make([]aclEntry, 0, len(aclResp.Entries))
+	for _, e := range aclResp.Entries {
+		aclEntries = append(aclEntries, aclEntry{
+			Username: e.Username,
+			Scope:    e.Scope,
+		})
+	}
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "reader"), aclResp.Entries)
+		entries(alice, "owner", "carol", "reader"), aclEntries)
 
 	// admin can call SetAcl on repo
 	_, err = adminClient.SetACL(adminClient.Ctx(), &auth.SetACLRequest{
@@ -871,7 +878,7 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", "carol", "writer"), GetACL(t, adminClient, repo))
+		entries(alice, "owner", "carol", "writer"), getACL(t, adminClient, repo))
 }
 
 // TestAdminWhoAmI tests that when an admin calls WhoAmI(), the IsAdmin field
@@ -957,7 +964,7 @@ func TestGetAuthToken(t *testing.T) {
 	// robotClient1 creates a repo
 	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
 	require.NoError(t, robotClient1.CreateRepo(repo))
-	require.Equal(t, entries(robotUser, "owner"), GetACL(t, robotClient1, repo))
+	require.Equal(t, entries(robotUser, "owner"), getACL(t, robotClient1, repo))
 
 	// robotClient1 creates a pipeline
 	pipeline := tu.UniqueString("optimus-prime-line")
@@ -974,7 +981,7 @@ func TestGetAuthToken(t *testing.T) {
 	require.OneOfEquals(t, pipeline, PipelineNames(t, robotClient1))
 	// check that robotUser owns the output repo
 	require.ElementsEqual(t,
-		entries(robotUser, "owner", pl(pipeline), "writer"), GetACL(t, robotClient1, pipeline))
+		entries(robotUser, "owner", pl(pipeline), "writer"), getACL(t, robotClient1, pipeline))
 
 	// Make sure that robotClient2 can commit to the input repo and flush their
 	// input commit
@@ -1063,14 +1070,14 @@ func TestRobotUserACL(t *testing.T) {
 	// robotUser creates a repo and adds alice as a writer
 	repo := tu.UniqueString("TestRobotUserACL")
 	require.NoError(t, robotClient.CreateRepo(repo))
-	require.Equal(t, entries(robotUser, "owner"), GetACL(t, robotClient, repo))
+	require.Equal(t, entries(robotUser, "owner"), getACL(t, robotClient, repo))
 	robotClient.SetScope(robotClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
 		Scope:    auth.Scope_WRITER,
 		Username: auth.GitHubPrefix + alice,
 	})
 	require.ElementsEqual(t,
-		entries(alice, "writer", robotUser, "owner"), GetACL(t, robotClient, repo))
+		entries(alice, "writer", robotUser, "owner"), getACL(t, robotClient, repo))
 
 	// test that alice can commit to the robot user's repo
 	commit, err := aliceClient.StartCommit(repo, "master")
@@ -1080,14 +1087,14 @@ func TestRobotUserACL(t *testing.T) {
 	// Now alice creates a repo, and adds robotUser as a writer
 	repo2 := tu.UniqueString("TestRobotUserACL")
 	require.NoError(t, aliceClient.CreateRepo(repo2))
-	require.Equal(t, entries(alice, "owner"), GetACL(t, aliceClient, repo2))
+	require.Equal(t, entries(alice, "owner"), getACL(t, aliceClient, repo2))
 	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo2,
 		Scope:    auth.Scope_WRITER,
 		Username: robotUser,
 	})
 	require.ElementsEqual(t,
-		entries(alice, "owner", robotUser, "writer"), GetACL(t, aliceClient, repo2))
+		entries(alice, "owner", robotUser, "writer"), getACL(t, aliceClient, repo2))
 
 	// test that the robot can commit to alice's repo
 	commit, err = robotClient.StartCommit(repo2, "master")
@@ -1148,7 +1155,7 @@ func TestRobotUserAdmin(t *testing.T) {
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
 	require.ElementsEqual(t,
-		entries(robotUser2, "owner"), GetACL(t, robotClient, repo))
+		entries(robotUser2, "owner"), getACL(t, robotClient, repo))
 	_, err = robotClient.SetScope(robotClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
 		Scope:    auth.Scope_WRITER,
@@ -1156,7 +1163,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(robotUser2, "owner", alice, "writer"), GetACL(t, robotClient, repo))
+		entries(robotUser2, "owner", alice, "writer"), getACL(t, robotClient, repo))
 	commit, err = aliceClient.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))

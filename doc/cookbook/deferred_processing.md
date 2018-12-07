@@ -90,7 +90,7 @@ themselves, so they don't get processed. This is often fine because
 commits in Pachyderm are generally additive, so processing the HEAD commit
 also processes data from previous commits.
 
-<img src='/doc/cookbook/deferred_processing.gif' height='425' title='deferred processing'>
+![deffered processing](deferred_processing.gif)
 
 However, sometimes you want to
 process specific intermediary commits. To do this, all you need to do is

@@ -246,17 +246,31 @@ func deleteAll(tb testing.TB) {
 	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 }
 
+// aclEntry mirrors auth.ACLEntry, but without XXX_fields, which make
+// auth.ACLEntry invalid to use as a map key
+type aclEntry struct {
+	Username string
+	Scope    auth.Scope
+}
+
+func key(e *auth.ACLEntry) aclEntry {
+	return aclEntry{
+		Username: e.Username,
+		Scope:    e.Scope,
+	}
+}
+
 // entries constructs an auth.ACL struct from a list of the form
 // [ principal_1, scope_1, principal_2, scope_2, ... ]. All unlabelled
 // principals are assumed to be GitHub users
-func entries(items ...string) []auth.ACLEntry {
+func entries(items ...string) []aclEntry {
 	if len(items)%2 != 0 {
 		panic("cannot create an ACL from an odd number of items")
 	}
 	if len(items) == 0 {
-		return []auth.ACLEntry{}
+		return []aclEntry{}
 	}
-	result := make([]auth.ACLEntry, 0, len(items)/2)
+	result := make([]aclEntry, 0, len(items)/2)
 	for i := 0; i < len(items); i += 2 {
 		scope, err := auth.ParseScope(items[i+1])
 		if err != nil {
@@ -266,22 +280,22 @@ func entries(items ...string) []auth.ACLEntry {
 		if strings.Index(principal, ":") < 0 {
 			principal = auth.GitHubPrefix + principal
 		}
-		result = append(result, auth.ACLEntry{Username: principal, Scope: scope})
+		result = append(result, aclEntry{Username: principal, Scope: scope})
 	}
 	return result
 }
 
 // GetACL uses the client 'c' to get the ACL protecting the repo 'repo'
 // TODO(msteffen) create an auth client?
-func GetACL(t *testing.T, c *client.APIClient, repo string) []auth.ACLEntry {
+func getACL(t *testing.T, c *client.APIClient, repo string) []aclEntry {
 	t.Helper()
 	resp, err := c.AuthAPIClient.GetACL(c.Ctx(), &auth.GetACLRequest{
 		Repo: repo,
 	})
 	require.NoError(t, err)
-	result := make([]auth.ACLEntry, 0, len(resp.Entries))
+	result := make([]aclEntry, 0, len(resp.Entries))
 	for _, p := range resp.Entries {
-		result = append(result, *p)
+		result = append(result, key(p))
 	}
 	return result
 }
@@ -321,7 +335,7 @@ func TestGetSetBasic(t *testing.T) {
 	dataRepo := tu.UniqueString("TestGetSetBasic")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
 
 	// Add data to repo (alice can write). Make sure alice can read also.
 	_, err := aliceClient.PutFile(dataRepo, "master", "/file", strings.NewReader("1"))
@@ -355,7 +369,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
@@ -388,7 +402,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
@@ -420,7 +434,7 @@ func TestGetSetBasic(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "writer"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner", bob, "writer"), getACL(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as an owner
@@ -452,7 +466,7 @@ func TestGetSetBasic(t *testing.T) {
 	// check that ACL was updated)
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "owner", "carol", "reader"),
-		GetACL(t, aliceClient, dataRepo))
+		getACL(t, aliceClient, dataRepo))
 }
 
 // TestGetSetReverse creates two users, alice and bob, and gives bob gradually
@@ -469,7 +483,7 @@ func TestGetSetReverse(t *testing.T) {
 	dataRepo := tu.UniqueString("TestGetSetReverse")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
 
 	// Add data to repo (alice can write). Make sure alice can read also.
 	commit, err := aliceClient.StartCommit(dataRepo, "master")
@@ -511,7 +525,7 @@ func TestGetSetReverse(t *testing.T) {
 	// check that ACL was updated)
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "owner", "carol", "reader"),
-		GetACL(t, aliceClient, dataRepo))
+		getACL(t, aliceClient, dataRepo))
 
 	// clear carol
 	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -520,7 +534,7 @@ func TestGetSetReverse(t *testing.T) {
 		Scope:    auth.Scope_NONE,
 	})
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "owner"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner", bob, "owner"), getACL(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a writer
@@ -552,7 +566,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "writer"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner", bob, "writer"), getACL(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice adds bob to the ACL as a reader (alice can modify ACL)
@@ -584,7 +598,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, dataRepo))
 
 	//////////
 	/// alice revokes all of bob's privileges
@@ -616,7 +630,7 @@ func TestGetSetReverse(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated)
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
 }
 
 func TestCreateAndUpdatePipeline(t *testing.T) {
@@ -648,7 +662,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	dataRepo := tu.UniqueString("TestCreateAndUpdatePipeline")
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo))
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
 
 	// alice can create a pipeline (she owns the input repo)
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -660,7 +674,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.OneOfEquals(t, pipeline, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", pl(pipeline), "writer"), getACL(t, aliceClient, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	_, err := aliceClient.PutFile(dataRepo, "master", tu.UniqueString("/file"),
@@ -705,7 +719,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.OneOfEquals(t, goodPipeline, PipelineNames(t, aliceClient))
 	// check that bob owns the output repo too)
 	require.ElementsEqual(t,
-		entries(bob, "owner", pl(goodPipeline), "writer"), GetACL(t, bobClient, goodPipeline))
+		entries(bob, "owner", pl(goodPipeline), "writer"), getACL(t, bobClient, goodPipeline))
 
 	// Make sure bob's pipeline runs successfully
 	_, err = aliceClient.PutFile(dataRepo, "master", tu.UniqueString("/file"),
@@ -747,7 +761,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "writer", pl(pipeline), "writer"),
-		GetACL(t, aliceClient, pipeline))
+		getACL(t, aliceClient, pipeline))
 
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     dataRepo,
@@ -757,7 +771,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", pl(pipeline), "reader", pl(goodPipeline), "reader"),
-		GetACL(t, aliceClient, dataRepo))
+		getACL(t, aliceClient, dataRepo))
 
 	// bob still can't update alice's pipeline
 	infoBefore, err = aliceClient.InspectPipeline(pipeline)
@@ -783,7 +797,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "reader", pl(pipeline), "reader", pl(goodPipeline), "reader"),
-		GetACL(t, aliceClient, dataRepo))
+		getACL(t, aliceClient, dataRepo))
 
 	// now bob can update alice's pipeline
 	infoBefore, err = aliceClient.InspectPipeline(pipeline)
@@ -846,9 +860,9 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(dataRepo1))
 	require.NoError(t, aliceClient.CreateRepo(dataRepo2))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo1))
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo1))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, dataRepo2))
+		entries(alice, "owner"), getACL(t, aliceClient, dataRepo2))
 
 	// alice can create a cross-pipeline with both inputs
 	aliceCrossPipeline := tu.UniqueString("alice-cross")
@@ -863,7 +877,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.OneOfEquals(t, aliceCrossPipeline, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(aliceCrossPipeline), "writer"), GetACL(t, aliceClient, aliceCrossPipeline))
+		entries(alice, "owner", pl(aliceCrossPipeline), "writer"), getACL(t, aliceClient, aliceCrossPipeline))
 
 	// alice can create a union-pipeline with both inputs
 	aliceUnionPipeline := tu.UniqueString("alice-union")
@@ -878,7 +892,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	require.OneOfEquals(t, aliceUnionPipeline, PipelineNames(t, aliceClient))
 	// check that alice owns the output repo too)
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(aliceUnionPipeline), "writer"), GetACL(t, aliceClient, aliceUnionPipeline))
+		entries(alice, "owner", pl(aliceUnionPipeline), "writer"), getACL(t, aliceClient, aliceUnionPipeline))
 
 	// alice adds bob as a reader of one of the input repos, but not the other
 	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
@@ -1036,7 +1050,7 @@ func TestPipelineRevoke(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, repo))
 
 	// bob creates a pipeline
 	pipeline := tu.UniqueString("bob-pipeline")
@@ -1051,7 +1065,7 @@ func TestPipelineRevoke(t *testing.T) {
 		false,
 	))
 	require.ElementsEqual(t,
-		entries(bob, "owner", pl(pipeline), "writer"), GetACL(t, bobClient, pipeline))
+		entries(bob, "owner", pl(pipeline), "writer"), getACL(t, bobClient, pipeline))
 	// bob adds alice as a reader of the pipeline's output repo, so alice can
 	// flush input commits (which requires her to inspect commits in the output)
 	// and update the pipeline
@@ -1063,7 +1077,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(bob, "owner", alice, "writer", pl(pipeline), "writer"),
-		GetACL(t, bobClient, pipeline))
+		getACL(t, bobClient, pipeline))
 
 	// alice commits to the input repo, and the pipeline runs successfully
 	require.NoError(t, err)
@@ -1089,7 +1103,7 @@ func TestPipelineRevoke(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo))
 	_, err = aliceClient.PutFile(repo, "master", "/file", strings.NewReader("test"))
 	require.NoError(t, err)
 	iter, err = aliceClient.FlushCommit(
@@ -1187,7 +1201,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	// alice creates a repo
 	repo := tu.UniqueString("TestDeletePipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -1203,31 +1217,31 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	))
 	// Make sure the input and output repos have non-empty ACLs
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", pl(pipeline), "writer"), getACL(t, aliceClient, pipeline))
 
 	// alice stops the pipeline (owner of the input and output repos can stop)
 	require.NoError(t, aliceClient.StopPipeline(pipeline))
 
 	// Make sure the remaining input and output repos *still* have non-empty ACLs
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", pl(pipeline), "writer"), getACL(t, aliceClient, pipeline))
 
 	// alice deletes the pipeline (owner of the input and output repos can delete)
 	require.NoError(t, aliceClient.DeletePipeline(pipeline, false))
-	require.ElementsEqual(t, entries(), GetACL(t, aliceClient, pipeline))
+	require.ElementsEqual(t, entries(), getACL(t, aliceClient, pipeline))
 
 	// alice deletes the input repo (make sure the input repo's ACL is gone)
 	require.NoError(t, aliceClient.DeleteRepo(repo, false))
-	require.ElementsEqual(t, entries(), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t, entries(), getACL(t, aliceClient, repo))
 
 	// alice creates another repo
 	repo = tu.UniqueString("TestDeletePipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// alice creates another pipeline
 	pipeline = tu.UniqueString("alice-pipeline")
@@ -1259,7 +1273,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "reader", pl(pipeline), "reader"),
-		GetACL(t, aliceClient, repo))
+		getACL(t, aliceClient, repo))
 
 	// bob still can't stop or delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
@@ -1279,7 +1293,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo))
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     pipeline,
 		Username: bob,
@@ -1288,7 +1302,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "writer", pl(pipeline), "writer"),
-		GetACL(t, aliceClient, pipeline))
+		getACL(t, aliceClient, pipeline))
 
 	// bob still can't stop or delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
@@ -1307,7 +1321,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "reader", pl(pipeline), "reader"),
-		GetACL(t, aliceClient, repo))
+		getACL(t, aliceClient, repo))
 
 	// bob can stop (and start) but not delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
@@ -1327,7 +1341,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.ElementsEqual(t,
 		entries(alice, "owner", bob, "owner", pl(pipeline), "writer"),
-		GetACL(t, aliceClient, pipeline))
+		getACL(t, aliceClient, pipeline))
 
 	// finally bob can stop and delete alice's pipeline
 	err = bobClient.StopPipeline(pipeline)
@@ -1358,7 +1372,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "writer"), GetACL(t, aliceClient, repoWriter))
+		entries(alice, "owner", bob, "writer"), getACL(t, aliceClient, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
 	repoReader := tu.UniqueString("TestListRepo")
@@ -1370,18 +1384,18 @@ func TestListAndInspectRepo(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.ElementsEqual(t,
-		entries(alice, "owner", bob, "reader"), GetACL(t, aliceClient, repoReader))
+		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, repoReader))
 
 	// alice creates a repo and gives Bob no access privileges
 	repoNone := tu.UniqueString("TestListRepo")
 	require.NoError(t, aliceClient.CreateRepo(repoNone))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repoNone))
+		entries(alice, "owner"), getACL(t, aliceClient, repoNone))
 
 	// bob creates a repo
 	repoOwner := tu.UniqueString("TestListRepo")
 	require.NoError(t, bobClient.CreateRepo(repoOwner))
-	require.ElementsEqual(t, entries(bob, "owner"), GetACL(t, bobClient, repoOwner))
+	require.ElementsEqual(t, entries(bob, "owner"), getACL(t, bobClient, repoOwner))
 
 	// Bob calls ListRepo, and the response must indicate the correct access scope
 	// for each repo (because other tests have run, we may see repos besides the
@@ -1420,7 +1434,7 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	repo := tu.UniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// bob calls SetScope(bob, OWNER) on alice's repo. This should fail
 	_, err := bobClient.SetScope(bobClient.Ctx(), &auth.SetScopeRequest{
@@ -1430,7 +1444,7 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	})
 	require.YesError(t, err)
 	// make sure ACL wasn't updated
-	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 }
 
 func TestGetScopeRequiresReader(t *testing.T) {
@@ -1444,7 +1458,7 @@ func TestGetScopeRequiresReader(t *testing.T) {
 	// alice creates a repo
 	repo := tu.UniqueString("TestGetScopeRequiresReader")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// bob calls GetScope(repo). This should succeed
 	resp, err := bobClient.GetScope(bobClient.Ctx(), &auth.GetScopeRequest{
@@ -1478,7 +1492,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	repo := tu.UniqueString("TestListRepo")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repo))
+		entries(alice, "owner"), getACL(t, aliceClient, repo))
 
 	// Anon (non-logged-in user) calls ListRepo, and must receive an error
 	_, err := anonClient.PfsAPIClient.ListRepo(anonClient.Ctx(),
@@ -1639,7 +1653,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// Check that the repo has no ACL
-	require.ElementsEqual(t, entries(), GetACL(t, adminClient, repo))
+	require.ElementsEqual(t, entries(), getACL(t, adminClient, repo))
 
 	// alice authorizes against it with the 'NONE' scope
 	resp, err := aliceClient.Authorize(aliceClient.Ctx(), &auth.AuthorizeRequest{
@@ -2112,7 +2126,7 @@ func TestPipelineNewInput(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		repo = append(repo, tu.UniqueString(fmt.Sprint("TestPipelineNewInput-", i, "-")))
 		require.NoError(t, aliceClient.CreateRepo(repo[i]))
-		require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo[i]))
+		require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo[i]))
 
 		// Commit to repo
 		_, err := aliceClient.PutFile(
@@ -2137,14 +2151,14 @@ func TestPipelineNewInput(t *testing.T) {
 	))
 	// Make sure the input and output repos have appropriate ACLs
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo[0]))
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo[0]))
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo[1]))
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo[1]))
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", pl(pipeline), "writer"), getACL(t, aliceClient, pipeline))
 	// repo[2] is not on pipeline -- doesn't include 'pipeline'
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repo[2]))
+		entries(alice, "owner"), getACL(t, aliceClient, repo[2]))
 
 	// make sure the pipeline runs
 	iter, err := aliceClient.FlushCommit(
@@ -2171,14 +2185,14 @@ func TestPipelineNewInput(t *testing.T) {
 	))
 	// Make sure the input and output repos have appropriate ACLs
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo[1]))
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo[1]))
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "reader"), GetACL(t, aliceClient, repo[2]))
+		entries(alice, "owner", pl(pipeline), "reader"), getACL(t, aliceClient, repo[2]))
 	require.ElementsEqual(t,
-		entries(alice, "owner", pl(pipeline), "writer"), GetACL(t, aliceClient, pipeline))
+		entries(alice, "owner", pl(pipeline), "writer"), getACL(t, aliceClient, pipeline))
 	// repo[0] is not on pipeline -- doesn't include 'pipeline'
 	require.ElementsEqual(t,
-		entries(alice, "owner"), GetACL(t, aliceClient, repo[0]))
+		entries(alice, "owner"), getACL(t, aliceClient, repo[0]))
 
 	// make sure the pipeline still runs
 	iter, err = aliceClient.FlushCommit(
@@ -2447,7 +2461,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	// alice creates a repo
 	repo := tu.UniqueString("TestDeletePipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
-	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
+	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("lorem ipsum"))
 	require.NoError(t, err)
 
