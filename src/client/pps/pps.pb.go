@@ -59,7 +59,7 @@ func (x JobState) String() string {
 	return proto.EnumName(JobState_name, int32(x))
 }
 func (JobState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{0}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{0}
 }
 
 type DatumState int32
@@ -88,7 +88,7 @@ func (x DatumState) String() string {
 	return proto.EnumName(DatumState_name, int32(x))
 }
 func (DatumState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{1}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{1}
 }
 
 type WorkerState int32
@@ -114,7 +114,7 @@ func (x WorkerState) String() string {
 	return proto.EnumName(WorkerState_name, int32(x))
 }
 func (WorkerState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{2}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{2}
 }
 
 type PipelineState int32
@@ -161,7 +161,7 @@ func (x PipelineState) String() string {
 	return proto.EnumName(PipelineState_name, int32(x))
 }
 func (PipelineState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{3}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{3}
 }
 
 type Secret struct {
@@ -180,7 +180,7 @@ func (m *Secret) Reset()         { *m = Secret{} }
 func (m *Secret) String() string { return proto.CompactTextString(m) }
 func (*Secret) ProtoMessage()    {}
 func (*Secret) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{0}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{0}
 }
 func (m *Secret) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -257,7 +257,7 @@ func (m *Transform) Reset()         { *m = Transform{} }
 func (m *Transform) String() string { return proto.CompactTextString(m) }
 func (*Transform) ProtoMessage()    {}
 func (*Transform) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{1}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{1}
 }
 func (m *Transform) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -367,7 +367,7 @@ func (m *Egress) Reset()         { *m = Egress{} }
 func (m *Egress) String() string { return proto.CompactTextString(m) }
 func (*Egress) ProtoMessage()    {}
 func (*Egress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{2}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{2}
 }
 func (m *Egress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -414,7 +414,7 @@ func (m *Job) Reset()         { *m = Job{} }
 func (m *Job) String() string { return proto.CompactTextString(m) }
 func (*Job) ProtoMessage()    {}
 func (*Job) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{3}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{3}
 }
 func (m *Job) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -463,7 +463,7 @@ func (m *Service) Reset()         { *m = Service{} }
 func (m *Service) String() string { return proto.CompactTextString(m) }
 func (*Service) ProtoMessage()    {}
 func (*Service) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{4}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{4}
 }
 func (m *Service) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -534,7 +534,7 @@ func (m *AtomInput) Reset()         { *m = AtomInput{} }
 func (m *AtomInput) String() string { return proto.CompactTextString(m) }
 func (*AtomInput) ProtoMessage()    {}
 func (*AtomInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{5}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{5}
 }
 func (m *AtomInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -619,9 +619,9 @@ type PFSInput struct {
 	Commit string `protobuf:"bytes,4,opt,name=commit,proto3" json:"commit,omitempty"`
 	Glob   string `protobuf:"bytes,5,opt,name=glob,proto3" json:"glob,omitempty"`
 	Lazy   bool   `protobuf:"varint,6,opt,name=lazy,proto3" json:"lazy,omitempty"`
-	// EmptyFiles, if true, will cause files from this atom to be presented as
-	// empty files. This is useful in shuffle pipelines where you want to read
-	// the names of files and reorganize them using symlinks.
+	// EmptyFiles, if true, will cause files from this PFS input to be
+	// presented as empty files. This is useful in shuffle pipelines where you
+	// want to read the names of files and reorganize them using symlinks.
 	EmptyFiles           bool     `protobuf:"varint,7,opt,name=empty_files,json=emptyFiles,proto3" json:"empty_files,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -632,7 +632,7 @@ func (m *PFSInput) Reset()         { *m = PFSInput{} }
 func (m *PFSInput) String() string { return proto.CompactTextString(m) }
 func (*PFSInput) ProtoMessage()    {}
 func (*PFSInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{6}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{6}
 }
 func (m *PFSInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -725,7 +725,7 @@ func (m *CronInput) Reset()         { *m = CronInput{} }
 func (m *CronInput) String() string { return proto.CompactTextString(m) }
 func (*CronInput) ProtoMessage()    {}
 func (*CronInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{7}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{7}
 }
 func (m *CronInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -803,7 +803,7 @@ func (m *GitInput) Reset()         { *m = GitInput{} }
 func (m *GitInput) String() string { return proto.CompactTextString(m) }
 func (*GitInput) ProtoMessage()    {}
 func (*GitInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{8}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{8}
 }
 func (m *GitInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -877,7 +877,7 @@ func (m *Input) Reset()         { *m = Input{} }
 func (m *Input) String() string { return proto.CompactTextString(m) }
 func (*Input) ProtoMessage()    {}
 func (*Input) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{9}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{9}
 }
 func (m *Input) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -962,7 +962,7 @@ func (m *JobInput) Reset()         { *m = JobInput{} }
 func (m *JobInput) String() string { return proto.CompactTextString(m) }
 func (*JobInput) ProtoMessage()    {}
 func (*JobInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{10}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{10}
 }
 func (m *JobInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1043,7 +1043,7 @@ func (m *ParallelismSpec) Reset()         { *m = ParallelismSpec{} }
 func (m *ParallelismSpec) String() string { return proto.CompactTextString(m) }
 func (*ParallelismSpec) ProtoMessage()    {}
 func (*ParallelismSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{11}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{11}
 }
 func (m *ParallelismSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1099,7 +1099,7 @@ func (m *HashtreeSpec) Reset()         { *m = HashtreeSpec{} }
 func (m *HashtreeSpec) String() string { return proto.CompactTextString(m) }
 func (*HashtreeSpec) ProtoMessage()    {}
 func (*HashtreeSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{12}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{12}
 }
 func (m *HashtreeSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1149,7 +1149,7 @@ func (m *InputFile) Reset()         { *m = InputFile{} }
 func (m *InputFile) String() string { return proto.CompactTextString(m) }
 func (*InputFile) ProtoMessage()    {}
 func (*InputFile) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{13}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{13}
 }
 func (m *InputFile) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1205,7 +1205,7 @@ func (m *Datum) Reset()         { *m = Datum{} }
 func (m *Datum) String() string { return proto.CompactTextString(m) }
 func (*Datum) ProtoMessage()    {}
 func (*Datum) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{14}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{14}
 }
 func (m *Datum) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1263,7 +1263,7 @@ func (m *DatumInfo) Reset()         { *m = DatumInfo{} }
 func (m *DatumInfo) String() string { return proto.CompactTextString(m) }
 func (*DatumInfo) ProtoMessage()    {}
 func (*DatumInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{15}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{15}
 }
 func (m *DatumInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1342,7 +1342,7 @@ func (m *Aggregate) Reset()         { *m = Aggregate{} }
 func (m *Aggregate) String() string { return proto.CompactTextString(m) }
 func (*Aggregate) ProtoMessage()    {}
 func (*Aggregate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{16}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{16}
 }
 func (m *Aggregate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1421,7 +1421,7 @@ func (m *ProcessStats) Reset()         { *m = ProcessStats{} }
 func (m *ProcessStats) String() string { return proto.CompactTextString(m) }
 func (*ProcessStats) ProtoMessage()    {}
 func (*ProcessStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{17}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{17}
 }
 func (m *ProcessStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1500,7 +1500,7 @@ func (m *AggregateProcessStats) Reset()         { *m = AggregateProcessStats{} }
 func (m *AggregateProcessStats) String() string { return proto.CompactTextString(m) }
 func (*AggregateProcessStats) ProtoMessage()    {}
 func (*AggregateProcessStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{18}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{18}
 }
 func (m *AggregateProcessStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1581,7 +1581,7 @@ func (m *WorkerStatus) Reset()         { *m = WorkerStatus{} }
 func (m *WorkerStatus) String() string { return proto.CompactTextString(m) }
 func (*WorkerStatus) ProtoMessage()    {}
 func (*WorkerStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{19}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{19}
 }
 func (m *WorkerStatus) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1675,7 +1675,7 @@ func (m *ResourceSpec) Reset()         { *m = ResourceSpec{} }
 func (m *ResourceSpec) String() string { return proto.CompactTextString(m) }
 func (*ResourceSpec) ProtoMessage()    {}
 func (*ResourceSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{20}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{20}
 }
 func (m *ResourceSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1762,7 +1762,7 @@ func (m *EtcdJobInfo) Reset()         { *m = EtcdJobInfo{} }
 func (m *EtcdJobInfo) String() string { return proto.CompactTextString(m) }
 func (*EtcdJobInfo) ProtoMessage()    {}
 func (*EtcdJobInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{21}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{21}
 }
 func (m *EtcdJobInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1935,7 +1935,7 @@ func (m *JobInfo) Reset()         { *m = JobInfo{} }
 func (m *JobInfo) String() string { return proto.CompactTextString(m) }
 func (*JobInfo) ProtoMessage()    {}
 func (*JobInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{22}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{22}
 }
 func (m *JobInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2228,7 +2228,7 @@ func (m *Worker) Reset()         { *m = Worker{} }
 func (m *Worker) String() string { return proto.CompactTextString(m) }
 func (*Worker) ProtoMessage()    {}
 func (*Worker) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{23}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{23}
 }
 func (m *Worker) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2282,7 +2282,7 @@ func (m *JobInfos) Reset()         { *m = JobInfos{} }
 func (m *JobInfos) String() string { return proto.CompactTextString(m) }
 func (*JobInfos) ProtoMessage()    {}
 func (*JobInfos) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{24}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{24}
 }
 func (m *JobInfos) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2329,7 +2329,7 @@ func (m *Pipeline) Reset()         { *m = Pipeline{} }
 func (m *Pipeline) String() string { return proto.CompactTextString(m) }
 func (*Pipeline) ProtoMessage()    {}
 func (*Pipeline) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{25}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{25}
 }
 func (m *Pipeline) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2381,7 +2381,7 @@ func (m *PipelineInput) Reset()         { *m = PipelineInput{} }
 func (m *PipelineInput) String() string { return proto.CompactTextString(m) }
 func (*PipelineInput) ProtoMessage()    {}
 func (*PipelineInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{26}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{26}
 }
 func (m *PipelineInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2470,7 +2470,7 @@ func (m *EtcdPipelineInfo) Reset()         { *m = EtcdPipelineInfo{} }
 func (m *EtcdPipelineInfo) String() string { return proto.CompactTextString(m) }
 func (*EtcdPipelineInfo) ProtoMessage()    {}
 func (*EtcdPipelineInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{27}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{27}
 }
 func (m *EtcdPipelineInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2586,7 +2586,7 @@ func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
 func (m *PipelineInfo) String() string { return proto.CompactTextString(m) }
 func (*PipelineInfo) ProtoMessage()    {}
 func (*PipelineInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{28}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{28}
 }
 func (m *PipelineInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2864,7 +2864,7 @@ func (m *PipelineInfos) Reset()         { *m = PipelineInfos{} }
 func (m *PipelineInfos) String() string { return proto.CompactTextString(m) }
 func (*PipelineInfos) ProtoMessage()    {}
 func (*PipelineInfos) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{29}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{29}
 }
 func (m *PipelineInfos) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2912,7 +2912,7 @@ func (m *CreateJobRequest) Reset()         { *m = CreateJobRequest{} }
 func (m *CreateJobRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateJobRequest) ProtoMessage()    {}
 func (*CreateJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{30}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{30}
 }
 func (m *CreateJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2969,7 +2969,7 @@ func (m *InspectJobRequest) Reset()         { *m = InspectJobRequest{} }
 func (m *InspectJobRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectJobRequest) ProtoMessage()    {}
 func (*InspectJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{31}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{31}
 }
 func (m *InspectJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3032,7 +3032,7 @@ func (m *ListJobRequest) Reset()         { *m = ListJobRequest{} }
 func (m *ListJobRequest) String() string { return proto.CompactTextString(m) }
 func (*ListJobRequest) ProtoMessage()    {}
 func (*ListJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{32}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{32}
 }
 func (m *ListJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3094,7 +3094,7 @@ func (m *FlushJobRequest) Reset()         { *m = FlushJobRequest{} }
 func (m *FlushJobRequest) String() string { return proto.CompactTextString(m) }
 func (*FlushJobRequest) ProtoMessage()    {}
 func (*FlushJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{33}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{33}
 }
 func (m *FlushJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3148,7 +3148,7 @@ func (m *DeleteJobRequest) Reset()         { *m = DeleteJobRequest{} }
 func (m *DeleteJobRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteJobRequest) ProtoMessage()    {}
 func (*DeleteJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{34}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{34}
 }
 func (m *DeleteJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3195,7 +3195,7 @@ func (m *StopJobRequest) Reset()         { *m = StopJobRequest{} }
 func (m *StopJobRequest) String() string { return proto.CompactTextString(m) }
 func (*StopJobRequest) ProtoMessage()    {}
 func (*StopJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{35}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{35}
 }
 func (m *StopJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3261,7 +3261,7 @@ func (m *GetLogsRequest) Reset()         { *m = GetLogsRequest{} }
 func (m *GetLogsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetLogsRequest) ProtoMessage()    {}
 func (*GetLogsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{36}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{36}
 }
 func (m *GetLogsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3365,7 +3365,7 @@ func (m *LogMessage) Reset()         { *m = LogMessage{} }
 func (m *LogMessage) String() string { return proto.CompactTextString(m) }
 func (*LogMessage) ProtoMessage()    {}
 func (*LogMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{37}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{37}
 }
 func (m *LogMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3469,7 +3469,7 @@ func (m *RestartDatumRequest) Reset()         { *m = RestartDatumRequest{} }
 func (m *RestartDatumRequest) String() string { return proto.CompactTextString(m) }
 func (*RestartDatumRequest) ProtoMessage()    {}
 func (*RestartDatumRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{38}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{38}
 }
 func (m *RestartDatumRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3523,7 +3523,7 @@ func (m *InspectDatumRequest) Reset()         { *m = InspectDatumRequest{} }
 func (m *InspectDatumRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectDatumRequest) ProtoMessage()    {}
 func (*InspectDatumRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{39}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{39}
 }
 func (m *InspectDatumRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3572,7 +3572,7 @@ func (m *ListDatumRequest) Reset()         { *m = ListDatumRequest{} }
 func (m *ListDatumRequest) String() string { return proto.CompactTextString(m) }
 func (*ListDatumRequest) ProtoMessage()    {}
 func (*ListDatumRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{40}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{40}
 }
 func (m *ListDatumRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3635,7 +3635,7 @@ func (m *ListDatumResponse) Reset()         { *m = ListDatumResponse{} }
 func (m *ListDatumResponse) String() string { return proto.CompactTextString(m) }
 func (*ListDatumResponse) ProtoMessage()    {}
 func (*ListDatumResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{41}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{41}
 }
 func (m *ListDatumResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3704,7 +3704,7 @@ func (m *ListDatumStreamResponse) Reset()         { *m = ListDatumStreamResponse
 func (m *ListDatumStreamResponse) String() string { return proto.CompactTextString(m) }
 func (*ListDatumStreamResponse) ProtoMessage()    {}
 func (*ListDatumStreamResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{42}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{42}
 }
 func (m *ListDatumStreamResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3773,7 +3773,7 @@ func (m *ChunkSpec) Reset()         { *m = ChunkSpec{} }
 func (m *ChunkSpec) String() string { return proto.CompactTextString(m) }
 func (*ChunkSpec) ProtoMessage()    {}
 func (*ChunkSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{43}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{43}
 }
 func (m *ChunkSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3828,7 +3828,7 @@ func (m *SchedulingSpec) Reset()         { *m = SchedulingSpec{} }
 func (m *SchedulingSpec) String() string { return proto.CompactTextString(m) }
 func (*SchedulingSpec) ProtoMessage()    {}
 func (*SchedulingSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{44}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{44}
 }
 func (m *SchedulingSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3909,7 +3909,7 @@ func (m *CreatePipelineRequest) Reset()         { *m = CreatePipelineRequest{} }
 func (m *CreatePipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*CreatePipelineRequest) ProtoMessage()    {}
 func (*CreatePipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{45}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{45}
 }
 func (m *CreatePipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4131,7 +4131,7 @@ func (m *InspectPipelineRequest) Reset()         { *m = InspectPipelineRequest{}
 func (m *InspectPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectPipelineRequest) ProtoMessage()    {}
 func (*InspectPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{46}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{46}
 }
 func (m *InspectPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4177,7 +4177,7 @@ func (m *ListPipelineRequest) Reset()         { *m = ListPipelineRequest{} }
 func (m *ListPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*ListPipelineRequest) ProtoMessage()    {}
 func (*ListPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{47}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{47}
 }
 func (m *ListPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4219,7 +4219,7 @@ func (m *DeletePipelineRequest) Reset()         { *m = DeletePipelineRequest{} }
 func (m *DeletePipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*DeletePipelineRequest) ProtoMessage()    {}
 func (*DeletePipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{48}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{48}
 }
 func (m *DeletePipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4280,7 +4280,7 @@ func (m *StartPipelineRequest) Reset()         { *m = StartPipelineRequest{} }
 func (m *StartPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*StartPipelineRequest) ProtoMessage()    {}
 func (*StartPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{49}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{49}
 }
 func (m *StartPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4327,7 +4327,7 @@ func (m *StopPipelineRequest) Reset()         { *m = StopPipelineRequest{} }
 func (m *StopPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*StopPipelineRequest) ProtoMessage()    {}
 func (*StopPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{50}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{50}
 }
 func (m *StopPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4376,7 +4376,7 @@ func (m *RerunPipelineRequest) Reset()         { *m = RerunPipelineRequest{} }
 func (m *RerunPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*RerunPipelineRequest) ProtoMessage()    {}
 func (*RerunPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{51}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{51}
 }
 func (m *RerunPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4440,7 +4440,7 @@ func (m *GarbageCollectRequest) Reset()         { *m = GarbageCollectRequest{} }
 func (m *GarbageCollectRequest) String() string { return proto.CompactTextString(m) }
 func (*GarbageCollectRequest) ProtoMessage()    {}
 func (*GarbageCollectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{52}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{52}
 }
 func (m *GarbageCollectRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4486,7 +4486,7 @@ func (m *GarbageCollectResponse) Reset()         { *m = GarbageCollectResponse{}
 func (m *GarbageCollectResponse) String() string { return proto.CompactTextString(m) }
 func (*GarbageCollectResponse) ProtoMessage()    {}
 func (*GarbageCollectResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{53}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{53}
 }
 func (m *GarbageCollectResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4525,7 +4525,7 @@ func (m *ActivateAuthRequest) Reset()         { *m = ActivateAuthRequest{} }
 func (m *ActivateAuthRequest) String() string { return proto.CompactTextString(m) }
 func (*ActivateAuthRequest) ProtoMessage()    {}
 func (*ActivateAuthRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{54}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{54}
 }
 func (m *ActivateAuthRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4564,7 +4564,7 @@ func (m *ActivateAuthResponse) Reset()         { *m = ActivateAuthResponse{} }
 func (m *ActivateAuthResponse) String() string { return proto.CompactTextString(m) }
 func (*ActivateAuthResponse) ProtoMessage()    {}
 func (*ActivateAuthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_d0da985450b58d6d, []int{55}
+	return fileDescriptor_pps_c29bc22895db3fab, []int{55}
 }
 func (m *ActivateAuthResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -21690,9 +21690,9 @@ var (
 	ErrIntOverflowPps   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("client/pps/pps.proto", fileDescriptor_pps_d0da985450b58d6d) }
+func init() { proto.RegisterFile("client/pps/pps.proto", fileDescriptor_pps_c29bc22895db3fab) }
 
-var fileDescriptor_pps_d0da985450b58d6d = []byte{
+var fileDescriptor_pps_c29bc22895db3fab = []byte{
 	// 4190 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x5a, 0xcd, 0x6f, 0xe4, 0xca,
 	0x56, 0x4f, 0x77, 0x3b, 0x69, 0xfb, 0xb4, 0xd3, 0x71, 0x2a, 0x5f, 0x4e, 0xcf, 0x47, 0x32, 0xbe,
