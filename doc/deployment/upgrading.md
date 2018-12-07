@@ -1,5 +1,7 @@
 # Pachyderm Version Upgrades
-**Important Information For v1.8** 
+
+**Important Information For v1.8**
+
 In v1.8 we rearchitected core parts of the platform to [improve speed and scalability](http://www.pachyderm.io/2018/11/15/performance-improvements.html). Currently, this has made upgrading to 1.8 from previous versions of pachyderm not possible. Therefore, it's recommended that users create a new 1.8 deployment and [migrate data over manually](https://pachyderm.readthedocs.io/en/latest/deployment/migrations.html). Rest assured, we are working on a supported upgrade path and you can track our efforts [here](https://github.com/pachyderm/pachyderm/issues/3259).  
 
 Pachyderm releases new major versions (1.4, 1.5, 1.6, etc.) roughly every 2-3 months and releases minor versions as needed/warranted. Upgrading the version of your Pachyderm cluster should be relatively painless, and you should try to upgrade to make sure that you benefit from the latest features, bug fixes, etc. This guide will walk you through that upgrading process.
