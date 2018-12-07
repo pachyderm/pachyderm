@@ -344,7 +344,7 @@ func IsTerminal(state pps.JobState) bool {
 	switch state {
 	case pps.JobState_JOB_SUCCESS, pps.JobState_JOB_FAILURE, pps.JobState_JOB_KILLED:
 		return true
-	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING:
+	case pps.JobState_JOB_STARTING, pps.JobState_JOB_RUNNING, pps.JOB_MERGING:
 		return false
 	default:
 		panic(fmt.Sprintf("unrecognized job state: %s", state))
