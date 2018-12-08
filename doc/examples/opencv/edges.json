@@ -3,7 +3,7 @@
     "name": "edges"
   },
   "input": {
-    "atom": {
+    "pfs": {
       "glob": "/*",
       "repo": "images"
     }
