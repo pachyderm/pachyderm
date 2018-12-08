@@ -4,7 +4,7 @@ This guide will walk you through the recommended path to get Pachyderm running l
 If you hit any errors not covered in this guide, check our [troubleshooting](http://pachyderm.readthedocs.io/en/stable/getting_started/troubleshooting.html) docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our [users channel on Slack](http://slack.pachyderm.io/), or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
 
 ## Prerequisites
-- [Minikube](#minikube) (and VirtualBox)
+- [Minikube](#minikube) (and VirtualBox) or [Docker Desktop (v18.06+)](#dockerdesktop)
 - [Pachyderm Command Line Interface](#pachctl)
 
 ### Minikube
@@ -15,6 +15,23 @@ minikube start
 ```
 
 Note: Any time you want to stop and restart Pachyderm, you should start fresh with `minikube delete` and `minikube start`. Minikube isn't meant to be a production environment and doesn't handle being restarted well without a full wipe. 
+
+### Docker Desktop
+First you need to make sure kubernetes is enabled in the docker desktop settings 
+
+![Docker Desktop Enable K8s](Docker_Desktop_Enable_k8s.png)
+
+And then confirm things are running
+
+```
+$ kubectl get all
+NAME                 TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1    <none>        443/TCP   56d
+```
+
+To reset your kubernetes cluster on Docker For Desktop just click the reset button in the preferences section 
+
+![Reset K8s](DFD_Reset_K8s.png)
 
 ### Pachctl
 

@@ -42,10 +42,24 @@ func NewFile(repoName string, commitID string, path string) *pfs.File {
 	}
 }
 
+// NewObject creates a pfs.Object.
+func NewObject(hash string) *pfs.Object {
+	return &pfs.Object{
+		Hash: hash,
+	}
+}
+
 // NewBlock creates a pfs.Block.
 func NewBlock(hash string) *pfs.Block {
 	return &pfs.Block{
 		Hash: hash,
+	}
+}
+
+// NewTag creates a pfs.Tag.
+func NewTag(name string) *pfs.Tag {
+	return &pfs.Tag{
+		Name: name,
 	}
 }
 
@@ -147,7 +161,7 @@ func (c APIClient) BuildCommit(repoName string, branch string, parent string, tr
 		&pfs.BuildCommitRequest{
 			Parent: NewCommit(repoName, parent),
 			Branch: branch,
-			Tree:   &pfs.Object{treeObject},
+			Tree:   &pfs.Object{Hash: treeObject},
 		},
 	)
 	if err != nil {
@@ -825,7 +839,7 @@ func (c *putFileClient) PutFileSplitWriter(repoName string, commitID string, pat
 	// TODO(msteffen) add headerRecords
 	var overwriteIndex *pfs.OverwriteIndex
 	if overwrite {
-		overwriteIndex = &pfs.OverwriteIndex{0}
+		overwriteIndex = &pfs.OverwriteIndex{}
 	}
 	return c.newPutFileWriteCloser(repoName, commitID, path, delimiter, targetFileDatums, targetFileBytes, headerRecords, overwriteIndex)
 }
@@ -840,7 +854,7 @@ func (c *putFileClient) PutFile(repoName string, commitID string, path string, r
 // object starting from which you'd like to overwrite.  If you want to
 // overwrite the entire file, specify an index of 0.
 func (c *putFileClient) PutFileOverwrite(repoName string, commitID string, path string, reader io.Reader, overwriteIndex int64) (_ int, retErr error) {
-	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, 0, &pfs.OverwriteIndex{overwriteIndex})
+	writer, err := c.newPutFileWriteCloser(repoName, commitID, path, pfs.Delimiter_NONE, 0, 0, 0, &pfs.OverwriteIndex{Index: overwriteIndex})
 	if err != nil {
 		return 0, grpcutil.ScrubGRPC(err)
 	}
@@ -879,7 +893,7 @@ func (c *putFileClient) PutFileURL(repoName string, commitID string, path string
 	defer c.mu.Unlock()
 	var overwriteIndex *pfs.OverwriteIndex
 	if overwrite {
-		overwriteIndex = &pfs.OverwriteIndex{0}
+		overwriteIndex = &pfs.OverwriteIndex{}
 	}
 	if c.oneoff {
 		defer func() {
