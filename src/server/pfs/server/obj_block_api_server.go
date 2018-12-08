@@ -246,7 +246,7 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 			return err
 		}
 	}
-	return server.SendAndClose(&pfsclient.Objects{objects})
+	return server.SendAndClose(&pfsclient.Objects{Objects: objects})
 }
 
 func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader, split bool) (_ *pfsclient.Object, retErr error) {
@@ -292,7 +292,7 @@ func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader,
 	}
 	object := &pfsclient.Object{Hash: pfsclient.EncodeHash(hash.Sum(nil))}
 	// Now that we have a hash of the object we can check if it already exists.
-	resp, err := s.CheckObject(ctx, &pfsclient.CheckObjectRequest{object})
+	resp, err := s.CheckObject(ctx, &pfsclient.CheckObjectRequest{Object: object})
 	if err != nil {
 		return nil, err
 	}
@@ -518,7 +518,7 @@ func (s *objBlockAPIServer) TagObject(ctx context.Context, request *pfsclient.Ta
 	func() { s.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { s.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	// First inspect the object to make sure it actually exists
-	resp, err := s.CheckObject(ctx, &pfsclient.CheckObjectRequest{request.Object})
+	resp, err := s.CheckObject(ctx, &pfsclient.CheckObjectRequest{Object: request.Object})
 	if err != nil {
 		return nil, err
 	}
@@ -564,7 +564,7 @@ func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, l
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
 	return s.objClient.Walk(s.objectDir(), func(key string) error {
-		return listObjectsServer.Send(&pfsclient.Object{filepath.Base(key)})
+		return listObjectsServer.Send(client.NewObject(filepath.Base(key)))
 	})
 }
 

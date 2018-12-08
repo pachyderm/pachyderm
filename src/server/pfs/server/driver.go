@@ -3045,11 +3045,11 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			var headerObj, footerObj *pfs.Object
 			var headerSize, footerSize int64
 			if records.Header != nil {
-				headerObj = &pfs.Object{records.Header.ObjectHash}
+				headerObj = client.NewObject(records.Header.ObjectHash)
 				headerSize = records.Header.SizeBytes
 			}
 			if records.Footer != nil {
-				footerObj = &pfs.Object{records.Footer.ObjectHash}
+				footerObj = client.NewObject(records.Footer.ObjectHash)
 				footerSize = records.Footer.SizeBytes
 			}
 			if err := tree.PutDirHeaderFooter(

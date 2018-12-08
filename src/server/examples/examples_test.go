@@ -70,35 +70,28 @@ func TestWordCount(t *testing.T) {
 
 	// Flush Commit can't help us here since there are no inputs
 	// So we block on ListCommit
-	commitInfos, err := c.ListCommitByRepo(
-		[]string{"input"},
-		nil,
-		client.CommitTypeRead,
-		client.CommitStatusNormal,
-		true,
-	)
+	commitInfos, err := c.ListCommitByRepo("input")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	inputCommit := commitInfos[0].Commit
-	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
+	iter, err := c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
+	for i := 0; i < 2; i++ {
+		info, err := iter.Next()
+		require.NotNil(t, info)
+		require.NoError(t, err)
+	}
 
-	commitInfos, err = c.ListCommitByRepo(
-		[]string{"map"},
-		nil,
-		client.CommitTypeRead,
-		client.CommitStatusNormal,
-		false,
-	)
+	commitInfos, err = c.ListCommitByRepo("map")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 
+	// Pick a random word and check its content
 	var buffer bytes.Buffer
-	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "are", 0, 0, "", false, nil, &buffer))
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "/are", 0, 0, &buffer))
 	lines := strings.Split(strings.TrimRight(buffer.String(), "\n"), "\n")
-	// Should see # lines output == # pods running job
-	// This should be just one with default deployment
+	// Should see # lines output == parallelism (each worker outputs one line, and
+	// all lines get appended). This should be just one with default deployment
 	require.Equal(t, 1, len(lines))
 
 	wordcountReducePipelineManifest, err := ioutil.ReadFile(filepath.Join(exampleDir, "reducePipeline.json"))
@@ -110,27 +103,24 @@ func TestWordCount(t *testing.T) {
 	_, err = cmd.Output()
 	require.NoError(t, err)
 
-	commitInfos, err = c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
+	iter, err = c.FlushCommit([]*pfsclient.Commit{inputCommit}, nil)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(commitInfos))
+	for i := 0; i < 3; i++ {
+		info, err := iter.Next()
+		require.NotNil(t, info)
+		require.NoError(t, err)
+	}
 
-	commitInfos, err = c.ListCommitByRepo(
-		[]string{"reduce"},
-		nil,
-		client.CommitTypeRead,
-		client.CommitStatusNormal,
-		false,
-	)
+	commitInfos, err = c.ListCommitByRepo("reduce")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commitInfos))
 	buffer.Reset()
-	require.NoError(t, c.GetFile("reduce", commitInfos[0].Commit.ID, "morning", 0, 0, "", false, nil, &buffer))
+	require.NoError(t, c.GetFile("reduce", commitInfos[0].Commit.ID, "/morning", 0, 0, &buffer))
 	lines = strings.Split(strings.TrimRight(buffer.String(), "\n"), "\n")
 	require.Equal(t, 1, len(lines))
 
-	fileInfos, err := c.ListFile("reduce", commitInfos[0].Commit.ID, "", "", false, nil, false)
+	fileInfos, err := c.ListFile("reduce", commitInfos[0].Commit.ID, "/")
 	require.NoError(t, err)
-
 	if len(fileInfos) < 100 {
 		t.Fatalf("Word count result is too small. Should have counted a bunch of words. Only counted %v:\n%v\n", len(fileInfos), fileInfos)
 	}
