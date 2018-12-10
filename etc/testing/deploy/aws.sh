@@ -18,7 +18,7 @@ delete_resources() {
     # Try to copy cluster info from s3 to local file (may not exist if cluster didn't finish coming up)
     S3_CLUSTER_INFO="${KOPS_BUCKET}/${name}-info.json"
     if aws s3 ls "${S3_CLUSTER_INFO}"; then
-      aws s3 cp  "${HOME}/.pachyderm/${name}-info.json"
+      aws s3 cp "${S3_CLUSTER_INFO}" "${HOME}/.pachyderm/${name}-info.json"
     fi
   fi
   # Now that we might have fetched the file, try to delete the pachyderm bucket

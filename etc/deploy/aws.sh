@@ -94,11 +94,10 @@ create_s3_bucket() {
   if [[ -n "${KOPS_STATE_BUCKET}" ]]; then
     # Put bucket name in kops state store bucket right away, in case the cluster doesn't finish coming up
     jq -n \
-      --arg kops_bucket ${KOPS_BUCKET} \
-      --arg pachyderm_bucket ${PACHYDERM_BUCKET} \
+      --arg pachyderm_bucket ${BUCKET} \
       --arg timestamp "$(date)" \
       '{"pachyderm_bucket": $pachyderm_bucket, "created": $timestamp}' \
-    | aws s3 cp - ${KOPS_BUCKET}/${NAME}-info.json
+    | aws s3 cp - ${KOPS_STATE_BUCKET}/${NAME}-info.json
   fi
 
   if [ "${GIVE_CLOUDFRONT_ACCESS}" != "false" ]; then
