@@ -135,6 +135,16 @@ __custom_func() {
 }`
 )
 
+type logWriter golog.Logger
+
+func (l *logWriter) Write(p []byte) (n int, err error) {
+	err := l.Output(2, string(p))
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
@@ -162,7 +172,8 @@ Environment variables:
 			} else {
 				// etcd overrides grpc's logs--there's no way to enable one without
 				// enabling both
-				etcd.SetLogger(golog.New(os.Stderr, "[etcd/grpc] ", golog.LstdFlags|golog.Lshortfile))
+				etcd.SetLogger(("prefix", "[etcd/grpc]")) // , golog.LstdFlags|golog.Lshortfile))
+				golog.New()
 			}
 
 		},
