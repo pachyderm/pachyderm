@@ -10,6 +10,10 @@ RUN cp -r /include /bin
 
 RUN go get -u -v github.com/golang/protobuf/proto
 RUN go get -u -v github.com/gogo/protobuf/protoc-gen-gofast
+# RUN go get -d -u -v github.com/gogo/protobuf/protoc-gen-gofast \
+#  && cd ${GOPATH}/src/github.com/gogo/protobuf/protoc-gen-gofast \
+#  && git checkout origin/dev \
+#  && go install ./...
 RUN go get -u github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
 RUN date +%s >/last_run_time
 
