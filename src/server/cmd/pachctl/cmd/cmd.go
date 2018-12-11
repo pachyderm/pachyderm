@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	golog "log"
 	"os"
 	"path"
@@ -137,8 +138,8 @@ __custom_func() {
 
 type logWriter golog.Logger
 
-func (l *logWriter) Write(p []byte) (n int, err error) {
-	err := l.Output(2, string(p))
+func (l *logWriter) Write(p []byte) (int, error) {
+	err := (*golog.Logger)(l).Output(2, string(p))
 	if err != nil {
 		return 0, err
 	}
@@ -165,15 +166,18 @@ Environment variables:
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !verbose {
-				// Silence any grpc logs
+				// Silence grpc logs
 				l := log.New()
 				l.Level = log.FatalLevel
-				grpclog.SetLogger(l)
+				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 			} else {
 				// etcd overrides grpc's logs--there's no way to enable one without
 				// enabling both
-				etcd.SetLogger(("prefix", "[etcd/grpc]")) // , golog.LstdFlags|golog.Lshortfile))
-				golog.New()
+				etcd.SetLogger(grpclog.NewLoggerV2(
+					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] INFO  ", golog.LstdFlags|golog.Lshortfile)),
+					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] WARN  ", golog.LstdFlags|golog.Lshortfile)),
+					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] ERROR ", golog.LstdFlags|golog.Lshortfile)),
+				))
 			}
 
 		},
