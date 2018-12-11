@@ -59,7 +59,7 @@ func (x JobState) String() string {
 	return proto.EnumName(JobState_name, int32(x))
 }
 func (JobState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{0}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{0}
 }
 
 type DatumState int32
@@ -88,7 +88,7 @@ func (x DatumState) String() string {
 	return proto.EnumName(DatumState_name, int32(x))
 }
 func (DatumState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{1}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{1}
 }
 
 type WorkerState int32
@@ -114,7 +114,7 @@ func (x WorkerState) String() string {
 	return proto.EnumName(WorkerState_name, int32(x))
 }
 func (WorkerState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{2}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{2}
 }
 
 type PipelineState int32
@@ -161,7 +161,7 @@ func (x PipelineState) String() string {
 	return proto.EnumName(PipelineState_name, int32(x))
 }
 func (PipelineState) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{3}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{3}
 }
 
 type Secret struct {
@@ -180,7 +180,7 @@ func (m *Secret) Reset()         { *m = Secret{} }
 func (m *Secret) String() string { return proto.CompactTextString(m) }
 func (*Secret) ProtoMessage()    {}
 func (*Secret) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{0}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{0}
 }
 func (m *Secret) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -239,12 +239,12 @@ func (m *Secret) GetEnvVar() string {
 
 type Transform struct {
 	Image                string            `protobuf:"bytes,1,opt,name=image,proto3" json:"image,omitempty"`
-	Cmd                  []string          `protobuf:"bytes,2,rep,name=cmd" json:"cmd,omitempty"`
-	Env                  map[string]string `protobuf:"bytes,3,rep,name=env" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	Secrets              []*Secret         `protobuf:"bytes,4,rep,name=secrets" json:"secrets,omitempty"`
-	ImagePullSecrets     []string          `protobuf:"bytes,9,rep,name=image_pull_secrets,json=imagePullSecrets" json:"image_pull_secrets,omitempty"`
-	Stdin                []string          `protobuf:"bytes,5,rep,name=stdin" json:"stdin,omitempty"`
-	AcceptReturnCode     []int64           `protobuf:"varint,6,rep,packed,name=accept_return_code,json=acceptReturnCode" json:"accept_return_code,omitempty"`
+	Cmd                  []string          `protobuf:"bytes,2,rep,name=cmd,proto3" json:"cmd,omitempty"`
+	Env                  map[string]string `protobuf:"bytes,3,rep,name=env,proto3" json:"env,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Secrets              []*Secret         `protobuf:"bytes,4,rep,name=secrets,proto3" json:"secrets,omitempty"`
+	ImagePullSecrets     []string          `protobuf:"bytes,9,rep,name=image_pull_secrets,json=imagePullSecrets,proto3" json:"image_pull_secrets,omitempty"`
+	Stdin                []string          `protobuf:"bytes,5,rep,name=stdin,proto3" json:"stdin,omitempty"`
+	AcceptReturnCode     []int64           `protobuf:"varint,6,rep,packed,name=accept_return_code,json=acceptReturnCode,proto3" json:"accept_return_code,omitempty"`
 	Debug                bool              `protobuf:"varint,7,opt,name=debug,proto3" json:"debug,omitempty"`
 	User                 string            `protobuf:"bytes,10,opt,name=user,proto3" json:"user,omitempty"`
 	WorkingDir           string            `protobuf:"bytes,11,opt,name=working_dir,json=workingDir,proto3" json:"working_dir,omitempty"`
@@ -257,7 +257,7 @@ func (m *Transform) Reset()         { *m = Transform{} }
 func (m *Transform) String() string { return proto.CompactTextString(m) }
 func (*Transform) ProtoMessage()    {}
 func (*Transform) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{1}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{1}
 }
 func (m *Transform) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -367,7 +367,7 @@ func (m *Egress) Reset()         { *m = Egress{} }
 func (m *Egress) String() string { return proto.CompactTextString(m) }
 func (*Egress) ProtoMessage()    {}
 func (*Egress) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{2}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{2}
 }
 func (m *Egress) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -414,7 +414,7 @@ func (m *Job) Reset()         { *m = Job{} }
 func (m *Job) String() string { return proto.CompactTextString(m) }
 func (*Job) ProtoMessage()    {}
 func (*Job) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{3}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{3}
 }
 func (m *Job) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -463,7 +463,7 @@ func (m *Service) Reset()         { *m = Service{} }
 func (m *Service) String() string { return proto.CompactTextString(m) }
 func (*Service) ProtoMessage()    {}
 func (*Service) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{4}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{4}
 }
 func (m *Service) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -533,7 +533,7 @@ func (m *AtomInput) Reset()         { *m = AtomInput{} }
 func (m *AtomInput) String() string { return proto.CompactTextString(m) }
 func (*AtomInput) ProtoMessage()    {}
 func (*AtomInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{5}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{5}
 }
 func (m *AtomInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -616,7 +616,7 @@ type CronInput struct {
 	Repo                 string           `protobuf:"bytes,2,opt,name=repo,proto3" json:"repo,omitempty"`
 	Commit               string           `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
 	Spec                 string           `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
-	Start                *types.Timestamp `protobuf:"bytes,5,opt,name=start" json:"start,omitempty"`
+	Start                *types.Timestamp `protobuf:"bytes,5,opt,name=start,proto3" json:"start,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -626,7 +626,7 @@ func (m *CronInput) Reset()         { *m = CronInput{} }
 func (m *CronInput) String() string { return proto.CompactTextString(m) }
 func (*CronInput) ProtoMessage()    {}
 func (*CronInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{6}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{6}
 }
 func (m *CronInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -704,7 +704,7 @@ func (m *GitInput) Reset()         { *m = GitInput{} }
 func (m *GitInput) String() string { return proto.CompactTextString(m) }
 func (*GitInput) ProtoMessage()    {}
 func (*GitInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{7}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{7}
 }
 func (m *GitInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -762,11 +762,11 @@ func (m *GitInput) GetCommit() string {
 }
 
 type Input struct {
-	Atom                 *AtomInput `protobuf:"bytes,1,opt,name=atom" json:"atom,omitempty"`
-	Cross                []*Input   `protobuf:"bytes,2,rep,name=cross" json:"cross,omitempty"`
-	Union                []*Input   `protobuf:"bytes,3,rep,name=union" json:"union,omitempty"`
-	Cron                 *CronInput `protobuf:"bytes,4,opt,name=cron" json:"cron,omitempty"`
-	Git                  *GitInput  `protobuf:"bytes,5,opt,name=git" json:"git,omitempty"`
+	Atom                 *AtomInput `protobuf:"bytes,1,opt,name=atom,proto3" json:"atom,omitempty"`
+	Cross                []*Input   `protobuf:"bytes,2,rep,name=cross,proto3" json:"cross,omitempty"`
+	Union                []*Input   `protobuf:"bytes,3,rep,name=union,proto3" json:"union,omitempty"`
+	Cron                 *CronInput `protobuf:"bytes,4,opt,name=cron,proto3" json:"cron,omitempty"`
+	Git                  *GitInput  `protobuf:"bytes,5,opt,name=git,proto3" json:"git,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -776,7 +776,7 @@ func (m *Input) Reset()         { *m = Input{} }
 func (m *Input) String() string { return proto.CompactTextString(m) }
 func (*Input) ProtoMessage()    {}
 func (*Input) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{8}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{8}
 }
 func (m *Input) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -842,7 +842,7 @@ func (m *Input) GetGit() *GitInput {
 
 type JobInput struct {
 	Name                 string      `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
-	Commit               *pfs.Commit `protobuf:"bytes,1,opt,name=commit" json:"commit,omitempty"`
+	Commit               *pfs.Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
 	Glob                 string      `protobuf:"bytes,2,opt,name=glob,proto3" json:"glob,omitempty"`
 	Lazy                 bool        `protobuf:"varint,3,opt,name=lazy,proto3" json:"lazy,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
@@ -854,7 +854,7 @@ func (m *JobInput) Reset()         { *m = JobInput{} }
 func (m *JobInput) String() string { return proto.CompactTextString(m) }
 func (*JobInput) ProtoMessage()    {}
 func (*JobInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{9}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{9}
 }
 func (m *JobInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -935,7 +935,7 @@ func (m *ParallelismSpec) Reset()         { *m = ParallelismSpec{} }
 func (m *ParallelismSpec) String() string { return proto.CompactTextString(m) }
 func (*ParallelismSpec) ProtoMessage()    {}
 func (*ParallelismSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{10}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{10}
 }
 func (m *ParallelismSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -991,7 +991,7 @@ func (m *HashtreeSpec) Reset()         { *m = HashtreeSpec{} }
 func (m *HashtreeSpec) String() string { return proto.CompactTextString(m) }
 func (*HashtreeSpec) ProtoMessage()    {}
 func (*HashtreeSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{11}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{11}
 }
 func (m *HashtreeSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1041,7 +1041,7 @@ func (m *InputFile) Reset()         { *m = InputFile{} }
 func (m *InputFile) String() string { return proto.CompactTextString(m) }
 func (*InputFile) ProtoMessage()    {}
 func (*InputFile) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{12}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{12}
 }
 func (m *InputFile) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1087,7 +1087,7 @@ func (m *InputFile) GetHash() []byte {
 type Datum struct {
 	// ID is the hash computed from all the files
 	ID                   string   `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Job                  *Job     `protobuf:"bytes,2,opt,name=job" json:"job,omitempty"`
+	Job                  *Job     `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1097,7 +1097,7 @@ func (m *Datum) Reset()         { *m = Datum{} }
 func (m *Datum) String() string { return proto.CompactTextString(m) }
 func (*Datum) ProtoMessage()    {}
 func (*Datum) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{13}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{13}
 }
 func (m *Datum) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1141,11 +1141,11 @@ func (m *Datum) GetJob() *Job {
 }
 
 type DatumInfo struct {
-	Datum                *Datum          `protobuf:"bytes,1,opt,name=datum" json:"datum,omitempty"`
+	Datum                *Datum          `protobuf:"bytes,1,opt,name=datum,proto3" json:"datum,omitempty"`
 	State                DatumState      `protobuf:"varint,2,opt,name=state,proto3,enum=pps.DatumState" json:"state,omitempty"`
-	Stats                *ProcessStats   `protobuf:"bytes,3,opt,name=stats" json:"stats,omitempty"`
-	PfsState             *pfs.File       `protobuf:"bytes,4,opt,name=pfs_state,json=pfsState" json:"pfs_state,omitempty"`
-	Data                 []*pfs.FileInfo `protobuf:"bytes,5,rep,name=data" json:"data,omitempty"`
+	Stats                *ProcessStats   `protobuf:"bytes,3,opt,name=stats,proto3" json:"stats,omitempty"`
+	PfsState             *pfs.File       `protobuf:"bytes,4,opt,name=pfs_state,json=pfsState,proto3" json:"pfs_state,omitempty"`
+	Data                 []*pfs.FileInfo `protobuf:"bytes,5,rep,name=data,proto3" json:"data,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -1155,7 +1155,7 @@ func (m *DatumInfo) Reset()         { *m = DatumInfo{} }
 func (m *DatumInfo) String() string { return proto.CompactTextString(m) }
 func (*DatumInfo) ProtoMessage()    {}
 func (*DatumInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{14}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{14}
 }
 func (m *DatumInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1234,7 +1234,7 @@ func (m *Aggregate) Reset()         { *m = Aggregate{} }
 func (m *Aggregate) String() string { return proto.CompactTextString(m) }
 func (*Aggregate) ProtoMessage()    {}
 func (*Aggregate) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{15}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{15}
 }
 func (m *Aggregate) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1299,9 +1299,9 @@ func (m *Aggregate) GetNinetyFifthPercentile() float64 {
 }
 
 type ProcessStats struct {
-	DownloadTime         *types.Duration `protobuf:"bytes,1,opt,name=download_time,json=downloadTime" json:"download_time,omitempty"`
-	ProcessTime          *types.Duration `protobuf:"bytes,2,opt,name=process_time,json=processTime" json:"process_time,omitempty"`
-	UploadTime           *types.Duration `protobuf:"bytes,3,opt,name=upload_time,json=uploadTime" json:"upload_time,omitempty"`
+	DownloadTime         *types.Duration `protobuf:"bytes,1,opt,name=download_time,json=downloadTime,proto3" json:"download_time,omitempty"`
+	ProcessTime          *types.Duration `protobuf:"bytes,2,opt,name=process_time,json=processTime,proto3" json:"process_time,omitempty"`
+	UploadTime           *types.Duration `protobuf:"bytes,3,opt,name=upload_time,json=uploadTime,proto3" json:"upload_time,omitempty"`
 	DownloadBytes        uint64          `protobuf:"varint,4,opt,name=download_bytes,json=downloadBytes,proto3" json:"download_bytes,omitempty"`
 	UploadBytes          uint64          `protobuf:"varint,5,opt,name=upload_bytes,json=uploadBytes,proto3" json:"upload_bytes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
@@ -1313,7 +1313,7 @@ func (m *ProcessStats) Reset()         { *m = ProcessStats{} }
 func (m *ProcessStats) String() string { return proto.CompactTextString(m) }
 func (*ProcessStats) ProtoMessage()    {}
 func (*ProcessStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{16}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{16}
 }
 func (m *ProcessStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1378,11 +1378,11 @@ func (m *ProcessStats) GetUploadBytes() uint64 {
 }
 
 type AggregateProcessStats struct {
-	DownloadTime         *Aggregate `protobuf:"bytes,1,opt,name=download_time,json=downloadTime" json:"download_time,omitempty"`
-	ProcessTime          *Aggregate `protobuf:"bytes,2,opt,name=process_time,json=processTime" json:"process_time,omitempty"`
-	UploadTime           *Aggregate `protobuf:"bytes,3,opt,name=upload_time,json=uploadTime" json:"upload_time,omitempty"`
-	DownloadBytes        *Aggregate `protobuf:"bytes,4,opt,name=download_bytes,json=downloadBytes" json:"download_bytes,omitempty"`
-	UploadBytes          *Aggregate `protobuf:"bytes,5,opt,name=upload_bytes,json=uploadBytes" json:"upload_bytes,omitempty"`
+	DownloadTime         *Aggregate `protobuf:"bytes,1,opt,name=download_time,json=downloadTime,proto3" json:"download_time,omitempty"`
+	ProcessTime          *Aggregate `protobuf:"bytes,2,opt,name=process_time,json=processTime,proto3" json:"process_time,omitempty"`
+	UploadTime           *Aggregate `protobuf:"bytes,3,opt,name=upload_time,json=uploadTime,proto3" json:"upload_time,omitempty"`
+	DownloadBytes        *Aggregate `protobuf:"bytes,4,opt,name=download_bytes,json=downloadBytes,proto3" json:"download_bytes,omitempty"`
+	UploadBytes          *Aggregate `protobuf:"bytes,5,opt,name=upload_bytes,json=uploadBytes,proto3" json:"upload_bytes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -1392,7 +1392,7 @@ func (m *AggregateProcessStats) Reset()         { *m = AggregateProcessStats{} }
 func (m *AggregateProcessStats) String() string { return proto.CompactTextString(m) }
 func (*AggregateProcessStats) ProtoMessage()    {}
 func (*AggregateProcessStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{17}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{17}
 }
 func (m *AggregateProcessStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1459,10 +1459,10 @@ func (m *AggregateProcessStats) GetUploadBytes() *Aggregate {
 type WorkerStatus struct {
 	WorkerID string       `protobuf:"bytes,1,opt,name=worker_id,json=workerId,proto3" json:"worker_id,omitempty"`
 	JobID    string       `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	Data     []*InputFile `protobuf:"bytes,3,rep,name=data" json:"data,omitempty"`
+	Data     []*InputFile `protobuf:"bytes,3,rep,name=data,proto3" json:"data,omitempty"`
 	// Started is the time processing on the current datum began.
-	Started              *types.Timestamp `protobuf:"bytes,4,opt,name=started" json:"started,omitempty"`
-	Stats                *ProcessStats    `protobuf:"bytes,5,opt,name=stats" json:"stats,omitempty"`
+	Started              *types.Timestamp `protobuf:"bytes,4,opt,name=started,proto3" json:"started,omitempty"`
+	Stats                *ProcessStats    `protobuf:"bytes,5,opt,name=stats,proto3" json:"stats,omitempty"`
 	QueueSize            int64            `protobuf:"varint,6,opt,name=queue_size,json=queueSize,proto3" json:"queue_size,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
@@ -1473,7 +1473,7 @@ func (m *WorkerStatus) Reset()         { *m = WorkerStatus{} }
 func (m *WorkerStatus) String() string { return proto.CompactTextString(m) }
 func (*WorkerStatus) ProtoMessage()    {}
 func (*WorkerStatus) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{18}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{18}
 }
 func (m *WorkerStatus) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1567,7 +1567,7 @@ func (m *ResourceSpec) Reset()         { *m = ResourceSpec{} }
 func (m *ResourceSpec) String() string { return proto.CompactTextString(m) }
 func (*ResourceSpec) ProtoMessage()    {}
 func (*ResourceSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{19}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{19}
 }
 func (m *ResourceSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1628,9 +1628,9 @@ func (m *ResourceSpec) GetDisk() string {
 // job execution. It contains fields which change over the lifetime of the job
 // but aren't used in the execution of the job.
 type EtcdJobInfo struct {
-	Job          *Job        `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	Pipeline     *Pipeline   `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
-	OutputCommit *pfs.Commit `protobuf:"bytes,3,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
+	Job          *Job        `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	Pipeline     *Pipeline   `protobuf:"bytes,2,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
+	OutputCommit *pfs.Commit `protobuf:"bytes,3,opt,name=output_commit,json=outputCommit,proto3" json:"output_commit,omitempty"`
 	// Job restart count (e.g. due to datum failure)
 	Restart uint64 `protobuf:"varint,4,opt,name=restart,proto3" json:"restart,omitempty"`
 	// Counts of how many times we processed or skipped a datum
@@ -1639,12 +1639,12 @@ type EtcdJobInfo struct {
 	DataTotal     int64 `protobuf:"varint,7,opt,name=data_total,json=dataTotal,proto3" json:"data_total,omitempty"`
 	DataFailed    int64 `protobuf:"varint,8,opt,name=data_failed,json=dataFailed,proto3" json:"data_failed,omitempty"`
 	// Download/process/upload time and download/upload bytes
-	Stats                *ProcessStats    `protobuf:"bytes,9,opt,name=stats" json:"stats,omitempty"`
-	StatsCommit          *pfs.Commit      `protobuf:"bytes,10,opt,name=stats_commit,json=statsCommit" json:"stats_commit,omitempty"`
+	Stats                *ProcessStats    `protobuf:"bytes,9,opt,name=stats,proto3" json:"stats,omitempty"`
+	StatsCommit          *pfs.Commit      `protobuf:"bytes,10,opt,name=stats_commit,json=statsCommit,proto3" json:"stats_commit,omitempty"`
 	State                JobState         `protobuf:"varint,11,opt,name=state,proto3,enum=pps.JobState" json:"state,omitempty"`
 	Reason               string           `protobuf:"bytes,12,opt,name=reason,proto3" json:"reason,omitempty"`
-	Started              *types.Timestamp `protobuf:"bytes,13,opt,name=started" json:"started,omitempty"`
-	Finished             *types.Timestamp `protobuf:"bytes,14,opt,name=finished" json:"finished,omitempty"`
+	Started              *types.Timestamp `protobuf:"bytes,13,opt,name=started,proto3" json:"started,omitempty"`
+	Finished             *types.Timestamp `protobuf:"bytes,14,opt,name=finished,proto3" json:"finished,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -1654,7 +1654,7 @@ func (m *EtcdJobInfo) Reset()         { *m = EtcdJobInfo{} }
 func (m *EtcdJobInfo) String() string { return proto.CompactTextString(m) }
 func (*EtcdJobInfo) ProtoMessage()    {}
 func (*EtcdJobInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{20}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{20}
 }
 func (m *EtcdJobInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1782,41 +1782,41 @@ func (m *EtcdJobInfo) GetFinished() *types.Timestamp {
 }
 
 type JobInfo struct {
-	Job                  *Job             `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	Transform            *Transform       `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	Pipeline             *Pipeline        `protobuf:"bytes,3,opt,name=pipeline" json:"pipeline,omitempty"`
+	Job                  *Job             `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	Transform            *Transform       `protobuf:"bytes,2,opt,name=transform,proto3" json:"transform,omitempty"`
+	Pipeline             *Pipeline        `protobuf:"bytes,3,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	PipelineVersion      uint64           `protobuf:"varint,13,opt,name=pipeline_version,json=pipelineVersion,proto3" json:"pipeline_version,omitempty"`
-	ParallelismSpec      *ParallelismSpec `protobuf:"bytes,12,opt,name=parallelism_spec,json=parallelismSpec" json:"parallelism_spec,omitempty"`
-	Egress               *Egress          `protobuf:"bytes,15,opt,name=egress" json:"egress,omitempty"`
-	ParentJob            *Job             `protobuf:"bytes,6,opt,name=parent_job,json=parentJob" json:"parent_job,omitempty"`
-	Started              *types.Timestamp `protobuf:"bytes,7,opt,name=started" json:"started,omitempty"`
-	Finished             *types.Timestamp `protobuf:"bytes,8,opt,name=finished" json:"finished,omitempty"`
-	OutputCommit         *pfs.Commit      `protobuf:"bytes,9,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
+	ParallelismSpec      *ParallelismSpec `protobuf:"bytes,12,opt,name=parallelism_spec,json=parallelismSpec,proto3" json:"parallelism_spec,omitempty"`
+	Egress               *Egress          `protobuf:"bytes,15,opt,name=egress,proto3" json:"egress,omitempty"`
+	ParentJob            *Job             `protobuf:"bytes,6,opt,name=parent_job,json=parentJob,proto3" json:"parent_job,omitempty"`
+	Started              *types.Timestamp `protobuf:"bytes,7,opt,name=started,proto3" json:"started,omitempty"`
+	Finished             *types.Timestamp `protobuf:"bytes,8,opt,name=finished,proto3" json:"finished,omitempty"`
+	OutputCommit         *pfs.Commit      `protobuf:"bytes,9,opt,name=output_commit,json=outputCommit,proto3" json:"output_commit,omitempty"`
 	State                JobState         `protobuf:"varint,10,opt,name=state,proto3,enum=pps.JobState" json:"state,omitempty"`
 	Reason               string           `protobuf:"bytes,35,opt,name=reason,proto3" json:"reason,omitempty"`
-	Service              *Service         `protobuf:"bytes,14,opt,name=service" json:"service,omitempty"`
-	OutputRepo           *pfs.Repo        `protobuf:"bytes,18,opt,name=output_repo,json=outputRepo" json:"output_repo,omitempty"`
+	Service              *Service         `protobuf:"bytes,14,opt,name=service,proto3" json:"service,omitempty"`
+	OutputRepo           *pfs.Repo        `protobuf:"bytes,18,opt,name=output_repo,json=outputRepo,proto3" json:"output_repo,omitempty"`
 	OutputBranch         string           `protobuf:"bytes,17,opt,name=output_branch,json=outputBranch,proto3" json:"output_branch,omitempty"`
 	Restart              uint64           `protobuf:"varint,20,opt,name=restart,proto3" json:"restart,omitempty"`
 	DataProcessed        int64            `protobuf:"varint,22,opt,name=data_processed,json=dataProcessed,proto3" json:"data_processed,omitempty"`
 	DataSkipped          int64            `protobuf:"varint,30,opt,name=data_skipped,json=dataSkipped,proto3" json:"data_skipped,omitempty"`
 	DataFailed           int64            `protobuf:"varint,40,opt,name=data_failed,json=dataFailed,proto3" json:"data_failed,omitempty"`
 	DataTotal            int64            `protobuf:"varint,23,opt,name=data_total,json=dataTotal,proto3" json:"data_total,omitempty"`
-	Stats                *ProcessStats    `protobuf:"bytes,31,opt,name=stats" json:"stats,omitempty"`
-	WorkerStatus         []*WorkerStatus  `protobuf:"bytes,24,rep,name=worker_status,json=workerStatus" json:"worker_status,omitempty"`
-	ResourceRequests     *ResourceSpec    `protobuf:"bytes,25,opt,name=resource_requests,json=resourceRequests" json:"resource_requests,omitempty"`
-	ResourceLimits       *ResourceSpec    `protobuf:"bytes,36,opt,name=resource_limits,json=resourceLimits" json:"resource_limits,omitempty"`
-	Input                *Input           `protobuf:"bytes,26,opt,name=input" json:"input,omitempty"`
-	NewBranch            *pfs.BranchInfo  `protobuf:"bytes,27,opt,name=new_branch,json=newBranch" json:"new_branch,omitempty"`
-	StatsCommit          *pfs.Commit      `protobuf:"bytes,29,opt,name=stats_commit,json=statsCommit" json:"stats_commit,omitempty"`
+	Stats                *ProcessStats    `protobuf:"bytes,31,opt,name=stats,proto3" json:"stats,omitempty"`
+	WorkerStatus         []*WorkerStatus  `protobuf:"bytes,24,rep,name=worker_status,json=workerStatus,proto3" json:"worker_status,omitempty"`
+	ResourceRequests     *ResourceSpec    `protobuf:"bytes,25,opt,name=resource_requests,json=resourceRequests,proto3" json:"resource_requests,omitempty"`
+	ResourceLimits       *ResourceSpec    `protobuf:"bytes,36,opt,name=resource_limits,json=resourceLimits,proto3" json:"resource_limits,omitempty"`
+	Input                *Input           `protobuf:"bytes,26,opt,name=input,proto3" json:"input,omitempty"`
+	NewBranch            *pfs.BranchInfo  `protobuf:"bytes,27,opt,name=new_branch,json=newBranch,proto3" json:"new_branch,omitempty"`
+	StatsCommit          *pfs.Commit      `protobuf:"bytes,29,opt,name=stats_commit,json=statsCommit,proto3" json:"stats_commit,omitempty"`
 	EnableStats          bool             `protobuf:"varint,32,opt,name=enable_stats,json=enableStats,proto3" json:"enable_stats,omitempty"`
 	Salt                 string           `protobuf:"bytes,33,opt,name=salt,proto3" json:"salt,omitempty"`
 	Batch                bool             `protobuf:"varint,34,opt,name=batch,proto3" json:"batch,omitempty"`
-	ChunkSpec            *ChunkSpec       `protobuf:"bytes,37,opt,name=chunk_spec,json=chunkSpec" json:"chunk_spec,omitempty"`
-	DatumTimeout         *types.Duration  `protobuf:"bytes,38,opt,name=datum_timeout,json=datumTimeout" json:"datum_timeout,omitempty"`
-	JobTimeout           *types.Duration  `protobuf:"bytes,39,opt,name=job_timeout,json=jobTimeout" json:"job_timeout,omitempty"`
+	ChunkSpec            *ChunkSpec       `protobuf:"bytes,37,opt,name=chunk_spec,json=chunkSpec,proto3" json:"chunk_spec,omitempty"`
+	DatumTimeout         *types.Duration  `protobuf:"bytes,38,opt,name=datum_timeout,json=datumTimeout,proto3" json:"datum_timeout,omitempty"`
+	JobTimeout           *types.Duration  `protobuf:"bytes,39,opt,name=job_timeout,json=jobTimeout,proto3" json:"job_timeout,omitempty"`
 	DatumTries           int64            `protobuf:"varint,41,opt,name=datum_tries,json=datumTries,proto3" json:"datum_tries,omitempty"`
-	SchedulingSpec       *SchedulingSpec  `protobuf:"bytes,42,opt,name=scheduling_spec,json=schedulingSpec" json:"scheduling_spec,omitempty"`
+	SchedulingSpec       *SchedulingSpec  `protobuf:"bytes,42,opt,name=scheduling_spec,json=schedulingSpec,proto3" json:"scheduling_spec,omitempty"`
 	PodSpec              string           `protobuf:"bytes,43,opt,name=pod_spec,json=podSpec,proto3" json:"pod_spec,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
@@ -1827,7 +1827,7 @@ func (m *JobInfo) Reset()         { *m = JobInfo{} }
 func (m *JobInfo) String() string { return proto.CompactTextString(m) }
 func (*JobInfo) ProtoMessage()    {}
 func (*JobInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{21}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{21}
 }
 func (m *JobInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2120,7 +2120,7 @@ func (m *Worker) Reset()         { *m = Worker{} }
 func (m *Worker) String() string { return proto.CompactTextString(m) }
 func (*Worker) ProtoMessage()    {}
 func (*Worker) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{22}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{22}
 }
 func (m *Worker) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2164,7 +2164,7 @@ func (m *Worker) GetState() WorkerState {
 }
 
 type JobInfos struct {
-	JobInfo              []*JobInfo `protobuf:"bytes,1,rep,name=job_info,json=jobInfo" json:"job_info,omitempty"`
+	JobInfo              []*JobInfo `protobuf:"bytes,1,rep,name=job_info,json=jobInfo,proto3" json:"job_info,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -2174,7 +2174,7 @@ func (m *JobInfos) Reset()         { *m = JobInfos{} }
 func (m *JobInfos) String() string { return proto.CompactTextString(m) }
 func (*JobInfos) ProtoMessage()    {}
 func (*JobInfos) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{23}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{23}
 }
 func (m *JobInfos) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2221,7 +2221,7 @@ func (m *Pipeline) Reset()         { *m = Pipeline{} }
 func (m *Pipeline) String() string { return proto.CompactTextString(m) }
 func (*Pipeline) ProtoMessage()    {}
 func (*Pipeline) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{24}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{24}
 }
 func (m *Pipeline) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2259,11 +2259,11 @@ func (m *Pipeline) GetName() string {
 
 type PipelineInput struct {
 	Name                 string      `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
-	Repo                 *pfs.Repo   `protobuf:"bytes,1,opt,name=repo" json:"repo,omitempty"`
+	Repo                 *pfs.Repo   `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
 	Branch               string      `protobuf:"bytes,2,opt,name=branch,proto3" json:"branch,omitempty"`
 	Glob                 string      `protobuf:"bytes,3,opt,name=glob,proto3" json:"glob,omitempty"`
 	Lazy                 bool        `protobuf:"varint,4,opt,name=lazy,proto3" json:"lazy,omitempty"`
-	From                 *pfs.Commit `protobuf:"bytes,6,opt,name=from" json:"from,omitempty"`
+	From                 *pfs.Commit `protobuf:"bytes,6,opt,name=from,proto3" json:"from,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -2273,7 +2273,7 @@ func (m *PipelineInput) Reset()         { *m = PipelineInput{} }
 func (m *PipelineInput) String() string { return proto.CompactTextString(m) }
 func (*PipelineInput) ProtoMessage()    {}
 func (*PipelineInput) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{25}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{25}
 }
 func (m *PipelineInput) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2350,8 +2350,8 @@ func (m *PipelineInput) GetFrom() *pfs.Commit {
 type EtcdPipelineInfo struct {
 	State                PipelineState   `protobuf:"varint,1,opt,name=state,proto3,enum=pps.PipelineState" json:"state,omitempty"`
 	Reason               string          `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
-	SpecCommit           *pfs.Commit     `protobuf:"bytes,2,opt,name=spec_commit,json=specCommit" json:"spec_commit,omitempty"`
-	JobCounts            map[int32]int32 `protobuf:"bytes,3,rep,name=job_counts,json=jobCounts" json:"job_counts,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	SpecCommit           *pfs.Commit     `protobuf:"bytes,2,opt,name=spec_commit,json=specCommit,proto3" json:"spec_commit,omitempty"`
+	JobCounts            map[int32]int32 `protobuf:"bytes,3,rep,name=job_counts,json=jobCounts,proto3" json:"job_counts,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	AuthToken            string          `protobuf:"bytes,5,opt,name=auth_token,json=authToken,proto3" json:"auth_token,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
@@ -2362,7 +2362,7 @@ func (m *EtcdPipelineInfo) Reset()         { *m = EtcdPipelineInfo{} }
 func (m *EtcdPipelineInfo) String() string { return proto.CompactTextString(m) }
 func (*EtcdPipelineInfo) ProtoMessage()    {}
 func (*EtcdPipelineInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{26}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{26}
 }
 func (m *EtcdPipelineInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2428,13 +2428,13 @@ func (m *EtcdPipelineInfo) GetAuthToken() string {
 
 type PipelineInfo struct {
 	ID              string           `protobuf:"bytes,17,opt,name=id,proto3" json:"id,omitempty"`
-	Pipeline        *Pipeline        `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline        *Pipeline        `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	Version         uint64           `protobuf:"varint,11,opt,name=version,proto3" json:"version,omitempty"`
-	Transform       *Transform       `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	ParallelismSpec *ParallelismSpec `protobuf:"bytes,10,opt,name=parallelism_spec,json=parallelismSpec" json:"parallelism_spec,omitempty"`
-	HashtreeSpec    *HashtreeSpec    `protobuf:"bytes,42,opt,name=hashtree_spec,json=hashtreeSpec" json:"hashtree_spec,omitempty"`
-	Egress          *Egress          `protobuf:"bytes,15,opt,name=egress" json:"egress,omitempty"`
-	CreatedAt       *types.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt" json:"created_at,omitempty"`
+	Transform       *Transform       `protobuf:"bytes,2,opt,name=transform,proto3" json:"transform,omitempty"`
+	ParallelismSpec *ParallelismSpec `protobuf:"bytes,10,opt,name=parallelism_spec,json=parallelismSpec,proto3" json:"parallelism_spec,omitempty"`
+	HashtreeSpec    *HashtreeSpec    `protobuf:"bytes,42,opt,name=hashtree_spec,json=hashtreeSpec,proto3" json:"hashtree_spec,omitempty"`
+	Egress          *Egress          `protobuf:"bytes,15,opt,name=egress,proto3" json:"egress,omitempty"`
+	CreatedAt       *types.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// state indicates the current state of the pipeline. This is not stored in
 	// PFS along with the rest of this data structure--PPS.InspectPipeline fills
 	// it in
@@ -2445,12 +2445,12 @@ type PipelineInfo struct {
 	// job_counts indicates the number of jobs within this pipeline in a given
 	// state. This is not stored in PFS along with the rest of this data
 	// structure--PPS.InspectPipeline fills it in
-	JobCounts          map[int32]int32 `protobuf:"bytes,9,rep,name=job_counts,json=jobCounts" json:"job_counts,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	JobCounts          map[int32]int32 `protobuf:"bytes,9,rep,name=job_counts,json=jobCounts,proto3" json:"job_counts,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	OutputBranch       string          `protobuf:"bytes,16,opt,name=output_branch,json=outputBranch,proto3" json:"output_branch,omitempty"`
-	ScaleDownThreshold *types.Duration `protobuf:"bytes,18,opt,name=scale_down_threshold,json=scaleDownThreshold" json:"scale_down_threshold,omitempty"`
-	ResourceRequests   *ResourceSpec   `protobuf:"bytes,19,opt,name=resource_requests,json=resourceRequests" json:"resource_requests,omitempty"`
-	ResourceLimits     *ResourceSpec   `protobuf:"bytes,31,opt,name=resource_limits,json=resourceLimits" json:"resource_limits,omitempty"`
-	Input              *Input          `protobuf:"bytes,20,opt,name=input" json:"input,omitempty"`
+	ScaleDownThreshold *types.Duration `protobuf:"bytes,18,opt,name=scale_down_threshold,json=scaleDownThreshold,proto3" json:"scale_down_threshold,omitempty"`
+	ResourceRequests   *ResourceSpec   `protobuf:"bytes,19,opt,name=resource_requests,json=resourceRequests,proto3" json:"resource_requests,omitempty"`
+	ResourceLimits     *ResourceSpec   `protobuf:"bytes,31,opt,name=resource_limits,json=resourceLimits,proto3" json:"resource_limits,omitempty"`
+	Input              *Input          `protobuf:"bytes,20,opt,name=input,proto3" json:"input,omitempty"`
 	Description        string          `protobuf:"bytes,21,opt,name=description,proto3" json:"description,omitempty"`
 	CacheSize          string          `protobuf:"bytes,23,opt,name=cache_size,json=cacheSize,proto3" json:"cache_size,omitempty"`
 	EnableStats        bool            `protobuf:"varint,24,opt,name=enable_stats,json=enableStats,proto3" json:"enable_stats,omitempty"`
@@ -2459,15 +2459,15 @@ type PipelineInfo struct {
 	// reason includes any error messages associated with a failed pipeline
 	Reason               string          `protobuf:"bytes,28,opt,name=reason,proto3" json:"reason,omitempty"`
 	MaxQueueSize         int64           `protobuf:"varint,29,opt,name=max_queue_size,json=maxQueueSize,proto3" json:"max_queue_size,omitempty"`
-	Service              *Service        `protobuf:"bytes,30,opt,name=service" json:"service,omitempty"`
-	ChunkSpec            *ChunkSpec      `protobuf:"bytes,32,opt,name=chunk_spec,json=chunkSpec" json:"chunk_spec,omitempty"`
-	DatumTimeout         *types.Duration `protobuf:"bytes,33,opt,name=datum_timeout,json=datumTimeout" json:"datum_timeout,omitempty"`
-	JobTimeout           *types.Duration `protobuf:"bytes,34,opt,name=job_timeout,json=jobTimeout" json:"job_timeout,omitempty"`
+	Service              *Service        `protobuf:"bytes,30,opt,name=service,proto3" json:"service,omitempty"`
+	ChunkSpec            *ChunkSpec      `protobuf:"bytes,32,opt,name=chunk_spec,json=chunkSpec,proto3" json:"chunk_spec,omitempty"`
+	DatumTimeout         *types.Duration `protobuf:"bytes,33,opt,name=datum_timeout,json=datumTimeout,proto3" json:"datum_timeout,omitempty"`
+	JobTimeout           *types.Duration `protobuf:"bytes,34,opt,name=job_timeout,json=jobTimeout,proto3" json:"job_timeout,omitempty"`
 	GithookURL           string          `protobuf:"bytes,35,opt,name=githook_url,json=githookUrl,proto3" json:"githook_url,omitempty"`
-	SpecCommit           *pfs.Commit     `protobuf:"bytes,36,opt,name=spec_commit,json=specCommit" json:"spec_commit,omitempty"`
+	SpecCommit           *pfs.Commit     `protobuf:"bytes,36,opt,name=spec_commit,json=specCommit,proto3" json:"spec_commit,omitempty"`
 	Standby              bool            `protobuf:"varint,37,opt,name=standby,proto3" json:"standby,omitempty"`
 	DatumTries           int64           `protobuf:"varint,39,opt,name=datum_tries,json=datumTries,proto3" json:"datum_tries,omitempty"`
-	SchedulingSpec       *SchedulingSpec `protobuf:"bytes,40,opt,name=scheduling_spec,json=schedulingSpec" json:"scheduling_spec,omitempty"`
+	SchedulingSpec       *SchedulingSpec `protobuf:"bytes,40,opt,name=scheduling_spec,json=schedulingSpec,proto3" json:"scheduling_spec,omitempty"`
 	PodSpec              string          `protobuf:"bytes,41,opt,name=pod_spec,json=podSpec,proto3" json:"pod_spec,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
@@ -2478,7 +2478,7 @@ func (m *PipelineInfo) Reset()         { *m = PipelineInfo{} }
 func (m *PipelineInfo) String() string { return proto.CompactTextString(m) }
 func (*PipelineInfo) ProtoMessage()    {}
 func (*PipelineInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{27}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{27}
 }
 func (m *PipelineInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2746,7 +2746,7 @@ func (m *PipelineInfo) GetPodSpec() string {
 }
 
 type PipelineInfos struct {
-	PipelineInfo         []*PipelineInfo `protobuf:"bytes,1,rep,name=pipeline_info,json=pipelineInfo" json:"pipeline_info,omitempty"`
+	PipelineInfo         []*PipelineInfo `protobuf:"bytes,1,rep,name=pipeline_info,json=pipelineInfo,proto3" json:"pipeline_info,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -2756,7 +2756,7 @@ func (m *PipelineInfos) Reset()         { *m = PipelineInfos{} }
 func (m *PipelineInfos) String() string { return proto.CompactTextString(m) }
 func (*PipelineInfos) ProtoMessage()    {}
 func (*PipelineInfos) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{28}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{28}
 }
 func (m *PipelineInfos) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2793,8 +2793,8 @@ func (m *PipelineInfos) GetPipelineInfo() []*PipelineInfo {
 }
 
 type CreateJobRequest struct {
-	Pipeline             *Pipeline   `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
-	OutputCommit         *pfs.Commit `protobuf:"bytes,25,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
+	Pipeline             *Pipeline   `protobuf:"bytes,2,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
+	OutputCommit         *pfs.Commit `protobuf:"bytes,25,opt,name=output_commit,json=outputCommit,proto3" json:"output_commit,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -2804,7 +2804,7 @@ func (m *CreateJobRequest) Reset()         { *m = CreateJobRequest{} }
 func (m *CreateJobRequest) String() string { return proto.CompactTextString(m) }
 func (*CreateJobRequest) ProtoMessage()    {}
 func (*CreateJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{29}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{29}
 }
 func (m *CreateJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2849,8 +2849,8 @@ func (m *CreateJobRequest) GetOutputCommit() *pfs.Commit {
 
 type InspectJobRequest struct {
 	// Callers should set either Job or OutputCommit, not both.
-	Job                  *Job        `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	OutputCommit         *pfs.Commit `protobuf:"bytes,3,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
+	Job                  *Job        `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	OutputCommit         *pfs.Commit `protobuf:"bytes,3,opt,name=output_commit,json=outputCommit,proto3" json:"output_commit,omitempty"`
 	BlockState           bool        `protobuf:"varint,2,opt,name=block_state,json=blockState,proto3" json:"block_state,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
@@ -2861,7 +2861,7 @@ func (m *InspectJobRequest) Reset()         { *m = InspectJobRequest{} }
 func (m *InspectJobRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectJobRequest) ProtoMessage()    {}
 func (*InspectJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{30}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{30}
 }
 func (m *InspectJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2912,9 +2912,9 @@ func (m *InspectJobRequest) GetBlockState() bool {
 }
 
 type ListJobRequest struct {
-	Pipeline             *Pipeline     `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	InputCommit          []*pfs.Commit `protobuf:"bytes,2,rep,name=input_commit,json=inputCommit" json:"input_commit,omitempty"`
-	OutputCommit         *pfs.Commit   `protobuf:"bytes,3,opt,name=output_commit,json=outputCommit" json:"output_commit,omitempty"`
+	Pipeline             *Pipeline     `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
+	InputCommit          []*pfs.Commit `protobuf:"bytes,2,rep,name=input_commit,json=inputCommit,proto3" json:"input_commit,omitempty"`
+	OutputCommit         *pfs.Commit   `protobuf:"bytes,3,opt,name=output_commit,json=outputCommit,proto3" json:"output_commit,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -2924,7 +2924,7 @@ func (m *ListJobRequest) Reset()         { *m = ListJobRequest{} }
 func (m *ListJobRequest) String() string { return proto.CompactTextString(m) }
 func (*ListJobRequest) ProtoMessage()    {}
 func (*ListJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{31}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{31}
 }
 func (m *ListJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2975,8 +2975,8 @@ func (m *ListJobRequest) GetOutputCommit() *pfs.Commit {
 }
 
 type FlushJobRequest struct {
-	Commits              []*pfs.Commit `protobuf:"bytes,1,rep,name=commits" json:"commits,omitempty"`
-	ToPipelines          []*Pipeline   `protobuf:"bytes,2,rep,name=to_pipelines,json=toPipelines" json:"to_pipelines,omitempty"`
+	Commits              []*pfs.Commit `protobuf:"bytes,1,rep,name=commits,proto3" json:"commits,omitempty"`
+	ToPipelines          []*Pipeline   `protobuf:"bytes,2,rep,name=to_pipelines,json=toPipelines,proto3" json:"to_pipelines,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -2986,7 +2986,7 @@ func (m *FlushJobRequest) Reset()         { *m = FlushJobRequest{} }
 func (m *FlushJobRequest) String() string { return proto.CompactTextString(m) }
 func (*FlushJobRequest) ProtoMessage()    {}
 func (*FlushJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{32}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{32}
 }
 func (m *FlushJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3030,7 +3030,7 @@ func (m *FlushJobRequest) GetToPipelines() []*Pipeline {
 }
 
 type DeleteJobRequest struct {
-	Job                  *Job     `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Job                  *Job     `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3040,7 +3040,7 @@ func (m *DeleteJobRequest) Reset()         { *m = DeleteJobRequest{} }
 func (m *DeleteJobRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteJobRequest) ProtoMessage()    {}
 func (*DeleteJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{33}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{33}
 }
 func (m *DeleteJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3077,7 +3077,7 @@ func (m *DeleteJobRequest) GetJob() *Job {
 }
 
 type StopJobRequest struct {
-	Job                  *Job     `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Job                  *Job     `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3087,7 +3087,7 @@ func (m *StopJobRequest) Reset()         { *m = StopJobRequest{} }
 func (m *StopJobRequest) String() string { return proto.CompactTextString(m) }
 func (*StopJobRequest) ProtoMessage()    {}
 func (*StopJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{34}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{34}
 }
 func (m *StopJobRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3127,15 +3127,15 @@ type GetLogsRequest struct {
 	// The pipeline from which we want to get logs (required if the job in 'job'
 	// was created as part of a pipeline. To get logs from a non-orphan job
 	// without the pipeline that created it, you need to use ElasticSearch).
-	Pipeline *Pipeline `protobuf:"bytes,2,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline *Pipeline `protobuf:"bytes,2,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	// The job from which we want to get logs.
-	Job *Job `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Job *Job `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	// Names of input files from which we want processing logs. This may contain
 	// multiple files, to query pipelines that contain multiple inputs. Each
 	// filter may be an absolute path of a file within a pps repo, or it may be
 	// a hash for that file (to search for files at specific versions)
-	DataFilters []string `protobuf:"bytes,3,rep,name=data_filters,json=dataFilters" json:"data_filters,omitempty"`
-	Datum       *Datum   `protobuf:"bytes,6,opt,name=datum" json:"datum,omitempty"`
+	DataFilters []string `protobuf:"bytes,3,rep,name=data_filters,json=dataFilters,proto3" json:"data_filters,omitempty"`
+	Datum       *Datum   `protobuf:"bytes,6,opt,name=datum,proto3" json:"datum,omitempty"`
 	// If true get logs from the master process
 	Master bool `protobuf:"varint,5,opt,name=master,proto3" json:"master,omitempty"`
 	// Continue to follow new logs as they become available.
@@ -3153,7 +3153,7 @@ func (m *GetLogsRequest) Reset()         { *m = GetLogsRequest{} }
 func (m *GetLogsRequest) String() string { return proto.CompactTextString(m) }
 func (*GetLogsRequest) ProtoMessage()    {}
 func (*GetLogsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{35}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{35}
 }
 func (m *GetLogsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3242,11 +3242,11 @@ type LogMessage struct {
 	DatumID      string `protobuf:"bytes,9,opt,name=datum_id,json=datumId,proto3" json:"datum_id,omitempty"`
 	Master       bool   `protobuf:"varint,10,opt,name=master,proto3" json:"master,omitempty"`
 	// The PFS files being processed (one per pipeline/job input)
-	Data []*InputFile `protobuf:"bytes,4,rep,name=data" json:"data,omitempty"`
+	Data []*InputFile `protobuf:"bytes,4,rep,name=data,proto3" json:"data,omitempty"`
 	// User is true if log message comes from the users code.
 	User bool `protobuf:"varint,8,opt,name=user,proto3" json:"user,omitempty"`
 	// The message logged, and the time at which it was logged
-	Ts                   *types.Timestamp `protobuf:"bytes,5,opt,name=ts" json:"ts,omitempty"`
+	Ts                   *types.Timestamp `protobuf:"bytes,5,opt,name=ts,proto3" json:"ts,omitempty"`
 	Message              string           `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
@@ -3257,7 +3257,7 @@ func (m *LogMessage) Reset()         { *m = LogMessage{} }
 func (m *LogMessage) String() string { return proto.CompactTextString(m) }
 func (*LogMessage) ProtoMessage()    {}
 func (*LogMessage) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{36}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{36}
 }
 func (m *LogMessage) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3350,8 +3350,8 @@ func (m *LogMessage) GetMessage() string {
 }
 
 type RestartDatumRequest struct {
-	Job                  *Job     `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
-	DataFilters          []string `protobuf:"bytes,2,rep,name=data_filters,json=dataFilters" json:"data_filters,omitempty"`
+	Job                  *Job     `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	DataFilters          []string `protobuf:"bytes,2,rep,name=data_filters,json=dataFilters,proto3" json:"data_filters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3361,7 +3361,7 @@ func (m *RestartDatumRequest) Reset()         { *m = RestartDatumRequest{} }
 func (m *RestartDatumRequest) String() string { return proto.CompactTextString(m) }
 func (*RestartDatumRequest) ProtoMessage()    {}
 func (*RestartDatumRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{37}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{37}
 }
 func (m *RestartDatumRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3405,7 +3405,7 @@ func (m *RestartDatumRequest) GetDataFilters() []string {
 }
 
 type InspectDatumRequest struct {
-	Datum                *Datum   `protobuf:"bytes,1,opt,name=datum" json:"datum,omitempty"`
+	Datum                *Datum   `protobuf:"bytes,1,opt,name=datum,proto3" json:"datum,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3415,7 +3415,7 @@ func (m *InspectDatumRequest) Reset()         { *m = InspectDatumRequest{} }
 func (m *InspectDatumRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectDatumRequest) ProtoMessage()    {}
 func (*InspectDatumRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{38}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{38}
 }
 func (m *InspectDatumRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3452,7 +3452,7 @@ func (m *InspectDatumRequest) GetDatum() *Datum {
 }
 
 type ListDatumRequest struct {
-	Job                  *Job     `protobuf:"bytes,1,opt,name=job" json:"job,omitempty"`
+	Job                  *Job     `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
 	PageSize             int64    `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	Page                 int64    `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -3464,7 +3464,7 @@ func (m *ListDatumRequest) Reset()         { *m = ListDatumRequest{} }
 func (m *ListDatumRequest) String() string { return proto.CompactTextString(m) }
 func (*ListDatumRequest) ProtoMessage()    {}
 func (*ListDatumRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{39}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{39}
 }
 func (m *ListDatumRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3515,7 +3515,7 @@ func (m *ListDatumRequest) GetPage() int64 {
 }
 
 type ListDatumResponse struct {
-	DatumInfos           []*DatumInfo `protobuf:"bytes,1,rep,name=datum_infos,json=datumInfos" json:"datum_infos,omitempty"`
+	DatumInfos           []*DatumInfo `protobuf:"bytes,1,rep,name=datum_infos,json=datumInfos,proto3" json:"datum_infos,omitempty"`
 	TotalPages           int64        `protobuf:"varint,2,opt,name=total_pages,json=totalPages,proto3" json:"total_pages,omitempty"`
 	Page                 int64        `protobuf:"varint,3,opt,name=page,proto3" json:"page,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
@@ -3527,7 +3527,7 @@ func (m *ListDatumResponse) Reset()         { *m = ListDatumResponse{} }
 func (m *ListDatumResponse) String() string { return proto.CompactTextString(m) }
 func (*ListDatumResponse) ProtoMessage()    {}
 func (*ListDatumResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{40}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{40}
 }
 func (m *ListDatumResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3580,7 +3580,7 @@ func (m *ListDatumResponse) GetPage() int64 {
 // ListDatumStreamResponse is identical to ListDatumResponse, except that only
 // one DatumInfo is present (as these responses are streamed)
 type ListDatumStreamResponse struct {
-	DatumInfo *DatumInfo `protobuf:"bytes,1,opt,name=datum_info,json=datumInfo" json:"datum_info,omitempty"`
+	DatumInfo *DatumInfo `protobuf:"bytes,1,opt,name=datum_info,json=datumInfo,proto3" json:"datum_info,omitempty"`
 	// total_pages is only set in the first response (and set to 0 in all other
 	// responses)
 	TotalPages int64 `protobuf:"varint,2,opt,name=total_pages,json=totalPages,proto3" json:"total_pages,omitempty"`
@@ -3596,7 +3596,7 @@ func (m *ListDatumStreamResponse) Reset()         { *m = ListDatumStreamResponse
 func (m *ListDatumStreamResponse) String() string { return proto.CompactTextString(m) }
 func (*ListDatumStreamResponse) ProtoMessage()    {}
 func (*ListDatumStreamResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{41}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{41}
 }
 func (m *ListDatumStreamResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3665,7 +3665,7 @@ func (m *ChunkSpec) Reset()         { *m = ChunkSpec{} }
 func (m *ChunkSpec) String() string { return proto.CompactTextString(m) }
 func (*ChunkSpec) ProtoMessage()    {}
 func (*ChunkSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{42}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{42}
 }
 func (m *ChunkSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3709,7 +3709,7 @@ func (m *ChunkSpec) GetSizeBytes() int64 {
 }
 
 type SchedulingSpec struct {
-	NodeSelector         map[string]string `protobuf:"bytes,1,rep,name=node_selector,json=nodeSelector" json:"node_selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	NodeSelector         map[string]string `protobuf:"bytes,1,rep,name=node_selector,json=nodeSelector,proto3" json:"node_selector,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	PriorityClassName    string            `protobuf:"bytes,2,opt,name=priority_class_name,json=priorityClassName,proto3" json:"priority_class_name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
@@ -3720,7 +3720,7 @@ func (m *SchedulingSpec) Reset()         { *m = SchedulingSpec{} }
 func (m *SchedulingSpec) String() string { return proto.CompactTextString(m) }
 func (*SchedulingSpec) ProtoMessage()    {}
 func (*SchedulingSpec) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{43}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{43}
 }
 func (m *SchedulingSpec) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -3764,17 +3764,17 @@ func (m *SchedulingSpec) GetPriorityClassName() string {
 }
 
 type CreatePipelineRequest struct {
-	Pipeline           *Pipeline        `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Transform          *Transform       `protobuf:"bytes,2,opt,name=transform" json:"transform,omitempty"`
-	ParallelismSpec    *ParallelismSpec `protobuf:"bytes,7,opt,name=parallelism_spec,json=parallelismSpec" json:"parallelism_spec,omitempty"`
-	HashtreeSpec       *HashtreeSpec    `protobuf:"bytes,31,opt,name=hashtree_spec,json=hashtreeSpec" json:"hashtree_spec,omitempty"`
-	Egress             *Egress          `protobuf:"bytes,9,opt,name=egress" json:"egress,omitempty"`
+	Pipeline           *Pipeline        `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
+	Transform          *Transform       `protobuf:"bytes,2,opt,name=transform,proto3" json:"transform,omitempty"`
+	ParallelismSpec    *ParallelismSpec `protobuf:"bytes,7,opt,name=parallelism_spec,json=parallelismSpec,proto3" json:"parallelism_spec,omitempty"`
+	HashtreeSpec       *HashtreeSpec    `protobuf:"bytes,31,opt,name=hashtree_spec,json=hashtreeSpec,proto3" json:"hashtree_spec,omitempty"`
+	Egress             *Egress          `protobuf:"bytes,9,opt,name=egress,proto3" json:"egress,omitempty"`
 	Update             bool             `protobuf:"varint,5,opt,name=update,proto3" json:"update,omitempty"`
 	OutputBranch       string           `protobuf:"bytes,10,opt,name=output_branch,json=outputBranch,proto3" json:"output_branch,omitempty"`
-	ScaleDownThreshold *types.Duration  `protobuf:"bytes,11,opt,name=scale_down_threshold,json=scaleDownThreshold" json:"scale_down_threshold,omitempty"`
-	ResourceRequests   *ResourceSpec    `protobuf:"bytes,12,opt,name=resource_requests,json=resourceRequests" json:"resource_requests,omitempty"`
-	ResourceLimits     *ResourceSpec    `protobuf:"bytes,22,opt,name=resource_limits,json=resourceLimits" json:"resource_limits,omitempty"`
-	Input              *Input           `protobuf:"bytes,13,opt,name=input" json:"input,omitempty"`
+	ScaleDownThreshold *types.Duration  `protobuf:"bytes,11,opt,name=scale_down_threshold,json=scaleDownThreshold,proto3" json:"scale_down_threshold,omitempty"`
+	ResourceRequests   *ResourceSpec    `protobuf:"bytes,12,opt,name=resource_requests,json=resourceRequests,proto3" json:"resource_requests,omitempty"`
+	ResourceLimits     *ResourceSpec    `protobuf:"bytes,22,opt,name=resource_limits,json=resourceLimits,proto3" json:"resource_limits,omitempty"`
+	Input              *Input           `protobuf:"bytes,13,opt,name=input,proto3" json:"input,omitempty"`
 	Description        string           `protobuf:"bytes,14,opt,name=description,proto3" json:"description,omitempty"`
 	CacheSize          string           `protobuf:"bytes,16,opt,name=cache_size,json=cacheSize,proto3" json:"cache_size,omitempty"`
 	EnableStats        bool             `protobuf:"varint,17,opt,name=enable_stats,json=enableStats,proto3" json:"enable_stats,omitempty"`
@@ -3783,14 +3783,14 @@ type CreatePipelineRequest struct {
 	Reprocess            bool            `protobuf:"varint,18,opt,name=reprocess,proto3" json:"reprocess,omitempty"`
 	Batch                bool            `protobuf:"varint,19,opt,name=batch,proto3" json:"batch,omitempty"`
 	MaxQueueSize         int64           `protobuf:"varint,20,opt,name=max_queue_size,json=maxQueueSize,proto3" json:"max_queue_size,omitempty"`
-	Service              *Service        `protobuf:"bytes,21,opt,name=service" json:"service,omitempty"`
-	ChunkSpec            *ChunkSpec      `protobuf:"bytes,23,opt,name=chunk_spec,json=chunkSpec" json:"chunk_spec,omitempty"`
-	DatumTimeout         *types.Duration `protobuf:"bytes,24,opt,name=datum_timeout,json=datumTimeout" json:"datum_timeout,omitempty"`
-	JobTimeout           *types.Duration `protobuf:"bytes,25,opt,name=job_timeout,json=jobTimeout" json:"job_timeout,omitempty"`
+	Service              *Service        `protobuf:"bytes,21,opt,name=service,proto3" json:"service,omitempty"`
+	ChunkSpec            *ChunkSpec      `protobuf:"bytes,23,opt,name=chunk_spec,json=chunkSpec,proto3" json:"chunk_spec,omitempty"`
+	DatumTimeout         *types.Duration `protobuf:"bytes,24,opt,name=datum_timeout,json=datumTimeout,proto3" json:"datum_timeout,omitempty"`
+	JobTimeout           *types.Duration `protobuf:"bytes,25,opt,name=job_timeout,json=jobTimeout,proto3" json:"job_timeout,omitempty"`
 	Salt                 string          `protobuf:"bytes,26,opt,name=salt,proto3" json:"salt,omitempty"`
 	Standby              bool            `protobuf:"varint,27,opt,name=standby,proto3" json:"standby,omitempty"`
 	DatumTries           int64           `protobuf:"varint,28,opt,name=datum_tries,json=datumTries,proto3" json:"datum_tries,omitempty"`
-	SchedulingSpec       *SchedulingSpec `protobuf:"bytes,29,opt,name=scheduling_spec,json=schedulingSpec" json:"scheduling_spec,omitempty"`
+	SchedulingSpec       *SchedulingSpec `protobuf:"bytes,29,opt,name=scheduling_spec,json=schedulingSpec,proto3" json:"scheduling_spec,omitempty"`
 	PodSpec              string          `protobuf:"bytes,30,opt,name=pod_spec,json=podSpec,proto3" json:"pod_spec,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
@@ -3801,7 +3801,7 @@ func (m *CreatePipelineRequest) Reset()         { *m = CreatePipelineRequest{} }
 func (m *CreatePipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*CreatePipelineRequest) ProtoMessage()    {}
 func (*CreatePipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{44}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{44}
 }
 func (m *CreatePipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4013,7 +4013,7 @@ func (m *CreatePipelineRequest) GetPodSpec() string {
 }
 
 type InspectPipelineRequest struct {
-	Pipeline             *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline             *Pipeline `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -4023,7 +4023,7 @@ func (m *InspectPipelineRequest) Reset()         { *m = InspectPipelineRequest{}
 func (m *InspectPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectPipelineRequest) ProtoMessage()    {}
 func (*InspectPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{45}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{45}
 }
 func (m *InspectPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4069,7 +4069,7 @@ func (m *ListPipelineRequest) Reset()         { *m = ListPipelineRequest{} }
 func (m *ListPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*ListPipelineRequest) ProtoMessage()    {}
 func (*ListPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{46}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{46}
 }
 func (m *ListPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4099,7 +4099,7 @@ func (m *ListPipelineRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_ListPipelineRequest proto.InternalMessageInfo
 
 type DeletePipelineRequest struct {
-	Pipeline             *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline             *Pipeline `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	All                  bool      `protobuf:"varint,4,opt,name=all,proto3" json:"all,omitempty"`
 	Force                bool      `protobuf:"varint,5,opt,name=force,proto3" json:"force,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
@@ -4111,7 +4111,7 @@ func (m *DeletePipelineRequest) Reset()         { *m = DeletePipelineRequest{} }
 func (m *DeletePipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*DeletePipelineRequest) ProtoMessage()    {}
 func (*DeletePipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{47}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{47}
 }
 func (m *DeletePipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4162,7 +4162,7 @@ func (m *DeletePipelineRequest) GetForce() bool {
 }
 
 type StartPipelineRequest struct {
-	Pipeline             *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline             *Pipeline `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -4172,7 +4172,7 @@ func (m *StartPipelineRequest) Reset()         { *m = StartPipelineRequest{} }
 func (m *StartPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*StartPipelineRequest) ProtoMessage()    {}
 func (*StartPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{48}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{48}
 }
 func (m *StartPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4209,7 +4209,7 @@ func (m *StartPipelineRequest) GetPipeline() *Pipeline {
 }
 
 type StopPipelineRequest struct {
-	Pipeline             *Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline             *Pipeline `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -4219,7 +4219,7 @@ func (m *StopPipelineRequest) Reset()         { *m = StopPipelineRequest{} }
 func (m *StopPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*StopPipelineRequest) ProtoMessage()    {}
 func (*StopPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{49}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{49}
 }
 func (m *StopPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4256,9 +4256,9 @@ func (m *StopPipelineRequest) GetPipeline() *Pipeline {
 }
 
 type RerunPipelineRequest struct {
-	Pipeline             *Pipeline     `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
-	Exclude              []*pfs.Commit `protobuf:"bytes,2,rep,name=exclude" json:"exclude,omitempty"`
-	Include              []*pfs.Commit `protobuf:"bytes,3,rep,name=include" json:"include,omitempty"`
+	Pipeline             *Pipeline     `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
+	Exclude              []*pfs.Commit `protobuf:"bytes,2,rep,name=exclude,proto3" json:"exclude,omitempty"`
+	Include              []*pfs.Commit `protobuf:"bytes,3,rep,name=include,proto3" json:"include,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -4268,7 +4268,7 @@ func (m *RerunPipelineRequest) Reset()         { *m = RerunPipelineRequest{} }
 func (m *RerunPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*RerunPipelineRequest) ProtoMessage()    {}
 func (*RerunPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{50}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{50}
 }
 func (m *RerunPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4332,7 +4332,7 @@ func (m *GarbageCollectRequest) Reset()         { *m = GarbageCollectRequest{} }
 func (m *GarbageCollectRequest) String() string { return proto.CompactTextString(m) }
 func (*GarbageCollectRequest) ProtoMessage()    {}
 func (*GarbageCollectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{51}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{51}
 }
 func (m *GarbageCollectRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4378,7 +4378,7 @@ func (m *GarbageCollectResponse) Reset()         { *m = GarbageCollectResponse{}
 func (m *GarbageCollectResponse) String() string { return proto.CompactTextString(m) }
 func (*GarbageCollectResponse) ProtoMessage()    {}
 func (*GarbageCollectResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{52}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{52}
 }
 func (m *GarbageCollectResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4417,7 +4417,7 @@ func (m *ActivateAuthRequest) Reset()         { *m = ActivateAuthRequest{} }
 func (m *ActivateAuthRequest) String() string { return proto.CompactTextString(m) }
 func (*ActivateAuthRequest) ProtoMessage()    {}
 func (*ActivateAuthRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{53}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{53}
 }
 func (m *ActivateAuthRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -4456,7 +4456,7 @@ func (m *ActivateAuthResponse) Reset()         { *m = ActivateAuthResponse{} }
 func (m *ActivateAuthResponse) String() string { return proto.CompactTextString(m) }
 func (*ActivateAuthResponse) ProtoMessage()    {}
 func (*ActivateAuthResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_pps_ac2d5a8fbcbc84db, []int{54}
+	return fileDescriptor_pps_7e422b34e14a1ac0, []int{54}
 }
 func (m *ActivateAuthResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -21189,9 +21189,9 @@ var (
 	ErrIntOverflowPps   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("client/pps/pps.proto", fileDescriptor_pps_ac2d5a8fbcbc84db) }
+func init() { proto.RegisterFile("client/pps/pps.proto", fileDescriptor_pps_7e422b34e14a1ac0) }
 
-var fileDescriptor_pps_ac2d5a8fbcbc84db = []byte{
+var fileDescriptor_pps_7e422b34e14a1ac0 = []byte{
 	// 4165 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x5a, 0x5f, 0x6f, 0xdb, 0xc8,
 	0x76, 0xb7, 0x24, 0xca, 0x22, 0x8f, 0x64, 0x99, 0x1e, 0xff, 0xa3, 0x95, 0x4d, 0xec, 0x70, 0x37,

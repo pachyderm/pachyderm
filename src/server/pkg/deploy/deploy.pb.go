@@ -121,7 +121,7 @@ func (m *Cluster) GetName() string {
 }
 
 type ClusterInfo struct {
-	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	Shards               uint64   `protobuf:"varint,2,opt,name=shards,proto3" json:"shards,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -176,7 +176,7 @@ func (m *ClusterInfo) GetShards() uint64 {
 }
 
 type ClusterInfos struct {
-	ClusterInfos         []*ClusterInfo `protobuf:"bytes,1,rep,name=cluster_infos,json=clusterInfos" json:"cluster_infos,omitempty"`
+	ClusterInfos         []*ClusterInfo `protobuf:"bytes,1,rep,name=cluster_infos,json=clusterInfos,proto3" json:"cluster_infos,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -223,7 +223,7 @@ func (m *ClusterInfos) GetClusterInfos() []*ClusterInfo {
 }
 
 type CreateClusterRequest struct {
-	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	Shards               uint64   `protobuf:"varint,2,opt,name=shards,proto3" json:"shards,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -278,7 +278,7 @@ func (m *CreateClusterRequest) GetShards() uint64 {
 }
 
 type UpdateClusterRequest struct {
-	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	Nodes                uint64   `protobuf:"varint,2,opt,name=nodes,proto3" json:"nodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -333,7 +333,7 @@ func (m *UpdateClusterRequest) GetNodes() uint64 {
 }
 
 type InspectClusterRequest struct {
-	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -419,7 +419,7 @@ func (m *ListClusterRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_ListClusterRequest proto.InternalMessageInfo
 
 type DeleteClusterRequest struct {
-	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster" json:"cluster,omitempty"`
+	Cluster              *Cluster `protobuf:"bytes,1,opt,name=cluster,proto3" json:"cluster,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
