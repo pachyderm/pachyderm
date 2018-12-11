@@ -1,0 +1,474 @@
+syntax = "proto3";
+package auth_1_7;
+
+import "gogoproto/gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+/* A note on users
+ *
+ * Internally, in Pachyderm, usernames are structured strings. This makes both
+ * our API and our data model more flexible (at the loss of some type safety).
+ * Basically, anywhere that Pachyderm internally stores a subject (i.e.
+ * TokenInfo) or principal (ACL, the 'admins' collection), that username will
+ * have some structured prefix.
+ *
+ * Note that externally-facing principals ({Get,Set}{Scope,ACL}, ModifyAdmins,
+ * ListAdmins) will have their own conventions
+ *
+ * The current user formats are:
+ * 1) GitHub usernames:
+ *      "github:MyGitHubUsername"
+ * 2) Pachyderm robot users:
+ *      "robot:robot_user_1"
+ * 3) Pachyderm pipelines:
+ *      "pipeline:terasort"
+ */
+
+
+//// Activation API
+
+// ActivateRequest mirrors AuthenticateRequest. The caller is authenticated via
+// GitHub OAuth, and then promoted to the cluster's first Admin. Afterwards, the
+// caller can promote other users to Admin and remove themselves
+message ActivateRequest {
+  // If set, Pachyderm will authenticate the caller as this user.
+  // - If set to a github user (i.e. it has a 'github:' prefix or no prefix)
+  //   then Pachyderm will confirm that it matches the user associated with
+  //   'github_token'
+  // - If set to a robot user (i.e. it has a 'robot:' prefix), then Pachyderm
+  //   will generate a new token for the robot user; this token will be the only
+  //   way to administer this cluster until more admins are added.
+  string subject = 2;
+
+  // This is the token returned by GitHub and used to authenticate the caller.
+  // When Pachyderm is deployed locally, setting this value to a given string
+  // will automatically authenticate the caller as a GitHub user whose username
+  // is that string (unless this "looks like" a GitHub access code, in which
+  // case Pachyderm does retrieve the corresponding GitHub username)
+  string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
+}
+
+message ActivateResponse {
+  // pach_token authenticates the caller with Pachyderm (if you want to perform
+  // Pachyderm operations after auth has been activated as themselves, you must
+  // present this token along with your regular request)
+  string pach_token = 1;
+}
+
+message DeactivateRequest {}
+message DeactivateResponse {}
+
+// IDProvider configures a single ID provider that can authenticate Pachyderm
+// users
+message IDProvider {
+  // Name identifies this authentication backend in Pachyderm.
+  string name = 1;
+
+  // Description is a human-readable description of this authentication
+  // backend. It's ignored by Pachyderm, but exists for the benefit of users
+  // configuring Pachyderm's auth system.
+  string description = 2;
+
+  // SAMLOptions describes a SAML-based identity provider
+  message SAMLOptions {
+    // metadata_url is the URL of the SAML ID provider's metadata service
+    // (which Pachd can query to get more info about the SAML ID provider)
+    string metadata_url = 1 [(gogoproto.customname) = "MetadataURL"];
+
+    // metadata_xml is a direct reproduction of the ID provider's metadata.
+    // Users can set this field in the argument to SetConfig if the ID provider
+    // can't be reached from pachd (e.g. because it's on a separate network to
+    // which Pachyderm users also have access) or for testing.  Exactly one of
+    // metadata_url and metadata_xml should be set in calls to SetConfig, but
+    // internally, if metadata_url is set, the result of scraping the metadata
+    // URL will be placed here in the result from GetConfig().
+    bytes metadata_xml = 2 [(gogoproto.customname) = "MetadataXML"];
+
+    // If this ID provider supports sending group memberships via attribute,
+    // then users can set group_attribute to the SAML attribute that indicates
+    // group mmbership, and Pachyderm will update users' group memberships when
+    // they authenticate.
+    string group_attribute = 3;
+  }
+  SAMLOptions saml = 3 [(gogoproto.customname) = "SAML"];
+}
+
+// Configure Pachyderm's auth system (particularly authentication backends
+message AuthConfig {
+  // live_config_version identifies the version of a given pachyderm cluster's
+  // current auth configuration; if a user tries to write an auth configuration
+  // where live_config_version doesn't match the version of the cluster's
+  // current config, the write will fail. This allows for safe
+  // read+modify+write config changes.
+  int64 live_config_version = 1;
+
+  // id_providers describes external ID providers that can authenticate
+  // Pachyderm users (e.g. GitHub, Okta, etc)
+  repeated IDProvider id_providers = 2 [(gogoproto.customname) = "IDProviders"];
+
+  // saml_svc_options configures the SAML services (Assertion Consumer Service
+  // and Metadata Service) that Pachd can export.
+  message SAMLServiceOptions {
+    // acs is the URL of Pachd's Assertion Consumer Service (i.e. where SAML ID
+    // providers can send SAMLResponses to Pachd). If Pachyderm is running in a
+    // private cluster, the cluster admin would be responsible for setting up a
+    // domain name/proxy to resolve to pachd:654/acs
+    string acs_url = 1 [(gogoproto.customname) = "ACSURL"];
+
+    // metadata_url is the public URL of Pachd's SAML metadata service (some
+    // SAML ID providers will query this for information about Pachyderm's SAML
+    // implementation and use it to idenfity Pachyderm as a service provider).
+    // If Pachyderm is running in a private cluster, the cluster admin would be
+    // responsible for creating this URL (which must resolve to
+    // pachd:654/saml/metadata)
+    string metadata_url = 2 [(gogoproto.customname) = "MetadataURL"];
+
+    // dash_url is the public address of this cluster's Pachyderm
+    // dashboard, if one exists; this option determines where users will be
+    // redirected after successfully authenticating
+    string dash_url = 3 [(gogoproto.customname) = "DashURL"];
+
+    // session_duration determines the duration of SAML-IdP-authenticated user
+    // sessions (specified as a Golang time duration, e.g. "24h" or "600m"). If
+    // unset, user sessions last 24 hours (a short default, as SAML assertions
+    // may contain group memberships that need to be refreshed)
+    string session_duration = 4;
+
+    // debug_logging determines whether pachd emits verbose logs (including
+    // SAML credentials) as it receives them, which may be helpful for
+    // debugging. This will probably not be present in any official releases.
+    bool debug_logging = 5;
+  }
+  SAMLServiceOptions saml_svc_options = 3 [(gogoproto.customname) = "SAMLServiceOptions"];
+}
+
+message GetConfigurationRequest {}
+message GetConfigurationResponse {
+  AuthConfig configuration = 1;
+}
+message SetConfigurationRequest {
+  AuthConfig configuration = 1;
+}
+message SetConfigurationResponse {}
+
+// Get the current list of cluster admins
+message GetAdminsRequest{}
+message GetAdminsResponse{
+  // admins contains the list of cluster admins
+  repeated string admins = 1;
+}
+
+// Add or remove cluster admins
+message ModifyAdminsRequest {
+  repeated string add = 1;
+  repeated string remove = 2;
+}
+message ModifyAdminsResponse {}
+
+//// Authentication data structures
+
+// OTPInfo is the analogue of 'TokenInfo' for Authentication Codes (short-lived,
+// one-time-use codes that are passed to the frontend and then exchanged for
+// longer-lived tokens)
+message OTPInfo {
+  // Subject (i.e. Pachyderm account) that a given OTP authenticates. This may
+  // be copied into the 'subject' field of a TokenInfo, and therefore has the
+  // same format, with the same prefixes.
+  string subject = 1;
+
+  // session_expiration indicates when the subject's session expires, a.k.a.
+  // when the Token to which this OTP converts expires (likely later than this
+  // OTP expires, but never earlier).
+  google.protobuf.Timestamp session_expiration = 2;
+}
+
+// TokenInfo is the 'value' of an auth token 'key' in the 'tokens' collection
+message TokenInfo {
+  // Subject (i.e. Pachyderm account) that a given token authorizes. Prefixed
+  // with "github:" or "robot:" to distinguish the two classes of
+  // Subject in Pachyderm
+  string subject = 1;
+
+  enum TokenSource {
+    INVALID = 0;
+    AUTHENTICATE = 1; // returned by Authenticate()--non-revokeable
+    GET_TOKEN = 2;  // returned by GetToken()--revokeable.
+  }
+  TokenSource source = 2;
+}
+
+//// Authentication API
+
+message AuthenticateRequest {
+  // Exactly one of 'github_token' or 'one_time_password' must be set:
+
+  // This is the token returned by GitHub and used to authenticate the caller.
+  // When Pachyderm is deployed locally, setting this value to a given string
+  // will automatically authenticate the caller as a GitHub user whose username
+  // is that string (unless this "looks like" a GitHub access code, in which
+  // case Pachyderm does retrieve the corresponding GitHub username)
+  string github_token = 1 [(gogoproto.customname) = "GitHubToken"];
+
+  // This is a short-lived, one-time-use password generated by Pachyderm, for
+  // the purpose of propagating authentication to new clients (e.g. from the
+  // dash to pachd)
+  string one_time_password = 2;
+}
+
+message AuthenticateResponse {
+  // pach_token authenticates the caller with Pachyderm (if you want to perform
+  // Pachyderm operations after auth has been activated as themselves, you must
+  // present this token along with your regular request)
+  string pach_token = 1;
+}
+
+message WhoAmIRequest {}
+
+message WhoAmIResponse {
+  string username = 1;
+  bool is_admin = 2;
+  int64 ttl = 3 [(gogoproto.customname) = "TTL"];
+}
+
+//// Authorization data structures
+
+// Scope (actually a "role" in canonical security nomenclature) represents a
+// rough level of access that a principal has to a repo
+enum Scope {
+  // To remove a user's scope from a repo, set their scope to NONE
+  NONE = 0;
+  READER = 1;
+  WRITER = 2;
+  OWNER = 3;
+}
+
+message ACL {
+  // principal -> scope. All principals are the default principal of a Pachyderm
+  // subject (i.e. all keys in this map are strings prefixed with either
+  // "github:" or "robot:", followed by the name of a GitHub user, all of whom
+  // are Pachyderm subjects, or a Pachyderm robot user)
+  map<string, Scope> entries = 1;
+}
+
+message Users {
+  map<string, bool> usernames = 1;
+}
+
+message Groups {
+  map<string, bool> groups = 1;
+}
+
+//// Authorization API
+
+message AuthorizeRequest {
+  // repo is the object that the caller wants to access
+  string repo = 1;
+
+  // scope is the access level that the caller needs to perform an action
+  Scope scope = 2;
+}
+
+message AuthorizeResponse {
+  // authorized is true if the caller has at least
+  // 'AuthorizeRequest.scope'-level access to 'AuthorizeRequest.repo', and false
+  // otherwise
+  bool authorized = 1;
+}
+
+message GetScopeRequest {
+  // username is the principal (some of which belong to robots rather than
+  // users, but the name is preserved for now to provide compatibility with the
+  // pachyderm dash) whose access level is queried. To query the access level
+  // of a robot user, the caller must prefix username with "robot:". If
+  // 'username' has no prefix (i.e. no ":"), then it's assumed to be a github
+  // user's principal.
+  string username = 1;
+
+  // repos are the objects to which 'username's access level is being queried
+  repeated string repos = 2;
+}
+
+message GetScopeResponse {
+  // scopes (actually a "role"--see "Scope") are the access level that
+  // 'GetScopeRequest.username' has to each repo in 'GetScopeRequest.repos', in
+  // the same order that repos appeared in 'repos'.
+  repeated Scope scopes = 1;
+}
+
+message SetScopeRequest {
+  // username is the principal (some of which belong to robots rather than
+  // users, but the name is preserved for now to provide compatibility with the
+  // pachyderm dash) whose access is being granted/revoked. As with
+  // GetScopeRequest, to set the access level of a robot user, the caller must
+  // prefix username with "robot:". If 'username' has no prefix (i.e. no ":"),
+  // then it's assumed to be a github user's principal.
+  string username = 1;
+
+  // repo is the object to which access is being granted/revoked
+  string repo = 2;
+
+  // scope (actually a "role"--see "Scope") is the access level that the owner
+  // of 'principal' will now have
+  Scope scope = 3;
+}
+
+message SetScopeResponse {}
+
+message GetACLRequest {
+  string repo = 1;
+}
+
+message ACLEntry {
+  // username is the principal posessing this level of access to this ACL's
+  // repo (despite the name, this principal may be for a human github user or a
+  // pachyderm robot)
+  string username = 1;
+
+  // scope is the level of access that the owner of 'principal' has to this
+  // ACL's repo (actually a role in typical security terminology)
+  Scope scope = 2;
+}
+
+// GetACLReponse contains the list of entries on a Pachyderm ACL.
+//
+// To avoid migration pain with the Pachyderm dash the list of user principal
+// entries and robot principal entries are separate. This way, no prefix or
+// other disambiguating device is needed in 'entries' to separate user
+// principals from robot principals (which would confuse the dash). Instead,
+// the dash can simply ignore robot principals.
+message GetACLResponse {
+  // entries contains all [user principal] -> [role] mappings. This is separate
+  // from robot_entries to avoid migration pain the Pachyderm dashboard
+  repeated ACLEntry entries = 1;
+
+  // robot_entries contains all [robot principal] -> [role] mappings. This is
+  // separate from entries to be unambiguous (all keys are robot principals, but
+  // have no prefixes) while avoiding migration pain in the Pachyderm dashboard.
+  repeated ACLEntry robot_entries = 2;
+}
+
+message SetACLRequest {
+  string repo = 1;
+  repeated ACLEntry entries = 2;
+}
+
+message SetACLResponse {}
+
+//// Token API (very limited -- for pipelines)
+
+message GetAuthTokenRequest {
+  // The returned token will allow the caller to access resources as this
+  // subject
+  string subject = 1;
+
+  // ttl indicates the approximate remaining lifetime of this token, in seconds
+  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+}
+
+message GetAuthTokenResponse {
+  // A canonicalized version of the subject in the request
+  string subject = 2;
+
+  // A new auth token for the user in 'GetAuthTokenRequest.Subject' token
+  string token = 1;
+}
+
+message ExtendAuthTokenRequest {
+  // token indicates the Pachyderm token whose TTL is being extended
+  string token = 1;
+
+  // ttl indicates the new TTL of 'token' (if it's longer than the existing TTL)
+  int64 ttl = 2 [(gogoproto.customname) = "TTL"];
+}
+
+message ExtendAuthTokenResponse {}
+
+message RevokeAuthTokenRequest {
+  string token = 1;
+}
+
+message RevokeAuthTokenResponse {}
+
+message SetGroupsForUserRequest {
+  string username = 1;
+  repeated string groups = 2;
+}
+
+message SetGroupsForUserResponse {}
+
+message ModifyMembersRequest {
+  string group = 1;
+  repeated string add = 2;
+  repeated string remove = 3;
+}
+
+message ModifyMembersResponse {}
+
+message GetGroupsRequest {
+  string username = 1;
+}
+
+message GetGroupsResponse {
+  repeated string groups = 1;
+}
+
+message GetUsersRequest {
+  string group = 1;
+}
+
+message GetUsersResponse {
+  repeated string usernames = 1;
+}
+
+// GetOneTimePassword allows users to generate short-lived (~30s) tokens that
+// can be passed to Authenticate() (via AuthenticateRequest.one_time_password)
+// and exchanged for a longer-lived pachyderm token. This is more secure than
+// GetAuthToken, which produces long-lived authorization tokens.
+message GetOneTimePasswordRequest {
+  // If the caller is an admin, GetOneTimePassword() can return a code for
+  // any user (useful for testing).
+  // If the caller is not an admin, GetOneTimePassword() will return an
+  // authentication code for the caller if username is unset or set to the
+  // caller's username (and will return an error otherwise)
+  string subject = 1;
+}
+
+message GetOneTimePasswordResponse {
+  string code = 1;
+}
+
+service API {
+  // Activate/Deactivate the auth API. 'Activate' sets an initial set of admins
+  // for the Pachyderm cluster, and 'Deactivate' removes all ACLs, tokens, and
+  // admins from the Pachyderm cluster, making all data publicly accessable
+  rpc Activate(ActivateRequest) returns (ActivateResponse) {}
+  rpc Deactivate(DeactivateRequest) returns (DeactivateResponse) {}
+
+  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {}
+  rpc SetConfiguration(SetConfigurationRequest) returns (SetConfigurationResponse) {}
+
+  // GetAdmins returns the current list of cluster admins
+  rpc GetAdmins(GetAdminsRequest) returns (GetAdminsResponse) {}
+  // ModifyAdmins adds or removes admins from the cluster
+  rpc ModifyAdmins(ModifyAdminsRequest) returns (ModifyAdminsResponse) {}
+
+  rpc Authenticate(AuthenticateRequest) returns (AuthenticateResponse) {}
+  rpc Authorize(AuthorizeRequest) returns (AuthorizeResponse) {}
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse) {}
+
+  rpc GetScope(GetScopeRequest) returns (GetScopeResponse) {}
+  rpc SetScope(SetScopeRequest) returns (SetScopeResponse) {}
+  rpc GetACL(GetACLRequest) returns (GetACLResponse) {}
+  rpc SetACL(SetACLRequest) returns (SetACLResponse) {}
+
+  rpc GetAuthToken(GetAuthTokenRequest) returns (GetAuthTokenResponse) {}
+  rpc ExtendAuthToken(ExtendAuthTokenRequest) returns (ExtendAuthTokenResponse) {}
+  rpc RevokeAuthToken(RevokeAuthTokenRequest) returns (RevokeAuthTokenResponse) {}
+
+  rpc SetGroupsForUser(SetGroupsForUserRequest) returns (SetGroupsForUserResponse) {}
+  rpc ModifyMembers(ModifyMembersRequest) returns (ModifyMembersResponse) {}
+  rpc GetGroups(GetGroupsRequest) returns (GetGroupsResponse) {}
+  rpc GetUsers(GetUsersRequest) returns (GetUsersResponse) {}
+
+  rpc GetOneTimePassword(GetOneTimePasswordRequest) returns (GetOneTimePasswordResponse) {}
+}
