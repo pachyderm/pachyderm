@@ -238,7 +238,7 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 					key = reverse(key)
 				}
 				if strings.HasPrefix(key, name) {
-					if err := fn(*object.Key); err != nil {
+					if err := fn(key); err != nil {
 						fnErr = err
 						return false
 					}
