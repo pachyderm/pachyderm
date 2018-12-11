@@ -56,8 +56,8 @@ func (State) EnumDescriptor() ([]byte, []int) {
 }
 
 type Input struct {
-	FileInfo             *pfs.FileInfo `protobuf:"bytes,1,opt,name=file_info,json=fileInfo" json:"file_info,omitempty"`
-	ParentCommit         *pfs.Commit   `protobuf:"bytes,5,opt,name=parent_commit,json=parentCommit" json:"parent_commit,omitempty"`
+	FileInfo             *pfs.FileInfo `protobuf:"bytes,1,opt,name=file_info,json=fileInfo,proto3" json:"file_info,omitempty"`
+	ParentCommit         *pfs.Commit   `protobuf:"bytes,5,opt,name=parent_commit,json=parentCommit,proto3" json:"parent_commit,omitempty"`
 	Name                 string        `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Lazy                 bool          `protobuf:"varint,3,opt,name=lazy,proto3" json:"lazy,omitempty"`
 	Branch               string        `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
@@ -152,7 +152,7 @@ func (m *Input) GetEmptyFiles() bool {
 
 type CancelRequest struct {
 	JobID                string   `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	DataFilters          []string `protobuf:"bytes,1,rep,name=data_filters,json=dataFilters" json:"data_filters,omitempty"`
+	DataFilters          []string `protobuf:"bytes,1,rep,name=data_filters,json=dataFilters,proto3" json:"data_filters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -309,9 +309,9 @@ func (m *ChunkState) GetDatumID() string {
 
 type MergeState struct {
 	State                State       `protobuf:"varint,1,opt,name=state,proto3,enum=worker.State" json:"state,omitempty"`
-	Tree                 *pfs.Object `protobuf:"bytes,2,opt,name=tree" json:"tree,omitempty"`
+	Tree                 *pfs.Object `protobuf:"bytes,2,opt,name=tree,proto3" json:"tree,omitempty"`
 	SizeBytes            uint64      `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	StatsTree            *pfs.Object `protobuf:"bytes,4,opt,name=stats_tree,json=statsTree" json:"stats_tree,omitempty"`
+	StatsTree            *pfs.Object `protobuf:"bytes,4,opt,name=stats_tree,json=statsTree,proto3" json:"stats_tree,omitempty"`
 	StatsSizeBytes       uint64      `protobuf:"varint,5,opt,name=stats_size_bytes,json=statsSizeBytes,proto3" json:"stats_size_bytes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
@@ -387,7 +387,7 @@ func (m *MergeState) GetStatsSizeBytes() uint64 {
 }
 
 type Plan struct {
-	Chunks               []int64  `protobuf:"varint,1,rep,packed,name=chunks" json:"chunks,omitempty"`
+	Chunks               []int64  `protobuf:"varint,1,rep,packed,name=chunks,proto3" json:"chunks,omitempty"`
 	Merges               int64    `protobuf:"varint,2,opt,name=merges,proto3" json:"merges,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

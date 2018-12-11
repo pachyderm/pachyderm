@@ -382,6 +382,9 @@ message ListFileRequest {
   // be large (i.e. the list of children for directories, and the list of object
   // references for regular files)
   bool full = 2;
+
+  // History indicates that historical versions of files should be returned as well.
+  bool history = 3;
 }
 
 message WalkFileRequest {
