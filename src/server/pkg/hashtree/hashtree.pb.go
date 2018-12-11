@@ -25,12 +25,12 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type FileNodeProto struct {
 	// objects are references to the object store, whose targets contain this
 	// file's contents. Exactly one of objects or block_refs should be set.
-	Objects []*pfs.Object `protobuf:"bytes,4,rep,name=objects" json:"objects,omitempty"`
+	Objects []*pfs.Object `protobuf:"bytes,4,rep,name=objects,proto3" json:"objects,omitempty"`
 	// block_refs are direct references to blocks in object storage that contain
 	// this file's contents. Unlike objects, using block_refs precludes
 	// deduplication, but halves the number of object store requests needed to
 	// read a file. Exactly one of objects or block_refs should be set.
-	BlockRefs []*pfs.BlockRef `protobuf:"bytes,5,rep,name=block_refs,json=blockRefs" json:"block_refs,omitempty"`
+	BlockRefs []*pfs.BlockRef `protobuf:"bytes,5,rep,name=block_refs,json=blockRefs,proto3" json:"block_refs,omitempty"`
 	// has_header_footer indicates whether the File corresponding to this node
 	// inherits header or footer data from the parent directory. Typically this
 	// is false, and when it's true, determining this file's contents requires
@@ -102,8 +102,8 @@ func (m *FileNodeProto) GetHasHeaderFooter() bool {
 // headers and footers)
 type Shared struct {
 	// At least one of header or footer must be set
-	Header *pfs.Object `protobuf:"bytes,1,opt,name=header" json:"header,omitempty"`
-	Footer *pfs.Object `protobuf:"bytes,2,opt,name=footer" json:"footer,omitempty"`
+	Header *pfs.Object `protobuf:"bytes,1,opt,name=header,proto3" json:"header,omitempty"`
+	Footer *pfs.Object `protobuf:"bytes,2,opt,name=footer,proto3" json:"footer,omitempty"`
 	// The size of header & footer (must be separated for Copy())
 	HeaderSize           int64    `protobuf:"varint,3,opt,name=header_size,json=headerSize,proto3" json:"header_size,omitempty"`
 	FooterSize           int64    `protobuf:"varint,4,opt,name=footer_size,json=footerSize,proto3" json:"footer_size,omitempty"`
@@ -180,11 +180,11 @@ type DirectoryNodeProto struct {
 	//
 	// 'Children' is ordered alphabetically, to quickly check if a new file is
 	// overwriting an existing one.
-	Children []string `protobuf:"bytes,3,rep,name=children" json:"children,omitempty"`
+	Children []string `protobuf:"bytes,3,rep,name=children,proto3" json:"children,omitempty"`
 	// shared, if set, references data that will be prepended and appended to all
 	// direct children of this directory (which must all have has_header_footer
 	// set to true).
-	Shared               *Shared  `protobuf:"bytes,4,opt,name=shared" json:"shared,omitempty"`
+	Shared               *Shared  `protobuf:"bytes,4,opt,name=shared,proto3" json:"shared,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -250,8 +250,8 @@ type NodeProto struct {
 	SubtreeSize int64 `protobuf:"varint,3,opt,name=subtree_size,json=subtreeSize,proto3" json:"subtree_size,omitempty"`
 	// Exactly one of the following fields must be set. The type of this node will
 	// be determined by which field is set.
-	FileNode             *FileNodeProto      `protobuf:"bytes,4,opt,name=file_node,json=fileNode" json:"file_node,omitempty"`
-	DirNode              *DirectoryNodeProto `protobuf:"bytes,5,opt,name=dir_node,json=dirNode" json:"dir_node,omitempty"`
+	FileNode             *FileNodeProto      `protobuf:"bytes,4,opt,name=file_node,json=fileNode,proto3" json:"file_node,omitempty"`
+	DirNode              *DirectoryNodeProto `protobuf:"bytes,5,opt,name=dir_node,json=dirNode,proto3" json:"dir_node,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
 	XXX_unrecognized     []byte              `json:"-"`
 	XXX_sizecache        int32               `json:"-"`
@@ -340,7 +340,7 @@ type HashTreeProto struct {
 	//
 	// Note that the key must end in "/" if an only if the value has .dir_node set
 	// (i.e. iff the path points to a directory).
-	Fs                   map[string]*NodeProto `protobuf:"bytes,2,rep,name=fs" json:"fs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	Fs                   map[string]*NodeProto `protobuf:"bytes,2,rep,name=fs,proto3" json:"fs,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
 	XXX_unrecognized     []byte                `json:"-"`
 	XXX_sizecache        int32                 `json:"-"`

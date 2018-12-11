@@ -57,7 +57,7 @@ func (State) EnumDescriptor() ([]byte, []int) {
 type EnterpriseRecord struct {
 	ActivationCode string `protobuf:"bytes,1,opt,name=activation_code,json=activationCode,proto3" json:"activation_code,omitempty"`
 	// expires is a timestamp indicating when this activation code will expire.
-	Expires              *types.Timestamp `protobuf:"bytes,2,opt,name=expires" json:"expires,omitempty"`
+	Expires              *types.Timestamp `protobuf:"bytes,2,opt,name=expires,proto3" json:"expires,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -114,7 +114,7 @@ func (m *EnterpriseRecord) GetExpires() *types.Timestamp {
 type TokenInfo struct {
 	// expires indicates when the current token expires (unset if there is no
 	// current token)
-	Expires              *types.Timestamp `protobuf:"bytes,1,opt,name=expires" json:"expires,omitempty"`
+	Expires              *types.Timestamp `protobuf:"bytes,1,opt,name=expires,proto3" json:"expires,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -168,7 +168,7 @@ type ActivateRequest struct {
 	// This should not generally be set (it's primarily used for testing), and is
 	// only applied if it's earlier than the signed expiration time in
 	// 'activation_code'.
-	Expires              *types.Timestamp `protobuf:"bytes,2,opt,name=expires" json:"expires,omitempty"`
+	Expires              *types.Timestamp `protobuf:"bytes,2,opt,name=expires,proto3" json:"expires,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -222,7 +222,7 @@ func (m *ActivateRequest) GetExpires() *types.Timestamp {
 }
 
 type ActivateResponse struct {
-	Info                 *TokenInfo `protobuf:"bytes,1,opt,name=info" json:"info,omitempty"`
+	Info                 *TokenInfo `protobuf:"bytes,1,opt,name=info,proto3" json:"info,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -309,7 +309,7 @@ var xxx_messageInfo_GetStateRequest proto.InternalMessageInfo
 
 type GetStateResponse struct {
 	State                State      `protobuf:"varint,1,opt,name=state,proto3,enum=enterprise.State" json:"state,omitempty"`
-	Info                 *TokenInfo `protobuf:"bytes,2,opt,name=info" json:"info,omitempty"`
+	Info                 *TokenInfo `protobuf:"bytes,2,opt,name=info,proto3" json:"info,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
