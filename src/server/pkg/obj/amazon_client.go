@@ -227,9 +227,18 @@ func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
 
 func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	var fnErr error
+	var prefix *string
+
+	if c.reversed {
+		prefix = nil
+	} else {
+		prefix = &name
+	}
+
 	if err := c.s3.ListObjectsPages(
 		&s3.ListObjectsInput{
 			Bucket: aws.String(c.bucket),
+			Prefix: prefix,
 		},
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, object := range listObjectsOutput.Contents {
