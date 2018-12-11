@@ -30,12 +30,12 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type Op1_7 struct {
-	Object               *pfs.PutObjectRequest      `protobuf:"bytes,2,opt,name=object" json:"object,omitempty"`
-	Tag                  *pfs.TagObjectRequest      `protobuf:"bytes,3,opt,name=tag" json:"tag,omitempty"`
-	Repo                 *pfs.CreateRepoRequest     `protobuf:"bytes,4,opt,name=repo" json:"repo,omitempty"`
-	Commit               *pfs.BuildCommitRequest    `protobuf:"bytes,5,opt,name=commit" json:"commit,omitempty"`
-	Branch               *pfs.CreateBranchRequest   `protobuf:"bytes,6,opt,name=branch" json:"branch,omitempty"`
-	Pipeline             *pps.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline" json:"pipeline,omitempty"`
+	Object               *pfs.PutObjectRequest      `protobuf:"bytes,2,opt,name=object,proto3" json:"object,omitempty"`
+	Tag                  *pfs.TagObjectRequest      `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	Repo                 *pfs.CreateRepoRequest     `protobuf:"bytes,4,opt,name=repo,proto3" json:"repo,omitempty"`
+	Commit               *pfs.BuildCommitRequest    `protobuf:"bytes,5,opt,name=commit,proto3" json:"commit,omitempty"`
+	Branch               *pfs.CreateBranchRequest   `protobuf:"bytes,6,opt,name=branch,proto3" json:"branch,omitempty"`
+	Pipeline             *pps.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -117,7 +117,7 @@ func (m *Op1_7) GetPipeline() *pps.CreatePipelineRequest {
 }
 
 type Op struct {
-	Op1_7                *Op1_7   `protobuf:"bytes,1,opt,name=op1_7,json=op17" json:"op1_7,omitempty"`
+	Op1_7                *Op1_7   `protobuf:"bytes,1,opt,name=op1_7,json=op17,proto3" json:"op1_7,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -240,7 +240,7 @@ func (m *ExtractRequest) GetNoPipelines() bool {
 }
 
 type ExtractPipelineRequest struct {
-	Pipeline             *pps.Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline             *pps.Pipeline `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -287,7 +287,7 @@ func (m *ExtractPipelineRequest) GetPipeline() *pps.Pipeline {
 }
 
 type RestoreRequest struct {
-	Op *Op `protobuf:"bytes,1,opt,name=op" json:"op,omitempty"`
+	Op *Op `protobuf:"bytes,1,opt,name=op,proto3" json:"op,omitempty"`
 	// URL is an object storage URL, if it's not "" data will be restored from
 	// this URL.
 	URL                  string   `protobuf:"bytes,2,opt,name=URL,proto3" json:"URL,omitempty"`

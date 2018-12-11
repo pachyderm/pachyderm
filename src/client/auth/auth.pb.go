@@ -292,7 +292,7 @@ type IDProvider struct {
 	// backend. It's ignored by Pachyderm, but exists for the benefit of users
 	// configuring Pachyderm's auth system.
 	Description          string                  `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
-	SAML                 *IDProvider_SAMLOptions `protobuf:"bytes,3,opt,name=saml" json:"saml,omitempty"`
+	SAML                 *IDProvider_SAMLOptions `protobuf:"bytes,3,opt,name=saml,proto3" json:"saml,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
 	XXX_unrecognized     []byte                  `json:"-"`
 	XXX_sizecache        int32                   `json:"-"`
@@ -439,8 +439,8 @@ type AuthConfig struct {
 	LiveConfigVersion int64 `protobuf:"varint,1,opt,name=live_config_version,json=liveConfigVersion,proto3" json:"live_config_version,omitempty"`
 	// id_providers describes external ID providers that can authenticate
 	// Pachyderm users (e.g. GitHub, Okta, etc)
-	IDProviders          []*IDProvider                  `protobuf:"bytes,2,rep,name=id_providers,json=idProviders" json:"id_providers,omitempty"`
-	SAMLServiceOptions   *AuthConfig_SAMLServiceOptions `protobuf:"bytes,3,opt,name=saml_svc_options,json=samlSvcOptions" json:"saml_svc_options,omitempty"`
+	IDProviders          []*IDProvider                  `protobuf:"bytes,2,rep,name=id_providers,json=idProviders,proto3" json:"id_providers,omitempty"`
+	SAMLServiceOptions   *AuthConfig_SAMLServiceOptions `protobuf:"bytes,3,opt,name=saml_svc_options,json=samlSvcOptions,proto3" json:"saml_svc_options,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                       `json:"-"`
 	XXX_unrecognized     []byte                         `json:"-"`
 	XXX_sizecache        int32                          `json:"-"`
@@ -641,7 +641,7 @@ func (m *GetConfigurationRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetConfigurationRequest proto.InternalMessageInfo
 
 type GetConfigurationResponse struct {
-	Configuration        *AuthConfig `protobuf:"bytes,1,opt,name=configuration" json:"configuration,omitempty"`
+	Configuration        *AuthConfig `protobuf:"bytes,1,opt,name=configuration,proto3" json:"configuration,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -688,7 +688,7 @@ func (m *GetConfigurationResponse) GetConfiguration() *AuthConfig {
 }
 
 type SetConfigurationRequest struct {
-	Configuration        *AuthConfig `protobuf:"bytes,1,opt,name=configuration" json:"configuration,omitempty"`
+	Configuration        *AuthConfig `protobuf:"bytes,1,opt,name=configuration,proto3" json:"configuration,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -815,7 +815,7 @@ var xxx_messageInfo_GetAdminsRequest proto.InternalMessageInfo
 
 type GetAdminsResponse struct {
 	// admins contains the list of cluster admins
-	Admins               []string `protobuf:"bytes,1,rep,name=admins" json:"admins,omitempty"`
+	Admins               []string `protobuf:"bytes,1,rep,name=admins,proto3" json:"admins,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -863,8 +863,8 @@ func (m *GetAdminsResponse) GetAdmins() []string {
 
 // Add or remove cluster admins
 type ModifyAdminsRequest struct {
-	Add                  []string `protobuf:"bytes,1,rep,name=add" json:"add,omitempty"`
-	Remove               []string `protobuf:"bytes,2,rep,name=remove" json:"remove,omitempty"`
+	Add                  []string `protobuf:"bytes,1,rep,name=add,proto3" json:"add,omitempty"`
+	Remove               []string `protobuf:"bytes,2,rep,name=remove,proto3" json:"remove,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -967,7 +967,7 @@ type OTPInfo struct {
 	// session_expiration indicates when the subject's session expires, a.k.a.
 	// when the Token to which this OTP converts expires (likely later than this
 	// OTP expires, but never earlier).
-	SessionExpiration    *types.Timestamp `protobuf:"bytes,2,opt,name=session_expiration,json=sessionExpiration" json:"session_expiration,omitempty"`
+	SessionExpiration    *types.Timestamp `protobuf:"bytes,2,opt,name=session_expiration,json=sessionExpiration,proto3" json:"session_expiration,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -1299,7 +1299,7 @@ type ACL struct {
 	// subject (i.e. all keys in this map are strings prefixed with either
 	// "github:" or "robot:", followed by the name of a GitHub user, all of whom
 	// are Pachyderm subjects, or a Pachyderm robot user)
-	Entries              map[string]Scope `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=auth.Scope"`
+	Entries              map[string]Scope `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3,enum=auth.Scope"`
 	XXX_NoUnkeyedLiteral struct{}         `json:"-"`
 	XXX_unrecognized     []byte           `json:"-"`
 	XXX_sizecache        int32            `json:"-"`
@@ -1346,7 +1346,7 @@ func (m *ACL) GetEntries() map[string]Scope {
 }
 
 type Users struct {
-	Usernames            map[string]bool `protobuf:"bytes,1,rep,name=usernames" json:"usernames,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	Usernames            map[string]bool `protobuf:"bytes,1,rep,name=usernames,proto3" json:"usernames,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -1393,7 +1393,7 @@ func (m *Users) GetUsernames() map[string]bool {
 }
 
 type Groups struct {
-	Groups               map[string]bool `protobuf:"bytes,1,rep,name=groups" json:"groups,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	Groups               map[string]bool `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -1555,7 +1555,7 @@ type GetScopeRequest struct {
 	// user's principal.
 	Username string `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
 	// repos are the objects to which 'username's access level is being queried
-	Repos                []string `protobuf:"bytes,2,rep,name=repos" json:"repos,omitempty"`
+	Repos                []string `protobuf:"bytes,2,rep,name=repos,proto3" json:"repos,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1612,7 +1612,7 @@ type GetScopeResponse struct {
 	// scopes (actually a "role"--see "Scope") are the access level that
 	// 'GetScopeRequest.username' has to each repo in 'GetScopeRequest.repos', in
 	// the same order that repos appeared in 'repos'.
-	Scopes               []Scope  `protobuf:"varint,1,rep,packed,name=scopes,enum=auth.Scope" json:"scopes,omitempty"`
+	Scopes               []Scope  `protobuf:"varint,1,rep,packed,name=scopes,proto3,enum=auth.Scope" json:"scopes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1886,11 +1886,11 @@ func (m *ACLEntry) GetScope() Scope {
 type GetACLResponse struct {
 	// entries contains all [user principal] -> [role] mappings. This is separate
 	// from robot_entries to avoid migration pain the Pachyderm dashboard
-	Entries []*ACLEntry `protobuf:"bytes,1,rep,name=entries" json:"entries,omitempty"`
+	Entries []*ACLEntry `protobuf:"bytes,1,rep,name=entries,proto3" json:"entries,omitempty"`
 	// robot_entries contains all [robot principal] -> [role] mappings. This is
 	// separate from entries to be unambiguous (all keys are robot principals, but
 	// have no prefixes) while avoiding migration pain in the Pachyderm dashboard.
-	RobotEntries         []*ACLEntry `protobuf:"bytes,2,rep,name=robot_entries,json=robotEntries" json:"robot_entries,omitempty"`
+	RobotEntries         []*ACLEntry `protobuf:"bytes,2,rep,name=robot_entries,json=robotEntries,proto3" json:"robot_entries,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -1945,7 +1945,7 @@ func (m *GetACLResponse) GetRobotEntries() []*ACLEntry {
 
 type SetACLRequest struct {
 	Repo                 string      `protobuf:"bytes,1,opt,name=repo,proto3" json:"repo,omitempty"`
-	Entries              []*ACLEntry `protobuf:"bytes,2,rep,name=entries" json:"entries,omitempty"`
+	Entries              []*ACLEntry `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -2336,7 +2336,7 @@ var xxx_messageInfo_RevokeAuthTokenResponse proto.InternalMessageInfo
 
 type SetGroupsForUserRequest struct {
 	Username             string   `protobuf:"bytes,1,opt,name=username,proto3" json:"username,omitempty"`
-	Groups               []string `protobuf:"bytes,2,rep,name=groups" json:"groups,omitempty"`
+	Groups               []string `protobuf:"bytes,2,rep,name=groups,proto3" json:"groups,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2430,8 +2430,8 @@ var xxx_messageInfo_SetGroupsForUserResponse proto.InternalMessageInfo
 
 type ModifyMembersRequest struct {
 	Group                string   `protobuf:"bytes,1,opt,name=group,proto3" json:"group,omitempty"`
-	Add                  []string `protobuf:"bytes,2,rep,name=add" json:"add,omitempty"`
-	Remove               []string `protobuf:"bytes,3,rep,name=remove" json:"remove,omitempty"`
+	Add                  []string `protobuf:"bytes,2,rep,name=add,proto3" json:"add,omitempty"`
+	Remove               []string `protobuf:"bytes,3,rep,name=remove,proto3" json:"remove,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2578,7 +2578,7 @@ func (m *GetGroupsRequest) GetUsername() string {
 }
 
 type GetGroupsResponse struct {
-	Groups               []string `protobuf:"bytes,1,rep,name=groups" json:"groups,omitempty"`
+	Groups               []string `protobuf:"bytes,1,rep,name=groups,proto3" json:"groups,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -2672,7 +2672,7 @@ func (m *GetUsersRequest) GetGroup() string {
 }
 
 type GetUsersResponse struct {
-	Usernames            []string `protobuf:"bytes,1,rep,name=usernames" json:"usernames,omitempty"`
+	Usernames            []string `protobuf:"bytes,1,rep,name=usernames,proto3" json:"usernames,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`

@@ -2752,6 +2752,32 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 	})
 }
 
+// fileHistory calls f with FileInfos for the file, starting with how it looked
+// at the referenced commit and then all past versions that are different.
+func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, f func(*pfs.FileInfo) error) error {
+	var hash []byte
+	for {
+		fi, err := d.inspectFile(pachClient, file)
+		if err != nil {
+			return err
+		}
+		if hash == nil || bytes.Compare(hash, fi.Hash) == 0 {
+			if err := f(fi); err != nil {
+				return err
+			}
+			hash = fi.Hash
+		}
+		ci, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+		if err != nil {
+			return err
+		}
+		if ci.ParentCommit == nil {
+			return nil
+		}
+		file.Commit = ci.ParentCommit
+	}
+}
+
 func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*pfs.FileInfo) error) (retErr error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err

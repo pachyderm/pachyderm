@@ -35,7 +35,7 @@ type Config struct {
 	UserID string `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	// Configuration options. Exactly one of these fields should be set
 	// (depending on which version of the config is being used)
-	V1                   *ConfigV1 `protobuf:"bytes,2,opt,name=v1" json:"v1,omitempty"`
+	V1                   *ConfigV1 `protobuf:"bytes,2,opt,name=v1,proto3" json:"v1,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
