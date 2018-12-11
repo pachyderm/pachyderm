@@ -92,7 +92,11 @@ create_s3_bucket() {
     aws s3api create-bucket --bucket ${BUCKET} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
   fi
   if [[ -n "${KOPS_STATE_BUCKET}" ]]; then
-    # Put bucket name in kops state store bucket right away, in case the cluster doesn't finish coming up
+    # Put bucket name in kops state store bucket right away, in case the
+    # cluster doesn't finish coming up
+    #
+    # TODO(msteffen) pass $NAME in as an argument--relying on the fact that it
+    # was already exported by deploy_k8s_on_aws is brittle and hard to read
     jq -n \
       --arg pachyderm_bucket ${BUCKET} \
       --arg timestamp "$(date)" \
