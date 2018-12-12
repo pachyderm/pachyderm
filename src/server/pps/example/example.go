@@ -46,7 +46,7 @@ var (
 			Constant: 1,
 		},
 		Input: &ppsclient.Input{
-			Atom: &ppsclient.AtomInput{
+			Pfs: &ppsclient.PFSInput{
 				Repo: "in_repo",
 				Glob: "*",
 			},

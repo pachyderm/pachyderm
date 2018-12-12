@@ -130,7 +130,7 @@ func benchmarkFiles(b *testing.B, fileNum int, minSize uint64, maxSize uint64, l
 			&pps.ParallelismSpec{
 				Constant: 4,
 			},
-			client.NewAtomInput(repo, "/*"),
+			client.NewPFSInput(repo, "/*"),
 			"",
 			false,
 		))
@@ -295,7 +295,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			&pps.ParallelismSpec{
 				Constant: 4,
 			},
-			client.NewAtomInput(dataRepo, "/*"),
+			client.NewPFSInput(dataRepo, "/*"),
 			"",
 			false,
 		))
@@ -331,7 +331,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			&pps.ParallelismSpec{
 				Constant: 4,
 			},
-			client.NewAtomInput(pipelineOne, "/*"),
+			client.NewPFSInput(pipelineOne, "/*"),
 			"",
 			false,
 		))
@@ -364,7 +364,7 @@ func benchmarkDataShuffle(b *testing.B, numTarballs int, numFilesPerTarball int,
 			&pps.ParallelismSpec{
 				Constant: 4,
 			},
-			client.NewAtomInput(pipelineTwo, "/*"),
+			client.NewPFSInput(pipelineTwo, "/*"),
 			"",
 			false,
 		))
