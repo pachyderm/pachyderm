@@ -38,7 +38,10 @@ func Cmds(noMetrics *bool) ([]*cobra.Command, error) {
 	rawFlag := func(cmd *cobra.Command) {
 		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
 	}
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
+	marshaller := &jsonpb.Marshaler{
+		Indent:   "  ",
+		OrigName: true,
+	}
 
 	job := &cobra.Command{
 		Use:   "job",
@@ -441,6 +444,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				} else if err != nil {
 					return err
 				}
+				if request.Input.Atom != nil {
+					fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
+				}
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
@@ -487,6 +493,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}
 				request.Update = true
 				request.Reprocess = reprocess
+				if request.Input.Atom != nil {
+					fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
+				}
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
@@ -605,6 +614,9 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			request.Update = true
 			request.Reprocess = reprocess
+			if request.Input.Atom != nil {
+				fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
+			}
 			if _, err := client.PpsAPIClient.CreatePipeline(
 				client.Ctx(),
 				request,

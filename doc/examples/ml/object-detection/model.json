@@ -3,7 +3,7 @@
     "name": "model"
   },
   "input": {
-    "atom": {
+    "pfs": {
       "glob": "/",
       "repo": "training"
     }

@@ -5,8 +5,8 @@
   "transform": {
     "image": "pachyderm/iris-infer:rstats",
     "cmd": [
-	"Rscript",
-	"infer.R"
+      "Rscript",
+      "infer.R"
     ]
   },
   "parallelism_spec": {
@@ -15,16 +15,16 @@
   "input": {
     "cross": [
       {
-        "atom": {
-	  "repo": "attributes",
-	  "glob": "/*"
-	}
+        "pfs": {
+          "repo": "attributes",
+          "glob": "/*"
+        }
       },
       {
-	"atom": {
-	  "repo": "model",
-	  "glob": "/"
-	}
+        "pfs": {
+          "repo": "model",
+          "glob": "/"
+        }
       }
     ]
   }
