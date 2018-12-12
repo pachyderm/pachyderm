@@ -1,23 +1,36 @@
 package runtime
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
 	"net"
 	"net/http"
+	"net/textproto"
 	"strconv"
 	"strings"
 	"time"
 
-	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
-const metadataHeaderPrefix = "Grpc-Metadata-"
-const metadataTrailerPrefix = "Grpc-Trailer-"
+// MetadataHeaderPrefix is the http prefix that represents custom metadata
+// parameters to or from a gRPC call.
+const MetadataHeaderPrefix = "Grpc-Metadata-"
+
+// MetadataPrefix is prepended to permanent HTTP header keys (as specified
+// by the IANA) when added to the gRPC context.
+const MetadataPrefix = "grpcgateway-"
+
+// MetadataTrailerPrefix is prepended to gRPC metadata as it is converted to
+// HTTP headers in a response handled by grpc-gateway
+const MetadataTrailerPrefix = "Grpc-Trailer-"
+
 const metadataGrpcTimeout = "Grpc-Timeout"
+const metadataHeaderBinarySuffix = "-Bin"
 
 const xForwardedFor = "X-Forwarded-For"
 const xForwardedHost = "X-Forwarded-Host"
@@ -28,6 +41,14 @@ var (
 	DefaultContextTimeout = 0 * time.Second
 )
 
+func decodeBinHeader(v string) ([]byte, error) {
+	if len(v)%4 == 0 {
+		// Input was padded, or padding was not necessary.
+		return base64.StdEncoding.DecodeString(v)
+	}
+	return base64.RawStdEncoding.DecodeString(v)
+}
+
 /*
 AnnotateContext adds context information such as metadata from the request.
 
@@ -35,25 +56,36 @@ At a minimum, the RemoteAddr is included in the fashion of "X-Forwarded-For",
 except that the forwarded destination is not another HTTP service but rather
 a gRPC service.
 */
-func AnnotateContext(ctx context.Context, req *http.Request) (context.Context, error) {
+func AnnotateContext(ctx context.Context, mux *ServeMux, req *http.Request) (context.Context, error) {
 	var pairs []string
 	timeout := DefaultContextTimeout
 	if tm := req.Header.Get(metadataGrpcTimeout); tm != "" {
 		var err error
 		timeout, err = timeoutDecode(tm)
 		if err != nil {
-			return nil, grpc.Errorf(codes.InvalidArgument, "invalid grpc-timeout: %s", tm)
+			return nil, status.Errorf(codes.InvalidArgument, "invalid grpc-timeout: %s", tm)
 		}
 	}
 
 	for key, vals := range req.Header {
 		for _, val := range vals {
+			key = textproto.CanonicalMIMEHeaderKey(key)
+			// For backwards-compatibility, pass through 'authorization' header with no prefix.
 			if key == "Authorization" {
 				pairs = append(pairs, "authorization", val)
-				continue
 			}
-			if strings.HasPrefix(key, metadataHeaderPrefix) {
-				pairs = append(pairs, key[len(metadataHeaderPrefix):], val)
+			if h, ok := mux.incomingHeaderMatcher(key); ok {
+				// Handles "-bin" metadata in grpc, since grpc will do another base64
+				// encode before sending to server, we need to decode it first.
+				if strings.HasSuffix(key, metadataHeaderBinarySuffix) {
+					b, err := decodeBinHeader(val)
+					if err != nil {
+						return nil, status.Errorf(codes.InvalidArgument, "invalid binary header %s: %s", key, err)
+					}
+
+					val = string(b)
+				}
+				pairs = append(pairs, h, val)
 			}
 		}
 	}
@@ -71,7 +103,7 @@ func AnnotateContext(ctx context.Context, req *http.Request) (context.Context, e
 				pairs = append(pairs, strings.ToLower(xForwardedFor), fmt.Sprintf("%s, %s", fwd, remoteIP))
 			}
 		} else {
-			grpclog.Printf("invalid remote addr: %s", addr)
+			grpclog.Infof("invalid remote addr: %s", addr)
 		}
 	}
 
@@ -81,7 +113,11 @@ func AnnotateContext(ctx context.Context, req *http.Request) (context.Context, e
 	if len(pairs) == 0 {
 		return ctx, nil
 	}
-	return metadata.NewOutgoingContext(ctx, metadata.Pairs(pairs...)), nil
+	md := metadata.Pairs(pairs...)
+	for _, mda := range mux.metadataAnnotators {
+		md = metadata.Join(md, mda(ctx, req))
+	}
+	return metadata.NewOutgoingContext(ctx, md), nil
 }
 
 // ServerMetadata consists of metadata sent from gRPC server.
@@ -136,4 +172,39 @@ func timeoutUnitToDuration(u uint8) (d time.Duration, ok bool) {
 	default:
 	}
 	return
+}
+
+// isPermanentHTTPHeader checks whether hdr belongs to the list of
+// permenant request headers maintained by IANA.
+// http://www.iana.org/assignments/message-headers/message-headers.xml
+func isPermanentHTTPHeader(hdr string) bool {
+	switch hdr {
+	case
+		"Accept",
+		"Accept-Charset",
+		"Accept-Language",
+		"Accept-Ranges",
+		"Authorization",
+		"Cache-Control",
+		"Content-Type",
+		"Cookie",
+		"Date",
+		"Expect",
+		"From",
+		"Host",
+		"If-Match",
+		"If-Modified-Since",
+		"If-None-Match",
+		"If-Schedule-Tag-Match",
+		"If-Unmodified-Since",
+		"Max-Forwards",
+		"Origin",
+		"Pragma",
+		"Referer",
+		"User-Agent",
+		"Via",
+		"Warning":
+		return true
+	}
+	return false
 }

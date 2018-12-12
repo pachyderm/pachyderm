@@ -52,12 +52,12 @@ func (x State) String() string {
 	return proto.EnumName(State_name, int32(x))
 }
 func (State) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_worker_service_c34991dee8e42be3, []int{0}
+	return fileDescriptor_worker_service_f233cabdc11b1cf1, []int{0}
 }
 
 type Input struct {
-	FileInfo             *pfs.FileInfo `protobuf:"bytes,1,opt,name=file_info,json=fileInfo" json:"file_info,omitempty"`
-	ParentCommit         *pfs.Commit   `protobuf:"bytes,5,opt,name=parent_commit,json=parentCommit" json:"parent_commit,omitempty"`
+	FileInfo             *pfs.FileInfo `protobuf:"bytes,1,opt,name=file_info,json=fileInfo,proto3" json:"file_info,omitempty"`
+	ParentCommit         *pfs.Commit   `protobuf:"bytes,5,opt,name=parent_commit,json=parentCommit,proto3" json:"parent_commit,omitempty"`
 	Name                 string        `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Lazy                 bool          `protobuf:"varint,3,opt,name=lazy,proto3" json:"lazy,omitempty"`
 	Branch               string        `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
@@ -72,7 +72,7 @@ func (m *Input) Reset()         { *m = Input{} }
 func (m *Input) String() string { return proto.CompactTextString(m) }
 func (*Input) ProtoMessage()    {}
 func (*Input) Descriptor() ([]byte, []int) {
-	return fileDescriptor_worker_service_c34991dee8e42be3, []int{0}
+	return fileDescriptor_worker_service_f233cabdc11b1cf1, []int{0}
 }
 func (m *Input) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -152,7 +152,7 @@ func (m *Input) GetEmptyFiles() bool {
 
 type CancelRequest struct {
 	JobID                string   `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
-	DataFilters          []string `protobuf:"bytes,1,rep,name=data_filters,json=dataFilters" json:"data_filters,omitempty"`
+	DataFilters          []string `protobuf:"bytes,1,rep,name=data_filters,json=dataFilters,proto3" json:"data_filters,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -162,7 +162,7 @@ func (m *CancelRequest) Reset()         { *m = CancelRequest{} }
 func (m *CancelRequest) String() string { return proto.CompactTextString(m) }
 func (*CancelRequest) ProtoMessage()    {}
 func (*CancelRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_worker_service_c34991dee8e42be3, []int{1}
+	return fileDescriptor_worker_service_f233cabdc11b1cf1, []int{1}
 }
 func (m *CancelRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -216,7 +216,7 @@ func (m *CancelResponse) Reset()         { *m = CancelResponse{} }
 func (m *CancelResponse) String() string { return proto.CompactTextString(m) }
 func (*CancelResponse) ProtoMessage()    {}
 func (*CancelResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_worker_service_c34991dee8e42be3, []int{2}
+	return fileDescriptor_worker_service_f233cabdc11b1cf1, []int{2}
 }
 func (m *CancelResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -264,7 +264,7 @@ func (m *ChunkState) Reset()         { *m = ChunkState{} }
 func (m *ChunkState) String() string { return proto.CompactTextString(m) }
 func (*ChunkState) ProtoMessage()    {}
 func (*ChunkState) Descriptor() ([]byte, []int) {
-	return fileDescriptor_worker_service_c34991dee8e42be3, []int{3}
+	return fileDescriptor_worker_service_f233cabdc11b1cf1, []int{3}
 }
 func (m *ChunkState) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -309,9 +309,9 @@ func (m *ChunkState) GetDatumID() string {
 
 type MergeState struct {
 	State                State       `protobuf:"varint,1,opt,name=state,proto3,enum=worker.State" json:"state,omitempty"`
-	Tree                 *pfs.Object `protobuf:"bytes,2,opt,name=tree" json:"tree,omitempty"`
+	Tree                 *pfs.Object `protobuf:"bytes,2,opt,name=tree,proto3" json:"tree,omitempty"`
 	SizeBytes            uint64      `protobuf:"varint,3,opt,name=size_bytes,json=sizeBytes,proto3" json:"size_bytes,omitempty"`
-	StatsTree            *pfs.Object `protobuf:"bytes,4,opt,name=stats_tree,json=statsTree" json:"stats_tree,omitempty"`
+	StatsTree            *pfs.Object `protobuf:"bytes,4,opt,name=stats_tree,json=statsTree,proto3" json:"stats_tree,omitempty"`
 	StatsSizeBytes       uint64      `protobuf:"varint,5,opt,name=stats_size_bytes,json=statsSizeBytes,proto3" json:"stats_size_bytes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
@@ -322,7 +322,7 @@ func (m *MergeState) Reset()         { *m = MergeState{} }
 func (m *MergeState) String() string { return proto.CompactTextString(m) }
 func (*MergeState) ProtoMessage()    {}
 func (*MergeState) Descriptor() ([]byte, []int) {
-	return fileDescriptor_worker_service_c34991dee8e42be3, []int{4}
+	return fileDescriptor_worker_service_f233cabdc11b1cf1, []int{4}
 }
 func (m *MergeState) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -387,7 +387,7 @@ func (m *MergeState) GetStatsSizeBytes() uint64 {
 }
 
 type Plan struct {
-	Chunks               []int64  `protobuf:"varint,1,rep,packed,name=chunks" json:"chunks,omitempty"`
+	Chunks               []int64  `protobuf:"varint,1,rep,packed,name=chunks,proto3" json:"chunks,omitempty"`
 	Merges               int64    `protobuf:"varint,2,opt,name=merges,proto3" json:"merges,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -398,7 +398,7 @@ func (m *Plan) Reset()         { *m = Plan{} }
 func (m *Plan) String() string { return proto.CompactTextString(m) }
 func (*Plan) ProtoMessage()    {}
 func (*Plan) Descriptor() ([]byte, []int) {
-	return fileDescriptor_worker_service_c34991dee8e42be3, []int{5}
+	return fileDescriptor_worker_service_f233cabdc11b1cf1, []int{5}
 }
 func (m *Plan) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1953,10 +1953,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("server/worker/worker_service.proto", fileDescriptor_worker_service_c34991dee8e42be3)
+	proto.RegisterFile("server/worker/worker_service.proto", fileDescriptor_worker_service_f233cabdc11b1cf1)
 }
 
-var fileDescriptor_worker_service_c34991dee8e42be3 = []byte{
+var fileDescriptor_worker_service_f233cabdc11b1cf1 = []byte{
 	// 644 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x93, 0xcd, 0x6e, 0xd3, 0x40,
 	0x10, 0xc7, 0x63, 0x12, 0x3b, 0xc9, 0xa4, 0xa9, 0xc2, 0x0a, 0x2a, 0xab, 0x88, 0x24, 0xb8, 0x12,

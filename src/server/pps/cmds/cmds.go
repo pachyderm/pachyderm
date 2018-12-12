@@ -38,7 +38,10 @@ func Cmds(noMetrics *bool) ([]*cobra.Command, error) {
 	rawFlag := func(cmd *cobra.Command) {
 		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
 	}
-	marshaller := &jsonpb.Marshaler{Indent: "  "}
+	marshaller := &jsonpb.Marshaler{
+		Indent:   "  ",
+		OrigName: true,
+	}
 
 	job := &cobra.Command{
 		Use:   "job",
