@@ -1,0 +1,18 @@
+{
+  "pipeline": {
+    "name": "estimate_pi"
+  },
+  "transform": {
+    "cmd": [ "spark-submit", "/home/estimate_pi.py" ],
+    "image": "pachyderm/estimate-pi-spark:0.3"
+  },
+  "parallelism_spec": {
+    "constant": 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "estimate_pi_config",
+      "glob": "/num_samples"
+    }
+  }
+}

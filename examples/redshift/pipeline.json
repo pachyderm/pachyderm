@@ -1,0 +1,35 @@
+{
+    "pipeline": {
+        "name": "upload_to_redshift"
+    },
+    "input": {
+      "pfs": {
+        "repo": "data"
+      }
+    },
+    "transform": {
+        "image": "msteffenpachyderm/to_sql",
+        "cmd" : ["/bin/sh"],
+        "stdin": [
+            "chmod 600  '/secrets/pgpass/pgpass'",
+            "cat /pfs/input | to_sql ${REDSHIFT_TABLE} | psql -w -h ${REDSHIFT_ENDPOINT} -U ${REDSHIFT_USER} -p ${REDSHIFT_PORT} -d ${REDSHIFT_DB}"
+        ],
+        "env": {
+          "PGPASSFILE": "/secrets/pgpass/pgpass",
+          "REDSHIFT_ENDPOINT": "redshift-test.caz8kuesomc0.us-west-2.redshift.amazonaws.com",
+          "REDSHIFT_USER": "testuser",
+          "REDSHIFT_PORT": "5439",
+          "REDSHIFT_DB": "dev",
+          "REDSHIFT_TABLE": "main_table"
+        },
+        "secrets": [
+            {
+              "name": "pgpass-secret",
+              "mount_path": "/secrets/pgpass"
+            }
+        ]
+    },
+    "parallelism_spec": {
+      "constant": 1
+    }
+}

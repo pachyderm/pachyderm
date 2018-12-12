@@ -1,0 +1,31 @@
+{
+  "pipeline": {
+    "name": "inference"
+  },
+  "transform": {
+    "image": "pachyderm/iris-infer:rstats",
+    "cmd": [
+      "Rscript",
+      "infer.R"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "cross": [
+      {
+        "pfs": {
+          "repo": "attributes",
+          "glob": "/*"
+        }
+      },
+      {
+        "pfs": {
+          "repo": "model",
+          "glob": "/"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "pipeline": {
+    "name": "test"
+  },
+  "transform": {
+    "image": "pachyderm/iris-evaluate",
+    "cmd": [ "/bin/ash" ],
+    "stdin": [
+      "for f in /pfs/model/*",
+      "do",
+      "filename=$(basename \"$f\")",
+      "extension=`echo $filename | tail -c 4`",
+      "if [ \"$extension\" == \"pkl\" ]",
+      "then",
+      "python3 /code/evaluate.py $f /pfs/split/test.csv /pfs/out/",
+      "fi",
+      "done"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "cross": [
+      {
+        "pfs": {
+          "repo": "split",
+          "glob": "/test.csv"
+        }
+      },
+      {
+        "pfs": {
+          "repo": "model",
+          "glob": "/*"
+        }
+      }
+    ]
+  }
+}

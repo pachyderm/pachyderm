@@ -185,7 +185,7 @@ func (w *worker) createPipeline(c *client.APIClient) error {
 		}
 		repoSet[repo.Name] = true
 		inputs[i] = repo.Name
-		input = append(input, client.NewAtomInput(repo.Name, "*"))
+		input = append(input, client.NewPFSInput(repo.Name, "*"))
 	}
 
 	// Create a pipeline to grep for a random string in the input files, and write
