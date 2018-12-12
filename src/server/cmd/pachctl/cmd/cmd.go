@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	golog "log"
 	"os"
 	"path"
@@ -135,6 +136,16 @@ __custom_func() {
 }`
 )
 
+type logWriter golog.Logger
+
+func (l *logWriter) Write(p []byte) (int, error) {
+	err := (*golog.Logger)(l).Output(2, string(p))
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
@@ -155,14 +166,18 @@ Environment variables:
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !verbose {
-				// Silence any grpc logs
+				// Silence grpc logs
 				l := log.New()
 				l.Level = log.FatalLevel
-				grpclog.SetLogger(l)
+				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 			} else {
 				// etcd overrides grpc's logs--there's no way to enable one without
 				// enabling both
-				etcd.SetLogger(golog.New(os.Stderr, "[etcd/grpc] ", golog.LstdFlags|golog.Lshortfile))
+				etcd.SetLogger(grpclog.NewLoggerV2(
+					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] INFO  ", golog.LstdFlags|golog.Lshortfile)),
+					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] WARN  ", golog.LstdFlags|golog.Lshortfile)),
+					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] ERROR ", golog.LstdFlags|golog.Lshortfile)),
+				))
 			}
 
 		},

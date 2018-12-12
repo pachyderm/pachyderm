@@ -13,12 +13,25 @@ set -e
 which jq
 
 delete_resources() {
-  local name=${1}
-  [[ -e ${HOME}/.pachyderm/${name}-info.json ]] || aws s3 cp "${KOPS_BUCKET}/${name}-info.json" "${HOME}/.pachyderm/${name}-info.json"
+  local name="${1}"
+  if [[ ! -f ${HOME}/.pachyderm/${name}-info.json ]]; then
+    # Try to copy cluster info from s3 to local file (may not exist if cluster didn't finish coming up)
+    S3_CLUSTER_INFO="${KOPS_BUCKET}/${name}-info.json"
+    if aws s3 ls "${S3_CLUSTER_INFO}"; then
+      aws s3 cp "${S3_CLUSTER_INFO}" "${HOME}/.pachyderm/${name}-info.json"
+    fi
+  fi
+  # Now that we might have fetched the file, try to delete the pachyderm bucket
+  if [[ -f ${HOME}/.pachyderm/${name}-info.json ]]; then
+    aws s3 rb \
+      --region ${REGION} \
+      --force \
+      "s3://$(jq --raw-output .pachyderm_bucket ${HOME}/.pachyderm/${name}-info.json)" \
+      >/dev/null
+    rm "${HOME}/.pachyderm/${name}-info.json"
+  fi
   kops --state=${KOPS_BUCKET} delete cluster --name=${name} --yes
-  aws s3 rb --region ${REGION} --force "s3://$(jq --raw-output .pachyderm_bucket ${HOME}/.pachyderm/${name}-info.json)" >/dev/null
   aws s3 rm "${KOPS_BUCKET}/${name}-info.json"
-  sudo rm "${HOME}/.pachyderm/${name}-info.json"
 }
 
 ZONE="${ZONE:-us-west-1b}"

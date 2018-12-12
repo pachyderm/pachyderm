@@ -133,7 +133,7 @@ func (m *FrontendState) GetVersion() int64 {
 type ServerRole struct {
 	Address              string          `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
 	Version              int64           `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
-	Shards               map[uint64]bool `protobuf:"bytes,3,rep,name=shards" json:"shards,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
+	Shards               map[uint64]bool `protobuf:"bytes,3,rep,name=shards,proto3" json:"shards,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
 	XXX_unrecognized     []byte          `json:"-"`
 	XXX_sizecache        int32           `json:"-"`
@@ -195,7 +195,7 @@ func (m *ServerRole) GetShards() map[uint64]bool {
 
 type Addresses struct {
 	Version              int64             `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	Addresses            map[uint64]string `protobuf:"bytes,2,rep,name=addresses" json:"addresses,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Addresses            map[uint64]string `protobuf:"bytes,2,rep,name=addresses,proto3" json:"addresses,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
 	XXX_sizecache        int32             `json:"-"`
@@ -492,7 +492,7 @@ func (m *FinishAssignRoles) GetError() string {
 }
 
 type FailedToAssignRoles struct {
-	ServerStates         map[string]*ServerState `protobuf:"bytes,1,rep,name=server_states,json=serverStates" json:"server_states,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value"`
+	ServerStates         map[string]*ServerState `protobuf:"bytes,1,rep,name=server_states,json=serverStates,proto3" json:"server_states,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	NumShards            uint64                  `protobuf:"varint,2,opt,name=num_shards,json=numShards,proto3" json:"num_shards,omitempty"`
 	NumReplicas          uint64                  `protobuf:"varint,3,opt,name=num_replicas,json=numReplicas,proto3" json:"num_replicas,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
@@ -555,7 +555,7 @@ func (m *FailedToAssignRoles) GetNumReplicas() uint64 {
 }
 
 type SetServerState struct {
-	ServerState          *ServerState `protobuf:"bytes,1,opt,name=serverState" json:"serverState,omitempty"`
+	ServerState          *ServerState `protobuf:"bytes,1,opt,name=serverState,proto3" json:"serverState,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}     `json:"-"`
 	XXX_unrecognized     []byte       `json:"-"`
 	XXX_sizecache        int32        `json:"-"`
@@ -602,7 +602,7 @@ func (m *SetServerState) GetServerState() *ServerState {
 }
 
 type SetFrontendState struct {
-	FrontendState        *FrontendState `protobuf:"bytes,1,opt,name=frontendState" json:"frontendState,omitempty"`
+	FrontendState        *FrontendState `protobuf:"bytes,1,opt,name=frontendState,proto3" json:"frontendState,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
 	XXX_unrecognized     []byte         `json:"-"`
 	XXX_sizecache        int32          `json:"-"`
@@ -649,7 +649,7 @@ func (m *SetFrontendState) GetFrontendState() *FrontendState {
 }
 
 type AddServerRole struct {
-	ServerRole           *ServerRole `protobuf:"bytes,1,opt,name=serverRole" json:"serverRole,omitempty"`
+	ServerRole           *ServerRole `protobuf:"bytes,1,opt,name=serverRole,proto3" json:"serverRole,omitempty"`
 	Error                string      `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
@@ -704,7 +704,7 @@ func (m *AddServerRole) GetError() string {
 }
 
 type RemoveServerRole struct {
-	ServerRole           *ServerRole `protobuf:"bytes,1,opt,name=serverRole" json:"serverRole,omitempty"`
+	ServerRole           *ServerRole `protobuf:"bytes,1,opt,name=serverRole,proto3" json:"serverRole,omitempty"`
 	Error                string      `protobuf:"bytes,2,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
@@ -759,7 +759,7 @@ func (m *RemoveServerRole) GetError() string {
 }
 
 type SetServerRole struct {
-	ServerRole           *ServerRole `protobuf:"bytes,2,opt,name=serverRole" json:"serverRole,omitempty"`
+	ServerRole           *ServerRole `protobuf:"bytes,2,opt,name=serverRole,proto3" json:"serverRole,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -806,7 +806,7 @@ func (m *SetServerRole) GetServerRole() *ServerRole {
 }
 
 type DeleteServerRole struct {
-	ServerRole           *ServerRole `protobuf:"bytes,2,opt,name=serverRole" json:"serverRole,omitempty"`
+	ServerRole           *ServerRole `protobuf:"bytes,2,opt,name=serverRole,proto3" json:"serverRole,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
 	XXX_sizecache        int32       `json:"-"`
@@ -853,7 +853,7 @@ func (m *DeleteServerRole) GetServerRole() *ServerRole {
 }
 
 type SetAddresses struct {
-	Addresses            *Addresses `protobuf:"bytes,1,opt,name=addresses" json:"addresses,omitempty"`
+	Addresses            *Addresses `protobuf:"bytes,1,opt,name=addresses,proto3" json:"addresses,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
 	XXX_unrecognized     []byte     `json:"-"`
 	XXX_sizecache        int32      `json:"-"`
@@ -980,7 +980,7 @@ func (m *GetAddress) GetError() string {
 
 type GetShardToAddress struct {
 	Version              int64             `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	Result               map[uint64]string `protobuf:"bytes,2,rep,name=result" json:"result,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Result               map[uint64]string `protobuf:"bytes,2,rep,name=result,proto3" json:"result,omitempty" protobuf_key:"varint,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
 	Error                string            `protobuf:"bytes,3,opt,name=error,proto3" json:"error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
 	XXX_unrecognized     []byte            `json:"-"`
