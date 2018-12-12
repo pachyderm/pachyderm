@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.8.0
+
+- Completely rewritten hashtree backend that provides massive performance boosts.
+- Single sign-on Auth via Okta.
+- Support for groups and robot users.
+- Support for splitting file formats with headers and footers such as SQL and CSV.
+
 ## 1.7.10
 
 - Adds `put-file --split` support for SQL dumps. (#3064)

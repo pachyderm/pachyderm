@@ -30,12 +30,12 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type Op1_7 struct {
-	Object               *pfs.PutObjectRequest      `protobuf:"bytes,2,opt,name=object" json:"object,omitempty"`
-	Tag                  *pfs.TagObjectRequest      `protobuf:"bytes,3,opt,name=tag" json:"tag,omitempty"`
-	Repo                 *pfs.CreateRepoRequest     `protobuf:"bytes,4,opt,name=repo" json:"repo,omitempty"`
-	Commit               *pfs.BuildCommitRequest    `protobuf:"bytes,5,opt,name=commit" json:"commit,omitempty"`
-	Branch               *pfs.CreateBranchRequest   `protobuf:"bytes,6,opt,name=branch" json:"branch,omitempty"`
-	Pipeline             *pps.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline" json:"pipeline,omitempty"`
+	Object               *pfs.PutObjectRequest      `protobuf:"bytes,2,opt,name=object,proto3" json:"object,omitempty"`
+	Tag                  *pfs.TagObjectRequest      `protobuf:"bytes,3,opt,name=tag,proto3" json:"tag,omitempty"`
+	Repo                 *pfs.CreateRepoRequest     `protobuf:"bytes,4,opt,name=repo,proto3" json:"repo,omitempty"`
+	Commit               *pfs.BuildCommitRequest    `protobuf:"bytes,5,opt,name=commit,proto3" json:"commit,omitempty"`
+	Branch               *pfs.CreateBranchRequest   `protobuf:"bytes,6,opt,name=branch,proto3" json:"branch,omitempty"`
+	Pipeline             *pps.CreatePipelineRequest `protobuf:"bytes,7,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
 	XXX_sizecache        int32                      `json:"-"`
@@ -45,7 +45,7 @@ func (m *Op1_7) Reset()         { *m = Op1_7{} }
 func (m *Op1_7) String() string { return proto.CompactTextString(m) }
 func (*Op1_7) ProtoMessage()    {}
 func (*Op1_7) Descriptor() ([]byte, []int) {
-	return fileDescriptor_admin_84c9aba774e9a43f, []int{0}
+	return fileDescriptor_admin_036cdfbc92177552, []int{0}
 }
 func (m *Op1_7) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -117,7 +117,7 @@ func (m *Op1_7) GetPipeline() *pps.CreatePipelineRequest {
 }
 
 type Op struct {
-	Op1_7                *Op1_7   `protobuf:"bytes,1,opt,name=op1_7,json=op17" json:"op1_7,omitempty"`
+	Op1_7                *Op1_7   `protobuf:"bytes,1,opt,name=op1_7,json=op17,proto3" json:"op1_7,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -127,7 +127,7 @@ func (m *Op) Reset()         { *m = Op{} }
 func (m *Op) String() string { return proto.CompactTextString(m) }
 func (*Op) ProtoMessage()    {}
 func (*Op) Descriptor() ([]byte, []int) {
-	return fileDescriptor_admin_84c9aba774e9a43f, []int{1}
+	return fileDescriptor_admin_036cdfbc92177552, []int{1}
 }
 func (m *Op) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -182,7 +182,7 @@ func (m *ExtractRequest) Reset()         { *m = ExtractRequest{} }
 func (m *ExtractRequest) String() string { return proto.CompactTextString(m) }
 func (*ExtractRequest) ProtoMessage()    {}
 func (*ExtractRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_admin_84c9aba774e9a43f, []int{2}
+	return fileDescriptor_admin_036cdfbc92177552, []int{2}
 }
 func (m *ExtractRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -240,7 +240,7 @@ func (m *ExtractRequest) GetNoPipelines() bool {
 }
 
 type ExtractPipelineRequest struct {
-	Pipeline             *pps.Pipeline `protobuf:"bytes,1,opt,name=pipeline" json:"pipeline,omitempty"`
+	Pipeline             *pps.Pipeline `protobuf:"bytes,1,opt,name=pipeline,proto3" json:"pipeline,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
 	XXX_sizecache        int32         `json:"-"`
@@ -250,7 +250,7 @@ func (m *ExtractPipelineRequest) Reset()         { *m = ExtractPipelineRequest{}
 func (m *ExtractPipelineRequest) String() string { return proto.CompactTextString(m) }
 func (*ExtractPipelineRequest) ProtoMessage()    {}
 func (*ExtractPipelineRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_admin_84c9aba774e9a43f, []int{3}
+	return fileDescriptor_admin_036cdfbc92177552, []int{3}
 }
 func (m *ExtractPipelineRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -287,7 +287,7 @@ func (m *ExtractPipelineRequest) GetPipeline() *pps.Pipeline {
 }
 
 type RestoreRequest struct {
-	Op *Op `protobuf:"bytes,1,opt,name=op" json:"op,omitempty"`
+	Op *Op `protobuf:"bytes,1,opt,name=op,proto3" json:"op,omitempty"`
 	// URL is an object storage URL, if it's not "" data will be restored from
 	// this URL.
 	URL                  string   `protobuf:"bytes,2,opt,name=URL,proto3" json:"URL,omitempty"`
@@ -300,7 +300,7 @@ func (m *RestoreRequest) Reset()         { *m = RestoreRequest{} }
 func (m *RestoreRequest) String() string { return proto.CompactTextString(m) }
 func (*RestoreRequest) ProtoMessage()    {}
 func (*RestoreRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_admin_84c9aba774e9a43f, []int{4}
+	return fileDescriptor_admin_036cdfbc92177552, []int{4}
 }
 func (m *RestoreRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -354,7 +354,7 @@ func (m *ClusterInfo) Reset()         { *m = ClusterInfo{} }
 func (m *ClusterInfo) String() string { return proto.CompactTextString(m) }
 func (*ClusterInfo) ProtoMessage()    {}
 func (*ClusterInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_admin_84c9aba774e9a43f, []int{5}
+	return fileDescriptor_admin_036cdfbc92177552, []int{5}
 }
 func (m *ClusterInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1902,9 +1902,9 @@ var (
 	ErrIntOverflowAdmin   = fmt.Errorf("proto: integer overflow")
 )
 
-func init() { proto.RegisterFile("client/admin/admin.proto", fileDescriptor_admin_84c9aba774e9a43f) }
+func init() { proto.RegisterFile("client/admin/admin.proto", fileDescriptor_admin_036cdfbc92177552) }
 
-var fileDescriptor_admin_84c9aba774e9a43f = []byte{
+var fileDescriptor_admin_036cdfbc92177552 = []byte{
 	// 558 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x93, 0xd1, 0x6e, 0xd3, 0x30,
 	0x14, 0x86, 0x9b, 0x74, 0x4d, 0xdb, 0xd3, 0x51, 0x26, 0x8b, 0x95, 0x2c, 0x68, 0x85, 0x45, 0x42,

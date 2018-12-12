@@ -42,6 +42,14 @@ type amazonClient struct {
 	cloudfrontURLSigner    *sign.URLSigner
 	s3                     *s3.S3
 	uploader               *s3manager.Uploader
+	// When true, keys are stored in reversed order; e.g. the key "ABCD" is
+	// rewritten to "DCBA". This is because, as of 12/2018, if a lot of assets
+	// have the same prefix, the same S3 servers will be hit. This comes into
+	// conflict with Pachyderm, which prefixes the keys of blocks with where
+	// the blocks came from, causing a lot of blocks with the same prefix to
+	// be written around the same time, and overloading S3. Reversing the
+	// order of keys gives an easy way to spread out S3 assets and
+	// substantially speed up block writing.
 	reversed               bool
 }
 
@@ -227,9 +235,18 @@ func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
 
 func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	var fnErr error
+	var prefix *string
+
+	if c.reversed {
+		prefix = nil
+	} else {
+		prefix = &name
+	}
+
 	if err := c.s3.ListObjectsPages(
 		&s3.ListObjectsInput{
 			Bucket: aws.String(c.bucket),
+			Prefix: prefix,
 		},
 		func(listObjectsOutput *s3.ListObjectsOutput, lastPage bool) bool {
 			for _, object := range listObjectsOutput.Contents {

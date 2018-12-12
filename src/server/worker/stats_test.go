@@ -71,7 +71,7 @@ func TestPrometheusStats(t *testing.T) {
 			ParallelismSpec: &pps.ParallelismSpec{
 				Constant: uint64(numDatums),
 			},
-			Input:        client.NewAtomInput(dataRepo, "/*"),
+			Input:        client.NewPFSInput(dataRepo, "/*"),
 			OutputBranch: "",
 			Update:       false,
 			EnableStats:  true,
