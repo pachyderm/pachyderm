@@ -2688,7 +2688,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, f func(*pfs.FileInfo) error) (retErr error) {
+func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history bool, f func(*pfs.FileInfo) error) (retErr error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -2709,11 +2709,15 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		}
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
-				fi, err := nodeToFileInfoHeaderFooter(file.Commit, rootPath, rootNode, tree, full)
-				if err != nil {
-					return err
+				if !history {
+					fi, err := nodeToFileInfoHeaderFooter(file.Commit, rootPath, rootNode, tree, full)
+					if err != nil {
+						return err
+					}
+					return f(fi)
+				} else {
+					return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, rootPath), f)
 				}
-				return f(fi)
 			}
 			return tree.List(rootPath, func(node *hashtree.NodeProto) error {
 				path := filepath.Join(rootPath, node.Name)
@@ -2721,11 +2725,15 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 					// Don't return the file now, it will be returned later by Glob
 					return nil
 				}
-				fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, full)
-				if err != nil {
-					return err
+				if !history {
+					fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, full)
+					if err != nil {
+						return err
+					}
+					return f(fi)
+				} else {
+					return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), f)
 				}
-				return f(fi)
 			})
 		})
 	}
@@ -2748,7 +2756,11 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		}
 	}()
 	return hashtree.List(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
-		return f(nodeToFileInfo(file.Commit, path, node, full))
+		if !history {
+			return f(nodeToFileInfo(file.Commit, path, node, full))
+		} else {
+			return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), f)
+		}
 	})
 }
 
@@ -2761,7 +2773,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, f fun
 		if err != nil {
 			return err
 		}
-		if hash == nil || bytes.Compare(hash, fi.Hash) == 0 {
+		if hash == nil || bytes.Compare(hash, fi.Hash) != 0 {
 			if err := f(fi); err != nil {
 				return err
 			}
