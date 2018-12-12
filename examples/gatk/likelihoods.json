@@ -1,0 +1,41 @@
+{
+  "pipeline": {
+    "name": "likelihoods"
+  },
+  "transform": {
+    "image": "broadinstitute/gatk3:3.8-0",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+        "for f in $samples/*",
+        "do",
+        "filename=$(basename \"$f\")",
+        "extension=\"${filename##*.}\"",
+        "if [ \"$extension\" == \"bam\" ]",
+        "then",
+        "filename=\"${filename%.*}\"",
+        "cd $samples",
+        "java -jar /usr/GenomeAnalysisTK.jar -T HaplotypeCaller -R /pfs/reference/ref.fasta -I $filename.bam -o /pfs/out/$filename.g.vcf -ERC GVCF -L 20:10,000,000-10,200,000",
+        "fi",
+        "done"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "cross": [
+      {
+        "pfs": {
+          "repo": "reference",
+          "glob": "/"
+        }
+      },
+      {
+        "pfs": {
+          "repo": "samples",
+          "glob": "/*"
+        }
+      }
+    ]
+  }
+}

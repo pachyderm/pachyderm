@@ -1,0 +1,28 @@
+{
+    "pipeline": {
+        "name": "$PIPELINE_NAME"
+    },
+    "transform": {
+        "image": "$PIPELINE_DOCKER_IMAGE",
+        "cmd": ["/bin/bash"],
+        "stdin": [
+            "for file in $PIPELINE_DOCKER_SECRETS_PATH/*; do",
+                "export $(basename $file)=$(cat $file);",
+            "done",
+            "sh -c $PIPELINE_DOCKER_HOME/$PIPELINE_DOCKER_SCRIPT"
+        ],
+        "secrets": [
+            {
+                "name": "$PIPELINE_DOCKER_SECRETS",
+                "mount_path": "$PIPELINE_DOCKER_SECRETS_PATH"
+            }
+        ],
+        "image_pull_secrets": ["$PIPELINE_DOCKER_REGISTRY_SECRETS"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "$PIPELINE_REPO",
+            "glob": "/*"
+        }
+    }
+}

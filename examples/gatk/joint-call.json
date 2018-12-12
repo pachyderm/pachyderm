@@ -1,0 +1,42 @@
+{
+  "pipeline": {
+    "name": "joint_call"
+  },
+  "transform": {
+    "image": "broadinstitute/gatk3:3.8-0",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+        "files=\"\"",
+        "for f in /pfs/likelihoods/*",
+        "do",
+        "filename=$(basename \"$f\")",
+        "extension=\"${filename##*.}\"",
+        "echo $extension",
+        "if [ \"$extension\" == \"vcf\" ]",
+        "then",
+        "files=\"$files -V $f\"",
+        "fi",
+        "done",
+	"java -jar /usr/GenomeAnalysisTK.jar -T GenotypeGVCFs -R /pfs/reference/ref.fasta $files -o /pfs/out/joint.vcf -L 20:10,000,000-10,200,000"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "cross": [
+      {
+        "pfs": {
+          "repo": "reference",
+          "glob": "/"
+        }
+      },
+      {
+        "pfs": {
+          "repo": "likelihoods",
+          "glob": "/"
+        }
+      }
+    ]
+  }
+}

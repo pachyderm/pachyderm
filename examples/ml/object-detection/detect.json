@@ -1,0 +1,30 @@
+{
+  "pipeline": {
+    "name": "detect"
+  },
+  "input": {
+    "cross": [
+      {
+        "pfs": {
+          "glob": "/*",
+          "repo": "images"
+        }
+      },
+      {
+        "pfs": {
+          "glob": "/",
+          "repo": "model"
+        }
+      }
+    ]
+  },
+  "transform": {
+    "image": "pachyderm/object-detect",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [  
+      "cd /tensorflow/models/object_detection/", 
+      "python infer.py"
+    ]
+  }
+}
+

@@ -6,7 +6,7 @@ Pachyderm has support for utilizing GPUs within Pachyderm pipelines (e.g., for t
 2) [Write a pipeline spec that specifies GPU nodes](gpus.html#writing-your-pipeline-specification)
 3) [Deploy a GPU enabled pachyderm cluster](gpus.html#deploy-a-gpu-enabled-pachyderm-cluster)
 
-For a concrete example, see our [example Tensorflow pipeline](https://github.com/pachyderm/pachyderm/tree/master/doc/examples/ml/tensorflow) for image-to-image translation, which includes a pipeline specification for running model training on a GPU node.
+For a concrete example, see our [example Tensorflow pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/tensorflow) for image-to-image translation, which includes a pipeline specification for running model training on a GPU node.
 
 ## Creating a GPU Enabled Docker Image
 
@@ -62,7 +62,7 @@ An example pipeline definition for a GPU enabled Pachyderm Pipeline is as follow
       "gpu": 1
   },
   "inputs": {
-    "atom": {
+    "pfs": {
       "repo": "data",
       "glob": "/*"
     }

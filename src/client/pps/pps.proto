@@ -54,6 +54,7 @@ message Service {
   string ip = 3 [(gogoproto.customname) = "IP"];
 }
 
+// Note: this is deprecated and replaced by `PfsInput`
 message AtomInput {
   reserved 7;
   string name = 1;
@@ -66,6 +67,19 @@ message AtomInput {
   // empty files. This is useful in shuffle pipelines where you want to read
   // the names of files and reorganize them using symlinks.
   bool empty_files = 8;
+}
+
+message PFSInput {
+  string name = 1;
+  string repo = 2;
+  string branch = 3;
+  string commit = 4;
+  string glob = 5;
+  bool lazy = 6;
+  // EmptyFiles, if true, will cause files from this PFS input to be
+  // presented as empty files. This is useful in shuffle pipelines where you
+  // want to read the names of files and reorganize them using symlinks.
+  bool empty_files = 7;
 }
 
 message CronInput {
@@ -84,7 +98,9 @@ message GitInput {
 }
 
 message Input {
+  // Note: this is deprecated and replaced by `PfsInput`
   AtomInput atom = 1;
+  PFSInput pfs = 6;
   repeated Input cross = 2;
   repeated Input union = 3;
   CronInput cron = 4;
@@ -339,7 +355,7 @@ message PipelineInfo {
   uint64 version = 11;
   Transform transform = 2;
   ParallelismSpec parallelism_spec = 10;
-	HashtreeSpec hashtree_spec = 42;
+  HashtreeSpec hashtree_spec = 42;
   Egress egress = 15;
   google.protobuf.Timestamp created_at = 6;
 

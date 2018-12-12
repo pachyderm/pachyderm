@@ -1,0 +1,16 @@
+{
+  "pipeline": {
+    "name": "sales"
+  },
+  "transform": {
+    "image": "dwhitena/bike-share-sales",
+    "cmd": [ "/sales" ],
+    "stdin": []
+  },
+  "input": {
+    "pfs": {
+      "repo": "trips",
+      "glob": "/"
+    }
+  }
+}

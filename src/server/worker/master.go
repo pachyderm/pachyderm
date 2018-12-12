@@ -382,6 +382,9 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 		if input.Atom != nil && input.Atom.Commit != "" {
 			blockCommit(input.Atom.Name, client.NewCommit(input.Atom.Repo, input.Atom.Commit))
 		}
+		if input.Pfs != nil && input.Pfs.Commit != "" {
+			blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Commit))
+		}
 		if input.Cron != nil && input.Cron.Commit != "" {
 			blockCommit(input.Cron.Name, client.NewCommit(input.Cron.Repo, input.Cron.Commit))
 		}

@@ -1,0 +1,22 @@
+{
+  "pipeline": {
+    "name": "split"
+  },
+  "transform": {
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+      "shuf /pfs/raw_data/iris.csv > /tmp/iris_shuffled.csv",
+      "head -n80 /tmp/iris_shuffled.csv > /pfs/out/train.csv",
+      "tail -n20 /tmp/iris_shuffled.csv > /pfs/out/test.csv"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": "1"
+  },
+  "input": {
+    "pfs": {
+      "repo": "raw_data",
+      "glob": "/"
+    }
+  }
+}
