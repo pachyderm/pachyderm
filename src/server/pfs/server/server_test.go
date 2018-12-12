@@ -4673,3 +4673,29 @@ func TestPutFilesObjURL(t *testing.T) {
 		require.Equal(t, path, b.String())
 	}
 }
+
+func TestFileHistory(t *testing.T) {
+	client := GetPachClient(t)
+	var err error
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	for i := 0; i < 5; i++ {
+		_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
+	fileInfos, err := client.ListFileHistory(repo, "master", "file")
+	require.NoError(t, err)
+	require.Equal(t, 5, len(fileInfos))
+
+	require.NoError(t, client.DeleteFile(repo, "master", "file"))
+	for i := 0; i < 5; i++ {
+		_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, "master", "unrelated", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
+	fileInfos, err = client.ListFileHistory(repo, "master", "file")
+	require.NoError(t, err)
+	require.Equal(t, 5, len(fileInfos))
+}

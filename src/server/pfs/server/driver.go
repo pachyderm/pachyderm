@@ -2771,6 +2771,9 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, f fun
 	for {
 		fi, err := d.inspectFile(pachClient, file)
 		if err != nil {
+			if _, ok := err.(pfsserver.ErrFileNotFound); ok {
+				return nil
+			}
 			return err
 		}
 		if hash == nil || bytes.Compare(hash, fi.Hash) != 0 {
