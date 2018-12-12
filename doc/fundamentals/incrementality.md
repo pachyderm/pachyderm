@@ -23,7 +23,7 @@ an example. Suppose we have a pipeline with a single input that looks like this:
 
 ```json
 {
-  "atom": {
+  "pfs": {
     "repo": "R",
     "glob": "/*",
   }

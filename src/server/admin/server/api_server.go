@@ -241,6 +241,9 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 				if input.Atom != nil {
 					add(input.Atom.Repo)
 				}
+				if input.Pfs != nil {
+					add(input.Pfs.Repo)
+				}
 			})
 			result = append(result, pi)
 			delete(piMap, name)

@@ -215,6 +215,11 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 				input.Atom.Commit = commit.ID
 			}
 		}
+		if input.Pfs != nil {
+			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.Branch)]; ok {
+				input.Pfs.Commit = commit.ID
+			}
+		}
 		if input.Cron != nil {
 			if commit, ok := branchToCommit[key(input.Cron.Repo, "master")]; ok {
 				input.Cron.Commit = commit.ID
