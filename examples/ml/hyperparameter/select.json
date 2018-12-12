@@ -35,15 +35,15 @@
   "input": {
     "cross": [
       {
-        "atom": {
-	  "repo": "test",
-	  "glob": "/"
-	}
+        "pfs": {
+          "repo": "test",
+          "glob": "/"
+        }
       },
       {
-	"atom": {
-	  "repo": "model",
-	  "glob": "/"
+        "pfs": {
+          "repo": "model",
+          "glob": "/"
         }
       }
     ]
