@@ -850,6 +850,7 @@ $ pachctl get-file foo master^2 XXX
 	}
 	rawFlag(inspectFile)
 
+	var history bool
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
@@ -881,12 +882,12 @@ $ pachctl list-file foo master^2
 				path = args[2]
 			}
 			if raw {
-				return client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+				return client.ListFileF(args[0], args[1], path, history, func(fi *pfsclient.FileInfo) error {
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-			if err := client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+			if err := client.ListFileF(args[0], args[1], path, history, func(fi *pfsclient.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi)
 				return nil
 			}); err != nil {
@@ -896,6 +897,7 @@ $ pachctl list-file foo master^2
 		}),
 	}
 	rawFlag(listFile)
+	listFile.Flags().BoolVar(&history, "history", false, "Return revision history for files.")
 
 	globFile := &cobra.Command{
 		Use:   "glob-file repo-name commit-id pattern",
