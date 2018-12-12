@@ -4618,7 +4618,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 			Input:       client.NewPFSInput(dataRepo, "/*"),
 			EnableStats: true,
 			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 4,
+				Constant: 1,
 			},
 		})
 
@@ -4713,7 +4713,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 			Input:       client.NewPFSInput(dataRepo, "/*"),
 			EnableStats: true,
 			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 4,
+				Constant: 1,
 			},
 		})
 
