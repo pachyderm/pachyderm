@@ -71,11 +71,19 @@ parse_flags() {
 # $1 : bucket name (required)
 # $2 : boolean to use cloudfront or not (required)
 create_s3_bucket() {
-  if [[ "$#" -lt 1 ]]; then
+  if [[ "$#" -lt 1 ]] || [[ "${1}" =~ s3://* ]] ; then
     echo "Error: create_s3_bucket needs a bucket name"
     return 1
   fi
+  if [[ "$#" -lt 2 ]]; then
+    echo "Error: must specify whether cloudfront has access"
+    return 1
+  fi
+  if [[ "$#" -eq 3 ]]; then
+    KOPS_STATE_BUCKET="${3}"
+  fi
   BUCKET="${1#s3://}"
+  GIVE_CLOUDFRONT_ACCESS="${2}"
 
   # For some weird reason, s3 emits an error if you pass a location constraint when location is "us-east-1"
   if [[ "${AWS_REGION}" == "us-east-1" ]]; then
@@ -83,8 +91,20 @@ create_s3_bucket() {
   else
     aws s3api create-bucket --bucket ${BUCKET} --region ${AWS_REGION} --create-bucket-configuration LocationConstraint=${AWS_REGION}
   fi
+  if [[ -n "${KOPS_STATE_BUCKET}" ]]; then
+    # Put bucket name in kops state store bucket right away, in case the
+    # cluster doesn't finish coming up
+    #
+    # TODO(msteffen) pass $NAME in as an argument--relying on the fact that it
+    # was already exported by deploy_k8s_on_aws is brittle and hard to read
+    jq -n \
+      --arg pachyderm_bucket ${BUCKET} \
+      --arg timestamp "$(date)" \
+      '{"pachyderm_bucket": $pachyderm_bucket, "created": $timestamp}' \
+    | aws s3 cp - ${KOPS_STATE_BUCKET}/${NAME}-info.json
+  fi
 
-  if [ "$2" != "false" ]; then
+  if [ "${GIVE_CLOUDFRONT_ACCESS}" != "false" ]; then
     mkdir -p tmp
     sed 's/BUCKET_NAME/'$BUCKET'/' etc/deploy/cloudfront/bucket-policy.json.template > tmp/bucket-policy.json
     aws s3api put-bucket-policy --bucket $BUCKET --policy file://tmp/bucket-policy.json --region=${AWS_REGION}
@@ -260,7 +280,7 @@ deploy_pachyderm_on_aws() {
     # shared with k8s deploy script:
     export STORAGE_SIZE=100
     export PACHYDERM_BUCKET=${RANDOM}-pachyderm-store
-    create_s3_bucket "${PACHYDERM_BUCKET}" ${USE_CLOUDFRONT}
+    create_s3_bucket "${PACHYDERM_BUCKET}" ${USE_CLOUDFRONT} "${KOPS_BUCKET}"
 
     # Since my user should have the right access:
     AWS_ID=`cat ~/.aws/credentials | tr -s [:space:] | grep -m1 ^aws_access_key_id  | cut -d " " -f 3`
@@ -315,21 +335,11 @@ config_path="${HOME}/.pachyderm/config.json"
   chmod 777 "${config_path}"
 }
 tmpfile="$(mktemp $(pwd)/tmp.XXXXXXXXXX)"
-cp "${config_path}" "${tmpfile}"
 jq --monochrome-output \
   ".v1.pachd_address=\"${K8S_MASTER_DOMAIN}:30650\"" \
-  "${tmpfile}" \
-  >"${config_path}"
-rm "${tmpfile}"
-
-cluster_info_path="${HOME}/.pachyderm/${NAME}-info.json"
-touch "${cluster_info_path}"
-jq -n \
---arg kops_bucket ${KOPS_BUCKET} \
---arg pachyderm_bucket ${PACHYDERM_BUCKET} \
---arg timestamp "$(date)" \
-'{"kops_bucket": $kops_bucket, "pachyderm_bucket": $pachyderm_bucket, "created": $timestamp}' > ${cluster_info_path}
-aws s3 cp ${cluster_info_path} ${KOPS_BUCKET}
+  "${config_path}" \
+  >"${tmpfile}"
+mv "${tmpfile}" "${config_path}"
 
 echo "Cluster address has been written to ${config_path}"
 echo "Cluster info has been written to ${cluster_info_path}"
