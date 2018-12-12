@@ -35,7 +35,7 @@ func TestWordCount(t *testing.T) {
 	t.Parallel()
 	c := getPachClient(t)
 
-	exampleDir := "../../../doc/examples/word_count"
+	exampleDir := "../../../examples/word_count"
 	newURL := "https://news.ycombinator.com/newsfaq.html"
 	oldURL := "https://en.wikipedia.org/wiki/Main_Page"
 	rawInputPipelineManifest, err := ioutil.ReadFile(filepath.Join(exampleDir, "inputPipeline.json"))
