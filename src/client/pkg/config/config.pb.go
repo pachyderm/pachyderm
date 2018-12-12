@@ -45,7 +45,7 @@ func (m *Config) Reset()         { *m = Config{} }
 func (m *Config) String() string { return proto.CompactTextString(m) }
 func (*Config) ProtoMessage()    {}
 func (*Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_28df4b8916c4f745, []int{0}
+	return fileDescriptor_config_efb7165b85077e9c, []int{0}
 }
 func (m *Config) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -111,7 +111,7 @@ func (m *ConfigV1) Reset()         { *m = ConfigV1{} }
 func (m *ConfigV1) String() string { return proto.CompactTextString(m) }
 func (*ConfigV1) ProtoMessage()    {}
 func (*ConfigV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_28df4b8916c4f745, []int{1}
+	return fileDescriptor_config_efb7165b85077e9c, []int{1}
 }
 func (m *ConfigV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -664,10 +664,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("client/pkg/config/config.proto", fileDescriptor_config_28df4b8916c4f745)
+	proto.RegisterFile("client/pkg/config/config.proto", fileDescriptor_config_efb7165b85077e9c)
 }
 
-var fileDescriptor_config_28df4b8916c4f745 = []byte{
+var fileDescriptor_config_efb7165b85077e9c = []byte{
 	// 245 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4b, 0xce, 0xc9, 0x4c,
 	0xcd, 0x2b, 0xd1, 0x2f, 0xc8, 0x4e, 0xd7, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x84, 0x51, 0x7a, 0x05,

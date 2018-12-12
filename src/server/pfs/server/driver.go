@@ -3340,7 +3340,7 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 					if err != nil {
 						return fmt.Errorf("error parsing url %v: %v", req.Url, err)
 					}
-					objClient, err := obj.NewClientFromURLAndSecret(server.Context(), url)
+					objClient, err := obj.NewClientFromURLAndSecret(server.Context(), url, false)
 					if err != nil {
 						return err
 					}

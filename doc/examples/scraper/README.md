@@ -115,7 +115,7 @@ The `pipeline` we're creating can be found at [scraper.json](scraper.json).  The
   },
   "parallelism": "1",
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "urls"
     }
   }
