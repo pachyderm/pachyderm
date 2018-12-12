@@ -2,7 +2,7 @@
 #
 # (assumes you have cloned the repository under $GOPATH per below)
 #
-# source $GOPATH/src/github.com/pachyderm/pachyderm/contributing/bash_helpers
+# source $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/bash_helpers
 
 function portforwarding() {
          ps -ef | grep "docker/machine" | grep -v grep | cut -f 4 -d " " | while read -r pid

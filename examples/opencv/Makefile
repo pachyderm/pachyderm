@@ -2,8 +2,8 @@
 
 # Try to find the pachyderm files we'll need
 data_dir := $(strip $(if $(shell ls ./edges.json 2>/dev/null), "."))
-data_dir := $(strip $(if $(data_dir), $(data_dir), $(shell ls -d $${HOME}/pachyderm/doc/examples/opencv 2>/dev/null)))
-data_dir := $(strip $(if $(data_dir), $(data_dir), $(shell ls -d $${HOME}/go/src/github.com/pachyderm/pachyderm/doc/examples/opencv 2>/dev/null)))
+data_dir := $(strip $(if $(data_dir), $(data_dir), $(shell ls -d $${HOME}/pachyderm/examples/opencv 2>/dev/null)))
+data_dir := $(strip $(if $(data_dir), $(data_dir), $(shell ls -d $${HOME}/go/src/github.com/pachyderm/pachyderm/examples/opencv 2>/dev/null)))
 
 echo:
 	echo "$(data_dir)"

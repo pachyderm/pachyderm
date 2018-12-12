@@ -24,7 +24,7 @@ Let's create the input repo and add one URL, Wikipedia:
 ```
 $ pachctl create-repo urls
 
-# We assume you're running this from the root of this example (pachyderm/doc/examples/word_count/):
+# We assume you're running this from the root of this example (pachyderm/examples/word_count/):
 $ pachctl put-file urls master -f Wikipedia
 ```
 

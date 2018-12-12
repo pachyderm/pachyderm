@@ -23,7 +23,7 @@ First clone the code:
 
 Then update your `~/.bash_profile` by adding the line:
 
-    source $GOPATH/src/github.com/pachyderm/pachyderm/contributing/bash_helpers
+    source $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/bash_helpers
 
 And you'll stay up to date!
 
@@ -41,7 +41,7 @@ Install protoc 3+. On macOS, this can be done via `brew install protobuf`. Then 
 
 If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit with sudo privileges:
 
-    sudo cp $GOPATH/src/github.com/pachyderm/pachyderm/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
+    sudo cp $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
 
 Once you restart, this will take effect. To see the limits, run:
 
