@@ -10,7 +10,7 @@
     "constant": 1
   },
   "input": {
-    "pfs": {
+    "atom": {
       "repo": "estimate_pi_config",
       "glob": "/num_samples"
     }

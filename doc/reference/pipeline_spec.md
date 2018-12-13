@@ -54,7 +54,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "datum_tries": int,
   "job_timeout": string,
   "input": {
-    <"pfs", "cross", "union", "cron", or "git" see below>
+    <"atom", "cross", "union", "cron", or "git" see below>
   },
   "output_branch": string,
   "egress": {
@@ -80,10 +80,10 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
 }
 
 ------------------------------------
-"pfs" input
+"atom" input
 ------------------------------------
 
-"pfs": {
+"atom": {
   "name": string,
   "repo": string,
   "branch": string,
@@ -98,7 +98,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
 
 "cross" or "union": [
   {
-    "pfs": {
+    "atom": {
       "name": string,
       "repo": string,
       "branch": string,
@@ -108,7 +108,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     }
   },
   {
-    "pfs": {
+    "atom": {
       "name": string,
       "repo": string,
       "branch": string,
@@ -155,7 +155,7 @@ In practice, you rarely need to specify all the fields.  Most fields either come
     "cmd": ["/binary", "/pfs/data", "/pfs/out"]
   },
   "input": {
-        "pfs": {
+        "atom": {
             "repo": "data",
             "glob": "/*"
         }
@@ -342,15 +342,15 @@ these fields be set for any instantiation of the object.
 
 ```
 {
-    "pfs": pfs_input,
+    "atom": atom_input,
     "union": [input],
     "cross": [input],
     "cron": cron_input
 }
 ```
 
-#### PFS Input
-PFS inputs are the simplest inputs, they take input from a single branch on a
+#### Atom Input
+Atom inputs are the simplest inputs, they take input from a single branch on a
 single repo.
 
 ```
@@ -364,20 +364,20 @@ single repo.
 }
 ```
 
-`input.pfs.name` is the name of the input.  An input with name `XXX` will be
+`input.atom.name` is the name of the input.  An input with name `XXX` will be
 visible under the path `/pfs/XXX` when a job runs.  Input names must be unique
-if the inputs are crossed, but they may be duplicated between `PfsInput`s that are unioned.  This is because when `PfsInput`s are unioned, you'll only ever see a datum from one input at a time. Overlapping the names of unioned inputs allows
+if the inputs are crossed, but they may be duplicated between `AtomInput`s that are unioned.  This is because when `AtomInput`s are unioned, you'll only ever see a datum from one input at a time. Overlapping the names of unioned inputs allows
 you to write simpler code since you no longer need to consider which input directory a particular datum come from.  If an input's name is not specified, it defaults to the name of the repo.  Therefore, if you have two crossed inputs from the same repo, you'll be required to give at least one of them a unique name.
 
-`input.pfs.repo` is the `repo` to be used for the input.
+`input.atom.repo` is the `repo` to be used for the input.
 
-`input.pfs.branch` is the `branch` to watch for commits on, it may be left blank in
+`input.atom.branch` is the `branch` to watch for commits on, it may be left blank in
 which case `"master"` will be used.
 
-`input.pfs.glob` is a glob pattern that's used to determine how the input data
+`input.atom.glob` is a glob pattern that's used to determine how the input data
 is partitioned.  It's explained in detail in the next section.
 
-`input.pfs.lazy` controls how the data is exposed to jobs. The default is `false`
+`input.atom.lazy` controls how the data is exposed to jobs. The default is `false`
 which means the job will eagerly download the data it needs to process and it
 will be exposed as normal files on disk. If lazy is set to `true`, data will be
 exposed as named pipes instead and no data will be downloaded until the job
@@ -389,8 +389,8 @@ be especially notable if the job only reads a subset of the files that are
 available to it.  Note that `lazy` currently doesn't support datums that
 contain more than 10000 files.
 
-`input.pfs.empty_files` controls how files are exposed to jobs. If true, it will 
-cause files from this PFS input to be presented as empty files. This is useful in shuffle 
+`input.atom.empty_files` controls how files are exposed to jobs. If true, it will 
+cause files from this atom to be presented as empty files. This is useful in shuffle 
 pipelines where you want to read the names of files and reorganize them using symlinks.
 
 #### Union Input
@@ -417,7 +417,7 @@ directory. This, of course, only works if your code doesn't need to be
 aware of which of the underlying inputs the data comes from.
 
 `input.union` is an array of inputs to union, note that these need not be
-`pfs` inputs, they can also be `union` and `cross` inputs. Although there's no
+`atom` inputs, they can also be `union` and `cross` inputs. Although there's no
 reason to take a union of unions since union is associative.
 
 #### Cross Input
@@ -438,7 +438,7 @@ Notice that cross inputs, do not take a name and maintain the names of the sub-i
 In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
 
 `input.cross` is an array of inputs to cross, note that these need not be
-`pfs` inputs, they can also be `union` and `cross` inputs. Although there's no
+`atom` inputs, they can also be `union` and `cross` inputs. Although there's no
 reason to take a cross of crosses since cross products are associative.
 
 #### Cron Input
@@ -461,7 +461,7 @@ satisfied the spec. The time is formatted according to [RFC
 ```
 
 `input.cron.name` is the name for the input, its semantics are similar to
-those of `input.pfs.name`. Except that it's not optional.
+those of `input.atom.name`. Except that it's not optional.
 
 `input.cron.spec` is a cron expression which specifies the schedule on
 which to trigger the pipeline. To learn more about how to write schedules
@@ -488,7 +488,7 @@ Git inputs allow you to pull code from a public git URL and execute that code as
 `input.git.URL` must be a URL of the form: `https://github.com/foo/bar.git`
 
 `input.git.name` is the name for the input, its semantics are similar to
-those of `input.pfs.name`. It is optional.
+those of `input.atom.name`. It is optional.
 
 `input.git.branch` is the name of the git branch to use as input
 
@@ -610,7 +610,7 @@ containers.
 
 ## The Input Glob Pattern
 
-Each PFS input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
+Each atom input needs to specify a [glob pattern](../fundamentals/distributed_computing.html).
 
 Pachyderm uses the glob pattern to determine how many "datums" an input
 consists of.  Datums are the unit of parallelism in Pachyderm.  That is,

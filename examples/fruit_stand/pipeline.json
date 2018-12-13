@@ -14,7 +14,7 @@
     "constant": 1
   },
   "input": {
-    "pfs": {
+    "atom": {
       "repo": "data",
       "glob": "/*"
     }
@@ -37,7 +37,7 @@
     "constant": 1
   },
   "input": {
-    "pfs": {
+    "atom": {
       "repo": "filter",
       "glob": "/*"
     }
