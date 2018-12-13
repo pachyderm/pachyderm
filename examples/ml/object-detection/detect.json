@@ -5,13 +5,13 @@
   "input": {
     "cross": [
       {
-        "pfs": {
+        "atom": {
           "glob": "/*",
           "repo": "images"
         }
       },
       {
-        "pfs": {
+        "atom": {
           "glob": "/",
           "repo": "model"
         }
