@@ -5,17 +5,18 @@ option go_package = "github.com/pachyderm/pachyderm/src/client/admin";
 
 import "google/protobuf/empty.proto";
 import "gogoproto/gogo.proto";
-
+import "client/admin/1_7/pfs.proto";
+import "client/admin/1_7/pps.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
 message Op1_7 {
-  pfs.PutObjectRequest object = 2;
-  pfs.TagObjectRequest tag = 3;
-  pfs.CreateRepoRequest repo = 4;
-  pfs.BuildCommitRequest commit = 5;
-  pfs.CreateBranchRequest branch = 6;
-  pps.CreatePipelineRequest pipeline = 7;
+  pfs_1_7.PutObjectRequest object = 2;
+  pfs_1_7.TagObjectRequest tag = 3;
+  pfs_1_7.CreateRepoRequest repo = 4;
+  pfs_1_7.BuildCommitRequest commit = 5;
+  pfs_1_7.CreateBranchRequest branch = 6;
+  pps_1_7.CreatePipelineRequest pipeline = 7;
 }
 
 message Op1_8 {
