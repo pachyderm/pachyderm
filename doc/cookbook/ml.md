@@ -18,4 +18,4 @@ Any new input data coming into the “Input data” repository will be processed
 
 ## Examples
 
-We have implemented this machine learning workflow in [some example pipelines](https://pachyderm.readthedocs.io/en/latest/examples/README.html#machine-learning) using a couple of different frameworks.  These examples are a great starting point if you are trying to implement ML in Pachyderm.  
+We have implemented this machine learning workflow in [some example pipelines](https://pachyderm.readthedocs.io/en/latest/examples/examples.html#machine-learning) using a couple of different frameworks.  These examples are a great starting point if you are trying to implement ML in Pachyderm.  
