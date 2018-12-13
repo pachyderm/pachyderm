@@ -776,7 +776,9 @@ func (a *APIServer) updateJobState(ctx context.Context, info *pps.JobInfo, stats
 		if err := jobs.Get(jobID, jobPtr); err != nil {
 			return err
 		}
-		jobPtr.StatsCommit = stats
+		if jobPtr.StatsCommit == nil {
+			jobPtr.StatsCommit = stats
+		}
 		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, state, reason)
 	})
 	return err
