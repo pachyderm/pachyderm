@@ -22,7 +22,7 @@ This example pipeline executes a query periodically against a MongoDB database o
 
 This example demonstrates how lazy shuffle pipeline i.e. a pipeline that shuffles, combines files without downloading/uploading can be created. These types of pipelines are useful for intermediate processing step that aggregates or rearranges data from one or many sources. For more information [see](https://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)
 
-[Lazy Shuffle pipeline ](https://github.com/pachyderm/pachyderm/tree/master/examples/shuffle)
+[Lazy Shuffle pipeline](https://github.com/pachyderm/pachyderm/tree/master/examples/shuffle)
 
 ## Variant Calling and Joint Genotyping with GATK
 
