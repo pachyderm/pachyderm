@@ -4,7 +4,7 @@ This guide will walk you through the recommended path to get Pachyderm running l
 If you hit any errors not covered in this guide, check our [general troubleshooting](../managing_pachyderm/general_troubleshooting.html) docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our [users channel on Slack](http://slack.pachyderm.io/), or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
 
 ## Prerequisites
-- [Minikube](#minikube) (and VirtualBox) or [Docker Desktop (v18.06+)](#dockerdesktop)
+- [Minikube](#minikube) (and VirtualBox) or [Docker Desktop (v18.06+)](#docker-desktop)
 - [Pachyderm Command Line Interface](#pachctl)
 
 ### Minikube
