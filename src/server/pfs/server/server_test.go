@@ -4684,7 +4684,7 @@ func TestFileHistory(t *testing.T) {
 		_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 	}
-	fileInfos, err := client.ListFileHistory(repo, "master", "file")
+	fileInfos, err := client.ListFileHistory(repo, "master", "file", -1)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(fileInfos))
 
@@ -4695,7 +4695,7 @@ func TestFileHistory(t *testing.T) {
 		_, err = client.PutFile(repo, "master", "unrelated", strings.NewReader("foo\n"))
 		require.NoError(t, err)
 	}
-	fileInfos, err = client.ListFileHistory(repo, "master", "file")
+	fileInfos, err = client.ListFileHistory(repo, "master", "file", -1)
 	require.NoError(t, err)
 	require.Equal(t, 5, len(fileInfos))
 }

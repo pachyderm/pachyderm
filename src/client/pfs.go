@@ -1087,7 +1087,7 @@ func (c APIClient) inspectFile(repoName string, commitID string, path string) (*
 // ListFile returns info about all files in a Commit under path.
 func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*pfs.FileInfo, error) {
 	var result []*pfs.FileInfo
-	if err := c.ListFileF(repoName, commitID, path, false, func(fi *pfs.FileInfo) error {
+	if err := c.ListFileF(repoName, commitID, path, 0, func(fi *pfs.FileInfo) error {
 		result = append(result, fi)
 		return nil
 	}); err != nil {
@@ -1097,9 +1097,9 @@ func (c APIClient) ListFile(repoName string, commitID string, path string) ([]*p
 }
 
 // ListFileHistory returns info about all files and their history in a Commit under path.
-func (c APIClient) ListFileHistory(repoName string, commitID string, path string) ([]*pfs.FileInfo, error) {
+func (c APIClient) ListFileHistory(repoName string, commitID string, path string, history int64) ([]*pfs.FileInfo, error) {
 	var result []*pfs.FileInfo
-	if err := c.ListFileF(repoName, commitID, path, true, func(fi *pfs.FileInfo) error {
+	if err := c.ListFileF(repoName, commitID, path, history, func(fi *pfs.FileInfo) error {
 		result = append(result, fi)
 		return nil
 	}); err != nil {
@@ -1109,7 +1109,7 @@ func (c APIClient) ListFileHistory(repoName string, commitID string, path string
 }
 
 // ListFileF returns info about all files in a Commit under path, calling f with each FileInfo.
-func (c APIClient) ListFileF(repoName string, commitID string, path string, history bool, f func(fi *pfs.FileInfo) error) error {
+func (c APIClient) ListFileF(repoName string, commitID string, path string, history int64, f func(fi *pfs.FileInfo) error) error {
 	fs, err := c.PfsAPIClient.ListFileStream(
 		c.Ctx(),
 		&pfs.ListFileRequest{
