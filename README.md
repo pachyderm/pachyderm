@@ -34,7 +34,7 @@ for a way to "productionize" them, Pachyderm can make this easy for you.
 You can also refer to our complete [developer docs](http://pachyderm.readthedocs.io/en/latest) to see tutorials, check out example projects, and learn about advanced features of Pachyderm.
 
 If you'd like to see some examples and learn about core use cases for Pachyderm:
-- [Examples](http://pachyderm.readthedocs.io/en/latest/examples/README.html)
+- [Examples](http://pachyderm.readthedocs.io/en/latest/examples/examples.html)
 - [Use Cases](http://www.pachyderm.io/use_cases.html)
 - [Case Studies](http://www.pachyderm.io/usecases/generalfusion.html): Learn how [General Fusion](http://www.generalfusion.com/) uses Pachyderm to power commercial fusion research.
 
