@@ -54,7 +54,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "datum_tries": int,
   "job_timeout": string,
   "input": {
-    <"atom", "cross", "union", "cron", or "git" see below>
+    <"atom", "pfs", "cross", "union", "cron", or "git" see below>
   },
   "output_branch": string,
   "egress": {
@@ -84,6 +84,19 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
 ------------------------------------
 
 "atom": {
+  "name": string,
+  "repo": string,
+  "branch": string,
+  "glob": string,
+  "lazy" bool,
+  "empty_files": bool
+}
+
+------------------------------------
+"pfs" input
+------------------------------------
+
+"pfs": {
   "name": string,
   "repo": string,
   "branch": string,
@@ -350,6 +363,9 @@ these fields be set for any instantiation of the object.
 ```
 
 #### Atom Input
+
+**Note:** Atom inputs are deprecated in Pachyderm 1.8.1+. They have been renamed to PFS inputs. The configuration is the same, but all instances of `atom` should be changed to `pfs`.
+
 Atom inputs are the simplest inputs, they take input from a single branch on a
 single repo.
 
@@ -392,6 +408,12 @@ contain more than 10000 files.
 `input.atom.empty_files` controls how files are exposed to jobs. If true, it will 
 cause files from this atom to be presented as empty files. This is useful in shuffle 
 pipelines where you want to read the names of files and reorganize them using symlinks.
+
+#### PFS Input
+
+**Note:** PFS inputs are only available in versions of Pachyderm 1.8.1+.
+
+PFS inputs are the new name for atom inputs, documented above. The configuration is the same, but all instances of `atom` should be changed to `pfs`.
 
 #### Union Input
 
