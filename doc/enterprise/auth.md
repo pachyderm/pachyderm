@@ -28,7 +28,7 @@ There is a single, hardcoded "admin" group (and no other groups) in Pachyderm.  
 
 ## Activating access control
 
-First, you will need to make sure that your cluster has Pachyderm Enterprise Edition activated (you can follow [this guide](deployment.md) to activate Enterprise Edition).  The status of the Enterprise features can be verified by accessing the Pachyderm dashboard or with `pachctl` as follows:
+First, you will need to make sure that your cluster has Pachyderm Enterprise Edition activated (you can follow [this guide](./deployment.html) to activate Enterprise Edition).  The status of the Enterprise features can be verified by accessing the Pachyderm dashboard or with `pachctl` as follows:
 
 ```
 $ pachctl enterprise get-state
