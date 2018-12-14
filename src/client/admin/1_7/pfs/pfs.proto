@@ -7,7 +7,7 @@ import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
 
-import "client/admin/1_7/auth.proto";
+import "client/admin/1_7/auth/auth.proto";
 
 ////  PFS Data structures (stored in etcd)
 
@@ -63,14 +63,14 @@ message RepoInfo {
 
   // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
   // not stored in etcd. To set a user's auth scope for a repo, use the
-  // Pachyderm Auth API (in src/client/auth/auth_1_7.proto)
+  // Pachyderm Auth API (in src/client/admin/1_7/auth/auth.proto)
   RepoAuthInfo auth_info = 6;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
 // by ListRepo and InspectRepo but not persisted in etcd. It's used by the
 // Pachyderm dashboard to render repo access appropriately. To set a user's auth
-// scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth_1_7.proto)
+// scope for a repo, use the Pachyderm Auth API (in src/client/admin/1_7/auth/auth.proto)
 message RepoAuthInfo {
   // The callers access level to the relevant repo (e.g. may be OWNER even if
   // the user isn't an OWNER of the repo, if they're an admin for the cluster)

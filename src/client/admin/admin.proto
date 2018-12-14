@@ -5,8 +5,8 @@ option go_package = "github.com/pachyderm/pachyderm/src/client/admin";
 
 import "google/protobuf/empty.proto";
 import "gogoproto/gogo.proto";
-import "client/admin/1_7/pfs.proto";
-import "client/admin/1_7/pps.proto";
+import "client/admin/1_7/pfs/pfs.proto";
+import "client/admin/1_7/pps/pps.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
