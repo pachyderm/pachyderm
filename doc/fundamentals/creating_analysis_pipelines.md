@@ -94,7 +94,7 @@ Here's an example pipeline spec:
     "cmd": ["/binary", "/pfs/data", "/pfs/out"]
   },
   "input": {
-      "pfs": {
+      "atom": {
         "repo": "data",
         "glob": "/*"
       }

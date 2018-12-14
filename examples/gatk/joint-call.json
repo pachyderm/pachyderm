@@ -26,13 +26,13 @@
   "input": {
     "cross": [
       {
-        "pfs": {
+        "atom": {
           "repo": "reference",
           "glob": "/"
         }
       },
       {
-        "pfs": {
+        "atom": {
           "repo": "likelihoods",
           "glob": "/"
         }

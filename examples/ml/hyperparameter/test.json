@@ -23,15 +23,15 @@
   "input": {
     "cross": [
       {
-        "pfs": {
-          "repo": "split",
-          "glob": "/test.csv"
-        }
+        "atom": {
+	  "repo": "split",
+	  "glob": "/test.csv"
+	}
       },
       {
-        "pfs": {
-          "repo": "model",
-          "glob": "/*"
+	"atom": {
+	  "repo": "model",
+	  "glob": "/*"
         }
       }
     ]
