@@ -45,6 +45,7 @@ enum JobState {
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
+  JOB_MERGING = 5;
 }
 
 message Service {

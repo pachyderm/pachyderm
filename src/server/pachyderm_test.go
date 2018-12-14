@@ -1512,7 +1512,7 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
+	require.EqualOneOf(t, []pps.JobState{pps.JobState_JOB_RUNNING, pps.JobState_JOB_MERGING}, jobInfos[0].State)
 
 	restartOne(t)
 	// need a new client because the old one will have a defunct connection
@@ -2181,8 +2181,11 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		if len(jobInfos) != 1 {
 			return fmt.Errorf("wrong number of jobs")
 		}
-		if pps.JobState_JOB_RUNNING != jobInfos[0].State {
-			return fmt.Errorf("wrong state: %v for %s", jobInfos[0].State, jobInfos[0].Job.ID)
+
+		state := jobInfos[0].State
+
+		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
+			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[0].Job.ID)
 		}
 		return nil
 	}, b))
@@ -3032,7 +3035,9 @@ func TestStopJob(t *testing.T) {
 			return fmt.Errorf("len(jobInfos) should be 1")
 		}
 		jobID = jobInfos[0].Job.ID
-		if pps.JobState_JOB_RUNNING != jobInfos[0].State {
+		state := jobInfos[0].State
+
+		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
 			return fmt.Errorf("jobInfos[0] has the wrong state")
 		}
 		return nil
