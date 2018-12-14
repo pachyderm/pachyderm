@@ -850,7 +850,7 @@ $ pachctl get-file foo master^2 XXX
 	}
 	rawFlag(inspectFile)
 
-	var history bool
+	var history int64
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
@@ -897,7 +897,7 @@ $ pachctl list-file foo master^2
 		}),
 	}
 	rawFlag(listFile)
-	listFile.Flags().BoolVar(&history, "history", false, "Return revision history for files.")
+	listFile.Flags().Int64Var(&history, "history", 0, "Return revision history for files.")
 
 	globFile := &cobra.Command{
 		Use:   "glob-file repo-name commit-id pattern",
