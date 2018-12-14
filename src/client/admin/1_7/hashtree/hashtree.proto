@@ -4,13 +4,13 @@
 syntax = "proto3";
 package hashtree_1_7;
 
-import "client/pfs/pfs.proto";
+import "client/admin/1_7/pfs/pfs.proto";
 
 // FileNodeProto is a node corresponding to a file (which is also a leaf node).
 message FileNodeProto {
   // Object references an object in the object store which contains the content
   // of the data.
-  repeated pfs.Object objects = 4;
+  repeated pfs_1_7.Object objects = 4;
 }
 
 // DirectoryNodeProto is a node corresponding to a directory.
@@ -21,8 +21,8 @@ message DirectoryNodeProto {
   // 'Children' is ordered alphabetically, to quickly check if a new file is
   // overwriting an existing one.
   repeated string children = 3;
-  pfs.Object header = 4;
-  pfs.Object footer = 5;
+  pfs_1_7.Object header = 4;
+  pfs_1_7.Object footer = 5;
 }
 
 // NodeProto is a node in the file tree (either a file or a directory)
