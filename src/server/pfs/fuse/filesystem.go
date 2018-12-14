@@ -79,7 +79,7 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 			// master branch has no head, so we report an empty dir
 			return result, fuse.OK
 		}
-		if err := fs.c.ListFileF(r.Name, commit, "", false, func(fi *pfs.FileInfo) error {
+		if err := fs.c.ListFileF(r.Name, commit, "", 0, func(fi *pfs.FileInfo) error {
 			result = append(result, fileDirEntry(fi))
 			return nil
 		}); err != nil {
@@ -90,7 +90,7 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 			// master branch has no head, so we report an empty dir
 			return result, fuse.OK
 		}
-		if err := fs.c.ListFileF(f.Commit.Repo.Name, f.Commit.ID, f.Path, false, func(fi *pfs.FileInfo) error {
+		if err := fs.c.ListFileF(f.Commit.Repo.Name, f.Commit.ID, f.Path, 0, func(fi *pfs.FileInfo) error {
 			result = append(result, fileDirEntry(fi))
 			return nil
 		}); err != nil {
