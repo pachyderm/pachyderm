@@ -14,7 +14,7 @@
     "constant": "1"
   },
   "input": {
-    "pfs": {
+    "atom": {
       "repo": "raw_data",
       "glob": "/"
     }

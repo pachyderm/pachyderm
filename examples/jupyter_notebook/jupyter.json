@@ -19,19 +19,19 @@
   "input": {
     "cross": [
       {
-        "pfs": {
+        "atom": {
           "repo": "trips",
           "glob": "/"
         }
       },
       {
-        "pfs": {
+        "atom": {
           "repo": "weather",
           "glob": "/"
         }
       },
       {
-        "pfs": {
+        "atom": {
           "repo": "sales",
           "glob": "/"
         }

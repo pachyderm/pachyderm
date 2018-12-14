@@ -11,7 +11,7 @@
     ]
   },
   "input": {
-    "pfs": {
+    "atom": {
       "repo": "scraper",
       "glob": "/*"
     }

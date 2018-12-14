@@ -15,7 +15,7 @@
     "acceptReturnCode": [4,5,6,7,8]
   },
   "input": {
-      "pfs": {
+      "atom": {
         "repo": "urls",
         "glob": "/*"
       }
