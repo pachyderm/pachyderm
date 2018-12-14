@@ -16,8 +16,18 @@ message Op1_7 {
   pps.CreatePipelineRequest pipeline = 7;
 }
 
+message Op1_8 {
+  pfs.PutObjectRequest object = 2;
+  pfs.TagObjectRequest tag = 3;
+  pfs.CreateRepoRequest repo = 4;
+  pfs.BuildCommitRequest commit = 5;
+  pfs.CreateBranchRequest branch = 6;
+  pps.CreatePipelineRequest pipeline = 7;
+}
+
 message Op {
   Op1_7 op1_7 = 1;
+  Op1_8 op1_8 = 2;
 }
 
 message ExtractRequest {
