@@ -2,7 +2,9 @@
 // the files present in each commit and determine when to start jobs.
 
 syntax = "proto3";
+
 package hashtree_1_7;
+option go_package = "github.com/pachyderm/pachyderm/src/client/admin/1_7/hashtree";
 
 import "client/admin/1_7/pfs/pfs.proto";
 
