@@ -1,6 +1,6 @@
 # Deploying Enterprise Edition
 
-To deploy and use Pachyderm's Enterprise Edition, you simply need to follow [one of our guides to deploy Pachyderm](../deployment/overview.html) and then [activate the Enterprise Edition](#activating-pachyderm-enterprise-edition).
+To deploy and use Pachyderm's Enterprise Edition, you simply need to follow [one of our guides to deploy Pachyderm](./deploy_intro.html) and then [activate the Enterprise Edition](#activating-pachyderm-enterprise-edition).
 
 **Note** - Pachyderm's Enterprise dashboard is now deployed by default with Pachyderm. If you wish to deploy without the dashboard please use `pachctl deploy [command] --no-dashboard`
 

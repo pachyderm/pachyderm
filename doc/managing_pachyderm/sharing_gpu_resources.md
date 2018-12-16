@@ -6,7 +6,7 @@ GPU instances are expensive! You want to make sure that you're utilizing the GPU
 
 # Without configuration
 
-[To deploy a pipeline that relies on GPU](http://docs.pachyderm.io/en/latest/cookbook/tensorflow_gpu.html), you'll already have set the `gpu` resource requirement in the pipeline specification. But Pachyderm workers by default are long lived ... the worker is spun up and waits for new input. That works great for pipelines that are processing a lot of new incoming commits.
+[To deploy a pipeline that relies on GPU](../cookbook/gpus.html), you'll already have set the `gpu` resource requirement in the pipeline specification. But Pachyderm workers by default are long lived ... the worker is spun up and waits for new input. That works great for pipelines that are processing a lot of new incoming commits.
 
 For ML workflows, especially during the development cycle, you probably will see lower volume of input commits. Which means that you could have your pipeline workers 'taking' the GPU resource as far as k8s is concerned, but 'idling' as far as you're concerned.
 

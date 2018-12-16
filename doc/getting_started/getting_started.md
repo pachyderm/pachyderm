@@ -20,6 +20,6 @@ Looking for more in-depth development docs? Check out the Pachyderm fundamentals
 - [Getting data out of Pachyderm](../fundamentals/getting_data_out_of_pachyderm.html)
 - [Updating pipelines](../fundamentals/updating_pipelines.html)
 
-Need to see different or more advanced Pachyderm examples? You can find a bunch of them [here](../examples/readme.html).
+Need to see different or more advanced Pachyderm examples? You can find a bunch of them [here](../examples/examples.html).
 
 **Note** - If you've already got a Kubernetes cluster running or would rather use AWS, GCE or Azure to deploy Pachyderm, check out our [deployment guides](../deployment/deploy_intro.html). 
