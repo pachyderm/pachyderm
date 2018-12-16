@@ -63,7 +63,7 @@ $kubectl logs po/pachd-1333950811-0sm1p
 
 These logs will likely reveal a misconfiguration in your deploy.  For example, you might see, `BucketRegionError: incorrect region, the bucket is not in 'us-west-2' region`.  In that case, you've deployed your bucket in a different region than your cluster.
 
-If the error / recourse isn't obvious from the error message, you can now provide the content of the `pachd` logs when getting help in our Slack channel or by opening a [GitHub Issue](github.com/pachyderm/pachyderm/issues/new). Please provide these logs either way as it is extremely helpful in resolving the issue..
+If the error / recourse isn't obvious from the error message, you can now provide the content of the `pachd` logs when getting help in our Slack channel or by opening a [GitHub Issue](https://github.com/pachyderm/pachyderm/issues/new). Please provide these logs either way as it is extremely helpful in resolving the issue..
 
 ### Pod stuck in `CrashLoopBackoff` - with error attaching volume
 
@@ -153,9 +153,7 @@ Any `pachctl put-file` or `pachctl get-file` commands are slow.
 
 #### Recourse
 
-Check if you're using port-forwarding. Port forwarding throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using the `ADDRESS` variable instead to connect directly to your k8s master node. [See this note](./getting_started/other_installation.html?highlight=ADDRESS#usage)
-
-You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
+Check if you're using port-forwarding. Port forwarding throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using the `ADDRESS` variable instead to connect directly to your k8s master node. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
 
 ---
 
@@ -240,4 +238,4 @@ If the state is `CrashLoopBackoff`, you're looking for a descriptive error messa
 
 If the state is `Pending` it's likely the cluster doesn't have enough resources. In this case, you'll see a `could not schedule` type of error message which should describe which resource you're low on. This is more likely to happen if you've set resource requests (cpu/mem/gpu) for your pipelines.  In this case, you'll just need to scale up your resources. If you deployed using `kops`, you'll want to do edit the instance group, e.g. `kops edit ig nodes ...` and up the number of nodes. If you didn't use `kops` to deploy, you can use your cloud provider's auto scaling groups to increase the size of your instance group. Either way, it can take up to 10 minutes for the changes to go into effect. 
 
-You can read more about autoscaling [here](../cookbook/autoscaling.html)
+You can read more about autoscaling [here](./autoscaling.html)
