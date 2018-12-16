@@ -13,11 +13,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
+	"github.com/pachyderm/pachyderm/src/client/admin/1_7/hashtree"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -280,6 +280,24 @@ func pipelineInfoToRequest(pi *pps.PipelineInfo) *pps.CreatePipelineRequest {
 	}
 }
 
+type opVersion int8
+
+const (
+	undefined opVersion = iota
+	v1_7
+	v1_8
+)
+
+func (v opVersion) String() string {
+	switch v {
+	case v1_7:
+		return "1.7"
+	case v1_8:
+		return "1.8"
+	}
+	return "undefined"
+}
+
 func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error) {
 	func() { a.Log(nil, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -297,6 +315,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		}
 	}()
 	var r pbutil.Reader
+	var opVersion opVersion
 	for {
 		var op *admin.Op
 		if r == nil {
@@ -335,39 +354,95 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				return err
 			}
 		}
-		if op.Op1_8 == nil {
-			return fmt.Errorf("Pachyderm %s only supports restorign from Pachyderm 1.8 netadata dumps", version.PrettyVersion())
+		if op.Op1_7 != nil {
+			if opVersion == undefined {
+				opVersion = v1_7
+			} else if opVersion != v1_7 {
+				return fmt.Errorf("cannot mix different versions of pachd dumps (found both 1.7 and %s)", opVersion)
+			}
+			apply1_7Op(op.Op1_7)
+		} else if op.Op1_8 != nil {
+			if opVersion == undefined {
+				opVersion = v1_8
+			} else if opVersion != v1_8 {
+				return fmt.Errorf("cannot mix different versions of pachd dumps (found both 1.8 and %s)", opVersion)
+			}
+			apply1_8Op(op.Op1_8)
 		}
-		switch {
-		case op.Op1_8 != nil && op.Op1_8.Object != nil:
-			r := &extractObjectReader{adminAPIRestoreServer: restoreServer}
-			r.buf.Write(op.Op1_8.Object.Value)
-			if _, _, err := pachClient.PutObject(r); err != nil {
-				return fmt.Errorf("error putting object: %v", err)
-			}
-		case op.Op1_8 != nil && op.Op1_8.Tag != nil:
-			if _, err := pachClient.ObjectAPIClient.TagObject(ctx, op.Op1_8.Tag); err != nil {
-				return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
-			}
-		case op.Op1_8 != nil && op.Op1_8.Repo != nil:
-			if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Op1_8.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
-				return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
-			}
-		case op.Op1_8 != nil && op.Op1_8.Commit != nil:
-			if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Op1_8.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
-				return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
-			}
-		case op.Op1_8 != nil && op.Op1_8.Branch != nil:
-			if op.Op1_8.Branch.Branch == nil {
-				op.Op1_8.Branch.Branch = client.NewBranch(op.Op1_8.Branch.Head.Repo.Name, op.Op1_8.Branch.SBranch)
-			}
-			if _, err := pachClient.PfsAPIClient.CreateBranch(ctx, op.Op1_8.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
-				return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
-			}
-		case op.Op1_8 != nil && op.Op1_8.Pipeline != nil:
-			if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Op1_8.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
-				return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
-			}
+	}
+}
+
+func (a *apiServer) apply1_8(op *Op1_8) error {
+	switch {
+	case op.Op1_8.Object != nil:
+		r := &extractObjectReader{adminAPIRestoreServer: restoreServer}
+		r.buf.Write(op.Op1_8.Object.Value)
+		if _, _, err := pachClient.PutObject(r); err != nil {
+			return fmt.Errorf("error putting object: %v", err)
+		}
+	case op.Op1_8.Tag != nil:
+		if _, err := pachClient.ObjectAPIClient.TagObject(ctx, op.Op1_8.Tag); err != nil {
+			return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Op1_8.Repo != nil:
+		if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Op1_8.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Op1_8.Commit != nil:
+		if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Op1_8.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Op1_8.Branch != nil:
+		if op.Op1_8.Branch.Branch == nil {
+			op.Op1_8.Branch.Branch = client.NewBranch(op.Op1_8.Branch.Head.Repo.Name, op.Op1_8.Branch.SBranch)
+		}
+		if _, err := pachClient.PfsAPIClient.CreateBranch(ctx, op.Op1_8.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Op1_8.Pipeline != nil:
+		if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Op1_8.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
+		}
+	}
+}
+
+func (a *apiServer) apply1_7Op(op *Op1_7) error {
+	switch {
+	case op.Object != nil:
+		r := &extractObjectReader{adminAPIRestoreServer: restoreServer}
+		r.buf.Write(op.Object.Value)
+		if _, _, err := pachClient.PutObject(r); err != nil {
+			return fmt.Errorf("error putting object: %v", err)
+		}
+	case op.Tag != nil:
+		if _, err := pachClient.ObjectAPIClient.TagObject(ctx, op.Tag); err != nil {
+			return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Repo != nil:
+		if _, err := pachClient.PfsAPIClient.CreateRepo(ctx, op.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Commit != nil:
+		// update hashtree
+		var buf bytes.Buffer
+		if err := a.pachClient.GetObject(op.Commit.Tree.Hash, &buf); err != nil {
+			return err
+		}
+		var oldTree hashtree_1_7.HashTreeProto
+		oldTree.Unmarshal(&buf)
+		if _, err := pachClient.PfsAPIClient.BuildCommit(ctx, op.Commit); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Branch != nil:
+		if op.Branch.Branch == nil {
+			op.Branch.Branch = client.NewBranch(op.Branch.Head.Repo.Name, op.Branch.SBranch)
+		}
+		if _, err := pachClient.PfsAPIClient.CreateBranch(ctx, op.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Pipeline != nil:
+		if _, err := pachClient.PpsAPIClient.CreatePipeline(ctx, op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 		}
 	}
 }
