@@ -13,12 +13,13 @@ import (
 )
 
 const (
-	DEFAULT_DAEMON_LOCAL_PORT = 30650
-	DEFAULT_SAML_ACS_LOCAL_PORT = 30654
-	DEFAULT_DASH_UI_PORT = 30080
-	DEFAULT_DASH_WEBSOCKET_PORT = 30081
+	daemonLocalPort = 30650
+	samlAcsLocalPort = 30654
+	dashUILocalPort = 30080
+	dashWebSocketLocalPort = 30081
 )
 
+// PortForwarder handles proxying local traffic to a kubernetes pod
 type PortForwarder struct {
 	client rest.Interface
 	config *rest.Config
@@ -31,6 +32,7 @@ type PortForwarder struct {
 	stopChan chan struct{}
 }
 
+// NewPortForwarder creates a new port forwarder
 func NewPortForwarder(config *rest.Config, namespace string, selector map[string]string, localPort, remotePort int, stdout, stderr io.Writer) (*PortForwarder, error) {
 	if namespace == "" {
 		namespace = "default"
@@ -70,6 +72,8 @@ func NewPortForwarder(config *rest.Config, namespace string, selector map[string
 	}, nil
 }
 
+// Run starts the port forwarder. Returns after initialization is begun,
+// returning any initialization errors.
 func (f *PortForwarder) Run() error {
 	url := f.client.Post().
 		Resource("pods").
@@ -102,21 +106,24 @@ func (f *PortForwarder) Run() error {
 	}
 }
 
+// Close shuts down port forwarding.
 func (f *PortForwarder) Close() {
 	close(f.stopChan)
 }
 
+// DaemonForwarder creates a port forwarder for the pachd daemon.
 func DaemonForwarder(config *rest.Config, namespace string, localPort int, stdout, stderr io.Writer) (*PortForwarder, error) {
 	if localPort == 0 {
-		localPort = DEFAULT_DAEMON_LOCAL_PORT
+		localPort = daemonLocalPort
 	}
 	selector := map[string]string{"app": "pachd"}
 	return NewPortForwarder(config, namespace, selector, localPort, 650, stdout, stderr)
 }
 
+// SAMLACSForwarder creates a port forwarder for SAML ACS.
 func SAMLACSForwarder(config *rest.Config, namespace string, localPort int, stdout, stderr io.Writer) (*PortForwarder, error) {
 	if localPort == 0 {
-		localPort = DEFAULT_SAML_ACS_LOCAL_PORT
+		localPort = samlAcsLocalPort
 	}
 	// TODO(ys): using a suite selector because the original code had that.
 	// check if it is necessary.
@@ -124,17 +131,19 @@ func SAMLACSForwarder(config *rest.Config, namespace string, localPort int, stdo
 	return NewPortForwarder(config, namespace, selector, localPort, 654, stdout, stderr)
 }
 
+// DashUIForwarder creates a port forwarder for the dash UI.
 func DashUIForwarder(config *rest.Config, namespace string, localPort int, stdout, stderr io.Writer) (*PortForwarder, error) {
 	if localPort == 0 {
-		localPort = DEFAULT_DASH_UI_PORT
+		localPort = dashUILocalPort
 	}
 	selector := map[string]string{"app": "dash"}
 	return NewPortForwarder(config, namespace, selector, localPort, 8080, stdout, stderr)
 }
 
+// DashWebSocketForwarder creates a port forwarder for the dash websocket.
 func DashWebSocketForwarder(config *rest.Config, namespace string, localPort int, stdout, stderr io.Writer) (*PortForwarder, error) {
 	if localPort == 0 {
-		localPort = DEFAULT_DASH_UI_PORT
+		localPort = dashWebSocketLocalPort
 	}
 	selector := map[string]string{"app": "dash"}
 	return NewPortForwarder(config, namespace, selector, localPort, 8081, stdout, stderr)

@@ -375,9 +375,8 @@ This resets the cluster to its initial state.`,
 				if os.IsNotExist(err) {
 					fmt.Println("Port forwarding is already running")
 					return nil
-				} else {
-					return err
 				}
+				return err
 			}
 			if err := pidfile.Write(); err != nil {
 				return err
