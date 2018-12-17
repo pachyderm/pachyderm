@@ -17,7 +17,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Return a dump of running goroutines.",
 		Long:  "Return a dump of running goroutines.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "debug-dump")
+			client, err := client.NewOnUserMachine(metrics, true, "debug-dump")
 			if err != nil {
 				return err
 			}
