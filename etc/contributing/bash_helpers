@@ -1,0 +1,28 @@
+# Add the following (commented) line to your ~/.bash_profile equivalent to digest these helpers:
+#
+# (assumes you have cloned the repository under $GOPATH per below)
+#
+# source $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/bash_helpers
+
+function portforwarding() {
+         ps -ef | grep "docker/machine" | grep -v grep | cut -f 4 -d " " | while read -r pid
+         do
+                kill $pid
+         done
+         docker-machine ssh dev -fTNL 8080:localhost:8080 -L 30650:localhost:30650
+}
+
+function init_docker_machine() {
+    eval "$(docker-machine env dev)"
+}
+
+function create_docker_machine () {
+    docker-machine create \
+        --driver google \
+        --google-disk-size 500 \
+        --google-disk-type pd-ssd \
+        --google-machine-type n1-standard-8 \
+        --google-zone us-central1-c \
+        --google-project YOURNAME-dev \
+        dev
+}

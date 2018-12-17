@@ -1,0 +1,23 @@
+{
+  "pipeline": {
+    "name": "scraper"
+  },
+  "transform": {
+    "cmd": [ "bash" ],
+    "stdin": [
+        "apt-get update -yq && apt-get install -yq --no-install-recommends ca-certificates wget",
+        "FILES=/pfs/urls/*",
+        "for f in $FILES",
+        "do",
+            "wget -e robots=off --adjust-extension --no-check-certificate --no-directories --directory-prefix /pfs/out/$(basename $f) $(cat $f)",
+        "done"
+    ],
+    "acceptReturnCode": [4,5,6,7,8]
+  },
+  "input": {
+      "atom": {
+        "repo": "urls",
+        "glob": "/*"
+      }
+   }
+}

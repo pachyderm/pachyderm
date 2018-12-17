@@ -1,0 +1,49 @@
+{
+  "pipeline": {
+    "name": "preprocess_images"
+  },
+  "transform": {
+    "image": "dwhitena/pix2pix",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+	"python process.py --input_dir /pfs/input_images --operation resize --output_dir /pfs/out"	
+    ]
+  },
+  "input": {
+    "atom": {
+      "repo": "input_images",
+      "glob": "/*"
+    }
+  }
+}
+{
+  "pipeline": {
+    "name": "generate_images"
+  },
+  "transform": {
+    "image": "dwhitena/pix2pix",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+	"for filename in /pfs/preprocess_images/*; do",
+		"rawname=$(basename $filename)",
+		"python process-local.py --model_dir /pfs/model --input_file $filename --output_file /pfs/out/$rawname",	
+	"done"
+    ]
+  },
+  "input": {
+    "cross": [
+      {
+        "atom": {
+	  "repo": "preprocess_images",
+	  "glob": "/*"
+	}
+      },
+      {
+	"atom": {
+	  "repo": "model",
+	  "glob": "/"
+	}
+      }
+    ]
+  }
+}

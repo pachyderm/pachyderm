@@ -614,6 +614,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
+		if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_MERGING, ""); err != nil {
+			return err
+		}
 		var trees, statsTrees []*pfs.Object
 		var size, statsSize uint64
 		if failedDatumID == "" || jobInfo.EnableStats {
@@ -773,7 +776,9 @@ func (a *APIServer) updateJobState(ctx context.Context, info *pps.JobInfo, stats
 		if err := jobs.Get(jobID, jobPtr); err != nil {
 			return err
 		}
-		jobPtr.StatsCommit = stats
+		if jobPtr.StatsCommit == nil {
+			jobPtr.StatsCommit = stats
+		}
 		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, state, reason)
 	})
 	return err

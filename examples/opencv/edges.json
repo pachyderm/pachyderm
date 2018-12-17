@@ -1,0 +1,16 @@
+{
+  "pipeline": {
+    "name": "edges"
+  },
+  "input": {
+    "atom": {
+      "glob": "/*",
+      "repo": "images"
+    }
+  },
+  "transform": {
+    "cmd": [ "python3", "/edges.py" ],
+    "image": "pachyderm/opencv"
+  }
+}
+
