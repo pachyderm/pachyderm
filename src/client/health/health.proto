@@ -1,8 +1,9 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
-
 package health;
+option go_package = "github.com/pachyderm/pachyderm/src/client/health";
+
+import "google/protobuf/empty.proto";
 
 service Health {
   rpc Health(google.protobuf.Empty) returns (google.protobuf.Empty) {}
