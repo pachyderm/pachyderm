@@ -1,8 +1,9 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
-
 package deploy;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/deploy";
+
+import "google/protobuf/empty.proto";
 
 message KubeEndpoint {
     string host = 1;

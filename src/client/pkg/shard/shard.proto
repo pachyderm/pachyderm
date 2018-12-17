@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 package shard;
+option go_package = "github.com/pachyderm/pachyderm/src/client/pkg/shard";
 
 message ServerState {
     string address = 1;
@@ -82,14 +83,14 @@ message SetAddresses {
 
 message GetAddress {
   uint64 shard = 1;
-  int64 version = 2; 
+  int64 version = 2;
   string result = 3;
   bool ok = 4;
   string error = 5;
 }
 
 message GetShardToAddress {
-  int64 version = 1; 
+  int64 version = 1;
   map<uint64, string> result = 2;
   string error = 3;
 }

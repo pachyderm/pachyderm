@@ -1,5 +1,8 @@
 syntax = "proto3";
 
+package config;
+option go_package = "github.com/pachyderm/pachyderm/src/client/pkg/config";
+
 import "gogoproto/gogo.proto";
 
 // Config specifies the pachyderm config that is read and interpreted by the
