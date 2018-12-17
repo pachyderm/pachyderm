@@ -4,11 +4,18 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
+	"path"
+	"os"
+
+	"github.com/facebookgo/pidfile"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/client-go/rest"
+    "k8s.io/client-go/tools/clientcmd"
+    corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,22 +28,30 @@ const (
 
 // PortForwarder handles proxying local traffic to a kubernetes pod
 type PortForwarder struct {
+	core corev1.CoreV1Interface
 	client rest.Interface
 	config *rest.Config
 	namespace string
-	podName string
-	localPort int
-	remotePort int
 	stdout io.Writer
 	stderr io.Writer
-	stopChan chan struct{}
+	stopChansLock *sync.Mutex
+	stopChans []chan struct{}
+	shutdown bool
 }
 
 // NewPortForwarder creates a new port forwarder
-func NewPortForwarder(config *rest.Config, namespace string, selector map[string]string, localPort, remotePort int, stdout, stderr io.Writer) (*PortForwarder, error) {
+func NewPortForwarder(namespace string, stdout, stderr io.Writer) (*PortForwarder, error) {
 	if namespace == "" {
 		namespace = "default"
 	}
+
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+    overrides := &clientcmd.ConfigOverrides{}
+    kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
+    config, err := kubeConfig.ClientConfig()
+    if err != nil {
+    	return nil, err
+    }
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -45,40 +60,40 @@ func NewPortForwarder(config *rest.Config, namespace string, selector map[string
 
 	core := client.CoreV1()
 
-	podList, err := core.Pods(namespace).List(metav1.ListOptions{
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(selector)),
+	return &PortForwarder {
+		core: core,
+		client: core.RESTClient(),
+		config: config,
+		namespace: namespace,
+		stdout: stdout,
+		stderr: stderr,
+		stopChansLock: &sync.Mutex{},
+		stopChans: []chan struct{}{},
+		shutdown: false,
+	}, nil
+}
+
+// Run starts the port forwarder. Returns after initialization is begun,
+// returning any initialization errors.
+func (f *PortForwarder) Run(podNameSelector map[string]string, localPort, remotePort int) error {
+	podList, err := f.core.Pods(f.namespace).List(metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(podNameSelector)),
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ListOptions",
 			APIVersion: "v1",
 		},
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if len(podList.Items) != 1 {
-		return nil, fmt.Errorf("Incorrect number of pods returned for selector %v: %d", selector, len(podList.Items))
+		return fmt.Errorf("Incorrect number of pods returned for selector %v: %d", podNameSelector, len(podList.Items))
 	}
 
-	return &PortForwarder {
-		client: core.RESTClient(),
-		config: config,
-		namespace: namespace,
-		podName: podList.Items[0].Name,
-		localPort: localPort,
-		remotePort: remotePort,
-		stdout: stdout,
-		stderr: stderr,
-		stopChan: make(chan struct{}, 1),
-	}, nil
-}
-
-// Run starts the port forwarder. Returns after initialization is begun,
-// returning any initialization errors.
-func (f *PortForwarder) Run() error {
 	url := f.client.Post().
 		Resource("pods").
 		Namespace(f.namespace).
-		Name(f.podName).
+		Name(podList.Items[0].Name).
 		SubResource("portforward").
 		URL()
 
@@ -88,9 +103,21 @@ func (f *PortForwarder) Run() error {
 	}
 
 	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", url)
-	ports := []string{fmt.Sprintf("%d:%d", f.localPort, f.remotePort)}
+	ports := []string{fmt.Sprintf("%d:%d", localPort, remotePort)}
 	readyChan := make(chan struct{}, 1)
-	fw, err := portforward.New(dialer, ports, f.stopChan, readyChan, f.stdout, f.stderr)
+	stopChan := make(chan struct{}, 1)
+
+	// Ensure that the port forwarder isn't already shutdown, and append the
+	// shutdown channel so this forwarder can be closed
+	f.stopChansLock.Lock()
+	if f.shutdown {
+		f.stopChansLock.Unlock()
+		return fmt.Errorf("port forwarder is shutdown")
+	}
+	f.stopChans = append(f.stopChans, stopChan)
+	f.stopChansLock.Unlock()
+
+	fw, err := portforward.New(dialer, ports, stopChan, readyChan, f.stdout, f.stderr)
 	if err != nil {
 		return err
 	}
@@ -106,45 +133,59 @@ func (f *PortForwarder) Run() error {
 	}
 }
 
-// Close shuts down port forwarding.
-func (f *PortForwarder) Close() {
-	close(f.stopChan)
-}
-
-// DaemonForwarder creates a port forwarder for the pachd daemon.
-func DaemonForwarder(config *rest.Config, namespace string, localPort int, stdout, stderr io.Writer) (*PortForwarder, error) {
+// RunForDaemon creates a port forwarder for the pachd daemon.
+func (f *PortForwarder) RunForDaemon(localPort int) error {
 	if localPort == 0 {
 		localPort = daemonLocalPort
 	}
-	selector := map[string]string{"app": "pachd"}
-	return NewPortForwarder(config, namespace, selector, localPort, 650, stdout, stderr)
+	return f.Run(map[string]string{"app": "pachd"}, localPort, 650)
 }
 
-// SAMLACSForwarder creates a port forwarder for SAML ACS.
-func SAMLACSForwarder(config *rest.Config, namespace string, localPort int, stdout, stderr io.Writer) (*PortForwarder, error) {
+// RunForSAMLACS creates a port forwarder for SAML ACS.
+func (f *PortForwarder) RunForSAMLACS(localPort int) error {
 	if localPort == 0 {
 		localPort = samlAcsLocalPort
 	}
 	// TODO(ys): using a suite selector because the original code had that.
 	// check if it is necessary.
-	selector := map[string]string{"suite": "pachyderm", "app": "pachd"}
-	return NewPortForwarder(config, namespace, selector, localPort, 654, stdout, stderr)
+	return f.Run(map[string]string{"suite": "pachyderm", "app": "pachd"}, localPort, 654)
 }
 
-// DashUIForwarder creates a port forwarder for the dash UI.
-func DashUIForwarder(config *rest.Config, namespace string, localPort int, stdout, stderr io.Writer) (*PortForwarder, error) {
+// RunForDashUI creates a port forwarder for the dash UI.
+func (f *PortForwarder) RunForDashUI(localPort int) error {
 	if localPort == 0 {
 		localPort = dashUILocalPort
 	}
-	selector := map[string]string{"app": "dash"}
-	return NewPortForwarder(config, namespace, selector, localPort, 8080, stdout, stderr)
+	return f.Run(map[string]string{"app": "dash"}, localPort, 8080)
 }
 
-// DashWebSocketForwarder creates a port forwarder for the dash websocket.
-func DashWebSocketForwarder(config *rest.Config, namespace string, localPort int, stdout, stderr io.Writer) (*PortForwarder, error) {
+// RunForDashWebSocket creates a port forwarder for the dash websocket.
+func (f *PortForwarder) RunForDashWebSocket(localPort int) error {
 	if localPort == 0 {
 		localPort = dashWebSocketLocalPort
 	}
-	selector := map[string]string{"app": "dash"}
-	return NewPortForwarder(config, namespace, selector, localPort, 8081, stdout, stderr)
+	return f.Run(map[string]string{"app": "dash"}, localPort, 8081)
+}
+
+// Lock uses pidfiles to ensure that only one port forwarder is running across
+// one or more `pachctl` instances
+func (f *PortForwarder) Lock() error {
+	pidfile.SetPidfilePath(path.Join(os.Getenv("HOME"), ".pachyderm/port-forward.pid"))
+	return pidfile.Write()
+}
+
+// Close shuts down port forwarding.
+func (f *PortForwarder) Close() {
+	f.stopChansLock.Lock()
+	defer f.stopChansLock.Unlock()
+
+	if f.shutdown {
+		panic("port forwarder already shutdown")
+	}
+
+	f.shutdown = true
+
+	for _, stopChan := range f.stopChans {
+		close(stopChan)
+	}
 }

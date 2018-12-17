@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/facebookgo/pidfile"
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
@@ -121,7 +120,7 @@ type APIClient struct {
 	// The context used in requests, can be set with WithCtx
 	ctx context.Context
 
-	portForwarders []*PortForwarder
+	portForwarder *PortForwarder
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -305,62 +304,40 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	return "", options, nil
 }
 
-func portForward() ([]*PortForwarder, error) {
-	config, err := BuildRESTConfig()
-	if err != nil {
-		log.Errorf("port forwarding will not be run because the kubernetes config could not be loaded: %v", err)
-		return []*PortForwarder{}, nil
-	}
+func portForwarder() *PortForwarder {
+	log.Infoln("Attempting to implicitly enable port forwarding...")
 
-	_, err = pidfile.Read()
-	if err != nil && !os.IsNotExist(err) {
-		log.Errorf("port forwarding will not run because an error occurred while reading the pidfile: %v", err)
-		return []*PortForwarder{}, nil
-	}
-
-	if err = pidfile.Write(); err != nil {
-		log.Errorf("port forwarding will not run because an error occurred while writing to the pidfile: %v", err)
-		return []*PortForwarder{}, nil
-	}
-
-	var daemon *PortForwarder
-	var saml *PortForwarder
-	var eg errgroup.Group
-
-	// NOTE: if any of these port forwarders error out, none of them
-	// will be cleanly closed. This is likely not a problem since the
-	// process should bail.
 	// NOTE: this will always use the default namespace; if a custom
 	// namespace is required with port forwarding,
 	// `pachctl port-forward` should be explicitly called.
+	fw, err := NewPortForwarder("", ioutil.Discard, os.Stderr)
+	if err != nil {
+		log.Errorf("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
+		return nil
+	}
+	if err = fw.Lock(); err != nil {
+		log.Warningf("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
+		return nil
+	}
+
+	var eg errgroup.Group
+	
 	eg.Go(func() error {
-		var err error
-		daemon, err = DaemonForwarder(config, "", 0, ioutil.Discard, os.Stderr)
-
-		if err != nil {
-			return err
-		}
-
-		return daemon.Run()
+		return fw.RunForDaemon(0)
 
 	})
 
 	eg.Go(func() error {
-		var err error
-		saml, err = SAMLACSForwarder(config, "", 0, ioutil.Discard, os.Stderr)
-
-		if err != nil {
-			return err
-		}
-
-		return saml.Run()
+		return fw.RunForSAMLACS(0)
 	})
 
 	if err = eg.Wait(); err != nil {
-		return []*PortForwarder{}, err
+		fw.Close()
+		log.Errorf("Implicit port forwarding was not enabled because of an error: %v", err)
+		return nil
 	}
 
-	return []*PortForwarder{daemon, saml}, nil
+	return fw
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -372,7 +349,7 @@ func portForward() ([]*PortForwarder, error) {
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*APIClient, error) {
+func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
@@ -380,19 +357,17 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 	}
 
 	// create new pachctl client
+	var fw *PortForwarder
 	addr, cfgOptions, err := getUserMachineAddrAndOpts(cfg)
-	portForwarders := []*PortForwarder{}
 	if err != nil {
 		return nil, err
 	}
 	if addr == "" {
-		portForwarders, err = portForward()
-
-		if err != nil {
-			return nil, err
-		}
-
 		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+
+		if portForward {
+			fw = portForwarder()	
+		}
 	}
 
 	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
@@ -425,9 +400,6 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 		return nil, fmt.Errorf("could not connect to pachd at %q: %v", addr, err)
 	}
 
-	// Add port forwarders
-	client.portForwarders = portForwarders
-
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
 	if cfg.UserID != "" && reportMetrics {
@@ -436,6 +408,11 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 	if cfg.V1 != nil && cfg.V1.SessionToken != "" {
 		client.authenticationToken = cfg.V1.SessionToken
 	}
+	
+	// Add port forwarding. This will set it to nil if port forwarding is
+	// disabled, or an address is explicitly set.
+	client.portForwarder = fw
+
 	return client, nil
 }
 
@@ -459,8 +436,8 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 func (c *APIClient) Close() {
 	c.clientConn.Close()
 
-	for _, portForwarder := range c.portForwarders {
-		portForwarder.Close()
+	if c.portForwarder != nil {
+		c.portForwarder.Close()	
 	}
 }
 

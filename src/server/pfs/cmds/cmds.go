@@ -66,7 +66,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -88,7 +88,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Update a repo.",
 		Long:  "Update a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -111,7 +111,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -136,7 +136,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Return all repos.",
 		Long:  "Return all repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -174,7 +174,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -245,7 +245,7 @@ $ pachctl start-commit test patch -p master
 $ pachctl start-commit test -p XXX
 ` + codeend,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			cli, err := client.NewOnUserMachine(metrics, "user")
+			cli, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -276,7 +276,7 @@ $ pachctl start-commit test -p XXX
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			cli, err := client.NewOnUserMachine(metrics, "user")
+			cli, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -300,7 +300,7 @@ $ pachctl start-commit test -p XXX
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -345,7 +345,7 @@ $ pachctl list-commit foo XXX
 $ pachctl list-commit foo master --from XXX
 ` + codeend,
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -423,7 +423,7 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 				return err
 			}
 
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -468,7 +468,7 @@ $ pachctl subscribe-commit test master --new
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			repo, branch := args[0], args[1]
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -499,7 +499,7 @@ $ pachctl subscribe-commit test master --new
 		Short: "Delete an input commit.",
 		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -515,7 +515,7 @@ $ pachctl subscribe-commit test master --new
 		Short: "Create a new branch, or update an existing branch, on a repo.",
 		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -535,7 +535,7 @@ $ pachctl subscribe-commit test master --new
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -577,7 +577,7 @@ $ pachctl set-branch foo XXX master
 $ pachctl set-branch foo test master` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
 			fmt.Fprintf(os.Stderr, "set-branch is DEPRECATED, use create-branch instead.\n")
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -591,7 +591,7 @@ $ pachctl set-branch foo test master` + codeend,
 		Short: "Delete a branch",
 		Long:  "Delete a branch, while leaving the commits intact",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -672,7 +672,7 @@ negligible, but if you are putting a large number of small files, you might
 want to consider using commit IDs directly.
 `,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
+			c, err := client.NewOnUserMachine(metrics, true, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
@@ -787,7 +787,7 @@ want to consider using commit IDs directly.
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
 		Run: cmdutil.RunFixedArgs(6, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, "user", client.WithMaxConcurrentStreams(parallelism))
+			c, err := client.NewOnUserMachine(metrics, true, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
@@ -814,7 +814,7 @@ $ pachctl get-file foo master^ XXX
 $ pachctl get-file foo master^2 XXX
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -850,7 +850,7 @@ $ pachctl get-file foo master^2 XXX
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -892,7 +892,7 @@ $ pachctl list-file foo master^
 $ pachctl list-file foo master^2
 ` + codeend,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -936,7 +936,7 @@ $ pachctl glob-file foo master "A*"
 $ pachctl glob-file foo master "data/*"
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -976,7 +976,7 @@ $ pachctl diff-file foo master path
 $ pachctl diff-file foo master path1 bar master path2
 ` + codeend,
 		Run: cmdutil.RunBoundedArgs(3, 6, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -1024,7 +1024,7 @@ $ pachctl diff-file foo master path1 bar master path2
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
 		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -1038,7 +1038,7 @@ $ pachctl diff-file foo master path1 bar master path2
 		Short: "Return the contents of an object",
 		Long:  "Return the contents of an object",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -1052,7 +1052,7 @@ $ pachctl diff-file foo master path1 bar master path2
 		Short: "Return the contents of a tag",
 		Long:  "Return the contents of a tag",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "user")
+			client, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -1068,7 +1068,7 @@ $ pachctl diff-file foo master path1 bar master path2
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, "fuse")
+			client, err := client.NewOnUserMachine(metrics, true, "fuse")
 			if err != nil {
 				return err
 			}

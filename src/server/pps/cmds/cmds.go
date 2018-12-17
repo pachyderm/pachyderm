@@ -70,7 +70,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -114,7 +114,7 @@ $ pachctl list-job foo/XXX bar/YYY
 $ pachctl list-job -p foo bar/YYY
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -183,7 +183,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 				return err
 			}
 
-			c, err := pachdclient.NewOnUserMachine(metrics, "user")
+			c, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -218,7 +218,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -235,7 +235,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -252,7 +252,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -278,7 +278,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
 		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -315,7 +315,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Display detailed info about a single datum.",
 		Long:  "Display detailed info about a single datum.",
 		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -358,7 +358,7 @@ $ pachctl get-logs --job=aedfa12aedf
 $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -442,7 +442,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -490,7 +490,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -536,7 +536,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -561,7 +561,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return the manifest used to create a pipeline.",
 		Long:  "Return the manifest used to create a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -580,7 +580,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Edit the manifest for a pipeline in your text editor.",
 		Long:  "Edit the manifest for a pipeline in your text editor.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -649,7 +649,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -691,7 +691,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -726,7 +726,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -743,7 +743,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -783,7 +783,7 @@ you can increase the amount of memory used for the bloom filters with the
 --memory flag. The default value is 10MB.
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}

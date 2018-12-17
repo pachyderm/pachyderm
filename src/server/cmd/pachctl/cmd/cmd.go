@@ -10,13 +10,11 @@ import (
 	golog "log"
 	"os"
 	"os/signal"
-	"path"
 	"strings"
 	"text/tabwriter"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/facebookgo/pidfile"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
@@ -149,8 +147,6 @@ func (l *logWriter) Write(p []byte) (int, error) {
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
-	pidfile.SetPidfilePath(path.Join(os.Getenv("HOME"), ".pachyderm/port-forward.pid"))
-
 	var verbose bool
 	var noMetrics bool
 	raw := false
@@ -270,9 +266,9 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, "user", client.WithDialTimeout(timeout))
+				pachClient, err = client.NewOnUserMachine(false, true, "user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, "user")
+				pachClient, err = client.NewOnUserMachine(false, true, "user")
 			}
 			if err != nil {
 				return err
@@ -320,7 +316,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(!noMetrics, "user")
+			client, err := client.NewOnUserMachine(!noMetrics, true, "user")
 			if err != nil {
 				return err
 			}
@@ -370,88 +366,42 @@ This resets the cluster to its initial state.`,
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			_, err := pidfile.Read()
+			fw, err := client.NewPortForwarder(namespace, ioutil.Discard, os.Stderr)
 			if err != nil {
-				if os.IsNotExist(err) {
-					fmt.Println("Port forwarding is already running")
-					return nil
-				}
-				return err
-			}
-			if err := pidfile.Write(); err != nil {
 				return err
 			}
 
-			var daemon *client.PortForwarder
-			var saml *client.PortForwarder
-			var dash *client.PortForwarder
-			var dashWebSocket *client.PortForwarder
+			if err = fw.Lock(); err != nil {
+				return err
+			}
+
 			var eg errgroup.Group
-
-			config, err := client.BuildRESTConfig()
-			if err != nil {
-				return err
-			}
 
 			eg.Go(func() error {
 				fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-
-				var err error
-				daemon, err = client.DaemonForwarder(config, namespace, port, ioutil.Discard, os.Stderr)
-				if err != nil {
-					return err
-				}
-
-				return daemon.Run()
+				return fw.RunForDaemon(port)
 			})
 
 			eg.Go(func() error {
 				fmt.Println("Forwarding the SAML ACS port...")
-
-				var err error
-				saml, err = client.SAMLACSForwarder(config, namespace, samlPort, ioutil.Discard, os.Stderr)
-				if err != nil {
-					return err
-				}
-
-				return saml.Run()
+				return fw.RunForSAMLACS(samlPort)
 			})
 
 			eg.Go(func() error {
 				fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v ...\n", uiPort)
-
-				var err error
-				dash, err = client.DashUIForwarder(config, namespace, uiPort, ioutil.Discard, os.Stderr)
-				if err != nil {
-					return err
-				}
-
-				return dash.Run()
+				return fw.RunForDashUI(uiPort)
 			})
 
 			eg.Go(func() error {
 				fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-
-				var err error
-				dashWebSocket, err = client.DashWebSocketForwarder(config, namespace, uiWebsocketPort, ioutil.Discard, os.Stderr)
-				if err != nil {
-					return err
-				}
-
-				return dashWebSocket.Run()
+				return fw.RunForDashWebSocket(uiWebsocketPort)
 			})
 
-			// NOTE: if any of these port forwarders error out, none of them
-			// will be cleanly closed. This is likely not a problem since the
-			// process should bail.
+			defer fw.Close()
+
 			if err = eg.Wait(); err != nil {
 				return err
 			}
-
-			defer daemon.Close()
-			defer saml.Close()
-			defer dash.Close()
-			defer dashWebSocket.Close()
 
 			fmt.Println("CTRL-C to exit")
 			fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
