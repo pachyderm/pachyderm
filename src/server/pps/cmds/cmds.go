@@ -74,6 +74,7 @@ The increase the throughput of a job increase the Shard paremeter.
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			jobInfo, err := client.InspectJob(args[0], block)
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
@@ -117,6 +118,7 @@ $ pachctl list-job -p foo bar/YYY
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			commits, err := cmdutil.ParseCommits(inputCommitStrs)
 			if err != nil {
@@ -185,6 +187,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			jobInfos, err := c.FlushJobAll(commits, pipelines)
 			if err != nil {
@@ -219,6 +222,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if err := client.DeleteJob(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
 			}
@@ -235,6 +239,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if err := client.StopJob(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
 			}
@@ -251,6 +256,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 			datumFilter := strings.Split(args[1], ",")
 			for i := 0; i < len(datumFilter); {
 				if len(datumFilter[i]) == 0 {
@@ -276,6 +282,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if pageSize < 0 {
 				return fmt.Errorf("pageSize must be zero or positive")
 			}
@@ -312,6 +319,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			datumInfo, err := client.InspectDatum(args[0], args[1])
 			if err != nil {
 				return err
@@ -354,6 +362,7 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 
 			// Break up comma-separated input paths, and filter out empty entries
 			data := strings.Split(commaInputs, ",")
@@ -437,6 +446,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 			for {
 				request, err := cfgReader.NextCreatePipelineRequest()
 				if err == io.EOF {
@@ -484,6 +494,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 			for {
 				request, err := cfgReader.NextCreatePipelineRequest()
 				if err == io.EOF {
@@ -529,6 +540,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
 				return err
@@ -553,6 +565,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			createPipelineRequest, err := client.ExtractPipeline(args[0])
 			if err != nil {
 				return err
@@ -571,6 +584,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			createPipelineRequest, err := client.ExtractPipeline(args[0])
 			if err != nil {
 				return err
@@ -639,6 +653,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
 				return err
@@ -680,6 +695,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if len(args) > 0 && all {
 				return fmt.Errorf("cannot use the --all flag with an argument")
 			}
@@ -714,6 +730,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if err := client.StartPipeline(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from StartPipeline: %s", err.Error())
 			}
@@ -730,6 +747,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if err := client.StopPipeline(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from StopPipeline: %s", err.Error())
 			}
@@ -769,6 +787,7 @@ you can increase the amount of memory used for the bloom filters with the
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			memoryBytes, err := units.RAMInBytes(memory)
 			if err != nil {
 				return err

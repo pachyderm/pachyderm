@@ -9,9 +9,9 @@ import (
 	"io/ioutil"
 	golog "log"
 	"os"
+	"os/signal"
 	"path"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -149,6 +149,8 @@ func (l *logWriter) Write(p []byte) (int, error) {
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
+	pidfile.SetPidfilePath(path.Join(os.Getenv("HOME"), ".pachyderm/port-forward.pid"))
+
 	var verbose bool
 	var noMetrics bool
 	raw := false
@@ -275,6 +277,7 @@ Environment variables:
 			if err != nil {
 				return err
 			}
+			defer pachClient.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()
 			version, err := pachClient.GetVersion(ctx, &types.Empty{})
@@ -321,6 +324,7 @@ This resets the cluster to its initial state.`,
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			red := color.New(color.FgRed).SprintFunc()
 			var repos, pipelines []string
 			repoInfos, err := client.ListRepo()
@@ -359,105 +363,110 @@ This resets the cluster to its initial state.`,
 	var samlPort int
 	var uiPort int
 	var uiWebsocketPort int
-	var kubeCtlFlags string
 	var namespace string
+
 	portForward := &cobra.Command{
 		Use:   "port-forward",
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			pidfile.SetPidfilePath(path.Join(os.Getenv("HOME"), ".pachyderm/port-forward.pid"))
-			pid, err := pidfile.Read()
-			if err != nil && !os.IsNotExist(err) {
-				return err
-			}
-			if pid != 0 {
-				if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil {
-					if !strings.Contains(err.Error(), "no such process") {
-						return err
-					}
+			_, err := pidfile.Read()
+			if err != nil {
+				if os.IsNotExist(err) {
+					fmt.Println("Port forwarding is already running")
+					return nil
+				} else {
+					return err
 				}
 			}
 			if err := pidfile.Write(); err != nil {
 				return err
 			}
 
-			kubeCtlFlags += fmt.Sprintf(" --namespace=%s", namespace)
-
+			var daemon *client.PortForwarder
+			var saml *client.PortForwarder
+			var dash *client.PortForwarder
+			var dashWebSocket *client.PortForwarder
 			var eg errgroup.Group
+
+			config, err := client.BuildRESTConfig()
+			if err != nil {
+				return err
+			}
 
 			eg.Go(func() error {
 				fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-				stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl %s get pod -l app=pachd  --output='jsonpath={.items[0].metadata.name}')
-kubectl %s port-forward "$pod" %d:650
-`, kubeCtlFlags, kubeCtlFlags, port))
-				if err := cmdutil.RunIO(cmdutil.IO{
-					Stdin:  stdin,
-					Stderr: os.Stderr,
-				}, "sh"); err != nil {
-					fmt.Fprintln(os.Stderr, "Could not forward Pachd port")
-					return fmt.Errorf("Could not forward Pachd port")
+
+				var err error
+				daemon, err = client.DaemonForwarder(config, namespace, port, ioutil.Discard, os.Stderr)
+				if err != nil {
+					return err
 				}
-				return nil
+
+				return daemon.Run()
 			})
 
 			eg.Go(func() error {
 				fmt.Println("Forwarding the SAML ACS port...")
-				stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl %s get pod -l suite=pachyderm,app=pachd  --output='jsonpath={.items[0].metadata.name}')
-kubectl %s port-forward "$pod" %d:654
-`, kubeCtlFlags, kubeCtlFlags, samlPort))
-				if err := cmdutil.RunIO(cmdutil.IO{
-					Stdin:  stdin,
-					Stderr: os.Stderr,
-				}, "sh"); err != nil {
-					fmt.Fprintln(os.Stderr, "Could not forward Pachyderm SAML ACS port")
-					return fmt.Errorf("Could not forward Pachyderm SAML ACS port")
-				}
-				return nil
-			})
 
-			eg.Go(func() error {
-				stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl %s get pod -l app=dash --output='jsonpath={.items[0].metadata.name}')
-kubectl %s port-forward "$pod" %d:8080
-`, kubeCtlFlags, kubeCtlFlags, uiPort))
-				if err := cmdutil.RunIO(cmdutil.IO{
-					Stdin: stdin,
-				}, "sh"); err != nil {
-					fmt.Fprintln(os.Stderr, "Is the dashboard deployed? If not, deploy with \"pachctl deploy local --dashboard-only\"")
-					return fmt.Errorf("Could not forward dash UI port")
+				var err error
+				saml, err = client.SAMLACSForwarder(config, namespace, samlPort, ioutil.Discard, os.Stderr)
+				if err != nil {
+					return err
 				}
-				return nil
+
+				return saml.Run()
 			})
 
 			eg.Go(func() error {
 				fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v ...\n", uiPort)
-				stdin := strings.NewReader(fmt.Sprintf(`
-pod=$(kubectl %v get pod -l app=dash --output='jsonpath={.items[0].metadata.name}')
-kubectl %v port-forward "$pod" %d:8081
-`, kubeCtlFlags, kubeCtlFlags, uiWebsocketPort))
-				if err := cmdutil.RunIO(cmdutil.IO{
-					Stdin: stdin,
-				}, "sh"); err != nil {
-					fmt.Fprintln(os.Stderr, "Could not forward dash websocket port")
-					return fmt.Errorf("Could not forward dash websocket port")
+
+				var err error
+				dash, err = client.DashUIForwarder(config, namespace, uiPort, ioutil.Discard, os.Stderr)
+				if err != nil {
+					return err
 				}
-				return nil
+
+				return dash.Run()
 			})
+
+			eg.Go(func() error {
+				fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
+
+				var err error
+				dashWebSocket, err = client.DashWebSocketForwarder(config, namespace, uiWebsocketPort, ioutil.Discard, os.Stderr)
+				if err != nil {
+					return err
+				}
+
+				return dashWebSocket.Run()
+			})
+
+			// NOTE: if any of these port forwarders error out, none of them
+			// will be cleanly closed. This is likely not a problem since the
+			// process should bail.
+			if err = eg.Wait(); err != nil {
+				return err
+			}
+
+			defer daemon.Close()
+			defer saml.Close()
+			defer dash.Close()
+			defer dashWebSocket.Close()
 
 			fmt.Println("CTRL-C to exit")
 			fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
 
-			return eg.Wait()
+			ch := make(chan os.Signal, 1)
+			signal.Notify(ch, os.Interrupt)
+			<- ch
+			return nil
 		}),
 	}
 	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
 	portForward.Flags().IntVar(&samlPort, "saml-port", 30654, "The local port to bind pachd's SAML ACS to.")
 	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
-	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
 
 	completion := &cobra.Command{

@@ -17,7 +17,9 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
+	"golang.org/x/sync/errgroup"
 
+	"github.com/facebookgo/pidfile"
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
@@ -118,6 +120,8 @@ type APIClient struct {
 
 	// The context used in requests, can be set with WithCtx
 	ctx context.Context
+
+	portForwarders []*PortForwarder
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -298,7 +302,65 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	return fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort), options, nil
+	return "", options, nil
+}
+
+func portForward() ([]*PortForwarder, error) {
+	config, err := BuildRESTConfig()
+	if err != nil {
+		log.Errorf("port forwarding will not be run because the kubernetes config could not be loaded: %v", err)
+		return []*PortForwarder{}, nil
+	}
+
+	_, err = pidfile.Read()
+	if err != nil && !os.IsNotExist(err) {
+		log.Errorf("port forwarding will not run because an error occurred while reading the pidfile: %v", err)
+		return []*PortForwarder{}, nil
+	}
+
+	if err = pidfile.Write(); err != nil {
+		log.Errorf("port forwarding will not run because an error occurred while writing to the pidfile: %v", err)
+		return []*PortForwarder{}, nil
+	}
+
+	var daemon *PortForwarder
+	var saml *PortForwarder
+	var eg errgroup.Group
+
+	// NOTE: if any of these port forwarders error out, none of them
+	// will be cleanly closed. This is likely not a problem since the
+	// process should bail.
+	// NOTE: this will always use the default namespace; if a custom
+	// namespace is required with port forwarding,
+	// `pachctl port-forward` should be explicitly called.
+	eg.Go(func() error {
+		var err error
+		daemon, err = DaemonForwarder(config, "", 0, ioutil.Discard, os.Stderr)
+
+		if err != nil {
+			return err
+		}
+
+		return daemon.Run()
+
+	})
+
+	eg.Go(func() error {
+		var err error
+		saml, err = SAMLACSForwarder(config, "", 0, ioutil.Discard, os.Stderr)
+
+		if err != nil {
+			return err
+		}
+
+		return saml.Run()
+	})
+
+	if err = eg.Wait(); err != nil {
+		return []*PortForwarder{}, err
+	}
+
+	return []*PortForwarder{daemon, saml}, nil
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -319,9 +381,20 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 
 	// create new pachctl client
 	addr, cfgOptions, err := getUserMachineAddrAndOpts(cfg)
+	portForwarders := []*PortForwarder{}
 	if err != nil {
 		return nil, err
 	}
+	if addr == "" {
+		portForwarders, err = portForward()
+
+		if err != nil {
+			return nil, err
+		}
+
+		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+	}
+
 	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
 	if err != nil {
 		if strings.Contains(err.Error(), "context deadline exceeded") {
@@ -352,6 +425,9 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 		return nil, fmt.Errorf("could not connect to pachd at %q: %v", addr, err)
 	}
 
+	// Add port forwarders
+	client.portForwarders = portForwarders
+
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
 	if cfg.UserID != "" && reportMetrics {
@@ -380,8 +456,12 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 }
 
 // Close the connection to gRPC
-func (c *APIClient) Close() error {
-	return c.clientConn.Close()
+func (c *APIClient) Close() {
+	c.clientConn.Close()
+
+	for _, portForwarder := range c.portForwarders {
+		portForwarder.Close()
+	}
 }
 
 // DeleteAll deletes everything in the cluster.
