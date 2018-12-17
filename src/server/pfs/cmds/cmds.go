@@ -70,6 +70,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			_, err = c.PfsAPIClient.CreateRepo(
 				c.Ctx(),
 				&pfsclient.CreateRepoRequest{
@@ -91,6 +92,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			_, err = c.PfsAPIClient.CreateRepo(
 				c.Ctx(),
 				&pfsclient.CreateRepoRequest{
@@ -113,6 +115,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			repoInfo, err := c.InspectRepo(args[0])
 			if err != nil {
 				return err
@@ -137,6 +140,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			repoInfos, err := c.ListRepo()
 			if err != nil {
 				return err
@@ -174,6 +178,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if len(args) > 0 && all {
 				return fmt.Errorf("cannot use the --all flag with an argument")
 			}
@@ -244,6 +249,7 @@ $ pachctl start-commit test -p XXX
 			if err != nil {
 				return err
 			}
+			defer cli.Close()
 			var branch string
 			if len(args) == 2 {
 				branch = args[1]
@@ -274,6 +280,7 @@ $ pachctl start-commit test -p XXX
 			if err != nil {
 				return err
 			}
+			defer cli.Close()
 			if description != "" {
 				_, err := cli.PfsAPIClient.FinishCommit(cli.Ctx(),
 					&pfsclient.FinishCommitRequest{
@@ -297,6 +304,7 @@ $ pachctl start-commit test -p XXX
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			commitInfo, err := client.InspectCommit(args[0], args[1])
 			if err != nil {
 				return err
@@ -341,6 +349,7 @@ $ pachctl list-commit foo master --from XXX
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			var to string
 			if len(args) == 2 {
@@ -418,6 +427,7 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			var toRepos []*pfsclient.Repo
 			for _, repoName := range repos {
@@ -462,6 +472,7 @@ $ pachctl subscribe-commit test master --new
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			if new && from != "" {
 				return fmt.Errorf("--new and --from cannot both be provided")
@@ -492,6 +503,7 @@ $ pachctl subscribe-commit test master --new
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			return client.DeleteCommit(args[0], args[1])
 		}),
 	}
@@ -507,6 +519,7 @@ $ pachctl subscribe-commit test master --new
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			provenance, err := cmdutil.ParseBranches(branchProvenance)
 			if err != nil {
 				return err
@@ -526,6 +539,7 @@ $ pachctl subscribe-commit test master --new
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			branches, err := client.ListBranch(args[0])
 			if err != nil {
 				return err
@@ -567,6 +581,7 @@ $ pachctl set-branch foo test master` + codeend,
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			return client.SetBranch(args[0], args[1], args[2])
 		}),
 	}
@@ -580,6 +595,7 @@ $ pachctl set-branch foo test master` + codeend,
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			return client.DeleteBranch(args[0], args[1], force)
 		}),
 	}
@@ -660,6 +676,7 @@ want to consider using commit IDs directly.
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			pfc, err := c.NewPutFileClient()
 			if err != nil {
 				return err
@@ -774,6 +791,7 @@ want to consider using commit IDs directly.
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			return c.CopyFile(args[0], args[1], args[2], args[3], args[4], args[5], overwrite)
 		}),
 	}
@@ -800,6 +818,7 @@ $ pachctl get-file foo master^2 XXX
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if recursive {
 				if outputPath == "" {
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
@@ -835,6 +854,7 @@ $ pachctl get-file foo master^2 XXX
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			fileInfo, err := client.InspectFile(args[0], args[1], args[2])
 			if err != nil {
 				return err
@@ -876,6 +896,7 @@ $ pachctl list-file foo master^2
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			var path string
 			if len(args) == 3 {
 				path = args[2]
@@ -919,6 +940,7 @@ $ pachctl glob-file foo master "data/*"
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			fileInfos, err := client.GlobFile(args[0], args[1], args[2])
 			if err != nil {
 				return err
@@ -958,6 +980,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			var newFiles []*pfsclient.FileInfo
 			var oldFiles []*pfsclient.FileInfo
 			switch {
@@ -1005,6 +1028,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			return client.DeleteFile(args[0], args[1], args[2])
 		}),
 	}
@@ -1018,6 +1042,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			return client.GetObject(args[0], os.Stdout)
 		}),
 	}
@@ -1031,6 +1056,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			return client.GetTag(args[0], os.Stdout)
 		}),
 	}
@@ -1046,6 +1072,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			mountPoint := args[0]
 			commits, err := parseCommits(commits)
 			if err != nil {

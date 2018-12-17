@@ -29,6 +29,7 @@ func GetConfig() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			resp, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -74,6 +75,7 @@ func SetConfig() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			var configBytes []byte
 			if file == "-" {
 				var err error

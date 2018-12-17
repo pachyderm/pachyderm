@@ -21,6 +21,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			return client.Dump(os.Stdout)
 		}),
 	}

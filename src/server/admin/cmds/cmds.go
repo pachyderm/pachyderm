@@ -36,6 +36,7 @@ pachctl extract -u s3://bucket/backup` + codeend,
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			if url != "" {
 				return c.ExtractURL(url)
 			}
@@ -64,6 +65,7 @@ pachctl restore -u s3://bucket/backup` + codeend,
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			if url != "" {
 				return c.RestoreURL(url)
 			}
@@ -80,6 +82,7 @@ pachctl restore -u s3://bucket/backup` + codeend,
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			ci, err := c.InspectCluster()
 			if err != nil {
 				return err
