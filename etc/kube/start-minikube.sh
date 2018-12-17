@@ -3,7 +3,7 @@
 set -Eex
 
 # Parse flags
-VERSION=v1.8.0
+VERSION=v1.13.0
 minikube_args=(
   --vm-driver=none
   --kubernetes-version="${VERSION}"
@@ -24,7 +24,7 @@ while getopts ":v:r" opt; do
 done
 
 if [[ -n "${TRAVIS}" ]]; then
-  minikube_args+=("--bootstrapper=localkube")
+  minikube_args+=("--bootstrapper=kubeadm")
 fi
 
 
