@@ -79,7 +79,7 @@ We can also view the file we just added to Pachyderm. Since this is an image, we
 Create a Pipeline
 ^^^^^^^^^^^^^^^^^
 
-Now that we've got some data in our repo, it's time to do something with it. ``Pipelines`` are the core processing primitive in Pachyderm and they're specified with a JSON encoding. For this example, we've already created the pipeline for you and you can find the `code on Github <https://github.com/pachyderm/pachyderm/blob/master/doc/examples/opencv>`_. 
+Now that we've got some data in our repo, it's time to do something with it. ``Pipelines`` are the core processing primitive in Pachyderm and they're specified with a JSON encoding. For this example, we've already created the pipeline for you and you can find the `code on Github <https://github.com/pachyderm/pachyderm/blob/master/examples/opencv>`_. 
 
 When you want to create your own pipelines later, you can refer to the full :doc:`../reference/pipeline_spec` to use more advanced options. This includes building your own code into a container instead of the pre-built Docker image we'll be using here.
 
@@ -101,7 +101,7 @@ Below is the pipeline spec and python code we're using. Let's walk through the d
       "image": "pachyderm/opencv"
     },
     "input": {
-      "pfs": {
+      "atom": {
         "repo": "images",
         "glob": "/*"
       }
@@ -109,7 +109,7 @@ Below is the pipeline spec and python code we're using. Let's walk through the d
   }
 
 
-Our pipeline spec contains a few simple sections. First is the pipeline ``name``, edges. Then we have the ``transform`` which specifies the docker image we want to use, ``pachyderm/opencv`` (defaults to DockerHub as the registry), and the entry point ``edges.py``. Lastly, we specify the input.  Here we only have one PFS input, our images repo with a particular glob pattern. 
+Our pipeline spec contains a few simple sections. First is the pipeline ``name``, edges. Then we have the ``transform`` which specifies the docker image we want to use, ``pachyderm/opencv`` (defaults to DockerHub as the registry), and the entry point ``edges.py``. Lastly, we specify the input.  Here we only have one "atom" input, our images repo with a particular glob pattern. 
 
 The glob pattern defines how the input data can be broken up if we wanted to distribute our computation. ``/*`` means that each file can be processed individually, which makes sense for images. Glob patterns are one of the most powerful features of Pachyderm so when you start creating your own pipelines, check out the :doc:`../reference/pipeline_spec`.
 
@@ -143,7 +143,7 @@ Now let's create the pipeline in Pachyderm:
 
 .. code-block:: shell
 
-  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/opencv/edges.json
+  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/edges.json
 
 
 
@@ -245,13 +245,13 @@ Below is the pipeline spec for this new pipeline:
     },
     "input": {
       "cross": [ {
-        "pfs": {
+        "atom": {
           "glob": "/",
           "repo": "images"
         }
       },
       {
-        "pfs": {
+        "atom": {
           "glob": "/",
           "repo": "edges"
         }
@@ -272,7 +272,7 @@ We create this next pipeline as before, with ``pachctl``:
 
 .. code-block:: shell
 
-  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/doc/examples/opencv/montage.json
+  $ pachctl create-pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/master/examples/opencv/montage.json
 
 This will automatically trigger a job that generates a montage for all the current HEAD commits of the input repos:
 

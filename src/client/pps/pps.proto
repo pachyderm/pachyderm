@@ -1,5 +1,7 @@
 syntax = "proto3";
+
 package pps;
+option go_package = "github.com/pachyderm/pachyderm/src/client/pps";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -45,6 +47,7 @@ enum JobState {
   JOB_FAILURE = 2;
   JOB_SUCCESS = 3;
   JOB_KILLED = 4;
+  JOB_MERGING = 5;
 }
 
 message Service {

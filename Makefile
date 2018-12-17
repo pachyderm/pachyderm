@@ -429,7 +429,7 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker
+test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch-dev launch-dev test-misc test-pps
@@ -507,6 +507,10 @@ test-auth:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
+
+test-admin:
+	@# Dont cache these results as they require the pachd cluster
+	go test -v ./src/server/admin/server -count 1 -timeout $(TIMEOUT)
 
 test-enterprise:
 	@# Dont cache these results as they require the pachd cluster

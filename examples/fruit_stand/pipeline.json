@@ -1,0 +1,45 @@
+{
+  "pipeline": {
+    "name": "filter"
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": [
+        "for fruit in apple orange banana; do",
+        "   grep -h $fruit /pfs/data/* | awk '{print $2}' >>/pfs/out/$fruit",
+        "done"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": 1
+  },
+  "input": {
+    "atom": {
+      "repo": "data",
+      "glob": "/*"
+    }
+  }
+}
+{
+  "pipeline": {
+    "name": "sum"
+  },
+  "transform": {
+    "cmd": [ "sh" ],
+    "stdin": [
+        "for fruit in apple orange banana; do",
+        "   [ -e /pfs/filter/$fruit ] || continue",
+        "   cat /pfs/filter/$fruit | awk '{s+=$1} END {print s}' >/pfs/out/$fruit",
+        "done"
+    ]
+  },
+  "parallelism_spec": {
+    "constant": 1
+  },
+  "input": {
+    "atom": {
+      "repo": "filter",
+      "glob": "/*"
+    }
+  }
+}

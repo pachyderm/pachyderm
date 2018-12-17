@@ -1,0 +1,18 @@
+{
+  "pipeline": {
+    "name": "reduce"
+  },
+  "transform": {
+    "cmd": ["sh"],
+    "stdin": [
+        "find /pfs/map/ -name '*' | while read count; do cat $count | awk '{ sum+=$1} END {print sum}' >/tmp/count; mv /tmp/count /pfs/out/`basename $count`; echo `basename $count`; done"
+    ]
+  },
+  "input": {
+    "atom": {
+      "repo": "map",
+      "glob": "/*"
+    }
+  }
+}
+

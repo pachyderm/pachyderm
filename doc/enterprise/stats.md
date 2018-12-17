@@ -28,7 +28,7 @@ As mentioned above, enabling stats collection for a pipeline is as simple as add
     "name": "edges"
   },
   "input": {
-    "pfs": {
+    "atom": {
       "glob": "/*",
       "repo": "images"
     }

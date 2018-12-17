@@ -1512,7 +1512,7 @@ func TestPachdRestartResumesRunningJobs(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineName, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.Equal(t, pps.JobState_JOB_RUNNING, jobInfos[0].State)
+	require.EqualOneOf(t, []pps.JobState{pps.JobState_JOB_RUNNING, pps.JobState_JOB_MERGING}, jobInfos[0].State)
 
 	restartOne(t)
 	// need a new client because the old one will have a defunct connection
@@ -2181,8 +2181,11 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 		if len(jobInfos) != 1 {
 			return fmt.Errorf("wrong number of jobs")
 		}
-		if pps.JobState_JOB_RUNNING != jobInfos[0].State {
-			return fmt.Errorf("wrong state: %v for %s", jobInfos[0].State, jobInfos[0].Job.ID)
+
+		state := jobInfos[0].State
+
+		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
+			return fmt.Errorf("wrong state: %v for %s", state, jobInfos[0].Job.ID)
 		}
 		return nil
 	}, b))
@@ -3032,7 +3035,9 @@ func TestStopJob(t *testing.T) {
 			return fmt.Errorf("len(jobInfos) should be 1")
 		}
 		jobID = jobInfos[0].Job.ID
-		if pps.JobState_JOB_RUNNING != jobInfos[0].State {
+		state := jobInfos[0].State
+
+		if state != pps.JobState_JOB_RUNNING && state != pps.JobState_JOB_MERGING {
 			return fmt.Errorf("jobInfos[0] has the wrong state")
 		}
 		return nil
@@ -4618,7 +4623,7 @@ func TestPipelineWithStatsAcrossJobs(t *testing.T) {
 			Input:       client.NewPFSInput(dataRepo, "/*"),
 			EnableStats: true,
 			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 4,
+				Constant: 1,
 			},
 		})
 
@@ -4713,7 +4718,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 			Input:       client.NewPFSInput(dataRepo, "/*"),
 			EnableStats: true,
 			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 4,
+				Constant: 1,
 			},
 		})
 
@@ -4914,13 +4919,13 @@ func TestOpencvDemo(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFileURL("images", "master", "46Q8nDz.jpg", "http://imgur.com/46Q8nDz.jpg", false, false))
 	require.NoError(t, c.FinishCommit("images", "master"))
-	bytes, err := ioutil.ReadFile("../../doc/examples/opencv/edges.json")
+	bytes, err := ioutil.ReadFile("../../examples/opencv/edges.json")
 	require.NoError(t, err)
 	createPipelineRequest := &pps.CreatePipelineRequest{}
 	require.NoError(t, json.Unmarshal(bytes, createPipelineRequest))
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(), createPipelineRequest)
 	require.NoError(t, err)
-	bytes, err = ioutil.ReadFile("../../doc/examples/opencv/montage.json")
+	bytes, err = ioutil.ReadFile("../../examples/opencv/montage.json")
 	require.NoError(t, err)
 	createPipelineRequest = &pps.CreatePipelineRequest{}
 	require.NoError(t, json.Unmarshal(bytes, createPipelineRequest))
@@ -6778,72 +6783,6 @@ func TestManyJobs(t *testing.T) {
 
 	_, err = c.ListJob("", nil, nil)
 	require.NoError(t, err)
-}
-
-func TestExtractRestore(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestExtractRestore_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	nCommits := 2
-	r := rand.New(rand.NewSource(45))
-	fileContent := workload.RandString(r, 40*MB)
-	for i := 0; i < nCommits; i++ {
-		_, err := c.StartCommit(dataRepo, "master")
-		require.NoError(t, err)
-		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
-		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(dataRepo, "master"))
-	}
-
-	// create a headless branch, we've had issues with this crashing extraction.
-	require.NoError(t, c.CreateBranch(dataRepo, "headless", "", nil))
-
-	numPipelines := 3
-	input := dataRepo
-	for i := 0; i < numPipelines; i++ {
-		pipeline := tu.UniqueString(fmt.Sprintf("TestExtractRestore%d", i))
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{
-				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
-			},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			client.NewPFSInput(input, "/*"),
-			"",
-			false,
-		))
-		input = pipeline
-	}
-
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, numPipelines, len(commitInfos))
-
-	ops, err := c.ExtractAll(false)
-	require.NoError(t, err)
-	require.NoError(t, c.DeleteAll())
-	require.NoError(t, c.Restore(ops))
-
-	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, numPipelines, len(commitInfos))
-
-	bis, err := c.ListBranch(dataRepo)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(bis)) // 2 branches "master" and "headless"
 }
 
 // TestCancelJob creates a long-running job and then kills it, testing that the
