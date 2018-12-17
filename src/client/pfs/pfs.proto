@@ -387,9 +387,9 @@ message ListFileRequest {
 
   // History indicates how many historical versions you want returned. Its
   // semantics are:
-  // 0: return the files as they are at the commit in `file`. FileInfo.File
+  // 0: Return the files as they are at the commit in `file`. FileInfo.File
   //    will equal File in this request.
-  // 1: return the files as they are in the last commit they were modified in.
+  // 1: Return the files as they are in the last commit they were modified in.
   //    (This will have the same hash as if you'd passed 0, but
   //    FileInfo.File.Commit will be different.
   // 2: Return the above and the files as they are in the next-last commit they
