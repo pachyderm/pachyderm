@@ -324,7 +324,6 @@ func portForwarder() *PortForwarder {
 	
 	eg.Go(func() error {
 		return fw.RunForDaemon(0)
-
 	})
 
 	eg.Go(func() error {
