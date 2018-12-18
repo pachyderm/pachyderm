@@ -305,7 +305,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 }
 
 func portForwarder() *PortForwarder {
-	log.Infoln("Attempting to implicitly enable port forwarding...")
+	log.Debugln("Attempting to implicitly enable port forwarding...")
 
 	// NOTE: this will always use the default namespace; if a custom
 	// namespace is required with port forwarding,
