@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"sync"
 	"path"
@@ -90,10 +91,13 @@ func (f *PortForwarder) Run(podNameSelector map[string]string, localPort, remote
 		return fmt.Errorf("No pods found for selector %v", podNameSelector)
 	}
 
+	// Choose a random pod
+	podName := podList.Items[rand.Intn(len(podList.Items))].Name
+
 	url := f.client.Post().
 		Resource("pods").
 		Namespace(f.namespace).
-		Name(podList.Items[0].Name).
+		Name(podName).
 		SubResource("portforward").
 		URL()
 
