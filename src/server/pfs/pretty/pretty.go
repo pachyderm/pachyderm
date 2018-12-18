@@ -17,11 +17,11 @@ const (
 	// RepoAuthHeader is the header for repos with auth information attached.
 	RepoAuthHeader = "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
-	CommitHeader = "REPO\tID\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
+	CommitHeader = "REPO\tCOMMIT\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\t\n"
 	// FileHeader is the header for files.
-	FileHeader = "NAME\tTYPE\tSIZE\t\n"
+	FileHeader = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
 )
 
 // PrintRepoHeader prints a repo header.
@@ -96,11 +96,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	} else {
 		fmt.Fprint(w, "<none>\t")
 	}
-	fmt.Fprintf(
-		w,
-		"%s\t",
-		pretty.Ago(commitInfo.Started),
-	)
+	fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Started))
 	if commitInfo.Finished != nil {
 		fmt.Fprintf(w, fmt.Sprintf("%s\t", pretty.TimeDifference(commitInfo.Started, commitInfo.Finished)))
 		fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
@@ -141,12 +137,14 @@ func PrintFileInfoHeader(w io.Writer) {
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
 func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
+	fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE {
 		fmt.Fprint(w, "file\t")
 	} else {
 		fmt.Fprint(w, "dir\t")
 	}
+	fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
