@@ -1761,8 +1761,8 @@
 		{
 			"checksumSHA1": "KjMBISUBvxOjMGtPPR9kshQEfLI=",
 			"path": "k8s.io/apimachinery/pkg/util/httpstream/spdy",
-			"revision": "4d029f0333996cf231080e108e0bd1ece2a94d9f",
-			"revisionTime": "2018-12-15T01:28:45Z"
+			"revision": "57dc7e687b5426ecb5df4cabdcdce30fddb74f22",
+			"revisionTime": "2018-12-11T02:44:37Z"
 		},
 		{
 			"checksumSHA1": "I7EYSSgVE4A7+PxThl4mBWnW128=",
@@ -1783,12 +1783,10 @@
 			"revisionTime": "2018-12-15T01:28:45Z"
 		},
 		{
-			"checksumSHA1": "8dB53XLDORkZZKrjQ1/5tyCIeXQ=",
+			"checksumSHA1": "zV6f7i5Duol9NBY8//4d+K88ODo=",
 			"path": "k8s.io/apimachinery/pkg/util/net",
-			"revision": "e386b2658ed20923da8cc9250e552f082899a1ee",
-			"revisionTime": "2018-06-19T17:15:32Z",
-			"version": "kubernetes-1.10.5",
-			"versionExact": "kubernetes-1.10.5"
+			"revision": "57dc7e687b5426ecb5df4cabdcdce30fddb74f22",
+			"revisionTime": "2018-12-11T02:44:37Z"
 		},
 		{
 			"checksumSHA1": "THEgyKf4FQGNKuHYAMTda9mChJ8=",
