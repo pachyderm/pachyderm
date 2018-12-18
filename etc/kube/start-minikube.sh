@@ -33,11 +33,7 @@ while true; do
   # Try to connect for one minute
   for i in $(seq 12); do
     if {
-      kubectl version 2>/dev/null >/dev/null && {
-        # Apply some manual changes to fix DNS.
-        kubectl -n kube-system describe sa/kube-dns ||
-        kubectl -n kube-system create sa kube-dns
-      }
+      kubectl version 2>/dev/null >/dev/null
     }; then
       HEALTHY=true
       break
@@ -50,5 +46,3 @@ while true; do
   minikube delete
   sleep 10 # Wait for minikube to go completely down
 done
-
-until kubectl -n kube-system patch deploy/kube-dns -p '{"spec": {"template": {"spec": {"serviceAccountName": "kube-dns"}}}}' 2>/dev/null >/dev/null; do sleep 5; done
