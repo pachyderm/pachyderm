@@ -2688,7 +2688,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, f func(*pfs.FileInfo) error) (retErr error) {
+func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfo) error) (retErr error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -2709,6 +2709,9 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		}
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
+				if history != 0 {
+					return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, rootPath), history, f)
+				}
 				fi, err := nodeToFileInfoHeaderFooter(file.Commit, rootPath, rootNode, tree, full)
 				if err != nil {
 					return err
@@ -2720,6 +2723,9 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 				if g.Match(path) {
 					// Don't return the file now, it will be returned later by Glob
 					return nil
+				}
+				if history != 0 {
+					return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), history, f)
 				}
 				fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, full)
 				if err != nil {
@@ -2748,8 +2754,46 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		}
 	}()
 	return hashtree.List(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+		if history != 0 {
+			return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), history, f)
+		}
 		return f(nodeToFileInfo(file.Commit, path, node, full))
 	})
+}
+
+// fileHistory calls f with FileInfos for the file, starting with how it looked
+// at the referenced commit and then all past versions that are different.
+func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, history int64, f func(*pfs.FileInfo) error) error {
+	var fi *pfs.FileInfo
+	for {
+		_fi, err := d.inspectFile(pachClient, file)
+		if err != nil {
+			if _, ok := err.(pfsserver.ErrFileNotFound); ok {
+				return f(fi)
+			}
+			return err
+		}
+		if fi != nil && bytes.Compare(fi.Hash, _fi.Hash) != 0 {
+			if err := f(fi); err != nil {
+				return err
+			}
+			if history > 0 {
+				history--
+				if history == 0 {
+					return nil
+				}
+			}
+		}
+		fi = _fi
+		ci, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+		if err != nil {
+			return err
+		}
+		if ci.ParentCommit == nil {
+			return f(fi)
+		}
+		file.Commit = ci.ParentCommit
+	}
 }
 
 func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*pfs.FileInfo) error) (retErr error) {
