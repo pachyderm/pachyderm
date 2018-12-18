@@ -86,8 +86,8 @@ func (f *PortForwarder) Run(podNameSelector map[string]string, localPort, remote
 	if err != nil {
 		return err
 	}
-	if len(podList.Items) != 1 {
-		return fmt.Errorf("Incorrect number of pods returned for selector %v: %d", podNameSelector, len(podList.Items))
+	if len(podList.Items) == 0 {
+		return fmt.Errorf("No pods found for selector %v", podNameSelector)
 	}
 
 	url := f.client.Post().
