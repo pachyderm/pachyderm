@@ -13,9 +13,6 @@ while getopts ":v:r" opt; do
     v)
       VERSION="v${OPTARG}"
       ;;
-    r)
-      minikube_args+=("--extra-config=apiserver.Authorization.Mode=RBAC")
-      ;;
     \?)
       echo "Invalid argument: ${opt}"
       exit 1
