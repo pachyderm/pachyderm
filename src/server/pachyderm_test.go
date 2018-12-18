@@ -3825,7 +3825,6 @@ func TestPodSpecOpts(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPodSpecOpts_data")
 	pipelineName := tu.UniqueString("TestPodSpecOpts")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	priorityClassName := "system-cluster-critical"
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -3851,7 +3850,6 @@ func TestPodSpecOpts(t *testing.T) {
 				NodeSelector: map[string]string{
 					"foo": "bar",
 				},
-				PriorityClassName: priorityClassName,
 			},
 			PodSpec: `{
 				"hostname": "hostname"
@@ -3884,8 +3882,6 @@ func TestPodSpecOpts(t *testing.T) {
 	require.NoError(t, err)
 	// Make sure a CPU and Memory request are both set
 	require.Equal(t, "bar", pod.Spec.NodeSelector["foo"])
-	// TODO reenable this when we test on a more recent version of k8s
-	// require.Equal(t, priorityClassName, pod.Spec.PriorityClassName)
 	require.Equal(t, "hostname", pod.Spec.Hostname)
 }
 
