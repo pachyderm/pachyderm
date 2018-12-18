@@ -137,6 +137,7 @@ message FileInfo {
   File file = 1;
   FileType file_type = 2;
   uint64 size_bytes = 3;
+  google.protobuf.Timestamp committed = 10;
   // the base names (i.e. just the filenames, not the full paths) of
   // the children
   repeated string children = 6;
