@@ -50,17 +50,17 @@ func TestPutFileSplit(t *testing.T) {
 		bob,baker
 		EOF
 
-		pachctl get-file {{.repo}} master /data/*0 \
+		pachctl get-file {{.repo}} master "/data/*0" \
 		  | match "name,job" \
 			| match "alice,accountant" \
 			| match -v "bob,baker"
 
-		pachctl get-file {{.repo}} master /data/*1 \
+		pachctl get-file {{.repo}} master "/data/*1" \
 		  | match "name,job" \
 			| match -v "alice,accountant" \
 			| match "bob,baker"
 
-		pachctl get-file {{.repo}} master /data/* \
+		pachctl get-file {{.repo}} master "/data/*" \
 		  | match "name,job" \
 			| match "alice,accountant" \
 			| match "bob,baker"
