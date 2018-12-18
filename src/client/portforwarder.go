@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	daemonLocalPort = 30650
+	pachdLocalPort = 30650
 	samlAcsLocalPort = 30654
 	dashUILocalPort = 30080
 	dashWebSocketLocalPort = 30081
@@ -136,7 +136,7 @@ func (f *PortForwarder) Run(podNameSelector map[string]string, localPort, remote
 // RunForDaemon creates a port forwarder for the pachd daemon.
 func (f *PortForwarder) RunForDaemon(localPort int) error {
 	if localPort == 0 {
-		localPort = daemonLocalPort
+		localPort = pachdLocalPort
 	}
 	return f.Run(map[string]string{"app": "pachd"}, localPort, 650)
 }
