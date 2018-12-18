@@ -1,0 +1,4 @@
+**/vendor/**
+*.pb.go
+*.ipynb
+examples/jupyter_notebook/weather_data
