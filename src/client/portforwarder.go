@@ -14,8 +14,8 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	"k8s.io/client-go/rest"
-    "k8s.io/client-go/tools/clientcmd"
-    corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/clientcmd"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -46,12 +46,12 @@ func NewPortForwarder(namespace string, stdout, stderr io.Writer) (*PortForwarde
 	}
 
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-    overrides := &clientcmd.ConfigOverrides{}
-    kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
-    config, err := kubeConfig.ClientConfig()
-    if err != nil {
-    	return nil, err
-    }
+	overrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
+	config, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
