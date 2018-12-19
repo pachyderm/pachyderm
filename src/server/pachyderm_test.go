@@ -3582,8 +3582,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 	mem, ok := container.Resources.Requests[v1.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
-	require.False(t, ok)
 	// TODO reenable this once we test against kube 1.12
 	// disk, ok := container.Resources.Requests[v1.ResourceStorage]
 	// require.True(t, ok)
@@ -3656,12 +3654,9 @@ func TestPipelineResourceLimit(t *testing.T) {
 	mem, ok := container.Resources.Limits[v1.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
-	require.False(t, ok)
 }
 
 func TestPipelineResourceLimitDefaults(t *testing.T) {
-	// We need to make sure GPU is set to 0 for k8s 1.8
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3716,8 +3711,6 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 		return nil // no more retries
 	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
-	_, ok := container.Resources.Requests[v1.ResourceNvidiaGPU]
-	require.False(t, ok)
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
