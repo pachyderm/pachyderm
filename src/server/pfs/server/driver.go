@@ -2565,14 +2565,15 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 
 // If full is false, exclude potentially large fields such as `Objects`
 // and `Children`
-func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, full bool) *pfs.FileInfo {
+func nodeToFileInfo(ci *pfs.CommitInfo, path string, node *hashtree.NodeProto, full bool) *pfs.FileInfo {
 	fileInfo := &pfs.FileInfo{
 		File: &pfs.File{
-			Commit: commit,
+			Commit: ci.Commit,
 			Path:   path,
 		},
 		SizeBytes: uint64(node.SubtreeSize),
 		Hash:      node.Hash,
+		Committed: ci.Finished,
 	}
 	if node.FileNode != nil {
 		fileInfo.FileType = pfs.FileType_FILE
@@ -2592,10 +2593,10 @@ func nodeToFileInfo(commit *pfs.Commit, path string, node *hashtree.NodeProto, f
 // nodeToFileInfoHeaderFooter is like nodeToFileInfo, but handles the case (which
 // currently only occurs in input commits) where files have a header that is
 // stored in their parent directory
-func nodeToFileInfoHeaderFooter(commit *pfs.Commit, filePath string,
+func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 	node *hashtree.NodeProto, tree hashtree.HashTree, full bool) (*pfs.FileInfo, error) {
 	if node.FileNode == nil || !node.FileNode.HasHeaderFooter {
-		return nodeToFileInfo(commit, filePath, node, full), nil
+		return nodeToFileInfo(ci, filePath, node, full), nil
 	}
 	node = proto.Clone(node).(*hashtree.NodeProto)
 	// validate baseFileInfo for logic below--if input hashtrees start using
@@ -2640,7 +2641,7 @@ func nodeToFileInfoHeaderFooter(commit *pfs.Commit, filePath string,
 	node.FileNode.Objects = newObjects
 	node.SubtreeSize += s.HeaderSize + s.FooterSize
 	node.Hash = hashtree.HashFileNode(node.FileNode)
-	return nodeToFileInfo(commit, filePath, node, full), nil
+	return nodeToFileInfo(ci, filePath, node, full), nil
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
@@ -2661,7 +2662,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		if err != nil {
 			return nil, pfsserver.ErrFileNotFound{file}
 		}
-		return nodeToFileInfoHeaderFooter(file.Commit, file.Path, node, tree, true)
+		return nodeToFileInfoHeaderFooter(commitInfo, file.Path, node, tree, true)
 	}
 	// Handle commits to output repos
 	if commitInfo.Finished == nil {
@@ -2685,10 +2686,10 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 	if err != nil {
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
-	return nodeToFileInfo(file.Commit, file.Path, node, true), nil
+	return nodeToFileInfo(commitInfo, file.Path, node, true), nil
 }
 
-func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, f func(*pfs.FileInfo) error) (retErr error) {
+func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfo) error) (retErr error) {
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -2709,7 +2710,10 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		}
 		return tree.Glob(file.Path, func(rootPath string, rootNode *hashtree.NodeProto) error {
 			if rootNode.DirNode == nil {
-				fi, err := nodeToFileInfoHeaderFooter(file.Commit, rootPath, rootNode, tree, full)
+				if history != 0 {
+					return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, rootPath), history, f)
+				}
+				fi, err := nodeToFileInfoHeaderFooter(commitInfo, rootPath, rootNode, tree, full)
 				if err != nil {
 					return err
 				}
@@ -2721,7 +2725,10 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 					// Don't return the file now, it will be returned later by Glob
 					return nil
 				}
-				fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, full)
+				if history != 0 {
+					return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), history, f)
+				}
+				fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, full)
 				if err != nil {
 					return err
 				}
@@ -2748,8 +2755,46 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		}
 	}()
 	return hashtree.List(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
-		return f(nodeToFileInfo(file.Commit, path, node, full))
+		if history != 0 {
+			return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), history, f)
+		}
+		return f(nodeToFileInfo(commitInfo, path, node, full))
 	})
+}
+
+// fileHistory calls f with FileInfos for the file, starting with how it looked
+// at the referenced commit and then all past versions that are different.
+func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, history int64, f func(*pfs.FileInfo) error) error {
+	var fi *pfs.FileInfo
+	for {
+		_fi, err := d.inspectFile(pachClient, file)
+		if err != nil {
+			if _, ok := err.(pfsserver.ErrFileNotFound); ok {
+				return f(fi)
+			}
+			return err
+		}
+		if fi != nil && bytes.Compare(fi.Hash, _fi.Hash) != 0 {
+			if err := f(fi); err != nil {
+				return err
+			}
+			if history > 0 {
+				history--
+				if history == 0 {
+					return nil
+				}
+			}
+		}
+		fi = _fi
+		ci, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+		if err != nil {
+			return err
+		}
+		if ci.ParentCommit == nil {
+			return f(fi)
+		}
+		file.Commit = ci.ParentCommit
+	}
 }
 
 func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*pfs.FileInfo) error) (retErr error) {
@@ -2767,7 +2812,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 			return err
 		}
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
-			fi, err := nodeToFileInfoHeaderFooter(file.Commit, path, node, tree, false)
+			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
 				return err
 			}
@@ -2793,7 +2838,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 		}
 	}()
 	return hashtree.Walk(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
-		return f(nodeToFileInfo(file.Commit, path, node, false))
+		return f(nodeToFileInfo(commitInfo, path, node, false))
 	})
 }
 
@@ -2812,7 +2857,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 			return err
 		}
 		return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
-			fi, err := nodeToFileInfoHeaderFooter(commit, path, node, tree, false)
+			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
 				return err
 			}
@@ -2844,7 +2889,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		}
 	}()
 	return hashtree.Glob(rs, pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
-		return f(nodeToFileInfo(commit, rootPath, rootNode, false))
+		return f(nodeToFileInfo(commitInfo, rootPath, rootNode, false))
 	})
 }
 
@@ -2864,17 +2909,21 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	if err != nil {
 		return nil, nil, err
 	}
+	newCommitInfo, err := d.inspectCommit(pachClient, newFile.Commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return nil, nil, err
+	}
 	// if oldFile is new we use the parent of newFile
 	if oldFile == nil {
 		oldFile = &pfs.File{}
-		newCommitInfo, err := d.inspectCommit(pachClient, newFile.Commit, pfs.CommitState_STARTED)
-		if err != nil {
-			return nil, nil, err
-		}
 		// ParentCommit may be nil, that's fine because getTreeForCommit
 		// handles nil
 		oldFile.Commit = newCommitInfo.ParentCommit
 		oldFile.Path = newFile.Path
+	}
+	oldCommitInfo, err := d.inspectCommit(pachClient, oldFile.Commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return nil, nil, err
 	}
 	oldTree, err := d.getTreeForFile(pachClient, oldFile)
 	if err != nil {
@@ -2888,13 +2937,13 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	}
 	if err := newTree.Diff(oldTree, newFile.Path, oldFile.Path, int64(recursiveDepth), func(path string, node *hashtree.NodeProto, isNewFile bool) error {
 		if isNewFile {
-			fi, err := nodeToFileInfoHeaderFooter(newFile.Commit, path, node, newTree, false)
+			fi, err := nodeToFileInfoHeaderFooter(newCommitInfo, path, node, newTree, false)
 			if err != nil {
 				return err
 			}
 			newFileInfos = append(newFileInfos, fi)
 		} else {
-			fi, err := nodeToFileInfoHeaderFooter(oldFile.Commit, path, node, oldTree, false)
+			fi, err := nodeToFileInfoHeaderFooter(oldCommitInfo, path, node, oldTree, false)
 			if err != nil {
 				return err
 			}

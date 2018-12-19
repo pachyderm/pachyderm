@@ -1,5 +1,7 @@
 syntax = "proto3";
+
 package pfs;
+option go_package = "github.com/pachyderm/pachyderm/src/client/pfs";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -135,6 +137,7 @@ message FileInfo {
   File file = 1;
   FileType file_type = 2;
   uint64 size_bytes = 3;
+  google.protobuf.Timestamp committed = 10;
   // the base names (i.e. just the filenames, not the full paths) of
   // the children
   repeated string children = 6;
@@ -382,6 +385,19 @@ message ListFileRequest {
   // be large (i.e. the list of children for directories, and the list of object
   // references for regular files)
   bool full = 2;
+
+  // History indicates how many historical versions you want returned. Its
+  // semantics are:
+  // 0: Return the files as they are at the commit in `file`. FileInfo.File
+  //    will equal File in this request.
+  // 1: Return the files as they are in the last commit they were modified in.
+  //    (This will have the same hash as if you'd passed 0, but
+  //    FileInfo.File.Commit will be different.
+  // 2: Return the above and the files as they are in the next-last commit they
+  //    were modified in.
+  // 3: etc.
+  //-1: Return all historical versions.
+  int64 history = 3;
 }
 
 message WalkFileRequest {

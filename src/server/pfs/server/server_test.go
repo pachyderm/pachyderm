@@ -4673,3 +4673,42 @@ func TestPutFilesObjURL(t *testing.T) {
 		require.Equal(t, path, b.String())
 	}
 }
+
+func TestFileHistory(t *testing.T) {
+	client := GetPachClient(t)
+	var err error
+
+	repo := "test"
+	require.NoError(t, client.CreateRepo(repo))
+	numCommits := 5
+	for i := 0; i < numCommits; i++ {
+		_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
+	fileInfos, err := client.ListFileHistory(repo, "master", "file", -1)
+	require.NoError(t, err)
+	require.Equal(t, numCommits, len(fileInfos))
+
+	for i := 1; i < numCommits; i++ {
+		fileInfos, err := client.ListFileHistory(repo, "master", "file", int64(i))
+		require.NoError(t, err)
+		require.Equal(t, i, len(fileInfos))
+	}
+
+	require.NoError(t, client.DeleteFile(repo, "master", "file"))
+	for i := 0; i < numCommits; i++ {
+		_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+		_, err = client.PutFile(repo, "master", "unrelated", strings.NewReader("foo\n"))
+		require.NoError(t, err)
+	}
+	fileInfos, err = client.ListFileHistory(repo, "master", "file", -1)
+	require.NoError(t, err)
+	require.Equal(t, numCommits, len(fileInfos))
+
+	for i := 1; i < numCommits; i++ {
+		fileInfos, err := client.ListFileHistory(repo, "master", "file", int64(i))
+		require.NoError(t, err)
+		require.Equal(t, i, len(fileInfos))
+	}
+}
