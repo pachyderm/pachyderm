@@ -3711,6 +3711,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 		return nil // no more retries
 	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
+	require.Nil(t, container.Resources.Limits)
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
