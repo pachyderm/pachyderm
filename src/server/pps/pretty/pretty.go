@@ -55,7 +55,11 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
-	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
+	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
+		fmt.Fprintf(w, "%s: %s\t\n", jobState(jobInfo.State), jobInfo.Reason)
+	} else {
+		fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
+	}
 }
 
 // PrintPipelineHeader prints a pipeline header.
