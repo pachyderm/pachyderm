@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.1
+
+- Adds support for viewing file history via the `--history` flag to `list-file` (#3277, #3299).
+- Adds a new job state, `merging` which indicates that a job has finished processing everything and is merging the results together (#3261).
+- Fixes a bug that prevented s3 `put-file` from working (#3273).
+- `atom` inputs have been renamed to `pfs` inputs. They behave the same, `atom` still works but is deprecated and will be removed in 1.9.0 (#3258).
+- Removed `message` and `description` from `put-file`, they don't work with the new multi `put-file` features and weren't commonly used enough to reimplement. For similar functionality use `start-commit` (#3251).
+
 ## 1.8.0
 
 - Completely rewritten hashtree backend that provides massive performance boosts.
