@@ -23,7 +23,7 @@ If we just put this into Pachyderm as a single file, we could not subsequently p
 The `put-file` API includes an option for splitting up the file into separate datums automatically.  You can do this with the `pachctl` CLI tool via the `--split` flag on `put-file`.  For example, to automatically split the `user_data.csv` file up into separate datums for each line, you could execute the following:
 
 ```
-$ pachctl put-file users master -c -f user_data.csv --split line --target-file-datums 1
+$ pachctl put-file users master -f user_data.csv --split line --target-file-datums 1
 ```  
 
 The `--split line` argument specifies that Pachyderm should split this file on lines, and the `--target-file-datums 1` arguments specifies that each resulting file should include at most one "datum" (or one line).  Note, that Pachyderm will still show the `user_data.csv` entity to you as one entity in the repo:
@@ -56,15 +56,15 @@ This is, of course, just one example.  Right now, Pachyderm supports this type o
 ```
 # Split a json file on json blobs, putting
 # each json blob into it's own file.
-$ pachctl put-file users master -c -f user_data.json --split json --target-file-datums 1
+$ pachctl put-file users master -f user_data.json --split json --target-file-datums 1
 
 # Split a json file on json blobs, putting
 # 3 json blobs into each split file.
-$ pachctl put-file users master -c -f user_data.json --split json --target-file-datums 3
+$ pachctl put-file users master -f user_data.json --split json --target-file-datums 3
 
 # Split a file on lines, putting each 100 
 # bytes chunk into the split files.
-$ pachctl put-file users master -c -f user_data.txt --split line --target-file-bytes 100
+$ pachctl put-file users master -f user_data.txt --split line --target-file-bytes 100
 ```  
 
 ## Specifying Header/Footer

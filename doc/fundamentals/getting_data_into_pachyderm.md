@@ -105,7 +105,7 @@ $ pachctl put-file <repo> <branch> -i <file containing list of files, paths, or 
 Pipe data from stdin into a data repository:
 
 ```sh
-$ echo "data" | pachctl put-file <repo> <branch> </path/to/file> -c
+$ echo "data" | pachctl put-file <repo> <branch> -f </path/to/file>
 ```
 
 Add an entire directory or all of the contents at a particular URL (either
@@ -113,7 +113,7 @@ HTTP(S) or object store URL, `s3://`, `gcs://`, and `as://`) by using the
 recursive flag, `-r`:
 
 ```sh
-$ pachctl put-file <repo> <branch> -r <dir>
+$ pachctl put-file <repo> <branch> -r  -f <dir>
 ```
 
 ### Pachyderm Language Clients

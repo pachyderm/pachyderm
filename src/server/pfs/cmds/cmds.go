@@ -850,6 +850,7 @@ $ pachctl get-file foo master^2 XXX
 	}
 	rawFlag(inspectFile)
 
+	var history int64
 	listFile := &cobra.Command{
 		Use:   "list-file repo-name commit-id path/to/dir",
 		Short: "Return the files in a directory.",
@@ -860,8 +861,8 @@ Examples:
 ` + codestart + `# list top-level files on branch "master" in repo "foo"
 $ pachctl list-file foo master
 
-# list files under path XXX on branch "master" in repo "foo"
-$ pachctl list-file foo master XXX
+# list files under directory "dir" on branch "master" in repo "foo"
+$ pachctl list-file foo master dir
 
 # list top-level files in the parent commit of the current head of "master"
 # in repo "foo"
@@ -870,6 +871,12 @@ $ pachctl list-file foo master^
 # list top-level files in the grandparent of the current head of "master"
 # in repo "foo"
 $ pachctl list-file foo master^2
+
+# list the last n versions of top-level files on branch "master" in repo "foo"
+$ pachctl list-file foo master --history n
+
+# list all versions of top-level files on branch "master" in repo "foo"
+$ pachctl list-file foo master --history -1
 ` + codeend,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) error {
 			client, err := client.NewOnUserMachine(metrics, "user")
@@ -881,12 +888,12 @@ $ pachctl list-file foo master^2
 				path = args[2]
 			}
 			if raw {
-				return client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+				return client.ListFileF(args[0], args[1], path, history, func(fi *pfsclient.FileInfo) error {
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-			if err := client.ListFileF(args[0], args[1], path, func(fi *pfsclient.FileInfo) error {
+			if err := client.ListFileF(args[0], args[1], path, history, func(fi *pfsclient.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi)
 				return nil
 			}); err != nil {
@@ -896,6 +903,7 @@ $ pachctl list-file foo master^2
 		}),
 	}
 	rawFlag(listFile)
+	listFile.Flags().Int64Var(&history, "history", 0, "Return revision history for files.")
 
 	globFile := &cobra.Command{
 		Use:   "glob-file repo-name commit-id pattern",
