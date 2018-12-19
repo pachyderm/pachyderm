@@ -105,7 +105,7 @@ $ pachctl put-file <repo> <branch> -i <file containing list of files, paths, or 
 Pipe data from stdin into a data repository:
 
 ```sh
-$ echo "data" | pachctl put-file <repo> <branch> </path/to/file> -c
+$ echo "data" | pachctl put-file <repo> <branch> -f </path/to/file>
 ```
 
 Add an entire directory or all of the contents at a particular URL (either
