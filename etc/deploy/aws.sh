@@ -332,7 +332,6 @@ config_path="${HOME}/.pachyderm/config.json"
 [[ -d "${HOME}/.pachyderm" ]] || mkdir "${HOME}/.pachyderm"
 [[ -e "${config_path}" ]] || {
   echo '{}' >"${config_path}"
-  chmod 777 "${config_path}"
 }
 tmpfile="$(mktemp $(pwd)/tmp.XXXXXXXXXX)"
 jq --monochrome-output \
@@ -340,6 +339,7 @@ jq --monochrome-output \
   "${config_path}" \
   >"${tmpfile}"
 mv "${tmpfile}" "${config_path}"
+chmod 777 "${config_path}"
 
 echo "Cluster address has been written to ${config_path}"
 echo "Cluster info has been written to ${cluster_info_path}"
