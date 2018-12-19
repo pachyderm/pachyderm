@@ -342,4 +342,3 @@ mv "${tmpfile}" "${config_path}"
 chmod 777 "${config_path}"
 
 echo "Cluster address has been written to ${config_path}"
-echo "Cluster info has been written to ${cluster_info_path}"
