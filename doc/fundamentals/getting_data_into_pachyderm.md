@@ -113,7 +113,7 @@ HTTP(S) or object store URL, `s3://`, `gcs://`, and `as://`) by using the
 recursive flag, `-r`:
 
 ```sh
-$ pachctl put-file <repo> <branch> -r <dir>
+$ pachctl put-file <repo> <branch> -r  -f <dir>
 ```
 
 ### Pachyderm Language Clients
