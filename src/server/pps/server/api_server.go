@@ -1330,12 +1330,16 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 				if !request.Follow {
 					defer mu.Unlock()
 				}
+				tailLines := &request.Tail
+				if *tailLines <= 0 {
+					tailLines = nil
+				}
 				// Get full set of logs from pod i
 				stream, err := a.kubeClient.CoreV1().Pods(a.namespace).GetLogs(
 					pod.ObjectMeta.Name, &v1.PodLogOptions{
 						Container: containerName,
 						Follow:    request.Follow,
-						TailLines: &request.Tail,
+						TailLines: tailLines,
 					}).Timeout(10 * time.Second).Stream()
 				if err != nil {
 					if apiStatus, ok := err.(errors.APIStatus); ok &&
