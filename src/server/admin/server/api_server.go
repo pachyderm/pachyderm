@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	pathlib "path"
 	"sync"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
@@ -439,47 +437,6 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 	return nil
 }
 
-func (a *apiServer) convertHashTree(old *hashtree_1_7.HashTreeProto) (hashtree.HashTree, error) {
-	t, err := hashtree.NewDBHashTree(a.storageRoot)
-	if err != nil {
-		return nil, fmt.Errorf("could not create converted hashtree: %v", err)
-	}
-	var convert func(path string) error // forward-declare b/c recursive
-	convert = func(path string) error {
-		path = hashtree.Clean(path)
-		node, ok := old.Fs[path]
-		if !ok {
-			return fmt.Errorf("expected node at %q, but found none", path)
-		}
-		switch {
-		case node.FileNode != nil:
-			if err := t.PutFile(
-				path,
-				convert1_7Objects(node.FileNode.Objects),
-				node.SubtreeSize,
-			); err != nil {
-				return fmt.Errorf("could not convert file %q: %v", path, err)
-			}
-		case node.DirNode != nil:
-			if err := t.PutDir(path); err != nil {
-				return fmt.Errorf("could not convert directory %q: %v", path, err)
-			}
-			for _, child := range node.DirNode.Children {
-				if err := convert(pathlib.Join(path, child)); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-
-	// empty string is the root node -- start converting there
-	if err := convert(""); err != nil {
-		return nil, err
-	}
-	return t, nil
-}
-
 func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) error {
 	switch {
 	case op.Tag != nil:
@@ -512,10 +469,11 @@ func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) er
 		}
 		var oldTree hashtree_1_7.HashTreeProto
 		oldTree.Unmarshal(buf.Bytes())
-		newTree, err := a.convertHashTree(&oldTree)
+		newTree, err := convert1_7HashTree(a.storageRoot, &oldTree)
 		if err != nil {
 			return err
 		}
+		defer newTree.Destroy()
 
 		// write new hashtree as an object
 		w, err := pachClient.PutObjectAsync(nil)
