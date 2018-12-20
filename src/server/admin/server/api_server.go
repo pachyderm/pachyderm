@@ -387,7 +387,9 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
-				a.apply1_7Op(pachClient, op.Op1_7)
+				if err := a.apply1_7Op(pachClient, op.Op1_7); err != nil {
+					return err
+				}
 			}
 		} else if op.Op1_8 != nil {
 			if op.Op1_8.Object != nil {
@@ -400,7 +402,9 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
-				a.apply1_8Op(pachClient, op.Op1_8)
+				if err := a.apply1_8Op(pachClient, op.Op1_8); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -435,23 +439,45 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 	return nil
 }
 
-func (a *apiServer) convertHashTree(old *hashtree_1_7.HashTreeProto) hashtree.HashTree {
+func (a *apiServer) convertHashTree(old *hashtree_1_7.HashTreeProto) (hashtree.HashTree, error) {
 	t, err := hashtree.NewDBHashTree(a.storageRoot)
-	var create func(path string) // forward-declare create b/c it's recursive
-	create = func(path string) {
-		node := old.Fs[path]
+	if err != nil {
+		return nil, fmt.Errorf("could not create converted hashtree: %v", err)
+	}
+	var convert func(path string) error // forward-declare b/c recursive
+	convert = func(path string) error {
+		path = hashtree.Clean(path)
+		node, ok := old.Fs[path]
+		if !ok {
+			return fmt.Errorf("expected node at %q, but found none", path)
+		}
 		switch {
 		case node.FileNode != nil:
-			t.PutFile(path, convert1_7Objects(node.FileNode.Objects), node.SubtreeSize)
+			if err := t.PutFile(
+				path,
+				convert1_7Objects(node.FileNode.Objects),
+				node.SubtreeSize,
+			); err != nil {
+				return fmt.Errorf("could not convert file %q: %v", path, err)
+			}
 		case node.DirNode != nil:
-			t.PutDir(path)
+			if err := t.PutDir(path); err != nil {
+				return fmt.Errorf("could not convert directory %q: %v", path, err)
+			}
 			for _, child := range node.DirNode.Children {
-				create(pathlib.Join(path, child))
+				if err := convert(pathlib.Join(path, child)); err != nil {
+					return err
+				}
 			}
 		}
+		return nil
 	}
-	create("") // empty string is the root node
-	return t
+
+	// empty string is the root node -- start converting there
+	if err := convert(""); err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) error {
@@ -486,7 +512,10 @@ func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) er
 		}
 		var oldTree hashtree_1_7.HashTreeProto
 		oldTree.Unmarshal(buf.Bytes())
-		newTree := a.convertHashTree(&oldTree)
+		newTree, err := a.convertHashTree(&oldTree)
+		if err != nil {
+			return err
+		}
 
 		// write new hashtree as an object
 		w, err := pachClient.PutObjectAsync(nil)
@@ -621,24 +650,23 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 		op := request.Op
 		if r.version != version(op) {
 			return 0, fmt.Errorf("cannot mix different versions of pachd operation "+
-				"within a metadata dumps (found both %s and %s)", version(op), streamVersion)
+				"within a metadata dumps (found both %s and %s)", version(op), r.version)
 		}
 
 		// extract object bytes
-		var obj *pfs.PutObjectRequest
-		switch version {
-		case v1_7:
-			obj = op.Op1_7.Object
-		case v1_8:
-			obj = op.Op1_8.Object
+		var value []byte
+		if op.Op1_7.Object == nil && op.Op1_8.Object == nil {
+			return 0, fmt.Errorf("expected an object, but got: %v", op)
+		} else if r.version == v1_7 {
+			value = op.Op1_7.Object.Value
+		} else {
+			value = op.Op1_8.Object.Value
 		}
 
-		if obj == nil {
-			return 0, fmt.Errorf("expected an object, but got: %v", op)
-		}
-		r.buf.Write(obj.Value)
-		if len(obj.Value) == 0 {
+		if len(value) == 0 {
 			r.eof = true
+		} else {
+			r.buf.Write(value)
 		}
 	}
 	return r.buf.Read(p)
