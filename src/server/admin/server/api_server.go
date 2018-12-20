@@ -305,7 +305,6 @@ func pipelineInfoToRequest(pi *pps.PipelineInfo) *pps.CreatePipelineRequest {
 		ChunkSpec:          pi.ChunkSpec,
 		DatumTimeout:       pi.DatumTimeout,
 		JobTimeout:         pi.JobTimeout,
-		Salt:               pi.Salt,
 	}
 }
 
@@ -430,6 +429,9 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 			return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 		}
 	case op.Pipeline != nil:
+		if op.Pipeline.Salt != "" {
+			op.Pipeline.Salt = "" // clear salt so we don't re-use old datum hashtrees
+		}
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 		}
@@ -543,11 +545,11 @@ func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) er
 			ChunkSpec:          convert1_7ChunkSpec(op.Pipeline.ChunkSpec),
 			DatumTimeout:       op.Pipeline.DatumTimeout,
 			JobTimeout:         op.Pipeline.JobTimeout,
-			Salt:               op.Pipeline.Salt,
 			Standby:            op.Pipeline.Standby,
 			DatumTries:         op.Pipeline.DatumTries,
 			SchedulingSpec:     convert1_7SchedulingSpec(op.Pipeline.SchedulingSpec),
 			PodSpec:            op.Pipeline.PodSpec,
+			// Note - don't set Salt, so we don't re-use old datum hashtrees
 		}
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(
 			pachClient.Ctx(),
