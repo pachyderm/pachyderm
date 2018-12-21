@@ -53,6 +53,7 @@ func (v opVersion) String() string {
 	}
 	return "undefined"
 }
+
 func version(op *admin.Op) opVersion {
 	switch {
 	case op.Op1_7 != nil:
