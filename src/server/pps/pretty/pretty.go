@@ -21,7 +21,7 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "NAME\tINPUT\tOUTPUT\tCREATED\tSTATE\t\n"
+	PipelineHeader = "NAME\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
@@ -67,9 +67,8 @@ func PrintPipelineHeader(w io.Writer) {
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
-	fmt.Fprintf(w, "%s/%s\t", pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)
 	fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
-	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
+	fmt.Fprintf(w, "%s / %s\t\n", pipelineState(pipelineInfo.State), jobState(pipelineInfo.LastJobState))
 }
 
 // PrintWorkerStatusHeader pretty prints a worker status header.
