@@ -115,12 +115,14 @@ Worker Status:
 {{workerStatus .}}Restarts: {{.Restart}}
 ParallelismSpec: {{.ParallelismSpec}}
 {{ if .ResourceRequests }}ResourceRequests:
-	CPU: {{ .ResourceRequests.Cpu }}
-	Memory: {{ .ResourceRequests.Memory }} {{end}}
+  CPU: {{ .ResourceRequests.Cpu }}
+  Memory: {{ .ResourceRequests.Memory }} {{end}}
 {{ if .ResourceLimits }}ResourceLimits:
-	CPU: {{ .ResourceLimits.Cpu }}
-	Memory: {{ .ResourceLimits.Memory }}
-	GPU: {{ .ResourceLimits.Gpu }} {{end}}
+  CPU: {{ .ResourceLimits.Cpu }}
+  Memory: {{ .ResourceLimits.Memory }}
+  {{ if .ResourceLimits.Gpu }}GPU:
+    Type: {{ .ResourceLimits.Gpu.Type }} 
+    Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}
 	{{ if .Service.ExternalPort }}ExternalPort: {{ .Service.ExternalPort }} {{end}} {{end}}Input:
@@ -152,12 +154,14 @@ Stopped: {{ .Stopped }}
 Reason: {{.Reason}}
 Parallelism Spec: {{.ParallelismSpec}}
 {{ if .ResourceRequests }}ResourceRequests:
-	CPU: {{ .ResourceRequests.Cpu }}
-	Memory: {{ .ResourceRequests.Memory }} {{end}}
+  CPU: {{ .ResourceRequests.Cpu }}
+  Memory: {{ .ResourceRequests.Memory }} {{end}}
 {{ if .ResourceLimits }}ResourceLimits:
-	CPU: {{ .ResourceLimits.Cpu }}
-	Memory: {{ .ResourceLimits.Memory }}
-	GPU: {{ .ResourceLimits.Gpu }} {{end}}
+  CPU: {{ .ResourceLimits.Cpu }}
+  Memory: {{ .ResourceLimits.Memory }}
+  {{ if .ResourceLimits.Gpu }}GPU:
+    Type: {{ .ResourceLimits.Gpu.Type }} 
+    Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
 Datum Timeout: {{.DatumTimeout}}
 Job Timeout: {{.JobTimeout}}
 Input:

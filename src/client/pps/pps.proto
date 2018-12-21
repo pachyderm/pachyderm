@@ -208,6 +208,8 @@ message WorkerStatus {
 // ResourceSpec describes the amount of resources that pipeline pods should
 // request from kubernetes, for scheduling.
 message ResourceSpec {
+  reserved 3;
+
   // The number of CPUs each worker needs (partial values are allowed, and
   // encouraged)
   float cpu = 1;
@@ -216,12 +218,19 @@ message ResourceSpec {
   // SI suffixes (M, K, G, Mi, Ki, Gi, etc).
   string memory = 2;
 
-  // The number of GPUs each worker needs.
-  int64 gpu = 3;
+  // The spec for GPU resources.
+  GPUSpec gpu = 5;
 
   // The amount of ephemeral storage each worker needs (in bytes, with allowed
   // SI suffixes (M, K, G, Mi, Ki, Gi, etc).
   string disk = 4;
+}
+
+message GPUSpec {
+  // The type of GPU (nvidia.com/gpu or amd.com/gpu for example).
+  string type = 1;
+  // The number of GPUs to request.
+  int64 number = 2;
 }
 
 // EtcdJobInfo is the portion of the JobInfo that gets stored in etcd during

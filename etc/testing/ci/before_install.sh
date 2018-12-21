@@ -12,20 +12,18 @@ cp etc/build/fuse.conf /etc/fuse.conf
 chown root:$USER /etc/fuse.conf
 
 # Install kubectl
-# Latest as of 5/30/2018
 # To get the latest kubectl version:
 # curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt
-KUBECTL_VERSION=v1.10.3
+KUBECTL_VERSION=v1.13.0
 curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
     chmod +x ./kubectl && \
     sudo mv ./kubectl /usr/local/bin/kubectl
 kubectl version --client
 
 # Install minikube
-# Latest as of 8/7/2018
 # To get the latest minikube version:
 # curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort | tail -n1
-MINIKUBE_VERSION=v0.28.2
+MINIKUBE_VERSION=v0.31.0
 curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
     chmod +x ./minikube && \
     sudo mv ./minikube /usr/local/bin/minikube
