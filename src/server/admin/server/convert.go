@@ -298,42 +298,39 @@ func clean1_7HashtreePath(p string) string {
 	return default1_7HashtreeRoot(pathlib.Clean(p))
 }
 
+func convert1_7HashTreeNode(old *hashtree_1_7.HashTreeProto, t hashtree.HashTree, path string) error {
+	path = clean1_7HashtreePath(path)
+	node, ok := old.Fs[path]
+	if !ok {
+		return fmt.Errorf("expected node at %q, but found none", path)
+	}
+	switch {
+	case node.FileNode != nil:
+		if err := t.PutFile(
+			path,
+			convert1_7Objects(node.FileNode.Objects),
+			node.SubtreeSize,
+		); err != nil {
+			return fmt.Errorf("could not convert file %q: %v", path, err)
+		}
+	case node.DirNode != nil:
+		if err := t.PutDir(path); err != nil {
+			return fmt.Errorf("could not convert directory %q: %v", path, err)
+		}
+		for _, child := range node.DirNode.Children {
+			if err := convert1_7HashTreeNode(old, t, pathlib.Join(path, child)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 func convert1_7HashTree(storageRoot string, old *hashtree_1_7.HashTreeProto) (hashtree.HashTree, error) {
 	t, err := hashtree.NewDBHashTree(storageRoot)
 	if err != nil {
 		return nil, fmt.Errorf("could not create converted hashtree: %v", err)
 	}
-	var convert func(path string) error // forward-declare b/c recursive
-	convert = func(path string) error {
-		path = clean1_7HashtreePath(path)
-		node, ok := old.Fs[path]
-		if !ok {
-			return fmt.Errorf("expected node at %q, but found none", path)
-		}
-		switch {
-		case node.FileNode != nil:
-			if err := t.PutFile(
-				path,
-				convert1_7Objects(node.FileNode.Objects),
-				node.SubtreeSize,
-			); err != nil {
-				return fmt.Errorf("could not convert file %q: %v", path, err)
-			}
-		case node.DirNode != nil:
-			if err := t.PutDir(path); err != nil {
-				return fmt.Errorf("could not convert directory %q: %v", path, err)
-			}
-			for _, child := range node.DirNode.Children {
-				if err := convert(pathlib.Join(path, child)); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-
-	// empty string is the root node -- start converting there
-	if err := convert(""); err != nil {
+	if err := convert1_7HashTreeNode(old, t, "/"); err != nil {
 		return nil, err
 	}
 	t.Hash() // canonicalize 't'
