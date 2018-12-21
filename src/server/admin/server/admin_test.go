@@ -14,7 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
+	versionlib "github.com/pachyderm/pachyderm/src/client/version"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 )
@@ -186,7 +186,7 @@ func TestExtractVersion(t *testing.T) {
 			}
 			versions++
 			if strings.HasSuffix(fDesc.Name,
-				fmt.Sprintf("%d_%d", version.MajorVersion, version.MinorVersion)) {
+				fmt.Sprintf("%d_%d", versionlib.MajorVersion, versionlib.MinorVersion)) {
 				require.False(t, opV.Field(i).IsNil())
 				nonemptyVersions++
 			} else {
