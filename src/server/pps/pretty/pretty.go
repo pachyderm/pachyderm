@@ -23,7 +23,7 @@ const (
 	// PipelineHeader is the header for pipelines.
 	PipelineHeader = "NAME\tINPUT\tOUTPUT\tCREATED\tSTATE\t\n"
 	// JobHeader is the header for jobs
-	JobHeader = "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tSTATUS\tTIME\t\n"
 )
@@ -38,13 +38,7 @@ func PrintJobHeader(w io.Writer) {
 // PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
-	if jobInfo.OutputCommit != nil {
-		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-	} else if jobInfo.Pipeline != nil {
-		fmt.Fprintf(w, "%s/-\t", jobInfo.Pipeline.Name)
-	} else {
-		fmt.Fprintf(w, "-\t")
-	}
+	fmt.Fprintf(w, "%s\t", jobInfo.Pipeline.Name)
 	fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
 	if jobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(jobInfo.Started, jobInfo.Finished))
