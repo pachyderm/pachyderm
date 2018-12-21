@@ -26,6 +26,8 @@ const (
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tSTATUS\tTIME\t\n"
+	// jobReasonLen is the amount of the job reason that we print
+	jobReasonLen = 25
 )
 
 // PrintJobHeader prints a job header.
@@ -50,7 +52,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
 	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
-		fmt.Fprintf(w, "%s: %s\t\n", jobState(jobInfo.State), jobInfo.Reason)
+		fmt.Fprintf(w, "%s: %s\t\n", jobState(jobInfo.State), strings.TrimSpace(jobInfo.Reason[:jobReasonLen])+"...")
 	} else {
 		fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 	}
