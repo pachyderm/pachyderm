@@ -305,20 +305,6 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		Name:      client.PPSWorkerVolume,
 		MountPath: client.PPSInputPrefix,
 	})
-	if resourceLimits != nil && resourceLimits.NvidiaGPU() != nil && !resourceLimits.NvidiaGPU().IsZero() {
-		volumes = append(volumes, v1.Volume{
-			Name: "root-lib",
-			VolumeSource: v1.VolumeSource{
-				HostPath: &v1.HostPathVolumeSource{
-					Path: "/usr/lib",
-				},
-			},
-		})
-		volumeMounts = append(volumeMounts, v1.VolumeMount{
-			Name:      "root-lib",
-			MountPath: "/rootfs/usr/lib",
-		})
-	}
 	var imagePullSecrets []v1.LocalObjectReference
 	for _, secret := range transform.ImagePullSecrets {
 		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
