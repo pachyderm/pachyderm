@@ -185,8 +185,11 @@ func convert1_7ResourceSpec(r *pps_1_7.ResourceSpec) *pps.ResourceSpec {
 	return &pps.ResourceSpec{
 		Cpu:    r.Cpu,
 		Memory: r.Memory,
-		Gpu:    r.Gpu,
-		Disk:   r.Disk,
+		Gpu: &pps.GPUSpec{
+			Type:   "nvidia.com/gpu", // What most existing customers are using
+			Number: r.Gpu,
+		},
+		Disk: r.Disk,
 	}
 }
 
