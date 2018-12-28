@@ -23,13 +23,13 @@
   "input": {
     "cross": [
       {
-        "atom": {
+        "pfs": {
 	  "repo": "reviews",
 	  "glob": "/*"
 	}
       },
       {
-	"atom": {
+	"pfs": {
 	  "repo": "model",
 	  "glob": "/"
 	}

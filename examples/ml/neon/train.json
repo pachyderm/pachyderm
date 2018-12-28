@@ -23,7 +23,7 @@
     "constant": "1"
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "training",
       "glob": "/"
     }

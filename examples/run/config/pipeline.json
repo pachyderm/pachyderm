@@ -20,7 +20,7 @@
         "image_pull_secrets": ["$PIPELINE_DOCKER_REGISTRY_SECRETS"]
     },
     "input": {
-        "atom": {
+        "pfs": {
             "repo": "$PIPELINE_REPO",
             "glob": "/*"
         }

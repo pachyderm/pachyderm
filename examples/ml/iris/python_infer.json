@@ -18,13 +18,13 @@
   "input": {
     "cross": [
       {
-        "atom": {
+        "pfs": {
 	  "repo": "attributes",
 	  "glob": "/*"
 	}
       },
       {
-	"atom": {
+	"pfs": {
 	  "repo": "model",
 	  "glob": "/"
 	}

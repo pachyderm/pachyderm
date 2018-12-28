@@ -22,7 +22,7 @@
     "constant": "1"
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "training",
       "glob": "/"
     }
@@ -44,7 +44,7 @@
     "constant": "1"
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "checkpoint",
       "glob": "/"
     }

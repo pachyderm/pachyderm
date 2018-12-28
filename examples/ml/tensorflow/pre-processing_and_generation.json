@@ -10,7 +10,7 @@
     ]
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "input_images",
       "glob": "/*"
     }
@@ -33,13 +33,13 @@
   "input": {
     "cross": [
       {
-        "atom": {
+        "pfs": {
 	  "repo": "preprocess_images",
 	  "glob": "/*"
 	}
       },
       {
-	"atom": {
+	"pfs": {
 	  "repo": "model",
 	  "glob": "/"
 	}
