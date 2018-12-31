@@ -561,7 +561,6 @@ workers are reading from and writing to PFS simultaneously). Part of what these
 and a worker is downloading the same datum from one branch of the input
 repeatedly, then the cache can speed up processing significantly.
 
-
 ### Enable Stats (optional)
 
 `enable_stats` turns on stat tracking for the pipeline. This will cause the
