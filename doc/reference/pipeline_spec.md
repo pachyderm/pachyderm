@@ -310,7 +310,7 @@ on the subject.
 
 ### Resource Limits (optional)
 
-`resource_limits` describes the upper threshold of allowed resources a given 
+`resource_limits` describes the upper threshold of allowed resources a given
 worker can consume. If a worker exceeds this value, it will be evicted.
 
 The `gpu` field is a number that describes how many GPUs each worker needs.
@@ -325,7 +325,7 @@ on the subject.
 
 ### Datum Timeout (optional)
 
-`datum_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the 
+`datum_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the
 maximum execution time allowed per datum. So no matter what your parallelism
 or number of datums, no single datum is allowed to exceed this value.
 
@@ -336,11 +336,11 @@ or number of datums, no single datum is allowed to exceed this value.
 
 ### Job Timeout (optional)
 
-`job_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the 
+`job_timeout` is a string (e.g. `1s`, `5m`, or `15h`) that determines the
 maximum execution time allowed for a job. It differs from `datum_timeout`
-in that the limit gets applied across all workers and all datums. That 
+in that the limit gets applied across all workers and all datums. That
 means that you'll need to keep in mind the parallelism, total number of
-datums, and execution time per datum when setting this value. Keep in 
+datums, and execution time per datum when setting this value. Keep in
 mind that the number of datums may change over jobs. Some new commits may
 have a bunch of new files (and so new datums). Some may have fewer.
 
@@ -405,8 +405,8 @@ be especially notable if the job only reads a subset of the files that are
 available to it.  Note that `lazy` currently doesn't support datums that
 contain more than 10000 files.
 
-`input.atom.empty_files` controls how files are exposed to jobs. If true, it will 
-cause files from this atom to be presented as empty files. This is useful in shuffle 
+`input.atom.empty_files` controls how files are exposed to jobs. If true, it will
+cause files from this atom to be presented as empty files. This is useful in shuffle
 pipelines where you want to read the names of files and reorganize them using symlinks.
 
 #### PFS Input
@@ -503,7 +503,7 @@ on matching times in the future. Times should be formatted according to [RFC
 
 #### Git Input (alpha feature)
 
-Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository. 
+Git inputs allow you to pull code from a public git URL and execute that code as part of your pipeline. A pipeline with a Git Input will get triggered (i.e. will see a new input commit and will spawn a job) whenever you commit to your git repository.
 
 **Note:** This only works on cloud deployments, not local clusters.
 
@@ -549,9 +549,18 @@ Standby replaces `scale_down_threshold` from releases prior to 1.7.1.
 
 ### Cache Size (optional)
 
-`cache_size` controls how much cache a pipeline worker uses.  In general,
-your pipeline's performance will increase with the cache size, but only
-up to a certain point depending on your workload.
+`cache_size` controls how much cache a pipeline's sidecar containers use. In
+general, your pipeline's performance will increase with the cache size, but
+only up to a certain point depending on your workload.
+
+Every worker in every pipeline has a limited-functionality `pachd` server
+running adjacent to it, which proxies PFS reads and writes (this prevents
+thundering herds when jobs start and end, which is when all of a pipeline's
+workers are reading from and writing to PFS simultaneously). Part of what these
+"sidecar" pachd servers do is cache PFS reads. If a pipeline has a cross input,
+and a worker is downloading the same data from one branch of the input
+repeatedly, then the cache can speed up processing significantly.
+
 
 ### Enable Stats (optional)
 
@@ -581,14 +590,20 @@ created you should be able to access it at
 `http://<kubernetes-host>:<external_port>`.
 
 ### Max Queue Size (optional)
-`max_queue_size` specifies that maximum number of elements that a worker should
-hold in its processing queue at a given time. The default value is `1` which
-means workers will only hold onto the value that they're currently processing.
-Increasing this value can improve pipeline performance as it allows workers to
-simultaneously download, process and upload different datums at the same time.
-Setting this value too high can cause problems if you have `lazy` inputs as
-there's a cap of 10,000 `lazy` files per worker and multiple datums that are
-running all count against this limit.
+`max_queue_size` specifies that maximum number of datums that a worker should
+hold in its processing queue at a given time (after processing its entire
+queue, a worker "checkpoints" its progress by writing to persistent storage).
+The default value is `1` which means workers will only hold onto the value that
+they're currently processing.
+
+Increasing this value can improve pipeline performance, as that allows workers
+to simultaneously download, process and upload different datums at the same
+time (and reduces the total time spent on checkpointing). Decreasing this value
+can make jobs more robust to failed workers, as work gets checkpointed more
+often, and a failing worker will not lose as much progress. Setting this value
+too high can also cause problems if you have `lazy` inputs, as there's a cap of
+10,000 `lazy` files per worker and multiple datums that are running all count
+against this limit.
 
 ### Chunk Spec (optional)
 `chunk_spec` specifies how a pipeline should chunk its datums.
