@@ -558,7 +558,7 @@ running adjacent to it, which proxies PFS reads and writes (this prevents
 thundering herds when jobs start and end, which is when all of a pipeline's
 workers are reading from and writing to PFS simultaneously). Part of what these
 "sidecar" pachd servers do is cache PFS reads. If a pipeline has a cross input,
-and a worker is downloading the same data from one branch of the input
+and a worker is downloading the same datum from one branch of the input
 repeatedly, then the cache can speed up processing significantly.
 
 
