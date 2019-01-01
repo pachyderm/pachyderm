@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"regexp"
 	"sync"
 	"time"
 
@@ -22,6 +23,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
+
+var objHashRE = regexp.MustCompile("[0-9a-f]{128}")
 
 type apiServer struct {
 	log.Logger
@@ -376,12 +379,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		// apply op
 		if op.Op1_7 != nil {
 			if op.Op1_7.Object != nil {
-				r := &extractObjectReader{
+				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
+					restoreURLReader:      r,
 					version:               v1_7,
 				}
-				r.buf.Write(op.Op1_7.Object.Value)
-				if _, _, err := pachClient.PutObject(r); err != nil {
+				extractReader.buf.Write(op.Op1_7.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -391,12 +395,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		} else if op.Op1_8 != nil {
 			if op.Op1_8.Object != nil {
-				r := &extractObjectReader{
+				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
+					restoreURLReader:      r,
 					version:               v1_8,
 				}
-				r.buf.Write(op.Op1_8.Object.Value)
-				if _, _, err := pachClient.PutObject(r); err != nil {
+				extractReader.buf.Write(op.Op1_8.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -443,6 +448,9 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) error {
 	switch {
 	case op.Tag != nil:
+		if !objHashRE.MatchString(op.Tag.Object.Hash) {
+			return fmt.Errorf("invalid object hash in op: %q", op)
+		}
 		newTagObjectRequest := &pfs.TagObjectRequest{
 			Object: convert1_7Object(op.Tag.Object),
 			Tags:   convert1_7Tags(op.Tag.Tags),
@@ -594,7 +602,11 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 type adminAPIRestoreServer admin.API_RestoreServer
 
 type extractObjectReader struct {
+	// One of these two must be set (whether user is restoring over the wire or
+	// via URL)
 	adminAPIRestoreServer
+	restoreURLReader pbutil.Reader
+
 	version opVersion
 	buf     bytes.Buffer
 	eof     bool
@@ -602,13 +614,25 @@ type extractObjectReader struct {
 
 func (r *extractObjectReader) Read(p []byte) (int, error) {
 	for len(p) > r.buf.Len() && !r.eof {
-		request, err := r.Recv()
-		if err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
+		var op *admin.Op
+		if r.restoreURLReader == nil {
+			request, err := r.Recv()
+			if err != nil {
+				return 0, grpcutil.ScrubGRPC(err)
+			}
+			op = request.Op
+		} else {
+			if op == nil {
+				op = &admin.Op{}
+			} else {
+				*op = admin.Op{} // generate less garbage
+			}
+			if err := r.restoreURLReader.Read(op); err != nil {
+				return 0, fmt.Errorf("unexpected error while restoring object: %v", err)
+			}
 		}
 
 		// Validate op version
-		op := request.Op
 		if r.version != version(op) {
 			return 0, fmt.Errorf("cannot mix different versions of pachd operation "+
 				"within a metadata dumps (found both %s and %s)", version(op), r.version)
