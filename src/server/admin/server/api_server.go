@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"regexp"
 	"sync"
 	"time"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
+
+var objHashRe = regexp.MustCompile("[0-9a-f]{128}")
 
 type apiServer struct {
 	log.Logger
@@ -74,6 +77,9 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 		if err := pachClient.ListTag(func(resp *pfs.ListTagsResponse) error {
+			if !objHashRe.MatchString(resp.Object.Hash) {
+				return fmt.Errorf("extracted object doesn't match %v: %s", objHashRe, resp)
+			}
 			return handleOp(&admin.Op{Op1_7: &admin.Op1_7{
 				Tag: &pfs.TagObjectRequest{
 					Object: resp.Object,
