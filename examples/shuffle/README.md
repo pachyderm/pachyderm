@@ -29,14 +29,14 @@ Let's take a closer look at that pipeline:
   "input": {
     "union": [
       {
-        "atom": {
+        "pfs": {
           "glob": "/*.jpeg",
           "repo": "fruits",
           "empty_files": true
         }
       },
       {
-        "atom": {
+        "pfs": {
           "glob": "/*.json",
           "repo": "pricing",
           "empty_files": true
