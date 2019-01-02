@@ -8,7 +8,7 @@
     "stdin": []
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "trips",
       "glob": "/"
     }
