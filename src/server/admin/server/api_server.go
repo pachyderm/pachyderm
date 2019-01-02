@@ -385,9 +385,12 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					version:               v1_7,
 				}
 				extractReader.buf.Write(op.Op1_7.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
+				obj, n, err := pachClient.PutObject(extractReader)
+				if err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
+				fmt.Printf(">>> r.BytesRead: %d\n", extractReader._size)
+				fmt.Printf(">>> size %d object %s\n", n, obj.Hash)
 			} else {
 				if err := a.apply1_7Op(pachClient, op.Op1_7); err != nil {
 					return err
@@ -436,7 +439,8 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 		}
 	case op.Pipeline != nil:
 		if op.Pipeline.Salt != "" {
-			op.Pipeline.Salt = "" // clear salt so we don't re-use old datum hashtrees
+			// clear salt so we don't re-use old datum hashtrees (which may have an invalid format)
+			op.Pipeline.Salt = ""
 		}
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
@@ -446,6 +450,7 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 }
 
 func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) error {
+	fmt.Printf(">>> %s\n", op)
 	switch {
 	case op.Tag != nil:
 		if !objHashRE.MatchString(op.Tag.Object.Hash) {
@@ -613,6 +618,15 @@ type extractObjectReader struct {
 }
 
 func (r *extractObjectReader) Read(p []byte) (int, error) {
+	// Read leftover bytes in buffer (from prior Read() call) into 'p'
+	n, err := r.buf.Read(p)
+	if n == len(p) || err != nil {
+		return n, err // quit early if done
+	}
+	r.buf.Reset() // discard data now in 'p'; ready to refill 'r.buf'
+	p = p[n:]     // only want to fill remainder of p
+
+	// refill 'r.buf'
 	for len(p) > r.buf.Len() && !r.eof {
 		var op *admin.Op
 		if r.restoreURLReader == nil {
@@ -625,7 +639,7 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 			if op == nil {
 				op = &admin.Op{}
 			} else {
-				*op = admin.Op{} // generate less garbage
+				*op = admin.Op{} // clear 'op' without making old contents into garbage
 			}
 			if err := r.restoreURLReader.Read(op); err != nil {
 				return 0, fmt.Errorf("unexpected error while restoring object: %v", err)
@@ -654,5 +668,6 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 			r.buf.Write(value)
 		}
 	}
-	return r.buf.Read(p)
+	dn, err := r.buf.Read(p)
+	return n+dn, err
 }
