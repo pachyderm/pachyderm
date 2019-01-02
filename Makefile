@@ -311,11 +311,11 @@ launch-kube: check-kubectl
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
 	@if [ -z "${ADDRESS}" ]; then \
-		echo -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+		$$( which echo ) -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		echo -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
+		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
 	  exit 1; \
 	fi
 	# Making sure minikube isn't still up from a previous run...
@@ -332,11 +332,11 @@ launch-dev-vm: check-kubectl
 launch-release-vm:
 	@# Make sure the caller sets address to avoid confusion later
 	@if [ -z "${ADDRESS}" ]; then \
-		echo -e"Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+		$$( which echo ) -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		echo -e"Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
+		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
 	  exit 1; \
 	fi
 	# Making sure minikube isn't still up from a previous run...

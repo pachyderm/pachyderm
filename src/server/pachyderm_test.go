@@ -3582,8 +3582,6 @@ func TestPipelineResourceRequest(t *testing.T) {
 	mem, ok := container.Resources.Requests[v1.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
-	require.False(t, ok)
 	// TODO reenable this once we test against kube 1.12
 	// disk, ok := container.Resources.Requests[v1.ResourceStorage]
 	// require.True(t, ok)
@@ -3656,12 +3654,9 @@ func TestPipelineResourceLimit(t *testing.T) {
 	mem, ok := container.Resources.Limits[v1.ResourceMemory]
 	require.True(t, ok)
 	require.Equal(t, "100M", mem.String())
-	_, ok = container.Resources.Requests[v1.ResourceNvidiaGPU]
-	require.False(t, ok)
 }
 
 func TestPipelineResourceLimitDefaults(t *testing.T) {
-	// We need to make sure GPU is set to 0 for k8s 1.8
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3716,8 +3711,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 		return nil // no more retries
 	}, backoff.NewTestingBackOff())
 	require.NoError(t, err)
-	_, ok := container.Resources.Requests[v1.ResourceNvidiaGPU]
-	require.False(t, ok)
+	require.Nil(t, container.Resources.Limits)
 }
 
 func TestPipelinePartialResourceRequest(t *testing.T) {
@@ -3811,7 +3805,6 @@ func TestPodSpecOpts(t *testing.T) {
 	dataRepo := tu.UniqueString("TestPodSpecOpts_data")
 	pipelineName := tu.UniqueString("TestPodSpecOpts")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	priorityClassName := "system-cluster-critical"
 	// Resources are not yet in client.CreatePipeline() (we may add them later)
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -3837,7 +3830,6 @@ func TestPodSpecOpts(t *testing.T) {
 				NodeSelector: map[string]string{
 					"foo": "bar",
 				},
-				PriorityClassName: priorityClassName,
 			},
 			PodSpec: `{
 				"hostname": "hostname"
@@ -3870,8 +3862,6 @@ func TestPodSpecOpts(t *testing.T) {
 	require.NoError(t, err)
 	// Make sure a CPU and Memory request are both set
 	require.Equal(t, "bar", pod.Spec.NodeSelector["foo"])
-	// TODO reenable this when we test on a more recent version of k8s
-	// require.Equal(t, priorityClassName, pod.Spec.PriorityClassName)
 	require.Equal(t, "hostname", pod.Spec.Hostname)
 }
 
