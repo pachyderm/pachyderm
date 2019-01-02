@@ -182,15 +182,18 @@ func convert1_7ResourceSpec(r *pps_1_7.ResourceSpec) *pps.ResourceSpec {
 	if r == nil {
 		return nil
 	}
-	return &pps.ResourceSpec{
+	result := &pps.ResourceSpec{
 		Cpu:    r.Cpu,
 		Memory: r.Memory,
-		Gpu: &pps.GPUSpec{
+		Disk:   r.Disk,
+	}
+	if r.Gpu != 0 {
+		result.Gpu = &pps.GPUSpec{
 			Type:   "nvidia.com/gpu", // What most existing customers are using
 			Number: r.Gpu,
-		},
-		Disk: r.Disk,
+		}
 	}
+	return result
 }
 
 func convert1_7Input(i *pps_1_7.Input) *pps.Input {
