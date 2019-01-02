@@ -65,12 +65,21 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		w := pbutil.NewWriter(snappyW)
 		handleOp = func(op *admin.Op) error { return w.Write(op) }
 	}
+	oldHandleOp := handleOp
+	handleOp = func(op *admin.Op) error {
+		if op.Op1_7.Object == nil {
+			fmt.Printf(">>> %s\n", op.Op1_7)
+		}
+		return oldHandleOp(op)
+	}
 	if !request.NoObjects {
-		w := extractObjectWriter(handleOp)
+		w := &extractObjectWriter{w: handleOp}
 		if err := pachClient.ListObject(func(object *pfs.Object) error {
+			/* >>> */ w._size = 0 // reset
 			if err := pachClient.GetObject(object.Hash, w); err != nil {
 				return err
 			}
+			fmt.Printf(">>> size %d object %s\n", w._size, object.Hash)
 			// empty PutObjectRequest to indicate EOF
 			return handleOp(&admin.Op{Op1_7: &admin.Op1_7{Object: &pfs.PutObjectRequest{}}})
 		}); err != nil {
@@ -380,9 +389,12 @@ func (a *apiServer) getPachClient() *client.APIClient {
 	return a.pachClient
 }
 
-type extractObjectWriter func(*admin.Op) error
+type extractObjectWriter struct {
+	w     func(*admin.Op) error
+	_size int
+}
 
-func (w extractObjectWriter) Write(p []byte) (int, error) {
+func (w *extractObjectWriter) Write(p []byte) (int, error) {
 	chunkSize := grpcutil.MaxMsgSize / 2
 	var n int
 	for i := 0; i*(chunkSize) < len(p); i++ {
@@ -390,10 +402,11 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 		if len(value) > chunkSize {
 			value = value[:chunkSize]
 		}
-		if err := w(&admin.Op{Op1_7: &admin.Op1_7{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
+		if err := w.w(&admin.Op{Op1_7: &admin.Op1_7{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
 			return n, err
 		}
 		n += len(value)
+		/* >>> */ w._size += len(value)
 	}
 	return n, nil
 }
