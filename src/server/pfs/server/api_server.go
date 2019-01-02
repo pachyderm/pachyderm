@@ -296,7 +296,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	}(time.Now())
 
 	var fileInfos []*pfs.FileInfo
-	if err := a.driver.listFile(a.getPachClient(ctx), request.File, request.Full, func(fi *pfs.FileInfo) error {
+	if err := a.driver.listFile(a.getPachClient(ctx), request.File, request.Full, request.History, func(fi *pfs.FileInfo) error {
 		fileInfos = append(fileInfos, fi)
 		return nil
 	}); err != nil {
@@ -313,7 +313,7 @@ func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listFile(a.getPachClient(respServer.Context()), request.File, request.Full, func(fi *pfs.FileInfo) error {
+	return a.driver.listFile(a.getPachClient(respServer.Context()), request.File, request.Full, request.History, func(fi *pfs.FileInfo) error {
 		sent++
 		return respServer.Send(fi)
 	})

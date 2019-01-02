@@ -393,7 +393,7 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 		if len(value) > chunkSize {
 			value = value[:chunkSize]
 		}
-		if err := w(&admin.Op{Op1_7: &admin.Op1_7{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
+		if err := w(&admin.Op{Op1_8: &admin.Op1_8{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
 			return n, err
 		}
 		n += len(value)
@@ -416,11 +416,11 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 			return 0, grpcutil.ScrubGRPC(err)
 		}
 		op := request.Op
-		if op.Op1_7.Object == nil {
+		if op.Op1_8.Object == nil {
 			return 0, fmt.Errorf("expected an object, but got: %v", op)
 		}
-		r.buf.Write(op.Op1_7.Object.Value)
-		if len(op.Op1_7.Object.Value) == 0 {
+		r.buf.Write(op.Op1_8.Object.Value)
+		if len(op.Op1_8.Object.Value) == 0 {
 			r.eof = true
 		}
 	}
