@@ -58,7 +58,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
         # Do not run some tests when we don't have access to secret
         # credentials
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
-            test-pfs-cmds test-deploy-cmds test-libs test-worker test-admin
+            test-pfs-cmds test-deploy-cmds test-libs test-admin
     fi
 
     make test-misc
