@@ -42,7 +42,6 @@ import (
 )
 
 const (
-	bashCompletionPath = "/etc/bash_completion.d/pachctl"
 	bashCompletionFunc = `
 __pachctl_get_object() {
 	if [[ ${#nouns[@]} -ne $1 ]]; then
@@ -462,25 +461,12 @@ kubectl %v port-forward "$pod" %d:8081
 
 	completion := &cobra.Command{
 		Use:   "completion",
-		Short: "Install bash completion code.",
-		Long:  "Install bash completion code.",
+		Short: "Print the bash completion code.",
+		Long:  "Print the bash completion code. This should be placed as the file `pachctl` in the bash completion directory - by default, it's `/etc/bash_completion.d`. If bash-completion was intalled via homebrew, this would be `$(brew --prefix)/etc/bash_completion.d`.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			bashCompletionFile, err := os.Create(bashCompletionPath)
-			if err != nil {
-				if os.IsPermission(err) {
-					fmt.Fprintf(os.Stderr, "Permission error installing completions, rerun this command with sudo:\n$ sudo env \"PATH=$PATH\" pachctl completion\n")
-				}
+			if err := rootCmd.GenBashCompletion(os.Stdout); err != nil {
 				return err
 			}
-			defer func() {
-				if err := bashCompletionFile.Close(); err != nil && retErr == nil {
-					retErr = err
-				}
-			}()
-			if err := rootCmd.GenBashCompletion(bashCompletionFile); err != nil {
-				return err
-			}
-			fmt.Printf("Bash completions installed in %s, you must restart bash to enable completions.\n", bashCompletionPath)
 			return nil
 		}),
 	}
