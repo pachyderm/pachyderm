@@ -47,7 +47,10 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "resource_limits": {
     "memory": string,
     "cpu": number,
-    "gpu": number,
+    "gpu": {
+      "type": string,
+      "number": int
+    }
     "disk": string,
   },
   "datum_timeout": string,
