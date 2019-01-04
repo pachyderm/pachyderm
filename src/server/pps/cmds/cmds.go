@@ -848,7 +848,7 @@ func pushImage(registry string, username string, password string, image string) 
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
 			if isDockerUsingKeychain() {
-				return "", fmt.Errorf("error parsing auth: %s. It looks like you may have a docker configuration not supported by the client library that we use. Please see here for remedial steps: https://github.com/pachyderm/pachyderm/issues/3293.", err.Error())
+				return "", fmt.Errorf("error parsing auth: %s. It looks like you may have a docker configuration not supported by the client library that we use. Please see here for remedial steps: https://github.com/pachyderm/pachyderm/issues/3293#issuecomment-448012383.", err.Error())
 			} else {
 				return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
 			}
