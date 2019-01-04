@@ -847,7 +847,7 @@ func pushImage(registry string, username string, password string, image string) 
 	} else {
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
-			if isBrokenPushImagesOnMac() {
+			if isDockerUsingKeychain() {
 				return "", fmt.Errorf("error parsing auth: %s. It looks like you may have a docker configuration not supported by the client library that we use. Please see here for remedial steps: https://github.com/pachyderm/pachyderm/issues/3293.", err.Error())
 			} else {
 				return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
@@ -891,7 +891,7 @@ func pushImage(registry string, username string, password string, image string) 
 // readable by our current docker client library.
 // TODO(ys): remove if/when this issue is addressed:
 // https://github.com/fsouza/go-dockerclient/issues/677
-func isBrokenPushImagesOnMac() bool {
+func isDockerUsingKeychain() bool {
 	user, err := user.Current()
 	if err != nil {
 		return false
