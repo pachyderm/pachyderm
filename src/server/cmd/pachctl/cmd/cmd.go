@@ -359,6 +359,7 @@ This resets the cluster to its initial state.`,
 	var samlPort int
 	var uiPort int
 	var uiWebsocketPort int
+	var pfsPort int
 	var namespace string
 
 	portForward := &cobra.Command{
@@ -397,6 +398,11 @@ This resets the cluster to its initial state.`,
 				return fw.RunForDashWebSocket(uiWebsocketPort)
 			})
 
+			eg.Go(func() error {
+				fmt.Println("Forwarding the PFS port...")
+				return fw.RunForPFS(pfsPort)
+			})
+
 			defer fw.Close()
 
 			if err = eg.Wait(); err != nil {
@@ -416,6 +422,7 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().IntVar(&samlPort, "saml-port", 30654, "The local port to bind pachd's SAML ACS to.")
 	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
+	portForward.Flags().IntVarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
 
 	completion := &cobra.Command{
