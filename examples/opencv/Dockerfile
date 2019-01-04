@@ -1,29 +1,31 @@
-FROM ubuntu:14.04
+FROM ubuntu:18.04
 
 # Install opencv and matplotlib.
-RUN apt-get update \
-	&& apt-get upgrade -y \
-	&& apt-get install -y unzip wget build-essential \
-		cmake git pkg-config libswscale-dev \
-		python3-dev python3-numpy python3-tk \
-		libtbb2 libtbb-dev libjpeg-dev \
-		libpng-dev libtiff-dev libjasper-dev \
-		bpython python3-pip libfreetype6-dev \
+RUN export DEBIAN_FRONTEND=noninteractive; \
+    export DEBCONF_NONINTERACTIVE_SEEN=true; \
+    echo 'tzdata tzdata/Areas select Etc' | debconf-set-selections; \
+    echo 'tzdata tzdata/Zones/Etc select UTC' | debconf-set-selections; \
+    apt-get update -qqy \
+    && apt-get install -qqy make git pkg-config libswscale-dev python3-dev \
+    	python3-numpy python3-tk libtbb2 libtbb-dev libjpeg-dev libpng-dev \
+    	libtiff-dev bpython python3-pip libfreetype6-dev wget unzip cmake \
+    	sudo \
     && apt-get clean \
     && rm -rf /var/lib/apt
+
 RUN cd \
-	&& wget https://github.com/Itseez/opencv/archive/3.1.0.zip \
-	&& unzip 3.1.0.zip \
-	&& cd opencv-3.1.0 \
+	&& wget https://github.com/Itseez/opencv/archive/3.4.5.zip \
+	&& unzip 3.4.5.zip \
+	&& cd opencv-3.4.5 \
 	&& mkdir build \
 	&& cd build \
 	&& cmake .. \
 	&& make -j \
 	&& make install \
 	&& cd \
-	&& rm 3.1.0.zip \
-    && rm -rf opencv-3.1.0
-RUN sudo pip3 install matplotlib
+	&& rm 3.4.5.zip \
+    && rm -rf opencv-3.4.5
+RUN python3 --version && pip3 --version && sudo pip3 install matplotlib
 
 # Add our own code.
 ADD edges.py /edges.py
