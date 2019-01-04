@@ -459,17 +459,43 @@ kubectl %v port-forward "$pod" %d:8081
 	portForward.Flags().StringVarP(&kubeCtlFlags, "kubectlflags", "k", "", "Any kubectl flags to proxy, e.g. --kubectlflags='--kubeconfig /some/path/kubeconfig'")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
 
+	var install bool
+	var path string
 	completion := &cobra.Command{
 		Use:   "completion",
-		Short: "Print the bash completion code.",
-		Long:  "Print the bash completion code. This should be placed as the file `pachctl` in the bash completion directory (by default this is `/etc/bash_completion.d`. If bash-completion was installed via homebrew, this would be `$(brew --prefix)/etc/bash_completion.d`.)",
+		Short: "Print or install the bash completion code.",
+		Long:  "Print or install the bash completion code. This should be placed as the file `pachctl` in the bash completion directory (by default this is `/etc/bash_completion.d`. If bash-completion was installed via homebrew, this would be `$(brew --prefix)/etc/bash_completion.d`.)",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			if err := rootCmd.GenBashCompletion(os.Stdout); err != nil {
-				return err
+			var dest io.Writer
+
+			if install {
+				f, err := os.Create(path)
+
+				if err != nil {
+					if os.IsPermission(err) {
+						fmt.Fprintf(os.Stderr, "Permission error installing completions, rerun this command with sudo.\n")
+					}
+					return err
+				}
+				
+				defer func() {
+					if err := f.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+
+					fmt.Printf("Bash completions installed in %s, you must restart bash to enable completions.\n", path)
+				}()
+
+				dest = f
+			} else {
+				dest = os.Stdout
 			}
-			return nil
+
+			return rootCmd.GenBashCompletion(dest)
 		}),
 	}
+	completion.Flags().BoolVar(&install, "install", false, "Install the completion.")
+	completion.Flags().StringVar(&path, "path", "/etc/bash_completion.d/pachctl", "Path to install the completion to. This will default to `/etc/bash_completion.d/` if unspecified.")
 
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(deleteAll)
