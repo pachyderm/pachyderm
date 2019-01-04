@@ -1,10 +1,13 @@
 package cmds
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
+	"os/user"
+	"path"
 	"strings"
 
 	units "github.com/docker/go-units"
@@ -844,7 +847,11 @@ func pushImage(registry string, username string, password string, image string) 
 	} else {
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
-			return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
+			if isBrokenPushImagesOnMac() {
+				return "", fmt.Errorf("error parsing auth: %s. It looks like you may have a docker configuration not supported by the client library that we use. Please see here for remedial steps: https://github.com/pachyderm/pachyderm/issues/3293.", err.Error())
+			} else {
+				return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
+			}
 		}
 		for _, _authConfig := range authConfigs.Configs {
 			serverAddress := _authConfig.ServerAddress
@@ -878,4 +885,48 @@ func pushImage(registry string, username string, password string, image string) 
 	}
 	
 	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
+}
+
+// isBrokenPushImagesOnMac checks if the user has a configuration that is not
+// readable by our current docker client library.
+// TODO(ys): remove if/when this issue is addressed:
+// https://github.com/fsouza/go-dockerclient/issues/677
+func isBrokenPushImagesOnMac() bool {
+	user, err := user.Current()
+	if err != nil {
+		return false
+	}
+
+	contents, err := ioutil.ReadFile(path.Join(user.HomeDir, ".docker/config.json"))
+	if err != nil {
+		return false
+	}
+
+	var j map[string]interface{}
+
+	if err = json.Unmarshal(contents, &j); err != nil {
+		return false
+	}
+
+	auths, ok := j["auths"]
+	if !ok {
+		return false
+	}
+
+	authsInner, ok := auths.(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	index, ok := authsInner["https://index.docker.io/v1/"]
+	if !ok {
+		return false
+	}
+
+	indexInner, ok := index.(map[string]interface{})
+	if !ok || len(indexInner) > 0 {
+		return false
+	}
+
+	return j["credsStore"] == "osxkeychain"
 }
