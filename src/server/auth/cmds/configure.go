@@ -25,10 +25,11 @@ func GetConfig() *cobra.Command {
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			resp, err := c.GetConfiguration(c.Ctx(), &auth.GetConfigurationRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -70,10 +71,11 @@ func SetConfig() *cobra.Command {
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			var configBytes []byte
 			if file == "-" {
 				var err error
