@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	// "io/ioutil"
 	"os"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -40,6 +41,7 @@ pachctl extract -u s3://bucket/backup` + codeend,
 				return c.ExtractURL(url)
 			}
 			w := snappy.NewBufferedWriter(os.Stdout)
+			// /* >>> */ w := snappy.NewBufferedWriter(ioutil.Discard)
 			defer func() {
 				if err := w.Close(); err != nil && retErr == nil {
 					retErr = err
