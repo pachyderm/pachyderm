@@ -32,10 +32,11 @@ pachctl extract >backup
 # Extract to s3:
 pachctl extract -u s3://bucket/backup` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			if url != "" {
 				return c.ExtractURL(url)
 			}
@@ -60,10 +61,11 @@ pachctl restore <backup
 # Restore from s3:
 pachctl restore -u s3://bucket/backup` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			if url != "" {
 				return c.RestoreURL(url)
 			}
@@ -76,10 +78,11 @@ pachctl restore -u s3://bucket/backup` + codeend,
 		Short: "Returns info about the pachyderm cluster",
 		Long:  "Returns info about the pachyderm cluster",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			ci, err := c.InspectCluster()
 			if err != nil {
 				return err
