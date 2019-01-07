@@ -48,7 +48,7 @@ done
 go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC" ]]; then
-    if [[ "$TRAVIS_PULL_REQUEST_SLUG" == "pachyderm/pachyderm" ]]; then
+    if [[ "$TRAVIS_REPO_SLUG" == "pachyderm/pachyderm" ]]; then
         echo "Running the full misc test suite"
 
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
