@@ -48,8 +48,6 @@ done
 go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC" ]]; then
-    echo "Running misc test suite"
-
     if [[ "$TRAVIS_PULL_REQUEST_SLUG" == "pachyderm/pachyderm" ]]; then
         echo "Running the full misc test suite"
 
