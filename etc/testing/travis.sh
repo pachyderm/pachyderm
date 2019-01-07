@@ -51,10 +51,14 @@ if [[ "$BUCKET" == "MISC" ]]; then
     echo "Running misc test suite"
 
     if [[ "$TRAVIS_PULL_REQUEST_SLUG" == "pachyderm/pachyderm" ]]; then
+        echo "Running the full misc test suite"
+
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
             test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth \
             test-enterprise test-worker test-admin
     else
+        echo "Running the misc test suite, with some tests disabled because secrets will be missing"
+
         # Do not run some tests when we don't have access to secret
         # credentials
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
