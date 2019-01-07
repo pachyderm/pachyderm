@@ -76,7 +76,12 @@ func NewPortForwarder(namespace string, stdout, stderr io.Writer) (*PortForwarde
 
 // Run starts the port forwarder. Returns after initialization is begun,
 // returning any initialization errors.
-func (f *PortForwarder) Run(podNameSelector map[string]string, localPort, remotePort int) error {
+func (f *PortForwarder) Run(appName string, localPort, remotePort int) error {
+	podNameSelector := map[string]string {
+		"suite": "pachyderm",
+		"app": appName,
+	}
+
 	podList, err := f.core.Pods(f.namespace).List(metav1.ListOptions{
 		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(podNameSelector)),
 		TypeMeta: metav1.TypeMeta{
@@ -88,7 +93,7 @@ func (f *PortForwarder) Run(podNameSelector map[string]string, localPort, remote
 		return err
 	}
 	if len(podList.Items) == 0 {
-		return fmt.Errorf("No pods found for selector %v", podNameSelector)
+		return fmt.Errorf("No pods found for app %s", appName)
 	}
 
 	// Choose a random pod
@@ -142,7 +147,7 @@ func (f *PortForwarder) RunForDaemon(localPort int) error {
 	if localPort == 0 {
 		localPort = pachdLocalPort
 	}
-	return f.Run(map[string]string{"app": "pachd"}, localPort, 650)
+	return f.Run("pachd", localPort, 650)
 }
 
 // RunForSAMLACS creates a port forwarder for SAML ACS.
@@ -152,7 +157,7 @@ func (f *PortForwarder) RunForSAMLACS(localPort int) error {
 	}
 	// TODO(ys): using a suite selector because the original code had that.
 	// check if it is necessary.
-	return f.Run(map[string]string{"suite": "pachyderm", "app": "pachd"}, localPort, 654)
+	return f.Run("pachd", localPort, 654)
 }
 
 // RunForDashUI creates a port forwarder for the dash UI.
@@ -160,7 +165,7 @@ func (f *PortForwarder) RunForDashUI(localPort int) error {
 	if localPort == 0 {
 		localPort = dashUILocalPort
 	}
-	return f.Run(map[string]string{"app": "dash"}, localPort, 8080)
+	return f.Run("dash", localPort, 8080)
 }
 
 // RunForDashWebSocket creates a port forwarder for the dash websocket.
@@ -168,7 +173,7 @@ func (f *PortForwarder) RunForDashWebSocket(localPort int) error {
 	if localPort == 0 {
 		localPort = dashWebSocketLocalPort
 	}
-	return f.Run(map[string]string{"app": "dash"}, localPort, 8081)
+	return f.Run("dash", localPort, 8081)
 }
 
 // Lock uses pidfiles to ensure that only one port forwarder is running across
