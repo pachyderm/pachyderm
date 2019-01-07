@@ -53,7 +53,7 @@ To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo
 
 You should also check out our [contributing guide](./contributing).
 
-Send us PRs, we would love to see what you do! You can also check our GH issues for things labeled "noob-friendly" as a good place to start. We're sometimes bad about keeping that label up-to-date, so if you don't see any, just let us know. 
+Send us PRs, we would love to see what you do! You can also check our GH issues for things labeled "help-wanted" as a good place to start. We're sometimes bad about keeping that label up-to-date, so if you don't see any, just let us know.
 
 ### Join Us
 
