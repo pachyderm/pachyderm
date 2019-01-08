@@ -56,6 +56,6 @@ service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
 
 ## Port Forwarding
 
-Whenever you run a `pachctl` command and `ADDRESS` is not set, port forwarding is implicitly started. Port forwarding is the easiest way to poke around and verify your cluster is working, however, we don't recommend using it for production workloads, as it is rate limited to about 1MB/s.
+Whenever you run a `pachctl` command and `ADDRESS` is not set, `pachctl` implicitly starts port forwarding to try to connect to your cluster. Port forwarding is the easiest way to poke around and verify your cluster is working, however, we don't recommend using it for production workloads, as it is rate limited to about 1MB/s.
 
-You can also explicitly start port forwarding via `pachctl port-forward`. This has the added bonus of starting port forwarding for dash-related functionality. From there, you'll be able to access the Pachyderm Dashboard at `localhost:30080` and `pachctl` will be able to connect to the cluster just fine.
+You can also explicitly start port forwarding via `pachctl port-forward`. This has the added bonus of port forwarding for Pachyderm Dashboard-related functionality. From there, you'll be able to access the Dashboard at `localhost:30080`.
