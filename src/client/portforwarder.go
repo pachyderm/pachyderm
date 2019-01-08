@@ -25,6 +25,7 @@ const (
 	samlAcsLocalPort = 30654
 	dashUILocalPort = 30080
 	dashWebSocketLocalPort = 30081
+	pfsLocalPort = 30652
 )
 
 // PortForwarder handles proxying local traffic to a kubernetes pod
@@ -174,6 +175,14 @@ func (f *PortForwarder) RunForDashWebSocket(localPort int) error {
 		localPort = dashWebSocketLocalPort
 	}
 	return f.Run("dash", localPort, 8081)
+}
+
+// RunForPFS creates a port forwarder for PFS over HTTP.
+func (f *PortForwarder) RunForPFS(localPort int) error {
+	if localPort == 0 {
+		localPort = pfsLocalPort
+	}
+	return f.Run("pachd", localPort, 30652)
 }
 
 // Lock uses pidfiles to ensure that only one port forwarder is running across
