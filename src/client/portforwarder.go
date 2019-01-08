@@ -182,7 +182,7 @@ func (f *PortForwarder) RunForPFS(localPort int) error {
 	if localPort == 0 {
 		localPort = pfsLocalPort
 	}
-	return f.Run(map[string]string{"app": "pachd"}, localPort, 30652)
+	return f.Run("pachd", localPort, 30652)
 }
 
 // Lock uses pidfiles to ensure that only one port forwarder is running across
