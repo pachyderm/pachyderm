@@ -8,6 +8,7 @@ import (
 	"io"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,9 +63,10 @@ const (
 )
 
 var (
-	zeroVal         = int64(0)
-	suite           = "pachyderm"
-	defaultGCMemory = 20 * 1024 * 1024 // 20 MB
+	zeroVal             = int64(0)
+	suite               = "pachyderm"
+	defaultGCMemory     = 20 * 1024 * 1024 // 20 MB
+	pipelineNameMatcher = regexp.MustCompile("^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$")
 )
 
 func newErrJobNotFound(job string) error {
@@ -180,6 +182,10 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 }
 
 func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName string, input *pps.Input, job bool) error {
+	if !pipelineNameMatcher.MatchString(pipelineName) {
+		return fmt.Errorf("Invalid pipeline name: a valid label must be an empty string or consist of alphanumeric characters, '-', '_' or '.', and must start and end with an alphanumeric character (e.g. 'MyValue',  or 'my_value',  or '12345')")
+	}
+
 	if err := validateNames(make(map[string]bool), input); err != nil {
 		return err
 	}
