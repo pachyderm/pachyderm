@@ -41,10 +41,11 @@ func ActivateCmd() *cobra.Command {
 		Long: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
+			defer c.Close()
 			req := &enterprise.ActivateRequest{}
 			req.ActivationCode = args[0]
 			if expires != "" {
@@ -91,10 +92,11 @@ func GetStateCmd() *cobra.Command {
 		Long: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
+			defer c.Close()
 			resp, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 			if err != nil {
 				return err

@@ -1,11 +1,13 @@
 package cmds
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/user"
+	"path"
 	"strings"
 
 	units "github.com/docker/go-units"
@@ -70,10 +72,11 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			jobInfo, err := client.InspectJob(args[0], block)
 			if err != nil {
 				cmdutil.ErrorAndExit("error from InspectJob: %s", err.Error())
@@ -113,10 +116,11 @@ $ pachctl list-job foo/XXX bar/YYY
 $ pachctl list-job -p foo bar/YYY
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 
 			commits, err := cmdutil.ParseCommits(inputCommitStrs)
 			if err != nil {
@@ -181,10 +185,11 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 				return err
 			}
 
-			c, err := pachdclient.NewOnUserMachine(metrics, "user")
+			c, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			jobInfos, err := c.FlushJobAll(commits, pipelines)
 			if err != nil {
@@ -215,10 +220,11 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if err := client.DeleteJob(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from DeleteJob: %s", err.Error())
 			}
@@ -231,10 +237,11 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if err := client.StopJob(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from StopJob: %s", err.Error())
 			}
@@ -247,10 +254,11 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 			datumFilter := strings.Split(args[1], ",")
 			for i := 0; i < len(datumFilter); {
 				if len(datumFilter[i]) == 0 {
@@ -272,10 +280,11 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
 		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if pageSize < 0 {
 				return fmt.Errorf("pageSize must be zero or positive")
 			}
@@ -308,10 +317,11 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Display detailed info about a single datum.",
 		Long:  "Display detailed info about a single datum.",
 		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			datumInfo, err := client.InspectDatum(args[0], args[1])
 			if err != nil {
 				return err
@@ -350,10 +360,11 @@ $ pachctl get-logs --job=aedfa12aedf
 $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 
 			// Break up comma-separated input paths, and filter out empty entries
 			data := strings.Split(commaInputs, ",")
@@ -433,10 +444,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 			for {
 				request, err := cfgReader.NextCreatePipelineRequest()
 				if err == io.EOF {
@@ -480,10 +492,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return err
 			}
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 			for {
 				request, err := cfgReader.NextCreatePipelineRequest()
 				if err == io.EOF {
@@ -525,10 +538,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			pipelineInfo, err := client.InspectPipeline(args[0])
 			if err != nil {
 				return err
@@ -549,10 +563,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return the manifest used to create a pipeline.",
 		Long:  "Return the manifest used to create a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			createPipelineRequest, err := client.ExtractPipeline(args[0])
 			if err != nil {
 				return err
@@ -567,10 +582,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Edit the manifest for a pipeline in your text editor.",
 		Long:  "Edit the manifest for a pipeline in your text editor.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			createPipelineRequest, err := client.ExtractPipeline(args[0])
 			if err != nil {
 				return err
@@ -635,10 +651,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+			defer client.Close()
 			pipelineInfos, err := client.ListPipeline()
 			if err != nil {
 				return err
@@ -676,10 +693,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if len(args) > 0 && all {
 				return fmt.Errorf("cannot use the --all flag with an argument")
 			}
@@ -710,10 +728,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if err := client.StartPipeline(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from StartPipeline: %s", err.Error())
 			}
@@ -726,10 +745,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			if err := client.StopPipeline(args[0]); err != nil {
 				cmdutil.ErrorAndExit("error from StopPipeline: %s", err.Error())
 			}
@@ -765,10 +785,11 @@ you can increase the amount of memory used for the bloom filters with the
 --memory flag. The default value is 10MB.
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(metrics, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer client.Close()
 			memoryBytes, err := units.RAMInBytes(memory)
 			if err != nil {
 				return err
@@ -832,33 +853,23 @@ func pushImage(registry string, username string, password string, image string) 
 	if err != nil {
 		return "", err
 	}
+	
 	repo, _ := docker.ParseRepositoryTag(image)
 	components := strings.Split(repo, "/")
 	name := components[len(components)-1]
-	if username == "" {
-		user, err := user.Current()
-		if err != nil {
-			return "", err
-		}
-		username = user.Username
-	}
-	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
-	pushTag := uuid.NewWithoutDashes()
-	if err := client.TagImage(image, docker.TagImageOptions{
-		Repo:    pushRepo,
-		Tag:     pushTag,
-		Context: context.Background(),
-	}); err != nil {
-		return "", err
-	}
+
 	var authConfig docker.AuthConfiguration
-	if password != "" {
+	if username != "" && password != "" {
 		authConfig = docker.AuthConfiguration{ServerAddress: registry}
 		authConfig.Username = username
 		authConfig.Password = password
 	} else {
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
+			if isDockerUsingKeychain() {
+				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use. Please see here for remedial steps: https://github.com/pachyderm/pachyderm/issues/3293#issuecomment-448012383", err.Error())
+			}
+			
 			return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
 		}
 		for _, _authConfig := range authConfigs.Configs {
@@ -869,7 +880,19 @@ func pushImage(registry string, username string, password string, image string) 
 			}
 		}
 	}
+	
+	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
+	pushTag := uuid.NewWithoutDashes()
+	if err := client.TagImage(image, docker.TagImageOptions{
+		Repo:    pushRepo,
+		Tag:     pushTag,
+		Context: context.Background(),
+	}); err != nil {
+		return "", err
+	}
+	
 	fmt.Printf("Pushing %s:%s, this may take a while.\n", pushRepo, pushTag)
+	
 	if err := client.PushImage(
 		docker.PushImageOptions{
 			Name: pushRepo,
@@ -879,5 +902,50 @@ func pushImage(registry string, username string, password string, image string) 
 	); err != nil {
 		return "", err
 	}
+	
 	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
+}
+
+// isBrokenPushImagesOnMac checks if the user has a configuration that is not
+// readable by our current docker client library.
+// TODO(ys): remove if/when this issue is addressed:
+// https://github.com/fsouza/go-dockerclient/issues/677
+func isDockerUsingKeychain() bool {
+	user, err := user.Current()
+	if err != nil {
+		return false
+	}
+
+	contents, err := ioutil.ReadFile(path.Join(user.HomeDir, ".docker/config.json"))
+	if err != nil {
+		return false
+	}
+
+	var j map[string]interface{}
+
+	if err = json.Unmarshal(contents, &j); err != nil {
+		return false
+	}
+
+	auths, ok := j["auths"]
+	if !ok {
+		return false
+	}
+
+	authsInner, ok := auths.(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	index, ok := authsInner["https://index.docker.io/v1/"]
+	if !ok {
+		return false
+	}
+
+	indexInner, ok := index.(map[string]interface{})
+	if !ok || len(indexInner) > 0 {
+		return false
+	}
+
+	return j["credsStore"] == "osxkeychain"
 }
