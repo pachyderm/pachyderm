@@ -401,10 +401,10 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg.UserID != "" && reportMetrics {
+	if cfg != nil && cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
 	}
-	if cfg.V1 != nil && cfg.V1.SessionToken != "" {
+	if cfg != nil && cfg.V1 != nil && cfg.V1.SessionToken != "" {
 		client.authenticationToken = cfg.V1.SessionToken
 	}
 	
