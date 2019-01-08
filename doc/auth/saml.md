@@ -43,10 +43,10 @@ What the `--initial-admin` flag does is this:
    ```
 
 The rest of this example assumes that your Pachyderm cluster is running in
-minikube, and you're accessing it via `pachctl port-forward`. Many of the
+minikube, and you're accessing it via `pachctl`'s port forwarding. Many of the
 SAML service provider URLs below are set to some variation of `localhost`,
-which will only work if you're using port-forward and your browser is able
-to access Pachyderm via `localhost` on `pachctl port-forward`'s usual ports.
+which will only work if you're using port forwarding and your browser is able
+to access Pachyderm via `localhost` on the port forwarder's usual ports.
 
 ## Create IdP test app
 The ID provider (IdP) that this example uses is Okta. Here is an example
@@ -102,7 +102,7 @@ EOF
 ## Logging In
 Currently Pachyderm only supports IdP-initiated authentication. To proceed,
 configure your Okta app to point to the Pachyderm ACS
-(`http://localhost:30654/saml/acs` if using `pachctl port-forward`), then
+(`http://localhost:30654/saml/acs` if using `pachctl`'s port forwarding), then
 sign in via the new Okta app in your Okta dashboard.
 
 After clicking on the test Okta app, your browser will do a SAML authentication
