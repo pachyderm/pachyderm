@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"strings"
 
 	units "github.com/docker/go-units"
@@ -851,27 +850,13 @@ func pushImage(registry string, username string, password string, image string) 
 	if err != nil {
 		return "", err
 	}
+	
 	repo, _ := docker.ParseRepositoryTag(image)
 	components := strings.Split(repo, "/")
 	name := components[len(components)-1]
-	if username == "" {
-		user, err := user.Current()
-		if err != nil {
-			return "", err
-		}
-		username = user.Username
-	}
-	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
-	pushTag := uuid.NewWithoutDashes()
-	if err := client.TagImage(image, docker.TagImageOptions{
-		Repo:    pushRepo,
-		Tag:     pushTag,
-		Context: context.Background(),
-	}); err != nil {
-		return "", err
-	}
+
 	var authConfig docker.AuthConfiguration
-	if password != "" {
+	if username != "" && password != "" {
 		authConfig = docker.AuthConfiguration{ServerAddress: registry}
 		authConfig.Username = username
 		authConfig.Password = password
@@ -888,7 +873,19 @@ func pushImage(registry string, username string, password string, image string) 
 			}
 		}
 	}
+	
+	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
+	pushTag := uuid.NewWithoutDashes()
+	if err := client.TagImage(image, docker.TagImageOptions{
+		Repo:    pushRepo,
+		Tag:     pushTag,
+		Context: context.Background(),
+	}); err != nil {
+		return "", err
+	}
+	
 	fmt.Printf("Pushing %s:%s, this may take a while.\n", pushRepo, pushTag)
+	
 	if err := client.PushImage(
 		docker.PushImageOptions{
 			Name: pushRepo,
@@ -898,5 +895,6 @@ func pushImage(registry string, username string, password string, image string) 
 	); err != nil {
 		return "", err
 	}
+	
 	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
 }
