@@ -72,15 +72,7 @@ pachd-6c878bbc4c-f2h2c   1/1       Running   0          6m
 
 **Note**: If you see a few restarts on the `pachd` nodes, that's ok. That simply means that Kubernetes tried to bring up those pods before `etcd` was ready so it restarted them.
 
-### Port Forwarding
-
-The last step is to set up port forwarding so commands you send can reach Pachyderm within the VM. We background this process since port forwarding blocks.
-
-```shell
-$ pachctl port-forward &
-```
-
-Once port forwarding is complete, pachctl should automatically be connected. Try `pachctl version` to make sure everything is working.
+Try `pachctl version` to make sure everything is working.
 
 ```shell
 $ pachctl version
@@ -90,12 +82,18 @@ pachd               1.7.0
 ```
 We're good to go!
 
-If for any reason `port-forward` doesn't work, you can connect directly by setting `ADDRESS` to the minikube IP with port 30650. 
+`pachctl` uses port forwarding by default. This is slower than if you connect directly by the minikube instance, like so:
 
 ```
+# Find the IP address
 $ minikube ip
 192.168.99.100
+
+# Set the `ADDRESS` environemnt variable
 $ export ADDRESS=192.168.99.100:30650
+
+# Run a command
+$ pachctl version
 ```
 
 ## Next Steps
