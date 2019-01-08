@@ -48,6 +48,9 @@ done
 go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC" ]]; then
+    echo "repo slug: $TRAVIS_REPO_SLUG"
+    echo "secure env vars: $TRAVIS_SECURE_ENV_VARS"
+
     if [[ "$TRAVIS_REPO_SLUG" == "pachyderm/pachyderm" ]]; then
         echo "Running the full misc test suite"
 
