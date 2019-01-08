@@ -478,6 +478,18 @@
 			"revisionTime": "2017-01-27T09:51:30Z"
 		},
 		{
+			"checksumSHA1": "EcC09ZjMdXTNxeLV+vYDrGlN+S0=",
+			"path": "github.com/docker/spdystream",
+			"revision": "6480d4af844c189cf5dd913db24ddd339d3a4f85",
+			"revisionTime": "2018-10-23T17:14:02Z"
+		},
+		{
+			"checksumSHA1": "Gaf5SDyC0xV32LdjPCyUGvH5BhI=",
+			"path": "github.com/docker/spdystream/spdy",
+			"revision": "6480d4af844c189cf5dd913db24ddd339d3a4f85",
+			"revisionTime": "2018-10-23T17:14:02Z"
+		},
+		{
 			"checksumSHA1": "XTQr6C7h0TI9pePTNBPVg0jTlpI=",
 			"path": "github.com/emicklei/go-restful",
 			"revision": "212b8fee4e25641d01192b1413c6dae9f8545c20",
@@ -2929,6 +2941,18 @@
 			"versionExact": "kubernetes-1.13.0"
 		},
 		{
+			"checksumSHA1": "WIQsM2luYFd1BVg3Yg3JVw82y5o=",
+			"path": "k8s.io/apimachinery/pkg/util/httpstream",
+			"revision": "57dc7e687b5426ecb5df4cabdcdce30fddb74f22",
+			"revisionTime": "2018-12-11T02:44:37Z"
+		},
+		{
+			"checksumSHA1": "KjMBISUBvxOjMGtPPR9kshQEfLI=",
+			"path": "k8s.io/apimachinery/pkg/util/httpstream/spdy",
+			"revision": "57dc7e687b5426ecb5df4cabdcdce30fddb74f22",
+			"revisionTime": "2018-12-11T02:44:37Z"
+		},
+		{
 			"checksumSHA1": "I7EYSSgVE4A7+PxThl4mBWnW128=",
 			"path": "k8s.io/apimachinery/pkg/util/intstr",
 			"revision": "2b1284ed4c93a43499e781493253e2ac5959c4fd",
@@ -3023,6 +3047,12 @@
 			"revisionTime": "2018-11-27T02:52:37Z",
 			"version": "kubernetes-1.13.0",
 			"versionExact": "kubernetes-1.13.0"
+		},
+		{
+			"checksumSHA1": "OGbsdDRP+y4F++eGe/dh3FIWThg=",
+			"path": "k8s.io/apimachinery/third_party/forked/golang/netutil",
+			"revision": "57dc7e687b5426ecb5df4cabdcdce30fddb74f22",
+			"revisionTime": "2018-12-11T02:44:37Z"
 		},
 		{
 			"checksumSHA1": "9sFA+EjKrjpmK4OofQH0p0Rowfg=",
@@ -3417,6 +3447,12 @@
 			"versionExact": "v10.0.0"
 		},
 		{
+			"checksumSHA1": "ym+8Ic/u5z9tULwpRDPUNPHDVCw=",
+			"path": "k8s.io/client-go/tools/portforward",
+			"revision": "117d288bbeebfecd84ac5dde6a31dc16ee2ae55d",
+			"revisionTime": "2018-12-07T15:58:09Z"
+		},
+		{
 			"checksumSHA1": "n2h6CjJR1o+JM2snIIsCdcMMDWs=",
 			"path": "k8s.io/client-go/tools/reference",
 			"revision": "e64494209f554a6723674bd494d69445fb76a1d4",
@@ -3431,6 +3467,12 @@
 			"revisionTime": "2018-12-04T00:07:44Z",
 			"version": "v10.0.0",
 			"versionExact": "v10.0.0"
+		},
+		{
+			"checksumSHA1": "XdRD1nHERagwdSH0y1j2r9elARg=",
+			"path": "k8s.io/client-go/transport/spdy",
+			"revision": "117d288bbeebfecd84ac5dde6a31dc16ee2ae55d",
+			"revisionTime": "2018-12-07T15:58:09Z"
 		},
 		{
 			"checksumSHA1": "hDGF2m/JJN43zHnEnamwbYVmM54=",
@@ -3471,6 +3513,12 @@
 			"revisionTime": "2018-12-04T00:07:44Z",
 			"version": "v10.0.0",
 			"versionExact": "v10.0.0"
+		},
+		{
+			"checksumSHA1": "+qgXkF+cn2uKNlOXNsLrpxvdBy0=",
+			"path": "k8s.io/klog",
+			"revision": "4767aaa894b9d76b3511781272db07d4ef45175e",
+			"revisionTime": "2018-12-08T03:05:51Z"
 		},
 		{
 			"checksumSHA1": "+qgXkF+cn2uKNlOXNsLrpxvdBy0=",

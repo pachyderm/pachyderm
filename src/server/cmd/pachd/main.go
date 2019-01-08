@@ -620,7 +620,7 @@ func getKubeClient(env *appEnv) (*kube.Clientset, error) {
 	}
 	kubeClient, err := kube.NewForConfig(cfg)
 	if err != nil {
-		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", grpcutil.ScrubGRPC(err))
+		log.Errorf("falling back to insecure kube client due to error from NewForConfig: %s", grpcutil.ScrubGRPC(err))
 	} else {
 		return kubeClient, err
 	}
