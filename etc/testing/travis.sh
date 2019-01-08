@@ -48,17 +48,14 @@ done
 go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC" ]]; then
-    echo "repo slug: $TRAVIS_REPO_SLUG"
-    echo "secure env vars: $TRAVIS_SECURE_ENV_VARS"
-
-    if [[ "$TRAVIS_REPO_SLUG" == "pachyderm/pachyderm" ]]; then
-        echo "Running the full misc test suite"
+    if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+        echo "Running the full misc test suite because secret env vars exist"
 
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
             test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth \
             test-enterprise test-worker test-admin
     else
-        echo "Running the misc test suite, with some tests disabled because secrets will be missing"
+        echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
 
         # Do not run some tests when we don't have access to secret
         # credentials
