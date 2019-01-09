@@ -3334,10 +3334,10 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				}
 				commitID = commit.ID
 			} else if req.File.Commit.ID != rawCommitID {
-				err = fmt.Errorf("All requests in a put files request must have the same commit ID; first=%s, other=%s", rawCommitID, req.File.Commit.ID)
+				err = fmt.Errorf("All requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
 				return oneOff, repo, branch, err
 			} else if req.File.Commit.Repo.Name != repo {
-				err = fmt.Errorf("All requests in a put files request must have the same repo name; first=%s, other=%s", repo, req.File.Commit.Repo.Name)
+				err = fmt.Errorf("All requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
 				return oneOff, repo, branch, err
 			} else {
 				req.File.Commit.ID = commitID
