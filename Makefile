@@ -456,7 +456,7 @@ test-pfs-server:
 	fi
 	@# grep out PFS server logs, as otherwise the test output is too verbose to
 	@# follow and breaks travis
-	go test -v ./src/server/pfs/server -timeout $(TIMEOUT) | grep -v "$$(date +^%FT)"
+	set -o pipefail && go test -v ./src/server/pfs/server -timeout $(TIMEOUT) | grep -v "$$(date +^%FT)"
 
 test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
