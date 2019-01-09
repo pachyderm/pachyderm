@@ -444,19 +444,7 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
-	@# If etcd is not available, start it in a docker container
-	if ! ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2379 get "testkey"; then \
-	  docker run \
-	    --publish 32379:2379 \
-	    --ulimit nofile=2048 \
-	    $(ETCD_IMAGE) \
-	    etcd \
-	    --listen-client-urls=http://0.0.0.0:2379 \
-	    --advertise-client-urls=http://0.0.0.0:2379 & \
-	fi
-	@# grep out PFS server logs, as otherwise the test output is too verbose to
-	@# follow and breaks travis
-	set -o pipefail && go test -v ./src/server/pfs/server -timeout $(TIMEOUT) | grep -v "$$(date +^%FT)"
+	./etc/testing/pfs_server.sh $(ETCD_IMAGE) $(TIMEOUT)
 
 test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
