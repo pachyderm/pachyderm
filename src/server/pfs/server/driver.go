@@ -2921,9 +2921,12 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 		oldFile.Commit = newCommitInfo.ParentCommit
 		oldFile.Path = newFile.Path
 	}
-	oldCommitInfo, err := d.inspectCommit(pachClient, oldFile.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return nil, nil, err
+	var oldCommitInfo *pfs.CommitInfo
+	if oldFile.Commit != nil {
+		oldCommitInfo, err = d.inspectCommit(pachClient, oldFile.Commit, pfs.CommitState_STARTED)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	oldTree, err := d.getTreeForFile(pachClient, oldFile)
 	if err != nil {
