@@ -1269,7 +1269,7 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 	return nil, nil
 }
 
-func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, filter func(k []byte) (bool, error)) ([]*hashtree.Reader, error) {
+func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, filter hashtree.Filter) ([]*hashtree.Reader, error) {
 	limiter := limit.New(hashtree.DefaultMergeConcurrency)
 	var eg errgroup.Group
 	var mu sync.Mutex
