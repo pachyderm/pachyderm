@@ -385,12 +385,9 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					version:               v1_7,
 				}
 				extractReader.buf.Write(op.Op1_7.Object.Value)
-				obj, n, err := pachClient.PutObject(extractReader)
-				if err != nil {
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
-				fmt.Printf(">>> r.BytesRead: %d\n", extractReader._size)
-				fmt.Printf(">>> size %d object %s\n", n, obj.Hash)
 			} else {
 				if err := a.apply1_7Op(pachClient, op.Op1_7); err != nil {
 					return err
@@ -450,7 +447,6 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 }
 
 func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) error {
-	fmt.Printf(">>> %s\n", op)
 	switch {
 	case op.Tag != nil:
 		if !objHashRE.MatchString(op.Tag.Object.Hash) {
@@ -669,5 +665,5 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 		}
 	}
 	dn, err := r.buf.Read(p)
-	return n+dn, err
+	return n + dn, err
 }

@@ -8,9 +8,15 @@
 # inputs:
 # left:  0,1,2,... -> 0/00,0/01,0/02,... -> 01, 02, 03, 04, 05, ...
 # right: 0,1,2,...    0/00,0/10,0/20,...
+#
+# Due to https://github.com/pachyderm/pachyderm/issues/3337, restoring this
+# cluster doesn't yet work (the cross input causes the restored pipeline to
+# process commits with no matching datums)
 
 HERE="$(dirname "${0}")"
 source "${HERE}/deploy.sh"
+
+set -x
 
 pachctl_1_7 create-repo left
 pachctl_1_7 create-repo right
