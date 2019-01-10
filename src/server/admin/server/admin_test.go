@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"math/rand"
@@ -216,11 +218,12 @@ func TestMigrateFrom1_7(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	f, err := os.Open(path.Join(os.Getenv("GOPATH"),
-		"/src/github.com/pachyderm/pachyderm/etc/testing/migration/1_7/diagonal.dump"))
+	// Restore dumped metadata (now that objects are present)
+	md, err := os.Open(path.Join(os.Getenv("GOPATH"),
+		"src/github.com/pachyderm/pachyderm/etc/testing/migration/1_7/sort.metadata"))
 	require.NoError(t, err)
-	require.NoError(t, c.RestoreReader(snappy.NewReader(f)))
-	require.NoError(t, f.Close())
+	require.NoError(t, c.RestoreReader(snappy.NewReader(md)))
+	require.NoError(t, md.Close())
 
 	// Wait for final imported commit to be processed
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit("left", "master")}, nil)
@@ -234,28 +237,30 @@ func TestMigrateFrom1_7(t *testing.T) {
 	// Inspect input
 	commits, err := c.ListCommit("left", "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 7, len(commits))
+	require.Equal(t, 3, len(commits))
 	commits, err = c.ListCommit("right", "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 7, len(commits))
+	require.Equal(t, 3, len(commits))
 
 	// Inspect output
 	repos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t,
-		[]string{"left", "right", "filter-left", "filter-right", "join"},
+		[]string{"left", "right", "copy", "sort"},
 		repos, RepoInfoToName)
 
-	files, err := c.ListFile("join", "master", "/")
-	require.NoError(t, err)
-	fileNames := make(map[string]struct{})
-	for _, fi := range files {
-		fileNames[path.Base(fi.File.Path)] = struct{}{}
+	// make sure all numbers 0-99 are in /nums
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile("sort", "master", "/nums", 0, 0, &buf))
+	s := bufio.NewScanner(&buf)
+	numbers := make(map[string]struct{})
+	for s.Scan() {
+		numbers[s.Text()] = struct{}{}
 	}
-	require.Equal(t, 100, len(fileNames)) // job processed all inputs
+	require.Equal(t, 100, len(numbers)) // job processed all inputs
 
 	// Confirm stats commits are present
-	commits, err = c.ListCommit("join", "stats", "", 0)
+	commits, err = c.ListCommit("sort", "stats", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 14, len(commits))
+	require.Equal(t, 6, len(commits))
 }
