@@ -2921,6 +2921,10 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 		oldFile.Commit = newCommitInfo.ParentCommit
 		oldFile.Path = newFile.Path
 	}
+	// `oldCommitInfo` may be nil. While `nodeToFileInfoHeaderFooter` called
+	// below expects `oldCommitInfo` to not be nil, it's okay because
+	// `newTree.Diff` won't call its callback unless `oldCommitInfo` is not
+	// `nil`.
 	var oldCommitInfo *pfs.CommitInfo
 	if oldFile.Commit != nil {
 		oldCommitInfo, err = d.inspectCommit(pachClient, oldFile.Commit, pfs.CommitState_STARTED)
