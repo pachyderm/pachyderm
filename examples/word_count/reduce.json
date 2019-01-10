@@ -9,7 +9,7 @@
     ]
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "map",
       "glob": "/*"
     }
