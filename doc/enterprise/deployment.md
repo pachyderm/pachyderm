@@ -51,7 +51,12 @@ ACTIVE
 
 ### Activate via the dashboard
 
-Assuming that you have a running Pachyderm cluster and you have deployed the Pachyderm Enterprise dashboard using [this guide](#deploying-the-pachyderm-enterprise-edition-dashboard), you should be able to visit `<pachyderm host IP>:30080` (e.g., `localhost:30080` when you are using `pachctl port-forward`) to see the dashboard. When you first visit the dashboard, it will prompt you for your activation code:
+You can active Enterprise Edition directly in the dashboard. There's two ways to access the dashboard:
+
+1. If you set the `ADDRESS` environment variable, simply point your browser to port 30080 on your kubernetes cluster's IP address.
+2. You can enable port forwarding by calling `pachctl port-forward`, then point your browser to `localhost:30080`.
+
+When you first visit the dashboard, it will prompt you for your activation code:
 
 ![alt tag](token.png)
 
@@ -61,4 +66,3 @@ Once you enter your activation code, you should have full access to the Enterpri
 $ pachctl enterprise get-state   
 ACTIVE
 ```
-

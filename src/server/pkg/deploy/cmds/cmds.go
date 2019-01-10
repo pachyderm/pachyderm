@@ -472,10 +472,11 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				data = assets.MicrosoftSecret("", args[1], args[2])
 			}
 
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return fmt.Errorf("error constructing pachyderm client: %v", err)
 			}
+			defer c.Close()
 
 			_, err = c.DeployStorageSecret(context.Background(), &deployclient.DeployStorageSecretRequest{
 				Secrets: data,

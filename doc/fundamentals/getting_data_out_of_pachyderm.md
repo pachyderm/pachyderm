@@ -43,7 +43,7 @@ edges               026536b547a44a8daa2db9d25bf88b79   754542b89c1c47a5b657e6038
 edges               754542b89c1c47a5b657e60381c06c71   <none>                             2 minutes ago        Less than a second   22.22 KiB
 ```
 
-In this case, we have one output commit per input commit on `images`.  However, this might get more complicated for pipelines with multiple branches, multiple input atoms, etc.  To confirm which commits correspond to which outputs, we can use `flush-commit`.  In particular, we can call `flush-commit` on any one of our commits into `images` to see which output came from this particular commit:
+In this case, we have one output commit per input commit on `images`.  However, this might get more complicated for pipelines with multiple branches, multiple PFS inputs, etc.  To confirm which commits correspond to which outputs, we can use `flush-commit`.  In particular, we can call `flush-commit` on any one of our commits into `images` to see which output came from this particular commit:
 
 ```sh
 $ pachctl flush-commit images/a9678d2a439648c59636688945f3c6b5
