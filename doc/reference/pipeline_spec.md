@@ -39,6 +39,9 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "constant": int,
     "coefficient": number
   },
+  "hashtree_spec": {
+   "constant": int,
+  },
   "resource_requests": {
     "memory": string,
     "cpu": number,
