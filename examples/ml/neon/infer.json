@@ -5,16 +5,16 @@
   "transform": {
     "image": "dwhitena/neon-inference",
     "cmd": [
-	"python",
-	"examples/imdb/auto_inference.py",
-	"--model_weights",
-	"/pfs/model/imdb.p",
-	"--vocab_file",
-	"/pfs/model/imdb.vocab",
-	"--review_files",
-	"/pfs/reviews",
-	"--output_dir",
-	"/pfs/out"
+      "python",
+      "examples/imdb/auto_inference.py",
+      "--model_weights",
+      "/pfs/model/imdb.p",
+      "--vocab_file",
+      "/pfs/model/imdb.vocab",
+      "--review_files",
+      "/pfs/reviews",
+      "--output_dir",
+      "/pfs/out"
     ]
   },
   "parallelism_spec": {
@@ -23,16 +23,16 @@
   "input": {
     "cross": [
       {
-        "atom": {
-	  "repo": "reviews",
-	  "glob": "/*"
-	}
+        "pfs": {
+          "repo": "reviews",
+          "glob": "/*"
+        }
       },
       {
-	"atom": {
-	  "repo": "model",
-	  "glob": "/"
-	}
+        "pfs": {
+          "repo": "model",
+          "glob": "/"
+        }
       }
     ]
   }

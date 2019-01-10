@@ -102,7 +102,7 @@ EOF
 ## Logging In
 Currently Pachyderm only supports IdP-initiated authentication. Configure
 an Okta app to point to the Pachyderm ACS
-(`http://localhost:30654/saml/acs` if using `pachctl port-forward`), then
+(`http://localhost:30654/saml/acs` if using `pachctl`'s port forwarding, then
 sign in via the new Okta app
 
 This should allow you to log in at the Pachyderm dash. To log in with the
