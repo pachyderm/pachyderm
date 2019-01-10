@@ -49,6 +49,7 @@ var (
 	SentinelByte = []byte{'*'}
 )
 
+// Filter is a function for filtering hashtree keys.
 type Filter func(k []byte) (bool, error)
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
