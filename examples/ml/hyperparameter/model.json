@@ -24,20 +24,20 @@
   "input": {
     "cross": [
       {
-        "atom": {
+        "pfs": {
           "repo": "split",
           "glob": "/train.csv"
         }
       },
       {
-        "atom": {
+        "pfs": {
           "name": "c-parameters",
           "repo": "parameters",
           "glob": "/c_parameters.txt/*"
         }
       },
       {
-        "atom": {
+        "pfs": {
           "name": "gamma-parameters",
           "repo": "parameters",
           "glob": "/gamma_parameters.txt/*"
