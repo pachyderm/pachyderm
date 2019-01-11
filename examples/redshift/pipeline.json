@@ -3,7 +3,7 @@
         "name": "upload_to_redshift"
     },
     "input": {
-      "atom": {
+      "pfs": {
         "repo": "data"
       }
     },
