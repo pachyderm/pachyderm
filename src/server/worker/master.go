@@ -515,8 +515,8 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		plan := &Plan{}
 		// Get stats commit
 		var statsCommit *pfs.Commit
-		var trees, statsTrees []*pfs.Object
-		var size, statsSize uint64
+		var statsTrees []*pfs.Object
+		var statsSize uint64
 		if jobInfo.EnableStats {
 			ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 			if err != nil {
