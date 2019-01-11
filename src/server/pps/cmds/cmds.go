@@ -479,7 +479,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
-	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
+	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your docker username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
 	var reprocess bool
@@ -867,7 +867,7 @@ func pushImage(registry string, username string, password string, image string) 
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
 			if isDockerUsingKeychain() {
-				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use. Please see here for remedial steps: https://github.com/pachyderm/pachyderm/issues/3293#issuecomment-448012383", err.Error())
+				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use. Try specifying the `--username` and `--password` flags.", err.Error())
 			}
 			
 			return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
