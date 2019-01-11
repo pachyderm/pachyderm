@@ -867,7 +867,7 @@ func pushImage(registry string, username string, password string, image string) 
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
 			if isDockerUsingKeychain() {
-				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use. Try specifying the `--username` and `--password` flags.", err.Error())
+				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` and `--password` flags", err.Error())
 			}
 			
 			return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
