@@ -36,7 +36,7 @@ Setting up a GPU enabled Kubernetes cluster can be a difficult process depending
     }
   },
   "inputs": {
-    "atom": {
+    "pfs": {
       "repo": "data",
       "glob": "/*"
     }
