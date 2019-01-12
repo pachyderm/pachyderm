@@ -678,7 +678,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			return err
 		}
 		if !utf8.ValidString(filePath) {
-			return fmt.Errorf("Filepath is not valid utf-8: %s", filePath)
+			return fmt.Errorf("file path is not valid utf-8: %s", filePath)
 		}
 		if filePath == outputPath {
 			tree = hashtree.NewOrdered("/")
