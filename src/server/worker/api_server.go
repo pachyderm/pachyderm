@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -675,6 +676,9 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	if err := filepath.Walk(outputPath, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
+		}
+		if !utf8.ValidString(filePath) {
+			return fmt.Errorf("file path is not valid utf-8: %s", filePath)
 		}
 		if filePath == outputPath {
 			tree = hashtree.NewOrdered("/")
