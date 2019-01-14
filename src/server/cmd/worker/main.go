@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -31,8 +32,16 @@ import (
 
 // appEnv stores the environment variables that this worker needs
 type appEnv struct {
-	// Address of etcd, so that worker can write its own IP there for discoverh
-	EtcdAddress string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
+	// The port at which this worker will expose its pprof port
+	PProfPort uint16 `env:"PPROF_PORT,default=651"`
+
+	// Pachd's peer port (where the worker will connect to its sidecar)
+	PeerPort string `env:"PEER_PORT,default=653"`
+
+	// Host and port of Pachyderm's Etcd cluster, so that this worker can write
+	// its IP address there for discover
+	EtcdHost string `env:"ETCD_SERVICE_HOST,required"`
+	EtcdPort string `env:"ETCD_SERVICE_PORT,required"`
 
 	// Prefix in etcd for all pachd-related records
 	PPSPrefix string `env:"PPS_ETCD_PREFIX,required"`
@@ -148,21 +157,23 @@ func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appE
 }
 
 func do(appEnvObj interface{}) error {
-	go func() {
-		log.Println(http.ListenAndServe(":651", nil))
-	}()
-
 	appEnv := appEnvObj.(*appEnv)
 
+	// Expose PProf service
+	go func() {
+		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", appEnv.PProfPort), nil))
+	}()
+
 	// Construct a client that connects to the sidecar.
-	pachClient, err := client.NewFromAddress("localhost:653")
+	pachClient, err := client.NewFromAddress(net.JoinHostPort("localhost", appEnv.PeerPort))
 	if err != nil {
 		return fmt.Errorf("error constructing pachClient: %v", err)
 	}
 
 	// Get etcd client, so we can register our IP (so pachd can discover us)
+	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(appEnv.EtcdHost, appEnv.EtcdPort))
 	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{fmt.Sprintf("%s:2379", appEnv.EtcdAddress)},
+		Endpoints:   []string{etcdAddress},
 		DialOptions: client.DefaultDialOptions(),
 	})
 	if err != nil {
