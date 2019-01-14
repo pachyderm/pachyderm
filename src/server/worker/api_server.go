@@ -44,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/exec"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -62,6 +63,9 @@ const (
 	planPrefix        = "/plan"
 	chunkPrefix       = "/chunk"
 	mergePrefix       = "/merge"
+	shardPrefix       = "/shard"
+	shardTTL          = 30
+	NO_SHARD          = int64(-1)
 	parentTreeBufSize = 50 * (1 << (10 * 2))
 )
 
@@ -111,6 +115,8 @@ type APIServer struct {
 	pipelines col.Collection
 	// The progress collection
 	plans col.Collection
+	// The shards collection
+	shards col.Collection
 
 	// Only one datum can be running at a time because they need to be
 	// accessing /pfs, runMu enforces this
@@ -124,6 +130,11 @@ type APIServer struct {
 
 	// hashtreeStorage is the where we store on disk hashtrees
 	hashtreeStorage string
+
+	// claimedShard communicates the shard that was claimed
+	claimedShard chan int64
+	// shard is the shard this worker has claimed
+	shard int64
 }
 
 type putObjectResponse struct {
@@ -305,7 +316,10 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines:       ppsdb.Pipelines(etcdClient, etcdPrefix),
 		plans:           col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
+		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &ShardInfo{}, nil, nil),
 		hashtreeStorage: hashtreeStorage,
+		claimedShard:    make(chan int64, 1),
+		shard:           NO_SHARD,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
 	if err != nil {
@@ -1070,144 +1084,135 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 	return nil
 }
 
-func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, tags []*pfs.Tag, useParentHashTree bool) error {
-	complete := false
-	for !complete {
-		// func to defer cancel in
-		if err := func() (retErr error) {
-			ctx, cancel := context.WithCancel(ctx)
-			defer cancel()
-			var merge int64
-			var found bool
-			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-				// Reinitialize closed upon variables.
-				found = false
-				merges := a.merges(jobID).ReadWrite(stm)
-				// we set complete to true and then unset it if we find an incomplete chunk
-				complete = true
-				for merge = 0; merge < plan.Merges; merge++ {
-					var mergeState MergeState
-					if err := merges.Get(fmt.Sprint(merge), &mergeState); err != nil {
-						if col.IsErrNotFound(err) {
-							found = true
-						} else {
-							return err
-						}
-					}
-					// This gets triggered either if we found a chunk that wasn't
-					// complete or if we didn't find a chunk at all.
-					if mergeState.State == State_RUNNING {
-						complete = false
-					}
-					if found {
-						break
-					}
-				}
-				if found {
-					return merges.PutTTL(fmt.Sprint(merge), &MergeState{State: State_RUNNING}, ttl)
-				}
-				return nil
-			}); err != nil {
+func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+	// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
+	if a.shard == NO_SHARD {
+		select {
+		case a.shard = <-a.claimedShard:
+		case <-ctx.Done():
+			return nil
+		}
+	}
+	objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
+	if err != nil {
+		return err
+	}
+	// collect hashtrees from chunks as they complete
+	var trees, statsTrees []*hashtree.Reader
+	low := int64(0)
+	chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
+	var failed bool
+	for _, high := range plan.Chunks {
+		chunkState := &ChunkState{}
+		if err := chunks.WatchOneF(fmt.Sprint(high), func(e *watch.Event) error {
+			if e.Type == watch.EventError {
+				return e.Err
+			}
+			// unmarshal and check that full key matched
+			var key string
+			if err := e.Unmarshal(&key, chunkState); err != nil {
 				return err
 			}
-			if found {
-				go func() {
-				Renew:
-					for {
-						select {
-						case <-time.After((time.Second * time.Duration(ttl)) / 2):
-						case <-ctx.Done():
-							break Renew
-						}
-						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-							merges := a.merges(jobID).ReadWrite(stm)
-							var mergeState MergeState
-							if err := merges.Get(fmt.Sprint(merge), &mergeState); err != nil {
-								return err
-							}
-							if mergeState.State == State_RUNNING {
-								return merges.PutTTL(fmt.Sprint(merge), &mergeState, ttl)
-							}
-							return nil
-						}); err != nil {
-							cancel()
-							logger.Logf("failed to renew lock: %v", err)
-						}
+			if key != fmt.Sprint(high) {
+				return nil
+			}
+			switch chunkState.State {
+			case State_FAILED:
+				failed = true
+				fallthrough
+			case State_COMPLETE:
+				// compute tags from completed chunk
+				var tags []*pfs.Tag
+				for i := low; i < high; i++ {
+					files := df.Datum(int(i))
+					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+					// skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
+					if _, ok := skip[datumHash]; ok && useParentHashTree {
+						continue
 					}
-				}()
-				// Merge
-				objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
-				if err != nil {
-					return err
+					tags = append(tags, client.NewTag(datumHash))
 				}
-				var tree *pfs.Object
-				var size uint64
-				if jobInfo.DataFailed == 0 {
-					rs, err := a.getHashtrees(ctx, pachClient, objClient, tags, hashtree.NewFilter(plan.Merges, merge))
+				if !failed {
+					ts, err := a.getHashtrees(ctx, pachClient, objClient, tags, hashtree.NewFilter(plan.Merges, a.shard))
 					if err != nil {
 						return err
 					}
-					if useParentHashTree {
-						r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.OutputCommit, merge)
-						if err != nil {
-							return err
-						}
-						defer func() {
-							if err := r.Close(); err != nil && retErr == nil {
-								retErr = err
-							}
-						}()
-						rs = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, rs...)
-					}
-					tree, size, err = a.merge(pachClient, objClient, nil, rs)
-					if err != nil {
-						return err
-					}
+					trees = append(trees, ts...)
 				}
-				// Merge stats
-				var statsTree *pfs.Object
-				var statsSize uint64
+				// download stats datum hashtrees if applicable
 				if a.pipelineInfo.EnableStats {
 					var statsTags []*pfs.Tag
 					for _, tag := range tags {
 						statsTags = append(statsTags, client.NewTag(tag.Name+statsTagSuffix))
 					}
-					rs, err := a.getHashtrees(ctx, pachClient, objClient, statsTags, hashtree.NewFilter(plan.Merges, merge))
+					ts, err := a.getHashtrees(ctx, pachClient, objClient, statsTags, hashtree.NewFilter(plan.Merges, a.shard))
 					if err != nil {
 						return err
 					}
-					if useParentHashTree {
-						r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.StatsCommit, merge)
-						if err != nil {
-							return err
-						}
-						defer func() {
-							if err := r.Close(); err != nil && retErr == nil {
-								retErr = err
-							}
-						}()
-						rs = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, rs...)
-					}
-					statsTree, statsSize, err = a.merge(pachClient, objClient, nil, rs)
-					if err != nil {
-						return err
-					}
+					statsTrees = append(statsTrees, ts...)
 				}
-				// Finish commit
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					merges := a.merges(jobID).ReadWrite(stm)
-					return merges.Put(fmt.Sprint(merge), &MergeState{State: State_COMPLETE, Tree: tree, SizeBytes: size, StatsTree: statsTree, StatsSizeBytes: statsSize})
-				}); err != nil {
-					return err
-				}
+				return errutil.ErrBreak
 			}
 			return nil
-		}(); err != nil {
+		}); err != nil {
+			return err
+		}
+		low = high
+	}
+	// get parent hashtree reader if it is being used
+	if useParentHashTree {
+		r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.OutputCommit, a.shard)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		trees = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, trees...)
+		// get parent stats hashtree reader if it is being used
+		if a.pipelineInfo.EnableStats {
+			r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.StatsCommit, a.shard)
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := r.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			statsTrees = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, statsTrees...)
+		}
+	}
+	// always merge stats trees if enabled
+	var statsTree *pfs.Object
+	var statsSize uint64
+	if a.pipelineInfo.EnableStats {
+		statsTree, statsSize, err = a.merge(pachClient, objClient, nil, statsTrees)
+		if err != nil {
 			return err
 		}
 	}
-	return nil
-
+	var tree *pfs.Object
+	var size uint64
+	select {
+	// skip merge if job context is cancelled
+	case <-ctx.Done():
+	default:
+		if !failed {
+			tree, size, err = a.merge(pachClient, objClient, nil, trees)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	// mark merge as complete
+	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		merges := a.merges(jobID).ReadWrite(stm)
+		return merges.Put(fmt.Sprint(a.shard), &MergeState{State: State_COMPLETE, Tree: tree, SizeBytes: size, StatsTree: statsTree, StatsSizeBytes: statsSize})
+	})
+	return err
 }
 
 func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, rs []*hashtree.Reader) (*pfs.Object, uint64, error) {
@@ -1448,12 +1453,17 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 }
 
 // worker does the following:
+//  - claims filesystem shards as they become available
 //  - watches for new jobs (jobInfos in the jobs collection)
 //  - claims chunks from the chunk layout it finds in the chunks collection
 //  - claims those chunks with acquireDatums
 //  - processes the chunks with processDatums
+//  - merges the chunks with mergeDatums
 func (a *APIServer) worker() {
 	logger := a.getWorkerLogger() // this worker's formatting logger
+
+	// claim a shard if one is available or becomes available
+	go a.claimShard(a.pachClient.Ctx())
 
 	// Process incoming jobs
 	backoff.RetryNotify(func() (retErr error) {
@@ -1553,44 +1563,32 @@ func (a *APIServer) worker() {
 					useParentHashTree = true
 				}
 			}
+
+			eg, ctx := errgroup.WithContext(jobCtx)
 			// If a datum fails, acquireDatums updates the relevant lock in
 			// etcd, which causes the master to fail the job (which is
 			// handled above in the JOB_FAILURE case). There's no need to
 			// handle failed datums here, just failed etcd writes.
-			if err := a.acquireDatums(
-				jobCtx, jobID, plan, logger,
-				func(low, high int64) (*processResult, error) {
-					processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip)
-					if err != nil {
-						return nil, err
-					}
-					return processResult, nil
-				},
-			); err != nil {
+			eg.Go(func() error {
+				return a.acquireDatums(
+					ctx, jobID, plan, logger,
+					func(low, high int64) (*processResult, error) {
+						processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip)
+						if err != nil {
+							return nil, err
+						}
+						return processResult, nil
+					},
+				)
+			})
+			eg.Go(func() error {
+				return a.mergeDatums(ctx, pachClient, jobInfo, jobID, plan, logger, df, skip, useParentHashTree)
+			})
+			if err := eg.Wait(); err != nil {
 				if jobCtx.Err() == context.Canceled {
 					continue NextJob // job cancelled--don't restart, just wait for next job
 				}
-				return fmt.Errorf("acquire/process datums for job %s exited with err: %v", jobID, err)
-			}
-			var tags []*pfs.Tag
-			for i := 0; i < df.Len(); i++ {
-				files := df.Datum(int(i))
-				datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-				if _, ok := skip[datumHash]; ok && useParentHashTree {
-					continue
-				}
-				tags = append(tags, client.NewTag(datumHash))
-			}
-			skip = nil
-			jobInfo, err = pachClient.InspectJob(jobID, false)
-			if err != nil {
-				return err
-			}
-			if err := a.mergeDatums(jobCtx, pachClient, jobInfo, jobID, plan, logger, tags, useParentHashTree); err != nil {
-				if jobCtx.Err() == context.Canceled {
-					continue NextJob // job cancelled--don't restart, just wait for next job
-				}
-				return fmt.Errorf("merge datums for job %s exited with err: %v", jobID, err)
+				return fmt.Errorf("acquire/process/merge datums for job %s exited with err: %v", jobID, err)
 			}
 		}
 		return fmt.Errorf("worker: jobs.WatchByIndex(pipeline = %s) closed unexpectedly", a.pipelineInfo.Pipeline.Name)
@@ -1598,6 +1596,87 @@ func (a *APIServer) worker() {
 		logger.Logf("worker: watch closed or error running the worker process: %v; retrying in %v", err, d)
 		return nil
 	})
+}
+
+func (a *APIServer) claimShard(ctx context.Context) {
+	numShards, err := ppsutil.GetExpectedNumHashtrees(a.pipelineInfo.HashtreeSpec)
+	if err != nil {
+		log.Printf("error getting number of shards: %v", err)
+		return
+	}
+	shards := a.shards.ReadOnly(ctx)
+	watcher, err := shards.Watch()
+	if err != nil {
+		log.Printf("error creating shard watcher: %v", err)
+		return
+	}
+	// attempt to claim a shard as they become available
+	claimedShard := NO_SHARD
+CLAIMED_SHARD:
+	for {
+		for shard := int64(0); shard < numShards; shard++ {
+			var shardInfo ShardInfo
+			if err := shards.Get(fmt.Sprint(shard), &shardInfo); err != nil {
+				if !col.IsErrNotFound(err) {
+					log.Printf("error checking shards: %v", err)
+					return
+				}
+				// attempt to claim shard
+				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+					shards := a.shards.ReadWrite(stm)
+					var shardInfo ShardInfo
+					if err := shards.Get(fmt.Sprint(shard), &shardInfo); err != nil {
+						if !col.IsErrNotFound(err) {
+							return err
+						}
+						claimedShard = shard
+						return shards.PutTTL(fmt.Sprint(shard), &ShardInfo{}, shardTTL)
+					}
+					claimedShard = NO_SHARD
+					return nil
+				}); err != nil {
+					log.Printf("shard claim error: %v", err)
+					return
+				}
+				if claimedShard != NO_SHARD {
+					break CLAIMED_SHARD
+				}
+			}
+		}
+		// wait for a deletion event (ttl expired) to attempt to acquire a shard again
+		var e *watch.Event
+		for e == nil || e.Type != watch.EventDelete {
+			select {
+			case e = <-watcher.Watch():
+				if e.Type == watch.EventError {
+					log.Printf("shard watch error: %v", e.Err)
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}
+	a.claimedShard <- claimedShard
+	// renew lock on shard
+	for {
+		select {
+		case <-time.After((time.Second * time.Duration(shardTTL)) / 2):
+			if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+				shards := a.shards.ReadWrite(stm)
+				var shardInfo ShardInfo
+				if err := shards.Get(fmt.Sprint(claimedShard), &shardInfo); err != nil {
+					return err
+				}
+				return shards.PutTTL(fmt.Sprint(claimedShard), &shardInfo, shardTTL)
+			}); err != nil {
+				log.Printf("failed to renew lock on shard: %v", err)
+				return
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 // processDatums processes datums from low to high in df, if a datum fails it
