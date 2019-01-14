@@ -10,6 +10,7 @@
   },
   "transform": {
     "cmd": [ "python3", "/edges.py" ],
-    "image": "pachyderm/opencv"
+    "image": "ysimonson/opencv",
+    "dockerfile": "./Dockerfile"
   }
 }
