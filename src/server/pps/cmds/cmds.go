@@ -927,9 +927,13 @@ func (m *dockerManager) build(contextDir string, dockerfile string) error {
 	})
 
 	if err != nil {
-		fmt.Errorf("could not build docker image: %s", err)
+		return fmt.Errorf("could not build docker image: %s", err)
 	}
 
+	// Now that the image has been rebuilt into `destTag`, change the
+	// `sourceTag` to be the same so that subsequent pushes will work with
+	// the right image
+	m.sourceTag = m.destTag
 	return nil
 }
 

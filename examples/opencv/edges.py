@@ -7,6 +7,7 @@ import os
 # edge detection on that image to /pfs/out. Note that /pfs/images and
 # /pfs/out are special directories that Pachyderm injects into the container.
 def make_edges(image):
+    print("YS:HELLO")
     img = cv2.imread(image)
     tail = os.path.split(image)[1]
     edges = cv2.Canny(img,100,200)
