@@ -786,6 +786,9 @@ func handleCreatePipeline(metrics bool, reprocess bool, rebuild bool, pushImages
 			request.Reprocess = reprocess
 		}
 		if rebuild || pushImages {
+			if rebuild && pushImages {
+				fmt.Fprintln(os.Stderr, "`--push-images` is redundant, as it's already enabled with `--rebuild`")
+			}
 			manager, err := newDockerManager(registry, username, password, request.Transform.Image)
 			if err != nil {
 				return err
@@ -926,7 +929,7 @@ func (m *dockerManager) build(contextDir string, dockerfile string) error {
 	if err != nil {
 		fmt.Errorf("could not build docker image: %s", err)
 	}
-	
+
 	return nil
 }
 
