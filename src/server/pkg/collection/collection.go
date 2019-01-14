@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -622,4 +623,27 @@ func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.
 // will be the current value of the item.
 func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
 	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+}
+
+// WatchOneF watches a given item and executes a callback function each time an event occurs.
+// The first value returned from the watch will be the current value of the item.
+func (c *readonlyCollection) WatchOneF(key string, f func(e *watch.Event) error) error {
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	for {
+		select {
+		case e := <-watcher.Watch():
+			if err := f(e); err != nil {
+				if err == errutil.ErrBreak {
+					return nil
+				}
+				return err
+			}
+		case <-c.ctx.Done():
+			return nil
+		}
+	}
 }
