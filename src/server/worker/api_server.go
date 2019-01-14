@@ -65,7 +65,7 @@ const (
 	mergePrefix       = "/merge"
 	shardPrefix       = "/shard"
 	shardTTL          = 30
-	NO_SHARD          = int64(-1)
+	noShard           = int64(-1)
 	parentTreeBufSize = 50 * (1 << (10 * 2))
 )
 
@@ -319,7 +319,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &ShardInfo{}, nil, nil),
 		hashtreeStorage: hashtreeStorage,
 		claimedShard:    make(chan int64, 1),
-		shard:           NO_SHARD,
+		shard:           noShard,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
 	if err != nil {
@@ -1086,7 +1086,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 
 func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
-	if a.shard == NO_SHARD {
+	if a.shard == noShard {
 		select {
 		case a.shard = <-a.claimedShard:
 		case <-ctx.Done():
@@ -1611,7 +1611,7 @@ func (a *APIServer) claimShard(ctx context.Context) {
 		return
 	}
 	// attempt to claim a shard as they become available
-	claimedShard := NO_SHARD
+	claimedShard := noShard
 CLAIMED_SHARD:
 	for {
 		for shard := int64(0); shard < numShards; shard++ {
@@ -1632,13 +1632,13 @@ CLAIMED_SHARD:
 						claimedShard = shard
 						return shards.PutTTL(fmt.Sprint(shard), &ShardInfo{}, shardTTL)
 					}
-					claimedShard = NO_SHARD
+					claimedShard = noShard
 					return nil
 				}); err != nil {
 					log.Printf("shard claim error: %v", err)
 					return
 				}
-				if claimedShard != NO_SHARD {
+				if claimedShard != noShard {
 					break CLAIMED_SHARD
 				}
 			}
