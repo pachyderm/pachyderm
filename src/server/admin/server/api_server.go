@@ -379,13 +379,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		// apply op
 		if op.Op1_7 != nil {
 			if op.Op1_7.Object != nil {
-				extractReader := &extractObjectReader{
+				extractedReader := &extractedObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_7,
 				}
-				extractReader.buf.Write(op.Op1_7.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
+				extractedReader.buf.Write(op.Op1_7.Object.Value)
+				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -395,7 +395,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		} else if op.Op1_8 != nil {
 			if op.Op1_8.Object != nil {
-				extractReader := &extractObjectReader{
+				extractedReader := &extractedObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_8,
@@ -602,7 +602,7 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 
 type adminAPIRestoreServer admin.API_RestoreServer
 
-type extractObjectReader struct {
+type extractedObjectReader struct {
 	// One of these two must be set (whether user is restoring over the wire or
 	// via URL)
 	adminAPIRestoreServer
@@ -613,7 +613,7 @@ type extractObjectReader struct {
 	eof     bool
 }
 
-func (r *extractObjectReader) Read(p []byte) (int, error) {
+func (r *extractedObjectReader) Read(p []byte) (int, error) {
 	// Read leftover bytes in buffer (from prior Read() call) into 'p'
 	n, err := r.buf.Read(p)
 	if n == len(p) || err != nil {
