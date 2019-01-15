@@ -64,6 +64,9 @@ type appEnv struct {
 
 	// StorageRoot is where we store hashtrees
 	StorageRoot string `env:"PACH_ROOT,default=/pach"`
+
+	// PPSWorkerPort is the port that the worker gRPC server runs on
+	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
 }
 
 func main() {
@@ -199,12 +202,12 @@ func do(appEnvObj interface{}) error {
 		return grpcutil.Serve(
 			grpcutil.ServerOptions{
 				MaxMsgSize: grpcutil.MaxMsgSize,
-				Port:       client.PPSWorkerPort,
+				Port:       appEnv.PPSWorkerPort,
 				RegisterFunc: func(s *grpc.Server) error {
 					defer close(ready)
 					worker.RegisterWorkerServer(s, apiServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(appEnv.PodName, etcdClient, appEnv.PPSPrefix))
+					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(appEnv.PodName, etcdClient, appEnv.PPSPrefix, appEnv.PPSWorkerPort))
 					return nil
 				},
 			},

@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
@@ -257,6 +258,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		Name:  client.PPSSpecCommitEnv,
 		Value: specCommitID,
 	})
+<<<<<<< HEAD
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name: client.PProfPortEnv,
 		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
@@ -264,6 +266,12 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name: client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
+=======
+	// Set the worker gRPC port
+	workerEnv = append(workerEnv, v1.EnvVar {
+		Name: client.PPSWorkerPortEnv,
+		Value: fmt.Sprintf("%d", a.workerGrpcPort),
+>>>>>>> Make the worker gRPC port configurable via env vars
 	})
 
 	var volumes []v1.Volume
@@ -403,7 +411,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			Selector: options.labels,
 			Ports: []v1.ServicePort{
 				{
-					Port: client.PPSWorkerPort,
+					Port: int32(a.workerGrpcPort),
 					Name: "grpc-port",
 				},
 				{
