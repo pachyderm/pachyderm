@@ -959,25 +959,6 @@ func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Inp
 	return result
 }
 
-// deleteJob is identical to updateJobState, except that jobPtr points to a job
-// that should be deleted rather than marked failed. Jobs may be deleted if
-// their output commit is deleted.
-func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
-		}
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
-}
-
 type processResult struct {
 	failedDatumID   string
 	datumsProcessed int64
