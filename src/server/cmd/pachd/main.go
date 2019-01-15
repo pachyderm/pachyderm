@@ -105,6 +105,7 @@ type appEnv struct {
 	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
 	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
+	PPSWorkerPort         uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
 }
 
 func main() {
@@ -257,6 +258,7 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 					"", // no name for pachd servers
 					etcdClientV3,
 					path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
+					appEnv.PPSWorkerPort,
 				))
 				return nil
 			},
@@ -410,6 +412,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.PPSWorkerPort,
 						appEnv.Port,
 						appEnv.PProfPort,
 						appEnv.HTTPPort,
@@ -456,6 +459,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						"", // no name for pachd servers
 						etcdClientV3,
 						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
+						appEnv.PPSWorkerPort,
 					))
 					return nil
 				},
@@ -528,6 +532,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.PPSWorkerPort,
 						appEnv.Port,
 						appEnv.PProfPort,
 						appEnv.HTTPPort,
