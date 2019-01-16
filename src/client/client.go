@@ -432,12 +432,16 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 }
 
 // Close the connection to gRPC
-func (c *APIClient) Close() {
-	c.clientConn.Close()
+func (c *APIClient) Close() error {
+	if err := c.clientConn.Close(); err != nil {
+		return err
+	}
 
 	if c.portForwarder != nil {
 		c.portForwarder.Close()	
 	}
+
+	return nil
 }
 
 // DeleteAll deletes everything in the cluster.
