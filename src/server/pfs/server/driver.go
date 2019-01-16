@@ -3307,9 +3307,6 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				// The non-dereferenced commit ID. Used to ensure that all
 				// subsequent requests use the same value.
 				rawCommitID = commit.ID
-				// oneOff is true if we're creating the commit as part of this
-				// put-file
-				oneOff = false
 				// inspectCommit will replace file.Commit.ID with an actual
 				// commit ID if it's a branch. So we want to save it first.
 				if !uuid.IsUUIDWithoutDashes(commit.ID) {
