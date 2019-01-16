@@ -21,11 +21,13 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "NAME\tINPUT\tOUTPUT\tCREATED\tSTATE\t\n"
+	PipelineHeader = "NAME\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
 	// JobHeader is the header for jobs
-	JobHeader = "ID\tOUTPUT COMMIT\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
+	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
 	DatumHeader = "ID\tSTATUS\tTIME\t\n"
+	// jobReasonLen is the amount of the job reason that we print
+	jobReasonLen = 25
 )
 
 // PrintJobHeader prints a job header.
@@ -38,13 +40,7 @@ func PrintJobHeader(w io.Writer) {
 // PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
-	if jobInfo.OutputCommit != nil {
-		fmt.Fprintf(w, "%s/%s\t", jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
-	} else if jobInfo.Pipeline != nil {
-		fmt.Fprintf(w, "%s/-\t", jobInfo.Pipeline.Name)
-	} else {
-		fmt.Fprintf(w, "-\t")
-	}
+	fmt.Fprintf(w, "%s\t", jobInfo.Pipeline.Name)
 	fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
 	if jobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(jobInfo.Started, jobInfo.Finished))
@@ -55,7 +51,11 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
-	fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
+	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
+		fmt.Fprintf(w, "%s: %s\t\n", jobState(jobInfo.State), strings.TrimSpace(jobInfo.Reason[:jobReasonLen])+"...")
+	} else {
+		fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
+	}
 }
 
 // PrintPipelineHeader prints a pipeline header.
@@ -69,9 +69,8 @@ func PrintPipelineHeader(w io.Writer) {
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
-	fmt.Fprintf(w, "%s/%s\t", pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch)
 	fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
-	fmt.Fprintf(w, "%s\t\n", pipelineState(pipelineInfo.State))
+	fmt.Fprintf(w, "%s / %s\t\n", pipelineState(pipelineInfo.State), jobState(pipelineInfo.LastJobState))
 }
 
 // PrintWorkerStatusHeader pretty prints a worker status header.

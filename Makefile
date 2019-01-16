@@ -429,10 +429,8 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin
-
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev test-misc test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
