@@ -129,6 +129,10 @@ type AssetOpts struct {
 	DashImage   string
 	Registry    string
 	EtcdPrefix  string
+	PachdPort   int32
+	TracePort   int32
+	HTTPPort    int32
+	PeerPort    int32
 
 	// NoGuaranteed will not generate assets that have both resource limits and
 	// resource requests set which causes kubernetes to give the pods
@@ -413,6 +417,19 @@ func imagePullSecrets(opts *AssetOpts) []v1.LocalObjectReference {
 
 // PachdDeployment returns a pachd k8s Deployment.
 func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath string) *apps.Deployment {
+	// set port defaults
+	if opts.PachdPort == 0 {
+		opts.PachdPort = 650
+	}
+	if opts.TracePort == 0 {
+		opts.TracePort = 651
+	}
+	if opts.HTTPPort == 0 {
+		opts.HTTPPort = 652
+	}
+	if opts.PeerPort == 0 {
+		opts.PeerPort = 653
+	}
 	mem := resource.MustParse(opts.BlockCacheSize)
 	mem.Add(resource.MustParse(opts.PachdNonCacheMemRequest))
 	cpu := resource.MustParse(opts.PachdCPURequest)
@@ -535,21 +552,21 @@ func PachdDeployment(opts *AssetOpts, objectStoreBackend backend, hostPath strin
 							}, GetSecretEnvVars("")...),
 							Ports: []v1.ContainerPort{
 								{
-									ContainerPort: 650, // also set in cmd/pachd/main.go
+									ContainerPort: opts.PachdPort, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "api-grpc-port",
 								},
 								{
-									ContainerPort: 651, // also set in cmd/pachd/main.go
+									ContainerPort: opts.TracePort, // also set in cmd/pachd/main.go
 									Name:          "trace-port",
 								},
 								{
-									ContainerPort: 652, // also set in cmd/pachd/main.go
+									ContainerPort: opts.HTTPPort, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "api-http-port",
 								},
 								{
-									ContainerPort: 653, // also set in cmd/pachd/main.go
+									ContainerPort: opts.PeerPort, // also set in cmd/pachd/main.go
 									Protocol:      "TCP",
 									Name:          "peer-port",
 								},

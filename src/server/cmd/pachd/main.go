@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -88,7 +89,8 @@ type appEnv struct {
 	AuthEtcdPrefix        string `env:"PACHYDERM_AUTH_ETCD_PREFIX,default=pachyderm_auth"`
 	EnterpriseEtcdPrefix  string `env:"PACHYDERM_ENTERPRISE_ETCD_PREFIX,default=pachyderm_enterprise"`
 	KubeAddress           string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
-	EtcdAddress           string `env:"ETCD_PORT_2379_TCP_ADDR,required"`
+	EtcdHost              string `env:"ETCD_SERVICE_HOST,required"`
+	EtcdPort              string `env:"ETCD_SERVICE_PORT,required"`
 	Namespace             string `env:"NAMESPACE,default=default"`
 	Metrics               bool   `env:"METRICS,default=true"`
 	Init                  bool   `env:"INIT,default=false"`
@@ -157,7 +159,7 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 		appEnv.EtcdPrefix = col.DefaultPrefix
 	}
 
-	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
+	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(appEnv.EtcdHost, appEnv.EtcdPort))
 	etcdClientV3, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.DefaultDialOptions(),
@@ -287,7 +289,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 	if appEnv.EtcdPrefix == "" {
 		appEnv.EtcdPrefix = col.DefaultPrefix
 	}
-	etcdAddress := fmt.Sprintf("http://%s:2379", appEnv.EtcdAddress)
+	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(appEnv.EtcdHost, appEnv.EtcdPort))
 	etcdClientV2 := getEtcdClient(etcdAddress)
 	etcdClientV3, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
