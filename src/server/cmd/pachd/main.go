@@ -66,7 +66,7 @@ var mode string
 var readiness bool
 
 func init() {
-	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The later runs only PFS, the Auth service, and a stripped-down version of PPS.")
+	flag.StringVar(&mode, "mode", "full", "Pachd currently supports two modes: full and sidecar.  The former includes everything you need in a full pachd node.  The latter runs only PFS, the Auth service, and a stripped-down version of PPS.")
 	flag.BoolVar(&readiness, "readiness", false, "Run readiness check.")
 	flag.Parse()
 }
