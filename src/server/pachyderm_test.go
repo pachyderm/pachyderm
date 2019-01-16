@@ -2418,6 +2418,27 @@ func TestStandby(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, pps.PipelineState_PIPELINE_STANDBY.String(), pi.State.String())
 	})
+	t.Run("ManyPipelines", func(t *testing.T) {
+		require.NoError(t, c.DeleteAll())
+
+		dataRepo := tu.UniqueString("TestStandby_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+		numPipelines := 200
+		for i := 0; i < numPipelines; i++ {
+			pipeline := tu.UniqueString("TestStandby")
+			_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+				&pps.CreatePipelineRequest{
+					Pipeline: client.NewPipeline(pipeline),
+					Transform: &pps.Transform{
+						Cmd: []string{"true"},
+					},
+					Input:   client.NewPFSInput(dataRepo, "/"),
+					Standby: true,
+				},
+			)
+			require.NoError(t, err)
+		}
+	})
 }
 
 func TestPipelineEnv(t *testing.T) {
