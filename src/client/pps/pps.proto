@@ -357,6 +357,7 @@ message EtcdPipelineInfo {
   pfs.Commit spec_commit = 2;
   map<int32, int32> job_counts = 3;
   string auth_token = 5;
+  JobState last_job_state = 6;
 }
 
 message PipelineInfo {
@@ -378,10 +379,13 @@ message PipelineInfo {
   bool stopped = 38;
   string recent_error = 8;
 
-  // job_counts indicates the number of jobs within this pipeline in a given
-  // state. This is not stored in PFS along with the rest of this data
-  // structure--PPS.InspectPipeline fills it in
+  // job_counts and last_job_state indicates the number of jobs within this
+  // pipeline in a given state and the state of the most recently created job,
+  // respectively. This is not stored in PFS along with the rest of this data
+  // structure--PPS.InspectPipeline fills it in from the EtcdPipelineInfo.
   map<int32, int32> job_counts = 9;
+  JobState last_job_state = 43;
+
   string output_branch = 16;
   google.protobuf.Duration scale_down_threshold = 18;
   ResourceSpec resource_requests = 19;
