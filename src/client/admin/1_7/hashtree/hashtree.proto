@@ -1,0 +1,116 @@
+// Data structures for serializing hash trees, which Pachyderm uses to track
+// the files present in each commit and determine when to start jobs.
+
+syntax = "proto3";
+
+package hashtree_1_7;
+option go_package = "github.com/pachyderm/pachyderm/src/client/admin/1_7/hashtree";
+
+import "client/admin/1_7/pfs/pfs.proto";
+
+// FileNodeProto is a node corresponding to a file (which is also a leaf node).
+message FileNodeProto {
+  // Object references an object in the object store which contains the content
+  // of the data.
+  repeated pfs_1_7.Object objects = 4;
+}
+
+// DirectoryNodeProto is a node corresponding to a directory.
+message DirectoryNodeProto {
+  // Children of this directory. Note that paths are relative, so if "/foo/bar"
+  // has a child "baz", that means that there is a file at "/foo/bar/baz".
+  //
+  // 'Children' is ordered alphabetically, to quickly check if a new file is
+  // overwriting an existing one.
+  repeated string children = 3;
+  pfs_1_7.Object header = 4;
+  pfs_1_7.Object footer = 5;
+}
+
+// NodeProto is a node in the file tree (either a file or a directory)
+message NodeProto {
+  // Name is the name (not path) of the file/directory (e.g. /lib).
+  string name = 1;
+
+  // Hash is a hash of the node's name and contents (which includes the
+  // BlockRefs of a file and the Children of a directory). This can be used to
+  // detect if the name or contents have changed between versions.
+  bytes hash = 2;
+
+  // subtree_size is the of the subtree under node; i.e. if this is a directory,
+  // subtree_size includes all children.
+  int64 subtree_size = 3;
+
+  // Exactly one of the following fields must be set. The type of this node will
+  // be determined by which field is set.
+  FileNodeProto file_node = 4;
+  DirectoryNodeProto dir_node = 5;
+}
+
+// HashTreeProto is a tree corresponding to the complete file contents of a
+// pachyderm repo at a given commit (based on a Merkle Tree). We store one
+// HashTree for every PFS commit.
+message HashTreeProto {
+  // Version is an arbitrary version number, set by the corresponding library
+  // in hashtree.go.  This ensures that if the hash function used to create
+  // these trees is changed, we won't run into errors when deserializing old
+  // trees. The current version is 1.
+  int32 version = 1;
+
+  // Fs maps each node's path to the NodeProto with that node's details.
+  // See "Potential Optimizations" at the end for a compression scheme that
+  // could be useful if this map gets too large.
+  //
+  // Note that the key must end in "/" if an only if the value has .dir_node set
+  // (i.e. iff the path points to a directory).
+  map<string, NodeProto> fs = 2;
+}
+
+/// Potential Optimizations
+//
+// Currently, we serialize HashTree.fs, i.e. the map from paths to nodes, as a
+// protobuf Map. This keeps our code simple, but may be inefficient for certain
+// repositories. Consider a repository that breaks up a large file with many
+// JSON records into many small files containing one record:
+//
+// /file/r00000
+// /file/r00001
+// ...
+// /file/r99999
+//
+// The current serialization format stores the complete path of each file, which
+// means that in this examples, the string "/file/" is serialized 100,000 times
+// in every commit. An alternative approach would be to make the keys a repeated
+// field, and "delta-encode" the paths. In this example, that would mean
+// encoding a repeated string field with the elements:
+//
+// /
+// file/
+// r00000
+// r00001
+// r00002
+// ...
+// r99999
+//
+// (Note that "file/" followed by "r00000" implies "file/r00000" because
+// "file/" ends in a slash, but "r00000" followed by "r00001" does not imply
+// "r00000r00001" because "r00000" does not end in a slash).
+//
+// If there are many small files with a shared prefix, this might save
+// nontrivial space in the object store:
+//   (common path length) * (#files) * (#commits)
+//
+// This would mean that there is some explicit deserialization code that turns
+// the stored protobuf (which is hard to manipulate) into a separate Go object.
+//
+// One more example: a repo with three top-level directories: "foo/", "bar/"
+// and "baz/". This would be encoded as:
+//
+//    /
+//    foo/
+//    file_in_foo.json
+//    another_file_in_foo.json
+//    ../bar/
+//    file_in_bar.json
+//    ../baz/
+//    file_in_baz.json
