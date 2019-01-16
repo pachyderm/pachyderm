@@ -181,6 +181,7 @@ func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*
 	result.State = ptr.State
 	result.Reason = ptr.Reason
 	result.JobCounts = ptr.JobCounts
+	result.LastJobState = ptr.LastJobState
 	result.SpecCommit = ptr.SpecCommit
 	return result, nil
 }
@@ -371,6 +372,7 @@ func UpdateJobState(pipelines col.ReadWriteCollection, jobs col.ReadWriteCollect
 		pipelinePtr.JobCounts[int32(jobPtr.State)]--
 	}
 	pipelinePtr.JobCounts[int32(state)]++
+	pipelinePtr.LastJobState = state
 	if err := pipelines.Put(jobPtr.Pipeline.Name, pipelinePtr); err != nil {
 		return err
 	}

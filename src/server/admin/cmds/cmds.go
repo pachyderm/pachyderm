@@ -67,9 +67,16 @@ pachctl restore -u s3://bucket/backup` + codeend,
 			}
 			defer c.Close()
 			if url != "" {
-				return c.RestoreURL(url)
+				err = c.RestoreURL(url)
+			} else {
+				err = c.RestoreReader(snappy.NewReader(os.Stdin))
 			}
-			return c.RestoreReader(snappy.NewReader(os.Stdin))
+			if err != nil {
+				return fmt.Errorf("%v\nWARNING: Your cluster might be in an invalid "+
+					"state--consider deleting partially-restored data before continuing",
+					err)
+			}
+			return nil
 		}),
 	}
 	restore.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to restore from.")
