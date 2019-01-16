@@ -33,10 +33,10 @@ import (
 // appEnv stores the environment variables that this worker needs
 type appEnv struct {
 	// The port at which this worker will expose its pprof port
-	PProfPort uint16 `env:"PPROF_PORT,default=651"`
+	PProfPort uint16 `env:"PPROF_PORT,required"`
 
 	// Pachd's peer port (where the worker will connect to its sidecar)
-	PeerPort string `env:"PEER_PORT,default=653"`
+	PeerPort string `env:"PEER_PORT,required"`
 
 	// Host and port of Pachyderm's Etcd cluster, so that this worker can write
 	// its IP address there for discover

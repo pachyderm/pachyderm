@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
@@ -250,6 +251,14 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSSpecCommitEnv,
 		Value: specCommitID,
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name: client.PProfPortEnv,
+		Value: fmt.Sprintf("%d", a.pprofPort),
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name: client.PeerPortEnv,
+		Value: fmt.Sprintf("%d", a.peerPort),
 	})
 
 	var volumes []v1.Volume
