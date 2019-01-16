@@ -2913,7 +2913,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	if err != nil {
 		return nil, nil, err
 	}
-	// if oldFile is new we use the parent of newFile
+	// if oldFile is nil we use the parent of newFile
 	if oldFile == nil {
 		oldFile = &pfs.File{}
 		// ParentCommit may be nil, that's fine because getTreeForCommit
