@@ -20,7 +20,7 @@ message Secret {
   string env_var = 3;
 }
 
-message Transform {
+message Container {
   string image = 1;
   repeated string cmd = 2;
   map<string, string> env = 3;
@@ -31,6 +31,13 @@ message Transform {
   bool debug = 7;
   string user = 10;
   string working_dir = 11;
+}
+
+message Node {
+  Input input = 1;
+  repeated string services = 2;
+  Container transform = 3;
+  Container service = 4;
 }
 
 message Egress {
@@ -82,6 +89,13 @@ message PFSInput {
   // presented as empty files. This is useful in shuffle pipelines where you
   // want to read the names of files and reorganize them using symlinks.
   bool empty_files = 7;
+}
+
+// NodeInputs are inputs from other nodes in the pipeline.
+message NodeInput {
+  string name = 1;
+  string node = 2;
+  string glob = 3;
 }
 
 message CronInput {
@@ -260,9 +274,9 @@ message EtcdJobInfo {
 }
 
 message JobInfo {
-  reserved 4, 5, 28;
+  reserved 4, 5, 28, 2;
   Job job = 1;
-  Transform transform = 2;
+  map<string, Node> nodes = 44;
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;
   ParallelismSpec parallelism_spec = 12;
@@ -364,7 +378,7 @@ message PipelineInfo {
   string id = 17 [(gogoproto.customname) = "ID"];
   Pipeline pipeline = 1;
   uint64 version = 11;
-  Transform transform = 2;
+  map<string, Node> nodes = 2;
   ParallelismSpec parallelism_spec = 10;
   HashtreeSpec hashtree_spec = 42;
   Egress egress = 15;
@@ -547,9 +561,9 @@ message SchedulingSpec {
 }
 
 message CreatePipelineRequest {
-  reserved 3, 4, 15;
+  reserved 3, 4, 15, 2;
   Pipeline pipeline = 1;
-  Transform transform = 2;
+  map<string, Node> nodes = 31;
   ParallelismSpec parallelism_spec = 7;
   HashtreeSpec hashtree_spec = 31;
   Egress egress = 9;
