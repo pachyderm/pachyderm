@@ -66,7 +66,7 @@ type appEnv struct {
 	StorageRoot string `env:"PACH_ROOT,default=/pach"`
 
 	// PPSWorkerPort is the port that the worker gRPC server runs on
-	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
+	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,required"`
 }
 
 func main() {
