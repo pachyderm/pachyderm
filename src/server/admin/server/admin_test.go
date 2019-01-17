@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"io/ioutil"
+	// "io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -20,13 +20,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	versionlib "github.com/pachyderm/pachyderm/src/client/version"
-	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	// "github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 
 	"github.com/golang/snappy"
-	"golang.org/x/crypto/ssh"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	// "golang.org/x/crypto/ssh"
+	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -99,7 +99,7 @@ func TestExtractRestore(t *testing.T) {
 			"",
 			[]string{"bash"},
 			[]string{
-				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -292,106 +292,153 @@ func TestExtractRestoreObjects(t *testing.T) {
 	dataRepo := tu.UniqueString("TestExtractRestoreObjects-input")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
+	// Create input data
 	nCommits := 2
 	r := rand.New(rand.NewSource(45))
-	files := make(map[string]struct{})
+	fileHashes := make([]string, 0, nCommits)
 	for i := 0; i < nCommits; i++ {
 		hash := fnv.New64a()
 		fileContent := workload.RandString(r, 40*MB)
 		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
 			io.TeeReader(strings.NewReader(fileContent), hash))
 		require.NoError(t, err)
-		files[string(hash.Sum(nil))] = struct{}{}
+		fileHashes = append(fileHashes, string(hash.Sum(nil)))
 	}
+
+	// Create test pipelines
+	numPipelines := 3
+	var input, pipeline string
+	input = dataRepo
+	for i := 0; i < numPipelines; i++ {
+		pipeline = tu.UniqueString(fmt.Sprintf("TestExtractRestoreObjects-P%d-", i))
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
+			},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(input, "/*"),
+			"",
+			false,
+		))
+		input = pipeline
+	}
+
+	// Wait for pipelines to process input data
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, numPipelines, len(commitInfos))
 
 	// Extract existing cluster state
 	ops, err := c.ExtractAll(true)
 	require.NoError(t, err)
 
-	// Delete existing data
+	// Delete existing data and objects
+	fmt.Printf(">>> About to call DeleteAll()\n")
 	require.NoError(t, c.DeleteAll())
-	// If test is running against minikube, delete old objects to test restoration
-	// of objects
-	kubectlContext, err := tu.Cmd("kubectl", "config", "current-context").Output()
-	require.NoError(t, err)
-	if strings.TrimSpace(string(kubectlContext)) == "minikube" {
-		// 1. SSH into minikube
-		minikubeIP, err := tu.Cmd("minikube", "ip").Output()
-		minikubeIP = bytes.TrimSpace(minikubeIP)
-		require.NoError(t, err)
-		key, err := ioutil.ReadFile(path.Join(
-			os.Getenv("HOME"), ".minikube/machines/minikube/id_rsa"))
-		require.NoError(t, err)
-		signer, err := ssh.ParsePrivateKey(key)
-		require.NoError(t, err)
-		config := &ssh.ClientConfig{
-			User:            "docker",
-			Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		}
-		sshClient, err := ssh.Dial("tcp", string(minikubeIP)+":22", config)
-		require.NoError(t, err)
+	fmt.Printf(">>> About to call GarbageCollect()\n")
+	require.NoError(t, c.GarbageCollect(1000))
+	// // If test is running against minikube, delete old objects to test restoration
+	// // of objects
+	// kubectlContext, err := tu.Cmd("kubectl", "config", "current-context").Output()
+	// require.NoError(t, err)
+	// if strings.TrimSpace(string(kubectlContext)) == "minikube" {
+	// 	// 1. SSH into minikube
+	// 	minikubeIP, err := tu.Cmd("minikube", "ip").Output()
+	// 	minikubeIP = bytes.TrimSpace(minikubeIP)
+	// 	require.NoError(t, err)
+	// 	key, err := ioutil.ReadFile(path.Join(
+	// 		os.Getenv("HOME"), ".minikube/machines/minikube/id_rsa"))
+	// 	require.NoError(t, err)
+	// 	signer, err := ssh.ParsePrivateKey(key)
+	// 	require.NoError(t, err)
+	// 	config := &ssh.ClientConfig{
+	// 		User:            "docker",
+	// 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+	// 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	// 	}
+	// 	sshClient, err := ssh.Dial("tcp", string(minikubeIP)+":22", config)
+	// 	require.NoError(t, err)
 
-		// 2. remove old objects and blocks from minikube
-		sesh, err := sshClient.NewSession()
-		require.NoError(t, err)
-		sesh.Stdout, sesh.Stderr = os.Stdout, os.Stderr
-		require.NoError(t, sesh.Run("sudo rm -rf /var/pachyderm/pachd/pach/{object,block}/*"))
+	// 	// 2. remove old objects and blocks from minikube
+	// 	sesh, err := sshClient.NewSession()
+	// 	require.NoError(t, err)
+	// 	sesh.Stdout, sesh.Stderr = os.Stdout, os.Stderr
+	// 	require.NoError(t, sesh.Run("sudo rm -rf /var/pachyderm/pachd/pach/{object,block}/*"))
 
-		// 3. Restart pachd pod (which likely has the data we just wrote in its
-		// object cache
-		kc := tu.GetKubeClient(t)
-		pachdPods, err := kc.CoreV1().Pods("default").List(metav1.ListOptions{
-			LabelSelector: "suite=pachyderm,app=pachd",
-		})
-		require.NoError(t, err)
-		require.True(t, len(pachdPods.Items) > 0)
-		for _, pod := range pachdPods.Items {
-			kc.CoreV1().Pods("default").Delete(pod.ObjectMeta.Name, &metav1.DeleteOptions{
-				GracePeriodSeconds: int64p(0),
-			})
-		}
-		require.NoError(t, backoff.Retry(func() error {
-			pachdPods, err = kc.CoreV1().Pods("default").List(metav1.ListOptions{
-				LabelSelector: "suite=pachyderm,app=pachd",
-			})
-			require.NoError(t, err)
-			if len(pachdPods.Items) == 0 {
-				return fmt.Errorf("no restarted pachd pods are available yet")
-			}
-			var anyPodsRunning bool
-			for _, pod := range pachdPods.Items {
-				anyPodsRunning = anyPodsRunning || pod.Status.Phase == "Running"
-			}
-			if !anyPodsRunning {
-				return fmt.Errorf("no restarted pachd pods are running yet")
-			}
-			return nil
-		}, backoff.NewTestingBackOff()))
+	// 	// 3. Restart pachd pod (which likely has the data we just wrote in its
+	// 	// object cache
+	// 	kc := tu.GetKubeClient(t)
+	// 	pachdPods, err := kc.CoreV1().Pods("default").List(metav1.ListOptions{
+	// 		LabelSelector: "suite=pachyderm,app=pachd",
+	// 	})
+	// 	require.NoError(t, err)
+	// 	require.True(t, len(pachdPods.Items) > 0)
+	// 	for _, pod := range pachdPods.Items {
+	// 		kc.CoreV1().Pods("default").Delete(pod.ObjectMeta.Name, &metav1.DeleteOptions{
+	// 			GracePeriodSeconds: int64p(0),
+	// 		})
+	// 	}
+	// 	require.NoError(t, backoff.Retry(func() error {
+	// 		pachdPods, err = kc.CoreV1().Pods("default").List(metav1.ListOptions{
+	// 			LabelSelector: "suite=pachyderm,app=pachd",
+	// 		})
+	// 		require.NoError(t, err)
+	// 		if len(pachdPods.Items) == 0 {
+	// 			return fmt.Errorf("no restarted pachd pods are available yet")
+	// 		}
+	// 		var anyPodsRunning bool
+	// 		for _, pod := range pachdPods.Items {
+	// 			anyPodsRunning = anyPodsRunning || pod.Status.Phase == "Running"
+	// 		}
+	// 		if !anyPodsRunning {
+	// 			return fmt.Errorf("no restarted pachd pods are running yet")
+	// 		}
+	// 		return nil
+	// 	}, backoff.NewTestingBackOff()))
 
-		// re-connect client & wait for response from pachd
-		c = getPachClient(t)
-		require.NoError(t, backoff.Retry(func() error {
-			_, err := c.Version()
-			return err
-		}, backoff.NewTestingBackOff()))
-	}
+	// 	// re-connect client & wait for response from pachd
+	// 	c = getPachClient(t)
+	// 	require.NoError(t, backoff.Retry(func() error {
+	// 		_, err := c.Version()
+	// 		return err
+	// 	}, backoff.NewTestingBackOff()))
+	// }
 
 	// Restore metadata
+	fmt.Printf(">>> About to call Restore()\n")
 	require.NoError(t, c.Restore(ops))
 
+	// Wait for re-created pipelines to proces recreated input data
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, numPipelines, len(commitInfos))
+
 	// Check input data
+	fmt.Printf(">>> Checking input data()\n")
+	restoredFileHashes := make([]string, 0, nCommits)
 	for i := 0; i < nCommits; i++ {
 		hash := fnv.New64a()
 		err := c.GetFile(dataRepo, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
 		require.NoError(t, err)
-
-		// Confirm that file contents didn't change
-		hashval := string(hash.Sum(nil))
-		_, ok := files[hashval]
-		require.True(t, ok, "file %d had hash %q, which doesn't match what was written")
-
-		// remove file, to check that one object wasn't deduped to the other
-		delete(files, hashval)
+		restoredHashValues = append(restoredHashValues, string(hash.Sum(nil)))
 	}
+	require.ElementsEqual(t, fileHashes, restoredFileHashes)
+
+	// Check output data
+	fmt.Printf(">>> Checking output data()\n")
+	restoredFileHashes = make([]string, 0, nCommits)
+	for i := 0; i < nCommits; i++ {
+		hash := fnv.New64a()
+		err := c.GetFile(pipeline, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
+		require.NoError(t, err)
+		restoredHashValues = append(restoredHashValues, string(hash.Sum(nil)))
+	}
+	require.ElementsEqual(t, fileHashes, restoredFileHashes)
 }
