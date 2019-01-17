@@ -142,20 +142,20 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	// Make sure recreated jobs all succeeded
-	jis, err := c.ListJob("", nil, nil) // make sure jobs all succeeded
-	require.NoError(t, err)
-	for _, ji := range jis {
-		// prevent race--we may call listJob between when a job's output commit is
-		// closed and when its state is updated
-		backoff.Retry(func() error {
-			if ji.State.String() == "JOB_MERGING" {
+	backoff.Retry(func() error {
+		jis, err := c.ListJob("", nil, nil) // make sure jobs all succeeded
+		require.NoError(t, err)
+		for _, ji := range jis {
+			// race--we may call listJob between when a job's output commit is closed
+			// and when its state is updated
+			if ji.State.String() == "JOB_RUNNING" || ji.State.String() == "JOB_MERGING" {
 				return fmt.Errorf("output commit is closed but job state hasn't been updated")
 			}
-			return nil
-		}, backoff.NewTestingBackOff())
-		// Job must ultimately succeed
-		require.Equal(t, "JOB_SUCCESS", ji.State.String())
-	}
+			// Job must ultimately succeed
+			require.Equal(t, "JOB_SUCCESS", ji.State.String())
+		}
+		return nil
+	}, backoff.NewTestingBackOff())
 
 	// Make sure all branches were recreated
 	bis, err := c.ListBranch(dataRepo)
