@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	// "io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -20,13 +19,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	versionlib "github.com/pachyderm/pachyderm/src/client/version"
-	// "github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 
 	"github.com/golang/snappy"
-	// "golang.org/x/crypto/ssh"
-	// metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -68,7 +65,9 @@ func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
 }
 
-func TestExtractRestore(t *testing.T) {
+// testExtractRestored effectively implements both TestExtractRestoreObjects
+// TestExtractRestoreObjects, and their logic is mostly the same
+func testExtractRestore(t *testing.T, testObjects bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -76,24 +75,28 @@ func TestExtractRestore(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestExtractRestore_data")
+	dataRepo := tu.UniqueString("TestExtractRestoreObjects-in-")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
+	// Create input data
 	nCommits := 2
 	r := rand.New(rand.NewSource(45))
-	fileContent := workload.RandString(r, 40*MB)
+	fileHashes := make([]string, 0, nCommits)
 	for i := 0; i < nCommits; i++ {
-		_, err := c.StartCommit(dataRepo, "master")
+		hash := fnv.New64a()
+		fileContent := workload.RandString(r, 40*MB)
+		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
+			io.TeeReader(strings.NewReader(fileContent), hash))
 		require.NoError(t, err)
-		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
-		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		fileHashes = append(fileHashes, string(hash.Sum(nil)))
 	}
 
+	// Create test pipelines
 	numPipelines := 3
-	input := dataRepo
+	var input, pipeline string
+	input = dataRepo
 	for i := 0; i < numPipelines; i++ {
-		pipeline := tu.UniqueString(fmt.Sprintf("TestExtractRestore%d", i))
+		pipeline = tu.UniqueString(fmt.Sprintf("TestExtractRestoreObjects-P%d-", i))
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
 			"",
@@ -111,28 +114,91 @@ func TestExtractRestore(t *testing.T) {
 		input = pipeline
 	}
 
+	// Wait for pipelines to process input data
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
 
-	ops, err := c.ExtractAll(false) // TestExtractRestoreObjects tests 'true' case
+	// Extract existing cluster state
+	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
 
-	// Delete 1.7 data
+	// Delete existing metadata
 	require.NoError(t, c.DeleteAll())
 
-	// Restore metadata
+	if testObjects {
+		// Delete existing objects
+		require.NoError(t, c.GarbageCollect(10000))
+	}
+
+	// Restore metadata and possibly objects
 	require.NoError(t, c.Restore(ops))
 
+	// Wait for re-created pipelines to process recreated input data
 	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
 
+	// Make sure recreated jobs all succeeded
+	jis, err := c.ListJob("", nil, nil) // make sure jobs all succeeded
+	require.NoError(t, err)
+	for _, ji := range jis {
+		require.Equal(t, pps.JobState_JOB_SUCCESS, ji.State)
+	}
+
+	// Make sure all branches were recreated
 	bis, err := c.ListBranch(dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(bis))
+
+	// Check input data
+	// This check uses a backoff because sometimes GetFile causes pachd to OOM
+	var restoredFileHashes []string
+	require.NoError(t, backoff.Retry(func() error {
+		restoredFileHashes = make([]string, 0, nCommits)
+		for i := 0; i < nCommits; i++ {
+			hash := fnv.New64a()
+			err := c.GetFile(dataRepo, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
+			if err != nil {
+				return err
+			}
+			restoredFileHashes = append(restoredFileHashes, string(hash.Sum(nil)))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	require.ElementsEqual(t, fileHashes, restoredFileHashes)
+
+	// Check output data
+	// This check uses a backoff because sometimes GetFile causes pachd to OOM
+	require.NoError(t, backoff.Retry(func() error {
+		restoredFileHashes = make([]string, 0, nCommits)
+		for i := 0; i < nCommits; i++ {
+			hash := fnv.New64a()
+			err := c.GetFile(pipeline, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
+			if err != nil {
+				return err
+			}
+			restoredFileHashes = append(restoredFileHashes, string(hash.Sum(nil)))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	require.ElementsEqual(t, fileHashes, restoredFileHashes)
+}
+
+// TestExtractRestoreNoObjects tests extraction and restoration in the case
+// where existing objects are re-used (common for cloud deployments, as objects
+// are stored outside of kubernetes, in object store)
+func TestExtractRestoreNoObjects(t *testing.T) {
+	testExtractRestore(t, false)
+}
+
+// TestExtractRestoreObjects tests extraction and restoration of objects. Note
+// that since 1.8, only data in input repos is referenced by objects, so this
+// tests extracting/restoring an input repo.
+func TestExtractRestoreObjects(t *testing.T) {
+	testExtractRestore(t, true)
 }
 
 func TestExtractRestoreHeadlessBranches(t *testing.T) {
@@ -276,169 +342,4 @@ func TestMigrateFrom1_7(t *testing.T) {
 
 func int64p(i int64) *int64 {
 	return &i
-}
-
-// TestExtractRestoreObjects tests extraction and restoration of objects. Note
-// that since 1.8, only data in input repos is referenced by objects, so this
-// tests extracting/restoring an input repo.
-func TestExtractRestoreObjects(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
-
-	dataRepo := tu.UniqueString("TestExtractRestoreObjects-input")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
-	// Create input data
-	nCommits := 2
-	r := rand.New(rand.NewSource(45))
-	fileHashes := make([]string, 0, nCommits)
-	for i := 0; i < nCommits; i++ {
-		hash := fnv.New64a()
-		fileContent := workload.RandString(r, 40*MB)
-		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
-			io.TeeReader(strings.NewReader(fileContent), hash))
-		require.NoError(t, err)
-		fileHashes = append(fileHashes, string(hash.Sum(nil)))
-	}
-
-	// Create test pipelines
-	numPipelines := 3
-	var input, pipeline string
-	input = dataRepo
-	for i := 0; i < numPipelines; i++ {
-		pipeline = tu.UniqueString(fmt.Sprintf("TestExtractRestoreObjects-P%d-", i))
-		require.NoError(t, c.CreatePipeline(
-			pipeline,
-			"",
-			[]string{"bash"},
-			[]string{
-				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
-			},
-			&pps.ParallelismSpec{
-				Constant: 1,
-			},
-			client.NewPFSInput(input, "/*"),
-			"",
-			false,
-		))
-		input = pipeline
-	}
-
-	// Wait for pipelines to process input data
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, numPipelines, len(commitInfos))
-
-	// Extract existing cluster state
-	ops, err := c.ExtractAll(true)
-	require.NoError(t, err)
-
-	// Delete existing data and objects
-	fmt.Printf(">>> About to call DeleteAll()\n")
-	require.NoError(t, c.DeleteAll())
-	fmt.Printf(">>> About to call GarbageCollect()\n")
-	require.NoError(t, c.GarbageCollect(1000))
-	// // If test is running against minikube, delete old objects to test restoration
-	// // of objects
-	// kubectlContext, err := tu.Cmd("kubectl", "config", "current-context").Output()
-	// require.NoError(t, err)
-	// if strings.TrimSpace(string(kubectlContext)) == "minikube" {
-	// 	// 1. SSH into minikube
-	// 	minikubeIP, err := tu.Cmd("minikube", "ip").Output()
-	// 	minikubeIP = bytes.TrimSpace(minikubeIP)
-	// 	require.NoError(t, err)
-	// 	key, err := ioutil.ReadFile(path.Join(
-	// 		os.Getenv("HOME"), ".minikube/machines/minikube/id_rsa"))
-	// 	require.NoError(t, err)
-	// 	signer, err := ssh.ParsePrivateKey(key)
-	// 	require.NoError(t, err)
-	// 	config := &ssh.ClientConfig{
-	// 		User:            "docker",
-	// 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
-	// 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-	// 	}
-	// 	sshClient, err := ssh.Dial("tcp", string(minikubeIP)+":22", config)
-	// 	require.NoError(t, err)
-
-	// 	// 2. remove old objects and blocks from minikube
-	// 	sesh, err := sshClient.NewSession()
-	// 	require.NoError(t, err)
-	// 	sesh.Stdout, sesh.Stderr = os.Stdout, os.Stderr
-	// 	require.NoError(t, sesh.Run("sudo rm -rf /var/pachyderm/pachd/pach/{object,block}/*"))
-
-	// 	// 3. Restart pachd pod (which likely has the data we just wrote in its
-	// 	// object cache
-	// 	kc := tu.GetKubeClient(t)
-	// 	pachdPods, err := kc.CoreV1().Pods("default").List(metav1.ListOptions{
-	// 		LabelSelector: "suite=pachyderm,app=pachd",
-	// 	})
-	// 	require.NoError(t, err)
-	// 	require.True(t, len(pachdPods.Items) > 0)
-	// 	for _, pod := range pachdPods.Items {
-	// 		kc.CoreV1().Pods("default").Delete(pod.ObjectMeta.Name, &metav1.DeleteOptions{
-	// 			GracePeriodSeconds: int64p(0),
-	// 		})
-	// 	}
-	// 	require.NoError(t, backoff.Retry(func() error {
-	// 		pachdPods, err = kc.CoreV1().Pods("default").List(metav1.ListOptions{
-	// 			LabelSelector: "suite=pachyderm,app=pachd",
-	// 		})
-	// 		require.NoError(t, err)
-	// 		if len(pachdPods.Items) == 0 {
-	// 			return fmt.Errorf("no restarted pachd pods are available yet")
-	// 		}
-	// 		var anyPodsRunning bool
-	// 		for _, pod := range pachdPods.Items {
-	// 			anyPodsRunning = anyPodsRunning || pod.Status.Phase == "Running"
-	// 		}
-	// 		if !anyPodsRunning {
-	// 			return fmt.Errorf("no restarted pachd pods are running yet")
-	// 		}
-	// 		return nil
-	// 	}, backoff.NewTestingBackOff()))
-
-	// 	// re-connect client & wait for response from pachd
-	// 	c = getPachClient(t)
-	// 	require.NoError(t, backoff.Retry(func() error {
-	// 		_, err := c.Version()
-	// 		return err
-	// 	}, backoff.NewTestingBackOff()))
-	// }
-
-	// Restore metadata
-	fmt.Printf(">>> About to call Restore()\n")
-	require.NoError(t, c.Restore(ops))
-
-	// Wait for re-created pipelines to proces recreated input data
-	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, numPipelines, len(commitInfos))
-
-	// Check input data
-	fmt.Printf(">>> Checking input data()\n")
-	restoredFileHashes := make([]string, 0, nCommits)
-	for i := 0; i < nCommits; i++ {
-		hash := fnv.New64a()
-		err := c.GetFile(dataRepo, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
-		require.NoError(t, err)
-		restoredHashValues = append(restoredHashValues, string(hash.Sum(nil)))
-	}
-	require.ElementsEqual(t, fileHashes, restoredFileHashes)
-
-	// Check output data
-	fmt.Printf(">>> Checking output data()\n")
-	restoredFileHashes = make([]string, 0, nCommits)
-	for i := 0; i < nCommits; i++ {
-		hash := fnv.New64a()
-		err := c.GetFile(pipeline, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
-		require.NoError(t, err)
-		restoredHashValues = append(restoredHashValues, string(hash.Sum(nil)))
-	}
-	require.ElementsEqual(t, fileHashes, restoredFileHashes)
 }
