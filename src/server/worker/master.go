@@ -528,7 +528,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		// Read the job document, and either resume (if we're recovering from a
 		// crash) or mark it running. Also write the input chunks calculated above
-		// into chunksCol
+		// into plansCol
 		jobID := jobInfo.Job.ID
 		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 			jobs := a.jobs.ReadWrite(stm)
@@ -544,21 +544,22 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_RUNNING, ""); err != nil {
 				return err
 			}
-			chunksCol := a.plans.ReadWrite(stm)
-			if err := chunksCol.Get(jobID, plan); err == nil {
+			plansCol := a.plans.ReadWrite(stm)
+			if err := plansCol.Get(jobID, plan); err == nil {
 				return nil
 			}
 			plan = newPlan(df, jobInfo.ChunkSpec, parallelism, numHashtrees)
-			return chunksCol.Put(jobID, plan)
+			return plansCol.Put(jobID, plan)
 		}); err != nil {
 			return err
 		}
 		defer func() {
 			if retErr == nil {
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					chunks := a.chunks(jobID).ReadWrite(stm)
-					chunks.DeleteAll()
-					return nil
+					chunksCol := a.chunks(jobID).ReadWrite(stm)
+					chunksCol.DeleteAll()
+					plansCol := a.plans.ReadWrite(stm)
+					return plansCol.Delete(jobID)
 				}); err != nil {
 					retErr = err
 				}
@@ -782,6 +783,25 @@ func (a *APIServer) updateJobState(ctx context.Context, info *pps.JobInfo, stats
 		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, state, reason)
 	})
 	return err
+}
+
+// deleteJob is identical to updateJobState, except that jobPtr points to a job
+// that should be deleted rather than marked failed. Jobs may be deleted if
+// their output commit is deleted.
+func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
+	pipelinePtr := &pps.EtcdPipelineInfo{}
+	if err := a.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
+		if pipelinePtr.JobCounts == nil {
+			pipelinePtr.JobCounts = make(map[int32]int32)
+		}
+		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
+			pipelinePtr.JobCounts[int32(jobPtr.State)]--
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
 func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) error {

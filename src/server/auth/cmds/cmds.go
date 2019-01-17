@@ -72,10 +72,11 @@ first cluster admin`[1:],
 			fmt.Println("Retrieving Pachyderm token...")
 
 			// Exchange GitHub token for Pachyderm token
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			resp, err := c.Activate(c.Ctx(),
 				&auth.ActivateRequest{
 					GitHubToken: token,
@@ -123,10 +124,11 @@ func DeactivateCmd() *cobra.Command {
 			if !strings.Contains("yY", confirm[:1]) {
 				return fmt.Errorf("operation aborted")
 			}
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			_, err = c.Deactivate(c.Ctx(), &auth.DeactivateRequest{})
 			return grpcutil.ScrubGRPC(err)
 		}),
@@ -146,10 +148,11 @@ func LoginCmd() *cobra.Command {
 			"the account you have with your ID provider (e.g. GitHub, Okta) " +
 			"account will subsequently be accessible.",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 
 			// Issue authentication request to Pachyderm and get response
 			var resp *auth.AuthenticateResponse
@@ -232,10 +235,11 @@ func WhoamiCmd() *cobra.Command {
 		Short: "Print your Pachyderm identity",
 		Long:  "Print your Pachyderm identity.",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
 				return fmt.Errorf("error: %v", grpcutil.ScrubGRPC(err))
@@ -271,10 +275,11 @@ func CheckCmd() *cobra.Command {
 				return err
 			}
 			repo := args[1]
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			resp, err := c.Authorize(c.Ctx(), &auth.AuthorizeRequest{
 				Repo:  repo,
 				Scope: scope,
@@ -302,10 +307,11 @@ func GetCmd() *cobra.Command {
 			"Pachyderm authentication uses GitHub OAuth, so 'username' must be a " +
 			"GitHub username",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			if len(args) == 1 {
 				// Get ACL for a repo
 				repo := args[0]
@@ -355,10 +361,11 @@ func SetScopeCmd() *cobra.Command {
 				return err
 			}
 			username, repo := args[0], args[2]
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			_, err = c.SetScope(c.Ctx(), &auth.SetScopeRequest{
 				Repo:     repo,
 				Scope:    scope,
@@ -377,10 +384,11 @@ func ListAdminsCmd() *cobra.Command {
 		Short: "List the current cluster admins",
 		Long:  "List the current cluster admins",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			resp, err := c.GetAdmins(c.Ctx(), &auth.GetAdminsRequest{})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
@@ -406,10 +414,11 @@ func ModifyAdminsCmd() *cobra.Command {
 			"separated list of users to grant admin status, and --remove accepts a " +
 			"comma-separated list of users to revoke admin status",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			_, err = c.ModifyAdmins(c.Ctx(), &auth.ModifyAdminsRequest{
 				Add:    add,
 				Remove: remove,
@@ -440,10 +449,11 @@ func GetAuthTokenCmd() *cobra.Command {
 			"this can only be called by cluster admins",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			subject := args[0]
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine(true, true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
+			defer c.Close()
 			resp, err := c.GetAuthToken(c.Ctx(), &auth.GetAuthTokenRequest{
 				Subject: subject,
 			})

@@ -15,7 +15,7 @@ Here, `<backend>` can be one of `aws`, `google`, and `azure`, and the different 
 For example, here's how you would deploy credentials for a S3 bucket:
 
 ```bash
-$ pachctl deploy storage aws <bucket-name> <access key id> <secret access key>
+$ pachctl deploy storage aws <region> <bucket-name> <access key id> <secret access key>
 ```
 
 Credentials are stored in a [Kubernetes secret](https://kubernetes.io/docs/concepts/configuration/secret/) and therefore share the same security properties.

@@ -2,6 +2,7 @@ package hashtree
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"fmt"
 	"hash"
@@ -532,8 +533,10 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 	r := pbutil.NewReader(_r)
 	hdr := &BucketHeader{}
 	batchSize := 10000
+
 	kvs := make(chan *keyValue, batchSize/10)
-	var eg errgroup.Group
+	// create cancellable ctx in case bolt writer encounters error
+	eg, copyCtx := errgroup.WithContext(context.Background())
 	eg.Go(func() error {
 		var bucket []byte
 		for {
@@ -556,45 +559,57 @@ func (h *dbHashTree) Deserialize(_r io.Reader) error {
 					}
 				}
 				return nil
-			}); err != nil {
-				return err
+			}); err != nil || copyCtx.Err() != nil {
+				return err // may return nil if copyCtx was closed
 			}
 			if count <= 0 {
 				return nil
 			}
 		}
 	})
-	for {
-		hdr.Reset()
-		if err := r.Read(hdr); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		bucket := b(hdr.Bucket)
-		kvs <- &keyValue{nil, bucket}
+	eg.Go(func() error {
+		defer close(kvs)
 		for {
-			_k, err := r.ReadBytes()
-			if err != nil {
+			hdr.Reset()
+			// TODO(msteffen): don't block on Read if copyCtx() is cancelled?
+			if err := r.Read(hdr); err != nil {
+				if err == io.EOF {
+					break
+				}
 				return err
 			}
-			if bytes.Equal(_k, SentinelByte) {
-				break
+			bucket := b(hdr.Bucket)
+			select {
+			case kvs <- &keyValue{nil, bucket}:
+			case <-copyCtx.Done():
+				return nil
 			}
-			// we need to make copies of k and v because the memory will be reused
-			k := make([]byte, len(_k))
-			copy(k, _k)
-			_v, err := r.ReadBytes()
-			if err != nil {
-				return err
+			for {
+				_k, err := r.ReadBytes()
+				if err != nil {
+					return err
+				}
+				if bytes.Equal(_k, SentinelByte) {
+					break
+				}
+				// we need to make copies of k and v because the memory will be reused
+				k := make([]byte, len(_k))
+				copy(k, _k)
+				_v, err := r.ReadBytes()
+				if err != nil {
+					return err
+				}
+				v := make([]byte, len(_v))
+				copy(v, _v)
+				select {
+				case kvs <- &keyValue{k, v}:
+				case <-copyCtx.Done():
+					return nil
+				}
 			}
-			v := make([]byte, len(_v))
-			copy(v, _v)
-			kvs <- &keyValue{k, v}
 		}
-	}
-	close(kvs)
+		return nil
+	})
 	return eg.Wait()
 }
 

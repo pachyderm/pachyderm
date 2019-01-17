@@ -15,7 +15,7 @@
   },
   "input": {
     "cross": [ {
-      "atom": {
+      "pfs": {
         "glob": "urls/*",
         "repo": "urls"
       }

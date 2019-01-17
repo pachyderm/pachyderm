@@ -6,12 +6,12 @@
     "image": "pachyderm/wordcount-map",
     "cmd": [
       "/map", 
-      "/pfs/scraper", 
+      "/pfs/scraper/", 
       "/pfs/out"
     ]
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "scraper",
       "glob": "/*"
     }

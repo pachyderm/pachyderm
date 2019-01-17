@@ -251,6 +251,14 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		Name:  client.PPSSpecCommitEnv,
 		Value: specCommitID,
 	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name: client.PProfPortEnv,
+		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name: client.PeerPortEnv,
+		Value: strconv.FormatUint(uint64(a.peerPort), 10),
+	})
 
 	var volumes []v1.Volume
 	var volumeMounts []v1.VolumeMount
