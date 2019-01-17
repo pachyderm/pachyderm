@@ -3406,7 +3406,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					} else {
 						r, err := objClient.Reader(url.Object, 0, 0)
 						if err != nil {
-							return oneOff, repo, branch, err
+							return false, "", "", err
 						}
 						limiter.Acquire()
 						eg.Go(func() (retErr error) {
@@ -3452,5 +3452,5 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 		return false, "", "", err
 	}
 	err = eg.Wait()
-	return false, "", "", err
+	return oneOff, repo, branch, err
 }
