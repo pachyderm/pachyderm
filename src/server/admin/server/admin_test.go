@@ -308,7 +308,7 @@ func TestExtractRestoreObjects(t *testing.T) {
 	ops, err := c.ExtractAll(true)
 	require.NoError(t, err)
 
-	// Delete 1.7 data
+	// Delete existing data
 	require.NoError(t, c.DeleteAll())
 	// If test is running against minikube, delete old objects to test restoration
 	// of objects
