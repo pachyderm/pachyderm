@@ -125,6 +125,8 @@ type apiServer struct {
 	noExposeDockerSocket  bool
 	reporter              *metrics.Reporter
 	monitorCancels        map[string]func()
+	pprofPort             uint16
+	peerPort              uint16
 	// collections
 	pipelines col.Collection
 	jobs      col.Collection

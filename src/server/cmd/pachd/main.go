@@ -410,6 +410,8 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.PProfPort,
+						appEnv.PeerPort,
 					)
 					if err != nil {
 						return fmt.Errorf("pps.NewAPIServer: %v", err)
@@ -524,6 +526,8 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.PProfPort,
+						appEnv.PeerPort,
 					)
 					if err != nil {
 						return fmt.Errorf("pps.NewAPIServer: %v", err)
