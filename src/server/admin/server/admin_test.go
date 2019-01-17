@@ -66,7 +66,7 @@ func RepoInfoToName(repoInfo interface{}) interface{} {
 }
 
 // testExtractRestored effectively implements both TestExtractRestoreObjects
-// TestExtractRestoreObjects, and their logic is mostly the same
+// TestExtractRestoreNoObjects, as their logic is mostly the same
 func testExtractRestore(t *testing.T, testObjects bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
