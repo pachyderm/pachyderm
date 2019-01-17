@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
@@ -254,11 +253,11 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name: client.PProfPortEnv,
-		Value: fmt.Sprintf("%d", a.pprofPort),
+		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name: client.PeerPortEnv,
-		Value: fmt.Sprintf("%d", a.peerPort),
+		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	})
 
 	var volumes []v1.Volume
