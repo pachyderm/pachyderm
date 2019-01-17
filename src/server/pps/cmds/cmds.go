@@ -789,32 +789,41 @@ func handleCreatePipeline(metrics bool, reprocess bool, rebuild bool, pushImages
 			if rebuild && pushImages {
 				fmt.Fprintln(os.Stderr, "`--push-images` is redundant, as it's already enabled with `--rebuild`")
 			}
-			manager, err := newDockerManager(registry, username, password, request.Transform.Image)
+			dockerClient, authConfig, err := dockerConfig(registry, username, password)
 			if err != nil {
 				return err
 			}
+			repo, sourceTag := docker.ParseRepositoryTag(request.Transform.Image)
+			if sourceTag == "" {
+				sourceTag = "latest"
+			}
+			destTag := uuid.NewWithoutDashes()
+
 			if rebuild {
-				if request.Transform.Dockerfile == "" {
+				dockerfile := request.Transform.Dockerfile
+				if dockerfile == "" {
 					return fmt.Errorf("`dockerfile` must be specified in order to use `--rebuild`")
 				}
-				contextDir := request.Transform.WorkingDir
-				if contextDir == "" {
-					url, err := url.Parse(pipelinePath)
-					if pipelinePath == "-" || (err == nil && url.Scheme != "") {
-						return fmt.Errorf("`--rebuild` can only be used when the pipeline path is local")
-					}
-					absPath, err := filepath.Abs(pipelinePath)
-					if err != nil {
-						return fmt.Errorf("could not get absolute path to the pipeline path '%s': %s", pipelinePath, err)
-					}
-					contextDir = filepath.Dir(absPath)
+				url, err := url.Parse(pipelinePath)
+				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
+					return fmt.Errorf("`--rebuild` can only be used when the pipeline path is local")
 				}
-				err = manager.build(contextDir, request.Transform.Dockerfile)
+				absPath, err := filepath.Abs(pipelinePath)
+				if err != nil {
+					return fmt.Errorf("could not get absolute path to the pipeline path '%s': %s", pipelinePath, err)
+				}
+
+				contextDir := filepath.Dir(absPath)
+				err = buildImage(dockerClient, registry, repo, contextDir, dockerfile, destTag)
 				if err != nil {
 					return err
 				}
+				// Now that we've rebuilt into `destTag`, change the
+				// `sourceTag` to be the same so that the push will work with
+				// the right image
+				sourceTag = destTag
 			}
-			image, err := manager.push()
+			image, err := pushImage(dockerClient, authConfig, registry, repo, sourceTag, destTag)
 			if err != nil {
 				return err
 			}
@@ -852,26 +861,13 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	return false
 }
 
-type dockerManager struct {
-	client *docker.Client
-	config docker.AuthConfiguration
-	registry string
-	repo string
-	sourceTag string
-	destTag string
-}
-
-// newDockerManager creates a new instance docker manager, which handles the
-// building and pushing of docker images. Username and password can be empty,
-// in which case this will try to parse the docker config file.
-func newDockerManager(registry string, username string, password string, image string) (*dockerManager, error) {
+func dockerConfig(registry string, username string, password string) (*docker.Client, docker.AuthConfiguration, error) {
+	var authConfig docker.AuthConfiguration
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		err = fmt.Errorf("could not create a docker client from the environment: %s", err)
-		return nil, err
+		return nil, authConfig, err
 	}
-
-	var authConfig docker.AuthConfiguration
 
 	if username != "" && password != "" {
 		authConfig = docker.AuthConfiguration{ServerAddress: registry}
@@ -881,11 +877,12 @@ func newDockerManager(registry string, username string, password string, image s
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
 			if isDockerUsingKeychain() {
-				return nil, fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` and `--password` flags", err.Error())
+				err = fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` and `--password` flags", err.Error())
+				return nil, authConfig, err
 			}
 			
 			err = fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
-			return nil, err
+			return nil, authConfig, err
 		}
 		for _, _authConfig := range authConfigs.Configs {
 			serverAddress := _authConfig.ServerAddress
@@ -896,30 +893,16 @@ func newDockerManager(registry string, username string, password string, image s
 		}
 	}
 
-	repo, tag := docker.ParseRepositoryTag(image)
-	if tag == "" {
-		tag = "latest"
-	}
-
-	manager := dockerManager{
-		client: client,
-		config: authConfig,
-		registry: registry,
-		repo: repo,
-		sourceTag: tag,
-		destTag: uuid.NewWithoutDashes(),
-	}
-
-	return &manager, nil
+	return client, authConfig, nil
 }
 
-// build builds a new docker image as registry/user/repo.
-func (m *dockerManager) build(contextDir string, dockerfile string) error {
-	destImage := fmt.Sprintf("%s/%s:%s", m.registry, m.repo, m.destTag)
+// buildImage builds a new docker image as registry/user/repo.
+func buildImage(client *docker.Client, registry string, repo string, contextDir string, dockerfile string, destTag string) error {
+	destImage := fmt.Sprintf("%s/%s:%s", registry, repo, destTag)
 
 	fmt.Printf("Building %s, this may take a while.\n", destImage)
 
-	err := m.client.BuildImage(docker.BuildImageOptions{
+	err := client.BuildImage(docker.BuildImageOptions{
 		Name: destImage,
 		ContextDir: contextDir,
 		Dockerfile: dockerfile,
@@ -930,36 +913,32 @@ func (m *dockerManager) build(contextDir string, dockerfile string) error {
 		return fmt.Errorf("could not build docker image: %s", err)
 	}
 
-	// Now that the image has been rebuilt into `destTag`, change the
-	// `sourceTag` to be the same so that subsequent pushes will work with
-	// the right image
-	m.sourceTag = m.destTag
 	return nil
 }
 
-// push pushes an image as registry/user/repo.
-func (m *dockerManager) push() (string, error) {
-	repo := fmt.Sprintf("%s/%s", m.registry, m.repo)
-	sourceImage := fmt.Sprintf("%s:%s", repo, m.sourceTag)
-	destImage := fmt.Sprintf("%s:%s", repo, m.destTag)
+// pushImage pushes an image as registry/user/repo.
+func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, registry string, repo string, sourceTag string, destTag string) (string, error) {
+	fullRepo := fmt.Sprintf("%s/%s", registry, repo)
+	sourceImage := fmt.Sprintf("%s:%s", fullRepo, sourceTag)
+	destImage := fmt.Sprintf("%s:%s", fullRepo, destTag)
 
 	fmt.Printf("Tagging/pushing %s, this may take a while.\n", destImage)
 
-	if err := m.client.TagImage(sourceImage, docker.TagImageOptions{
-		Repo:    repo,
-		Tag:     m.destTag,
+	if err := client.TagImage(sourceImage, docker.TagImageOptions{
+		Repo:    fullRepo,
+		Tag:     destTag,
 		Context: context.Background(),
 	}); err != nil {
 		err = fmt.Errorf("could not tag docker image: %s", err)
 		return "", err
 	}
 	
-	if err := m.client.PushImage(
+	if err := client.PushImage(
 		docker.PushImageOptions{
-			Name: repo,
-			Tag:  m.destTag,
+			Name: fullRepo,
+			Tag:  destTag,
 		},
-		m.config,
+		authConfig,
 	); err != nil {
 		err = fmt.Errorf("could not push docker image: %s", err)
 		return "", err
