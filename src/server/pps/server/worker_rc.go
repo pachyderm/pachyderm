@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
@@ -261,7 +260,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	// Set the worker gRPC port
 	workerEnv = append(workerEnv, v1.EnvVar {
 		Name: client.PPSWorkerPortEnv,
-		Value: fmt.Sprintf("%d", a.workerGrpcPort),
+		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name: client.PProfPortEnv,
