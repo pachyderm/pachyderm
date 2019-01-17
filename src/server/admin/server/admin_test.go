@@ -145,7 +145,16 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	jis, err := c.ListJob("", nil, nil) // make sure jobs all succeeded
 	require.NoError(t, err)
 	for _, ji := range jis {
-		require.Equal(t, pps.JobState_JOB_SUCCESS, ji.State)
+		// prevent race--we may call listJob between when a job's output commit is
+		// closed and when its state is updated
+		backoff.Retry(func() error {
+			if ji.State.String() == "JOB_MERGING" {
+				return fmt.Errorf("output commit is closed but job state hasn't been updated")
+			}
+			return nil
+		}, backoff.NewTestingBackOff())
+		// Job must ultimately succeed
+		require.Equal(t, "JOB_SUCCESS", ji.State.String())
 	}
 
 	// Make sure all branches were recreated
