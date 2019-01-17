@@ -443,7 +443,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return handleCreatePipeline(metrics, false, rebuild, pushImages, registry, username, password, pipelinePath, false)
+			return pipelineHelper(metrics, false, rebuild, pushImages, registry, username, password, pipelinePath, false)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
@@ -459,7 +459,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return handleCreatePipeline(metrics, reprocess, rebuild, pushImages, registry, username, password, pipelinePath, true)
+			return pipelineHelper(metrics, reprocess, rebuild, pushImages, registry, username, password, pipelinePath, true)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
@@ -761,7 +761,7 @@ you can increase the amount of memory used for the bloom filters with the
 	return result, nil
 }
 
-func handleCreatePipeline(metrics bool, reprocess bool, rebuild bool, pushImages bool, registry string, username string, password string, pipelinePath string, update bool) error {
+func pipelineHelper(metrics bool, reprocess bool, rebuild bool, pushImages bool, registry string, username string, password string, pipelinePath string, update bool) error {
 	cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 	if err != nil {
 		return err
