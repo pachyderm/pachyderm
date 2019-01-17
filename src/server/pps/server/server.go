@@ -30,7 +30,9 @@ func NewAPIServer(
 	imagePullSecret string,
 	noExposeDockerSocket bool,
 	reporter *metrics.Reporter,
+	port uint16,
 	pprofPort uint16,
+	httpPort uint16,
 	peerPort uint16,
 ) (ppsclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
@@ -61,7 +63,9 @@ func NewAPIServer(
 		pipelines:             ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
 		monitorCancels:        make(map[string]func()),
+		port:                  port,
 		pprofPort:             pprofPort,
+		httpPort:              httpPort,
 		peerPort:              peerPort,
 	}
 	apiServer.validateKube()

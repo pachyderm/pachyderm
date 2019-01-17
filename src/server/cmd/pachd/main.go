@@ -74,10 +74,10 @@ func init() {
 
 type appEnv struct {
 	// Ports served by Pachd
-	Port      uint16 `env:"PORT,default=650"`
-	PProfPort uint16 `env:"PPROF_PORT,default=651"`
-	HTTPPort  uint16 `env:"HTTP_PORT,default=652"`
-	PeerPort  uint16 `env:"PEER_PORT,default=653"`
+	Port      uint16 `env:"PORT,required`
+	PProfPort uint16 `env:"PPROF_PORT,required`
+	HTTPPort  uint16 `env:"HTTP_PORT,required`
+	PeerPort  uint16 `env:"PEER_PORT,required`
 
 	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
@@ -410,7 +410,9 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.Port,
 						appEnv.PProfPort,
+						appEnv.HTTPPort,
 						appEnv.PeerPort,
 					)
 					if err != nil {
@@ -526,7 +528,9 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.Port,
 						appEnv.PProfPort,
+						appEnv.HTTPPort,
 						appEnv.PeerPort,
 					)
 					if err != nil {
