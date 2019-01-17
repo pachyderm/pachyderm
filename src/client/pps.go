@@ -63,6 +63,10 @@ const (
 	// OutputCommitIDEnv is an env var that is added to the environment of user
 	// pipelined code and indicates the id of the output commit.
 	OutputCommitIDEnv = "PACH_OUTPUT_COMMIT_ID"
+	// PProfPortEnv is the env var that sets a custom pprof port
+	PProfPortEnv = "PPROF_PORT"
+	// PeerPortEnv is the env var that sets a custom peer port
+	PeerPortEnv = "PEER_PORT"
 )
 
 // NewJob creates a pps.Job.

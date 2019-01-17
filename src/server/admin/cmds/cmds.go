@@ -32,10 +32,11 @@ pachctl extract >backup
 # Extract to s3:
 pachctl extract -u s3://bucket/backup` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			if url != "" {
 				return c.ExtractURL(url)
 			}
@@ -60,14 +61,22 @@ pachctl restore <backup
 # Restore from s3:
 pachctl restore -u s3://bucket/backup` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			if url != "" {
-				return c.RestoreURL(url)
+				err = c.RestoreURL(url)
+			} else {
+				err = c.RestoreReader(snappy.NewReader(os.Stdin))
 			}
-			return c.RestoreReader(snappy.NewReader(os.Stdin))
+			if err != nil {
+				return fmt.Errorf("%v\nWARNING: Your cluster might be in an invalid "+
+					"state--consider deleting partially-restored data before continuing",
+					err)
+			}
+			return nil
 		}),
 	}
 	restore.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to restore from.")
@@ -76,10 +85,11 @@ pachctl restore -u s3://bucket/backup` + codeend,
 		Short: "Returns info about the pachyderm cluster",
 		Long:  "Returns info about the pachyderm cluster",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, "user")
+			c, err := client.NewOnUserMachine(metrics, true, "user")
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			ci, err := c.InspectCluster()
 			if err != nil {
 				return err

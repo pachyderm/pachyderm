@@ -101,7 +101,7 @@ It will take a moment for a new pod to get scheduled.
 
 #### Symptom
 
-You may be using the environmental variable `ADDRESS` to specify how `pachctl` talks to your Pachyderm cluster, or you may be forwarding the pachyderm port via `pachctl port-forward`.  In any event, you might see something similar to:
+You may be using the environment variable `ADDRESS` to specify how `pachctl` talks to your Pachyderm cluster, or you may be forwarding the pachyderm port.  In any event, you might see something similar to:
 
 ```
 $ echo $ADDRESS
@@ -123,7 +123,7 @@ It's also possible that you haven't poked a hole in the firewall to access the n
 
 #### Symptom
 
-This can happen on any request using `kubectl` (e.g. `kubectl get all`), but it can also be seen when running `pachctl port-forward` because it uses `kubectl` under the hood. In particular you'll see:
+This can happen on any request using `kubectl` (e.g. `kubectl get all`). In particular you'll see:
 
 ```
 $ kubectl version
@@ -153,7 +153,7 @@ Any `pachctl put-file` or `pachctl get-file` commands are slow.
 
 #### Recourse
 
-Check if you're using port-forwarding. Port forwarding throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using the `ADDRESS` variable instead to connect directly to your k8s master node. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
+If you do not explicitly set the `ADDRESS` environment variable, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using the `ADDRESS` variable instead to connect directly to your k8s master node. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
 
 ---
 

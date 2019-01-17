@@ -17,7 +17,7 @@
        "constant" : 1
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "GoT_scripts",
       "glob": "/"
     }
@@ -41,7 +41,7 @@
        "constant" : 1
   },
   "input": {
-    "atom": {
+    "pfs": {
       "repo": "GoT_train",
       "glob": "/"
     }

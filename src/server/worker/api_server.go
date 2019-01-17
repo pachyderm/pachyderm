@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
@@ -676,6 +677,9 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 		if err != nil {
 			return err
 		}
+		if !utf8.ValidString(filePath) {
+			return fmt.Errorf("file path is not valid utf-8: %s", filePath)
+		}
 		if filePath == outputPath {
 			tree = hashtree.NewOrdered("/")
 			return nil
@@ -953,25 +957,6 @@ func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Inp
 	result = append(result, fmt.Sprintf("%s=%s", client.JobIDEnv, jobID))
 	result = append(result, fmt.Sprintf("%s=%s", client.OutputCommitIDEnv, outputCommitID))
 	return result
-}
-
-// deleteJob is identical to updateJobState, except that jobPtr points to a job
-// that should be deleted rather than marked failed. Jobs may be deleted if
-// their output commit is deleted.
-func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
-	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadWrite(stm).Update(jobPtr.Pipeline.Name, pipelinePtr, func() error {
-		if pipelinePtr.JobCounts == nil {
-			pipelinePtr.JobCounts = make(map[int32]int32)
-		}
-		if pipelinePtr.JobCounts[int32(jobPtr.State)] != 0 {
-			pipelinePtr.JobCounts[int32(jobPtr.State)]--
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
 type processResult struct {

@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
+	"golang.org/x/sync/errgroup"
 
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
@@ -118,6 +119,8 @@ type APIClient struct {
 
 	// The context used in requests, can be set with WithCtx
 	ctx context.Context
+
+	portForwarder *PortForwarder
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -298,7 +301,42 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	if err != nil {
 		return "", nil, err
 	}
-	return fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort), options, nil
+	return "", options, nil
+}
+
+func portForwarder() *PortForwarder {
+	log.Debugln("Attempting to implicitly enable port forwarding...")
+
+	// NOTE: this will always use the default namespace; if a custom
+	// namespace is required with port forwarding,
+	// `pachctl port-forward` should be explicitly called.
+	fw, err := NewPortForwarder("", ioutil.Discard, os.Stderr)
+	if err != nil {
+		log.Errorf("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
+		return nil
+	}
+	if err = fw.Lock(); err != nil {
+		log.Warningf("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
+		return nil
+	}
+
+	var eg errgroup.Group
+	
+	eg.Go(func() error {
+		return fw.RunForDaemon(0)
+	})
+
+	eg.Go(func() error {
+		return fw.RunForSAMLACS(0)
+	})
+
+	if err = eg.Wait(); err != nil {
+		fw.Close()
+		log.Errorf("Implicit port forwarding was not enabled because of an error: %v", err)
+		return nil
+	}
+
+	return fw
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
@@ -310,7 +348,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*APIClient, error) {
+func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
@@ -318,10 +356,19 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 	}
 
 	// create new pachctl client
+	var fw *PortForwarder
 	addr, cfgOptions, err := getUserMachineAddrAndOpts(cfg)
 	if err != nil {
 		return nil, err
 	}
+	if addr == "" {
+		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+
+		if portForward {
+			fw = portForwarder()	
+		}
+	}
+
 	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
 	if err != nil {
 		if strings.Contains(err.Error(), "context deadline exceeded") {
@@ -354,12 +401,17 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg.UserID != "" && reportMetrics {
+	if cfg != nil && cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
 	}
-	if cfg.V1 != nil && cfg.V1.SessionToken != "" {
+	if cfg != nil && cfg.V1 != nil && cfg.V1.SessionToken != "" {
 		client.authenticationToken = cfg.V1.SessionToken
 	}
+	
+	// Add port forwarding. This will set it to nil if port forwarding is
+	// disabled, or an address is explicitly set.
+	client.portForwarder = fw
+
 	return client, nil
 }
 
@@ -381,7 +433,15 @@ func NewInCluster(options ...Option) (*APIClient, error) {
 
 // Close the connection to gRPC
 func (c *APIClient) Close() error {
-	return c.clientConn.Close()
+	if err := c.clientConn.Close(); err != nil {
+		return err
+	}
+
+	if c.portForwarder != nil {
+		c.portForwarder.Close()	
+	}
+
+	return nil
 }
 
 // DeleteAll deletes everything in the cluster.

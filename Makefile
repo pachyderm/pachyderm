@@ -429,10 +429,8 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin
-
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev test-misc test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
 	# Check if our test activation code is anywhere in the repo
@@ -444,19 +442,7 @@ enterprise-code-checkin-test:
 	fi
 
 test-pfs-server:
-	@# If etcd is not available, start it in a docker container
-	if ! ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2379 get "testkey"; then \
-	  docker run \
-	    --publish 32379:2379 \
-	    --ulimit nofile=2048 \
-	    $(ETCD_IMAGE) \
-	    etcd \
-	    --listen-client-urls=http://0.0.0.0:2379 \
-	    --advertise-client-urls=http://0.0.0.0:2379 & \
-	fi
-	@# grep out PFS server logs, as otherwise the test output is too verbose to
-	@# follow and breaks travis
-	go test -v ./src/server/pfs/server -timeout $(TIMEOUT) | grep -v "$$(date +^%FT)"
+	./etc/testing/pfs_server.sh $(ETCD_IMAGE) $(TIMEOUT)
 
 test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
