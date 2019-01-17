@@ -6,7 +6,7 @@
 # figure out what to delete, we'll have a place to start.
 
 # Parse flags
-eval "set -- $( getopt -l "region:,zone:" "--" "${0}" "${@}" )"
+eval "set -- $( getopt -l "zone:" "--" "${0}" "${@}" )"
 while true; do
     case "${1}" in
         --zone)
@@ -75,6 +75,26 @@ aws --region=${AWS_REGION} ec2 describe-volumes \
   | while read v; do \
       echo ${v}; \
       aws --region=${AWS_REGION} ec2 delete-volume --volume-id=${v}; \
+done
+
+# Delete ELBs
+aws --region=${AWS_REGION} elb describe-load-balancers \
+  | jq --raw-output '.LoadBalancerDescriptions[].LoadBalancerName' \
+  | while read elb; do
+      cmd=( aws elb delete-load-balancer --load-balancer-name="${elb}" )
+      echo "${cmd[@]}"
+      "${cmd[@]}"
+done
+
+# Delete routes
+aws --region=${AWS_REGION} ec2 describe-route-tables \
+  | jq --raw-output '.RouteTables[].RouteTableId' \
+  | while read id; do \
+      aws ec2 describe-route-tables --route-table-ids="${id}" \
+        | jq --raw-output '.RouteTables[].Routes[] | select(.GatewayId != "local") | .DestinationCidrBlock' \
+        | while read cidr; do \
+            echo aws ec2 delete-route --route-table-id="${id}" --destination-cidr-block="${cidr}"
+      done
 done
 
 # Delete subnets
@@ -174,3 +194,10 @@ aws route53 list-resource-record-sets \
             "Changes":[{"Action":"DELETE","ResourceRecordSet":'${rs}'}]
           }'; \
 done
+
+# Delete elastic IPs
+aws ec2 describe-addresses \
+  | jq -c '.Addresses[] | if .Domain == "vpc" then { AllocationId: .AllocationId } else { PublicIp: .PublicIp } end' \
+  | while read eip; do
+      aws ec2 release-address --cli-input-json="${eip}"
+    done
