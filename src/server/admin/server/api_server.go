@@ -400,8 +400,8 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					restoreURLReader:      r,
 					version:               v1_8,
 				}
-				extractReader.buf.Write(op.Op1_8.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
+				extractedReader.buf.Write(op.Op1_8.Object.Value)
+				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -614,10 +614,15 @@ type extractedObjectReader struct {
 }
 
 func (r *extractedObjectReader) Read(p []byte) (int, error) {
+	// Shortcut -- if object is done just return EOF
+	if r.eof {
+		return 0, io.EOF
+	}
+
 	// Read leftover bytes in buffer (from prior Read() call) into 'p'
 	n, err := r.buf.Read(p)
-	if n == len(p) || err != nil {
-		return n, err // quit early if done
+	if n == len(p) || err != nil && err != io.EOF {
+		return n, err // quit early if done; ignore EOF--just means buf is now empty
 	}
 	r.buf.Reset() // discard data now in 'p'; ready to refill 'r.buf'
 	p = p[n:]     // only want to fill remainder of p
@@ -650,11 +655,15 @@ func (r *extractedObjectReader) Read(p []byte) (int, error) {
 
 		// extract object bytes
 		var value []byte
-		if op.Op1_7.Object == nil && op.Op1_8.Object == nil {
-			return 0, fmt.Errorf("expected an object, but got: %v", op)
-		} else if r.version == v1_7 {
+		if r.version == v1_7 {
+			if op.Op1_7.Object == nil {
+				return 0, fmt.Errorf("expected an object, but got: %v", op)
+			}
 			value = op.Op1_7.Object.Value
 		} else {
+			if op.Op1_8.Object == nil {
+				return 0, fmt.Errorf("expected an object, but got: %v", op)
+			}
 			value = op.Op1_8.Object.Value
 		}
 
