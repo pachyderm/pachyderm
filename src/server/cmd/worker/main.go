@@ -32,6 +32,9 @@ import (
 
 // appEnv stores the environment variables that this worker needs
 type appEnv struct {
+	// PPSWorkerPort is the port that the worker gRPC server runs on
+	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,required"`
+	
 	// The port at which this worker will expose its pprof port
 	PProfPort uint16 `env:"PPROF_PORT,required"`
 
@@ -64,9 +67,6 @@ type appEnv struct {
 
 	// StorageRoot is where we store hashtrees
 	StorageRoot string `env:"PACH_ROOT,default=/pach"`
-
-	// PPSWorkerPort is the port that the worker gRPC server runs on
-	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,required"`
 }
 
 func main() {
