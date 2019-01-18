@@ -79,7 +79,10 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return fmt.Errorf("error parsing url %v: %v", request.URL, err)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(extractServer.Context(), url)
+		if url.Object == "" {
+			return fmt.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", request.URL)
+		}
+		objClient, err := obj.NewClientFromURLAndSecret(extractServer.Context(), url, false)
 		if err != nil {
 			return err
 		}
@@ -87,6 +90,11 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if err := objW.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
 		snappyW := snappy.NewBufferedWriter(objW)
 		defer func() {
 			if err := snappyW.Close(); err != nil && retErr == nil {
@@ -344,7 +352,10 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				if err != nil {
 					return fmt.Errorf("error parsing url %v: %v", req.URL, err)
 				}
-				objClient, err := obj.NewClientFromURLAndSecret(restoreServer.Context(), url)
+				if url.Object == "" {
+					return fmt.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", req.URL)
+				}
+				objClient, err := obj.NewClientFromURLAndSecret(restoreServer.Context(), url, false)
 				if err != nil {
 					return err
 				}
