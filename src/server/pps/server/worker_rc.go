@@ -61,6 +61,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
+	}, {
+		Name:  "PORT",
+		Value: strconv.FormatUint(uint64(a.port), 10),
+	}, {
+		Name:  "HTTP_PORT",
+		Value: strconv.FormatUint(uint64(a.httpPort), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	workerEnv := options.workerEnv
