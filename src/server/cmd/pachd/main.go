@@ -410,7 +410,9 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.Port,
 						appEnv.PProfPort,
+						appEnv.HTTPPort,
 						appEnv.PeerPort,
 					)
 					if err != nil {
@@ -526,7 +528,9 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.Port,
 						appEnv.PProfPort,
+						appEnv.HTTPPort,
 						appEnv.PeerPort,
 					)
 					if err != nil {
