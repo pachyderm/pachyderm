@@ -432,7 +432,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
-	var rebuild bool
+	var build bool
 	var pushImages bool
 	var registry string
 	var username string
@@ -443,12 +443,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(metrics, false, rebuild, pushImages, registry, username, password, pipelinePath, false)
+			return pipelineHelper(metrics, false, build, pushImages, registry, username, password, pipelinePath, false)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
-	createPipeline.Flags().BoolVarP(&rebuild, "rebuild", "b", false, "If true, rebuild and push local docker images into the cluster registry.")
-	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	createPipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
+	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your docker username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
@@ -459,12 +459,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(metrics, reprocess, rebuild, pushImages, registry, username, password, pipelinePath, true)
+			return pipelineHelper(metrics, reprocess, build, pushImages, registry, username, password, pipelinePath, true)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
-	updatePipeline.Flags().BoolVarP(&rebuild, "rebuild", "b", false, "If true, rebuild and push local docker images into the cluster registry.")
-	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	updatePipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
+	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	updatePipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
@@ -761,7 +761,7 @@ you can increase the amount of memory used for the bloom filters with the
 	return result, nil
 }
 
-func pipelineHelper(metrics bool, reprocess bool, rebuild bool, pushImages bool, registry string, username string, password string, pipelinePath string, update bool) error {
+func pipelineHelper(metrics bool, reprocess bool, build bool, pushImages bool, registry string, username string, password string, pipelinePath string, update bool) error {
 	cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 	if err != nil {
 		return err
@@ -785,9 +785,9 @@ func pipelineHelper(metrics bool, reprocess bool, rebuild bool, pushImages bool,
 			request.Update = true
 			request.Reprocess = reprocess
 		}
-		if rebuild || pushImages {
-			if rebuild && pushImages {
-				fmt.Fprintln(os.Stderr, "`--push-images` is redundant, as it's already enabled with `--rebuild`")
+		if build || pushImages {
+			if build && pushImages {
+				fmt.Fprintln(os.Stderr, "`--push-images` is redundant, as it's already enabled with `--build`")
 			}
 			dockerClient, authConfig, err := dockerConfig(registry, username, password)
 			if err != nil {
@@ -799,14 +799,14 @@ func pipelineHelper(metrics bool, reprocess bool, rebuild bool, pushImages bool,
 			}
 			destTag := uuid.NewWithoutDashes()
 
-			if rebuild {
+			if build {
 				dockerfile := request.Transform.Dockerfile
 				if dockerfile == "" {
-					return fmt.Errorf("`dockerfile` must be specified in order to use `--rebuild`")
+					return fmt.Errorf("`dockerfile` must be specified in order to use `--build`")
 				}
 				url, err := url.Parse(pipelinePath)
 				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
-					return fmt.Errorf("`--rebuild` can only be used when the pipeline path is local")
+					return fmt.Errorf("`--build` can only be used when the pipeline path is local")
 				}
 				absPath, err := filepath.Abs(pipelinePath)
 				if err != nil {
@@ -818,7 +818,7 @@ func pipelineHelper(metrics bool, reprocess bool, rebuild bool, pushImages bool,
 				if err != nil {
 					return err
 				}
-				// Now that we've rebuilt into `destTag`, change the
+				// Now that we've built into `destTag`, change the
 				// `sourceTag` to be the same so that the push will work with
 				// the right image
 				sourceTag = destTag
