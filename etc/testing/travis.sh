@@ -63,34 +63,26 @@ if [[ "$BUCKET" == "MISC" ]]; then
             test-pfs-cmds test-deploy-cmds test-libs test-admin
     fi
 elif [[ $PPS_SUITE -eq 0 ]]; then
-    PART=`echo $BUCKET | grep -Po '\d+'`
+    PART="${BUCKET#PPS}"
+    # >>>
+    if [[ "${PART}" -ne 3 ]]; then exit 0; fi
+    # >>>
     NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
     echo "Running pps test suite, part $PART of $NUM_BUCKETS"
-    LIST=`go test -v  ./src/server/ -list ".*" | grep -v ok | grep -v Benchmark`
-    COUNT=`echo $LIST | tr " " "\n" | wc -l`
-    BUCKET_SIZE=$(( $COUNT / $NUM_BUCKETS ))
-    MIN=$(( $BUCKET_SIZE * $(( $PART - 1 )) ))
-    #The last bucket may have a few extra tests, to accommodate rounding errors from bucketing:
-    MAX=$COUNT
-    if [[ $PART -ne $NUM_BUCKETS ]]; then
-        MAX=$(( $MIN + $BUCKET_SIZE ))
+    TESTS=( $(go test -v  ./src/server/ -list ".*" | grep -v ok | grep -v Benchmark) )
+    NUM_TESTS="${#TESTS[@]}"
+    SIZE=$(( NUM_TESTS/NUM_BUCKETS ))
+    MIN=$(( SIZE * (PART-1) ))
+    if [[ $PART -eq $NUM_BUCKETS ]]; then
+        # last bucket picks up extra tests
+        SIZE=$((SIZE + (NUM_TESTS%NUM_BUCKETS) ))
     fi
+    RUN="$(IFS=\|; echo "${TESTS[*]:MIN:SIZE}")"
+    echo "Running ${SIZE} tests of ${NUM_TESTS} total tests"
 
-    RUN=""
-    INDEX=0
-
-    for test in $LIST; do
-        if [[ $INDEX -ge $MIN ]] && [[ $INDEX -lt $MAX ]] ; then
-            if [[ "$RUN" == "" ]]; then
-                RUN=$test
-            else
-                RUN="$RUN|$test"
-            fi
-        fi
-        INDEX=$(( $INDEX + 1 ))
-    done
-    echo "Running $( echo $RUN | tr '|' '\n' | wc -l ) tests of $COUNT total tests"
-    make RUN=-run=\"$RUN\" test-pps-helper
+    # apply our own timeout on top of travis, so that if we hit it we emit
+    # 'kubectl get all' and such
+    timeout 5m make RUN=-run=\"$RUN\" test-pps-helper
 else
     echo "Unknown bucket"
     exit 1
