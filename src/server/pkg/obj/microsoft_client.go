@@ -1,14 +1,13 @@
 package obj
 
 import (
-	"bytes"
-	"encoding/base64"
-	"fmt"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-
 	"github.com/Azure/azure-sdk-for-go/storage"
+)
+
+const (
+	maxBlockSize = 4 * 1024 * 1024 // 4MB (according to: https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs#about-append-blobs)
 )
 
 type microsoftClient struct {
@@ -120,14 +119,12 @@ type microsoftWriter struct {
 
 func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter, error) {
 	// create container
-	_, err := client.blobClient.CreateContainerIfNotExists(client.container, storage.ContainerAccessTypePrivate)
-	if err != nil {
+	if _, err := client.blobClient.CreateContainerIfNotExists(client.container, storage.ContainerAccessTypePrivate); err != nil {
 		return nil, err
 	}
 
 	// create blob
-	err = client.blobClient.CreateBlockBlob(client.container, name)
-	if err != nil {
+	if err := client.blobClient.PutAppendBlob(client.container, name, nil); err != nil {
 		return nil, err
 	}
 
@@ -139,46 +136,20 @@ func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter,
 }
 
 func (w *microsoftWriter) Write(b []byte) (int, error) {
-	blockList, err := w.blobClient.GetBlockList(w.container, w.blob, storage.BlockListTypeAll)
-	if err != nil {
-		return 0, err
-	}
-
-	blocksLen := len(blockList.CommittedBlocks)
-	amendList := []storage.Block{}
-	for _, v := range blockList.CommittedBlocks {
-		amendList = append(amendList, storage.Block{v.Name, storage.BlockStatusCommitted})
-	}
-
-	inputSourceReader := bytes.NewReader(b)
-	chunk := grpcutil.GetBuffer()
-	defer grpcutil.PutBuffer(chunk)
-	for {
-		n, err := inputSourceReader.Read(chunk)
-		if err == io.EOF {
-			break
+	nBytes := 0
+	for i := 0; i < len(b); i += maxBlockSize {
+		var chunk []byte
+		if i+maxBlockSize >= len(b) {
+			chunk = b[i:]
+		} else {
+			chunk = b[i : i+maxBlockSize]
 		}
-		if err != nil {
-			return 0, err
+		if err := w.blobClient.AppendBlock(w.container, w.blob, chunk, nil); err != nil {
+			return nBytes, err
 		}
-
-		blockID := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%011d\n", blocksLen)))
-		data := chunk[:n]
-		err = w.blobClient.PutBlock(w.container, w.blob, blockID, data)
-		if err != nil {
-			return 0, fmt.Errorf("BlobStorageClient.PutBlock: %v", err)
-		}
-		// add current uncommitted block to temporary block list
-		amendList = append(amendList, storage.Block{blockID, storage.BlockStatusUncommitted})
-		blocksLen++
+		nBytes += len(chunk)
 	}
-
-	// update block list to blob committed block list.
-	err = w.blobClient.PutBlockList(w.container, w.blob, amendList)
-	if err != nil {
-		return 0, fmt.Errorf("BlobStorageClient.PutBlockList: %v", err)
-	}
-	return len(b), nil
+	return nBytes, nil
 }
 
 func (w *microsoftWriter) Close() error {
