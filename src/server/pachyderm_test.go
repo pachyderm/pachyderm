@@ -5428,6 +5428,7 @@ func TestService(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	fmt.Printf(">>> getPachClient()\n")
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
@@ -5440,7 +5441,6 @@ func TestService(t *testing.T) {
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
 	pipeline := tu.UniqueString("pipelineservice")
-	// This pipeline sleeps for 10 secs per datum
 	require.NoError(t, c.CreatePipelineService(
 		pipeline,
 		"trinitronx/python-simplehttpserver",
@@ -5457,10 +5457,11 @@ func TestService(t *testing.T) {
 		8000,
 		31800,
 	))
-	time.Sleep(10 * time.Second)
 
 	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
-	serviceAddr := func() string {
+	serviceAddr := func() (addr string) {
+		fmt.Printf(">>> beginning lookup of service address\n")
+		defer fmt.Printf(">>> service address done: %s\n", addr)
 		// Hack: detect if running inside the cluster by looking for this env var
 		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
 			// Outside cluster: Re-use external IP and external port defined above
@@ -5496,8 +5497,11 @@ func TestService(t *testing.T) {
 		require.NotEqual(t, "", address)
 		return address
 	}()
+	time.Sleep(5 * time.Second)
 
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoError(t, backoff.Retry(func() (retErr error) {
+		fmt.Printf(">>> getting file1...")
+		defer func() { fmt.Printf("attempt done: %v\n", retErr) }()
 		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
 		if err != nil {
 			return err
@@ -5523,7 +5527,9 @@ func TestService(t *testing.T) {
 	}
 	httpAPIAddr := net.JoinHostPort(host, port)
 	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoError(t, backoff.Retry(func() (retErr error) {
+		fmt.Printf(">>> getting file1 via http...")
+		defer func() { fmt.Printf("attempt done: %v\n", retErr) }()
 		resp, err := http.Get(url)
 		if err != nil {
 			return err
