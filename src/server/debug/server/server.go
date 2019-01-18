@@ -21,9 +21,9 @@ func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string, wor
 }
 
 type debugServer struct {
-	name       string
-	etcdClient *etcd.Client
-	etcdPrefix string
+	name           string
+	etcdClient     *etcd.Client
+	etcdPrefix     string
 	workerGrpcPort uint16
 }
 
