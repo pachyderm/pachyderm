@@ -457,7 +457,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					return err
 				}
 				if request.Input.Atom != nil {
-					fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
+					fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
 				}
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
@@ -479,7 +479,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
-	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
+	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your docker username.")
 	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
 	var reprocess bool
@@ -507,7 +507,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				request.Update = true
 				request.Reprocess = reprocess
 				if request.Input.Atom != nil {
-					fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
+					fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
 				}
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
@@ -631,7 +631,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			request.Update = true
 			request.Reprocess = reprocess
 			if request.Input.Atom != nil {
-				fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
+				fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
 			}
 			if _, err := client.PpsAPIClient.CreatePipeline(
 				client.Ctx(),
@@ -867,7 +867,7 @@ func pushImage(registry string, username string, password string, image string) 
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
 			if isDockerUsingKeychain() {
-				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use. Please see here for remedial steps: https://github.com/pachyderm/pachyderm/issues/3293#issuecomment-448012383", err.Error())
+				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` and `--password` flags", err.Error())
 			}
 			
 			return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())

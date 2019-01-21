@@ -665,12 +665,7 @@ $ pachctl put-file repo branch -i file
 # NOTE this URL can reference local files, so it could cause you to put sensitive
 # files into your Pachyderm cluster.
 $ pachctl put-file repo branch -i http://host/path
-` + codeend + `
-NOTE there's a small performance overhead for using a branch name as opposed
-to a commit ID in put-file.  In most cases the performance overhead is
-negligible, but if you are putting a large number of small files, you might
-want to consider using commit IDs directly.
-`,
+` + codeend,
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine(metrics, true, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
