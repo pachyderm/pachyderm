@@ -6,7 +6,7 @@
     "image": "pachyderm/wordcount-map",
     "cmd": [
       "/map", 
-      "/pfs/scraper", 
+      "/pfs/scraper/", 
       "/pfs/out"
     ]
   },

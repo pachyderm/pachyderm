@@ -102,10 +102,11 @@ case "${OP}" in
     if [[ -n "${CLOUDFRONT}" ]]; then
       cmd+=("${CLOUDFRONT}")
     fi
-    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "${cmd[@]}"
+    sudo --preserve-env=PATH,GOPATH,KUBECONFIG "${cmd[@]}"
     check_ready="$(dirname "${0}")/../../kube/check_ready.sh"
     check_ready="$(realpath "${check_ready}")"
-    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "bash -c 'until timeout 1s sudo ${check_ready} app=pachd; do sleep 1; done'"
+    sudo --preserve-env=PATH,GOPATH,KUBECONFIG bash -c \
+      "until timeout 1s ${check_ready} app=pachd; do sleep 1; echo -en \"\\033[F\"; done"
     ;;
   delete)
     delete_resources ${CLUSTER_NAME}

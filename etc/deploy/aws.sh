@@ -140,19 +140,24 @@ deploy_k8s_on_aws() {
     export NUM_NODES=2
     export NAME=$(uuid | cut -f 1 -d-)-pachydermcluster.kubernetes.com
     echo "kops state store: ${KOPS_BUCKET}"
-    kops create cluster \
-        --state=${KOPS_BUCKET} \
-        --cloud="aws" \
-        --zones=${AWS_AVAILABILITY_ZONE} \
-        --node-count=${NUM_NODES} \
-        --master-zones=${AWS_AVAILABILITY_ZONE} \
-        --dns=private \
-        --dns-zone=kubernetes.com \
-        --node-size=${NODE_SIZE} \
-        --master-size=${MASTER_SIZE} \
-        --name=${NAME} \
-        --kubernetes-version=1.10.0 \
+    local kops_flags=(
+        --state=${KOPS_BUCKET}
+        --cloud="aws"
+        --zones=${AWS_AVAILABILITY_ZONE}
+        --node-count=${NUM_NODES}
+        --master-zones=${AWS_AVAILABILITY_ZONE}
+        --dns=private
+        --dns-zone=kubernetes.com
+        --node-size=${NODE_SIZE}
+        --master-size=${MASTER_SIZE}
+        --name=${NAME}
+        --kubernetes-version=1.10.0
         --yes
+    )
+    if [[ -n "${KUBECONFIG:-}" ]]; then
+      kops_flags+=(--config="${KUBECONFIG}")
+    fi
+    kops create cluster "${kops_flags[@]}"
     kops update cluster ${NAME} --yes --state=${KOPS_BUCKET}
 
     # Record state store bucket in temp file.

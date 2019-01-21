@@ -61,6 +61,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}, {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
+	}, {
+		Name:  "PORT",
+		Value: strconv.FormatUint(uint64(a.port), 10),
+	}, {
+		Name:  "HTTP_PORT",
+		Value: strconv.FormatUint(uint64(a.httpPort), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	workerEnv := options.workerEnv
@@ -250,6 +256,14 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSSpecCommitEnv,
 		Value: specCommitID,
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name: client.PProfPortEnv,
+		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name: client.PeerPortEnv,
+		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	})
 
 	var volumes []v1.Volume

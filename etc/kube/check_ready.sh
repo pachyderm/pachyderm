@@ -33,6 +33,7 @@ if [ "$allPods" -eq 0 ]; then
 fi
 
 if [ "$readyPods" -ne "$allPods" ]; then
+    echo "${readyPods}/${allPods} ready"
     exit 1
 fi
 
