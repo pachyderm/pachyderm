@@ -354,11 +354,12 @@ This resets the cluster to its initial state.`,
 			return nil
 		}),
 	}
-	var port int
-	var samlPort int
-	var uiPort int
-	var uiWebsocketPort int
-	var pfsPort int
+	var port uint16
+	var remotePort uint16
+	var samlPort uint16
+	var uiPort uint16
+	var uiWebsocketPort uint16
+	var pfsPort uint16
 	var namespace string
 
 	portForward := &cobra.Command{
@@ -379,7 +380,7 @@ This resets the cluster to its initial state.`,
 
 			eg.Go(func() error {
 				fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-				return fw.RunForDaemon(port)
+				return fw.RunForDaemon(port, remotePort)
 			})
 
 			eg.Go(func() error {
@@ -417,11 +418,12 @@ This resets the cluster to its initial state.`,
 			return nil
 		}),
 	}
-	portForward.Flags().IntVarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
-	portForward.Flags().IntVar(&samlPort, "saml-port", 30654, "The local port to bind pachd's SAML ACS to.")
-	portForward.Flags().IntVarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
-	portForward.Flags().IntVarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
-	portForward.Flags().IntVarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
+	portForward.Flags().Uint16VarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
+	portForward.Flags().Uint16Var(&remotePort, "remote-port", 650, "The remote port that pachd is bound to in the cluster.")
+	portForward.Flags().Uint16Var(&samlPort, "saml-port", 30654, "The local port to bind pachd's SAML ACS to.")
+	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
+	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
+	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
 
 	var install bool

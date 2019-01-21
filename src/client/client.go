@@ -323,7 +323,7 @@ func portForwarder() *PortForwarder {
 	var eg errgroup.Group
 	
 	eg.Go(func() error {
-		return fw.RunForDaemon(0)
+		return fw.RunForDaemon(0, 0)
 	})
 
 	eg.Go(func() error {
