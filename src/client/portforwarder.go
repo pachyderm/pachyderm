@@ -22,6 +22,7 @@ import (
 
 const (
 	pachdLocalPort = 30650
+	pachdRemotePort = 650
 	samlAcsLocalPort = 30654
 	dashUILocalPort = 30080
 	dashWebSocketLocalPort = 30081
@@ -77,7 +78,7 @@ func NewPortForwarder(namespace string, stdout, stderr io.Writer) (*PortForwarde
 
 // Run starts the port forwarder. Returns after initialization is begun,
 // returning any initialization errors.
-func (f *PortForwarder) Run(appName string, localPort, remotePort int) error {
+func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) error {
 	podNameSelector := map[string]string {
 		"suite": "pachyderm",
 		"app": appName,
@@ -144,15 +145,18 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort int) error {
 }
 
 // RunForDaemon creates a port forwarder for the pachd daemon.
-func (f *PortForwarder) RunForDaemon(localPort int) error {
+func (f *PortForwarder) RunForDaemon(localPort, remotePort uint16) error {
 	if localPort == 0 {
 		localPort = pachdLocalPort
 	}
-	return f.Run("pachd", localPort, 650)
+	if remotePort == 0 {
+		remotePort = pachdRemotePort
+	}
+	return f.Run("pachd", localPort, remotePort)
 }
 
 // RunForSAMLACS creates a port forwarder for SAML ACS.
-func (f *PortForwarder) RunForSAMLACS(localPort int) error {
+func (f *PortForwarder) RunForSAMLACS(localPort uint16) error {
 	if localPort == 0 {
 		localPort = samlAcsLocalPort
 	}
@@ -162,7 +166,7 @@ func (f *PortForwarder) RunForSAMLACS(localPort int) error {
 }
 
 // RunForDashUI creates a port forwarder for the dash UI.
-func (f *PortForwarder) RunForDashUI(localPort int) error {
+func (f *PortForwarder) RunForDashUI(localPort uint16) error {
 	if localPort == 0 {
 		localPort = dashUILocalPort
 	}
@@ -170,7 +174,7 @@ func (f *PortForwarder) RunForDashUI(localPort int) error {
 }
 
 // RunForDashWebSocket creates a port forwarder for the dash websocket.
-func (f *PortForwarder) RunForDashWebSocket(localPort int) error {
+func (f *PortForwarder) RunForDashWebSocket(localPort uint16) error {
 	if localPort == 0 {
 		localPort = dashWebSocketLocalPort
 	}
@@ -178,7 +182,7 @@ func (f *PortForwarder) RunForDashWebSocket(localPort int) error {
 }
 
 // RunForPFS creates a port forwarder for PFS over HTTP.
-func (f *PortForwarder) RunForPFS(localPort int) error {
+func (f *PortForwarder) RunForPFS(localPort uint16) error {
 	if localPort == 0 {
 		localPort = pfsLocalPort
 	}
