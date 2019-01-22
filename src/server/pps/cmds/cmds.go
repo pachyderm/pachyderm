@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"path"
 	"strings"
+	"syscall"
 
 	units "github.com/docker/go-units"
 	"github.com/fsouza/go-dockerclient"
@@ -24,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/context"
 )
 
@@ -433,7 +435,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	var pushImages bool
 	var registry string
 	var username string
-	var password string
 	var pipelinePath string
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
@@ -460,7 +461,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
 				}
 				if pushImages {
-					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
+					pushedImage, err := pushImage(registry, username, request.Transform.Image)
 					if err != nil {
 						return err
 					}
@@ -480,7 +481,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your docker username.")
-	createPipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 
 	var reprocess bool
 	updatePipeline := &cobra.Command{
@@ -510,7 +510,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
 				}
 				if pushImages {
-					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
+					pushedImage, err := pushImage(registry, username, request.Transform.Image)
 					if err != nil {
 						return err
 					}
@@ -530,7 +530,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
-	updatePipeline.Flags().StringVarP(&password, "password", "", "", "Your password for the registry being pushed to.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 
 	inspectPipeline := &cobra.Command{
@@ -848,7 +847,7 @@ func (arr ByCreationTime) Less(i, j int) bool {
 
 // pushImage pushes an image as registry/user/image. Registry and user can be
 // left empty.
-func pushImage(registry string, username string, password string, image string) (string, error) {
+func pushImage(registry string, username string, image string) (string, error) {
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
 		return "", err
@@ -859,15 +858,22 @@ func pushImage(registry string, username string, password string, image string) 
 	name := components[len(components)-1]
 
 	var authConfig docker.AuthConfiguration
-	if username != "" && password != "" {
+	if username != "" {
+		fmt.Printf("Password for %s/%s: ", registry, username)
+		passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
+
+		if err != nil {
+			return "", err
+		}
+
 		authConfig = docker.AuthConfiguration{ServerAddress: registry}
 		authConfig.Username = username
-		authConfig.Password = password
+		authConfig.Password = string(passBytes)
 	} else {
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
 			if isDockerUsingKeychain() {
-				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` and `--password` flags", err.Error())
+				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` flag", err.Error())
 			}
 			
 			return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
