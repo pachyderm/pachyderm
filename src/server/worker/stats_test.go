@@ -23,15 +23,15 @@ import (
 	prom_model "github.com/prometheus/common/model"
 )
 
-func TestPrometheusStats(t *testing.T) {
-
-	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
-
+func activateEnterprise(c *client.APIClient) error {
 	_, err := c.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode()})
-	require.NoError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
+
+	if err != nil {
+		return err
+	}
+
+	return backoff.Retry(func() error {
 		resp, err := c.Enterprise.GetState(context.Background(),
 			&enterprise.GetStateRequest{})
 		if err != nil {
@@ -41,9 +41,13 @@ func TestPrometheusStats(t *testing.T) {
 			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
 		}
 		return nil
-	}, backoff.NewTestingBackOff()))
+	}, backoff.NewTestingBackOff())
+}
 
-	// Now that it's activated, run a simple pipeline so we can collect some stats
+func TestPrometheusStats(t *testing.T) {
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, activateEnterprise(c))
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -54,7 +58,7 @@ func TestPrometheusStats(t *testing.T) {
 	numCommits := 5
 	numDatums := 10
 
-	_, err = c.PpsAPIClient.CreatePipeline(
+	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
@@ -256,29 +260,14 @@ func TestPrometheusStats(t *testing.T) {
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
-
-	_, err := c.Enterprise.Activate(context.Background(),
-		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode()})
-	require.NoError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
-		resp, err := c.Enterprise.GetState(context.Background(),
-			&enterprise.GetStateRequest{})
-		if err != nil {
-			return err
-		}
-		if resp.State != enterprise.State_ACTIVE {
-			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-	// Now that it's activated, run a simple pipeline so we can collect some stats
+	require.NoError(t, activateEnterprise(c))
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
 
-	_, err = c.PpsAPIClient.CreatePipeline(
+	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
