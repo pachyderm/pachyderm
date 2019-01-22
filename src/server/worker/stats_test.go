@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -247,5 +248,68 @@ func TestPrometheusStats(t *testing.T) {
 			count := fmt.Sprintf("sum(pachyderm_worker_datum_%v_size_count{pipelineName=\"%v\"}) without %v", segment, pipeline, filter)
 			avgDatumQuery(t, sum, count, expectedCounts[segment])
 		})
+	}
+}
+
+// Regression: stats commits would not close when there were no input datums.
+//For more info, see github.com/pachyderm/pachyderm/issues/3337
+func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+
+	// TODO(ys): is this necessary?
+	_, err := c.Enterprise.Activate(context.Background(),
+		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode()})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := c.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_ACTIVE {
+			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	// Now that it's activated, run a simple pipeline so we can collect some stats
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{"sleep 1"},
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			OutputBranch: "",
+			Update:       false,
+			EnableStats:  true,
+		},
+	)
+	require.NoError(t, err)
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	// `ListCommit` won't include the stats commit, so instead we run
+	// `FlushCommit`. If the error exists, the stats commit will never close,
+	// and this will timeout.
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	
+	for {
+		_, err := commitIter.Next()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
 	}
 }
