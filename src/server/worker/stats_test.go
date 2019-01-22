@@ -257,7 +257,6 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	c := getPachClient(t)
 	defer require.NoError(t, c.DeleteAll())
 
-	// TODO(ys): is this necessary?
 	_, err := c.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode()})
 	require.NoError(t, err)
@@ -299,9 +298,8 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
-	// `ListCommit` won't include the stats commit, so instead we run
-	// `FlushCommit`. If the error exists, the stats commit will never close,
-	// and this will timeout.
+	// If the error exists, the stats commit will never close, and this will
+	// timeout
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 	
@@ -312,4 +310,12 @@ func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
 		}
 		require.NoError(t, err)
 	}
+
+	// Make sure the job succeeded as well
+	jobs, err := c.ListJob(pipeline, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
