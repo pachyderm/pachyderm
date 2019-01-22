@@ -515,6 +515,8 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		plan := &Plan{}
 		// Get stats commit
 		var statsCommit *pfs.Commit
+		var statsTrees []*pfs.Object
+		var statsSize uint64
 		if jobInfo.EnableStats {
 			ci, err := pachClient.InspectCommit(jobInfo.OutputCommit.Repo.Name, jobInfo.OutputCommit.ID)
 			if err != nil {
@@ -570,6 +572,15 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
 				return err
 			}
+			if jobInfo.EnableStats {
+				if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+					Commit:    statsCommit,
+					Trees:     statsTrees,
+					SizeBytes: statsSize,
+				}); err != nil {
+					return err
+				}
+			}
 			_, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit: jobInfo.OutputCommit,
 				Empty:  true,
@@ -618,8 +629,8 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_MERGING, ""); err != nil {
 			return err
 		}
-		var trees, statsTrees []*pfs.Object
-		var size, statsSize uint64
+		var trees []*pfs.Object
+		var size uint64
 		if failedDatumID == "" || jobInfo.EnableStats {
 			// Wait for all merges to happen.
 			merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)

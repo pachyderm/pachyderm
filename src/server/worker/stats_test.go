@@ -2,6 +2,7 @@ package worker
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"testing"
@@ -22,15 +23,15 @@ import (
 	prom_model "github.com/prometheus/common/model"
 )
 
-func TestPrometheusStats(t *testing.T) {
-
-	c := getPachClient(t)
-	defer require.NoError(t, c.DeleteAll())
-
+func activateEnterprise(c *client.APIClient) error {
 	_, err := c.Enterprise.Activate(context.Background(),
 		&enterprise.ActivateRequest{ActivationCode: tu.GetTestEnterpriseCode()})
-	require.NoError(t, err)
-	require.NoError(t, backoff.Retry(func() error {
+
+	if err != nil {
+		return err
+	}
+
+	return backoff.Retry(func() error {
 		resp, err := c.Enterprise.GetState(context.Background(),
 			&enterprise.GetStateRequest{})
 		if err != nil {
@@ -40,9 +41,13 @@ func TestPrometheusStats(t *testing.T) {
 			return fmt.Errorf("expected enterprise state to be ACTIVE but was %v", resp.State)
 		}
 		return nil
-	}, backoff.NewTestingBackOff()))
+	}, backoff.NewTestingBackOff())
+}
 
-	// Now that it's activated, run a simple pipeline so we can collect some stats
+func TestPrometheusStats(t *testing.T) {
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, activateEnterprise(c))
 
 	dataRepo := tu.UniqueString("TestSimplePipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -53,7 +58,7 @@ func TestPrometheusStats(t *testing.T) {
 	numCommits := 5
 	numDatums := 10
 
-	_, err = c.PpsAPIClient.CreatePipeline(
+	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
@@ -248,4 +253,58 @@ func TestPrometheusStats(t *testing.T) {
 			avgDatumQuery(t, sum, count, expectedCounts[segment])
 		})
 	}
+}
+
+// Regression: stats commits would not close when there were no input datums.
+//For more info, see github.com/pachyderm/pachyderm/issues/3337
+func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
+	c := getPachClient(t)
+	defer require.NoError(t, c.DeleteAll())
+	require.NoError(t, activateEnterprise(c))
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"bash"},
+				Stdin: []string{"sleep 1"},
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			OutputBranch: "",
+			Update:       false,
+			EnableStats:  true,
+		},
+	)
+	require.NoError(t, err)
+
+	commit, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
+
+	// If the error exists, the stats commit will never close, and this will
+	// timeout
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	
+	for {
+		_, err := commitIter.Next()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+	}
+
+	// Make sure the job succeeded as well
+	jobs, err := c.ListJob(pipeline, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	jobInfo, err := c.InspectJob(jobs[0].Job.ID, true)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
 }
