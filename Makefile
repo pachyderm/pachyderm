@@ -18,7 +18,7 @@ endif
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
-VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
+export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 
 CLUSTER_NAME?=pachyderm
@@ -117,9 +117,7 @@ release-candidate:
 	@rm VERSION
 	@echo "Release completed"
 
-custom-release:
-	@make VERSION_ADDITIONAL=-$$(git log --pretty=format:%H | head -n 1) release-helper
-	@make release-pachctl-custom
+custom-release: release-helper release-pachctl-custom
 	@echo 'For brew install, do:'
 	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$$(cat VERSION)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$$(cat VERSION | cut -f -2 -d\.).rb"
 	@echo 'For linux install, do:'
