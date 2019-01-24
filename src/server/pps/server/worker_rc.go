@@ -258,17 +258,18 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		Value: specCommitID,
 	})
 	// Set the worker gRPC port
-	workerEnv = append(workerEnv, v1.EnvVar {
-		Name: client.PPSWorkerPortEnv,
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSWorkerPortEnv,
 		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PProfPortEnv,
+		Name:  client.PProfPortEnv,
 		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PeerPortEnv,
+		Name:  client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
+	})
 
 	var volumes []v1.Volume
 	var volumeMounts []v1.VolumeMount
