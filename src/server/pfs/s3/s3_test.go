@@ -18,7 +18,7 @@ func TestSimple(t *testing.T) {
 	_, err := pc.PutFile(repo, "master", file, strings.NewReader(content))
 	require.NoError(t, err)
 	go func() { Serve(pc, 30655) }()
-	c, err := minio.New("127.0.0.1:30655", "id", "secret", false)
+	c, err := minio.NewWithRegion("127.0.0.1:30655", "id", "secret", false, "region")
 	require.NoError(t, err)
 	obj, err := c.GetObject(repo, file)
 	require.NoError(t, err)
