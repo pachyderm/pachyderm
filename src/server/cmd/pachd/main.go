@@ -233,6 +233,9 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 					appEnv.IAMRole,
 					reporter,
 					appEnv.PPSWorkerPort,
+					appEnv.PProfPort,
+					appEnv.HTTPPort,
+					appEnv.PeerPort,
 				)
 				if err != nil {
 					return fmt.Errorf("pps.NewSidecarAPIServer: %v", err)
