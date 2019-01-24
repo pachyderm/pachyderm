@@ -105,6 +105,7 @@ type appEnv struct {
 	NoExposeDockerSocket  bool   `env:"NO_EXPOSE_DOCKER_SOCKET,default=false"`
 	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
 	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
+	workerUsesRoot        bool   `env:"WORKER_USES_ROOT,default=true"`
 }
 
 func main() {
@@ -410,6 +411,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.workerUsesRoot,
 						appEnv.Port,
 						appEnv.PProfPort,
 						appEnv.HTTPPort,
@@ -528,6 +530,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.workerUsesRoot,
 						appEnv.Port,
 						appEnv.PProfPort,
 						appEnv.HTTPPort,

@@ -125,6 +125,7 @@ type apiServer struct {
 	noExposeDockerSocket  bool
 	reporter              *metrics.Reporter
 	monitorCancels        map[string]func()
+	workerUsesRoot        bool
 	port                  uint16
 	pprofPort             uint16
 	httpPort              uint16
