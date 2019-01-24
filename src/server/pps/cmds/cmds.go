@@ -800,10 +800,6 @@ func pipelineHelper(metrics bool, reprocess bool, build bool, pushImages bool, r
 			destTag := uuid.NewWithoutDashes()
 
 			if build {
-				dockerfile := request.Transform.Dockerfile
-				if dockerfile == "" {
-					return fmt.Errorf("`dockerfile` must be specified in order to use `--build`")
-				}
 				url, err := url.Parse(pipelinePath)
 				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
 					return fmt.Errorf("`--build` can only be used when the pipeline path is local")
@@ -812,8 +808,11 @@ func pipelineHelper(metrics bool, reprocess bool, build bool, pushImages bool, r
 				if err != nil {
 					return fmt.Errorf("could not get absolute path to the pipeline path '%s': %s", pipelinePath, err)
 				}
-
 				contextDir := filepath.Dir(absPath)
+				dockerfile := request.Transform.Dockerfile
+				if dockerfile == "" {
+					dockerfile = "./Dockerfile"
+				}
 				err = buildImage(dockerClient, registry, repo, contextDir, dockerfile, destTag)
 				if err != nil {
 					return err
