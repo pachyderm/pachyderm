@@ -82,6 +82,9 @@ func NewSidecarAPIServer(
 	address string,
 	iamRole string,
 	reporter *metrics.Reporter,
+	pprofPort uint16,
+	httpPort uint16,
+	peerPort uint16,
 ) (ppsclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
@@ -100,6 +103,9 @@ func NewSidecarAPIServer(
 		reporter:   reporter,
 		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		pprofPort:  pprofPort,
+		httpPort:   httpPort,
+		peerPort:   peerPort,
 	}
 	go apiServer.getPachClient() // connects back to pachd and inits spec repo
 	return apiServer, nil
