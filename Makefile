@@ -117,9 +117,7 @@ release-candidate:
 	@rm VERSION
 	@echo "Release completed"
 
-custom-release:
-	@make VERSION_ADDITIONAL=-$$(git log --pretty=format:%H | head -n 1) release-helper
-	@make release-pachctl-custom
+custom-release: release-helper release-pachctl-custom
 	@echo 'For brew install, do:'
 	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$$(cat VERSION)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$$(cat VERSION | cut -f -2 -d\.).rb"
 	@echo 'For linux install, do:'
