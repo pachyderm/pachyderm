@@ -4,7 +4,7 @@ Often times, teams are running big ML models on instances with GPU resources.
 
 GPU instances are expensive! You want to make sure that you're utilizing the GPUs you're paying for!
 
-# Without configuration
+## Without configuration
 
 [To deploy a pipeline that relies on GPU](../cookbook/gpus.html), you'll already have set the `gpu` resource requirement in the pipeline specification. But Pachyderm workers by default are long lived ... the worker is spun up and waits for new input. That works great for pipelines that are processing a lot of new incoming commits.
 
@@ -16,6 +16,6 @@ Let's say your cluster has a single GPU node with 2 GPUs. Let's say you have a p
 
 Now your coworker is actively trying to develop their GPU model with their pipeline. Their model requires 2 GPUs. But your pipeline is still marked as using 1 GPU, so their pipeline can't run!
 
-# Configuring your pipelines to share GPUs
+## Configuring your pipelines to share GPUs
 
 Whenever you have a limited amount of a resource on your cluster (in this case GPU), you want to make sure you've specified how much of that resource you need via the `resource_requests` as [part of your pipeline specification](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html). But, you also need to make sure you set the `standby` field to `true` so that if your pipeline is not getting used, the worker pods get spun down and you free the GPU resource.
