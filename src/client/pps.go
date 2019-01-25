@@ -43,8 +43,9 @@ const (
 	// PPSScratchSpace is where pps workers store data while it's waiting to be
 	// processed.
 	PPSScratchSpace = "/pfs/.scratch"
-	// PPSWorkerPort is the port that workers use for their gRPC server
-	PPSWorkerPort = 80
+	// PPSWorkerPortEnv is environment variable name for the port that workers
+	// use for their gRPC server
+	PPSWorkerPortEnv = "PPS_WORKER_GRPC_PORT"
 	// PPSWorkerVolume is the name of the volume in which workers store
 	// data.
 	PPSWorkerVolume = "pachyderm-worker"
