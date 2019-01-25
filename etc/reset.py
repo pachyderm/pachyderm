@@ -76,9 +76,6 @@ def main():
     if "GOPATH" not in os.environ:
         print("Must set GOPATH")
         sys.exit(1)
-    if "ADDRESS" not in os.environ:
-        print("Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650", file=sys.stderr)
-        sys.exit(1)
     if not args.no_deploy and "PACH_CA_CERTS" in os.environ:
         print("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS", file=sys.stderr)
         sys.exit(1)
