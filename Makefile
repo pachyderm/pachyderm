@@ -680,8 +680,10 @@ goxc-build:
 	install-doc \
 	homebrew \
 	release \
+	release-helper \
 	release-worker \
 	release-manifest \
+	release-pachctl-custom \
 	release-pachd \
 	release-version \
 	docker-build \
