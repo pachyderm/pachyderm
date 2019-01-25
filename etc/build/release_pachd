@@ -1,9 +1,11 @@
 #!/bin/bash
 
+set -e
+
 if [ -z $VERSION ]
 then
-        echo "No version found for this commit! Aborting release"
-        exit 1
+    echo "No version found for this commit! Aborting release"
+    exit 1
 fi
 
 echo "--- Releasing pachd w version: $VERSION"

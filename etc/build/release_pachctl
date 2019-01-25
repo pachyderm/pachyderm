@@ -6,8 +6,8 @@ BRANCH=master
 
 if [ -z $VERSION ]
 then
-        echo "No version found for this commit! Aborting release"
-        exit 1
+    echo "No version found for this commit! Aborting release"
+    exit 1
 fi
 
 if [ -n "$1" ]
