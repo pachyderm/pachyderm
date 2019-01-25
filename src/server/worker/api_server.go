@@ -577,6 +577,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	//	},
 	//}
 	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
+	logger.Logf("about to call cmd.Start: %+v", cmd)
 	err := cmd.Start()
 	if err != nil {
 		return fmt.Errorf("error cmd.Start: %v", err)
@@ -1734,6 +1735,10 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						return err
 					})
 				}
+				logger.Logf("about to runUserCode")
+				logger.Logf("a.uid: %v", a.uid)
+				logger.Logf("a.gid: %v", a.gid)
+				logger.Logf("env: %+v", env)
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 					return fmt.Errorf("error runUserCode: %v", err)
 				}
