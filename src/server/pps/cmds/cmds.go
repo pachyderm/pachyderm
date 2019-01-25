@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"os/user"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -432,6 +434,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		}),
 	}
 
+	var build bool
 	var pushImages bool
 	var registry string
 	var username string
@@ -441,44 +444,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
-			if err != nil {
-				return err
-			}
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return fmt.Errorf("error connecting to pachd: %v", err)
-			}
-			defer client.Close()
-			for {
-				request, err := cfgReader.NextCreatePipelineRequest()
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					return err
-				}
-				if request.Input.Atom != nil {
-					fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
-				}
-				if pushImages {
-					pushedImage, err := pushImage(registry, username, request.Transform.Image)
-					if err != nil {
-						return err
-					}
-					request.Transform.Image = pushedImage
-				}
-				if _, err := client.PpsAPIClient.CreatePipeline(
-					client.Ctx(),
-					request,
-				); err != nil {
-					return grpcutil.ScrubGRPC(err)
-				}
-			}
-			return nil
+			return pipelineHelper(metrics, false, build, pushImages, registry, username, pipelinePath, false)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
-	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	createPipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
+	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your docker username.")
 
@@ -488,46 +459,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
-			if err != nil {
-				return err
-			}
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
-			if err != nil {
-				return fmt.Errorf("error connecting to pachd: %v", err)
-			}
-			defer client.Close()
-			for {
-				request, err := cfgReader.NextCreatePipelineRequest()
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					return err
-				}
-				request.Update = true
-				request.Reprocess = reprocess
-				if request.Input.Atom != nil {
-					fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
-				}
-				if pushImages {
-					pushedImage, err := pushImage(registry, username, request.Transform.Image)
-					if err != nil {
-						return err
-					}
-					request.Transform.Image = pushedImage
-				}
-				if _, err := client.PpsAPIClient.CreatePipeline(
-					client.Ctx(),
-					request,
-				); err != nil {
-					return grpcutil.ScrubGRPC(err)
-				}
-			}
-			return nil
+			return pipelineHelper(metrics, reprocess, build, pushImages, registry, username, pipelinePath, true)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
-	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the cluster registry.")
+	updatePipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
+	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
@@ -823,6 +760,83 @@ you can increase the amount of memory used for the bloom filters with the
 	return result, nil
 }
 
+func pipelineHelper(metrics bool, reprocess bool, build bool, pushImages bool, registry string, username string, pipelinePath string, update bool) error {
+	cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
+	if err != nil {
+		return err
+	}
+	client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+	if err != nil {
+		return fmt.Errorf("error connecting to pachd: %v", err)
+	}
+	defer client.Close()
+	for {
+		request, err := cfgReader.NextCreatePipelineRequest()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+		if request.Input.Atom != nil {
+			fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
+		}
+		if update {
+			request.Update = true
+			request.Reprocess = reprocess
+		}
+		if build || pushImages {
+			if build && pushImages {
+				fmt.Fprintln(os.Stderr, "`--push-images` is redundant, as it's already enabled with `--build`")
+			}
+			dockerClient, authConfig, err := dockerConfig(registry, username)
+			if err != nil {
+				return err
+			}
+			repo, sourceTag := docker.ParseRepositoryTag(request.Transform.Image)
+			if sourceTag == "" {
+				sourceTag = "latest"
+			}
+			destTag := uuid.NewWithoutDashes()
+
+			if build {
+				url, err := url.Parse(pipelinePath)
+				if pipelinePath == "-" || (err == nil && url.Scheme != "") {
+					return fmt.Errorf("`--build` can only be used when the pipeline path is local")
+				}
+				absPath, err := filepath.Abs(pipelinePath)
+				if err != nil {
+					return fmt.Errorf("could not get absolute path to the pipeline path '%s': %s", pipelinePath, err)
+				}
+				contextDir := filepath.Dir(absPath)
+				dockerfile := request.Transform.Dockerfile
+				if dockerfile == "" {
+					dockerfile = "./Dockerfile"
+				}
+				err = buildImage(dockerClient, registry, repo, contextDir, dockerfile, destTag)
+				if err != nil {
+					return err
+				}
+				// Now that we've built into `destTag`, change the
+				// `sourceTag` to be the same so that the push will work with
+				// the right image
+				sourceTag = destTag
+			}
+			image, err := pushImage(dockerClient, authConfig, registry, repo, sourceTag, destTag)
+			if err != nil {
+				return err
+			}
+			request.Transform.Image = image
+		}
+		if _, err := client.PpsAPIClient.CreatePipeline(
+			client.Ctx(),
+			request,
+		); err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
+	return nil
+}
+
 // ByCreationTime is an implementation of sort.Interface which
 // sorts pps job info by creation time, ascending.
 type ByCreationTime []*ppsclient.JobInfo
@@ -845,25 +859,20 @@ func (arr ByCreationTime) Less(i, j int) bool {
 	return false
 }
 
-// pushImage pushes an image as registry/user/image. Registry and user can be
-// left empty.
-func pushImage(registry string, username string, image string) (string, error) {
+func dockerConfig(registry string, username string) (*docker.Client, docker.AuthConfiguration, error) {
+	var authConfig docker.AuthConfiguration
 	client, err := docker.NewClientFromEnv()
 	if err != nil {
-		return "", err
+		err = fmt.Errorf("could not create a docker client from the environment: %s", err)
+		return nil, authConfig, err
 	}
-	
-	repo, _ := docker.ParseRepositoryTag(image)
-	components := strings.Split(repo, "/")
-	name := components[len(components)-1]
 
-	var authConfig docker.AuthConfiguration
 	if username != "" {
 		fmt.Printf("Password for %s/%s: ", registry, username)
 		passBytes, err := terminal.ReadPassword(int(syscall.Stdin))
 
 		if err != nil {
-			return "", err
+			return nil, authConfig, err
 		}
 
 		authConfig = docker.AuthConfiguration{ServerAddress: registry}
@@ -873,10 +882,12 @@ func pushImage(registry string, username string, image string) (string, error) {
 		authConfigs, err := docker.NewAuthConfigurationsFromDockerCfg()
 		if err != nil {
 			if isDockerUsingKeychain() {
-				return "", fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` flag", err.Error())
+				err = fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` flag", err.Error())
+				return nil, authConfig, err
 			}
 			
-			return "", fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
+			err = fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
+			return nil, authConfig, err
 		}
 		for _, _authConfig := range authConfigs.Configs {
 			serverAddress := _authConfig.ServerAddress
@@ -886,33 +897,62 @@ func pushImage(registry string, username string, image string) (string, error) {
 			}
 		}
 	}
-	
-	pushRepo := fmt.Sprintf("%s/%s/%s", registry, username, name)
-	pushTag := uuid.NewWithoutDashes()
-	if err := client.TagImage(image, docker.TagImageOptions{
-		Repo:    pushRepo,
-		Tag:     pushTag,
+
+	return client, authConfig, nil
+}
+
+// buildImage builds a new docker image as registry/user/repo.
+func buildImage(client *docker.Client, registry string, repo string, contextDir string, dockerfile string, destTag string) error {
+	destImage := fmt.Sprintf("%s/%s:%s", registry, repo, destTag)
+
+	fmt.Printf("Building %s, this may take a while.\n", destImage)
+
+	err := client.BuildImage(docker.BuildImageOptions{
+		Name: destImage,
+		ContextDir: contextDir,
+		Dockerfile: dockerfile,
+		OutputStream: os.Stdout,
+	})
+
+	if err != nil {
+		return fmt.Errorf("could not build docker image: %s", err)
+	}
+
+	return nil
+}
+
+// pushImage pushes an image as registry/user/repo.
+func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, registry string, repo string, sourceTag string, destTag string) (string, error) {
+	fullRepo := fmt.Sprintf("%s/%s", registry, repo)
+	sourceImage := fmt.Sprintf("%s:%s", fullRepo, sourceTag)
+	destImage := fmt.Sprintf("%s:%s", fullRepo, destTag)
+
+	fmt.Printf("Tagging/pushing %s, this may take a while.\n", destImage)
+
+	if err := client.TagImage(sourceImage, docker.TagImageOptions{
+		Repo:    fullRepo,
+		Tag:     destTag,
 		Context: context.Background(),
 	}); err != nil {
+		err = fmt.Errorf("could not tag docker image: %s", err)
 		return "", err
 	}
-	
-	fmt.Printf("Pushing %s:%s, this may take a while.\n", pushRepo, pushTag)
 	
 	if err := client.PushImage(
 		docker.PushImageOptions{
-			Name: pushRepo,
-			Tag:  pushTag,
+			Name: fullRepo,
+			Tag:  destTag,
 		},
 		authConfig,
 	); err != nil {
+		err = fmt.Errorf("could not push docker image: %s", err)
 		return "", err
 	}
 	
-	return fmt.Sprintf("%s:%s", pushRepo, pushTag), nil
+	return destImage, nil
 }
 
-// isBrokenPushImagesOnMac checks if the user has a configuration that is not
+// isDockerUsingKeychain checks if the user has a configuration that is not
 // readable by our current docker client library.
 // TODO(ys): remove if/when this issue is addressed:
 // https://github.com/fsouza/go-dockerclient/issues/677

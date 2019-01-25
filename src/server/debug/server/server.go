@@ -11,18 +11,20 @@ import (
 )
 
 // NewDebugServer creates a new server that serves the debug api over GRPC
-func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string) debug.DebugServer {
+func NewDebugServer(name string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) debug.DebugServer {
 	return &debugServer{
 		name:       name,
 		etcdClient: etcdClient,
 		etcdPrefix: etcdPrefix,
+		workerGrpcPort: workerGrpcPort,
 	}
 }
 
 type debugServer struct {
-	name       string
-	etcdClient *etcd.Client
-	etcdPrefix string
+	name           string
+	etcdClient     *etcd.Client
+	etcdPrefix     string
+	workerGrpcPort uint16
 }
 
 func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpServer) error {
@@ -41,7 +43,7 @@ func (s *debugServer) Dump(request *debug.DumpRequest, server debug.Debug_DumpSe
 	}
 	if !request.Recursed {
 		request.Recursed = true
-		cs, err := worker.Clients(server.Context(), "", s.etcdClient, s.etcdPrefix)
+		cs, err := worker.Clients(server.Context(), "", s.etcdClient, s.etcdPrefix, s.workerGrpcPort)
 		if err != nil {
 			return err
 		}
