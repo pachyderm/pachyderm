@@ -570,12 +570,12 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Credential: &syscall.Credential{
-			Uid: a.uid,
-			Gid: a.gid,
-		},
-	}
+	//cmd.SysProcAttr = &syscall.SysProcAttr{
+	//	Credential: &syscall.Credential{
+	//		Uid: a.uid,
+	//		Gid: a.gid,
+	//	},
+	//}
 	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
 	if err != nil {
