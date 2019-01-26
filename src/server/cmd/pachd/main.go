@@ -231,6 +231,7 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 					address,
 					appEnv.IAMRole,
 					reporter,
+					appEnv.PPSWorkerPort,
 					appEnv.PProfPort,
 					appEnv.HTTPPort,
 					appEnv.PeerPort,
