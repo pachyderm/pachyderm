@@ -46,6 +46,7 @@ type filesystem struct {
 	c         *client.APIClient
 	commits   map[string]string
 	commitsMu sync.RWMutex
+	files     *sync.Map
 }
 
 func newFileSystem(c *client.APIClient, commits map[string]string) pathfs.FileSystem {
@@ -56,6 +57,7 @@ func newFileSystem(c *client.APIClient, commits map[string]string) pathfs.FileSy
 		FileSystem: pathfs.NewDefaultFileSystem(),
 		c:          c,
 		commits:    commits,
+		files:      &sync.Map{},
 	}
 }
 
@@ -109,11 +111,6 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 }
 
 func (fs *filesystem) Open(name string, flags uint32, context *fuse.Context) (nodefs.File, fuse.Status) {
-	f := int(flags)
-	writeFlags := os.O_WRONLY | os.O_RDWR
-	if f&writeFlags != 0 {
-		return nil, fuse.EROFS
-	}
 	return newFile(fs, name)
 }
 
