@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	modeFile = fuse.S_IFREG | 0444 // everyone can read, no one can do anything else
-	modeDir  = fuse.S_IFDIR | 0555 // everyone can read and execute, no one can do anything else (execute permission is required to list a dir)
+	modeFile = fuse.S_IFREG | 0666 // everyone can read and write
+	modeDir  = fuse.S_IFDIR | 0777 // everyone can read and execute and write (execute permission is required to list a dir)
 )
 
 // Mount pfs to mountPoint, opts may be left nil.
@@ -111,7 +111,7 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 }
 
 func (fs *filesystem) Open(name string, flags uint32, context *fuse.Context) (nodefs.File, fuse.Status) {
-	return newFile(fs, name)
+	return newFile(fs, name, flags)
 }
 
 func (fs *filesystem) commit(repo string) (string, error) {

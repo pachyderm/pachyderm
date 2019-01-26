@@ -12,12 +12,12 @@ import (
 )
 
 type file struct {
-	file    *os.File
+	name    string
 	pfsFile *pfs.File
 	ready   chan struct{}
 }
 
-func newFile(fs *filesystem, name string) (nodefs.File, fuse.Status) {
+func newFile(fs *filesystem, name string, flags uint32) (nodefs.File, fuse.Status) {
 	_, pfsFile, err := fs.parsePath(name)
 	if err != nil {
 		return nil, toStatus(err)
@@ -33,29 +33,22 @@ func newFile(fs *filesystem, name string) (nodefs.File, fuse.Status) {
 	if ok {
 		f = resIf.(*file)
 		<-f.ready
-		dup, err := dupFile(f.file)
+		file, err := os.OpenFile(f.name, int(flags), modeFile)
 		if err != nil {
 			return nil, fuse.ToStatus(err)
 		}
-		return nodefs.NewLoopbackFile(dup), fuse.OK
+		return nodefs.NewLoopbackFile(file), fuse.OK
 	}
 	tmpF, err := ioutil.TempFile("", "pfs-fuse")
 	if err != nil {
 		return nil, fuse.ToStatus(err)
 	}
-	if err := os.Remove(tmpF.Name()); err != nil {
-		return nil, fuse.ToStatus(err)
-	}
 	if err := fs.c.GetFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, 0, 0, tmpF); err != nil {
 		return nil, toStatus(err)
 	}
-	f.file = tmpF
+	f.name = tmpF.Name()
 	close(f.ready)
-	dup, err := dupFile(f.file)
-	if err != nil {
-		return nil, fuse.ToStatus(err)
-	}
-	return nodefs.NewLoopbackFile(dup), fuse.OK
+	return nodefs.NewLoopbackFile(tmpF), fuse.OK
 }
 
 func (f *file) String() string {
