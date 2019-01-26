@@ -74,10 +74,11 @@ func init() {
 
 type appEnv struct {
 	// Ports served by Pachd
-	Port      uint16 `env:"PORT,default=650"`
-	PProfPort uint16 `env:"PPROF_PORT,default=651"`
-	HTTPPort  uint16 `env:"HTTP_PORT,default=652"`
-	PeerPort  uint16 `env:"PEER_PORT,default=653"`
+	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
+	Port          uint16 `env:"PORT,default=650"`
+	PProfPort     uint16 `env:"PPROF_PORT,default=651"`
+	HTTPPort      uint16 `env:"HTTP_PORT,default=652"`
+	PeerPort      uint16 `env:"PEER_PORT,default=653"`
 
 	NumShards             uint64 `env:"NUM_SHARDS,default=32"`
 	StorageRoot           string `env:"PACH_ROOT,default=/pach"`
@@ -261,6 +262,7 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 					"", // no name for pachd servers
 					etcdClientV3,
 					path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
+					appEnv.PPSWorkerPort,
 				))
 				return nil
 			},
@@ -414,6 +416,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.PPSWorkerPort,
 						appEnv.Port,
 						appEnv.PProfPort,
 						appEnv.HTTPPort,
@@ -460,6 +463,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						"", // no name for pachd servers
 						etcdClientV3,
 						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
+						appEnv.PPSWorkerPort,
 					))
 					return nil
 				},
@@ -532,6 +536,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						appEnv.ImagePullSecret,
 						appEnv.NoExposeDockerSocket,
 						reporter,
+						appEnv.PPSWorkerPort,
 						appEnv.Port,
 						appEnv.PProfPort,
 						appEnv.HTTPPort,

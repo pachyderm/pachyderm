@@ -23,8 +23,8 @@ const (
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
-func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]*pps.WorkerStatus, error) {
-	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix)
+func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*pps.WorkerStatus, error) {
+	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort)
 	if err != nil {
 		return nil, err
 	}
@@ -43,8 +43,8 @@ func Status(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName.
 func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
-	etcdPrefix string, jobID string, dataFilter []string) error {
-	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix)
+	etcdPrefix string, workerGrpcPort uint16, jobID string, dataFilter []string) error {
+	workerClients, err := Clients(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort)
 	if err != nil {
 		return err
 	}
@@ -71,14 +71,14 @@ func Cancel(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client,
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
-func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]*grpc.ClientConn, error) {
+func Conns(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]*grpc.ClientConn, error) {
 	resp, err := etcdClient.Get(ctx, path.Join(etcdPrefix, WorkerEtcdPrefix, pipelineRcName), etcd.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
 	var result []*grpc.ClientConn
 	for _, kv := range resp.Kvs {
-		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), client.PPSWorkerPort),
+		conn, err := grpc.Dial(fmt.Sprintf("%s:%d", path.Base(string(kv.Key)), workerGrpcPort),
 			append(client.DefaultDialOptions(), grpc.WithInsecure())...)
 		if err != nil {
 			return nil, err
@@ -105,8 +105,8 @@ func newClient(conn *grpc.ClientConn) Client {
 // pipelineRcName is the name of the pipeline's RC and can be gotten with
 // ppsutil.PipelineRcName. You can also pass "" for pipelineRcName to get all
 // clients for all workers.
-func Clients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string) ([]Client, error) {
-	conns, err := Conns(ctx, pipelineRcName, etcdClient, etcdPrefix)
+func Clients(ctx context.Context, pipelineRcName string, etcdClient *etcd.Client, etcdPrefix string, workerGrpcPort uint16) ([]Client, error) {
+	conns, err := Conns(ctx, pipelineRcName, etcdClient, etcdPrefix, workerGrpcPort)
 	if err != nil {
 		return nil, err
 	}
