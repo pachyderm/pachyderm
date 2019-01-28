@@ -214,8 +214,10 @@ func (fs *filesystem) fileAttr(f *pfs.File) (*fuse.Attr, fuse.Status) {
 		return nil, toStatus(err)
 	}
 	return &fuse.Attr{
-		Mode: fileMode(fi),
-		Size: fi.SizeBytes,
+		Mode:      fileMode(fi),
+		Size:      fi.SizeBytes,
+		Mtime:     uint64(fi.Committed.Seconds),
+		Mtimensec: uint32(fi.Committed.Nanos),
 	}, fuse.OK
 }
 
