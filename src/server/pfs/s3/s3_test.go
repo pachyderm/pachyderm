@@ -6,7 +6,7 @@ import (
 
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
-	"github.com/stretchr/testify/require"
+	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
 func TestSimple(t *testing.T) {
