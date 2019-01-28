@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
+// Serve runs an HTTP server with an S3-like API for PFS
 func Serve(pc *client.APIClient, port uint16) {
 	fmt.Println("Serve")
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
