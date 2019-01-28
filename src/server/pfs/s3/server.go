@@ -9,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
-const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
+const timeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
 
 // Serve runs an HTTP server with an S3-like API for PFS
 func Serve(pc *client.APIClient, port uint16) {
@@ -38,7 +38,7 @@ func Serve(pc *client.APIClient, port uint16) {
 
 		committed := fileInfo.Committed
 		timestamp := time.Unix(committed.GetSeconds(), int64(committed.GetNanos()))
-		w.Header().Set("Last-Modified", timestamp.UTC().Format(TimeFormat))
+		w.Header().Set("Last-Modified", timestamp.UTC().Format(timeFormat))
 
 		if err := pc.GetFile(repo, "master", file, 0, 0, w); err != nil {
 			http.Error(w, fmt.Sprintf("%v", err), 500)
