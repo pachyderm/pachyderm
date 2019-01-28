@@ -54,11 +54,3 @@ func newFile(fs *filesystem, name string, flags uint32) (nodefs.File, fuse.Statu
 func (f *file) String() string {
 	return filepath.Join(f.pfsFile.Commit.Repo.Name, f.pfsFile.Path)
 }
-
-func dupFile(f *os.File) (*os.File, error) {
-	fd, err := syscall.Dup(int(f.Fd()))
-	if err != nil {
-		return nil, err
-	}
-	return os.NewFile(uintptr(fd), f.Name()), nil
-}
