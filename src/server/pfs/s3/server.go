@@ -13,7 +13,6 @@ const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
 
 // Serve runs an HTTP server with an S3-like API for PFS
 func Serve(pc *client.APIClient, port uint16) {
-	fmt.Println("Serve")
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.SplitN(r.URL.Path, "/", 3)
 
@@ -24,14 +23,11 @@ func Serve(pc *client.APIClient, port uint16) {
 
 		repo, file := parts[1], parts[2]
 
-		fmt.Printf("repo: %s, file: %s\n", repo, file)
-
 		fileInfo, err := pc.InspectFile(repo, "master", file)
 
 		if err != nil {
 			code := 500
 
-			// TODO: is there a cleaner way to do this?
 			if strings.Contains(err.Error(), "not found in repo") {
 				code = 404
 			}
