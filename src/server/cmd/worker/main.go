@@ -32,6 +32,9 @@ import (
 
 // appEnv stores the environment variables that this worker needs
 type appEnv struct {
+	// PPSWorkerPort is the port that the worker gRPC server runs on
+	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,required"`
+	
 	// The port at which this worker will expose its pprof port
 	PProfPort uint16 `env:"PPROF_PORT,required"`
 
@@ -199,12 +202,12 @@ func do(appEnvObj interface{}) error {
 		return grpcutil.Serve(
 			grpcutil.ServerOptions{
 				MaxMsgSize: grpcutil.MaxMsgSize,
-				Port:       client.PPSWorkerPort,
+				Port:       appEnv.PPSWorkerPort,
 				RegisterFunc: func(s *grpc.Server) error {
 					defer close(ready)
 					worker.RegisterWorkerServer(s, apiServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(appEnv.PodName, etcdClient, appEnv.PPSPrefix))
+					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(appEnv.PodName, etcdClient, appEnv.PPSPrefix, appEnv.PPSWorkerPort))
 					return nil
 				},
 			},
