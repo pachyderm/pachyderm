@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -18,13 +19,13 @@ func TestSimple(t *testing.T) {
 	_, err := pc.PutFile(repo, "master", file, strings.NewReader(content))
 	require.NoError(t, err)
 	go func() { Serve(pc, 30655) }()
+	// time.Sleep(1000 * time.Second)
 	c, err := minio.NewWithRegion("127.0.0.1:30655", "id", "secret", false, "region")
 	require.NoError(t, err)
 	obj, err := c.GetObject(repo, file)
 	require.NoError(t, err)
-	data := make([]byte, len(content))
-	_, err = obj.Read(data)
+	bytes, err := ioutil.ReadAll(obj)
 	require.NoError(t, err)
-	require.Equal(t, content, string(data))
+	require.Equal(t, content, string(bytes))
 	require.NoError(t, obj.Close())
 }

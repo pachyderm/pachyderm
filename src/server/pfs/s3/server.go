@@ -3,25 +3,52 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"path"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 )
+
+const TimeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
 
 // Serve runs an HTTP server with an S3-like API for PFS
 func Serve(pc *client.APIClient, port uint16) {
 	fmt.Println("Serve")
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		parts := strings.Split(r.URL.Path, "/")
-		repo, file := parts[1], path.Join(parts[2:]...)
+		parts := strings.SplitN(r.URL.Path, "/", 3)
+
+		if len(parts) < 3 {
+			http.Error(w, "Invalid path", 404)
+			return
+		}
+
+		repo, file := parts[1], parts[2]
+
 		fmt.Printf("repo: %s, file: %s\n", repo, file)
+
+		fileInfo, err := pc.InspectFile(repo, "master", file)
+
+		if err != nil {
+			code := 500
+
+			// TODO: is there a cleaner way to do this?
+			if strings.Contains(err.Error(), "not found in repo") {
+				code = 404
+			}
+
+			http.Error(w, fmt.Sprintf("%v", err), code)
+			return
+		}
+
+		committed := fileInfo.Committed
+		timestamp := time.Unix(committed.GetSeconds(), int64(committed.GetNanos()))
+		w.Header().Set("Last-Modified", timestamp.UTC().Format(TimeFormat))
+
 		if err := pc.GetFile(repo, "master", file, 0, 0, w); err != nil {
 			http.Error(w, fmt.Sprintf("%v", err), 500)
+			return
 		}
-		return
-		// fmt.Printf("%+v\n", r)
-		// http.Error(w, "not implemented", http.StatusNotImplemented)
 	})
+
 	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
