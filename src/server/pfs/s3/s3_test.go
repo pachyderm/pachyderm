@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"time"
 
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
@@ -21,10 +22,33 @@ func TestSimple(t *testing.T) {
 	go func() { Serve(pc, 30655) }()
 	c, err := minio.NewWithRegion("127.0.0.1:30655", "id", "secret", false, "region")
 	require.NoError(t, err)
-	obj, err := c.GetObject(repo, file)
+
+	getObject := func() (string, error) {
+		obj, err := c.GetObject(repo, file)
+		if err != nil {
+			return "", err
+		}
+		bytes, err := ioutil.ReadAll(obj)
+		if err != nil {
+			return "", err
+		}
+		if err = obj.Close(); err != nil {
+			return "", err
+		}
+		return string(bytes), nil
+	}
+
+	// Try to fetch the contents a few times, in case the s3 proxy is still
+	// booting up
+	var fetchedContent string
+	for i := 0; i < 10; i++ {
+		fetchedContent, err = getObject()
+		if err == nil {
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
 	require.NoError(t, err)
-	bytes, err := ioutil.ReadAll(obj)
-	require.NoError(t, err)
-	require.Equal(t, content, string(bytes))
-	require.NoError(t, obj.Close())
+	require.Equal(t, content, fetchedContent)
 }
