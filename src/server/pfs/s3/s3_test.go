@@ -20,29 +20,14 @@ func TestSimple(t *testing.T) {
 	_, err := pc.PutFile(repo, "master", file, strings.NewReader(content))
 	require.NoError(t, err)
 	go func() { Serve(pc, 30655) }()
-	c, err := minio.NewWithRegion("127.0.0.1:30655", "id", "secret", false, "region")
+	c, err := minio.New("127.0.0.1:30655", "id", "secret", false)
 	require.NoError(t, err)
-
-	getObject := func() (string, error) {
-		obj, err := c.GetObject(repo, file)
-		if err != nil {
-			return "", err
-		}
-		bytes, err := ioutil.ReadAll(obj)
-		if err != nil {
-			return "", err
-		}
-		if err = obj.Close(); err != nil {
-			return "", err
-		}
-		return string(bytes), nil
-	}
 
 	// Try to fetch the contents a few times, in case the s3 proxy is still
 	// booting up
 	var fetchedContent string
 	for i := 0; i < 10; i++ {
-		fetchedContent, err = getObject()
+		fetchedContent, err = getObject(c, repo, file)
 		if err == nil {
 			break
 		}
@@ -51,4 +36,19 @@ func TestSimple(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, content, fetchedContent)
+}
+
+func getObject(c *minio.Client, repo, file string) (string, error) {
+	obj, err := c.GetObject(repo, file)
+	if err != nil {
+		return "", err
+	}
+	bytes, err := ioutil.ReadAll(obj)
+	if err != nil {
+		return "", err
+	}
+	if err = obj.Close(); err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }
