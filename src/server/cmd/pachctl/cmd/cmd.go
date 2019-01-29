@@ -148,6 +148,7 @@ func (l *logWriter) Write(p []byte) (int, error) {
 func PachctlCmd() (*cobra.Command, error) {
 	var verbose bool
 	var noMetrics bool
+	var noPortForwarding bool
 	raw := false
 	rawFlag := func(cmd *cobra.Command) {
 		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
@@ -182,35 +183,36 @@ Environment variables:
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
+	rootCmd.PersistentFlags().BoolVarP(&noPortForwarding, "no-port-forwarding", "", false, "Disable implicit port forwarding")
 
-	pfsCmds := pfscmds.Cmds(&noMetrics)
+	pfsCmds := pfscmds.Cmds(&noMetrics, noPortForwarding)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	ppsCmds, err := ppscmds.Cmds(&noMetrics)
+	ppsCmds, err := ppscmds.Cmds(&noMetrics, noPortForwarding)
 	if err != nil {
 		return nil, err
 	}
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	deployCmds := deploycmds.Cmds(&noMetrics)
+	deployCmds := deploycmds.Cmds(&noMetrics, noPortForwarding)
 	for _, cmd := range deployCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	authCmds := authcmds.Cmds()
+	authCmds := authcmds.Cmds(noPortForwarding)
 	for _, cmd := range authCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	enterpriseCmds := enterprisecmds.Cmds()
+	enterpriseCmds := enterprisecmds.Cmds(noPortForwarding)
 	for _, cmd := range enterpriseCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	adminCmds := admincmds.Cmds(&noMetrics)
+	adminCmds := admincmds.Cmds(&noMetrics, noPortForwarding)
 	for _, cmd := range adminCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	debugCmds := debugcmds.Cmds(&noMetrics)
+	debugCmds := debugcmds.Cmds(&noMetrics, noPortForwarding)
 	for _, cmd := range debugCmds {
 		rootCmd.AddCommand(cmd)
 	}
@@ -315,7 +317,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(!noMetrics, true, "user")
+			client, err := client.NewOnUserMachine(!noMetrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}

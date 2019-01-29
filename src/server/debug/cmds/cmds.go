@@ -9,7 +9,7 @@ import (
 )
 
 // Cmds returns a slice containing debug commands.
-func Cmds(noMetrics *bool) []*cobra.Command {
+func Cmds(noMetrics *bool, noPortForwarding bool) []*cobra.Command {
 	metrics := !*noMetrics
 
 	debugDump := &cobra.Command{
@@ -17,7 +17,7 @@ func Cmds(noMetrics *bool) []*cobra.Command {
 		Short: "Return a dump of running goroutines.",
 		Long:  "Return a dump of running goroutines.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(metrics, true, "debug-dump")
+			client, err := client.NewOnUserMachine(metrics, !noPortForwarding, "debug-dump")
 			if err != nil {
 				return err
 			}

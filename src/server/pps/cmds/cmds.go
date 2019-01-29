@@ -36,7 +36,7 @@ const (
 )
 
 // Cmds returns a slice containing pps commands.
-func Cmds(noMetrics *bool) ([]*cobra.Command, error) {
+func Cmds(noMetrics *bool, noPortForwarding bool) ([]*cobra.Command, error) {
 	metrics := !*noMetrics
 	raw := false
 	rawFlag := func(cmd *cobra.Command) {
@@ -74,7 +74,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -118,7 +118,7 @@ $ pachctl list-job foo/XXX bar/YYY
 $ pachctl list-job -p foo bar/YYY
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -187,7 +187,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 				return err
 			}
 
-			c, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			c, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -222,7 +222,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -239,7 +239,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -256,7 +256,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -282,7 +282,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
 		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -319,7 +319,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		Short: "Display detailed info about a single datum.",
 		Long:  "Display detailed info about a single datum.",
 		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -362,7 +362,7 @@ $ pachctl get-logs --job=aedfa12aedf
 $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 ` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -443,7 +443,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Create a new pipeline.",
 		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(metrics, false, build, pushImages, registry, username, password, pipelinePath, false)
+			return pipelineHelper(metrics, noPortForwarding, false, build, pushImages, registry, username, password, pipelinePath, false)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
@@ -459,7 +459,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(metrics, reprocess, build, pushImages, registry, username, password, pipelinePath, true)
+			return pipelineHelper(metrics, noPortForwarding, reprocess, build, pushImages, registry, username, password, pipelinePath, true)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
@@ -475,7 +475,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -500,7 +500,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return the manifest used to create a pipeline.",
 		Long:  "Return the manifest used to create a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -519,7 +519,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Edit the manifest for a pipeline in your text editor.",
 		Long:  "Edit the manifest for a pipeline in your text editor.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -588,7 +588,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
@@ -630,7 +630,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -665,7 +665,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -682,7 +682,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -722,7 +722,7 @@ you can increase the amount of memory used for the bloom filters with the
 --memory flag. The default value is 10MB.
 `,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+			client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -761,12 +761,12 @@ you can increase the amount of memory used for the bloom filters with the
 	return result, nil
 }
 
-func pipelineHelper(metrics bool, reprocess bool, build bool, pushImages bool, registry string, username string, password string, pipelinePath string, update bool) error {
+func pipelineHelper(metrics bool, noPortForwarding bool, reprocess bool, build bool, pushImages bool, registry string, username string, password string, pipelinePath string, update bool) error {
 	cfgReader, err := ppsutil.NewPipelineManifestReader(pipelinePath)
 	if err != nil {
 		return err
 	}
-	client, err := pachdclient.NewOnUserMachine(metrics, true, "user")
+	client, err := pachdclient.NewOnUserMachine(metrics, !noPortForwarding, "user")
 	if err != nil {
 		return fmt.Errorf("error connecting to pachd: %v", err)
 	}
