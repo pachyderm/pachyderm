@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/hanwen/go-fuse/fuse"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -42,7 +44,22 @@ func newFile(fs *filesystem, name string, flags int) (_ nodefs.File, retStatus f
 	}
 	tmpF, err := ioutil.TempFile("", "pfs-fuse")
 	if err != nil {
-		return nil, fuse.ToStatus(err)
+		return nil, toStatus(err)
+	}
+	fi, err := fs.c.InspectFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path)
+	if err != nil {
+		if !strings.Contains(err.Error(), "not found") || flags&os.O_CREATE == 0 {
+			return nil, toStatus(err)
+		}
+	}
+	if fi != nil {
+		ts, err := types.TimestampFromProto(fi.Committed)
+		if err != nil {
+			return nil, toStatus(err)
+		}
+		if err := os.Chtimes(name, time.Now(), ts); err != nil {
+			return nil, toStatus(err)
+		}
 	}
 	if err := fs.c.GetFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, 0, 0, tmpF); err != nil {
 		if !strings.Contains(err.Error(), "not found") || flags&os.O_CREATE == 0 {
