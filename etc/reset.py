@@ -129,7 +129,6 @@ def get_pachyderm(deploy_version):
 def main():
     parser = argparse.ArgumentParser(description="Resets the pachyderm cluster and tools.")
     parser.add_argument("--no-deploy", default=False, action="store_true", help="Disables deployment")
-    parser.add_argument("--no-minikube", default=False, action="store_true", help="Do not use minikube; used if you're on a non-minikube k8s cluster")
     parser.add_argument("--deploy-args", default="", help="Arguments to be passed into `pachctl deploy`")
     parser.add_argument("--deploy-version", default="local", help="Sets the deployment version")
     parser.add_argument("--log-level", default="info", type=parse_log_level, help="Sets the log level; defaults to 'info', other options include 'critical', 'error', 'warning', and 'debug'")
@@ -147,6 +146,11 @@ def main():
         print("Must be in a Pachyderm client", file=sys.stderr)
         sys.exit(1)
 
+    reset_minikube = True
+    if run("which", "minikube", raise_on_error=False).rc == 1:
+        print("`minikube` not detected; running without minikube resets")
+        reset_minikube = False
+
     gopath = os.environ["GOPATH"]
 
     if args.deploy_version == "local":
@@ -161,11 +165,11 @@ def main():
             lambda: run("make", "install"),
             lambda: run("make", "docker-build"),
         ]
-        if not args.no_minikube:
+        if reset_minikube:
             procs.append(lambda: run("minikube", "start"))
         join(*procs)
     else:
-        if not args.no_minikube:
+        if reset_minikube:
             join(
                 lambda: run("minikube", "start"),
                 lambda: get_pachyderm(args.deploy_version),
@@ -176,7 +180,7 @@ def main():
     version = capture("pachctl", "version", "--client-only")
     print("Deploy pachyderm version v{}".format(version))
 
-    if not args.no_minikube:
+    if reset_minikube:
         while suppress("minikube", "status") != 0:
             print("Waiting for minikube to come up...")
             time.sleep(1)
@@ -197,7 +201,7 @@ def main():
     run("docker", "pull", grpc_proxy_image)
     run("docker", "pull", ETCD_IMAGE)
 
-    if not args.no_minikube:
+    if reset_minikube:
         run("./etc/kube/push-to-minikube.sh", "pachyderm/pachd:{}".format(args.deploy_version))
         run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:{}".format(args.deploy_version))
         run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
