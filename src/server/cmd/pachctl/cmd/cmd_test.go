@@ -35,7 +35,7 @@ func TestMetricsDevDeploymentNoMetricsFlagSet(t *testing.T) {
 
 func TestPortForwardError(t *testing.T) {
 	os.Setenv("ADDRESS", "localhost:30650")
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	c := tu.Cmd("pachctl", "version", "--timeout=1ns", "--no-port-forwarding")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
 	c.Stderr = &errMsg
@@ -46,7 +46,7 @@ func TestPortForwardError(t *testing.T) {
 
 func TestNoPortError(t *testing.T) {
 	os.Setenv("ADDRESS", "127.127.127.0")
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	c := tu.Cmd("pachctl", "version", "--timeout=1ns", "--no-port-forwarding")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
 	c.Stderr = &errMsg
@@ -57,7 +57,7 @@ func TestNoPortError(t *testing.T) {
 
 func TestWeirdPortError(t *testing.T) {
 	os.Setenv("ADDRESS", "localhost:30560")
-	c := tu.Cmd("pachctl", "version", "--timeout=1ns")
+	c := tu.Cmd("pachctl", "version", "--timeout=1ns", "--no-port-forwarding")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
 	c.Stderr = &errMsg
