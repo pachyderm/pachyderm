@@ -1,7 +1,6 @@
 package fuse
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -42,7 +41,10 @@ func newFile(fs *filesystem, name string, flags int) (_ nodefs.File, retStatus f
 		}
 		return nodefs.NewLoopbackFile(file), fuse.OK
 	}
-	tmpF, err := ioutil.TempFile("", "pfs-fuse")
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(fs.dir, f.String())), os.FileMode(modeDir)); err != nil {
+		return nil, toStatus(err)
+	}
+	tmpF, err := os.Create(filepath.Join(fs.dir, f.String()))
 	if err != nil {
 		return nil, toStatus(err)
 	}

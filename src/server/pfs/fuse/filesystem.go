@@ -2,9 +2,11 @@ package fuse
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -23,7 +25,11 @@ const (
 
 // Mount pfs to mountPoint, opts may be left nil.
 func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
-	nfs := pathfs.NewPathNodeFs(newFileSystem(c, opts.getCommits()), nil)
+	fs, err := newFileSystem(c, opts.getCommits())
+	if err != nil {
+		return err
+	}
+	nfs := pathfs.NewPathNodeFs(fs, nil)
 	server, _, err := nodefs.MountRoot(mountPoint, nfs.Root(), opts.getFuse())
 	if err != nil {
 		return fmt.Errorf("nodefs.MountRoot: %v", err)
@@ -43,26 +49,58 @@ func Mount(c *client.APIClient, mountPoint string, opts *Options) error {
 
 type filesystem struct {
 	pathfs.FileSystem
-	c         *client.APIClient
-	commits   map[string]string
-	commitsMu sync.RWMutex
-	files     *sync.Map
+	c          *client.APIClient
+	commits    map[string]string
+	commitsMu  sync.RWMutex
+	files      *sync.Map
+	dir        string
+	loopBackFS pathfs.FileSystem
 }
 
-func newFileSystem(c *client.APIClient, commits map[string]string) pathfs.FileSystem {
+func newFileSystem(c *client.APIClient, commits map[string]string) (pathfs.FileSystem, error) {
 	if commits == nil {
 		commits = make(map[string]string)
+	}
+	dir, err := ioutil.TempDir("", "pfs-fuse")
+	if err != nil {
+		return nil, err
 	}
 	return &filesystem{
 		FileSystem: pathfs.NewDefaultFileSystem(),
 		c:          c,
 		commits:    commits,
 		files:      &sync.Map{},
-	}
+		dir:        dir,
+		loopBackFS: pathfs.NewLoopbackFileSystem(dir),
+	}, nil
 }
 
 func (fs *filesystem) GetAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
-	return fs.getAttr(name)
+	return fs.getAttr(name, context)
+}
+
+func (fs *filesystem) listFile(repo, commit, path string, context *fuse.Context) ([]fuse.DirEntry, fuse.Status) {
+	result, status := fs.loopBackFS.OpenDir(filepath.Join(repo, path), context)
+	if status != fuse.OK {
+		return nil, status
+	}
+	// Check which names we have from loopbackfs, those take priority since they may have been modified.
+	names := make(map[string]bool)
+	for _, dirent := range result {
+		names[dirent.Name] = true
+	}
+	if commit != "" { // Don't check pfs if the branch has no head
+		if err := fs.c.ListFileF(repo, commit, path, 0, func(fi *pfs.FileInfo) error {
+			dirent := fileDirEntry(fi)
+			if !names[dirent.Name] {
+				result = append(result, fileDirEntry(fi))
+			}
+			return nil
+		}); err != nil {
+			return nil, toStatus(err)
+		}
+	}
+	return result, fuse.OK
 }
 
 func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEntry, fuse.Status) {
@@ -77,27 +115,9 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 		if err != nil {
 			return nil, toStatus(err)
 		}
-		if commit == "" {
-			// master branch has no head, so we report an empty dir
-			return result, fuse.OK
-		}
-		if err := fs.c.ListFileF(r.Name, commit, "", 0, func(fi *pfs.FileInfo) error {
-			result = append(result, fileDirEntry(fi))
-			return nil
-		}); err != nil {
-			return nil, toStatus(err)
-		}
+		return fs.listFile(r.Name, commit, "", context)
 	case f != nil:
-		if f.Commit.ID == "" {
-			// master branch has no head, so we report an empty dir
-			return result, fuse.OK
-		}
-		if err := fs.c.ListFileF(f.Commit.Repo.Name, f.Commit.ID, f.Path, 0, func(fi *pfs.FileInfo) error {
-			result = append(result, fileDirEntry(fi))
-			return nil
-		}); err != nil {
-			return nil, toStatus(err)
-		}
+		return fs.listFile(f.Commit.Repo.Name, f.Commit.ID, f.Path, context)
 	default:
 		ris, err := fs.c.ListRepo()
 		if err != nil {
@@ -163,7 +183,7 @@ func (fs *filesystem) parsePath(name string) (*pfs.Repo, *pfs.File, error) {
 	}
 }
 
-func (fs *filesystem) getAttr(name string) (*fuse.Attr, fuse.Status) {
+func (fs *filesystem) getAttr(name string, context *fuse.Context) (*fuse.Attr, fuse.Status) {
 	r, f, err := fs.parsePath(name)
 	if err != nil {
 		return nil, toStatus(err)
@@ -172,7 +192,7 @@ func (fs *filesystem) getAttr(name string) (*fuse.Attr, fuse.Status) {
 	case r != nil:
 		return fs.repoAttr(r)
 	case f != nil:
-		return fs.fileAttr(f)
+		return fs.fileAttr(f, context)
 	default:
 		return &fuse.Attr{
 			Mode: modeDir,
@@ -212,20 +232,11 @@ func fileMode(fi *pfs.FileInfo) uint32 {
 	}
 }
 
-func (fs *filesystem) fileAttr(f *pfs.File) (_ *fuse.Attr, retStatus fuse.Status) {
+func (fs *filesystem) fileAttr(f *pfs.File, context *fuse.Context) (_ *fuse.Attr, retStatus fuse.Status) {
 	fileIf, ok := fs.files.Load(fileString(f))
 	if ok {
-		file, err := os.Open(fileIf.(*file).name)
-		if err != nil {
-			return nil, toStatus(err)
-		}
-		defer func() {
-			if err := file.Close(); err != nil && retStatus == fuse.OK {
-				retStatus = toStatus(err)
-			}
-		}()
-		result := &fuse.Attr{}
-		return result, nodefs.NewLoopbackFile(file).GetAttr(result)
+		<-fileIf.(*file).ready
+		return fs.loopBackFS.GetAttr(fileString(f), context)
 	}
 	fi, err := fs.c.InspectFile(f.Commit.Repo.Name, f.Commit.ID, f.Path)
 	if err != nil {
