@@ -24,7 +24,6 @@ func Serve(pc *client.APIClient, port uint16) {
 		repo, file := parts[1], parts[2]
 
 		fileInfo, err := pc.InspectFile(repo, "master", file)
-
 		if err != nil {
 			code := 500
 
@@ -38,12 +37,13 @@ func Serve(pc *client.APIClient, port uint16) {
 
 		committed := fileInfo.Committed
 		timestamp := time.Unix(committed.GetSeconds(), int64(committed.GetNanos()))
-		w.Header().Set("Last-Modified", timestamp.UTC().Format(timeFormat))
-
-		if err := pc.GetFile(repo, "master", file, 0, 0, w); err != nil {
+		reader, err := pc.GetFileReadSeeker(repo, "master", file)
+		if err != nil {
 			http.Error(w, fmt.Sprintf("%v", err), 500)
 			return
 		}
+
+		http.ServeContent(w, r, "", timestamp, reader)
 	})
 
 	http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
