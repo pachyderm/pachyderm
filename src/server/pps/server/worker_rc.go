@@ -121,6 +121,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}
 	zeroVal := int64(0)
 	workerImage := a.workerImage
+	var securityContext *v1.PodSecurityContext
+	if a.workerUsesRoot {
+		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
+	}
 	resp, err := a.getPachClient().Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return v1.PodSpec{}, err
@@ -172,7 +176,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: &zeroVal,
-		SecurityContext:               &v1.PodSecurityContext{RunAsUser: &zeroVal},
+		SecurityContext:               securityContext,
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
@@ -263,11 +267,11 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PProfPortEnv,
+		Name:  client.PProfPortEnv,
 		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PeerPortEnv,
+		Name:  client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	})
 
