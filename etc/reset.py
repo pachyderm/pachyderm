@@ -3,11 +3,40 @@
 import os
 import sys
 import time
+import select
+import logging
 import argparse
 import threading
 import subprocess
 
 ETCD_IMAGE = "quay.io/coreos/etcd:v3.3.5"
+
+LOG_LEVELS = {
+    "critical": logging.CRITICAL,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+}
+
+LOG_COLORS = {
+    "critical": "\x1b[31;1m",
+    "error": "\x1b[31;1m",
+    "warning": "\x1b[33;1m",
+    #"info": "\x1b[32;1m",
+    #"debug": "\x1b[35;1m",
+}
+
+log = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
+log.addHandler(handler)
+
+def parse_log_level(s):
+    try:
+        return LOG_LEVELS[s]
+    except KeyError:
+        raise Exception("Unknown log level: {}".format(s))
 
 class ExcThread(threading.Thread):
     def __init__(self, target):
@@ -34,26 +63,58 @@ def join(*targets):
         if t.error is not None:
             raise Exception("Thread error") from t.error
 
-def run(cmd, *args, raise_on_error=True, shell=False):
-    proc = subprocess.run([cmd, *args], shell=shell)
+class Output:
+    def __init__(self, pipe, level):
+        self.pipe = pipe
+        self.level = level
+        self.lines = []
 
-    if raise_on_error:
-        proc.check_returncode()
+class ProcessResult:
+    def __init__(self, rc, stdout, stderr):
+        self.rc = rc
+        self.stdout = stdout
+        self.stderr = stderr
 
-    return proc
+def redirect_to_logger(stdout, stderr):
+    for io in select.select([stdout.pipe, stderr.pipe], [], [], 1000)[0]:
+        line = io.readline().decode().rstrip()
 
-def suppress(cmd, *args, raise_on_error=True, shell=False):
-    with open(os.devnull, "w") as f:
-        return subprocess.run([cmd, *args], shell=shell, stdout=f)
+        if line == "":
+            continue
+
+        dest = stdout if io == stdout.pipe else stderr
+        log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
+        dest.lines.append(line)
+
+def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", stderr_log_level="error"):
+    log.debug("Running `%s %s`", cmd, " ".join(args))
+
+    proc = subprocess.Popen([cmd, *args], shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout = Output(proc.stdout, stdout_log_level)
+    stderr = Output(proc.stderr, stderr_log_level)
+
+    while proc.poll() is None:
+        redirect_to_logger(stdout, stderr)
+    redirect_to_logger(stdout, stderr)
+
+    rc = proc.wait()
+
+    if raise_on_error and rc != 0:
+        raise Exception("Unexpected return code for `{} {}`: {}".format(cmd, " ".join(args), rc))
+
+    return ProcessResult(rc, "\n".join(stdout.lines), "\n".join(stderr.lines))
 
 def capture(cmd, *args, shell=False):
-    return subprocess.check_output([cmd, *args], shell=shell).decode("utf-8").rstrip()
+    return run(cmd, *args, shell=shell, stdout_log_level="debug").stdout
+
+def suppress(cmd, *args):
+    return run(cmd, *args, stdout_log_level="debug", raise_on_error=False).rc
 
 def get_pachyderm(deploy_version):
     if deploy_version != "local":
         print("Deploying pachd:{}".format(deploy_version))
 
-        should_download = run("which", "pachctl", raise_on_error=False).returncode != 0 \
+        should_download = suppress("which", "pachctl") != 0 \
             or capture("pachctl", "version", "--client-only") != deploy_version
 
         if should_download:
@@ -71,7 +132,10 @@ def main():
     parser.add_argument("--no-minikube", default=False, action="store_true", help="Do not use minikube; used if you're on a non-minikube k8s cluster")
     parser.add_argument("--deploy-args", default="", help="Arguments to be passed into `pachctl deploy`")
     parser.add_argument("--deploy-version", default="local", help="Sets the deployment version")
+    parser.add_argument("--log-level", default="info", type=parse_log_level, help="Sets the log level; defaults to 'info', other options include 'critical', 'error', 'warning', and 'debug'")
     args = parser.parse_args()
+
+    log.setLevel(args.log_level)
 
     if "GOPATH" not in os.environ:
         print("Must set GOPATH")
@@ -113,16 +177,16 @@ def main():
     print("Deploy pachyderm version v{}".format(version))
 
     if not args.no_minikube:
-        while suppress("minikube", "status").returncode != 0:
+        while suppress("minikube", "status") != 0:
             print("Waiting for minikube to come up...")
             time.sleep(1)
 
-    while suppress("pachctl", "version", "--client-only").returncode != 0:
+    while suppress("pachctl", "version", "--client-only") != 0:
         print("Waiting for pachctl to build...")
         time.sleep(1)
 
     # TODO: does this do anything when run in a python sub-process?
-    run("hash", "-r")
+    # run("hash", "-r")
 
     run("which", "pachctl")
 
@@ -145,7 +209,7 @@ def main():
         else:
             run("pachctl deploy local -d {} --dry-run | sed \"s/:local/:{}/g\" | kubectl create -f -".format(args.deploy_args, args.deploy_version), shell=True)
 
-        while suppress("pachctl", "version").returncode != 0:
+        while suppress("pachctl", "version") != 0:
             print("No pachyderm yet")
             time.sleep(1)
 
