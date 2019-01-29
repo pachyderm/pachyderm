@@ -146,8 +146,7 @@ func containsEmpty(vals []string) bool {
 }
 
 // DeployCmd returns a cobra.Command to deploy pachyderm.
-func DeployCmd(noMetrics *bool, noPortForwarding bool) *cobra.Command {
-	metrics := !*noMetrics
+func DeployCmd(metrics bool, portForwarding bool) *cobra.Command {
 	var pachdShards int
 	var hostPath string
 	var dev bool
@@ -472,7 +471,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				data = assets.MicrosoftSecret("", args[1], args[2])
 			}
 
-			c, err := client.NewOnUserMachine(metrics, !noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(metrics, portForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error constructing pachyderm client: %v", err)
 			}
@@ -643,8 +642,8 @@ particular backend, run "pachctl deploy storage <backend>"`,
 }
 
 // Cmds returns a list of cobra commands for deploying Pachyderm clusters.
-func Cmds(noMetrics *bool, noPortForwarding bool) []*cobra.Command {
-	deploy := DeployCmd(noMetrics, noPortForwarding)
+func Cmds(metrics bool, portForwarding bool) []*cobra.Command {
+	deploy := DeployCmd(metrics, portForwarding)
 	var all bool
 	var namespace string
 	undeploy := &cobra.Command{

@@ -17,9 +17,7 @@ const (
 )
 
 // Cmds returns a slice containing admin commands.
-func Cmds(noMetrics *bool, noPortForwarding bool) []*cobra.Command {
-	metrics := !*noMetrics
-
+func Cmds(metrics bool, portForwarding bool) []*cobra.Command {
 	var noObjects bool
 	var url string
 	extract := &cobra.Command{
@@ -32,7 +30,7 @@ pachctl extract >backup
 # Extract to s3:
 pachctl extract -u s3://bucket/backup` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(metrics, !noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(metrics, portForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -61,7 +59,7 @@ pachctl restore <backup
 # Restore from s3:
 pachctl restore -u s3://bucket/backup` + codeend,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, !noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(metrics, portForwarding, "user")
 			if err != nil {
 				return err
 			}
@@ -85,7 +83,7 @@ pachctl restore -u s3://bucket/backup` + codeend,
 		Short: "Returns info about the pachyderm cluster",
 		Long:  "Returns info about the pachyderm cluster",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(metrics, !noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(metrics, portForwarding, "user")
 			if err != nil {
 				return err
 			}
