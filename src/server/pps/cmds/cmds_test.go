@@ -51,11 +51,11 @@ const badJSON2 = `
 func TestJSONSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo -n '{{.badJSON1}}' \
-		  | ( pachctl create-pipeline -f - 2>&1 || true ) \
+		  | ( pachctl create-pipeline --no-port-forwarding -f - 2>&1 || true ) \
 		  | match "malformed pipeline spec"
 
 		echo -n '{{.badJSON2}}' \
-		  | ( pachctl create-pipeline -f - 2>&1 || true ) \
+		  | ( pachctl create-pipeline --no-port-forwarding -f - 2>&1 || true ) \
 		  | match "malformed pipeline spec"
 		`,
 		"badJSON1", badJSON1,
@@ -66,11 +66,11 @@ func TestJSONSyntaxErrorsReportedCreatePipeline(t *testing.T) {
 func TestJSONSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
 	require.NoError(t, tu.BashCmd(`
 		echo -n '{{.badJSON1}}' \
-		  | ( pachctl update-pipeline -f - 2>&1 || true ) \
+		  | ( pachctl update-pipeline --no-port-forwarding -f - 2>&1 || true ) \
 		  | match "malformed pipeline spec"
 
 		echo -n '{{.badJSON2}}' \
-		  | ( pachctl update-pipeline -f - 2>&1 || true ) \
+		  | ( pachctl update-pipeline --no-port-forwarding -f - 2>&1 || true ) \
 		  | match "malformed pipeline spec"
 		`,
 		"badJSON1", badJSON1,
@@ -91,6 +91,6 @@ func TestJSONSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
 // 	"image": "test-job-shim"
 //   }
 // }`), 0644)
-// 	os.Args = []string{"pachctl", "create-pipeline", "--push-images", "-f", "test-push-images.json"}
+// 	os.Args = []string{"pachctl", "create-pipeline", "--push-images", "--no-port-forwarding", "-f", "test-push-images.json"}
 // 	require.NoError(t, rootCmd().Execute())
 // }
