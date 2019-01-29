@@ -1729,12 +1729,12 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						retErr = fmt.Errorf("error unlinkData: %v", err)
 					}
 				}()
-				if a.pipelineInfo.Transform.User != "" {
+				// If the pipeline spec set a custom user to execute the
+				// process, make sure `/pfs` and its content are owned by it
+				if a.uid != nil && a.gid != nil {
 					filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
 						if err == nil {
-							if a.uid != nil && a.gid != nil {
-								err = os.Chown(name, int(*a.uid), int(*a.gid))
-							}
+							err = os.Chown(name, int(*a.uid), int(*a.gid))
 						}
 						return err
 					})
