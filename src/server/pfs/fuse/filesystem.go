@@ -111,7 +111,11 @@ func (fs *filesystem) OpenDir(name string, context *fuse.Context) ([]fuse.DirEnt
 }
 
 func (fs *filesystem) Open(name string, flags uint32, context *fuse.Context) (nodefs.File, fuse.Status) {
-	return newFile(fs, name, flags)
+	return newFile(fs, name, int(flags))
+}
+
+func (fs *filesystem) Create(name string, flags uint32, mode uint32, context *fuse.Context) (file nodefs.File, code fuse.Status) {
+	return newFile(fs, name, int(flags))
 }
 
 func (fs *filesystem) commit(repo string) (string, error) {
@@ -208,7 +212,21 @@ func fileMode(fi *pfs.FileInfo) uint32 {
 	}
 }
 
-func (fs *filesystem) fileAttr(f *pfs.File) (*fuse.Attr, fuse.Status) {
+func (fs *filesystem) fileAttr(f *pfs.File) (_ *fuse.Attr, retStatus fuse.Status) {
+	fileIf, ok := fs.files.Load(fileString(f))
+	if ok {
+		file, err := os.Open(fileIf.(*file).name)
+		if err != nil {
+			return nil, toStatus(err)
+		}
+		defer func() {
+			if err := file.Close(); err != nil && retStatus == fuse.OK {
+				retStatus = toStatus(err)
+			}
+		}()
+		result := &fuse.Attr{}
+		return result, nodefs.NewLoopbackFile(file).GetAttr(result)
+	}
 	fi, err := fs.c.InspectFile(f.Commit.Repo.Name, f.Commit.ID, f.Path)
 	if err != nil {
 		return nil, toStatus(err)

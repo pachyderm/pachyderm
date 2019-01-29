@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/hanwen/go-fuse/fuse"
@@ -17,7 +18,7 @@ type file struct {
 	ready   chan struct{}
 }
 
-func newFile(fs *filesystem, name string, flags uint32) (nodefs.File, fuse.Status) {
+func newFile(fs *filesystem, name string, flags int) (_ nodefs.File, retStatus fuse.Status) {
 	_, pfsFile, err := fs.parsePath(name)
 	if err != nil {
 		return nil, toStatus(err)
@@ -33,9 +34,9 @@ func newFile(fs *filesystem, name string, flags uint32) (nodefs.File, fuse.Statu
 	if ok {
 		f = resIf.(*file)
 		<-f.ready
-		file, err := os.OpenFile(f.name, int(flags), modeFile)
+		file, err := os.OpenFile(f.name, flags, modeFile)
 		if err != nil {
-			return nil, fuse.ToStatus(err)
+			return nil, toStatus(err)
 		}
 		return nodefs.NewLoopbackFile(file), fuse.OK
 	}
@@ -44,7 +45,9 @@ func newFile(fs *filesystem, name string, flags uint32) (nodefs.File, fuse.Statu
 		return nil, fuse.ToStatus(err)
 	}
 	if err := fs.c.GetFile(pfsFile.Commit.Repo.Name, pfsFile.Commit.ID, pfsFile.Path, 0, 0, tmpF); err != nil {
-		return nil, toStatus(err)
+		if !strings.Contains(err.Error(), "not found") || flags&os.O_CREATE == 0 {
+			return nil, toStatus(err)
+		}
 	}
 	f.name = tmpF.Name()
 	close(f.ready)
@@ -52,5 +55,9 @@ func newFile(fs *filesystem, name string, flags uint32) (nodefs.File, fuse.Statu
 }
 
 func (f *file) String() string {
-	return filepath.Join(f.pfsFile.Commit.Repo.Name, f.pfsFile.Path)
+	return fileString(f.pfsFile)
+}
+
+func fileString(f *pfs.File) string {
+	return filepath.Join(f.Commit.Repo.Name, f.Path)
 }
