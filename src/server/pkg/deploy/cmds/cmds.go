@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:1.7-preview-11"
+var defaultDashImage = "pachyderm/dash:1.8-preview-7"
 
 var awsAccessKeyIDRE = regexp.MustCompile("^[A-Z0-9]{20}$")
 var awsSecretRE = regexp.MustCompile("^[A-Za-z0-9/+=]{40}$")
@@ -146,8 +146,7 @@ func containsEmpty(vals []string) bool {
 }
 
 // DeployCmd returns a cobra.Command to deploy pachyderm.
-func DeployCmd(noMetrics *bool) *cobra.Command {
-	metrics := !*noMetrics
+func DeployCmd(metrics bool, portForwarding bool) *cobra.Command {
 	var pachdShards int
 	var hostPath string
 	var dev bool
@@ -472,7 +471,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				data = assets.MicrosoftSecret("", args[1], args[2])
 			}
 
-			c, err := client.NewOnUserMachine(metrics, true, "user")
+			c, err := client.NewOnUserMachine(metrics, portForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error constructing pachyderm client: %v", err)
 			}
@@ -643,8 +642,8 @@ particular backend, run "pachctl deploy storage <backend>"`,
 }
 
 // Cmds returns a list of cobra commands for deploying Pachyderm clusters.
-func Cmds(noMetrics *bool) []*cobra.Command {
-	deploy := DeployCmd(noMetrics)
+func Cmds(metrics bool, portForwarding bool) []*cobra.Command {
+	deploy := DeployCmd(metrics, portForwarding)
 	var all bool
 	var namespace string
 	undeploy := &cobra.Command{
