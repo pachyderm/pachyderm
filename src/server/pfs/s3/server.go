@@ -4,12 +4,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
+
+	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/src/client"
 )
-
-const timeFormat = "Mon, 02 Jan 2006 15:04:05 GMT"
 
 // Serve runs an HTTP server with an S3-like API for PFS
 func Serve(pc *client.APIClient, port uint16) {
@@ -35,8 +34,12 @@ func Serve(pc *client.APIClient, port uint16) {
 			return
 		}
 
-		committed := fileInfo.Committed
-		timestamp := time.Unix(committed.GetSeconds(), int64(committed.GetNanos()))
+		timestamp, err := types.TimestampFromProto(fileInfo.Committed)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("%v", err), 500)
+			return
+		}
+
 		reader, err := pc.GetFileReadSeeker(repo, "master", file)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("%v", err), 500)
