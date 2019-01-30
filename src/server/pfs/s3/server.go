@@ -10,13 +10,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
-const LOCATION_RESPONSE = `<?xml version="1.0" encoding="UTF-8"?>
+const locationResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
 
 func serveRoot(pc *client.APIClient, w http.ResponseWriter, r *http.Request, repo string) {
 	if _, ok := r.Form["location"]; ok {
 		w.Header().Set("Content-Type", "application/xml")
-		w.Write([]byte(LOCATION_RESPONSE))
+		w.Write([]byte(locationResponse))
 	} else {
 		w.Write([]byte("OK"))
 	}
