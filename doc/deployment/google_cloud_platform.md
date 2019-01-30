@@ -136,7 +136,9 @@ Pachyderm is launching. Check its status with "kubectl get all"
 Once launched, access the dashboard by running "pachctl port-forward"
 ```
 
-Note, here we are using 1 etcd node to manage Pachyderm metadata. The number of etcd nodes can be adjusted as needed. Also, RBAC can be enabled as further documented [here](rbac.html).
+Note, here we are using 1 etcd node to manage Pachyderm metadata. The number of etcd nodes can be adjusted as needed.
+
+**Important Note: If RBAC authorization is requiurement or you run into any RBAC errors please read our docs [here](rbac.html).
 
 It may take a few minutes for the pachd nodes to be running because it's pulling containers from DockerHub. You can see the cluster status with `kubectl`, which should output the following when Pachyderm is up and running:
 
