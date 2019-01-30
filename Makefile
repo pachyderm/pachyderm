@@ -123,8 +123,6 @@ custom-release: release-helper release-pachctl-custom
 	@echo 'For linux install, do:'
 	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$$(cat VERSION)/pachctl_$$(cat VERSION)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
 	# Workaround for https://github.com/laher/goxc/issues/112
-	@git pull origin --tags
-	@git tag -d v$$(cat VERSION)
 	@git push origin :v$$(cat VERSION)
 	@git tag v$$(cat VERSION)
 	@git push origin --tags
