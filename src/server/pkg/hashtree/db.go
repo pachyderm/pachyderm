@@ -1071,6 +1071,12 @@ func (w *Writer) Copy(r *Reader) error {
 	}
 }
 
+// Size returns the total size of the files in the written hashtree.
+// This is not the size of the serialized hashtree.
+func (w *Writer) Size() uint64 {
+	return w.size
+}
+
 // Index returns the index for a hashtree writer.
 func (w *Writer) Index() ([]byte, error) {
 	buf := &bytes.Buffer{}
@@ -1282,31 +1288,34 @@ func (mq *mergePQ) swap(i, j int) {
 }
 
 // Merge merges a collection of hashtree readers into a hashtree writer.
-func Merge(w *Writer, rs []*Reader) (uint64, error) {
+func Merge(w *Writer, rs []*Reader) error {
+	if len(rs) == 0 {
+		return nil
+	}
 	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
 	// Setup first set of nodes
 	for _, r := range rs {
 		if err := mq.insert(&nodeStream{r: r}); err != nil {
-			return 0, err
+			return err
 		}
 	}
 	for mq.q[1] != nil {
 		// Get next nodes to merge
 		ns, err := mq.next()
 		if err != nil {
-			return 0, err
+			return err
 		}
 		// Merge nodes
 		n, err := merge(ns)
 		if err != nil {
-			return 0, err
+			return err
 		}
 		// Write out result
 		if err := w.Write(n); err != nil {
-			return 0, err
+			return err
 		}
 	}
-	return w.size, nil
+	return nil
 }
 
 func nodes(rs []io.ReadCloser, f func(path string, nodeProto *NodeProto) error) error {
