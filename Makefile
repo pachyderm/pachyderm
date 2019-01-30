@@ -308,8 +308,8 @@ launch-kube: check-kubectl
 
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	@if [ -z "${PACHD_ADDRESS}" ]; then \
+		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
@@ -329,8 +329,8 @@ launch-dev-vm: check-kubectl
 # point-release version of pachd, instead of whatever's in the current branch)
 launch-release-vm:
 	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	@if [ -z "${PACHD_ADDRESS}" ]; then \
+		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
@@ -500,9 +500,9 @@ test-enterprise:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
-# TODO This is not very robust -- it doesn't work when the ADDRESS host isn't an IPv4 address
-PACHD_HOST := $(word 1,$(subst :, ,$(ADDRESS)))
-PACHD_PORT := $(word 2,$(subst :, ,$(ADDRESS)))
+# TODO This is not very robust -- it doesn't work when the PACHD_ADDRESS host isn't an IPv4 address
+PACHD_HOST := $(word 1,$(subst :, ,$(PACHD_ADDRESS)))
+PACHD_PORT := $(word 2,$(subst :, ,$(PACHD_ADDRESS)))
 
 test-tls:
 	# Pachyderm must be running when this target is called
