@@ -1,9 +1,12 @@
 package hashtree
 
 import (
+	"fmt"
+	"io"
 	"reflect"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/pachyderm/pachyderm/src/server/pkg/localcache"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,4 +31,58 @@ func NewCache(size int) (*Cache, error) {
 		return nil, err
 	}
 	return &Cache{c}, nil
+}
+
+// MergeCache is an unbounded hashtree cache that can merge the hashtrees in the cache.
+type MergeCache struct {
+	*localcache.Cache
+}
+
+// NewMergeCache creates a new cache.
+func NewMergeCache(root string) *MergeCache {
+	return &MergeCache{
+		Cache: localcache.NewCache(root),
+	}
+}
+
+// Put puts an id/hashtree pair in the cache and reads the hashtree from the passed in io.Reader.
+func (c *MergeCache) Put(id int64, tree io.Reader) (retErr error) {
+	return c.Cache.Put(fmt.Sprint(id), tree)
+}
+
+// Get does a filtered write of id's hashtree to the passed in io.Writer.
+func (c *MergeCache) Get(id int64, w io.Writer, filter Filter) (retErr error) {
+	r, err := c.Cache.Get(fmt.Sprint(id))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := r.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	return NewWriter(w).Copy(NewReader(r, filter))
+}
+
+// Merge does a filtered merge of the hashtrees in the cache.
+// The results are written to the passed in *Writer.
+// The base field is used as the base hashtree if it is non-nil
+func (c *MergeCache) Merge(w *Writer, base io.Reader, filter Filter) (retErr error) {
+	var trees []*Reader
+	if base != nil {
+		trees = append(trees, NewReader(base, filter))
+	}
+	for _, key := range c.Keys() {
+		r, err := c.Cache.Get(key)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		trees = append(trees, NewReader(r, filter))
+	}
+	return Merge(w, trees)
 }
