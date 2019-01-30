@@ -131,10 +131,18 @@ type APIServer struct {
 	// hashtreeStorage is the where we store on disk hashtrees
 	hashtreeStorage string
 
+	// numShards is the number of filesystem shards for the output of this pipeline
+	numShards int64
 	// claimedShard communicates the shard that was claimed
 	claimedShard chan int64
 	// shard is the shard this worker has claimed
 	shard int64
+	// chunkCache caches chunk hashtrees during a job and can merge them (chunkStatsCache applies to stats)
+	chunkCache, chunkStatsCache *hashtree.MergeCache
+	// datumCache caches datum hashtrees during a job and can merge them (datumStatsCache applies to stats)
+	datumCache, datumStatsCache *hashtree.MergeCache
+	// clients are the worker clients (used for the shuffle step by mergers)
+	clients map[string]Client
 }
 
 type putObjectResponse struct {
@@ -337,6 +345,22 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		numWorkers = 1
 	}
 	server.numWorkers = numWorkers
+	numShards, err := ppsutil.GetExpectedNumHashtrees(pipelineInfo.HashtreeSpec)
+	if err != nil {
+		logger.Logf("error getting number of shards, default to 1 shard: %v", err)
+		numShards = 1
+	}
+	server.numShards = numShards
+	if err := os.MkdirAll(filepath.Join(hashtreeStorage, "chunk", "stats"), 0777); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Join(hashtreeStorage, "datum", "stats"), 0777); err != nil {
+		return nil, err
+	}
+	server.chunkCache = hashtree.NewMergeCache(filepath.Join(hashtreeStorage, "chunk"))
+	server.chunkStatsCache = hashtree.NewMergeCache(filepath.Join(hashtreeStorage, "chunk", "stats"))
+	server.datumCache = hashtree.NewMergeCache(filepath.Join(hashtreeStorage, "datum"))
+	server.datumStatsCache = hashtree.NewMergeCache(filepath.Join(hashtreeStorage, "datum", "stats"))
 	var noDocker bool
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		noDocker = true
@@ -660,7 +684,7 @@ func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, 
 	}
 }
 
-func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (retErr error) {
+func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
 	defer a.reportUploadStats(time.Now(), stats, logger)
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -852,6 +876,12 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	if err := putObjsClient.CloseSend(); err != nil {
 		return err
 	}
+	// Serialize datum hashtree
+	b := &bytes.Buffer{}
+	if err := tree.Serialize(b); err != nil {
+		return err
+	}
+	// Write datum hashtree to object storage
 	w, err := pachClient.PutObjectAsync([]*pfs.Tag{client.NewTag(tag)})
 	if err != nil {
 		return err
@@ -861,10 +891,11 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 			retErr = err
 		}
 	}()
-	if err := tree.Serialize(w); err != nil {
+	if _, err := w.Write(b.Bytes()); err != nil {
 		return err
 	}
-	return nil
+	// Cache datum hashtree locally
+	return a.datumCache.Put(datumIdx, bytes.NewReader(b.Bytes()))
 }
 
 // HashDatum computes and returns the hash of datum + pipeline, with a
@@ -949,6 +980,15 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 	a.started = time.Time{}
 	a.cancel = nil
 	return &CancelResponse{Success: true}, nil
+}
+
+// CollectChunk returns the merged datum hashtrees of a particular chunk (if available)
+func (a *APIServer) CollectChunk(request *CollectChunkRequest, server Worker_CollectChunkServer) error {
+	filter := hashtree.NewFilter(a.numShards, request.Shard)
+	if request.Stats {
+		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
+	}
+	return a.chunkCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
 }
 
 func (a *APIServer) datum() []*pps.InputFile {
@@ -1071,7 +1111,10 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 							DatumID: processResult.failedDatumID,
 						})
 					}
-					return chunks.Put(fmt.Sprint(high), &ChunkState{State: State_COMPLETE})
+					return chunks.Put(fmt.Sprint(high), &ChunkState{
+						State:   State_COMPLETE,
+						Address: os.Getenv(client.PPSWorkerIPEnv),
+					})
 				}); err != nil {
 					return err
 				}
@@ -1098,7 +1141,6 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 		return err
 	}
 	// collect hashtrees from chunks as they complete
-	var trees, statsTrees []*hashtree.Reader
 	low := int64(0)
 	chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 	var failed bool
@@ -1121,35 +1163,13 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 				failed = true
 				fallthrough
 			case State_COMPLETE:
-				// compute tags from completed chunk
-				var tags []*pfs.Tag
-				for i := low; i < high; i++ {
-					files := df.Datum(int(i))
-					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
-					// skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
-					if _, ok := skip[datumHash]; ok && useParentHashTree {
-						continue
-					}
-					tags = append(tags, client.NewTag(datumHash))
-				}
-				if !failed {
-					ts, err := a.getHashtrees(ctx, pachClient, objClient, tags, hashtree.NewFilter(plan.Merges, a.shard))
-					if err != nil {
+				if err := a.collectChunk(ctx, high, chunkState.Address, failed); err != nil {
+					logger.Logf("error downloading chunk %v from worker at %v (%v), falling back on object storage", high, chunkState.Address, err)
+					tags := a.computeTags(df, low, high, skip, useParentHashTree)
+					// Download datum hashtrees from object storage if we run into an error getting them from the worker
+					if err := a.collectChunkFromObjectStorage(ctx, pachClient, objClient, tags, high, failed); err != nil {
 						return err
 					}
-					trees = append(trees, ts...)
-				}
-				// download stats datum hashtrees if applicable
-				if a.pipelineInfo.EnableStats {
-					var statsTags []*pfs.Tag
-					for _, tag := range tags {
-						statsTags = append(statsTags, client.NewTag(tag.Name+statsTagSuffix))
-					}
-					ts, err := a.getHashtrees(ctx, pachClient, objClient, statsTags, hashtree.NewFilter(plan.Merges, a.shard))
-					if err != nil {
-						return err
-					}
-					statsTrees = append(statsTrees, ts...)
 				}
 				return errutil.ErrBreak
 			}
@@ -1160,6 +1180,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 		low = high
 	}
 	// get parent hashtree reader if it is being used
+	var parentHashtree, parentStatsHashtree io.Reader
 	if useParentHashTree {
 		r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.OutputCommit, a.shard)
 		if err != nil {
@@ -1170,7 +1191,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 				retErr = err
 			}
 		}()
-		trees = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, trees...)
+		parentHashtree = bufio.NewReaderSize(r, parentTreeBufSize)
 		// get parent stats hashtree reader if it is being used
 		if a.pipelineInfo.EnableStats {
 			r, err := a.getParentHashTree(ctx, pachClient, objClient, jobInfo.StatsCommit, a.shard)
@@ -1182,14 +1203,14 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 					retErr = err
 				}
 			}()
-			statsTrees = append([]*hashtree.Reader{hashtree.NewReader(bufio.NewReaderSize(r, parentTreeBufSize), nil)}, statsTrees...)
+			parentStatsHashtree = bufio.NewReaderSize(r, parentTreeBufSize)
 		}
 	}
 	// always merge stats trees if enabled
 	var statsTree *pfs.Object
 	var statsSize uint64
 	if a.pipelineInfo.EnableStats {
-		statsTree, statsSize, err = a.merge(pachClient, objClient, nil, statsTrees)
+		statsTree, statsSize, err = a.merge(pachClient, objClient, true, parentStatsHashtree)
 		if err != nil {
 			return err
 		}
@@ -1201,7 +1222,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 	case <-ctx.Done():
 	default:
 		if !failed {
-			tree, size, err = a.merge(pachClient, objClient, nil, trees)
+			tree, size, err = a.merge(pachClient, objClient, false, parentHashtree)
 			if err != nil {
 				return err
 			}
@@ -1215,21 +1236,124 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 	return err
 }
 
-func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, rs []*hashtree.Reader) (*pfs.Object, uint64, error) {
+func (a *APIServer) collectChunk(ctx context.Context, id int64, address string, failed bool) error {
+	if _, ok := a.clients[address]; !ok {
+		client, err := NewClient(address)
+		if err != nil {
+			return err
+		}
+		a.clients[address] = client
+	}
+	client := a.clients[address]
+	// Collect chunk hashtree and store in chunk cache if the chunk succeeded
+	if !failed {
+		c, err := client.CollectChunk(ctx, &CollectChunkRequest{
+			Id:    id,
+			Shard: a.shard,
+		})
+		if err != nil {
+			return err
+		}
+		buf := &bytes.Buffer{}
+		if err := grpcutil.WriteFromStreamingBytesClient(c, buf); err != nil {
+			return err
+		}
+		if err := a.chunkCache.Put(id, buf); err != nil {
+			return err
+		}
+	}
+	// Collect chunk stats hashtree and store in chunk stats cache if applicable
+	if a.pipelineInfo.EnableStats {
+		c, err := client.CollectChunk(ctx, &CollectChunkRequest{
+			Id:    id,
+			Shard: a.shard,
+			Stats: true,
+		})
+		if err != nil {
+			return err
+		}
+		buf := &bytes.Buffer{}
+		if err := grpcutil.WriteFromStreamingBytesClient(c, buf); err != nil {
+			return err
+		}
+		if err := a.chunkStatsCache.Put(id, buf); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
+	var tags []*pfs.Tag
+	for i := low; i < high; i++ {
+		files := df.Datum(int(i))
+		datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
+		if _, ok := skip[datumHash]; ok && useParentHashTree {
+			continue
+		}
+		tags = append(tags, client.NewTag(datumHash))
+	}
+	return tags
+}
+
+func (a *APIServer) collectChunkFromObjectStorage(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, id int64, failed bool) error {
+	// Download, merge, and cache datum hashtrees for a chunk if it succeeded
+	if !failed {
+		ts, err := a.getHashtrees(ctx, pachClient, objClient, tags, hashtree.NewFilter(a.numShards, a.shard))
+		if err != nil {
+			return err
+		}
+		buf := &bytes.Buffer{}
+		if err := hashtree.Merge(hashtree.NewWriter(buf), ts); err != nil {
+			return err
+		}
+		if err := a.chunkCache.Put(id, buf); err != nil {
+			return err
+		}
+	}
+	// Download, merge, and cache datum stats hashtrees for a chunk if applicable
+	if a.pipelineInfo.EnableStats {
+		var statsTags []*pfs.Tag
+		for _, tag := range tags {
+			statsTags = append(statsTags, client.NewTag(tag.Name+statsTagSuffix))
+		}
+		ts, err := a.getHashtrees(ctx, pachClient, objClient, statsTags, hashtree.NewFilter(a.numShards, a.shard))
+		if err != nil {
+			return err
+		}
+		buf := &bytes.Buffer{}
+		if err := hashtree.Merge(hashtree.NewWriter(buf), ts); err != nil {
+			return err
+		}
+		if err := a.chunkStatsCache.Put(id, buf); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, stats bool, parent io.Reader) (*pfs.Object, uint64, error) {
 	var tree *pfs.Object
 	var size uint64
-	if err := func() error {
-		objW, err := pachClient.PutObjectAsync(tags)
+	if err := func() (retErr error) {
+		objW, err := pachClient.PutObjectAsync(nil)
 		if err != nil {
 			return err
 		}
 		w := hashtree.NewWriter(objW)
-		size, err = hashtree.Merge(w, rs)
+		filter := hashtree.NewFilter(a.numShards, a.shard)
+		if stats {
+			err = a.chunkStatsCache.Merge(w, parent, filter)
+		} else {
+			err = a.chunkCache.Merge(w, parent, filter)
+		}
+		size = w.Size()
 		if err != nil {
+			objW.Close()
 			return err
 		}
 		// Get object hash for hashtree
-		// (bryce) make this deferred
 		if err := objW.Close(); err != nil {
 			return err
 		}
@@ -1476,6 +1600,13 @@ func (a *APIServer) worker() {
 		defer watcher.Close()
 	NextJob:
 		for e := range watcher.Watch() {
+			// Clear chunk caches from previous job
+			if err := a.chunkCache.Clear(); err != nil {
+				logger.Logf("error clearing chunk cache: %v", err)
+			}
+			if err := a.chunkStatsCache.Clear(); err != nil {
+				logger.Logf("error clearing chunk stats cache: %v", err)
+			}
 			if e.Type == watch.EventError {
 				return fmt.Errorf("worker watch error: %v", e.Err)
 			} else if e.Type == watch.EventDelete {
@@ -1573,7 +1704,7 @@ func (a *APIServer) worker() {
 				return a.acquireDatums(
 					ctx, jobID, plan, logger,
 					func(low, high int64) (*processResult, error) {
-						processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip)
+						processResult, err := a.processDatums(pachClient, logger, jobInfo, df, low, high, skip, useParentHashTree)
 						if err != nil {
 							return nil, err
 						}
@@ -1599,11 +1730,6 @@ func (a *APIServer) worker() {
 }
 
 func (a *APIServer) claimShard(ctx context.Context) {
-	numShards, err := ppsutil.GetExpectedNumHashtrees(a.pipelineInfo.HashtreeSpec)
-	if err != nil {
-		log.Printf("error getting number of shards: %v", err)
-		return
-	}
 	shards := a.shards.ReadOnly(ctx)
 	watcher, err := shards.Watch()
 	if err != nil {
@@ -1614,7 +1740,7 @@ func (a *APIServer) claimShard(ctx context.Context) {
 	claimedShard := noShard
 CLAIMED_SHARD:
 	for {
-		for shard := int64(0); shard < numShards; shard++ {
+		for shard := int64(0); shard < a.numShards; shard++ {
 			var shardInfo ShardInfo
 			if err := shards.Get(fmt.Sprint(shard), &shardInfo); err != nil {
 				if !col.IsErrNotFound(err) {
@@ -1657,6 +1783,7 @@ CLAIMED_SHARD:
 			}
 		}
 	}
+	a.clients = make(map[string]Client)
 	a.claimedShard <- claimedShard
 	// renew lock on shard
 	for {
@@ -1682,7 +1809,15 @@ CLAIMED_SHARD:
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64, skip map[string]struct{}) (*processResult, error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
+	defer func() {
+		if err := a.datumCache.Clear(); err != nil && retErr == nil {
+			logger.Logf("error clearing datum cache: %v", err)
+		}
+		if err := a.datumStatsCache.Clear(); err != nil && retErr == nil {
+			logger.Logf("error clearing datum stats cache: %v", err)
+		}
+	}()
 	ctx := pachClient.Ctx()
 	objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
 	if err != nil {
@@ -1690,11 +1825,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	}
 	stats := &pps.ProcessStats{}
 	var statsMu sync.Mutex
-	result := &processResult{}
+	result = &processResult{}
 	var eg errgroup.Group
 	limiter := limit.New(int(a.pipelineInfo.MaxQueueSize))
 	for i := low; i < high; i++ {
-		i := i
+		datumIdx := i
 
 		limiter.Acquire()
 		atomic.AddInt64(&a.queueSize, 1)
@@ -1702,7 +1837,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			defer limiter.Release()
 			defer atomic.AddInt64(&a.queueSize, -1)
 
-			data := df.Datum(int(i))
+			data := df.Datum(int(datumIdx))
 			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err
@@ -1710,11 +1845,21 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
 			if _, ok := skip[tag]; ok {
+				if !useParentHashTree {
+					if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
+						return err
+					}
+				}
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
 			}
 			if _, err := pachClient.InspectTag(ctx, client.NewTag(tag)); err == nil {
+				if !useParentHashTree {
+					if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
+						return err
+					}
+				}
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
@@ -1730,7 +1875,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				// Write job id to stats tree
 				statsTree.PutFile(fmt.Sprintf("job:%s", jobInfo.Job.ID), nil, 0)
 				// Write index in datum factory to stats tree
-				object, size, err := pachClient.PutObject(strings.NewReader(fmt.Sprint(int(i))))
+				object, size, err := pachClient.PutObject(strings.NewReader(fmt.Sprint(int(datumIdx))))
 				if err != nil {
 					return err
 				}
@@ -1744,7 +1889,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				}
 				statsTree.PutFile("index", h, size, objectInfo.BlockRef)
 				defer func() {
-					if err := a.writeStats(pachClient, objClient, tag, subStats, logger, inputTree, outputTree, statsTree); err != nil && retErr == nil {
+					if err := a.writeStats(pachClient, objClient, tag, subStats, logger, inputTree, outputTree, statsTree, datumIdx); err != nil && retErr == nil {
 						retErr = err
 					}
 				}()
@@ -1829,7 +1974,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				}
 				atomic.AddUint64(&subStats.DownloadBytes, uint64(downSize))
 				a.reportDownloadSizeStats(float64(downSize), logger)
-				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree)
+				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
@@ -1891,10 +2036,47 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		return nil, err
 	}
 	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed
+	// Merge datum hashtrees into a chunk hashtree, then cache it.
+	buf := &bytes.Buffer{}
+	if result.datumsFailed <= 0 {
+		if err := a.datumCache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
+			return nil, err
+		}
+	}
+	if err := a.chunkCache.Put(high, buf); err != nil {
+		return nil, err
+	}
+	if a.pipelineInfo.EnableStats {
+		buf.Reset()
+		if err := a.datumStatsCache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
+			return nil, err
+		}
+		if err := a.chunkStatsCache.Put(high, buf); err != nil {
+			return nil, err
+		}
+	}
 	return result, nil
 }
 
-func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger *taggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered) error {
+func (a *APIServer) cacheHashtree(pachClient *client.APIClient, tag string, datumIdx int64) (retErr error) {
+	buf := &bytes.Buffer{}
+	if err := pachClient.GetTag(tag, buf); err != nil {
+		return err
+	}
+	if err := a.datumCache.Put(datumIdx, buf); err != nil {
+		return err
+	}
+	if a.pipelineInfo.EnableStats {
+		buf.Reset()
+		if err := pachClient.GetTag(tag+statsTagSuffix, buf); err != nil {
+			return err
+		}
+		return a.datumStatsCache.Put(datumIdx, buf)
+	}
+	return nil
+}
+
+func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger *taggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered, datumIdx int64) (retErr error) {
 	// Store stats and add stats file
 	marshaler := &jsonpb.Marshaler{}
 	statsString, err := marshaler.MarshalToString(stats)
@@ -1939,17 +2121,30 @@ func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Clien
 	outputTree.Serialize(outputBuf)
 	statsBuf := &bytes.Buffer{}
 	statsTree.Ordered().Serialize(statsBuf)
+	// Merge datum stats hashtree
+	buf := &bytes.Buffer{}
+	if err := hashtree.Merge(hashtree.NewWriter(buf), []*hashtree.Reader{
+		hashtree.NewReader(inputBuf, nil),
+		hashtree.NewReader(outputBuf, nil),
+		hashtree.NewReader(statsBuf, nil),
+	}); err != nil {
+		return err
+	}
+	// Write datum stats hashtree to object storage
 	objW, err := pachClient.PutObjectAsync([]*pfs.Tag{client.NewTag(tag + statsTagSuffix)})
 	if err != nil {
 		return err
 	}
-	defer objW.Close()
-	_, err = hashtree.Merge(hashtree.NewWriter(objW), []*hashtree.Reader{
-		hashtree.NewReader(inputBuf, nil),
-		hashtree.NewReader(outputBuf, nil),
-		hashtree.NewReader(statsBuf, nil),
-	})
-	return err
+	defer func() {
+		if err := objW.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if _, err := objW.Write(buf.Bytes()); err != nil {
+		return err
+	}
+	// Cache datum stats hashtree locally
+	return a.datumStatsCache.Put(datumIdx, bytes.NewReader(buf.Bytes()))
 }
 
 // mergeStats merges y into x
