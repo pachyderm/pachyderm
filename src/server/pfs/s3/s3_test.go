@@ -5,16 +5,14 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
-
-var nextPort uint32 = 40000
 
 func serve(t *testing.T) (*http.Server, uint16) {
 	pc := server.GetPachClient(t)
@@ -22,7 +20,7 @@ func serve(t *testing.T) (*http.Server, uint16) {
 	_, err := pc.PutFile("repo", "master", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	port := uint16(atomic.AddUint32(&nextPort, 1))
+	port := tu.UniquePort()
 	srv := Server(pc, port)
 
 	go func() {
