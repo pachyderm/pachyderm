@@ -14,32 +14,6 @@ import (
 const locationResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
 
-// type S3Server struct {
-// 	server *http.Server
-// }
-
-// func NewS3Server() *S3Server {
-// 	return *S3Server{
-// 		server: *http.Server{
-// 			Addr: ,
-// 			Handler: 
-// 		}
-// 	}
-// }
-
-// func (s *S3Server) Listen() error {
-// 	if err := s.server.ListenAndServe(); err == http.ErrServerClosed {
-// 		return nil
-// 	} else {
-// 		return err
-// 	}
-// }
-
-// func (s *S3Server) Close() error {
-// 	ctx := context.WithTimeout(context.Background(), shutdownTimeoutSecs * time.Second)
-// 	return s.server.Shutdown(ctx)
-// }
-
 type handler struct {
 	pc *client.APIClient
 }
