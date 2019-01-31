@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/gogo/protobuf/types"
@@ -10,36 +11,50 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
-// const shutdownTimeoutSecs = 10
 const locationResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
+
+var (
+	pathMatcher = regexp.MustCompile("^/(([A-Za-z0-9_-]+)\\.)?([A-Za-z0-9_-]+)/(.*)$")
+)
 
 type handler struct {
 	pc *client.APIClient
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	parts := strings.SplitN(r.URL.Path, "/", 3)
-	if err := r.ParseForm(); err != nil {
-		http.Error(w, fmt.Sprintf("%v", err), 400)
-		return
-	}
-
-	if len(parts) < 3 {
+	match := pathMatcher.FindStringSubmatch(r.URL.Path)
+	if len(match) == 0 {
 		http.Error(w, "Invalid path", 404)
 		return
 	}
 
-	repo, file := parts[1], parts[2]
+	branch := match[2]
+	if branch == "" {
+		branch = "master"
+	}
+	repo := match[3]
+	file := match[4]
+
+	_, err := h.pc.InspectBranch(repo, branch)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("%v", err), 500)
+		return
+	}
 
 	if file == "" {
 		h.serveRoot(w, r, repo)
 	} else {
-		h.serveFile(w, r, repo, file)
+		h.serveFile(w, r, repo, branch, file)
 	}
 }
 
 func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, fmt.Sprintf("%v", err), 400)
+		return
+	}
+	
 	if _, ok := r.Form["location"]; ok {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Write([]byte(locationResponse))
@@ -48,8 +63,8 @@ func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) 
 	}
 }
 
-func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, name string) {
-	fileInfo, err := h.pc.InspectFile(repo, "master", name)
+func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
+	fileInfo, err := h.pc.InspectFile(repo, branch, file)
 	if err != nil {
 		code := 500
 
@@ -67,7 +82,7 @@ func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, name st
 		return
 	}
 
-	reader, err := h.pc.GetFileReadSeeker(repo, "master", name)
+	reader, err := h.pc.GetFileReadSeeker(repo, branch, file)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("%v", err), 500)
 		return
