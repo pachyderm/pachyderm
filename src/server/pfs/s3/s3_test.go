@@ -28,7 +28,7 @@ func serve(t *testing.T, pc *client.APIClient, repo, branch string) (*http.Serve
 	// Wait for the server to start
 	c := &http.Client{}
 	for i := 0; i < 50; i++ {
-		res, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/%s.%s/", port, branch, repo))
+		res, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/%s/%s/", port, repo, branch))
 		if err == nil && res.StatusCode == 200 {
 			return srv, port
 		}
@@ -39,8 +39,8 @@ func serve(t *testing.T, pc *client.APIClient, repo, branch string) (*http.Serve
 	return nil, 0
 }
 
-func getObject(c *minio.Client, repo, file string) (string, error) {
-	obj, err := c.GetObject(repo, file)
+func getObject(c *minio.Client, repo, branch, file string) (string, error) {
+	obj, err := c.GetObject(repo, fmt.Sprintf("%s/%s", branch, file))
 	if err != nil {
 		return "", err
 	}
@@ -56,7 +56,7 @@ func getObject(c *minio.Client, repo, file string) (string, error) {
 
 
 func TestGetFile(t *testing.T) {
-	repo := tu.UniqueString("TestGetFile")
+	repo := tu.UniqueString("testgetfile") // repo name is lowercase to pass s3 bucket name constraints
 	pc := server.GetPachClient(t)
 	require.NoError(t, pc.CreateRepo(repo))
 	_, err := pc.PutFile(repo, "master", "file", strings.NewReader("content"))
@@ -66,7 +66,7 @@ func TestGetFile(t *testing.T) {
 	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(c, repo, "file")
+	fetchedContent, err := getObject(c, repo, "master", "file")
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 
@@ -74,7 +74,7 @@ func TestGetFile(t *testing.T) {
 }
 
 func TestGetFileInBranch(t *testing.T) {
-	repo := tu.UniqueString("TestGetFileInBranch")
+	repo := tu.UniqueString("testgetfileinbranch") // repo name is lowercase to pass s3 bucket name constraints
 	pc := server.GetPachClient(t)
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
@@ -85,7 +85,7 @@ func TestGetFileInBranch(t *testing.T) {
 	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(c, fmt.Sprintf("branch.%s", repo), "file")
+	fetchedContent, err := getObject(c, repo, "branch", "file")
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 

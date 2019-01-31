@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"regexp"
 	"strings"
 
 	"github.com/gogo/protobuf/types"
@@ -14,42 +13,25 @@ import (
 const locationResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
 
-var (
-	pathMatcher = regexp.MustCompile("^/(([A-Za-z0-9_-]+)\\.)?([A-Za-z0-9_-]+)/(.*)$")
-)
-
 type handler struct {
 	pc *client.APIClient
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	match := pathMatcher.FindStringSubmatch(r.URL.Path)
-	if len(match) == 0 {
-		http.Error(w, "Invalid path", 404)
-		return
-	}
+	parts := strings.SplitN(r.URL.Path, "/", 4)
 
-	branch := match[2]
-	if branch == "" {
-		branch = "master"
-	}
-	repo := match[3]
-	file := match[4]
-
-	_, err := h.pc.InspectBranch(repo, branch)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("%v", err), 500)
-		return
-	}
-
-	if file == "" {
-		h.serveRoot(w, r, repo)
-	} else {
+	if len(parts) == 3 && parts[2] == "" {
+		// TODO: validate repo exists
+		h.serveRoot(w, r)
+	} else if len(parts) == 4 {
+		repo := parts[1]
+		branch := parts[2]
+		file := parts[3]
 		h.serveFile(w, r, repo, branch, file)
 	}
 }
 
-func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) {
+func (h handler) serveRoot(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, fmt.Sprintf("%v", err), 400)
 		return
@@ -91,7 +73,19 @@ func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, branch,
 	http.ServeContent(w, r, "", timestamp, reader)
 }
 
-// Server runs an HTTP server with an S3-like API for PFS
+// Server runs an HTTP server with an S3-like API for PFS. This allows you to
+// use s3 clients to acccess PFS contents.
+// 
+// Bucket names correspond to repo names, and files are accessible via the s3
+// key pattern "<branch>/<filepath>". For example, to get the file "a/b/c.txt"
+// on the "foo" repo's "master" branch, you'd making an s3 get request with
+// bucket = "foo", key = "master/a/b/c.txt".
+//
+// Note: in s3, bucket names are constrained by IETF RFC 1123, (and its
+// predecessor RFC 952) but pachyderm's repo naming constraints are slightly
+// more liberal. If the s3 client does any kind of bucket name validation
+// (this includes minio), repos whose names do not comply with RFC 1123 will
+// not be accessible.
 func Server(pc *client.APIClient, port uint16) *http.Server {
 	return &http.Server {
 		Addr: fmt.Sprintf(":%d", port),
