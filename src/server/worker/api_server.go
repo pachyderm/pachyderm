@@ -1855,10 +1855,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				return nil
 			}
 			if _, err := pachClient.InspectTag(ctx, client.NewTag(tag)); err == nil {
-				if !useParentHashTree {
-					if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
-						return err
-					}
+				if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
+					return err
 				}
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
