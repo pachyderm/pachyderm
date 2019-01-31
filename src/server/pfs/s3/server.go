@@ -20,20 +20,35 @@ type handler struct {
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	parts := strings.SplitN(r.URL.Path, "/", 4)
 
-	if len(parts) == 3 && parts[2] == "" {
-		// TODO: validate repo exists
-		h.serveRoot(w, r)
+	if len(parts) == 2 && parts[1] == "_ping" {
+		// matches `/_ping`
+		w.Write([]byte("OK"))
+	} else if len(parts) == 3 && parts[2] == "" {
+		// matches `/repo/`
+		h.serveRoot(w, r, parts[1])
 	} else if len(parts) == 4 {
+		// matches /repo/branch/path/to/file.txt
 		repo := parts[1]
 		branch := parts[2]
 		file := parts[3]
 		h.serveFile(w, r, repo, branch, file)
+	} else {
+		http.Error(w, "not found", 404)
 	}
 }
 
-func (h handler) serveRoot(w http.ResponseWriter, r *http.Request) {
+func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, fmt.Sprintf("%v", err), 400)
+		return
+	}
+
+	if _, err := h.pc.InspectRepo(repo); err != nil {
+		code := 500
+		if strings.Contains(err.Error(), "not found") {
+			code = 404
+		}
+		http.Error(w, fmt.Sprintf("%v", err), code)
 		return
 	}
 	
@@ -49,11 +64,10 @@ func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, branch,
 	fileInfo, err := h.pc.InspectFile(repo, branch, file)
 	if err != nil {
 		code := 500
-
-		if strings.Contains(err.Error(), "not found in repo") {
+		if strings.Contains(err.Error(), "not found") {
+			// captures both missing branches and missing files
 			code = 404
 		}
-
 		http.Error(w, fmt.Sprintf("%v", err), code)
 		return
 	}

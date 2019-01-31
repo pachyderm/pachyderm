@@ -1,5 +1,10 @@
 package main
 
+// Tests for the PFS' S3 emulation API. Note that, in calls to
+// `tu.UniqueString`, all lowercase characters are used, unlike in other
+// tests. This is in order to generate repo names that are also valid bucket
+// names. Otherwise minio complains that the bucket name is not valid.
+
 import (
 	"fmt"
 	"io/ioutil"
@@ -15,7 +20,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
-func serve(t *testing.T, pc *client.APIClient, repo, branch string) (*http.Server, uint16) {
+func serve(t *testing.T, pc *client.APIClient) (*http.Server, uint16) {
 	port := tu.UniquePort()
 	srv := Server(pc, port)
 
@@ -28,7 +33,7 @@ func serve(t *testing.T, pc *client.APIClient, repo, branch string) (*http.Serve
 	// Wait for the server to start
 	c := &http.Client{}
 	for i := 0; i < 50; i++ {
-		res, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/%s/%s/", port, repo, branch))
+		res, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/_ping", port))
 		if err == nil && res.StatusCode == 200 {
 			return srv, port
 		}
@@ -56,13 +61,13 @@ func getObject(c *minio.Client, repo, branch, file string) (string, error) {
 
 
 func TestGetFile(t *testing.T) {
-	repo := tu.UniqueString("testgetfile") // repo name is lowercase to pass s3 bucket name constraints
+	repo := tu.UniqueString("testgetfile")
 	pc := server.GetPachClient(t)
 	require.NoError(t, pc.CreateRepo(repo))
 	_, err := pc.PutFile(repo, "master", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	srv, port := serve(t, pc, repo, "master")
+	srv, port := serve(t, pc)
 	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
 	require.NoError(t, err)
 
@@ -74,14 +79,14 @@ func TestGetFile(t *testing.T) {
 }
 
 func TestGetFileInBranch(t *testing.T) {
-	repo := tu.UniqueString("testgetfileinbranch") // repo name is lowercase to pass s3 bucket name constraints
+	repo := tu.UniqueString("testgetfileinbranch")
 	pc := server.GetPachClient(t)
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 	_, err := pc.PutFile(repo, "branch", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	srv, port := serve(t, pc, repo, "branch")
+	srv, port := serve(t, pc)
 	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
 	require.NoError(t, err)
 
@@ -89,5 +94,34 @@ func TestGetFileInBranch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 
+	require.NoError(t, srv.Close())
+}
+
+func TestNonExistingBranch(t *testing.T) {
+	repo := tu.UniqueString("testnonexistingbranch")
+	pc := server.GetPachClient(t)
+	require.NoError(t, pc.CreateRepo(repo))
+
+	srv, port := serve(t, pc)
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	_, err = getObject(c, repo, "branch", "file")
+	require.YesError(t, err)
+	require.Equal(t, err.Error(), "The specified key does not exist.")
+	require.NoError(t, srv.Close())
+}
+
+func TestNonExistingRepo(t *testing.T) {
+	repo := tu.UniqueString("testnonexistingrepo")
+	pc := server.GetPachClient(t)
+
+	srv, port := serve(t, pc)
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	_, err = getObject(c, repo, "master", "file")
+	require.YesError(t, err)
+	require.Equal(t, err.Error(), "The specified bucket does not exist.")
 	require.NoError(t, srv.Close())
 }
