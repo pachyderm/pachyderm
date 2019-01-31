@@ -3,8 +3,9 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
-	"hash/fnv"
 	"io"
 	"math/rand"
 	"os"
@@ -83,12 +84,12 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	r := rand.New(rand.NewSource(45))
 	fileHashes := make([]string, 0, nCommits)
 	for i := 0; i < nCommits; i++ {
-		hash := fnv.New64a()
+		hash := md5.New()
 		fileContent := workload.RandString(r, 40*MB)
 		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
 			io.TeeReader(strings.NewReader(fileContent), hash))
 		require.NoError(t, err)
-		fileHashes = append(fileHashes, string(hash.Sum(nil)))
+		fileHashes = append(fileHashes, hex.EncodeToString(hash.Sum(nil)))
 	}
 
 	// Create test pipelines
@@ -168,12 +169,12 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.NoError(t, backoff.Retry(func() error {
 		restoredFileHashes = make([]string, 0, nCommits)
 		for i := 0; i < nCommits; i++ {
-			hash := fnv.New64a()
+			hash := md5.New()
 			err := c.GetFile(dataRepo, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
 			if err != nil {
 				return err
 			}
-			restoredFileHashes = append(restoredFileHashes, string(hash.Sum(nil)))
+			restoredFileHashes = append(restoredFileHashes, hex.EncodeToString(hash.Sum(nil)))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -184,12 +185,12 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.NoError(t, backoff.Retry(func() error {
 		restoredFileHashes = make([]string, 0, nCommits)
 		for i := 0; i < nCommits; i++ {
-			hash := fnv.New64a()
+			hash := md5.New()
 			err := c.GetFile(pipeline, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
 			if err != nil {
 				return err
 			}
-			restoredFileHashes = append(restoredFileHashes, string(hash.Sum(nil)))
+			restoredFileHashes = append(restoredFileHashes, hex.EncodeToString(hash.Sum(nil)))
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
