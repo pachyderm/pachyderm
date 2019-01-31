@@ -351,16 +351,17 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		numShards = 1
 	}
 	server.numShards = numShards
-	if err := os.MkdirAll(filepath.Join(hashtreeStorage, "chunk", "stats"), 0777); err != nil {
+	root := filepath.Join(hashtreeStorage, uuid.NewWithoutDashes())
+	if err := os.MkdirAll(filepath.Join(root, "chunk", "stats"), 0777); err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Join(hashtreeStorage, "datum", "stats"), 0777); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, "datum", "stats"), 0777); err != nil {
 		return nil, err
 	}
-	server.chunkCache = hashtree.NewMergeCache(filepath.Join(hashtreeStorage, "chunk"))
-	server.chunkStatsCache = hashtree.NewMergeCache(filepath.Join(hashtreeStorage, "chunk", "stats"))
-	server.datumCache = hashtree.NewMergeCache(filepath.Join(hashtreeStorage, "datum"))
-	server.datumStatsCache = hashtree.NewMergeCache(filepath.Join(hashtreeStorage, "datum", "stats"))
+	server.chunkCache = hashtree.NewMergeCache(filepath.Join(root, "chunk"))
+	server.chunkStatsCache = hashtree.NewMergeCache(filepath.Join(root, "chunk", "stats"))
+	server.datumCache = hashtree.NewMergeCache(filepath.Join(root, "datum"))
+	server.datumStatsCache = hashtree.NewMergeCache(filepath.Join(root, "datum", "stats"))
 	var noDocker bool
 	if _, err := os.Stat("/var/run/docker.sock"); err != nil {
 		noDocker = true
