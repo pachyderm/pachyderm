@@ -13,6 +13,22 @@ import (
 const locationResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
 
+func writeOK(w http.ResponseWriter) {
+	w.Write([]byte("OK"))
+}
+
+func writeMethodNotAllowed(w http.ResponseWriter) {
+	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+}
+
+func writeNotFound(w http.ResponseWriter) {
+	http.Error(w, "not found", http.StatusNotFound)
+}
+
+func writeServerError(w http.ResponseWriter, err error) {
+	http.Error(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
+}
+
 type handler struct {
 	pc *client.APIClient
 }
@@ -22,33 +38,45 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if len(parts) == 2 && parts[1] == "_ping" {
 		// matches `/_ping`
-		w.Write([]byte("OK"))
+		if r.Method == http.MethodGet {
+			writeOK(w)
+		} else {
+			writeMethodNotAllowed(w)
+		}
 	} else if len(parts) == 3 && parts[2] == "" {
 		// matches `/repo/`
-		h.serveRoot(w, r, parts[1])
+		if r.Method == http.MethodGet {
+			h.serveRoot(w, r, parts[1])
+		} else {
+			writeMethodNotAllowed(w)
+		}
 	} else if len(parts) == 4 {
 		// matches /repo/branch/path/to/file.txt
 		repo := parts[1]
 		branch := parts[2]
 		file := parts[3]
-		h.serveFile(w, r, repo, branch, file)
+		if r.Method == http.MethodGet {
+			h.serveFile(w, r, repo, branch, file)
+		} else {
+			writeMethodNotAllowed(w)
+		}
 	} else {
-		http.Error(w, "not found", 404)
+		writeNotFound(w)
 	}
 }
 
 func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, fmt.Sprintf("%v", err), 400)
+		http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 		return
 	}
 
 	if _, err := h.pc.InspectRepo(repo); err != nil {
-		code := 500
 		if strings.Contains(err.Error(), "not found") {
-			code = 404
+			writeNotFound(w)
+		} else {
+			writeServerError(w, err)
 		}
-		http.Error(w, fmt.Sprintf("%v", err), code)
 		return
 	}
 	
@@ -56,31 +84,30 @@ func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) 
 		w.Header().Set("Content-Type", "application/xml")
 		w.Write([]byte(locationResponse))
 	} else {
-		w.Write([]byte("OK"))
+		writeOK(w)
 	}
 }
 
 func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
 	fileInfo, err := h.pc.InspectFile(repo, branch, file)
 	if err != nil {
-		code := 500
 		if strings.Contains(err.Error(), "not found") {
-			// captures both missing branches and missing files
-			code = 404
+			writeNotFound(w)
+		} else {
+			writeServerError(w, err)
 		}
-		http.Error(w, fmt.Sprintf("%v", err), code)
 		return
 	}
 
 	timestamp, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("%v", err), 500)
+		writeServerError(w, err)
 		return
 	}
 
 	reader, err := h.pc.GetFileReadSeeker(repo, branch, file)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("%v", err), 500)
+		writeServerError(w, err)
 		return
 	}
 
