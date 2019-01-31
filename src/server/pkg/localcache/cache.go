@@ -85,11 +85,13 @@ func (c *Cache) Delete(key string) error {
 func (c *Cache) Clear() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	defer func() {
+		c.keys = make(map[string]struct{})
+	}()
 	for key := range c.keys {
 		if err := os.Remove(filepath.Join(c.root, key)); err != nil {
 			return err
 		}
 	}
-	c.keys = make(map[string]struct{})
 	return nil
 }
