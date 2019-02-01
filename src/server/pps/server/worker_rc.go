@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strconv"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -37,6 +38,7 @@ type workerOptions struct {
 	etcdPrefix       string              // the prefix in etcd to use
 	schedulingSpec   *pps.SchedulingSpec // the SchedulingSpec for the pipeline
 	podSpec          string
+	podPatch         string
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -195,8 +197,28 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		resourceRequirements.Limits = *options.resourceLimits
 	}
 	podSpec.Containers[0].Resources = resourceRequirements
-	if options.podSpec != "" {
-		if err := json.Unmarshal([]byte(options.podSpec), &podSpec); err != nil {
+	if options.podSpec != "" || options.podPatch != "" {
+		jsonPodSpec, err := json.Marshal(&podSpec)
+		if err != nil {
+			return v1.PodSpec{}, err
+		}
+		if options.podSpec != "" {
+			jsonPodSpec, err = jsonpatch.MergePatch(jsonPodSpec, []byte(options.podSpec))
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+		}
+		if options.podPatch != "" {
+			patch, err := jsonpatch.DecodePatch([]byte(options.podPatch))
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+			jsonPodSpec, err = patch.Apply(jsonPodSpec)
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+		}
+		if err := json.Unmarshal(jsonPodSpec, &podSpec); err != nil {
 			return v1.PodSpec{}, err
 		}
 	}
@@ -206,7 +228,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
 	transform *pps.Transform, cacheSize string, service *pps.Service,
-	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string) *workerOptions {
+	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string, podPatch string) *workerOptions {
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
@@ -262,8 +284,8 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		Value: specCommitID,
 	})
 	// Set the worker gRPC port
-	workerEnv = append(workerEnv, v1.EnvVar {
-		Name: client.PPSWorkerPortEnv,
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSWorkerPortEnv,
 		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
@@ -357,6 +379,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		service:          service,
 		schedulingSpec:   schedulingSpec,
 		podSpec:          podSpec,
+		podPatch:         podPatch,
 	}
 }
 
