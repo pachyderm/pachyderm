@@ -1,8 +1,13 @@
 package main
 
 import (
+	"crypto/md5"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
+	"reflect"
 	"strings"
 
 	"github.com/gogo/protobuf/types"
@@ -17,12 +22,24 @@ func writeOK(w http.ResponseWriter) {
 	w.Write([]byte("OK"))
 }
 
+func writeBadRequest(w http.ResponseWriter, err error) {
+	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
+}
+
 func writeMethodNotAllowed(w http.ResponseWriter) {
 	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 }
 
 func writeNotFound(w http.ResponseWriter) {
 	http.Error(w, "not found", http.StatusNotFound)
+}
+
+func writeMaybeNotFound(w http.ResponseWriter, err error) {
+	if strings.Contains(err.Error(), "not found") {
+		writeNotFound(w)
+	} else {
+		writeServerError(w, err)
+	}
 }
 
 func writeServerError(w http.ResponseWriter, err error) {
@@ -57,6 +74,8 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		file := parts[3]
 		if r.Method == http.MethodGet {
 			h.serveFile(w, r, repo, branch, file)
+		} else if r.Method == http.MethodPut {
+			h.putFile(w, r, repo, branch, file)
 		} else {
 			writeMethodNotAllowed(w)
 		}
@@ -67,16 +86,12 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
+		writeBadRequest(w, err)
 		return
 	}
 
 	if _, err := h.pc.InspectRepo(repo); err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeNotFound(w)
-		} else {
-			writeServerError(w, err)
-		}
+		writeMaybeNotFound(w, err)
 		return
 	}
 	
@@ -91,11 +106,7 @@ func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) 
 func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
 	fileInfo, err := h.pc.InspectFile(repo, branch, file)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
-			writeNotFound(w)
-		} else {
-			writeServerError(w, err)
-		}
+		writeMaybeNotFound(w, err)
 		return
 	}
 
@@ -112,6 +123,67 @@ func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, branch,
 	}
 
 	http.ServeContent(w, r, "", timestamp, reader)
+}
+
+func (h handler) putFile(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
+	expectedHash := r.Header.Get("Content-MD5")
+
+	if expectedHash != "" {
+		expectedHashBytes, err := hex.DecodeString(expectedHash)
+
+		if err != nil {
+			expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
+
+			if err != nil {
+				writeBadRequest(w, fmt.Errorf("could not decode `Content-MD5`, as it is not hex or base64"))
+			} else {
+				h.putFileVerifying(w, r, repo, branch, file, expectedHashBytes)
+			}
+		} else {
+			h.putFileVerifying(w, r, repo, branch, file, expectedHashBytes)
+		}
+	} else {
+		h.putFileUnverified(w, r, repo, branch, file)
+	}
+}
+
+func (h handler) putFileVerifying(w http.ResponseWriter, r *http.Request, repo, branch, file string, expectedHash []byte) {
+	hasher := md5.New()
+	reader := io.TeeReader(r.Body, hasher)
+
+	_, err := h.pc.PutFileOverwrite(repo, branch, file, reader, 0)
+	if err != nil {
+		// the error may be because the repo or branch does not exist -
+		// double-check that by inspecting the branch, so we can serve a 404
+		// instead
+		_, inspectError := h.pc.InspectBranch(repo, branch)
+		writeMaybeNotFound(w, inspectError)
+		return
+	}
+
+	actualHash := hasher.Sum(nil)
+
+	if !reflect.DeepEqual(expectedHash, actualHash) {
+		err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
+		writeServerError(w, err)
+		return
+	}
+
+	writeOK(w)
+}
+
+func (h handler) putFileUnverified(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
+	_, err := h.pc.PutFileOverwrite(repo, branch, file, r.Body, 0)
+	if err != nil {
+		// the error may be because the repo or branch does not exist -
+		// double-check that by inspecting the branch, so we can serve a 404
+		// instead
+		_, inspectError := h.pc.InspectBranch(repo, branch)
+		writeMaybeNotFound(w, inspectError)
+		return
+	}
+
+	writeOK(w)
 }
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
