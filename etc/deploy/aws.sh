@@ -52,6 +52,11 @@ parse_flags() {
             shift
             break
             ;;
+          *)
+            echo "Unrecognized argument: \"${1}\""
+            echo "Must be one of --state, --zone, --no-metrics, --use-cloudfront, --no-pachyderm"
+            exit 1
+            ;;
       esac
   done
 
