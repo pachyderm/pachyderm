@@ -1538,12 +1538,11 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 			return err
 		}
 	}
-	msg := &json.RawMessage{}
-	if err := msg.UnmarshalJSON([]byte(pipelineInfo.PodSpec)); err != nil {
-		return err
+	if pipelineInfo.PodSpec != "" && !json.Valid([]byte(pipelineInfo.PodSpec)) {
+		return fmt.Errorf("malformed PodSpec")
 	}
-	if err := msg.UnmarshalJSON([]byte(pipelineInfo.PodPatch)); err != nil {
-		return err
+	if pipelineInfo.PodPatch != "" && !json.Valid([]byte(pipelineInfo.PodPatch)) {
+		return fmt.Errorf("malformed PodPatch")
 	}
 	return nil
 }
