@@ -1,4 +1,4 @@
-package main
+package s3
 
 // Tests for the PFS' S3 emulation API. Note that, in calls to
 // `tu.UniqueString`, all lowercase characters are used, unlike in other
@@ -11,12 +11,12 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
@@ -31,17 +31,17 @@ func serve(t *testing.T, pc *client.APIClient) (*http.Server, uint16) {
 	}()
 
 	// Wait for the server to start
-	c := &http.Client{}
-	for i := 0; i < 50; i++ {
+	require.NoError(t, backoff.Retry(func() error {
+		c := &http.Client{}
 		res, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/_ping", port))
-		if err == nil && res.StatusCode == 200 {
-			return srv, port
+		if err != nil {
+			return err
+		} else if res.StatusCode != 200 {
+			return fmt.Errorf("Unexpected status code: %d", res.StatusCode)
 		}
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	t.Fatalf("server failed to start after a few seconds")
-	return nil, 0
+		return nil
+	}, backoff.NewTestingBackOff()))
+	return srv, port
 }
 
 func getObject(c *minio.Client, repo, branch, file string) (string, error) {
@@ -49,14 +49,12 @@ func getObject(c *minio.Client, repo, branch, file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer func() { err = obj.Close() }()
 	bytes, err := ioutil.ReadAll(obj)
 	if err != nil {
 		return "", err
 	}
-	if err = obj.Close(); err != nil {
-		return "", err
-	}
-	return string(bytes), nil
+	return string(bytes), err
 }
 
 
