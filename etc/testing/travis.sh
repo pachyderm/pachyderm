@@ -75,9 +75,50 @@ elif [[ "$BUCKET" == "EXAMPLES" ]]; then
         pachctl --no-port-forwarding create-pipeline -f montage.json
         pachctl --no-port-forwarding put-file images master -i images.txt
         pachctl --no-port-forwarding put-file images master -i images2.txt
+
+        # wait for everything to finish
         commit_id=`pachctl --no-port-forwarding list-commit images -n 1 --raw | jq .commit.id -r`
         pachctl --no-port-forwarding flush-job images/$commit_id
+
+        # ensure the montage image was generated
         pachctl --no-port-forwarding inspect-file montage master montage.png
+    popd
+
+    
+    pushd examples/shuffle
+        pachctl --no-port-forwarding create-repo fruits
+        pachctl --no-port-forwarding create-repo pricing
+        pachctl --no-port-forwarding create-pipeline -f shuffle.json
+        pachctl --no-port-forwarding put-file fruits master -f mango.jpeg
+        pachctl --no-port-forwarding put-file fruits master -f apple.jpeg
+        pachctl --no-port-forwarding put-file pricing master -f mango.json
+        pachctl --no-port-forwarding put-file pricing master -f apple.json
+
+        # wait for everything to finish
+        commit_id=`pachctl --no-port-forwarding list-commit fruits -n 1 --raw | jq .commit.id -r`
+        pachctl --no-port-forwarding flush-job fruits/$commit_id
+        pachctl --no-port-forwarding flush-commit fruits/$commit_id
+
+        # check downloaded and uploaded bytes
+        downloaded_bytes=`pachctl --no-port-forwarding list-job -p shuffle --raw | jq '.stats.download_bytes | values'`
+        if [ "$downloaded_bytes" != "" ]; then
+            echo "Unexpected downloaded bytes in shuffle repo: $DOWNLOADED_BYTES"
+            exit 1
+        fi
+
+        uploaded_bytes=`pachctl --no-port-forwarding list-job -p shuffle --raw | jq '.stats.upload_bytes | values'`
+        if [ "$uploaded_bytes" != "" ]; then
+            echo "Unexpected downloaded bytes in shuffle repo: $uploaded_bytes"
+            exit 1
+        fi
+
+        # check that the files were made
+        files=`pachctl --no-port-forwarding list-file shuffle master "*" --raw | jq '.file.path' -r`
+        expected_files=`echo -e "/apple\n/apple/cost.json\n/apple/img.jpeg\n/mango\n/mango/cost.json\n/mango/img.jpeg"`
+        if [ "$files" != "$expected_files" ]; then
+            echo "Unexpected output files in shuffle repo: $files"
+            exit 1
+        fi
     popd
 elif [[ $PPS_SUITE -eq 0 ]]; then
     PART=`echo $BUCKET | grep -Po '\d+'`
