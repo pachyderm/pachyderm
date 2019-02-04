@@ -3,7 +3,6 @@ package s3
 import (
 	"crypto/md5"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -129,22 +128,17 @@ func (h handler) putFile(w http.ResponseWriter, r *http.Request, repo, branch, f
 	expectedHash := r.Header.Get("Content-MD5")
 
 	if expectedHash != "" {
-		expectedHashBytes, err := hex.DecodeString(expectedHash)
+		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
 
 		if err != nil {
-			expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
-
-			if err != nil {
-				writeBadRequest(w, fmt.Errorf("could not decode `Content-MD5`, as it is not hex or base64"))
-			} else {
-				h.putFileVerifying(w, r, repo, branch, file, expectedHashBytes)
-			}
-		} else {
-			h.putFileVerifying(w, r, repo, branch, file, expectedHashBytes)
+			writeBadRequest(w, fmt.Errorf("could not decode `Content-MD5`, as it is not hex or base64"))
 		}
-	} else {
-		h.putFileUnverified(w, r, repo, branch, file)
+
+		h.putFileVerifying(w, r, repo, branch, file, expectedHashBytes)
+		return
 	}
+
+	h.putFileUnverified(w, r, repo, branch, file)
 }
 
 func (h handler) putFileVerifying(w http.ResponseWriter, r *http.Request, repo, branch, file string, expectedHash []byte) {
