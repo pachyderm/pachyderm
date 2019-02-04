@@ -484,6 +484,9 @@ test-vault:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
+test-s3:
+	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT)
+
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
@@ -712,6 +715,7 @@ goxc-build:
 	pretest \
 	test \
 	test-client \
+	test-s3 \
 	test-fuse \
 	test-local \
 	clean \

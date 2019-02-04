@@ -53,14 +53,14 @@ if [[ "$BUCKET" == "MISC" ]]; then
 
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
             test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth \
-            test-enterprise test-worker test-admin
+            test-enterprise test-worker test-admin test-s3
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
 
         # Do not run some tests when we don't have access to secret
         # credentials
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
-            test-pfs-cmds test-deploy-cmds test-libs test-admin
+            test-pfs-cmds test-deploy-cmds test-libs test-admin test-s3
     fi
 elif [[ $PPS_SUITE -eq 0 ]]; then
     PART=`echo $BUCKET | grep -Po '\d+'`
