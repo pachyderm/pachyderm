@@ -132,6 +132,7 @@ func (h handler) putFile(w http.ResponseWriter, r *http.Request, repo, branch, f
 
 		if err != nil {
 			writeBadRequest(w, fmt.Errorf("could not decode `Content-MD5`, as it is not hex or base64"))
+			return
 		}
 
 		h.putFileVerifying(w, r, repo, branch, file, expectedHashBytes)
