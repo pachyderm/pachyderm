@@ -1,4 +1,4 @@
-package main
+package s3
 
 // Tests for the PFS' S3 emulation API. Note that, in calls to
 // `tu.UniqueString`, all lowercase characters are used, unlike in other
