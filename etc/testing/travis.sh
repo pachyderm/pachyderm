@@ -46,6 +46,7 @@ for i in $(seq 3); do
 done
 
 go install ./src/testing/match
+sudo apt-get install jq
 
 if [[ "$BUCKET" == "MISC" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
@@ -65,8 +66,14 @@ if [[ "$BUCKET" == "MISC" ]]; then
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
 
+    # Some examples were designed for older versions of pachyderm and are not used here
+    # `run` not included until this is fixed: https://github.com/pachyderm/pachyderm/issues/3428
+
     pushd examples/opencv
         make opencv
+        commit_id=`pachctl list-commit images -n 1 --raw | jq .commit.id -r`
+        pachctl flush-job images/$commit_id
+        pachctl inspect-file montage master montage.png
     popd
 elif [[ $PPS_SUITE -eq 0 ]]; then
     PART=`echo $BUCKET | grep -Po '\d+'`
@@ -112,7 +119,7 @@ make local-test
 echo "Running aws tests"
 
 sudo pip install awscli
-sudo apt-get install realpath uuid jq
+sudo apt-get install realpath uuid
 wget --quiet https://github.com/kubernetes/kops/releases/download/1.7.10/kops-linux-amd64
 chmod +x kops-linux-amd64
 sudo mv kops-linux-amd64 /usr/local/bin/kops
