@@ -101,10 +101,10 @@ It will take a moment for a new pod to get scheduled.
 
 #### Symptom
 
-You may be using the environment variable `ADDRESS` to specify how `pachctl` talks to your Pachyderm cluster, or you may be forwarding the pachyderm port.  In any event, you might see something similar to:
+You may be using the environment variable `PACHD_ADDRESS` to specify how `pachctl` talks to your Pachyderm cluster, or you may be forwarding the pachyderm port.  In any event, you might see something similar to:
 
 ```
-$ echo $ADDRESS
+$ echo $PACHD_ADDRESS
 1.2.3.4:30650
 $ pachctl version
 COMPONENT           VERSION                                          
@@ -153,7 +153,7 @@ Any `pachctl put-file` or `pachctl get-file` commands are slow.
 
 #### Recourse
 
-If you do not explicitly set the `ADDRESS` environment variable, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using the `ADDRESS` variable instead to connect directly to your k8s master node. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
+If you do not explicitly set the `PACHD_ADDRESS` environment variable, `pachctl` will default to using port forwarding, which throttles traffic to ~1MB/s. If you need to do large downloads/uploads you should consider using the `PACHD_ADDRESS` variable instead to connect directly to your k8s master node. You'll also want to make sure you've allowed ingress access through any firewalls to your k8s cluster.
 
 ---
 
