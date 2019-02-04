@@ -67,13 +67,17 @@ elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
 
     # Some examples were designed for older versions of pachyderm and are not used here
-    # `run` not included until this is fixed: https://github.com/pachyderm/pachyderm/issues/3428
+    # TODO(ys): add run example when this is fixed: https://github.com/pachyderm/pachyderm/issues/3428
 
     pushd examples/opencv
-        make opencv
-        commit_id=`pachctl list-commit images -n 1 --raw | jq .commit.id -r`
-        pachctl flush-job images/$commit_id
-        pachctl inspect-file montage master montage.png
+        pachctl --no-port-forwarding create-repo images
+        pachctl --no-port-forwarding create-pipeline -f edges.json
+        pachctl --no-port-forwarding create-pipeline -f montage.json
+        pachctl --no-port-forwarding put-file images master -i images.txt
+        pachctl --no-port-forwarding put-file images master -i images2.txt
+        commit_id=`pachctl --no-port-forwarding list-commit images -n 1 --raw | jq .commit.id -r`
+        pachctl --no-port-forwarding flush-job images/$commit_id
+        pachctl --no-port-forwarding inspect-file montage master montage.png
     popd
 elif [[ $PPS_SUITE -eq 0 ]]; then
     PART=`echo $BUCKET | grep -Po '\d+'`
