@@ -84,7 +84,7 @@ elif [[ "$BUCKET" == "EXAMPLES" ]]; then
         pachctl --no-port-forwarding inspect-file montage master montage.png
     popd
 
-    
+
     pushd examples/shuffle
         pachctl --no-port-forwarding create-repo fruits
         pachctl --no-port-forwarding create-repo pricing
@@ -117,6 +117,26 @@ elif [[ "$BUCKET" == "EXAMPLES" ]]; then
         expected_files=`echo -e "/apple\n/apple/cost.json\n/apple/img.jpeg\n/mango\n/mango/cost.json\n/mango/img.jpeg"`
         if [ "$files" != "$expected_files" ]; then
             echo "Unexpected output files in shuffle repo: $files"
+            exit 1
+        fi
+    popd
+
+    pushd examples/word_count
+        # note: we do not test reducing because it's slower
+        pachctl create-repo urls
+        pachctl put-file urls master -f Wikipedia
+        pachctl create-pipeline -f scraper.json
+        pachctl create-pipeline -f map.json
+
+        # wait for everything to finish
+        commit_id=`pachctl --no-port-forwarding list-commit urls -n 1 --raw | jq .commit.id -r`
+        pachctl --no-port-forwarding flush-commit urls/$commit_id
+
+        # just make sure the count for the word 'wikipedia' is a valid and
+        # positive int, since the specific count may vary over time
+        wikipedia_count=`pachctl get-file map master wikipedia`
+        if [ $wikipedia_count -le 0 ]; then
+            echo "Unexpected count for the word 'wikipedia': $wikipedia_count"
             exit 1
         fi
     popd
