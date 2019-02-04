@@ -49,14 +49,12 @@ func getObject(c *minio.Client, repo, branch, file string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer func() { err = obj.Close() }()
 	bytes, err := ioutil.ReadAll(obj)
 	if err != nil {
 		return "", err
 	}
-	if err = obj.Close(); err != nil {
-		return "", err
-	}
-	return string(bytes), nil
+	return string(bytes), err
 }
 
 
