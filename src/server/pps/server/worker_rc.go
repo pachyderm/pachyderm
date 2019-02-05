@@ -93,6 +93,19 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, storageMount)
 		userVolumeMounts = append(userVolumeMounts, storageMount)
+	} else {
+		// `pach-dir-volume` is needed for openshift, see:
+		// https://github.com/pachyderm/pachyderm/issues/3404
+		options.volumes = append(options.volumes, v1.Volume{
+			Name: "pach-dir-volume",
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		})
+		sidecarVolumeMounts = append(sidecarVolumeMounts, v1.VolumeMount{
+			Name:      "pach-dir-volume",
+			MountPath: a.storageRoot,
+		})
 	}
 	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
