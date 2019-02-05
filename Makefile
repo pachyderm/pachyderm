@@ -122,6 +122,10 @@ custom-release: release-helper release-pachctl-custom
 	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$$(cat VERSION)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$$(cat VERSION | cut -f -2 -d\.).rb"
 	@echo 'For linux install, do:'
 	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$$(cat VERSION)/pachctl_$$(cat VERSION)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
+	# Workaround for https://github.com/laher/goxc/issues/112
+	@git push origin :v$$(cat VERSION)
+	@git tag v$$(cat VERSION)
+	@git push origin --tags
 	@rm VERSION
 	@echo "Release completed"
 
@@ -480,6 +484,9 @@ test-vault:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
+test-s3:
+	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT)
+
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
@@ -708,6 +715,7 @@ goxc-build:
 	pretest \
 	test \
 	test-client \
+	test-s3 \
 	test-fuse \
 	test-local \
 	clean \
