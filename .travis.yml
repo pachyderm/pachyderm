@@ -22,8 +22,6 @@ before_install:
 - sudo etc/testing/travis_before_install.sh
 before_script:
 - docker version
-# Install any deps used by our "batch test" cron
-# etc/testing/ci/travis_install_batch_deps.sh
 script:
 - etc/testing/ci/travis.sh
 after_failure:
