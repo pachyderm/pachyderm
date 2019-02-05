@@ -508,6 +508,12 @@
 			"revisionTime": "2016-06-03T06:26:20Z"
 		},
 		{
+			"checksumSHA1": "YvRelABdMXYTbLnzYlr8M73NUvE=",
+			"path": "github.com/evanphx/json-patch",
+			"revision": "d4020504c68b6bfa818032bedfb48e33e9638506",
+			"revisionTime": "2019-01-29T00:45:15Z"
+		},
+		{
 			"checksumSHA1": "tGmEgGsqTY3Qel4yz+zoOrtkARw=",
 			"path": "github.com/facebookgo/atomicfile",
 			"revision": "2de1f203e7d5e386a6833233882782932729f27e",

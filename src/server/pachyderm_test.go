@@ -3794,7 +3794,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 }
 
-func TestPodSpecOpts(t *testing.T) {
+func TestPodOpts(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -3803,66 +3803,164 @@ func TestPodSpecOpts(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 	// create repos
 	dataRepo := tu.UniqueString("TestPodSpecOpts_data")
-	pipelineName := tu.UniqueString("TestPodSpecOpts")
 	require.NoError(t, c.CreateRepo(dataRepo))
-	// Resources are not yet in client.CreatePipeline() (we may add them later)
-	_, err := c.PpsAPIClient.CreatePipeline(
-		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pipelineName),
-			Transform: &pps.Transform{
-				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
-			},
-			ParallelismSpec: &pps.ParallelismSpec{
-				Constant: 1,
-			},
-			Input: &pps.Input{
-				Pfs: &pps.PFSInput{
-					Repo:   dataRepo,
-					Branch: "master",
-					Glob:   "/*",
+	t.Run("Validation", func(t *testing.T) {
+		pipelineName := tu.UniqueString("TestPodSpecOpts")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipelineName),
+				Transform: &pps.Transform{
+					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 				},
-			},
-			SchedulingSpec: &pps.SchedulingSpec{
-				// This NodeSelector will cause the worker pod to fail to
-				// schedule, but the test can still pass because we just check
-				// for values on the pod, it doesn't need to actually come up.
-				NodeSelector: map[string]string{
-					"foo": "bar",
+				Input: &pps.Input{
+					Pfs: &pps.PFSInput{
+						Repo:   dataRepo,
+						Branch: "master",
+						Glob:   "/*",
+					},
 				},
-			},
-			PodSpec: `{
+				PodSpec: "not-json",
+			})
+		require.YesError(t, err)
+		_, err = c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipelineName),
+				Transform: &pps.Transform{
+					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+				},
+				Input: &pps.Input{
+					Pfs: &pps.PFSInput{
+						Repo:   dataRepo,
+						Branch: "master",
+						Glob:   "/*",
+					},
+				},
+				PodPatch: "also-not-json",
+			})
+		require.YesError(t, err)
+	})
+	t.Run("Spec", func(t *testing.T) {
+		pipelineName := tu.UniqueString("TestPodSpecOpts")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipelineName),
+				Transform: &pps.Transform{
+					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+				},
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Input: &pps.Input{
+					Pfs: &pps.PFSInput{
+						Repo:   dataRepo,
+						Branch: "master",
+						Glob:   "/*",
+					},
+				},
+				SchedulingSpec: &pps.SchedulingSpec{
+					// This NodeSelector will cause the worker pod to fail to
+					// schedule, but the test can still pass because we just check
+					// for values on the pod, it doesn't need to actually come up.
+					NodeSelector: map[string]string{
+						"foo": "bar",
+					},
+				},
+				PodSpec: `{
 				"hostname": "hostname"
 			}`,
-		})
-	require.NoError(t, err)
+			})
+		require.NoError(t, err)
 
-	// Get info about the pipeline pods from k8s & check for resources
-	pipelineInfo, err := c.InspectPipeline(pipelineName)
-	require.NoError(t, err)
+		// Get info about the pipeline pods from k8s & check for resources
+		pipelineInfo, err := c.InspectPipeline(pipelineName)
+		require.NoError(t, err)
 
-	var pod v1.Pod
-	rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	kubeClient := tu.GetKubeClient(t)
-	err = backoff.Retry(func() error {
-		podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
-			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-				map[string]string{"app": rcName, "suite": "pachyderm"},
-			)),
-		})
-		if err != nil {
-			return err // retry
-		}
-		if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
-			return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
-		}
-		pod = podList.Items[0]
-		return nil // no more retries
-	}, backoff.NewTestingBackOff())
-	require.NoError(t, err)
-	// Make sure a CPU and Memory request are both set
-	require.Equal(t, "bar", pod.Spec.NodeSelector["foo"])
-	require.Equal(t, "hostname", pod.Spec.Hostname)
+		var pod v1.Pod
+		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		kubeClient := tu.GetKubeClient(t)
+		err = backoff.Retry(func() error {
+			podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+					map[string]string{"app": rcName, "suite": "pachyderm"},
+				)),
+			})
+			if err != nil {
+				return err // retry
+			}
+			if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+				return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+			}
+			pod = podList.Items[0]
+			return nil // no more retries
+		}, backoff.NewTestingBackOff())
+		require.NoError(t, err)
+		// Make sure a CPU and Memory request are both set
+		require.Equal(t, "bar", pod.Spec.NodeSelector["foo"])
+		require.Equal(t, "hostname", pod.Spec.Hostname)
+	})
+	t.Run("Patch", func(t *testing.T) {
+		pipelineName := tu.UniqueString("TestPodSpecOpts")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipelineName),
+				Transform: &pps.Transform{
+					Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
+				},
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Input: &pps.Input{
+					Pfs: &pps.PFSInput{
+						Repo:   dataRepo,
+						Branch: "master",
+						Glob:   "/*",
+					},
+				},
+				SchedulingSpec: &pps.SchedulingSpec{
+					// This NodeSelector will cause the worker pod to fail to
+					// schedule, but the test can still pass because we just check
+					// for values on the pod, it doesn't need to actually come up.
+					NodeSelector: map[string]string{
+						"foo": "bar",
+					},
+				},
+				PodPatch: `[
+					{ "op": "add", "path": "/hostname", "value": "hostname" }
+			]`,
+			})
+		require.NoError(t, err)
+
+		// Get info about the pipeline pods from k8s & check for resources
+		pipelineInfo, err := c.InspectPipeline(pipelineName)
+		require.NoError(t, err)
+
+		var pod v1.Pod
+		rcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
+		kubeClient := tu.GetKubeClient(t)
+		err = backoff.Retry(func() error {
+			podList, err := kubeClient.CoreV1().Pods(v1.NamespaceDefault).List(metav1.ListOptions{
+				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+					map[string]string{"app": rcName, "suite": "pachyderm"},
+				)),
+			})
+			if err != nil {
+				return err // retry
+			}
+			if len(podList.Items) != 1 || len(podList.Items[0].Spec.Containers) == 0 {
+				return fmt.Errorf("could not find single container for pipeline %s", pipelineInfo.Pipeline.Name)
+			}
+			pod = podList.Items[0]
+			return nil // no more retries
+		}, backoff.NewTestingBackOff())
+		require.NoError(t, err)
+		// Make sure a CPU and Memory request are both set
+		require.Equal(t, "bar", pod.Spec.NodeSelector["foo"])
+		require.Equal(t, "hostname", pod.Spec.Hostname)
+	})
 }
 
 func TestPipelineLargeOutput(t *testing.T) {
