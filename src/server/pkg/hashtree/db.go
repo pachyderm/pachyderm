@@ -265,10 +265,6 @@ func List(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) 
 func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 	if !IsGlob(pattern) {
 		node, err := get(tx, pattern)
-		if Code(err) == PathNotFound {
-			// glob pattern is for a file that doesn't exist, no match
-			return nil
-		}
 		if err != nil {
 			return err
 		}
