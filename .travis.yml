@@ -19,13 +19,13 @@ branches:
   except:
     - /^v[0-9]/
 before_install:
-- sudo etc/testing/ci/before_install.sh
+- sudo etc/testing/travis_before_install.sh
 before_script:
 - docker version
 # Install any deps used by our "batch test" cron
 # etc/testing/ci/travis_install_batch_deps.sh
 script:
-- etc/testing/travis.sh
+- etc/testing/ci/travis.sh
 after_failure:
 - kubectl version
 - kubectl get all
