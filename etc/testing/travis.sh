@@ -45,6 +45,8 @@ for i in $(seq 3); do
     sleep 10
 done
 
+go install ./src/testing/match
+
 if [[ "$BUCKET" == "MISC" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"

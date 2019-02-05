@@ -42,5 +42,3 @@ curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}
   tar xzf - --strip-components=1 && \
   sudo mv ./etcdctl /usr/local/bin
 etcdctl --version
-
-go install ./src/testing/match
