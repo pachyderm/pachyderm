@@ -4,11 +4,14 @@ services:
 - docker
 cache:
   directories:
-    - /home/travis/.cache/go-build
+    - $HOME/.cache/go-build
+    - $HOME/cached-deps
 language: go
 go:
 - "1.11.1"
 env:
+  global:
+    - PATH=$HOME/cache-deps:$PATH
 - BUCKET=MISC
 # If you want to update the number of PPS workers, you'll also need to update
 # the value in ./etc/build/PPS_BUILD_BUCKET_COUNT

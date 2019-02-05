@@ -2,9 +2,11 @@
 
 set -e
 
-# Make sure cache dir exists and is writable
+# Make sure cache dirs exist and are writable
 mkdir -p ~/.cache/go-build
 sudo chown -R `whoami` ~/.cache/go-build
+mkdir -p ~/cached-deps
+sudo chown -R `whoami` ~/cached-deps
 
 minikube delete || true  # In case we get a recycled machine
 make launch-kube
