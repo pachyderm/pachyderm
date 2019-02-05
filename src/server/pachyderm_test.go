@@ -102,6 +102,13 @@ func TestSimplePipeline(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
 	require.Equal(t, "foo", buf.String())
+
+	// Regression check: output repos would incorrectly report their size as
+	// 0B. See here for more details:
+	// https://github.com/pachyderm/pachyderm/issues/3330
+	repoInfo, err := pachClient.InspectRepo(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, repoInfo.SizeBytes, uint64(3))
 }
 
 func TestAtomPipeline(t *testing.T) {
