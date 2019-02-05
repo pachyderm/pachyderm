@@ -20,12 +20,12 @@ func NewBufPool(size int) *BufPool {
 // GetBuffer returns a buffer.  The buffer may or may not be freshly
 // allocated, and it may or may not be zero-ed.
 func (b *BufPool) GetBuffer() []byte {
-	return bufPool.Get().([]byte)
+	return b.Get().([]byte)
 }
 
 // PutBuffer returns the buffer to the pool.
 func (b *BufPool) PutBuffer(buf []byte) {
-	bufPool.Put(buf)
+	b.Put(buf)
 }
 
 // bufPool is a pool of buffers that are sized for grpc connections
