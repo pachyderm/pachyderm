@@ -274,8 +274,18 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
 func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
-	// 1) ADDRESS environment variable (shell-local) overrides global config
+	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
+	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
+		options, err := getCertOptionsFromEnv()
+		if err != nil {
+			return "", nil, err
+		}
+		return envAddr, options, nil
+	}
+	// 2) ADDRESS environment variable (now renamed to PACHD_ADDRESS)
+	// TODO(ys): remove this eventually
 	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
+		log.Warnf("the `ADDRESS` environment variable is deprecated; please use `PACHD_ADDRESS`")
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
 			return "", nil, err
@@ -283,7 +293,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 		return envAddr, options, nil
 	}
 
-	// 2) Get target address from global config if possible
+	// 3) Get target address from global config if possible
 	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
 		// Also get cert info from config (if set)
 		if cfg.V1.ServerCAs != "" {
@@ -296,7 +306,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 		return cfg.V1.PachdAddress, nil, nil
 	}
 
-	// 3) Use default address (broadcast) if nothing else works
+	// 4) Use default address (broadcast) if nothing else works
 	options, err := getCertOptionsFromEnv()
 	if err != nil {
 		return "", nil, err
@@ -340,9 +350,9 @@ func portForwarder() *PortForwarder {
 }
 
 // NewOnUserMachine constructs a new APIClient using env vars that may be set
-// on a user's machine (i.e. ADDRESS), as well as $HOME/.pachyderm/config if it
-// exists. This is primarily intended to be used with the pachctl binary, but
-// may also be useful in tests.
+// on a user's machine (i.e. PACHD_ADDRESS), as well as
+// $HOME/.pachyderm/config if it  exists. This is primarily intended to be
+// used with the pachctl binary, but may also be useful in tests.
 //
 // TODO(msteffen) this logic is fairly linux/unix specific, and makes the
 // pachyderm client library incompatible with Windows. We may want to move this

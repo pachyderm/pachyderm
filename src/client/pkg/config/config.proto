@@ -28,7 +28,8 @@ message Config {
 // configs will become unparseable.
 message ConfigV1 {
     // A host:port pointing pachd at a pachyderm cluster. Similar to the
-    // ADDRESS environment variable, though ADDRESS overrides this.
+    // PACHD_ADDRESS environment variable, though PACHD_ADDRESS overrides
+    // this.
     string pachd_address = 2;
 
     // Trusted root certificates (overrides installed certificates), formatted
