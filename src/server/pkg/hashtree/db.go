@@ -266,7 +266,7 @@ func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 	if !IsGlob(pattern) {
 		node, err := get(tx, pattern)
 		if Code(err) == PathNotFound {
-			// glob pattern is for a static file that doesn't exist, no match
+			// glob pattern is for a file that doesn't exist, no match
 			return nil
 		}
 		if err != nil {
