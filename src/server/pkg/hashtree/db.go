@@ -1646,12 +1646,14 @@ func NewOrdered(root string) *Ordered {
 	}
 	o.fs = append(o.fs, n)
 	o.dirStack = append(o.dirStack, n)
-	o.mkdirAll(root)
+	o.MkdirAll(root)
 	o.root = root
 	return o
 }
 
-func (o *Ordered) mkdirAll(path string) {
+// MkdirAll puts all of the parent directories of a given
+// path into the hashtree.
+func (o *Ordered) MkdirAll(path string) {
 	var paths []string
 	for path != "" {
 		paths = append(paths, path)
@@ -1712,8 +1714,8 @@ func (o *Ordered) putFile(path string, nodeProto *NodeProto) {
 }
 
 func (o *Ordered) handleEndOfDirectory(path string) {
-	parent, _ := split(path)
-	if parent != o.dirStack[len(o.dirStack)-1].path {
+	nextParent, _ := split(path)
+	for nextParent != o.dirStack[len(o.dirStack)-1].path {
 		child := o.dirStack[len(o.dirStack)-1]
 		child.nodeProto.Hash = child.hash.Sum(nil)
 		o.dirStack = o.dirStack[:len(o.dirStack)-1]

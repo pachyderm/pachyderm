@@ -513,8 +513,9 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 		root := filepath.Join(dir, input.Name, file.Path)
 		var statsRoot string
 		if statsTree != nil {
-			statsTree.PutDir(input.Name)
 			statsRoot = path.Join(input.Name, file.Path)
+			parent, _ := path.Split(statsRoot)
+			statsTree.MkdirAll(parent)
 		}
 		if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, statsRoot); err != nil {
 			return "", err
