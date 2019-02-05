@@ -151,6 +151,12 @@ def main():
         print("`minikube` not detected; running without minikube resets")
         reset_minikube = False
 
+    # If we can't reset minikube, use `pachctl delete-all`. This is less
+    # reliable than completing destroying the minikube VM (e.g., if there's a
+    # bug), but usually works.
+    if not reset_minikube:
+        run("yes | pachctl delete-all", shell=True)
+
     gopath = os.environ["GOPATH"]
 
     if args.deploy_version == "local":
