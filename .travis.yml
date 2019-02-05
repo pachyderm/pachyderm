@@ -23,7 +23,7 @@ before_install:
 before_script:
 - docker version
 script:
-- etc/testing/ci/travis.sh
+- etc/testing/travis.sh
 after_failure:
 - kubectl version
 - kubectl get all
