@@ -1239,6 +1239,10 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 }
 
 func (a *APIServer) collectChunk(ctx context.Context, id int64, address string, failed bool) error {
+	// If this worker processed the chunk, then it is already in the chunk cache
+	if address == os.Getenv(client.PPSWorkerIPEnv) {
+		return nil
+	}
 	if _, ok := a.clients[address]; !ok {
 		client, err := NewClient(address)
 		if err != nil {
