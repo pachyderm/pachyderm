@@ -1111,6 +1111,7 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 						return chunks.Put(fmt.Sprint(high), &ChunkState{
 							State:   State_FAILED,
 							DatumID: processResult.failedDatumID,
+							Address: os.Getenv(client.PPSWorkerIPEnv),
 						})
 					}
 					return chunks.Put(fmt.Sprint(high), &ChunkState{
