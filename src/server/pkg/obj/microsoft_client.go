@@ -128,7 +128,7 @@ type microsoftWriter struct {
 	buf        *bytes.Buffer
 	nBlocks    int
 	eg         errgroup.Group
-	err        error
+	err        error // used for fast exit from Write below
 }
 
 func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter, error) {
