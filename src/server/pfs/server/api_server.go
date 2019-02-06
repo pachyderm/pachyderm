@@ -33,7 +33,9 @@ func (a *apiServer) getPachClient(ctx context.Context) *client.APIClient {
 		var err error
 		a._pachClient, err = client.NewFromAddress(a.address)
 		if err != nil {
-			panic(fmt.Sprintf("could not intiailize Pachyderm client in driver: %v", err))
+			panic("could not initialize Pachyderm client, this" +
+				"likely means one of the backing services (etcd or object storage)" +
+				"is down or unhealthy")
 		}
 	})
 	return a._pachClient.WithCtx(ctx)
@@ -43,7 +45,7 @@ type apiServer struct {
 	log.Logger
 	driver *driver
 
-	// address is used to connect to achd's Object Store and Authorization API
+	// address is used to connect to pachd's Object Store and Authorization API
 	address string
 	// pachClientOnce ensures that _pachClient is only initialized once
 	pachClientOnce sync.Once
