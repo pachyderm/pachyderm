@@ -1701,6 +1701,11 @@ func (a *APIServer) worker() {
 				}
 			}
 
+			// Get updated job info from master
+			jobInfo, err = pachClient.InspectJob(jobID, false)
+			if err != nil {
+				return err
+			}
 			eg, ctx := errgroup.WithContext(jobCtx)
 			// If a datum fails, acquireDatums updates the relevant lock in
 			// etcd, which causes the master to fail the job (which is
