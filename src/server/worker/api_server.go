@@ -986,8 +986,8 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 	return &CancelResponse{Success: true}, nil
 }
 
-// CollectChunk returns the merged datum hashtrees of a particular chunk (if available)
-func (a *APIServer) CollectChunk(request *CollectChunkRequest, server Worker_CollectChunkServer) error {
+// GetChunk returns the merged datum hashtrees of a particular chunk (if available)
+func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkServer) error {
 	filter := hashtree.NewFilter(a.numShards, request.Shard)
 	if request.Stats {
 		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
@@ -1168,11 +1168,11 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 				failed = true
 				fallthrough
 			case State_COMPLETE:
-				if err := a.collectChunk(ctx, high, chunkState.Address, failed); err != nil {
+				if err := a.getChunk(ctx, high, chunkState.Address, failed); err != nil {
 					logger.Logf("error downloading chunk %v from worker at %v (%v), falling back on object storage", high, chunkState.Address, err)
 					tags := a.computeTags(df, low, high, skip, useParentHashTree)
 					// Download datum hashtrees from object storage if we run into an error getting them from the worker
-					if err := a.collectChunkFromObjectStorage(ctx, pachClient, objClient, tags, high, failed); err != nil {
+					if err := a.getChunkFromObjectStorage(ctx, pachClient, objClient, tags, high, failed); err != nil {
 						return err
 					}
 				}
@@ -1241,7 +1241,7 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 	return err
 }
 
-func (a *APIServer) collectChunk(ctx context.Context, id int64, address string, failed bool) error {
+func (a *APIServer) getChunk(ctx context.Context, id int64, address string, failed bool) error {
 	// If this worker processed the chunk, then it is already in the chunk cache
 	if address == os.Getenv(client.PPSWorkerIPEnv) {
 		return nil
@@ -1254,9 +1254,9 @@ func (a *APIServer) collectChunk(ctx context.Context, id int64, address string, 
 		a.clients[address] = client
 	}
 	client := a.clients[address]
-	// Collect chunk hashtree and store in chunk cache if the chunk succeeded
+	// Get chunk hashtree and store in chunk cache if the chunk succeeded
 	if !failed {
-		c, err := client.CollectChunk(ctx, &CollectChunkRequest{
+		c, err := client.GetChunk(ctx, &GetChunkRequest{
 			Id:    id,
 			Shard: a.shard,
 		})
@@ -1271,9 +1271,9 @@ func (a *APIServer) collectChunk(ctx context.Context, id int64, address string, 
 			return err
 		}
 	}
-	// Collect chunk stats hashtree and store in chunk stats cache if applicable
+	// Get chunk stats hashtree and store in chunk stats cache if applicable
 	if a.pipelineInfo.EnableStats {
-		c, err := client.CollectChunk(ctx, &CollectChunkRequest{
+		c, err := client.GetChunk(ctx, &GetChunkRequest{
 			Id:    id,
 			Shard: a.shard,
 			Stats: true,
@@ -1306,7 +1306,7 @@ func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[strin
 	return tags
 }
 
-func (a *APIServer) collectChunkFromObjectStorage(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, id int64, failed bool) error {
+func (a *APIServer) getChunkFromObjectStorage(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, id int64, failed bool) error {
 	// Download, merge, and cache datum hashtrees for a chunk if it succeeded
 	if !failed {
 		ts, err := a.getHashtrees(ctx, pachClient, objClient, tags, hashtree.NewFilter(a.numShards, a.shard))

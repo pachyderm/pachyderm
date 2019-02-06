@@ -31,10 +31,10 @@ message CancelResponse {
 service Worker {
   rpc Status(google.protobuf.Empty) returns (pps.WorkerStatus) {}
   rpc Cancel(CancelRequest) returns (CancelResponse) {}
-  rpc CollectChunk(CollectChunkRequest) returns (stream google.protobuf.BytesValue) {}
+  rpc GetChunk(GetChunkRequest) returns (stream google.protobuf.BytesValue) {}
 }
 
-message CollectChunkRequest {
+message GetChunkRequest {
   int64 id = 1;
   int64 shard = 2;
   bool stats = 3;
