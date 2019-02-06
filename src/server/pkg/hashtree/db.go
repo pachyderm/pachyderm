@@ -50,7 +50,7 @@ var (
 )
 
 // Filter is a function for filtering hashtree keys.
-type Filter func(k []byte) (bool, error)
+type Filter func(k []byte) bool
 
 func fs(tx *bolt.Tx) *bolt.Bucket {
 	return tx.Bucket(b(FsBucket))
@@ -949,11 +949,11 @@ type MergeNode struct {
 // Reader can read a serialized hashtree into a sequence of merge nodes.
 type Reader struct {
 	pbr    pbutil.Reader
-	filter func(k []byte) (bool, error)
+	filter Filter
 }
 
 // NewReader creates a new hashtree reader.
-func NewReader(r io.Reader, filter func(k []byte) (bool, error)) *Reader {
+func NewReader(r io.Reader, filter Filter) *Reader {
 	return &Reader{
 		pbr:    pbutil.NewReader(r),
 		filter: filter,
@@ -968,11 +968,7 @@ func (r *Reader) Read() (*MergeNode, error) {
 	}
 	if r.filter != nil {
 		for {
-			ok, err := r.filter(_k)
-			if err != nil {
-				return nil, err
-			}
-			if ok {
+			if r.filter(_k) {
 				break
 			}
 			_, err = r.pbr.ReadBytes()
@@ -1149,11 +1145,11 @@ func GetRangeFromIndex(r io.Reader, prefix string) (uint64, uint64, error) {
 
 // NewFilter creates a filter for a hashtree shard.
 func NewFilter(numTrees int64, tree int64) Filter {
-	return func(k []byte) (bool, error) {
+	return func(k []byte) bool {
 		if pathToTree(k, numTrees) == uint64(tree) {
-			return true, nil
+			return true
 		}
-		return false, nil
+		return false
 	}
 }
 
