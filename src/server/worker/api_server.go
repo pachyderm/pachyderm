@@ -113,9 +113,11 @@ type APIServer struct {
 	jobs col.Collection
 	// The pipelines collection
 	pipelines col.Collection
-	// The progress collection
+	// The plans collection
+	// Stores chunk layout and merges
 	plans col.Collection
 	// The shards collection
+	// Stores available filesystem shards for a pipeline, workers will claim these
 	shards col.Collection
 
 	// Only one datum can be running at a time because they need to be
