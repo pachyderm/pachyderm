@@ -531,7 +531,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		}
 
 		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
-		// tree (inside txn) and update the repo size
+		// tree (inside txn)
 		if treeRef != nil || records != nil {
 			parentTree, err := d.getTreeForCommit(pachClient, parent)
 			if err != nil {
@@ -556,16 +556,20 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 					return err
 				}
 			}
-			repoInfo.SizeBytes += sizeChange(tree, parentTree)
 		} else {
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
 		}
+
 		if treeRef != nil {
 			newCommitInfo.Tree = treeRef
 			newCommitInfo.SizeBytes = uint64(tree.FSSize())
 			newCommitInfo.Finished = now()
+
+			if branch == "master" {
+				repoInfo.SizeBytes = newCommitInfo.SizeBytes
+			}
 		}
 
 		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
@@ -622,6 +626,7 @@ func (d *driver) finishCommit(pachClient *client.APIClient, commit *pfs.Commit, 
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	updateRepoSize := commit.ID == "master"
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
@@ -690,26 +695,22 @@ func (d *driver) finishCommit(pachClient *client.APIClient, commit *pfs.Commit, 
 	}
 
 	commitInfo.Finished = now()
-	sizeChange := sizeChange(finishedTree, parentTree)
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
-		repos := d.repos.ReadWrite(stm)
 		if err := commits.Put(commit.ID, commitInfo); err != nil {
 			return err
 		}
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
 		}
-		if sizeChange > 0 {
-			// update repo size
+		if updateRepoSize && !empty {
+			repos := d.repos.ReadWrite(stm)
 			repoInfo := new(pfs.RepoInfo)
 			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
 				return err
 			}
 
-			// Increment the repo sizes by the sizes of the files that have
-			// been added in this commit.
-			repoInfo.SizeBytes += sizeChange
+			repoInfo.SizeBytes = commitInfo.SizeBytes
 			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
 				return err
 			}
@@ -724,6 +725,7 @@ func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Co
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
+	updateRepoSize := commit.ID == "master"
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
@@ -742,6 +744,18 @@ func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Co
 		}
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
+		}
+		if updateRepoSize {
+			repos := d.repos.ReadWrite(stm)
+			repoInfo := new(pfs.RepoInfo)
+			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+				return err
+			}
+
+			repoInfo.SizeBytes = commitInfo.SizeBytes
+			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -917,23 +931,6 @@ nextSubvBranch:
 		}
 	}
 	return nil
-}
-
-func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
-	if tree == nil {
-		return 0 // output commit from a failed job -- will be ignored
-	}
-	if parentTree == nil {
-		return uint64(tree.FSSize())
-	}
-	var result uint64
-	tree.Diff(parentTree, "", "", -1, func(path string, node *hashtree.NodeProto, new bool) error {
-		if node.FileNode != nil && new {
-			result += uint64(node.SubtreeSize)
-		}
-		return nil
-	})
-	return result
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.
@@ -1316,20 +1313,6 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 				}
 				deleted[commit.ID] = commitInfo
 				if err := commits.Delete(commit.ID); err != nil {
-					return err
-				}
-
-				// Update repo size
-				// TODO this is basically wrong. Other commits could share data with the
-				// commit being removed, in which case we're subtracting too much.
-				// We could also modify makeCommit and FinishCommit so that
-				// commitInfo.SizeBytes stores incremental size (which could cause
-				// commits to have negative sizes)
-				repoInfo := &pfs.RepoInfo{}
-				if err := d.repos.ReadWrite(stm).Update(commit.Repo.Name, repoInfo, func() error {
-					repoInfo.SizeBytes -= commitInfo.SizeBytes
-					return nil
-				}); err != nil {
 					return err
 				}
 				if commit.ID == lower.ID {
