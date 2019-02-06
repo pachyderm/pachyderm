@@ -30,6 +30,8 @@ func NewAPIServer(
 	imagePullSecret string,
 	noExposeDockerSocket bool,
 	reporter *metrics.Reporter,
+	workerUsesRoot bool,
+	workerGrpcPort uint16,
 	port uint16,
 	pprofPort uint16,
 	httpPort uint16,
@@ -60,9 +62,11 @@ func NewAPIServer(
 		imagePullSecret:       imagePullSecret,
 		noExposeDockerSocket:  noExposeDockerSocket,
 		reporter:              reporter,
+		workerUsesRoot:        workerUsesRoot,
 		pipelines:             ppsdb.Pipelines(etcdClient, etcdPrefix),
 		jobs:                  ppsdb.Jobs(etcdClient, etcdPrefix),
 		monitorCancels:        make(map[string]func()),
+		workerGrpcPort:        workerGrpcPort,
 		port:                  port,
 		pprofPort:             pprofPort,
 		httpPort:              httpPort,
@@ -82,6 +86,7 @@ func NewSidecarAPIServer(
 	address string,
 	iamRole string,
 	reporter *metrics.Reporter,
+	workerGrpcPort uint16,
 ) (ppsclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
@@ -92,14 +97,16 @@ func NewSidecarAPIServer(
 	}
 
 	apiServer := &apiServer{
-		Logger:     log.NewLogger("pps.API"),
-		address:    address,
-		etcdPrefix: etcdPrefix,
-		etcdClient: etcdClient,
-		iamRole:    iamRole,
-		reporter:   reporter,
-		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
-		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		Logger:         log.NewLogger("pps.API"),
+		address:        address,
+		etcdPrefix:     etcdPrefix,
+		etcdClient:     etcdClient,
+		iamRole:        iamRole,
+		reporter:       reporter,
+		workerUsesRoot: true,
+		pipelines:      ppsdb.Pipelines(etcdClient, etcdPrefix),
+		jobs:           ppsdb.Jobs(etcdClient, etcdPrefix),
+		workerGrpcPort: workerGrpcPort,
 	}
 	go apiServer.getPachClient() // connects back to pachd and inits spec repo
 	return apiServer, nil

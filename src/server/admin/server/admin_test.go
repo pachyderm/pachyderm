@@ -3,6 +3,8 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/rand"
@@ -18,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	versionlib "github.com/pachyderm/pachyderm/src/client/version"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 
@@ -63,7 +66,9 @@ func RepoInfoToName(repoInfo interface{}) interface{} {
 	return repoInfo.(*pfs.RepoInfo).Repo.Name
 }
 
-func TestExtractRestore(t *testing.T) {
+// testExtractRestored effectively implements both TestExtractRestoreObjects
+// TestExtractRestoreNoObjects, as their logic is mostly the same
+func testExtractRestore(t *testing.T, testObjects bool) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -71,30 +76,34 @@ func TestExtractRestore(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestExtractRestore_data")
+	dataRepo := tu.UniqueString("TestExtractRestoreObjects-in-")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
+	// Create input data
 	nCommits := 2
 	r := rand.New(rand.NewSource(45))
-	fileContent := workload.RandString(r, 40*MB)
+	fileHashes := make([]string, 0, nCommits)
 	for i := 0; i < nCommits; i++ {
-		_, err := c.StartCommit(dataRepo, "master")
+		hash := md5.New()
+		fileContent := workload.RandString(r, 40*MB)
+		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
+			io.TeeReader(strings.NewReader(fileContent), hash))
 		require.NoError(t, err)
-		_, err = c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i), strings.NewReader(fileContent))
-		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(dataRepo, "master"))
+		fileHashes = append(fileHashes, hex.EncodeToString(hash.Sum(nil)))
 	}
 
+	// Create test pipelines
 	numPipelines := 3
-	input := dataRepo
+	var input, pipeline string
+	input = dataRepo
 	for i := 0; i < numPipelines; i++ {
-		pipeline := tu.UniqueString(fmt.Sprintf("TestExtractRestore%d", i))
+		pipeline = tu.UniqueString(fmt.Sprintf("TestExtractRestoreObjects-P%d-", i))
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
 			"",
 			[]string{"bash"},
 			[]string{
-				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+				fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input),
 			},
 			&pps.ParallelismSpec{
 				Constant: 1,
@@ -106,24 +115,100 @@ func TestExtractRestore(t *testing.T) {
 		input = pipeline
 	}
 
+	// Wait for pipelines to process input data
 	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
 
-	ops, err := c.ExtractAll(false)
+	// Extract existing cluster state
+	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
+
+	// Delete existing metadata
 	require.NoError(t, c.DeleteAll())
+
+	if testObjects {
+		// Delete existing objects
+		require.NoError(t, c.GarbageCollect(10000))
+	}
+
+	// Restore metadata and possibly objects
 	require.NoError(t, c.Restore(ops))
 
+	// Wait for re-created pipelines to process recreated input data
 	commitIter, err = c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
 
+	// Make sure recreated jobs all succeeded
+	backoff.Retry(func() error {
+		jis, err := c.ListJob("", nil, nil) // make sure jobs all succeeded
+		require.NoError(t, err)
+		for _, ji := range jis {
+			// race--we may call listJob between when a job's output commit is closed
+			// and when its state is updated
+			if ji.State.String() == "JOB_RUNNING" || ji.State.String() == "JOB_MERGING" {
+				return fmt.Errorf("output commit is closed but job state hasn't been updated")
+			}
+			// Job must ultimately succeed
+			require.Equal(t, "JOB_SUCCESS", ji.State.String())
+		}
+		return nil
+	}, backoff.NewTestingBackOff())
+
+	// Make sure all branches were recreated
 	bis, err := c.ListBranch(dataRepo)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(bis))
+
+	// Check input data
+	// This check uses a backoff because sometimes GetFile causes pachd to OOM
+	var restoredFileHashes []string
+	require.NoError(t, backoff.Retry(func() error {
+		restoredFileHashes = make([]string, 0, nCommits)
+		for i := 0; i < nCommits; i++ {
+			hash := md5.New()
+			err := c.GetFile(dataRepo, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
+			if err != nil {
+				return err
+			}
+			restoredFileHashes = append(restoredFileHashes, hex.EncodeToString(hash.Sum(nil)))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	require.ElementsEqual(t, fileHashes, restoredFileHashes)
+
+	// Check output data
+	// This check uses a backoff because sometimes GetFile causes pachd to OOM
+	require.NoError(t, backoff.Retry(func() error {
+		restoredFileHashes = make([]string, 0, nCommits)
+		for i := 0; i < nCommits; i++ {
+			hash := md5.New()
+			err := c.GetFile(pipeline, "master", fmt.Sprintf("file-%d", i), 0, 0, hash)
+			if err != nil {
+				return err
+			}
+			restoredFileHashes = append(restoredFileHashes, hex.EncodeToString(hash.Sum(nil)))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	require.ElementsEqual(t, fileHashes, restoredFileHashes)
+}
+
+// TestExtractRestoreNoObjects tests extraction and restoration in the case
+// where existing objects are re-used (common for cloud deployments, as objects
+// are stored outside of kubernetes, in object store)
+func TestExtractRestoreNoObjects(t *testing.T) {
+	testExtractRestore(t, false)
+}
+
+// TestExtractRestoreObjects tests extraction and restoration of objects. Note
+// that since 1.8, only data in input repos is referenced by objects, so this
+// tests extracting/restoring an input repo.
+func TestExtractRestoreObjects(t *testing.T) {
+	testExtractRestore(t, true)
 }
 
 func TestExtractRestoreHeadlessBranches(t *testing.T) {
@@ -263,4 +348,8 @@ func TestMigrateFrom1_7(t *testing.T) {
 	commits, err = c.ListCommit("sort", "stats", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 6, len(commits))
+}
+
+func int64p(i int64) *int64 {
+	return &i
 }

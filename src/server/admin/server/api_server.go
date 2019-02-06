@@ -79,7 +79,10 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return fmt.Errorf("error parsing url %v: %v", request.URL, err)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(extractServer.Context(), url)
+		if url.Object == "" {
+			return fmt.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", request.URL)
+		}
+		objClient, err := obj.NewClientFromURLAndSecret(extractServer.Context(), url, false)
 		if err != nil {
 			return err
 		}
@@ -87,6 +90,11 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
+		defer func() {
+			if err := objW.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
 		snappyW := snappy.NewBufferedWriter(objW)
 		defer func() {
 			if err := snappyW.Close(); err != nil && retErr == nil {
@@ -344,7 +352,10 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				if err != nil {
 					return fmt.Errorf("error parsing url %v: %v", req.URL, err)
 				}
-				objClient, err := obj.NewClientFromURLAndSecret(restoreServer.Context(), url)
+				if url.Object == "" {
+					return fmt.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", req.URL)
+				}
+				objClient, err := obj.NewClientFromURLAndSecret(restoreServer.Context(), url, false)
 				if err != nil {
 					return err
 				}
@@ -379,13 +390,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		// apply op
 		if op.Op1_7 != nil {
 			if op.Op1_7.Object != nil {
-				extractReader := &extractObjectReader{
+				extractedReader := &extractedObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_7,
 				}
-				extractReader.buf.Write(op.Op1_7.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
+				extractedReader.buf.Write(op.Op1_7.Object.Value)
+				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -395,13 +406,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		} else if op.Op1_8 != nil {
 			if op.Op1_8.Object != nil {
-				extractReader := &extractObjectReader{
+				extractedReader := &extractedObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_8,
 				}
-				extractReader.buf.Write(op.Op1_8.Object.Value)
-				if _, _, err := pachClient.PutObject(extractReader); err != nil {
+				extractedReader.buf.Write(op.Op1_8.Object.Value)
+				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -602,7 +613,7 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 
 type adminAPIRestoreServer admin.API_RestoreServer
 
-type extractObjectReader struct {
+type extractedObjectReader struct {
 	// One of these two must be set (whether user is restoring over the wire or
 	// via URL)
 	adminAPIRestoreServer
@@ -613,11 +624,16 @@ type extractObjectReader struct {
 	eof     bool
 }
 
-func (r *extractObjectReader) Read(p []byte) (int, error) {
+func (r *extractedObjectReader) Read(p []byte) (int, error) {
+	// Shortcut -- if object is done just return EOF
+	if r.eof {
+		return 0, io.EOF
+	}
+
 	// Read leftover bytes in buffer (from prior Read() call) into 'p'
 	n, err := r.buf.Read(p)
-	if n == len(p) || err != nil {
-		return n, err // quit early if done
+	if n == len(p) || err != nil && err != io.EOF {
+		return n, err // quit early if done; ignore EOF--just means buf is now empty
 	}
 	r.buf.Reset() // discard data now in 'p'; ready to refill 'r.buf'
 	p = p[n:]     // only want to fill remainder of p
@@ -650,11 +666,15 @@ func (r *extractObjectReader) Read(p []byte) (int, error) {
 
 		// extract object bytes
 		var value []byte
-		if op.Op1_7.Object == nil && op.Op1_8.Object == nil {
-			return 0, fmt.Errorf("expected an object, but got: %v", op)
-		} else if r.version == v1_7 {
+		if r.version == v1_7 {
+			if op.Op1_7.Object == nil {
+				return 0, fmt.Errorf("expected an object, but got: %v", op)
+			}
 			value = op.Op1_7.Object.Value
 		} else {
+			if op.Op1_8.Object == nil {
+				return 0, fmt.Errorf("expected an object, but got: %v", op)
+			}
 			value = op.Op1_8.Object.Value
 		}
 

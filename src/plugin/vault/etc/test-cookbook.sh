@@ -32,7 +32,7 @@ ADMIN_TOKEN="$(pachctl auth activate --initial-admin=robot:arbitrary-string | te
 # Configure the vault plugin
 vault write pachyderm/config \
       admin_token="${ADMIN_TOKEN}" \
-      pachd_address="${ADDRESS:-127.0.0.1:30650}" \
+      pachd_address="${PACHD_ADDRESS:-127.0.0.1:30650}" \
       ttl=5m # optional
 
 # Get a test token
