@@ -127,7 +127,7 @@ func (a *apiServer) master() {
 					}
 
 					// If the pipeline has been stopped, delete workers
-					if pipelineInfo.Stopped {
+					if pipelineInfo.Stopped && pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
 						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
 						if err := a.deleteWorkersForPipeline(pipelineName); err != nil {
 							return err
@@ -336,7 +336,8 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 			pipelineInfo.Service,
 			pipelineInfo.SpecCommit.ID,
 			pipelineInfo.SchedulingSpec,
-			pipelineInfo.PodSpec)
+			pipelineInfo.PodSpec,
+			pipelineInfo.PodPatch)
 		// Set the pipeline name env
 		options.workerEnv = append(options.workerEnv, v1.EnvVar{
 			Name:  client.PPSPipelineNameEnv,

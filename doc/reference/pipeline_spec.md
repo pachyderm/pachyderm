@@ -82,7 +82,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "node_selector": {string: string},
     "priority_class_name": string
   },
-  "pod_spec": string
+  "pod_spec": string,
+  "pod_patch": string,
 }
 
 ------------------------------------
@@ -646,8 +647,15 @@ this will give you a correctly formated piece of JSON, you should then remove
 the extraneous fields that Kubernetes injects or that can be set else where.
 
 The JSON is applied after the other parameters for the `pod_spec` have already
-been set. This means that you can modify things such as the storage and user
-containers.
+been set as a [JSON Merge Patch](https://tools.ietf.org/html/rfc7386). This
+means that you can modify things such as the storage and user containers.
+
+### Pod Patch (optional)
+`pod_patch` is similar to `pod_spec` above but is applied as a [JSON
+Patch](https://tools.ietf.org/html/rfc6902). Note, this means that the
+process outlined above of modifying an existing pod spec and then manually
+blanking unchanged fields won't work, you'll need to create a correctly
+formatted patch by diffing the two pod specs.
 
 ## The Input Glob Pattern
 

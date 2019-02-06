@@ -78,11 +78,11 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "all=-trimpath=$GOPATH" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "all=-trimpath=$GOPATH" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -90,7 +90,7 @@ install-clean:
 	@make install
 
 install-doc:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
+	GO15VENDOREXPERIMENT=1 go install -gcflags "all=-trimpath=$GOPATH" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
 	# The latest docker client requires server api version >= 1.24.
@@ -312,8 +312,8 @@ launch-kube: check-kubectl
 
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	@if [ -z "${PACHD_ADDRESS}" ]; then \
+		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
@@ -333,8 +333,8 @@ launch-dev-vm: check-kubectl
 # point-release version of pachd, instead of whatever's in the current branch)
 launch-release-vm:
 	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	@if [ -z "${PACHD_ADDRESS}" ]; then \
+		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
@@ -484,6 +484,9 @@ test-vault:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
+test-s3:
+	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT)
+
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
@@ -504,9 +507,9 @@ test-enterprise:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
-# TODO This is not very robust -- it doesn't work when the ADDRESS host isn't an IPv4 address
-PACHD_HOST := $(word 1,$(subst :, ,$(ADDRESS)))
-PACHD_PORT := $(word 2,$(subst :, ,$(ADDRESS)))
+# TODO This is not very robust -- it doesn't work when the PACHD_ADDRESS host isn't an IPv4 address
+PACHD_HOST := $(word 1,$(subst :, ,$(PACHD_ADDRESS)))
+PACHD_PORT := $(word 2,$(subst :, ,$(PACHD_ADDRESS)))
 
 test-tls:
 	# Pachyderm must be running when this target is called
@@ -712,6 +715,7 @@ goxc-build:
 	pretest \
 	test \
 	test-client \
+	test-s3 \
 	test-fuse \
 	test-local \
 	clean \

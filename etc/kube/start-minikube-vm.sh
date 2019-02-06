@@ -74,7 +74,7 @@ until minikube ip 2>/dev/null; do
 done
 set -x
 
-export ADDRESS=$(minikube ip):30650
+export PACHD_ADDRESS=$(minikube ip):30650
 
 # Push pachyderm images to minikube VM
 # (extract correct dash image from pachctl deploy)

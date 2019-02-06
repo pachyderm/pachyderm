@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	goerr "errors"
 	"fmt"
 	"io"
@@ -789,6 +790,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.DatumTries = pipelineInfo.DatumTries
 	result.SchedulingSpec = pipelineInfo.SchedulingSpec
 	result.PodSpec = pipelineInfo.PodSpec
+	result.PodPatch = pipelineInfo.PodPatch
 	return result, nil
 }
 
@@ -1536,6 +1538,12 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 			return err
 		}
 	}
+	if pipelineInfo.PodSpec != "" && !json.Valid([]byte(pipelineInfo.PodSpec)) {
+		return fmt.Errorf("malformed PodSpec")
+	}
+	if pipelineInfo.PodPatch != "" && !json.Valid([]byte(pipelineInfo.PodPatch)) {
+		return fmt.Errorf("malformed PodPatch")
+	}
 	return nil
 }
 
@@ -1824,6 +1832,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		DatumTries:       request.DatumTries,
 		SchedulingSpec:   request.SchedulingSpec,
 		PodSpec:          request.PodSpec,
+		PodPatch:         request.PodPatch,
 	}
 	setPipelineDefaults(pipelineInfo)
 
