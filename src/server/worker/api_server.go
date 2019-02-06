@@ -137,6 +137,8 @@ type APIServer struct {
 	numShards int64
 	// claimedShard communicates the shard that was claimed
 	claimedShard chan int64
+	// lostShard communicates that the shard that was claimed was lost
+	lostShard chan struct{}
 	// shard is the shard this worker has claimed
 	shard int64
 	// chunkCache caches chunk hashtrees during a job and can merge them (chunkStatsCache applies to stats)
@@ -1141,6 +1143,13 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 			return nil
 		}
 	}
+	// check if this worker lost its shard
+	select {
+	case <-a.lostShard:
+		a.shard = noShard
+		return nil
+	default:
+	}
 	objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
 	if err != nil {
 		return err
@@ -1811,6 +1820,7 @@ CLAIMED_SHARD:
 				}
 				return shards.PutTTL(fmt.Sprint(claimedShard), &shardInfo, shardTTL)
 			}); err != nil {
+				a.lostShard <- struct{}{}
 				log.Printf("failed to renew lock on shard: %v", err)
 				return
 			}
