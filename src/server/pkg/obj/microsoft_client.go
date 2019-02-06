@@ -12,8 +12,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
+// Azure blob storage is a little different from object storage. The best resource for understanding how it works has been:
+// https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs
+// this page is what's meant by msft docs throughout this file
 const (
-	maxBlockSize = 100 * 1024 * 1024 // 100MB (according to: https://docs.microsoft.com/en-us/rest/api/storageservices/understanding-block-blobs--append-blobs--and-page-blobs#about-block-blobs)
+	maxBlockSize = 100 * 1024 * 1024 // 100MB according to msft docs
 )
 
 var (
@@ -170,9 +173,19 @@ func (w *microsoftWriter) Write(b []byte) (int, error) {
 		}
 	}
 	return nBytes, nil
+	// TODO according to msft docs a blob can have at most 100,000 uncommitted
+	// blocks and at most 200,000 MB so this code will probably break with
+	// objects over 200GB, right now that's a rare case. But when we do hit
+	// this we should add a check in this function that commits the blocks with
+	// a PutBlockList call when there's more than 200,000 MB outstanding.
 }
 
 func blockID(n int) string {
+	// according to msft docs: Block IDs are strings of equal length within a
+	// blob. Block client code usually uses base-64 encoding to normalize
+	// strings into equal lengths. When using base-64 encoding, the pre-encoded
+	// string must be 64 bytes or less. Block ID values can be duplicated in
+	// different blobs.
 	return base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%011d\n", n)))
 }
 
