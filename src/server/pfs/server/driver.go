@@ -2814,13 +2814,18 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		if err != nil {
 			return err
 		}
-		return tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
+		globErr := tree.Glob(pattern, func(path string, node *hashtree.NodeProto) error {
 			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
 			if err != nil {
 				return err
 			}
 			return f(fi)
 		})
+		if hashtree.Code(globErr) == hashtree.PathNotFound {
+			// glob pattern is for a file that doesn't exist, no match
+			return nil
+		}
+		return globErr
 	}
 	// Handle commits to output repos
 	if commitInfo.Finished == nil {

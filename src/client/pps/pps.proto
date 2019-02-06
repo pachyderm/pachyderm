@@ -298,6 +298,7 @@ message JobInfo {
   int64 datum_tries = 41;
   SchedulingSpec scheduling_spec = 42;
   string pod_spec = 43;
+  string pod_patch = 44;
 }
 
 enum WorkerState {
@@ -411,6 +412,7 @@ message PipelineInfo {
   int64 datum_tries = 39;
   SchedulingSpec scheduling_spec = 40;
   string pod_spec = 41;
+  string pod_patch = 44;
 }
 
 message PipelineInfos {
@@ -580,7 +582,8 @@ message CreatePipelineRequest {
   bool standby = 27;
   int64 datum_tries = 28;
   SchedulingSpec scheduling_spec = 29;
-  string pod_spec = 30;
+  string pod_spec = 30; // deprecated, use pod_patch below
+  string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
 }
 
 message InspectPipelineRequest {
