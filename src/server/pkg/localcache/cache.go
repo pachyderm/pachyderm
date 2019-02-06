@@ -12,7 +12,7 @@ import (
 // Cache is a simple unbounded disk cache and is safe for concurrency.
 type Cache struct {
 	root string
-	keys map[string]struct{}
+	keys map[string]bool
 	mu   sync.Mutex
 }
 
@@ -20,7 +20,7 @@ type Cache struct {
 func NewCache(root string) *Cache {
 	return &Cache{
 		root: root,
-		keys: make(map[string]struct{}),
+		keys: make(map[string]bool),
 	}
 }
 
@@ -40,7 +40,7 @@ func (c *Cache) Put(key string, value io.Reader) (retErr error) {
 	if _, err := io.Copy(f, value); err != nil {
 		return err
 	}
-	c.keys[key] = struct{}{}
+	c.keys[key] = true
 	return nil
 }
 
@@ -48,7 +48,7 @@ func (c *Cache) Put(key string, value io.Reader) (retErr error) {
 func (c *Cache) Get(key string) (io.ReadCloser, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, ok := c.keys[key]; !ok {
+	if !c.keys[key] {
 		return nil, fmt.Errorf("key %v not found in cache", key)
 	}
 	f, err := os.Open(filepath.Join(c.root, key))
@@ -74,7 +74,7 @@ func (c *Cache) Keys() []string {
 func (c *Cache) Delete(key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if _, ok := c.keys[key]; !ok {
+	if !c.keys[key] {
 		return nil
 	}
 	delete(c.keys, key)
@@ -86,7 +86,7 @@ func (c *Cache) Clear() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer func() {
-		c.keys = make(map[string]struct{})
+		c.keys = make(map[string]bool)
 	}()
 	for key := range c.keys {
 		if err := os.Remove(filepath.Join(c.root, key)); err != nil {
