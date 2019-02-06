@@ -18,6 +18,7 @@ env:
 - BUCKET=PPS1
 - BUCKET=PPS2
 - BUCKET=PPS3
+- BUCKET=EXAMPLES
 branches:
   except:
     - /^v[0-9]/
