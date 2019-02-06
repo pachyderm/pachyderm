@@ -1220,27 +1220,39 @@ func (a *APIServer) mergeDatums(ctx context.Context, pachClient *client.APIClien
 			parentStatsHashtree = bufio.NewReaderSize(r, parentTreeBufSize)
 		}
 	}
-	// always merge stats trees if enabled
-	var statsTree *pfs.Object
-	var statsSize uint64
-	if a.pipelineInfo.EnableStats {
-		statsTree, statsSize, err = a.merge(pachClient, objClient, true, parentStatsHashtree)
-		if err != nil {
-			return err
-		}
-	}
-	var tree *pfs.Object
-	var size uint64
-	select {
-	// skip merge if job context is cancelled
-	case <-ctx.Done():
-	default:
-		if !failed {
-			tree, size, err = a.merge(pachClient, objClient, false, parentHashtree)
+	// merging output tree(s)
+	var tree, statsTree *pfs.Object
+	var size, statsSize uint64
+	if err := func() (retErr error) {
+		logger.Logf("starting to merge output")
+		defer func(start time.Time) {
+			if retErr != nil {
+				logger.Logf("errored merging output after %v: %v", time.Since(start), retErr)
+			} else {
+				logger.Logf("finished merging output after %v", time.Since(start))
+			}
+		}(time.Now())
+		// always merge stats trees if enabled
+		if a.pipelineInfo.EnableStats {
+			statsTree, statsSize, err = a.merge(pachClient, objClient, true, parentStatsHashtree)
 			if err != nil {
 				return err
 			}
 		}
+		select {
+		// skip merge if job context is cancelled
+		case <-ctx.Done():
+		default:
+			if !failed {
+				tree, size, err = a.merge(pachClient, objClient, false, parentHashtree)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}(); err != nil {
+		return err
 	}
 	// mark merge as complete
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -2059,23 +2071,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	}
 	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed
 	// Merge datum hashtrees into a chunk hashtree, then cache it.
-	buf := &bytes.Buffer{}
-	if result.datumsFailed <= 0 {
-		if err := a.datumCache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
-			return nil, err
-		}
-	}
-	if err := a.chunkCache.Put(high, buf); err != nil {
+	if err := a.mergeChunk(logger, high, result); err != nil {
 		return nil, err
-	}
-	if a.pipelineInfo.EnableStats {
-		buf.Reset()
-		if err := a.datumStatsCache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
-			return nil, err
-		}
-		if err := a.chunkStatsCache.Put(high, buf); err != nil {
-			return nil, err
-		}
 	}
 	return result, nil
 }
@@ -2183,6 +2180,35 @@ func mergeStats(x, y *pps.ProcessStats) error {
 	}
 	x.DownloadBytes += y.DownloadBytes
 	x.UploadBytes += y.UploadBytes
+	return nil
+}
+
+// mergeChunk merges the datum hashtrees into a chunk hashtree and stores it.
+func (a *APIServer) mergeChunk(logger *taggedLogger, high int64, result *processResult) (retErr error) {
+	logger.Logf("starting to merge chunk")
+	defer func(start time.Time) {
+		if retErr != nil {
+			logger.Logf("errored merging chunk after %v: %v", time.Since(start), retErr)
+		} else {
+			logger.Logf("finished merging chunk after %v", time.Since(start))
+		}
+	}(time.Now())
+	buf := &bytes.Buffer{}
+	if result.datumsFailed <= 0 {
+		if err := a.datumCache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
+			return err
+		}
+	}
+	if err := a.chunkCache.Put(high, buf); err != nil {
+		return err
+	}
+	if a.pipelineInfo.EnableStats {
+		buf.Reset()
+		if err := a.datumStatsCache.Merge(hashtree.NewWriter(buf), nil, nil); err != nil {
+			return err
+		}
+		return a.chunkStatsCache.Put(high, buf)
+	}
 	return nil
 }
 
