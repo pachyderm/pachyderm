@@ -106,3 +106,31 @@ pushd examples/ml/hyperparameter
         exit 1
     fi
 popd
+
+pushd examples/ml/iris
+    pachctl create-repo training
+    pachctl create-repo attributes
+
+    pushd data
+        pachctl put-file training master -f iris.csv
+    popd
+
+    pachctl create-pipeline -f julia_train.json
+
+    pushd data/test
+        pachctl put-file attributes master -r -f .
+    popd
+
+    pachctl list-file attributes master
+    pachctl create-pipeline -f julia_infer.json
+
+    commit_id=`pachctl list-commit training -n 1 --raw | jq .commit.id -r`
+    pachctl flush-job training/$commit_id
+
+    # just make sure we outputted some files
+    inference_file_count=`pachctl list-file inference master | wc -l`
+    if [ $inference_file_count -ne 3 ]; then
+        echo "Unexpected file count in inference repo"
+        exit 1
+    fi
+popd
