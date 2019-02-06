@@ -12,7 +12,7 @@ import (
 
 // InspectCluster retrieves cluster state
 func (c APIClient) InspectCluster() (*admin.ClusterInfo, error) {
-	clusterInfo, err := c.AdminAPIClient.InspectCluster(c.Ctx(), nil)
+	clusterInfo, err := c.AdminAPIClient.InspectCluster(c.Ctx(), &types.Empty{})
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
