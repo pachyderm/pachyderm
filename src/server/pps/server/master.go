@@ -127,7 +127,7 @@ func (a *apiServer) master() {
 					}
 
 					// If the pipeline has been stopped, delete workers
-					if pipelineInfo.Stopped {
+					if pipelineInfo.Stopped && pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
 						log.Infof("PPS master: deleting workers for pipeline %s (%s)", pipelineName, pipelinePtr.State.String())
 						if err := a.deleteWorkersForPipeline(pipelineName); err != nil {
 							return err

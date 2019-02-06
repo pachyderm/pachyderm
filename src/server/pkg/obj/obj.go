@@ -397,11 +397,6 @@ func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) 
 
 	// Get Cloudfront distribution (not required, though we can log a warning)
 	distribution, err := readSecretFile("/amazon-distribution")
-	if err != nil {
-		log.Warnln("AWS deployed without cloudfront distribution\n")
-	} else {
-		log.Infof("AWS deployed with cloudfront distribution at %v\n", string(distribution))
-	}
 	return NewAmazonClient(region, bucket, &creds, distribution, reversed...)
 }
 
