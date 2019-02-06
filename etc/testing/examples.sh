@@ -76,3 +76,33 @@ pushd examples/word_count
         exit 1
     fi
 popd
+
+pushd examples/ml/hyperparameter
+    pachctl --no-port-forwarding create-repo raw_data
+    pachctl --no-port-forwarding create-repo parameters
+    pachctl --no-port-forwarding list-repo
+
+    pushd data
+        pachctl put-file raw_data master iris.csv -f noisy_iris.csv
+
+        pushd parameters
+            pachctl --no-port-forwarding put-file parameters master -f c_parameters.txt --split line --target-file-datums 1 
+            pachctl --no-port-forwarding put-file parameters master -f gamma_parameters.txt --split line --target-file-datums 1
+        popd
+    popd
+
+    pachctl --no-port-forwarding create-pipeline -f split.json 
+    pachctl --no-port-forwarding create-pipeline -f model.json
+    pachctl --no-port-forwarding create-pipeline -f test.json 
+    pachctl --no-port-forwarding create-pipeline -f select.json
+
+    commit_id=`pachctl --no-port-forwarding list-commit raw_data -n 1 --raw | jq .commit.id -r`
+    pachctl --no-port-forwarding flush-job raw_data/$commit_id
+
+    # just make sure we outputted some files
+    selected_file_count=`pachctl --no-port-forwarding list-file select master | wc -l`
+    if [ $selected_file_count -le 2 ]; then
+        echo "Expected some files to be outputted in the select repo"
+        exit 1
+    fi
+popd
