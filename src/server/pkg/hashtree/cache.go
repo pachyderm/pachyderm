@@ -64,6 +64,11 @@ func (c *MergeCache) Get(id int64, w io.Writer, filter Filter) (retErr error) {
 	return NewWriter(w).Copy(NewReader(r, filter))
 }
 
+// Delete deletes a hashtree from the cache.
+func (c *MergeCache) Delete(id int64) error {
+	return c.Cache.Delete(fmt.Sprint(id))
+}
+
 // Merge does a filtered merge of the hashtrees in the cache.
 // The results are written to the passed in *Writer.
 // The base field is used as the base hashtree if it is non-nil
