@@ -22,7 +22,6 @@ if [ ! -f ~/cached-deps/kubectl ] ; then
     curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
         chmod +x ./kubectl && \
         sudo mv ./kubectl ~/cached-deps/kubectl
-    kubectl version --client
 fi
 
 # Install minikube
@@ -50,5 +49,8 @@ if [ ! -f ~/cached-deps/etcdctl ] ; then
     curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz | \
         tar xzf - --strip-components=1 && \
         sudo mv ./etcdctl ~/cached-deps/etcdctl
-    etcdctl --version
 fi
+
+hash -r
+kubectl version --client
+etcdctl --version
