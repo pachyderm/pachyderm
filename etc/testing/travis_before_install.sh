@@ -57,5 +57,6 @@ sudo chown -R `whoami` ~/.cache/go-build
 sudo chown -R `whoami` ~/cached-deps
 
 echo "AAA"
+whoami
 echo $PATH
 ls -l ~/cached-deps

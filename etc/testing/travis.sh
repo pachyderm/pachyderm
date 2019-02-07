@@ -4,6 +4,7 @@ set -ex
 
 # Debug messages
 echo "BBB"
+whoami
 echo $PATH
 ls -l ~/cached-deps
 kubectl version --client
