@@ -3,7 +3,9 @@
 set -ex
 
 # Debug messages
+echo "BBB"
 echo $PATH
+ls -l ~/cached-deps
 kubectl version --client
 etcdctl --version
 

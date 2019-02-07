@@ -2,6 +2,10 @@
 
 set -Eex
 
+echo "CCC"
+echo $PATH
+ls -l ~/cached-deps
+
 # Parse flags
 VERSION=v1.13.0
 minikube_args=(
