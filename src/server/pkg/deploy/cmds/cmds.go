@@ -146,7 +146,7 @@ func containsEmpty(vals []string) bool {
 }
 
 // DeployCmd returns a cobra.Command to deploy pachyderm.
-func DeployCmd(metrics bool, portForwarding bool) *cobra.Command {
+func DeployCmd(noMetrics *bool, noPortForwarding *bool) *cobra.Command {
 	var pachdShards int
 	var hostPath string
 	var dev bool
@@ -184,6 +184,8 @@ func DeployCmd(metrics bool, portForwarding bool) *cobra.Command {
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			metrics := !*noMetrics
+
 			if metrics && !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -228,6 +230,8 @@ func DeployCmd(metrics bool, portForwarding bool) *cobra.Command {
 			"  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).\n" +
 			"  <service account creds file>: a file contain a private key for a service account (downloaded from GCE).\n",
 		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
+			metrics := !*noMetrics
+
 			if metrics && !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -265,6 +269,8 @@ func DeployCmd(metrics bool, portForwarding bool) *cobra.Command {
 			"If <object store backend> is \"s3\", then the arguments are:\n" +
 			"    <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>\n",
 		Run: cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
+			metrics := !*noMetrics
+
 			if metrics && !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -304,6 +310,8 @@ func DeployCmd(metrics bool, portForwarding bool) *cobra.Command {
 			"  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)\n" +
 			"  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
+			metrics := !*noMetrics
+
 			if metrics && !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -402,6 +410,8 @@ func DeployCmd(metrics bool, portForwarding bool) *cobra.Command {
 			"  <container>: An Azure container where Pachyderm will store PFS data.\n" +
 			"  <size of volumes>: Size of persistent volumes, in GB (assumed to all be the same).\n",
 		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
+			metrics := !*noMetrics
+
 			if metrics && !dev {
 				start := time.Now()
 				startMetricsWait := _metrics.StartReportAndFlushUserAction("Deploy", start)
@@ -471,7 +481,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				data = assets.MicrosoftSecret("", args[1], args[2])
 			}
 
-			c, err := client.NewOnUserMachine(metrics, portForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error constructing pachyderm client: %v", err)
 			}
@@ -545,7 +555,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
 				LogLevel:                logLevel,
-				Metrics:                 metrics,
+				Metrics:                 !*noMetrics,
 				PachdCPURequest:         pachdCPURequest,
 				PachdNonCacheMemRequest: pachdNonCacheMemRequest,
 				BlockCacheSize:          blockCacheSize,
@@ -642,8 +652,8 @@ particular backend, run "pachctl deploy storage <backend>"`,
 }
 
 // Cmds returns a list of cobra commands for deploying Pachyderm clusters.
-func Cmds(metrics bool, portForwarding bool) []*cobra.Command {
-	deploy := DeployCmd(metrics, portForwarding)
+func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
+	deploy := DeployCmd(noMetrics, noPortForwarding)
 	var all bool
 	var namespace string
 	undeploy := &cobra.Command{
