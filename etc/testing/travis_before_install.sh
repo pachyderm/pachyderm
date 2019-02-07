@@ -52,5 +52,7 @@ if [ ! -f ~/cached-deps/etcdctl ] ; then
 fi
 
 hash -r
+echo $PATH
+ls -l ~/cached-deps
 kubectl version --client
 etcdctl --version
