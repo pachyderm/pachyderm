@@ -64,7 +64,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
     fi
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
-    PACHD_ADDRESS=192.168.99.100:30650 ./etc/testing/examples.sh
+    ./etc/testing/examples.sh    
 elif [[ $PPS_SUITE -eq 0 ]]; then
     PART=`echo $BUCKET | grep -Po '\d+'`
     NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
