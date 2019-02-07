@@ -331,6 +331,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		shards:          col.NewCollection(etcdClient, path.Join(etcdPrefix, shardPrefix, pipelineInfo.Pipeline.Name), nil, &ShardInfo{}, nil, nil),
 		hashtreeStorage: hashtreeStorage,
 		claimedShard:    make(chan int64, 1),
+		lostShard:       make(chan struct{}, 1),
 		shard:           noShard,
 	}
 	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
