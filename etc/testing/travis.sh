@@ -2,6 +2,11 @@
 
 set -e
 
+# Debug messages
+echo $PATH
+kubectl version --client
+etcdctl --version
+
 # Make sure cache dirs exist and are writable
 mkdir -p ~/.cache/go-build
 sudo chown -R `whoami` ~/.cache/go-build

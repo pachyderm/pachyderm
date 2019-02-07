@@ -54,5 +54,3 @@ fi
 hash -r
 echo $PATH
 ls -l ~/cached-deps
-kubectl version --client
-etcdctl --version
