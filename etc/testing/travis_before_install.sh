@@ -21,7 +21,7 @@ if [ ! -f ~/cached-deps/kubectl ] ; then
     KUBECTL_VERSION=v1.13.0
     curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl && \
         chmod +x ./kubectl && \
-        sudo mv ./kubectl ~/cached-deps/kubectl
+        mv ./kubectl ~/cached-deps/kubectl
 fi
 
 # Install minikube
@@ -31,14 +31,14 @@ if [ ! -f ~/cached-deps/minikube ] ; then
     MINIKUBE_VERSION=v0.31.0
     curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-amd64 && \
         chmod +x ./minikube && \
-        sudo mv ./minikube ~/cached-deps/minikube
+        mv ./minikube ~/cached-deps/minikube
 fi
 
 # Install vault
 if [ ! -f ~/cached-deps/vault ] ; then
     curl -Lo vault.zip https://releases.hashicorp.com/vault/0.9.5/vault_0.9.5_linux_amd64.zip && \
         unzip vault.zip && \
-        sudo mv ./vault ~/cached-deps/vault
+        mv ./vault ~/cached-deps/vault
 fi
 
 # Install etcdctl
@@ -48,7 +48,7 @@ if [ ! -f ~/cached-deps/etcdctl ] ; then
     ETCD_VERSION=v3.3.6
     curl -L https://storage.googleapis.com/etcd/${ETCD_VERSION}/etcd-${ETCD_VERSION}-linux-amd64.tar.gz | \
         tar xzf - --strip-components=1 && \
-        sudo mv ./etcdctl ~/cached-deps/etcdctl
+        mv ./etcdctl ~/cached-deps/etcdctl
 fi
 
 hash -r
