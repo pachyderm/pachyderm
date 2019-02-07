@@ -20,6 +20,7 @@ pushd examples/opencv
     pachctl --no-port-forwarding inspect-file montage master montage.png
 popd
 
+yes | pachctl delete-all
 
 pushd examples/shuffle
     pachctl --no-port-forwarding create-repo fruits
@@ -57,6 +58,8 @@ pushd examples/shuffle
     fi
 popd
 
+yes | pachctl delete-all
+
 pushd examples/word_count
     # note: we do not test reducing because it's slower
     pachctl --no-port-forwarding create-repo urls
@@ -76,6 +79,8 @@ pushd examples/word_count
         exit 1
     fi
 popd
+
+yes | pachctl delete-all
 
 pushd examples/ml/hyperparameter
     pachctl --no-port-forwarding create-repo raw_data
@@ -107,6 +112,8 @@ pushd examples/ml/hyperparameter
     fi
 popd
 
+yes | pachctl delete-all
+
 pushd examples/ml/iris
     pachctl --no-port-forwarding create-repo training
     pachctl --no-port-forwarding create-repo attributes
@@ -115,7 +122,7 @@ pushd examples/ml/iris
         pachctl --no-port-forwarding put-file training master -f iris.csv
     popd
 
-    pachctl create-pipeline -f julia_train.json
+    pachctl --no-port-forwarding create-pipeline -f julia_train.json
 
     pushd data/test
         pachctl --no-port-forwarding put-file attributes master -r -f .
