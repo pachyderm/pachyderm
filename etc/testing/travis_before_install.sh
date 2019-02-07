@@ -54,3 +54,8 @@ fi
 hash -r
 echo $PATH
 ls -l ~/cached-deps
+
+# Make sure cache dirs exist and are writable
+mkdir -p ~/.cache/go-build
+sudo chown -R `whoami` ~/.cache/go-build
+sudo chown -R `whoami` ~/cached-deps
