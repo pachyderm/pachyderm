@@ -1,17 +1,17 @@
-## ./pachctl inspect-cluster
+## ./pachctl
 
-Returns info about the pachyderm cluster
+
 
 ### Synopsis
 
 
-Returns info about the pachyderm cluster
+Access the Pachyderm API.
 
-```
-./pachctl inspect-cluster
-```
+Environment variables:
+  PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
 
-### Options inherited from parent commands
+
+### Options
 
 ```
       --no-metrics           Don't report user metrics for this command
