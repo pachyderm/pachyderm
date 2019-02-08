@@ -136,13 +136,15 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 
 // Pull clones an entire repo at a certain commit.
 // root is the local path you want to clone to.
-// fileInfo is the file/dir we are puuling.
+// fileInfo is the file/dir we are pulling.
 // pipes causes the function to create named pipes in place of files, thus
 // lazily downloading the data as it's needed.
 // emptyFiles causes the function to create empty files with no content, it's
 // mutually exclusive with pipes.
 // tree is a hashtree to mirror the pulled content into (it may be left nil)
 // treeRoot is the root the data is mirrored to within tree
+// TODO(kdelga): if we want to keep Pull and call GetFiles from here,
+// TODO: we need to somehow pass all the files to Pull right?
 func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
 	limiter := limit.New(concurrency)
