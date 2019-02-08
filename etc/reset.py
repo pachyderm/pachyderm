@@ -32,12 +32,6 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("%(levelname)s:%(message)s"))
 log.addHandler(handler)
 
-def parse_log_level(s):
-    try:
-        return LOG_LEVELS[s]
-    except KeyError:
-        raise Exception("Unknown log level: {}".format(s))
-
 class ExcThread(threading.Thread):
     def __init__(self, target):
         super().__init__(target=target)
@@ -74,6 +68,67 @@ class ProcessResult:
         self.rc = rc
         self.stdout = stdout
         self.stderr = stderr
+
+class MinikubeDriver:
+    def available(self):
+        return run("which", "minikube", raise_on_error=False).rc == 0
+
+    def clear(self):
+        run("minikube", "delete")
+
+    def start(self):
+        run("minikube", "start")
+
+        while suppress("minikube", "status") != 0:
+            print("Waiting for minikube to come up...")
+            time.sleep(1)
+
+    def push_images(self, deploy_version, dash_image):
+        run("./etc/kube/push-to-minikube.sh", "pachyderm/pachd:{}".format(deploy_version))
+        run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:{}".format(deploy_version))
+        run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
+        run("./etc/kube/push-to-minikube.sh", dash_image)
+
+class MicroK8sDriver:
+    def available(self):
+        return run("which", "microk8s.kubectl", raise_on_error=False).rc == 0
+
+    def clear(self):
+        run("microk8s.stop")
+
+    def start(self):
+        run("microk8s.start")
+        run("microk8s.reset")
+
+        while suppress("microk8s.status") != 0:
+            print("Waiting for microk8s to come up...")
+            time.sleep(1)
+
+    def push_images(self, deploy_version, dash_image):
+        run("./etc/kube/push-to-microk8s.sh", "pachyderm/pachd:{}".format(deploy_version))
+        run("./etc/kube/push-to-microk8s.sh", "pachyderm/worker:{}".format(deploy_version))
+        run("./etc/kube/push-to-microk8s.sh", ETCD_IMAGE)
+        run("./etc/kube/push-to-microk8s.sh", dash_image)
+
+class DockerDriver:
+    def available(self):
+        return True
+
+    def clear(self):
+        if run("yes | pachctl delete-all", shell=True, raise_on_error=False).rc != 0:
+            log.error("could not call `pachctl delete-all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
+
+    def start(self):
+        pass
+
+    def push_images(self, deploy_version, dash_image):
+        pass
+
+def parse_log_level(s):
+    try:
+        return LOG_LEVELS[s]
+    except KeyError:
+        raise Exception("Unknown log level: {}".format(s))
 
 def redirect_to_logger(stdout, stderr):
     for io in select.select([stdout.pipe, stderr.pipe], [], [], 1000)[0]:
@@ -146,16 +201,18 @@ def main():
         print("Must be in a Pachyderm client", file=sys.stderr)
         sys.exit(1)
 
-    reset_minikube = True
-    if run("which", "minikube", raise_on_error=False).rc == 1:
-        print("`minikube` not detected; running without minikube resets")
-        reset_minikube = False
+    if MinikubeDriver().available():
+        log.info("using the minikube driver")
+        driver = MinikubeDriver()
+    elif MicroK8sDriver().available():
+        log.info("using the microk8s driver")
+        driver = MicroK8sDriver()
+    else:
+        log.info("using the k8s for docker driver")
+        log.warn("with this driver, it's not possible to fully reset the cluster")
+        driver = DockerDriver()
 
-    # If we can't reset minikube, use `pachctl delete-all`. This is less
-    # reliable than completing destroying the minikube VM (e.g., if there's a
-    # bug), but usually works.
-    if not reset_minikube:
-        run("yes | pachctl delete-all", shell=True)
+    driver.clear()
 
     gopath = os.environ["GOPATH"]
 
@@ -167,29 +224,19 @@ def main():
         except:
             pass
 
-        procs = [
+        join(
+            driver.start,
             lambda: run("make", "install"),
             lambda: run("make", "docker-build"),
-        ]
-        if reset_minikube:
-            procs.append(lambda: run("minikube", "start"))
-        join(*procs)
+        )
     else:
-        if reset_minikube:
-            join(
-                lambda: run("minikube", "start"),
-                lambda: get_pachyderm(args.deploy_version),
-            )
-        else:
-            get_pachyderm(args.deploy_version)
+        join(
+            driver.start,
+            lambda: get_pachyderm(args.deploy_version),
+        )
 
     version = capture("pachctl", "version", "--client-only")
     print("Deploy pachyderm version v{}".format(version))
-
-    if reset_minikube:
-        while suppress("minikube", "status") != 0:
-            print("Waiting for minikube to come up...")
-            time.sleep(1)
 
     while suppress("pachctl", "version", "--client-only") != 0:
         print("Waiting for pachctl to build...")
@@ -206,12 +253,7 @@ def main():
     run("docker", "pull", dash_image)
     run("docker", "pull", grpc_proxy_image)
     run("docker", "pull", ETCD_IMAGE)
-
-    if reset_minikube:
-        run("./etc/kube/push-to-minikube.sh", "pachyderm/pachd:{}".format(args.deploy_version))
-        run("./etc/kube/push-to-minikube.sh", "pachyderm/worker:{}".format(args.deploy_version))
-        run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
-        run("./etc/kube/push-to-minikube.sh", dash_image)
+    driver.push_images(args.deploy_version, dash_image)
 
     if not args.no_deploy:
         if args.deploy_version == "local":
