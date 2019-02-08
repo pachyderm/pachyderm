@@ -3,6 +3,7 @@
 set -Eex
 
 echo "CCC"
+whoami
 echo $PATH
 ls -l ~/cached-deps
 
