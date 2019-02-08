@@ -51,11 +51,6 @@ if [ ! -f ~/cached-deps/etcdctl ] ; then
         mv ./etcdctl ~/cached-deps/etcdctl
 fi
 
-# Make sure cache dirs exist and are writable
-mkdir -p ~/.cache/go-build
-sudo chown -R `whoami` ~/.cache/go-build
-sudo chown -R `whoami` ~/cached-deps
-
 echo "AAA"
 whoami
 echo $PATH
