@@ -50,8 +50,3 @@ if [ ! -f ~/cached-deps/etcdctl ] ; then
         tar xzf - --strip-components=1 && \
         mv ./etcdctl ~/cached-deps/etcdctl
 fi
-
-echo "AAA"
-whoami
-echo $PATH
-ls -l ~/cached-deps
