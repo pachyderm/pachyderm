@@ -4395,15 +4395,16 @@ type APIClient interface {
 	DeleteBranch(ctx context.Context, in *DeleteBranchRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	// TODO(kdelga): Why does the generated pb.go not require anything to do with the PFR stream. (maybe ask jd)
+	// TODO(kdelga): Why does the generated pb.go not require anything to do with the PFR stream.
 	PutFile(ctx context.Context, opts ...grpc.CallOption) (API_PutFileClient, error)
 	// CopyFile copies the contents of one file to another.
 	CopyFile(ctx context.Context, in *CopyFileRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (API_GetFileClient, error)
-	// TODO(kdelga): GetFiles(strem GetFileRequest) returns (stream wrapper around BytesValue that makes clear where each file ends).
+	// GetFileStream returns a GetFileResponse stream with a non-empty file for only the first message.
 	GetFileStream(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (API_GetFileStreamClient, error)
-	//rpc GetFiles(stream GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+	// TODO(kdelga): Eventually we want to accept a stream of GetFileRequests.
+	//rpc GetFiles(stream GetFileRequest) returns (stream GetFileResponse) {}
 	// InspectFile returns info about a file.
 	InspectFile(ctx context.Context, in *InspectFileRequest, opts ...grpc.CallOption) (*FileInfo, error)
 	// ListFile returns info about all files. This is deprecated in favor of
@@ -4959,15 +4960,16 @@ type APIServer interface {
 	DeleteBranch(context.Context, *DeleteBranchRequest) (*types.Empty, error)
 	// File rpcs
 	// PutFile writes the specified file to pfs.
-	// TODO(kdelga): Why does the generated pb.go not require anything to do with the PFR stream. (maybe ask jd)
+	// TODO(kdelga): Why does the generated pb.go not require anything to do with the PFR stream.
 	PutFile(API_PutFileServer) error
 	// CopyFile copies the contents of one file to another.
 	CopyFile(context.Context, *CopyFileRequest) (*types.Empty, error)
 	// GetFile returns a byte stream of the contents of the file.
 	GetFile(*GetFileRequest, API_GetFileServer) error
-	// TODO(kdelga): GetFiles(strem GetFileRequest) returns (stream wrapper around BytesValue that makes clear where each file ends).
+	// GetFileStream returns a GetFileResponse stream with a non-empty file for only the first message.
 	GetFileStream(*GetFileRequest, API_GetFileStreamServer) error
-	//rpc GetFiles(stream GetFileRequest) returns (stream google.protobuf.BytesValue) {}
+	// TODO(kdelga): Eventually we want to accept a stream of GetFileRequests.
+	//rpc GetFiles(stream GetFileRequest) returns (stream GetFileResponse) {}
 	// InspectFile returns info about a file.
 	InspectFile(context.Context, *InspectFileRequest) (*FileInfo, error)
 	// ListFile returns info about all files. This is deprecated in favor of

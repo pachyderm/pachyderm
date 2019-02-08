@@ -143,8 +143,6 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (retErr error) {
 // mutually exclusive with pipes.
 // tree is a hashtree to mirror the pulled content into (it may be left nil)
 // treeRoot is the root the data is mirrored to within tree
-// TODO(kdelga): if we want to keep Pull and call GetFiles from here,
-// TODO: we need to somehow pass all the files to Pull right?
 func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
 	limiter := limit.New(concurrency)

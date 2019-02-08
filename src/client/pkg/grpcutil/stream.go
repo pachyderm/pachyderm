@@ -58,7 +58,6 @@ type StreamingBytesServer interface {
 // StreamingBytesClient represents a client for an rpc method of the form:
 //   rpc Foo(Bar) returns (stream google.protobuf.BytesValue) {}
 type StreamingBytesClient interface {
-	// TODO(kdelga): so we want to have GetFileMessages implement this.
 	Recv() (*types.BytesValue, error)
 }
 

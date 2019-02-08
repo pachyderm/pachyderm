@@ -515,8 +515,6 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	if err := os.MkdirAll(filepath.Join(dir, "out"), 0777); err != nil {
 		return "", err
 	}
-	// TODO(kdelga): do we want to operate on inputs or still iterate over each input in the inputs?
-	// TODO: seems like we want to still iterate and move the batching to puller.Pull?
 	for _, input := range inputs {
 		if input.GitURL != "" {
 			if err := a.downloadGitData(pachClient, dir, input); err != nil {

@@ -765,9 +765,10 @@ func (c APIClient) Compact() error {
 type GetFileClient interface {
 	GetFile(repoName, commitID, path string, offset, size int64, writer io.Writer) error
 
-	GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error)
+	//TODO(kdelga): Figure out if we need these.
+	//GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error)
 
-	GetFileReadSeeker(repoName string, commitID string, path string) (io.ReadSeeker, error)
+	//GetFileReadSeeker(repoName string, commitID string, path string) (io.ReadSeeker, error)
 }
 
 type getFileClient struct {
@@ -777,7 +778,6 @@ type getFileClient struct {
 }
 
 func (c APIClient) newOneoffGetFileClient(repoName string, commitID string, path string, offset int64, size int64 /*, writer io.Writer*/) (GetFileClient, error) {
-	//gfc, err := c.PfsAPIClient.GetFileStream(c.Ctx())
 	gfc, err := c.getFileStream(repoName, commitID, path, offset, size)
 
 	if err != nil {
@@ -788,20 +788,10 @@ func (c APIClient) newOneoffGetFileClient(repoName string, commitID string, path
 
 //TODO(kdelga): It smells bad to pass the receiver as an arg (see other interface funcs too)
 func (c getFileClient) GetFile(repoName, commitID, path string, offset, size int64, writer io.Writer) error {
-	// TODO: call write from streaming bytes client here.
 	if err := grpcutil.WriteFromStreamingBytesClient(c, writer); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return nil
-}
-
-func (c getFileClient) GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error) {
-	// TODO: clean this up to not return error
-	return grpcutil.NewStreamingBytesReader(c, nil), nil
-}
-
-func (c getFileClient) GetFileReadSeeker(repoName string, commitID string, path string) (io.ReadSeeker, error) {
-	return nil, nil
 }
 
 func (c getFileClient) Recv() (*types.BytesValue, error) {
@@ -1071,11 +1061,11 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 }
 
 func (c APIClient) GetFileStream(repoName string, commitID string, path string, offset int64, size int64, writer io.Writer) error {
-	//TODO(kdelga): understand what this limiter boilerplate stuff is doing.
-	if c.limiter != nil {
-		c.limiter.Acquire()
-		defer c.limiter.Release()
-	}
+	//TODO(kdelga): understand what this limiter stuff is doing and if it's needed.
+	//if c.limiter != nil {
+	//	c.limiter.Acquire()
+	//	defer c.limiter.Release()
+	//}
 
 	gfc, err := c.newOneoffGetFileClient(repoName, commitID, path, offset, size)//, writer)
 	if err != nil {
@@ -1089,24 +1079,14 @@ func (c APIClient) GetFileStream(repoName string, commitID string, path string, 
 // size limits the total amount of data returned, note you will get fewer bytes
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
-//func (c APIClient) GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error) {
-//	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
-//	if err != nil {
-//		return nil, grpcutil.ScrubGRPC(err)
-//	}
-//	return grpcutil.NewStreamingBytesReader(apiGetFileClient, nil), nil
-//}
-
 func (c APIClient) GetFileReader(repoName string, commitID string, path string, offset int64, size int64) (io.Reader, error) {
-	gfc, err := c.newOneoffGetFileClient(repoName, commitID, path, offset, size)//, writer)
+	apiGetFileClient, err := c.getFile(repoName, commitID, path, offset, size)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
-	//return grpcutil.NewStreamingBytesReader(gfc, nil), nil
-	return gfc.GetFileReader(repoName, commitID, path, offset, size)
+	return grpcutil.NewStreamingBytesReader(apiGetFileClient, nil), nil
 }
 
-// TODO(kdelga): replace this with GetFileReadSeeker that uses new GetFileClient.
 // GetFileReadSeeker returns a reader for the contents of a file at a specific
 // Commit that permits Seeking to different points in the file.
 func (c APIClient) GetFileReadSeeker(repoName string, commitID string, path string) (io.ReadSeeker, error) {
@@ -1126,20 +1106,6 @@ func (c APIClient) GetFileReadSeeker(repoName string, commitID string, path stri
 		c:      c,
 	}, nil
 }
-
-// TODO: implement this
-//func (c APIClient) GetFileReadSeeker(repoName string, commitID string, path string) (io.ReadSeeker, error) {
-//	fileInfo, err := c.InspectFile(repoName, commitID, path)
-//	if err != nil {
-//		return nil, err
-//	}
-//	reader, err := c.GetFileReader(repoName, commitID, path, 0, 0)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return
-//
-//}
 
 func (c APIClient) getFile(repoName string, commitID string, path string, offset int64,
 	size int64) (pfs.API_GetFileClient, error) {

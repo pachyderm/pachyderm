@@ -1963,6 +1963,41 @@ func TestGetFile(t *testing.T) {
 	})
 }
 
+func TestGetFileStream(t *testing.T) {
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
+	require.NoError(t, err)
+	paths := []string{"foo", "bar", "fizz", "buzz"}
+	for _, path := range paths {
+		// Why are we using pfclient.Send instead of one of the PutFileClient interface methods.
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			//TODO(kdelga): Aha! this is where the metadata file comes from.
+			File:  pclient.NewFile("repo", "master", path),
+			Value: []byte(path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	for _, path := range paths {
+		gfr := &pfs.GetFileRequest{
+			File: pclient.NewFile("repo", "master", path),
+			OffsetBytes: 0,
+			SizeBytes: 0,
+		}
+		// TODO(kdelga): change this to only take context and let Recv take the gfr as arg
+		gfsclient, err := c.PfsAPIClient.GetFileStream(context.Background(), gfr)
+		require.NoError(t, err)
+		resp, err := gfsclient.Recv()
+		require.NoError(t, err)
+		require.Equal(t, path, string(resp.Value[:]))
+	}
+}
+
 func TestManyPutsSingleFileSingleCommit(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping long tests in short mode")
@@ -4579,17 +4614,13 @@ func TestReadSizeLimited(t *testing.T) {
 }
 
 func TestPutFiles(t *testing.T) {
-	fmt.Println("starting TestPutFilesM")
 	c := GetPachClient(t)
 	require.NoError(t, c.CreateRepo("repo"))
 	pfclient, err := c.PfsAPIClient.PutFile(context.Background())
 	require.NoError(t, err)
 	paths := []string{"foo", "bar", "fizz", "buzz"}
 	for _, path := range paths {
-		fmt.Println("putting path: ", path)
-		// Why are we using pfclient.Send instead of one of the PutFileClient interface methods.
 		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
-			//TODO(kdelga): Aha! this is where the metadata file comes from.
 			File:  pclient.NewFile("repo", "master", path),
 			Value: []byte(path),
 		}))
@@ -4600,36 +4631,10 @@ func TestPutFiles(t *testing.T) {
 	cis, err := c.ListCommit("repo", "", "", 0)
 	require.Equal(t, 1, len(cis))
 
-	// Do it the old way first, to ensure that hasn't broken
 	for _, path := range paths {
 		var b bytes.Buffer
-		fmt.Println("getting path old: ", path)
-		err := c.GetFile("repo", "master", path, 0, 0, &b)
-		fmt.Println("got path old: ", b.String())
-		require.NoError(t, err)
-		//require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
+		require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
 		require.Equal(t, path, b.String())
-	}
-
-	// now do it the new way
-	for _, path := range paths {
-		//var b bytes.Buffer
-		fmt.Println("getting path new : ", path)
-		//err := c.GetFile("repo", "master", path, 0, 0, &b)
-
-		gfr := &pfs.GetFileRequest{
-			File: pclient.NewFile("repo", "master", path),
-			OffsetBytes: 0,
-			SizeBytes: 0,
-		}
-		// TODO(kdelga): change this to only take context and let Recv take the gfr as arg
-		gfsclient, err := c.PfsAPIClient.GetFileStream(context.Background(), gfr)
-		require.NoError(t, err)
-		resp, err := gfsclient.Recv()
-		require.NoError(t, err)
-		fmt.Println("got path new: ", string(resp.Value[:]))
-		//require.NoError(t, c.GetFile("repo", "master", path, 0, 0, &b))
-		require.Equal(t, path, string(resp.Value[:]))
 	}
 }
 
