@@ -4,34 +4,11 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"sync"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
-
-var stdoutMutex = &sync.Mutex{}
-
-func TestMetricsNormalDeployment(t *testing.T) {
-	// Run deploy normally, should see METRICS=true
-	testDeploy(t, false, true, true)
-}
-
-func TestMetricsNormalDeploymentNoMetricsFlagSet(t *testing.T) {
-	// Run deploy normally, should see METRICS=true
-	testDeploy(t, false, false, false)
-}
-
-func TestMetricsDevDeployment(t *testing.T) {
-	// Run deploy w dev flag, should see METRICS=false
-	testDeploy(t, true, true, false)
-}
-
-func TestMetricsDevDeploymentNoMetricsFlagSet(t *testing.T) {
-	// Run deploy w dev flag, should see METRICS=false
-	testDeploy(t, true, false, false)
-}
 
 func TestPortForwardError(t *testing.T) {
 	os.Setenv("PACHD_ADDRESS", "localhost:30650")
