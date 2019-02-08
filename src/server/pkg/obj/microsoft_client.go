@@ -17,9 +17,9 @@ import (
 // this page is what's meant by msft docs throughout this file
 const (
 	// maxBlockSize set to 4MB according to msft docs
-	// TODO if we upgrade to the latest version fo the azure sdk we can use a
+	// TODO if we upgrade to the latest version of the azure sdk we can use a
 	// blocksize of 100MB which would allow for larger objects. Upgrading seems
-	// to completely change the interfact though so it's a nontrivial amount of
+	// to completely change the interface though so it's a nontrivial amount of
 	// work.
 	maxBlockSize = 4 * 1024 * 1024
 )
