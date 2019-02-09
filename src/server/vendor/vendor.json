@@ -51,6 +51,12 @@
 			"revisionTime": "2016-10-05T01:22:46Z"
 		},
 		{
+			"checksumSHA1": "Jmf4AnrptgBdQ5TPBJ2M89nooIQ=",
+			"path": "github.com/LK4D4/joincontext",
+			"revision": "1724345da6d5bcc8b66fefb843b607ab918e175c",
+			"revisionTime": "2017-10-26T17:01:39Z"
+		},
+		{
 			"checksumSHA1": "hRYKUqFTln4a5LQXvw6zW/2xmHo=",
 			"path": "github.com/OneOfOne/xxhash",
 			"revision": "74ace4fe5525ef62ce28d5093d6b0faaa6a575f3",
