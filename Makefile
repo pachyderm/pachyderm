@@ -79,7 +79,7 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "all=-trimpath=${PWD}" ./src/server/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
