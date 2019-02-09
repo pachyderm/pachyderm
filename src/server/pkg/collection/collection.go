@@ -643,7 +643,7 @@ func (c *readonlyCollection) WatchOneF(key string, f func(e *watch.Event) error)
 				return err
 			}
 		case <-c.ctx.Done():
-			return nil
+			return c.ctx.Err()
 		}
 	}
 }
