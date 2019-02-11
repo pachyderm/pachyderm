@@ -110,8 +110,8 @@ This might happen when re-deploying the enterprise dashboard, for example. These
 
 ### Reconnecting `pachctl`
 
-When you upgrade Pachyderm versions, you may lose your local `port-forward` to connect `pachctl` to your cluster. Alternatively, if you are setting the `ADDRESS` environmental variable manually to connect `pachctl` to your cluster, the IP address for Pachyderm may have changed. To fix this, you can either:
+When you upgrade Pachyderm versions, you may lose your local `port-forward` to connect `pachctl` to your cluster. Alternatively, if you are setting the `PACHD_ADDRESS` environmental variable manually to connect `pachctl` to your cluster, the IP address for Pachyderm may have changed. To fix this, you can either:
 
 - Re-run `pachctl port-forward &`, or
-- Set the `ADDRESS` environmental variable to the update value, e.g., `export ADDRESS=<k8s master IP>:30650`.
+- Set the `PACHD_ADDRESS` environmental variable to the update value, e.g., `export PACHD_ADDRESS=<k8s master IP>:30650`.
 
