@@ -65,10 +65,15 @@ const (
 	chunkPrefix       = "/chunk"
 	mergePrefix       = "/merge"
 	shardPrefix       = "/shard"
-	shardKey          = "shard"
 	shardTTL          = 30
 	noShard           = int64(-1)
 	parentTreeBufSize = 50 * (1 << (10 * 2))
+)
+
+type ctxKey int
+
+const (
+	shardKey ctxKey = iota
 )
 
 var (
