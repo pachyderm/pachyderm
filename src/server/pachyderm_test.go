@@ -168,7 +168,7 @@ func TestRepoSize(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, repoInfo.SizeBytes, uint64(6))
 
-	// ensure size is update when we delete a commit
+	// ensure size is updated when we delete a commit
 	require.NoError(t, c.DeleteCommit(dataRepo, commit1.ID))
 	repoInfo, err = pachClient.InspectRepo(dataRepo)
 	require.NoError(t, err)

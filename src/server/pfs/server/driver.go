@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -572,7 +573,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 
 		// Update the repo size if we're on the master branch and this is not
 		// an open commit
-		if !isOpen && branchInfo.Name == "master" {
+		if !isOpen && branch == "master" {
 			repoInfo.SizeBytes = newCommitInfo.SizeBytes
 		}
 
@@ -698,29 +699,7 @@ func (d *driver) finishCommit(pachClient *client.APIClient, commit *pfs.Commit, 
 	}
 
 	commitInfo.Finished = now()
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
-		if err := commits.Put(commit.ID, commitInfo); err != nil {
-			return err
-		}
-		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
-			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
-		}
-		if updateRepoSize && !empty {
-			repos := d.repos.ReadWrite(stm)
-			repoInfo := new(pfs.RepoInfo)
-			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
-				return err
-			}
-
-			repoInfo.SizeBytes = commitInfo.SizeBytes
-			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return err
+	return d.writeFinishedCommit(ctx, commit, commitInfo)
 }
 
 func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
@@ -728,7 +707,6 @@ func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Co
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	updateRepoSize := commit.ID == "master"
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
@@ -740,7 +718,15 @@ func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Co
 	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
 	commitInfo.Finished = now()
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	return d.writeFinishedCommit(ctx, commit, commitInfo)
+}
+
+// writeFinishedCommit writes these changes to etcd:
+// 1) it closes the input commit (i.e., it writes any changes made to it and
+//    removes it from the open commits)
+// 2) if the commit is the new HEAD of master, it updates the repo size
+func (d *driver) writeFinishedCommit(ctx context.Context, commit *pfs.Commit, commitInfo *pfs.CommitInfo) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		if err := commits.Put(commit.ID, commitInfo); err != nil {
 			return err
@@ -748,16 +734,24 @@ func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Co
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
 		}
-		if updateRepoSize {
-			repos := d.repos.ReadWrite(stm)
-			repoInfo := new(pfs.RepoInfo)
-			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
-				return err
-			}
-
-			repoInfo.SizeBytes = commitInfo.SizeBytes
-			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
-				return err
+		// update the repo size if this is the head of master
+		repos := d.repos.ReadWrite(stm)
+		repoInfo := new(pfs.RepoInfo)
+		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+			return err
+		}
+		for _, branch := range repoInfo.Branches {
+			if branch.Name == "master" {
+				branchInfo := &pfs.BranchInfo{}
+				if err := d.branches(commit.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
+					return err
+				}
+				if branchInfo.Head.ID == commit.ID {
+					repoInfo.SizeBytes = commitInfo.SizeBytes
+					if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+						return err
+					}
+				}
 			}
 		}
 		return nil
