@@ -532,6 +532,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 
 		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
 		// tree (inside txn)
+		isOpen := false
 		if treeRef != nil || records != nil {
 			parentTree, err := d.getTreeForCommit(pachClient, parent)
 			if err != nil {
@@ -557,6 +558,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 				}
 			}
 		} else {
+			isOpen = true
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
@@ -566,10 +568,12 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			newCommitInfo.Tree = treeRef
 			newCommitInfo.SizeBytes = uint64(tree.FSSize())
 			newCommitInfo.Finished = now()
+		}
 
-			if branch == "master" {
-				repoInfo.SizeBytes = newCommitInfo.SizeBytes
-			}
+		// Update the repo size if we're on the master branch and this is not
+		// an open commit
+		if !isOpen && branchInfo.Name == "master" {
+			repoInfo.SizeBytes = newCommitInfo.SizeBytes
 		}
 
 		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
@@ -626,7 +630,6 @@ func (d *driver) finishCommit(pachClient *client.APIClient, commit *pfs.Commit, 
 	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	updateRepoSize := commit.ID == "master"
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
