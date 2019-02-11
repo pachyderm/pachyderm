@@ -69,7 +69,26 @@ class ProcessResult:
         self.stdout = stdout
         self.stderr = stderr
 
-class MinikubeDriver:
+class DefaultDriver:
+    def available(self):
+        return True
+
+    def clear(self):
+        if run("yes | pachctl delete-all", shell=True, raise_on_error=False).rc != 0:
+            log.error("could not call `pachctl delete-all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
+
+    def start(self):
+        pass
+
+    def push_images(self, deploy_version, dash_image):
+        pass
+
+    def wait(self):
+        while suppress("pachctl", "version") != 0:
+            print("No pachyderm yet")
+            time.sleep(1)
+
+class MinikubeDriver(DefaultDriver):
     def available(self):
         return run("which", "minikube", raise_on_error=False).rc == 0
 
@@ -89,7 +108,7 @@ class MinikubeDriver:
         run("./etc/kube/push-to-minikube.sh", ETCD_IMAGE)
         run("./etc/kube/push-to-minikube.sh", dash_image)
 
-class MicroK8sDriver:
+class MicroK8sDriver(DefaultDriver):
     def available(self):
         return run("which", "microk8s.kubectl", raise_on_error=False).rc == 0
 
@@ -110,19 +129,10 @@ class MicroK8sDriver:
         run("./etc/kube/push-to-microk8s.sh", ETCD_IMAGE)
         run("./etc/kube/push-to-microk8s.sh", dash_image)
 
-class DockerDriver:
-    def available(self):
-        return True
-
-    def clear(self):
-        if run("yes | pachctl delete-all", shell=True, raise_on_error=False).rc != 0:
-            log.error("could not call `pachctl delete-all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
-
-    def start(self):
-        pass
-
-    def push_images(self, deploy_version, dash_image):
-        pass
+    def wait(self):
+        while suppress("pachctl", "version", "--no-port-forwarding") != 0:
+            print("No pachyderm yet")
+            time.sleep(1)
 
 def parse_log_level(s):
     try:
@@ -210,7 +220,7 @@ def main():
     else:
         log.info("using the k8s for docker driver")
         log.warn("with this driver, it's not possible to fully reset the cluster")
-        driver = DockerDriver()
+        driver = DefaultDriver()
 
     driver.clear()
 
@@ -261,9 +271,7 @@ def main():
         else:
             run("pachctl deploy local -d {} --dry-run | sed \"s/:local/:{}/g\" | kubectl create -f -".format(args.deploy_args, args.deploy_version), shell=True)
 
-        while suppress("pachctl", "version") != 0:
-            print("No pachyderm yet")
-            time.sleep(1)
+        driver.wait()
 
     run("killall", "kubectl", raise_on_error=False)
 
