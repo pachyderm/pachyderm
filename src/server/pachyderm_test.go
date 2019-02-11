@@ -161,21 +161,21 @@ func TestRepoSize(t *testing.T) {
 	// check data repo size
 	repoInfo, err := pachClient.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, repoInfo.SizeBytes, uint64(6))
+	require.Equal(t, uint64(6), repoInfo.SizeBytes)
 
 	// check pipeline repo size
-	repoInfo, err = pachClient.InspectRepo(dataRepo)
+	repoInfo, err = pachClient.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, repoInfo.SizeBytes, uint64(6))
+	require.Equal(t, uint64(6), repoInfo.SizeBytes)
 
 	// ensure size is updated when we delete a commit
 	require.NoError(t, c.DeleteCommit(dataRepo, commit1.ID))
 	repoInfo, err = pachClient.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.Equal(t, repoInfo.SizeBytes, uint64(3))
-	repoInfo, err = pachClient.InspectRepo(dataRepo)
+	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+	repoInfo, err = pachClient.InspectRepo(pipeline)
 	require.NoError(t, err)
-	require.Equal(t, repoInfo.SizeBytes, uint64(3))
+	require.Equal(t, uint64(3), repoInfo.SizeBytes)
 }
 
 func TestAtomPipeline(t *testing.T) {
