@@ -516,7 +516,7 @@ func Cmds(noPortForwarding *bool) []*cobra.Command {
 	auth.AddCommand(ModifyAdminsCmd(noPortForwarding))
 	auth.AddCommand(GetAuthTokenCmd(noPortForwarding))
 	auth.AddCommand(UseAuthTokenCmd())
-	auth.AddCommand(GetConfig())
-	auth.AddCommand(SetConfig())
+	auth.AddCommand(GetConfig(noPortForwarding))
+	auth.AddCommand(SetConfig(noPortForwarding))
 	return []*cobra.Command{auth}
 }
