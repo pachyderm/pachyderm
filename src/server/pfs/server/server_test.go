@@ -2984,6 +2984,13 @@ func TestGlob(t *testing.T) {
 	fileInfos, err = c.GlobFile(repo, "master", "dir1/*")
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "/non-existent-glob*")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+	fileInfos, err = c.GlobFile(repo, "master", "/non-existent-file")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
 	fileInfos, err = c.GlobFile(repo, "master", "dir2/dir3/*")
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(fileInfos))

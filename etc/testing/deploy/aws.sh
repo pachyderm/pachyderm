@@ -83,6 +83,11 @@ while true; do
       shift
       break
       ;;
+    *)
+      echo "Unrecognized argument: \"${1}\""
+      echo "Must be one of --list, --delete=<cluster>, --delete-all, --create [--zone=<zone>] [--use-cloudfront] [--no-pachyderm]"
+      exit 1
+      ;;
   esac
 done
 
@@ -102,10 +107,10 @@ case "${OP}" in
     if [[ -n "${CLOUDFRONT}" ]]; then
       cmd+=("${CLOUDFRONT}")
     fi
-    sudo --preserve-env=PATH,GOPATH,KUBECONFIG "${cmd[@]}"
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "KUBECONFIG=${KUBECONFIG}" "${cmd[@]}"
     check_ready="$(dirname "${0}")/../../kube/check_ready.sh"
     check_ready="$(realpath "${check_ready}")"
-    sudo --preserve-env=PATH,GOPATH,KUBECONFIG bash -c \
+    sudo env "PATH=${PATH}" "GOPATH=${GOPATH}" "KUBECONFIG=${KUBECONFIG}" bash -c \
       "until timeout 1s ${check_ready} app=pachd; do sleep 1; echo -en \"\\033[F\"; done"
     ;;
   delete)

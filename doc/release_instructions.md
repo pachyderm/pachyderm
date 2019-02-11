@@ -134,7 +134,7 @@ Which will create a release like `v1.2.3-2342345aefda9879e87ad`
 Which can be installed like:
 
 ```
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.2/pachctl_1.8.2_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.3/pachctl_1.8.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:
@@ -145,30 +145,6 @@ Or for mac/brew:
 $ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/1.7.0-5a590ad9d8e9a09d4029f0f7379462620cf589ee/pachctl@1.7.rb
 ```
 
+_After a successful release_, you'll need to manually update the [release](https://github.com/pachyderm/pachyderm/releases) with the tag and publish as a workaround for [this issue](https://github.com/laher/goxc/issues/112).
 
-Then _after a successful release_:
-
-- The tag created by goxc will point to master, and this is wrong. Opened an issue for this: https://github.com/laher/goxc/issues/112
-- But the binaries built are correct (they're built off of your local code, on the branch you've checked out)
-- So we'll delete the tag and re-create it to make it point to the correct commit 
-
-1) Delete the tag
-- [You can see a list of tags here](https://github.com/pachyderm/pachyderm/tags) or here's an [example release tag](https://github.com/pachyderm/pachyderm/releases/tag/v1.2.5)
-
-2) Manually tag your branch
-
-```
-git tag -d v1.2.6 # You may need to delete it locally
-git tag v1.2.6
-git push origin --tags
-```
-
-This will fail if you didn't delete the tag on Github in the previous step
-
-3) Manually update the release with the tag and publish 
-
-4) Check the docs
-
-Note that ReadTheDocs builds docs from our GitHub master branch. If the docs changes you made aren't checked into the Pachyderm master branch, they won't show up.
-
-If you have checked in your docs changes, but they're not showing up as the `latest` version of the docs, tag your version as 'active' on the readthedocs dashboard: https://readthedocs.org/projects/pachyderm/versions/
+Then check the docs. Note that ReadTheDocs builds docs from our GitHub master branch. If the docs changes you made aren't checked into the Pachyderm master branch, they won't show up. If you have checked in your docs changes, but they're not showing up as the `latest` version of the docs, tag your version as 'active' on the readthedocs dashboard: https://readthedocs.org/projects/pachyderm/versions/

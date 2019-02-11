@@ -37,6 +37,13 @@ func PrintJobHeader(w io.Writer) {
 	fmt.Fprint(w, JobHeader)
 }
 
+func safeTrim(s string, l int) string {
+	if len(s) < l {
+		return s
+	}
+	return strings.TrimSpace(s[:l]) + "..."
+}
+
 // PrintJobInfo pretty-prints job info.
 func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
@@ -52,7 +59,7 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
 	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
-		fmt.Fprintf(w, "%s: %s\t\n", jobState(jobInfo.State), strings.TrimSpace(jobInfo.Reason[:jobReasonLen])+"...")
+		fmt.Fprintf(w, "%s: %s\t\n", jobState(jobInfo.State), safeTrim(jobInfo.Reason, jobReasonLen))
 	} else {
 		fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 	}
@@ -121,7 +128,7 @@ ParallelismSpec: {{.ParallelismSpec}}
   CPU: {{ .ResourceLimits.Cpu }}
   Memory: {{ .ResourceLimits.Memory }}
   {{ if .ResourceLimits.Gpu }}GPU:
-    Type: {{ .ResourceLimits.Gpu.Type }} 
+    Type: {{ .ResourceLimits.Gpu.Type }}
     Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
 {{ if .Service }}Service:
 	{{ if .Service.InternalPort }}InternalPort: {{ .Service.InternalPort }} {{end}}

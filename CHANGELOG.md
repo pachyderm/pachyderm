@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.8.3
+
+- `--push-images` on `create-pipeline` has been replaced with `--build` which builds and pushes docker images. (#3370)
+- Fixed a bug that would cause malformed config files to panic pachctl. (#3336)
+- Port-forwarding will now happen automatically when commands are run. (#3340)
+- Fix bug where `create-pipeline` accepts names which Kubernetes considers invalid. (#3344)
+- Fix a bug where put-file would respond `master not found` for an open commit. (#3184)
+- Fix a bug where jobs with stats enabled and no datums would never close their stats commit. (#3355)
+- Pipelines now reject files paths with utf8 unprintable characters. (#3356)
+- Fixed a bug in the Azure driver that caused it to choke on large files. (#3378)
+- Fixed a bug that caused pipelines go into a loop and log a lot when they were stopped. (#3397)
+- `ADDRESS` has been renamed to `PACHD_ADDRESS` to be less generic. `ADDRESS` will still work for the remainder of the 1.8.x series of releases. (#3415)
+- The `pod_spec` field in pipelines has been revamped to use JSON Merge Patch (rfc7386) Additionally, a field, `pod_patch` has been added the the pipeline spec which is similar to `pod_spec` but uses JSON Patches (rfc6902) instead. (#3427)
+- Pachyderm developer names should no longer appear in backtraces. (#3436)
+
+## 1.8.2
+
+- Updated support for GPUs (through device plugins).
+
 ## 1.8.1
 
 - Adds support for viewing file history via the `--history` flag to `list-file` (#3277, #3299).

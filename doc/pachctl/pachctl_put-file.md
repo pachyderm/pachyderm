@@ -48,11 +48,6 @@ $ pachctl put-file repo branch -i file
 $ pachctl put-file repo branch -i http://host/path
 
 ```
-NOTE there's a small performance overhead for using a branch name as opposed
-to a commit ID in put-file.  In most cases the performance overhead is
-negligible, but if you are putting a large number of small files, you might
-want to consider using commit IDs directly.
-
 
 ```
 ./pachctl put-file repo-name branch [path/to/file/in/pfs]
@@ -76,7 +71,8 @@ want to consider using commit IDs directly.
 ### Options inherited from parent commands
 
 ```
-      --no-metrics   Don't report user metrics for this command
-  -v, --verbose      Output verbose logs
+      --no-metrics           Don't report user metrics for this command
+      --no-port-forwarding   Disable implicit port forwarding
+  -v, --verbose              Output verbose logs
 ```
 

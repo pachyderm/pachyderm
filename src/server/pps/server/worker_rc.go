@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strconv"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -37,6 +38,7 @@ type workerOptions struct {
 	etcdPrefix       string              // the prefix in etcd to use
 	schedulingSpec   *pps.SchedulingSpec // the SchedulingSpec for the pipeline
 	podSpec          string
+	podPatch         string
 
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
@@ -62,11 +64,20 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Name:  "STORAGE_BACKEND",
 		Value: a.storageBackend,
 	}, {
+		Name:  "PPS_WOKER_GRPC_PORT",
+		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
+	}, {
 		Name:  "PORT",
 		Value: strconv.FormatUint(uint64(a.port), 10),
 	}, {
+		Name:  "PPROF_PORT",
+		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
+	}, {
 		Name:  "HTTP_PORT",
 		Value: strconv.FormatUint(uint64(a.httpPort), 10),
+	}, {
+		Name:  "PEER_PORT",
+		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	}}
 	sidecarEnv = append(sidecarEnv, assets.GetSecretEnvVars(a.storageBackend)...)
 	workerEnv := options.workerEnv
@@ -93,6 +104,19 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		}
 		sidecarVolumeMounts = append(sidecarVolumeMounts, storageMount)
 		userVolumeMounts = append(userVolumeMounts, storageMount)
+	} else {
+		// `pach-dir-volume` is needed for openshift, see:
+		// https://github.com/pachyderm/pachyderm/issues/3404
+		options.volumes = append(options.volumes, v1.Volume{
+			Name: "pach-dir-volume",
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
+			},
+		})
+		sidecarVolumeMounts = append(sidecarVolumeMounts, v1.VolumeMount{
+			Name:      "pach-dir-volume",
+			MountPath: a.storageRoot,
+		})
 	}
 	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
@@ -121,6 +145,10 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	}
 	zeroVal := int64(0)
 	workerImage := a.workerImage
+	var securityContext *v1.PodSecurityContext
+	if a.workerUsesRoot {
+		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
+	}
 	resp, err := a.getPachClient().Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return v1.PodSpec{}, err
@@ -172,7 +200,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		Volumes:                       options.volumes,
 		ImagePullSecrets:              options.imagePullSecrets,
 		TerminationGracePeriodSeconds: &zeroVal,
-		SecurityContext:               &v1.PodSecurityContext{RunAsUser: &zeroVal},
+		SecurityContext:               securityContext,
 	}
 	if options.schedulingSpec != nil {
 		podSpec.NodeSelector = options.schedulingSpec.NodeSelector
@@ -191,8 +219,28 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		resourceRequirements.Limits = *options.resourceLimits
 	}
 	podSpec.Containers[0].Resources = resourceRequirements
-	if options.podSpec != "" {
-		if err := json.Unmarshal([]byte(options.podSpec), &podSpec); err != nil {
+	if options.podSpec != "" || options.podPatch != "" {
+		jsonPodSpec, err := json.Marshal(&podSpec)
+		if err != nil {
+			return v1.PodSpec{}, err
+		}
+		if options.podSpec != "" {
+			jsonPodSpec, err = jsonpatch.MergePatch(jsonPodSpec, []byte(options.podSpec))
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+		}
+		if options.podPatch != "" {
+			patch, err := jsonpatch.DecodePatch([]byte(options.podPatch))
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+			jsonPodSpec, err = patch.Apply(jsonPodSpec)
+			if err != nil {
+				return v1.PodSpec{}, err
+			}
+		}
+		if err := json.Unmarshal(jsonPodSpec, &podSpec); err != nil {
 			return v1.PodSpec{}, err
 		}
 	}
@@ -202,7 +250,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
 	transform *pps.Transform, cacheSize string, service *pps.Service,
-	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string) *workerOptions {
+	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string, podPatch string) *workerOptions {
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
@@ -258,16 +306,16 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		Value: specCommitID,
 	})
 	// Set the worker gRPC port
-	workerEnv = append(workerEnv, v1.EnvVar {
-		Name: client.PPSWorkerPortEnv,
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSWorkerPortEnv,
 		Value: strconv.FormatUint(uint64(a.workerGrpcPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PProfPortEnv,
+		Name:  client.PProfPortEnv,
 		Value: strconv.FormatUint(uint64(a.pprofPort), 10),
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
-		Name: client.PeerPortEnv,
+		Name:  client.PeerPortEnv,
 		Value: strconv.FormatUint(uint64(a.peerPort), 10),
 	})
 
@@ -353,6 +401,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		service:          service,
 		schedulingSpec:   schedulingSpec,
 		podSpec:          podSpec,
+		podPatch:         podPatch,
 	}
 }
 
