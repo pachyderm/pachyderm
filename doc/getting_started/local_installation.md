@@ -89,12 +89,14 @@ We're good to go!
 $ minikube ip
 192.168.99.100
 
-# Set the `PACHD_ADDRESS` environemnt variable
+# Set the `PACHD_ADDRESS` environment variable
 $ export PACHD_ADDRESS=192.168.99.100:30650
 
 # Run a command
 $ pachctl version
 ```
+
+**Note**: `ADDRESS` was renamed to `PACHD_ADDRESS` in 1.8.3. If you are using an older version of Pachyderm, use the `ADDRESS` environment variable instead.
 
 ## Next Steps
 
