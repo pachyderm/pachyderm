@@ -80,12 +80,15 @@ class DefaultDriver:
     def start(self):
         pass
 
+    def inspect(self):
+        pass
+
     def push_images(self, deploy_version, dash_image):
         pass
 
     def wait(self):
         while suppress("pachctl", "version") != 0:
-            print("No pachyderm yet")
+            print("Waiting for pachyderm to come up...")
             time.sleep(1)
 
 class MinikubeDriver(DefaultDriver):
@@ -113,15 +116,41 @@ class MicroK8sDriver(DefaultDriver):
         return run("which", "microk8s.kubectl", raise_on_error=False).rc == 0
 
     def clear(self):
+        # `microk8s.reset` doesn't clear out cluster pods, so we'll go ahead
+        # and do that through pachctl functionality if possible
+        if run("yes | pachctl delete-all --no-port-forwarding", shell=True, raise_on_error=False).rc != 0:
+            log.error("could not call `pachctl delete-all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
+
         run("microk8s.stop")
 
     def start(self):
-        run("microk8s.start")
-        run("microk8s.reset")
+        # starting microk8s immediately after stopping it can fail, so try a
+        # few times
+        for i in range(5):
+            if run("microk8s.start", raise_on_error=False).rc == 0:
+                break
+            time.sleep(1)
+
+        # `microk8s.reset` has a couple of issues:
+        # 1) it can fail when called immediately after `microk8s.start`
+        # 2) it doesn't always output a proper return code when there's an error
+        stderr = None
+        for i in range(5):
+            stderr = run("microk8s.reset").stderr
+            if len(stderr) == 0:
+                break
+            time.sleep(1)
+        if len(stderr) > 0:
+            raise Exception("reset failed")
 
         while suppress("microk8s.status") != 0:
             print("Waiting for microk8s to come up...")
             time.sleep(1)
+
+    def inspect(self):
+        # get output of `microk8s.inspect`, as it may include a warning about
+        # firewall rules that need to be changed in order for it to work
+        run("microk8s.inspect")
 
     def push_images(self, deploy_version, dash_image):
         run("./etc/kube/push-to-microk8s.sh", "pachyderm/pachd:{}".format(deploy_version))
@@ -131,7 +160,7 @@ class MicroK8sDriver(DefaultDriver):
 
     def wait(self):
         while suppress("pachctl", "version", "--no-port-forwarding") != 0:
-            print("No pachyderm yet")
+            print("Waiting for pachyderm to come up...")
             time.sleep(1)
 
 def parse_log_level(s):
@@ -173,7 +202,7 @@ def capture(cmd, *args, shell=False):
     return run(cmd, *args, shell=shell, stdout_log_level="debug").stdout
 
 def suppress(cmd, *args):
-    return run(cmd, *args, stdout_log_level="debug", raise_on_error=False).rc
+    return run(cmd, *args, stdout_log_level="debug", stderr_log_level="debug", raise_on_error=False).rc
 
 def get_pachyderm(deploy_version):
     if deploy_version != "local":
@@ -244,6 +273,8 @@ def main():
             driver.start,
             lambda: get_pachyderm(args.deploy_version),
         )
+
+    driver.inspect()
 
     version = capture("pachctl", "version", "--client-only")
     print("Deploy pachyderm version v{}".format(version))
