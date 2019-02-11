@@ -1485,9 +1485,10 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		// points to a deleted commit
 		var shortestBranch *pfs.Branch
 		var shortestBranchLen = maxInt
+		repos := d.repos.ReadWrite(stm)
 		for repo := range affectedRepos {
 			repoInfo := &pfs.RepoInfo{}
-			if err := d.repos.ReadWrite(stm).Get(repo, repoInfo); err != nil {
+			if err := repos.Get(repo, repoInfo); err != nil {
 				return err
 			}
 			for _, brokenBranch := range repoInfo.Branches {
@@ -1514,6 +1515,18 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 					// If err is NotFound, branch is in downstream provenance but
 					// doesn't exist yet--nothing to update
 					return fmt.Errorf("error updating branch %v/%v: %v", brokenBranch.Repo.Name, brokenBranch.Name, err)
+				}
+				// Update repo size if this is the master branch and there's
+				// still a HEAD
+				if branchInfo.Name == "master" && branchInfo.Head != nil {
+					headCommitInfo, err := d.inspectCommit(pachClient, branchInfo.Head, pfs.CommitState_STARTED)
+					if err != nil {
+						return err
+					}
+					repoInfo.SizeBytes = headCommitInfo.SizeBytes
+					if err := repos.Put(repo, repoInfo); err != nil {
+						return err
+					}
 				}
 			}
 		}
