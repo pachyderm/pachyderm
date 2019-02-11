@@ -1516,14 +1516,19 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 					// doesn't exist yet--nothing to update
 					return fmt.Errorf("error updating branch %v/%v: %v", brokenBranch.Repo.Name, brokenBranch.Name, err)
 				}
-				// Update repo size if this is the master branch and there's
-				// still a HEAD
-				if branchInfo.Name == "master" && branchInfo.Head != nil {
-					headCommitInfo, err := d.inspectCommit(pachClient, branchInfo.Head, pfs.CommitState_STARTED)
-					if err != nil {
-						return err
+				// Update repo size if this is the master branch
+				if branchInfo.Name == "master" {
+					if branchInfo.Head != nil {
+						headCommitInfo, err := d.inspectCommit(pachClient, branchInfo.Head, pfs.CommitState_STARTED)
+						if err != nil {
+							return err
+						}
+						repoInfo.SizeBytes = headCommitInfo.SizeBytes
+					} else {
+						// No HEAD commit, set the repo size to 0
+						repoInfo.SizeBytes = 0
 					}
-					repoInfo.SizeBytes = headCommitInfo.SizeBytes
+
 					if err := repos.Put(repo, repoInfo); err != nil {
 						return err
 					}
