@@ -64,7 +64,7 @@ You can try running `pachctl version --client-only` to verify that `pachctl` has
 
 ```sh
 $ pachctl version --client-only
-1.7.0
+1.8.x
 ```
 
 #### Set up the Storage Resources
