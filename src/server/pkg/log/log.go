@@ -228,12 +228,18 @@ func topLevelService(fullyQualifiedService string) string {
 	return tokens[0]
 }
 
+// PrettyFormatter formats logrus log messages like so:
+// ```
+// 2019-02-11T16:02:02Z INFO pfs.API.InspectRepo {"request":{"repo":{"name":"images"}}} []
+// ```
 type PrettyFormatter struct{}
 
+// NewPrettyFormatter creates a new `PrettyFormatter`.
 func NewPrettyFormatter() PrettyFormatter {
 	return PrettyFormatter {}
 }
 
+// Format formats a logrus log message, as per the `Formatter` interface
 func (f PrettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	serialized := []byte(
 		fmt.Sprintf(
