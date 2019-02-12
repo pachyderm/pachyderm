@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 	"google.golang.org/grpc"
@@ -70,6 +71,8 @@ type appEnv struct {
 }
 
 func main() {
+	log.SetFormatter(logutil.NewPrettyFormatter())
+
 	// Copy the contents of /pach-bin/certs into /etc/ssl/certs. Don't return an
 	// error (which would cause 'Walk()' to exit early) but do record if any certs
 	// are known to be missing so we can inform the user

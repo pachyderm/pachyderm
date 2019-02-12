@@ -50,7 +50,7 @@ func NewLocalLogger(service string) Logger {
 
 func newLogger(service string, exportStats bool) Logger {
 	l := logrus.New()
-	l.Formatter = new(prettyFormatter)
+	l.Formatter = NewPrettyFormatter()
 	newLogger := &logger{
 		l.WithFields(logrus.Fields{"service": service}),
 		make(map[string]*prometheus.HistogramVec),
@@ -228,9 +228,13 @@ func topLevelService(fullyQualifiedService string) string {
 	return tokens[0]
 }
 
-type prettyFormatter struct{}
+type PrettyFormatter struct{}
 
-func (f *prettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+func NewPrettyFormatter() PrettyFormatter {
+	return PrettyFormatter {}
+}
+
+func (f PrettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	serialized := []byte(
 		fmt.Sprintf(
 			"%v %v ",
