@@ -202,9 +202,6 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 	if err := validateRepoName(repo.Name); err != nil {
 		return err
 	}
-	if update {
-		return d.updateRepo(pachClient, repo, description)
-	}
 
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -217,8 +214,12 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 		if err != nil && !col.IsErrNotFound(err) {
 			return fmt.Errorf("error checking whether \"%s\" exists: %v",
 				repo.Name, err)
-		} else if err == nil {
+		} else if err == nil && !update {
 			return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
+		}
+		created := now()
+		if err == nil {
+			created = existingRepoInfo.Created
 		}
 
 		// Create ACL for new repo
@@ -241,28 +242,9 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 
 		repoInfo := &pfs.RepoInfo{
 			Repo:        repo,
-			Created:     now(),
+			Created:     created,
 			Description: description,
 		}
-		return repos.Create(repo.Name, repoInfo)
-	})
-	return err
-}
-
-func (d *driver) updateRepo(pachClient *client.APIClient, repo *pfs.Repo, description string) error {
-	ctx := pachClient.Ctx()
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		repos := d.repos.ReadWrite(stm)
-		repoInfo := &pfs.RepoInfo{}
-		if err := repos.Get(repo.Name, repoInfo); err != nil {
-			return fmt.Errorf("error updating repo: %v", err)
-		}
-		// Caller only neads to be a WRITER to call UpdatePipeline(), so caller only
-		// needs to be a WRITER to update the provenance.
-		if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_WRITER); err != nil {
-			return err
-		}
-		repoInfo.Description = description
 		return repos.Put(repo.Name, repoInfo)
 	})
 	return err
@@ -1788,7 +1770,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-	
+
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
@@ -3325,7 +3307,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					branch = commit.ID
 				}
 				// inspect the commit where we're adding files and figure out
-				// if this is a one-off put-file. 
+				// if this is a one-off put-file.
 				// - if 'commit' refers to an open commit                -> not oneOff
 				// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
 				// Note that if commit is a specific commit ID, it must be
