@@ -2438,7 +2438,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	if err := pachClient.DeleteRepo(ppsconsts.SpecRepo, true); err != nil && !isNotFoundErr(err) {
 		return nil, err
 	}
-	if err := pachClient.CreateRepo(ppsconsts.SpecRepo); err != nil && !isAlreadyExistsErr(err) {
+	if err := createSpecRepo(pachClient); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -2806,6 +2806,18 @@ func (a *apiServer) updatePipelineSpecCommit(pachClient *client.APIClient, pipel
 	return err
 }
 
+func createSpecRepo(c *client.APIClient) error {
+	_, err := c.PfsAPIClient.CreateRepo(
+		c.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:        client.NewRepo(ppsconsts.SpecRepo),
+			Update:      true,
+			Description: ppsconsts.SpecRepoDesc,
+		},
+	)
+	return err
+}
+
 func (a *apiServer) getPachClient() *client.APIClient {
 	a.pachClientOnce.Do(func() {
 		var err error
@@ -2815,12 +2827,7 @@ func (a *apiServer) getPachClient() *client.APIClient {
 		}
 		// Initialize spec repo
 		if err := a.sudo(a.pachClient, func(superUserClient *client.APIClient) error {
-			if err := superUserClient.CreateRepo(ppsconsts.SpecRepo); err != nil {
-				if !isAlreadyExistsErr(err) {
-					return err
-				}
-			}
-			return nil
+			return createSpecRepo(superUserClient)
 		}); err != nil {
 			panic(fmt.Sprintf("could not create pipeline spec repo: %v", err))
 		}

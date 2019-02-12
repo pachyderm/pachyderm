@@ -9,6 +9,8 @@ const (
 	// SpecRepo contains every pipeline's PipelineInfo (in its own branch)
 	SpecRepo = "__spec__"
 
+	SpecRepoDesc = "PPS pipeline specs repo."
+
 	// SpecFile is the file in every SpecRepo commit containing the PipelineInfo
 	SpecFile = "spec"
 
