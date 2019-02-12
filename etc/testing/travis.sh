@@ -49,23 +49,13 @@ go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC1" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-        echo "Running the full misc test suite because secret env vars exist"
-        make lint enterprise-code-checkin-test docker-build test-pfs-server \
-            test-pfs-cmds test-deploy-cmds test-libs test-vault \
-            test-enterprise
+        make docker-build test-vault test-auth test-enterprise test-worker
     else
-        echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
-        make lint enterprise-code-checkin-test docker-build test-pfs-server \
-            test-pfs-cmds test-deploy-cmds test-libs
+        echo "Skipping misc1 because there are no secure env vars"
     fi
 elif [[ "$BUCKET" == "MISC2" ]]; then
-    if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-        echo "Running the full misc test suite because secret env vars exist"
-        make test-auth test-worker test-admin test-s3
-    else
-        echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
-        make test-admin test-s3
-    fi
+    make lint enterprise-code-checkin-test docker-build test-pfs-server \
+        test-pfs-cmds test-deploy-cmds test-libs test-admin test-s3
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
     ./etc/testing/examples.sh    
