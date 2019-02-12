@@ -1,0 +1,14 @@
+FROM golang:1.11.5
+LABEL maintainer="msteffen@pachyderm.io"
+
+# Build the 'split' pipeline and supervisor such that they can be run
+# statically (i.e. in a scratch containiner, with no libc), so that their
+# docker images are as small as possible
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+WORKDIR /go/src
+CMD \
+  LT_PATH=github.com/pachyderm/pachyderm/src/testing/loadtest/split && \
+  go install -a -ldflags "-extldflags -static" ./${LT_PATH}/cmd/pipeline && \
+  go install -a -ldflags "-extldflags -static" ./${LT_PATH}/cmd/supervisor && \
+  mv ../bin/* /out/;
