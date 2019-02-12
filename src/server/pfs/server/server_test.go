@@ -1920,7 +1920,8 @@ func TestInspectRepoSimple(t *testing.T) {
 	info, err := client.InspectRepo(repo)
 	require.NoError(t, err)
 
-	require.Equal(t, int(info.SizeBytes), len(file1Content)+len(file2Content))
+	// Size should be 0 because the files were not added to master
+	require.Equal(t, int(info.SizeBytes), 0)
 }
 
 func TestInspectRepoComplex(t *testing.T) {
@@ -1929,7 +1930,7 @@ func TestInspectRepoComplex(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit, err := client.StartCommit(repo, "")
+	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	numFiles := 100
