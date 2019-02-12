@@ -47,13 +47,13 @@ done
 
 go install ./src/testing/match
 
-if [[ "$BUCKET" == "MISC1" ]]; then
+if [[ "$BUCKET" == "MISC_WITH_SECRETS" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         make docker-build test-vault test-auth test-enterprise test-worker
     else
-        echo "Skipping misc1 because there are no secure env vars"
+        echo "Skipping MISC_WITH_SECRETS because there are no secure env vars"
     fi
-elif [[ "$BUCKET" == "MISC2" ]]; then
+elif [[ "$BUCKET" == "MISC_WITHOUT_SECRETS" ]]; then
     make lint enterprise-code-checkin-test docker-build test-pfs-server \
         test-pfs-cmds test-deploy-cmds test-libs test-admin test-s3
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
