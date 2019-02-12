@@ -6,18 +6,18 @@ operation. This is roughly analogous to building an inverted index of several
 database records.
 
 ## Building the Load Test
-`Dockerfile.buildenv` creates a container that builds both the `supervisor` and
-`pipeline` components of the load test. Run it with `make docker-build`, which
-builds both components, puts them in docker containers
-(`pachyderm/split-loadtest-supervisor` and `pachyderm/split-loadtest-pipeline`,
-respectively), and pushes them to dockerhub.
+Build the benchmark containers with `make docker-build`. This runs
+`build/docker-build.sh` which mounts the Pachyderm repo in a `golang:1.11`
+docker image, builds both the pipeline and supervisor components, puts them in
+docker containers (`pachyderm/split-loadtest-supervisor` and
+`pachyderm/split-loadtest-pipeline`, respectively), and pushes them to
+dockerhub.
 
 ## Running the Load Test
-1. Create a pachyderm cluster and start a pod using the
-   `pachyderm/split-loadtest-supervisor` docker image:
+1. Create a pachyderm cluster
+1. Start a pod using the `pachyderm/split-loadtest-supervisor` docker image:
    ```
    make docker-build
-   pachctl deploy <args>
    kubectl apply -f kube/supervisor.yaml
    ```
 
@@ -26,3 +26,11 @@ respectively), and pushes them to dockerhub.
   load tests, or the same load test with multiple parameter configurations in
   multiple cloud providers
   - Idea: turn kube/supervisor.yaml into a ksonnet (or helm? jsonnet? JSON-e?) template
+- The benchmark currently doesn't validate the output (e.g.:
+  - check that output files are the same sum total size as the input files
+  - check that all output lines are unique
+  - check that `num_input_files/keys_per_file` distinct input file values
+    appear in every output file
+  Obviously this would be helpful when testing major rewrites of PPS/worker
+- A flag for more/less verbose logging (right now logging is fairly verbose)
+
