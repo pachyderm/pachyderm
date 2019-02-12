@@ -1306,7 +1306,9 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 	}
 	fillDefaultResourceRequests(opts, persistentDiskBackend)
 	if opts.DashOnly {
-		WriteDashboardAssets(encoder, opts)
+		if dashErr := WriteDashboardAssets(encoder, opts); dashErr != nil {
+			return dashErr
+		}
 		return nil
 	}
 
@@ -1450,7 +1452,9 @@ func WriteLocalAssets(encoder Encoder, opts *AssetOpts, hostPath string) error {
 	if err := WriteAssets(encoder, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
 		return err
 	}
-	WriteSecret(encoder, LocalSecret(), opts)
+	if secretErr := WriteSecret(encoder, LocalSecret(), opts); secretErr != nil {
+		return secretErr
+	}
 	return nil
 }
 
