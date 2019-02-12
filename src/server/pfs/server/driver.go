@@ -1248,6 +1248,11 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 		}
 	}
 
+	// Now add the root commits themselves
+	for _, commit := range fromCommits {
+		commitsToWatch[commitKey(commit)] = commit
+	}
+
 	// Compute a map of repos we're flushing to.
 	toRepoMap := make(map[string]*pfs.Repo)
 	for _, toRepo := range toRepos {
