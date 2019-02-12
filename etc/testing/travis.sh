@@ -49,21 +49,21 @@ go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC1" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-        echo "Running the full misc1 test suite because secret env vars exist"
+        echo "Running the full misc test suite because secret env vars exist"
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
-            test-pfs-cmds test-deploy-cmds
+            test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth
     else
-        echo "Running the misc1 test suite with some tests disabled because secret env vars have not been set"
-        make lint enterprise-code-checkin-test docker-build test-pfs-server
+        echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
+        make lint enterprise-code-checkin-test docker-build test-pfs-server \
+            test-pfs-cmds test-deploy-cmds test-libs
     fi
 elif [[ "$BUCKET" == "MISC2" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-        echo "Running the full misc2 test suite because secret env vars exist"
-        make test-libs test-vault test-auth test-enterprise test-worker \
-            test-admin test-s3
+        echo "Running the full misc test suite because secret env vars exist"
+        make test-enterprise test-worker test-admin test-s3
     else
-        echo "Running the misc2 test suite with some tests disabled because secret env vars have not been set"
-        make test-pfs-cmds test-deploy-cmds test-libs test-admin test-s3
+        echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
+        make test-admin test-s3
     fi
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
