@@ -1,5 +1,5 @@
 docker-build:
-	./docker-build.sh
+	./build/docker-build.sh
 	# Generate Dockerfile and build the supervisor and pipeline into their own
 	# containers
 	for bin in supervisor pipeline; do \
