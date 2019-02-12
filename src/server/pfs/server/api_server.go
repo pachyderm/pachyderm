@@ -268,42 +268,11 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 	return &types.Empty{}, nil
 }
 
-//TODO(kdelga): should this go in client/pfs.go?
-type getFileStreamServer struct {
-	s pfs.API_GetFileStreamServer
-}
-
-func (s getFileStreamServer) Send(bytesValue *types.BytesValue) error {
-	gfr := &pfs.GetFileResponse{
-		//TODO(kdelga): I guess here is where we want to do our metadata stuff
-		// maybe this should be added to driver?
-		File: nil,
-		Value: bytesValue.Value,
-	}
-	return s.s.Send(gfr)
-}
-
-func (a *apiServer) GetFileStream(request *pfs.GetFileRequest, apiGetFileStreamServer pfs.API_GetFileStreamServer) (retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-
-	file, err := a.driver.getFile(a.getPachClient(apiGetFileStreamServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
-	if err != nil {
-		return err
-	}
-
-	gfss := &getFileStreamServer{
-		s: apiGetFileStreamServer,
-	}
-
-	return grpcutil.WriteToStreamingBytesServer(file, gfss)
-}
-
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	file, err := a.driver.getFile(a.getPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
+	file, _, err := a.driver.getFile(a.getPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
 		return err
 	}
@@ -315,6 +284,24 @@ func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.inspectFile(a.getPachClient(ctx), request.File)
+}
+
+func (a *apiServer) GetFiles(request *pfs.GetFileRequest, apiGetFilesServer pfs.API_GetFilesServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	sent := 0
+	defer func(start time.Time) {
+		a.Log(request, fmt.Sprintf("stream containing %d GetFileResponses", sent), retErr, time.Since(start))
+	}(time.Now())
+
+	file, nodes, err := a.driver.getFile(a.getPachClient(apiGetFilesServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
+	if err != nil {
+		return err
+	}
+
+	return a.driver.filesFromByteStream(apiGetFilesServer, a.getPachClient(apiGetFilesServer.Context()), file, request.File, nodes, func(gfr *pfs.GetFileResponse) error {
+		sent++
+		return apiGetFilesServer.Send(gfr)
+	})
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
