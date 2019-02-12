@@ -51,7 +51,8 @@ if [[ "$BUCKET" == "MISC1" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
-            test-pfs-cmds test-deploy-cmds test-libs test-vault
+            test-pfs-cmds test-deploy-cmds test-libs test-vault \
+            test-enterprise
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
@@ -60,7 +61,7 @@ if [[ "$BUCKET" == "MISC1" ]]; then
 elif [[ "$BUCKET" == "MISC2" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
-        make test-auth test-enterprise test-worker test-admin test-s3
+        make test-auth test-worker test-admin test-s3
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make test-admin test-s3
