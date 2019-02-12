@@ -9,7 +9,7 @@ spec:
         - name: supervisor
           image: pachyderm/split-loadtest-supervisor
           command:
-              - /split-loadtest-supervisor
+              - /supervisor
               - --record-size=100
               - --records-per-file=100
               - --files-per-commit=100
