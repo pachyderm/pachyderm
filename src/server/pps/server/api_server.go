@@ -1867,12 +1867,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 	pipelineName := pipelineInfo.Pipeline.Name
 	pps.SortInput(pipelineInfo.Input) // Makes datum hashes comparable
+	update := false
 	if request.Update {
-		// inspect the pipeline here so that if it doesn't exist users get a
-		// sensible error message
-		if _, err := a.inspectPipeline(pachClient, request.Pipeline.Name); err != nil {
-			return nil, err
+		// inspect the pipeline to see if this is a real update
+		if _, err := a.inspectPipeline(pachClient, request.Pipeline.Name); err == nil {
+			update = true
 		}
+	}
+	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
 		if ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
 			return nil, err
