@@ -7,7 +7,7 @@ database records.
 
 ## Building the Load Test
 `Dockerfile.buildenv` creates a container that builds both the `supervisor` and
-`split` components of the load test. Run it with `make docker-build`, which
+`pipeline` components of the load test. Run it with `make docker-build`, which
 builds both components, puts them in docker containers
 (`pachyderm/split-loadtest-supervisor` and `pachyderm/split-loadtest-pipeline`,
 respectively), and pushes them to dockerhub.
