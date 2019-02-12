@@ -103,21 +103,21 @@ func PrintFlags() {
 
 // PrintDurations prints the duration of all commits and jobs finished so far
 func PrintDurations() {
-	print(" Job  Commit Time Job Time")
+	fmt.Print(" Job  Commit Time    Job Time\n")
 	for i := 0; i < numCommits; i++ {
-		fmt.Printf(" %3d: ")
+		fmt.Printf(" %3d: ", i)
 		if i < len(commitTimes) {
-			fmt.Printf("%6.3f", commitTimes[i])
+			fmt.Printf("%11.3f", commitTimes[i].Seconds())
 		} else {
-			print("    ---   ")
+			fmt.Print("        ---")
 		}
-		print(" ")
+		fmt.Print(" ")
 		if i < len(jobTimes) {
-			fmt.Printf("%6.3f", jobTimes[i])
+			fmt.Printf("%11.3f", jobTimes[i].Seconds())
 		} else {
-			print("    ---   ")
+			fmt.Print("        ---")
 		}
-		print("\n")
+		fmt.Print("\n")
 	}
 }
 
