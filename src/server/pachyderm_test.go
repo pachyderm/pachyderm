@@ -1934,7 +1934,7 @@ func TestUpdatePipeline(t *testing.T) {
 		},
 		client.NewPFSInput(dataRepo, "/*"),
 		"",
-		false,
+		true,
 	))
 
 	_, err := c.StartCommit(dataRepo, "master")
