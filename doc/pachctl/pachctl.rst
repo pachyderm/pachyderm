@@ -11,7 +11,7 @@ Access the Pachyderm API.
 
 Environment variables:
 
-  ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
+  PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
 
 
 Options
