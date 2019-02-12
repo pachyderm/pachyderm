@@ -49,11 +49,11 @@ var (
 	putFileConcurrency  int64  // number of allowed concurrent put-files
 
 	// commitTimes[i] is the amount of time that it took to start and finish
-	// commit number 'i'
+	// commit number 'i' (read by main() and PrintDurations())
 	commitTimes []time.Duration
 
 	// jobTimes[i] is the amount of time that it took to start and finish job
-	// number 'i'
+	// number 'i' (read by main() and PrintDurations())
 	jobTimes []time.Duration
 )
 
@@ -141,7 +141,6 @@ func main() {
 			"%d-byte key and a separator, and values must be at least %d bytes",
 			keySz+separatorSz+minValueSz, keySz, minValueSz)
 	}
-
 	PrintFlags()
 
 	// Connect to pachyderm cluster
@@ -155,7 +154,7 @@ func main() {
 
 	// Make sure cluster is empty
 	if ris, err := c.ListRepo(); err != nil || len(ris) > 0 {
-		log.Fatalf("cluster must be empty before running \"split\" benchmark")
+		log.Fatalf("cluster must be empty before running the \"split\" loadtest")
 	}
 
 	// Create input repo and pipeline
