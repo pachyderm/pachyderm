@@ -2417,6 +2417,19 @@ func TestFlush3(t *testing.T) {
 	require.Equal(t, commitInfos[0].Commit.Repo.Name, "C")
 }
 
+func TestFlushRedundant(t *testing.T) {
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("A"))
+	ACommit, err := client.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", "master"))
+	commitInfoIter, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
+	require.NoError(t, err)
+	commitInfos, err := collectCommitInfos(commitInfoIter)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+}
+
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
 	c := GetPachClient(t)
 	repo := "test"
