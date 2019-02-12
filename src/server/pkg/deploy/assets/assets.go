@@ -1563,14 +1563,14 @@ func objectMeta(name string, labels, annotations map[string]string, namespace st
 	}
 }
 
-// AddRegistry switchs the registry that an image is targetting.
+// AddRegistry switches the registry that an image is targeting, unless registry is blank
 func AddRegistry(registry string, imageName string) string {
+	if registry == "" {
+		return imageName
+	}
 	parts := strings.Split(imageName, "/")
 	if len(parts) == 3 {
 		parts = parts[1:]
 	}
-	if registry != "" {
-		return path.Join(registry, parts[0], parts[1])
-	}
-	return path.Join(parts[0], parts[1])
+	return path.Join(registry, parts[0], parts[1])
 }
