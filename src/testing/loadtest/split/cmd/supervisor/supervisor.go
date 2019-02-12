@@ -18,7 +18,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -34,9 +33,11 @@ const (
 	separator   = '|'       // the key/value separator
 	separatorSz = 1         // the size of the key/value separator ('|'), for readability
 	p           = 533000389 // a largish prime
+	minValueSz  = 24        // see NewInputFile for an explanation
 )
 
 var (
+	// flags:
 	recordSz            int    // size of each record
 	recordsPerFile      int    // records per file
 	filesPerCommit      int    // files per commit
@@ -46,6 +47,14 @@ var (
 	pipelineConcurrency uint64 // parallelism of split pipeline
 	hashtreeShards      uint64 // number of output hashtree shards for the loadtest pipeline
 	putFileConcurrency  int64  // number of allowed concurrent put-files
+
+	// commitTimes[i] is the amount of time that it took to start and finish
+	// commit number 'i'
+	commitTimes []time.Duration
+
+	// jobTimes[i] is the amount of time that it took to start and finish job
+	// number 'i'
+	jobTimes []time.Duration
 )
 
 func init() {
@@ -77,6 +86,41 @@ func init() {
 		"input data")
 }
 
+// PrintFlags just prints the flag values, set above, to stdout. Useful for
+// comparing benchmark runs
+// TODO(msteffen): could this be eliminated with some kind of reflection?
+func PrintFlags() {
+	fmt.Printf("record-size: %v\n", recordSz)
+	fmt.Printf("records-per-file: %v\n", recordsPerFile)
+	fmt.Printf("files-per-commit: %v\n", filesPerCommit)
+	fmt.Printf("num-commits: %v\n", numCommits)
+	fmt.Printf("unique-keys-per-file: %v\n", uniqueKeysPerFile)
+	fmt.Printf("total-unique-keys: %v\n", totalUniqueKeys)
+	fmt.Printf("pipeline-concurrency: %v\n", pipelineConcurrency)
+	fmt.Printf("hashtree-shards: %v\n", hashtreeShards)
+	fmt.Printf("put-file-concurrency: %v\n", putFileConcurrency)
+}
+
+// PrintDurations prints the duration of all commits and jobs finished so far
+func PrintDurations() {
+	print(" Job  Commit Time Job Time")
+	for i := 0; i < numCommits; i++ {
+		fmt.Printf(" %3d: ")
+		if i < len(commitTimes) {
+			fmt.Printf("%6.3f", commitTimes[i])
+		} else {
+			print("    ---   ")
+		}
+		print(" ")
+		if i < len(jobTimes) {
+			fmt.Printf("%6.3f", jobTimes[i])
+		} else {
+			print("    ---   ")
+		}
+		print("\n")
+	}
+}
+
 func main() {
 	flag.Parse()
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
@@ -92,20 +136,13 @@ func main() {
 			"there cannot be more unique keys within a file than there are total",
 			uniqueKeysPerFile, totalUniqueKeys)
 	}
-	if recordSz < (keySz + separatorSz) {
+	if recordSz < (keySz + separatorSz + minValueSz) {
 		log.Fatalf("records must be at least %d bytes, as they start with a "+
-			"%d-byte key and a separator", keySz+separatorSz, keySz)
+			"%d-byte key and a separator, and values must be at least %d bytes",
+			keySz+separatorSz+minValueSz, keySz, minValueSz)
 	}
 
-	fmt.Printf("record-size: %v\n", recordSz)
-	fmt.Printf("records-per-file: %v\n", recordsPerFile)
-	fmt.Printf("files-per-commit: %v\n", filesPerCommit)
-	fmt.Printf("num-commits: %v\n", numCommits)
-	fmt.Printf("unique-keys-per-file: %v\n", uniqueKeysPerFile)
-	fmt.Printf("total-unique-keys: %v\n", totalUniqueKeys)
-	fmt.Printf("pipeline-concurrency: %v\n", pipelineConcurrency)
-	fmt.Printf("hashtree-shards: %v\n", hashtreeShards)
-	fmt.Printf("put-file-concurrency: %v\n", putFileConcurrency)
+	PrintFlags()
 
 	// Connect to pachyderm cluster
 	log.Printf("starting to initialize pachyderm client")
@@ -159,13 +196,6 @@ func main() {
 		start     = time.Now()  // the start time of the load test
 		totalTime time.Duration // The total runtime of the load test
 
-		// commitTime[i] is the amount of time that it took to start and finish
-		// commit number 'i'
-		commitTime = make([]string, 0, numCommits)
-
-		// jobTime[i] is the amount of time that it took to start and finish job
-		// number 'i'
-		jobTime = make([]string, 0, numCommits)
 	)
 
 	// Start creating input files
@@ -192,30 +222,28 @@ func main() {
 				defer sem.Release(1)
 				defer func(start time.Time) {
 				}(time.Now())
+				// log progress every 10% of the way through ingressing data
 				if filesPerCommit < 10 || j%(filesPerCommit/10) == 0 {
 					log.Printf("starting put-file(input-%d), (number %d in commit %d)", i*filesPerCommit+j, j, i)
 				}
 				fileNo := i*filesPerCommit + j
 				name := fmt.Sprintf("input-%010x", fileNo)
-				_, err := c.PutFile(repo, commit.ID, name, newInputFile(fileNo))
-
+				_, err := c.PutFile(repo, commit.ID, name, NewInputFile(fileNo))
 				return err
 			})
 		}
 		if err := eg.Wait(); err != nil {
 			log.Fatalf("error from put-file: %v", err)
 		}
-		log.Printf("about to finish commit %d (%s)", i, commit.ID)
 		if err := c.FinishCommit(repo, commit.ID); err != nil {
 			log.Fatalf("could not finish commit: %v", err)
 		}
 		jobStart := time.Now()
-		commitTime = append(commitTime, fmt.Sprintf("%f", jobStart.Sub(commitStart).Seconds()))
-		log.Printf("commit %d (%s) took %s seconds", i, commit.ID, commitTime[i])
-		fmt.Printf("Commit Durations:\n%s\nJob Durations:\n%s\n",
-			strings.Join(commitTime, ","), strings.Join(jobTime, ","))
+		commitTimes = append(commitTimes, jobStart.Sub(commitStart))
+		log.Printf("commit %d (%s) finished", i, commit.ID)
+		PrintDurations()
 
-		log.Printf("about to flush commit %d (%s)", i, commit.ID)
+		log.Printf("watching job %d (commit %s)", i, commit.ID)
 		iter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{client.NewRepo("split")})
 		if err != nil {
 			log.Fatalf("could not flush commit %d: %v", i, err)
@@ -223,38 +251,43 @@ func main() {
 		if _, err = iter.Next(); err != nil {
 			log.Fatalf("could not get commit info after flushing commit %d: %v", i, err)
 		}
-		jobTime = append(jobTime, fmt.Sprintf("%f", time.Now().Sub(jobStart).Seconds()))
-		log.Printf("finished flushing commit %d (%s), took %s seconds", i, commit.ID, jobTime[i])
-		fmt.Printf("Commit Durations:\n%s\nJob Durations:\n%s\n",
-			strings.Join(commitTime, ","), strings.Join(jobTime, ","))
+		jobTimes = append(jobTimes, time.Now().Sub(jobStart))
+		log.Printf("job %d (commit %s) finished", i, commit.ID)
+		PrintDurations()
 	}
 
+	// TODO(msteffen): Verify output programatically, not just visually
+
 	totalTime = time.Now().Sub(start)
-	fmt.Printf("\n\nTotal Runtime:,%f\nCommit Durations:\n%s\nJob Durations:\n%s\n",
-		totalTime.Seconds(), strings.Join(commitTime, ","), strings.Join(jobTime, ","))
+	fmt.Printf("Benchmark complete. Total time: %6.3f", totalTime.Seconds())
 }
 
-type inputFile struct {
+// InputFile is a synthetic file that generates test data for reading into
+// Pachyderm
+type InputFile struct {
 	written int
 	keys    []string
 	value   string // all keys in a given input file have the same value
 }
 
-func newInputFile(fileNo int) *inputFile {
+// NewInputFile constructs a new InputFile reader
+func NewInputFile(fileNo int) *InputFile {
 	// 'value' is a confusing expression, but the goal is simply to pretty-print
 	// the current file and line number as each line's value, so that the merge
 	// results are easy to verify visually. On margin size:
 	//   - File and line number take up 20 bytes
 	//   - the '[', ':', ']', and '\n' characters take up four bytes.
-	//   - This leaves (valueSz-24) bytes to be taken up by space
-	//   - In case (valueSz-24) is odd, we make the right margin size round up
-	//     so that (leftMargin + rightMargin) == (valueSz - 24) holds.
+	//   - therefore minValueSz is 24 bytes
+	//   - This leaves (valueSz-minValueSz) bytes to be taken up by space
+	//   - In case (valueSz-minValueSz) is odd, we make the right margin size
+	//     round up so that (leftMargin + rightMargin) == (valueSz - minValueSz)
+	//     holds.
 	//   - Leave one formatting directive in the string as a literal, so that it
 	//     can be replaced with the line number
 	valueSz := recordSz - keySz - separatorSz
-	leftMargin, rightMargin := (valueSz-24)/2, ((valueSz-24)+1)/2
-	value := fmt.Sprintf("[%*s%010d:%%010d%*s]\n", leftMargin, " ", fileNo, rightMargin, " ")
-	result := &inputFile{
+	leftMargin, rightMargin := (valueSz-minValueSz)/2, (valueSz-minValueSz+1)/2
+	value := fmt.Sprintf("[%*s%010d:%%010d%*s]\n", leftMargin, "", fileNo, rightMargin, "")
+	result := &InputFile{
 		keys:  make([]string, uniqueKeysPerFile),
 		value: value,
 	}
@@ -270,7 +303,8 @@ func newInputFile(fileNo int) *inputFile {
 	return result
 }
 
-func (t *inputFile) Read(b []byte) (int, error) {
+// Read implements the io.Reader interface for InputFile
+func (t *InputFile) Read(b []byte) (int, error) {
 	fileSz := recordSz * recordsPerFile
 	// sanity check state of 't'
 	if t.written > fileSz {

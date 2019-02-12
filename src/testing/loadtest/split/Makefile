@@ -9,5 +9,5 @@ docker-build:
 		docker push $${image_name}; \
 	done
 	@# Not necessary, but keeps repo clean
-	#rm -rf ./_out
+	rm -rf ./_out
 

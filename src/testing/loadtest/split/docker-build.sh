@@ -52,8 +52,9 @@ docker run \
   -v "${GOPATH}/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm:ro" \
   -v "${GOPATH}/src/github.com/pachyderm/pachyderm/src/server/vendor:/go/src/github.com/pachyderm/pachyderm/src/client/vendor:ro" \
   -v "${PWD}/_out:/go/src/github.com/pachyderm/pachyderm/src/client/vendor/github.com/pachyderm:ro" \
-  golang:1.11 /bin/sh <<EOF
+  golang:1.11 /bin/sh -c "$(cat <<EOF
 go install -a -ldflags "${LD_FLAGS}" ./${BUILD_PATH}/cmd/pipeline && \
 go install -a -ldflags "${LD_FLAGS}" ./${BUILD_PATH}/cmd/supervisor && \
-mv ../bin/* /out/;
+mv ../bin/* /out/
 EOF
+)"
