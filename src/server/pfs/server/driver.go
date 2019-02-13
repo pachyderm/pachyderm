@@ -531,10 +531,10 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 		}
 
-		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
-		// tree (inside txn)
 		isStartCommit := false
 		if treeRef != nil || records != nil {
+			// BuildCommit case: Now that 'parent' is resolved, read the
+			// parent commit's tree (inside txn)
 			parentTree, err := d.getTreeForCommit(pachClient, parent)
 			if err != nil {
 				return err
