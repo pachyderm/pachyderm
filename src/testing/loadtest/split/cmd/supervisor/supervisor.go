@@ -32,18 +32,18 @@ const (
 	keySz       = 10        // the size of each row's key, in bytes
 	separator   = '|'       // the key/value separator
 	separatorSz = 1         // the size of the key/value separator ('|'), for readability
-	p           = 533000389 // a largish prime
 	minValueSz  = 24        // see NewInputFile for an explanation
+	p           = 533000389 // a largish prime
 )
 
 var (
 	// flags:
-	recordSz            int    // size of each record
-	recordsPerFile      int    // records per file
+	recordSz            int64  // size of each record
+	recordsPerFile      int64  // records per file
 	filesPerCommit      int    // files per commit
 	numCommits          int    // number of commits (and therefore jobs) to create
-	uniqueKeysPerFile   int    // unique keys/file (ie size of each datum output)
-	totalUniqueKeys     int    // total number of output files
+	uniqueKeysPerFile   int64  // unique keys/file (ie size of each datum output)
+	totalUniqueKeys     int64  // total number of output files
 	pipelineConcurrency uint64 // parallelism of split pipeline
 	hashtreeShards      uint64 // number of output hashtree shards for the loadtest pipeline
 	putFileConcurrency  int64  // number of allowed concurrent put-files
@@ -58,9 +58,9 @@ var (
 )
 
 func init() {
-	flag.IntVar(&recordSz, "record-size", 100, "size of each record "+
+	flag.Int64Var(&recordSz, "record-size", 100, "size of each record "+
 		"generated and written to an input file")
-	flag.IntVar(&recordsPerFile, "records-per-file", 100, "number of records "+
+	flag.Int64Var(&recordsPerFile, "records-per-file", 100, "number of records "+
 		"written to each input file (total size of the file is "+
 		"--record-size * --records-per-file")
 	flag.IntVar(&filesPerCommit, "files-per-commit", 100, "total number of "+
@@ -70,11 +70,11 @@ func init() {
 	flag.IntVar(&numCommits, "num-commits", 10, "total number of commits that "+
 		"the load test creates (each containing --files-per-commit files and "+
 		"spawning one job).")
-	flag.IntVar(&uniqueKeysPerFile, "unique-keys-per-file", 10, "number of unique "+
-		"keys per file. This determines the difficulty of the load test: higher "+
-		"--unique-keys-per-file => more metadata => bigger merge")
-	flag.IntVar(&totalUniqueKeys, "total-unique-keys", 1000, "number of total "+
-		"unique keys. This determines the shape of the output. High "+
+	flag.Int64Var(&uniqueKeysPerFile, "unique-keys-per-file", 10, "number of "+
+		"unique keys per file. This determines the difficulty of the load test: "+
+		"higher --unique-keys-per-file => more metadata => bigger merge")
+	flag.Int64Var(&totalUniqueKeys, "total-unique-keys", 1000, "number of "+
+		"total unique keys. This determines the shape of the output. High "+
 		"--total-unique-keys = many small output files. Low --total-unique-keys = "+
 		"few large output files.")
 	flag.Uint64Var(&pipelineConcurrency, "pipeline-concurrency", 5, "the "+
@@ -190,12 +190,11 @@ func main() {
 		log.Fatalf("could not create load test pipeline: %v", err)
 	}
 
-	// These are used to track how long phases of the load test take
-	var (
-		start     = time.Now()  // the start time of the load test
-		totalTime time.Duration // The total runtime of the load test
-
-	)
+	// start timing load test
+	var start = time.Now()
+	defer func() {
+		fmt.Printf("Benchmark complete. Total time: %.3f\n", time.Now().Sub(start).Seconds())
+	}()
 
 	// Start creating input files
 	for i := 0; i < numCommits; i++ {
@@ -208,19 +207,14 @@ func main() {
 		log.Printf("starting commit %d (%s)", i, commit.ID) // log every 10%
 
 		// Generate input files (a few at a time) and write them to pachyderm
-		var (
-			// coordinate parallel put-files
-			eg  errgroup.Group
-			sem = semaphore.NewWeighted(putFileConcurrency)
-		)
+		var eg errgroup.Group
+		var sem = semaphore.NewWeighted(putFileConcurrency)
 		for j := 0; j < filesPerCommit; j++ {
 			i, j := i, j
 			eg.Go(func() error {
 				// if any put-file fails, the load test panics, so don't need a context
 				sem.Acquire(context.Background(), 1)
 				defer sem.Release(1)
-				defer func(start time.Time) {
-				}(time.Now())
 				// log progress every 10% of the way through ingressing data
 				if filesPerCommit < 10 || j%(filesPerCommit/10) == 0 {
 					log.Printf("starting put-file(input-%d), (number %d in commit %d)", i*filesPerCommit+j, j, i)
@@ -255,16 +249,40 @@ func main() {
 		PrintDurations()
 	}
 
-	// TODO(msteffen): Verify output programatically, not just visually
-
-	totalTime = time.Now().Sub(start)
-	fmt.Printf("Benchmark complete. Total time: %6.3f", totalTime.Seconds())
+	// Validate output
+	var totalOutputSize, numFiles int64
+	var expectedTotalOutputSize = (int64(filesPerCommit) * int64(numCommits) * recordsPerFile * recordSz)
+	var expectedOutputFileSize = expectedTotalOutputSize / totalUniqueKeys
+	fis, err := c.ListFile("split", "master", "/")
+	if err != nil {
+		log.Printf("[Warning] could not list output files to verify output: %v", err)
+	}
+	for _, fi := range fis {
+		fileSz := int64(fi.SizeBytes)
+		totalOutputSize += fileSz
+		numFiles++
+		if fileSz%recordSz != 0 {
+			log.Printf("[Warning] output file %s appears to have fragmented records", fi.File.Path)
+		}
+		if fileSz < (expectedOutputFileSize / 2) {
+			log.Printf("[Warning] output file %s seems too small", fi.File.Path)
+		}
+		if fileSz > (expectedOutputFileSize * 3 / 2) {
+			log.Printf("[Warning] output file %s seems too large", fi.File.Path)
+		}
+	}
+	log.Printf("All output files appear to be correct")
+	if totalOutputSize != expectedTotalOutputSize {
+		log.Printf("[Warning] output data is not the same size as input data (%d input vs %d output)",
+			expectedTotalOutputSize, totalOutputSize)
+	}
+	log.Printf("Total output size appears to be correct")
 }
 
 // InputFile is a synthetic file that generates test data for reading into
 // Pachyderm
 type InputFile struct {
-	written int
+	written int64
 	keys    []string
 	value   string // all keys in a given input file have the same value
 }
@@ -294,8 +312,8 @@ func NewInputFile(fileNo int) *InputFile {
 	// this is probably stupid, but try to achieve a uniform distribution of keys
 	// across files
 	pSmall := p % totalUniqueKeys
-	key := ((fileNo % totalUniqueKeys) * uniqueKeysPerFile) % totalUniqueKeys
-	for i := 0; i < uniqueKeysPerFile; i++ {
+	key := ((int64(fileNo) % totalUniqueKeys) * uniqueKeysPerFile) % totalUniqueKeys
+	for i := int64(0); i < uniqueKeysPerFile; i++ {
 		key = (key + pSmall) % totalUniqueKeys
 		result.keys[i] = fmt.Sprintf("%0*d", keySz, key)
 	}
@@ -330,7 +348,7 @@ func (t *InputFile) Read(b []byte) (int, error) {
 			dn = copy(b, value[c-keySz-separatorSz:])
 		}
 		b = b[dn:]
-		t.written += dn
+		t.written += int64(dn)
 	}
-	return t.written - initial, nil
+	return int(t.written - initial), nil
 }
