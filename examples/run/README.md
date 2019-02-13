@@ -33,11 +33,16 @@ are commented in the file so read on there for more details.
 
 ## Creating the pipeline
 
+Ensure these environment variables are specified (self-explanatory):
+
+1) `$DOCKER_REGISTRY_USERNAME`
+2) `$DOCKER_REGISTRY_PASSWORD`
+3) `$DOCKER_REGISTRY_EMAIL`
+
+On top of that, make sure any customizations needed have been made to `config/pipeline.conf` and `config/secrets.yaml`.
+
 Run `make`, this will create a `target` folder with required configuration files. Then run `make install` to create a pipeline based on the created configuration. 
 After a while, run `make verify` to see if the job ran ok.
-
-Required environmental variables at build and deploy time (self explanatory): `$DOCKER_REGISTRY`, `$DOCKER_REGISTRY_USERNAME`, `$DOCKER_REGISTRY_PASSWORD` and `$DOCKER_REGISTRY_EMAIL`
-On top of that any env variables specified in `secrets.yaml` must also be present.
 
 ## Cleanup
 
