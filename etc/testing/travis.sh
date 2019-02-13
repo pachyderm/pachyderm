@@ -47,15 +47,21 @@ done
 
 go install ./src/testing/match
 
-if [[ "$BUCKET" == "MISC_WITH_SECRETS" ]]; then
+if [[ "$BUCKET" == "AUTH" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-        make test-vault test-auth test-enterprise test-worker
+        make test-auth
     else
-        echo "Skipping MISC_WITH_SECRETS because there are no secure env vars"
+        echo "Skipping auth tests because there are no secure env vars"
     fi
-elif [[ "$BUCKET" == "MISC_WITHOUT_SECRETS" ]]; then
+elif [[ "$BUCKET" == "MISC" ]]; then
     make lint enterprise-code-checkin-test docker-build test-pfs-server \
         test-pfs-cmds test-deploy-cmds test-libs test-admin test-s3
+
+    if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
+        make test-vault test-enterprise test-worker
+    else
+        echo "Skipping vault, enterprise, and worker tests because there are no secure env vars"
+    fi
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
     ./etc/testing/examples.sh    

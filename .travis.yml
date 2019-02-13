@@ -9,8 +9,8 @@ language: go
 go:
 - "1.11.1"
 env:
-- BUCKET=MISC_WITH_SECRETS
-- BUCKET=MISC_WITHOUT_SECRETS
+- BUCKET=AUTH
+- BUCKET=MISC
 # If you want to update the number of PPS workers, you'll also need to update
 # the value in ./etc/build/PPS_BUILD_BUCKET_COUNT
 - BUCKET=PPS1
