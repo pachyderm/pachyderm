@@ -267,9 +267,9 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, true, "user", client.WithDialTimeout(timeout))
+				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, true, "user")
+				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user")
 			}
 			if err != nil {
 				return err
