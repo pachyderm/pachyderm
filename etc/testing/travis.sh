@@ -49,7 +49,7 @@ go install ./src/testing/match
 
 if [[ "$BUCKET" == "MISC_WITH_SECRETS" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
-        make docker-build test-vault test-auth test-enterprise test-worker
+        make test-vault test-auth test-enterprise test-worker
     else
         echo "Skipping MISC_WITH_SECRETS because there are no secure env vars"
     fi
