@@ -1,3 +1,7 @@
+// Package githook adds support for git-based sources in pipeline specs. It
+// does so by exposing an HTTP server that listens for webhook requests. This
+// works with github's webhook API, and anything else API-compatible with
+// their push events.
 package githook
 
 import (
