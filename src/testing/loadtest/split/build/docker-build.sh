@@ -45,19 +45,19 @@ mv ../bin/* /out/"
 #   src/server/vendor into the client:
 #     /go/src/../pachyderm/src/client/vendor <- $GOPATH/.../pachyderm/src/server/vendor
 #
-# - Mounting ./_out into src/client/vendor/...pachyderm avoids a stupid bug where
-#   src/client/vendor/github.com/pachyderm/pachyderm/src/client can fail to
-#   build because it (a vendored dependency) doesn't have the right
-#   dependencies to build. We prevent the go compiler from trying to build the
-#   client inside the vendored dependencies of the client by mounting a
-#   directory over it that contains no go code:
+# - Mounting ./_out into src/client/vendor/.../pachyderm avoids a stupid bug
+#   where src/client/vendor/github.com/pachyderm/pachyderm/src/client fails to
+#   build because of recursive dependencies. We break the recursive dependency
+#   of the client on itself by mounting a directory over it that contains no go
+#   code:
 #     /go/src/../pachyderm/src/client/vendor/github.com/pachyderm/ <- ./_out
+PACH_PATH=src/github.com/pachyderm/pachyderm
 docker run \
   -w /go/src \
   -e CGO_ENABLED=0 \
   -v "${PWD}/_out:/out" \
   -v "${HOME}/.cache/go-build:/root/.cache/go-build" \
-  -v "${GOPATH}/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm:ro" \
-  -v "${GOPATH}/src/github.com/pachyderm/pachyderm/src/server/vendor:/go/src/github.com/pachyderm/pachyderm/src/client/vendor:ro" \
-  -v "${PWD}/_out:/go/src/github.com/pachyderm/pachyderm/src/client/vendor/github.com/pachyderm:ro" \
+  -v "${GOPATH}/${PACH_PATH}:/go/${PACH_PATH}" \
+  -v "${GOPATH}/${PACH_PATH}/src/server/vendor:/go/${PACH_PATH}/src/client/vendor" \
+  -v "${PWD}/_out:/go/${PACH_PATH}/src/client/vendor/github.com/pachyderm" \
   golang:1.11 /bin/sh -c "${BUILD_CMD}"
