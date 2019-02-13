@@ -111,7 +111,7 @@ type appEnv struct {
 }
 
 func main() {
-	log.SetFormatter(logutil.NewPrettyFormatter())
+	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 
 	switch {
 	case readiness:

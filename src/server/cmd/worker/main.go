@@ -71,7 +71,7 @@ type appEnv struct {
 }
 
 func main() {
-	log.SetFormatter(logutil.NewPrettyFormatter())
+	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
 
 	// Copy the contents of /pach-bin/certs into /etc/ssl/certs. Don't return an
 	// error (which would cause 'Walk()' to exit early) but do record if any certs
