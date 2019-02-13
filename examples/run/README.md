@@ -20,9 +20,9 @@ What this doesn't do:
 ## Configuring the pipeline
 
 The folder have the following structure:
-*  Congifuration files are stored in the [config](./config) folder
+*  Configuration files are stored in the [config](./config) folder
 *  Source files for magic are stored in the [src](./src) folder
-*  `Makefile` holds all the woodoo for putting thigs together
+*  `Makefile` holds all the voodoo for putting things together
 *  `Dockerfile` tells docker how to build the container
 
 All the configuration variables for the creation of the pipeline are stored in the [pipeline.conf](./config/pipeline.conf) file.
@@ -62,3 +62,11 @@ pipeline gets the right input
 7.  (magic)
 8.  Observe data flowing ...
 
+## Platform-Specific Caveats
+
+If you're on mac, make sure to install GNU gettext. Via homebrew:
+
+```
+brew install gettext
+brew link --force gettext
+```
