@@ -26,11 +26,11 @@ dockerhub.
   load tests, or the same load test with multiple parameter configurations in
   multiple cloud providers
   - Idea: turn kube/supervisor.yaml into a ksonnet (or helm? jsonnet? JSON-e?) template
-- The benchmark currently doesn't validate the output (e.g.:
-  - check that output files are the same sum total size as the input files
+- The benchmark is quite brittle -- if any PutFile or StartCommit fails, the
+  whole benchmark fails
+- The benchmark could do more to validate the output; e.g.:
   - check that all output lines are unique
   - check that `num_input_files/keys_per_file` distinct input file values
     appear in every output file
-  Obviously this would be helpful when testing major rewrites of PPS/worker
 - A flag for more/less verbose logging (right now logging is fairly verbose)
 
