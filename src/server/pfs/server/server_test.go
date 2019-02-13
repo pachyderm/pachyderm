@@ -2427,7 +2427,7 @@ func TestFlushRedundant(t *testing.T) {
 	require.NoError(t, err)
 	commitInfos, err := collectCommitInfos(commitInfoIter)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 0, len(commitInfos))
 }
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
