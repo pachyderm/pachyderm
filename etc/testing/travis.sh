@@ -54,8 +54,8 @@ if [[ "$BUCKET" == "AUTH" ]]; then
         echo "Skipping auth tests because there are no secure env vars"
     fi
 elif [[ "$BUCKET" == "MISC" ]]; then
-    make lint enterprise-code-checkin-test docker-build test-pfs-server \
-        test-pfs-cmds test-deploy-cmds test-libs test-admin test-s3
+    make lint enterprise-code-checkin-test test-pfs-server test-pfs-cmds \
+        test-deploy-cmds test-libs test-admin test-s3
 
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         make test-vault test-enterprise test-worker
