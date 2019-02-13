@@ -102,7 +102,7 @@ func (s *gitHookServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		logrus.Errorf("github webhook failed to cast payload, this is likely a bug")
 	}
 
-	if err = s.HandlePush(pl); err != nil {
+	if err = s.handlePush(pl); err != nil {
 		logrus.Errorf("github webhook failed to handle push for repo (%v) on branch (%v) with error %v", pl.Repository.Name, path.Base(pl.Ref), err)
 	}
 }
@@ -128,7 +128,7 @@ func (s *gitHookServer) findMatchingPipelineInputs(payload github.PushPayload) (
 	return pipelines, inputs, nil
 }
 
-func (s *gitHookServer) HandlePush(pl github.PushPayload) (retErr error) {
+func (s *gitHookServer) handlePush(pl github.PushPayload) (retErr error) {
 	logrus.Infof("received github push payload for repo (%v) on branch (%v)", pl.Repository.Name, path.Base(pl.Ref))
 
 	raw, err := json.Marshal(pl)
