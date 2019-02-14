@@ -1276,7 +1276,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	// Now wait for the root commits to finish. These are not passed to `f`
 	// because it's expecting to just get downstream commits.
 	for _, commit := range fromCommits {
-		finishedCommitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
+		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
 				continue // just skip this
