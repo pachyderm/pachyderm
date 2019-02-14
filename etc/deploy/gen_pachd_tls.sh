@@ -60,7 +60,6 @@ if [[ -z "${dns}" ]] && [[ -z "${ip}" ]]; then
   echo "You must set either --dns or --ip" >/dev/fd/2
   exit 1
 fi
-dns="${dns:-localhost}"
 if [[ -n "${dns}" ]] && [[ -n "${ip}" ]]; then
   echo "both --dns and --ip are set. Note that if you connect to your "
   echo "Pachyderm cluster via domain name, it MUST resolve to the IP set in "
@@ -78,6 +77,7 @@ fi
 port="${port:-30650}"
 
 # Define a minimal openssl config for our micro-CA
+common_name="${dns:-localhost}"
 read -d '' -r tls_config <<EOF
 [ req ]
 default_md         = sha256 # MD = message digest. md5 is the openSSL default in 1.1.0 (see 'man req')
@@ -86,14 +86,17 @@ distinguished_name = dn
 x509_extensions    = exn    # Since we're making self-signed certs. For CSRs, use req_extensions
 
 [ dn ]
-CN = ${dns}
+CN = ${common_name}
 
 [ exn ]
 EOF
 
 # If 'ip' is set, include IP in TLS cert
 if [[ -n "${ip}" ]]; then
-  tls_config+=$'\n'"subjectAltName = DNS:${dns}, IP:${ip}"
+  tls_config+=$'\n'"subjectAltName = IP:${ip}"
+  if [[ -n "${dns}" ]]; then
+    tls_config+=", DNS:${dns}"
+  fi
 fi
 
 echo "${tls_config}"
@@ -132,4 +135,4 @@ openssl req "${tls_opts[@]}" -config <(echo "${tls_config}")
 echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
 echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
 cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
-jq ".v1.pachd_address = \"${dns}:${port}\" | .v1.server_cas = \"$(cat ./pachd.pem | base64)\"" ~/.pachyderm/config.json.backup >~/.pachyderm/config.json
+jq ".v1.pachd_address = \"${dns:-$ip}:${port}\" | .v1.server_cas = \"$(cat ./pachd.pem | base64)\"" ~/.pachyderm/config.json.backup >~/.pachyderm/config.json
