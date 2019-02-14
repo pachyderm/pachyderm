@@ -203,20 +203,19 @@ def suppress(cmd, *args):
     return run(cmd, *args, stdout_log_level="debug", stderr_log_level="debug", raise_on_error=False).rc
 
 def get_pachyderm(deploy_version):
-    if deploy_version != "local":
-        print("Deploying pachd:{}".format(deploy_version))
+    print("Deploying pachd:{}".format(deploy_version))
 
-        should_download = suppress("which", "pachctl") != 0 \
-            or capture("pachctl", "version", "--client-only") != deploy_version
+    should_download = suppress("which", "pachctl") != 0 \
+        or capture("pachctl", "version", "--client-only") != deploy_version
 
-        if should_download:
-            release_url = "https://github.com/pachyderm/pachyderm/releases/download/v{}/pachctl_{}_linux_amd64.tar.gz".format(deploy_version, deploy_version)
-            outpath = os.path.join(os.environ["GOPATH"], "bin")
-            filepath = "pachctl_{}_linux_amd64/pachctl".format(deploy_version)
-            run("curl -L {} | tar -C \"{}\" --strip-components=1 -xzf - {}".format(release_url, outpath, filepath), shell=True)
+    if should_download:
+        release_url = "https://github.com/pachyderm/pachyderm/releases/download/v{}/pachctl_{}_linux_amd64.tar.gz".format(deploy_version, deploy_version)
+        outpath = os.path.join(os.environ["GOPATH"], "bin")
+        filepath = "pachctl_{}_linux_amd64/pachctl".format(deploy_version)
+        run("curl -L {} | tar -C \"{}\" --strip-components=1 -xzf - {}".format(release_url, outpath, filepath), shell=True)
 
-        run("docker", "pull", "pachyderm/pachd:{}".format(deploy_version))
-        run("docker", "pull", "pachyderm/worker:{}".format(deploy_version))
+    run("docker", "pull", "pachyderm/pachd:{}".format(deploy_version))
+    run("docker", "pull", "pachyderm/worker:{}".format(deploy_version))
 
 def main():
     parser = argparse.ArgumentParser(description="Resets the pachyderm cluster and tools.")
