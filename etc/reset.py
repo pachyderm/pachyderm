@@ -86,7 +86,7 @@ class DefaultDriver:
 
     def wait(self):
         while suppress("pachctl", "version") != 0:
-            print("Waiting for pachyderm to come up...")
+            log.info("Waiting for pachyderm to come up...")
             time.sleep(1)
 
 class MinikubeDriver(DefaultDriver):
@@ -100,7 +100,7 @@ class MinikubeDriver(DefaultDriver):
         run("minikube", "start")
 
         while suppress("minikube", "status") != 0:
-            print("Waiting for minikube to come up...")
+            log.info("Waiting for minikube to come up...")
             time.sleep(1)
 
     def push_images(self, deploy_version, dash_image):
@@ -142,7 +142,7 @@ class MicroK8sDriver(DefaultDriver):
             raise Exception("reset failed")
 
         while suppress("microk8s.status") != 0:
-            print("Waiting for microk8s to come up...")
+            log.info("Waiting for microk8s to come up...")
             time.sleep(1)
 
     def inspect(self):
@@ -158,7 +158,7 @@ class MicroK8sDriver(DefaultDriver):
 
     def wait(self):
         while suppress("pachctl", "version", "--no-port-forwarding") != 0:
-            print("Waiting for pachyderm to come up...")
+            log.info("Waiting for pachyderm to come up...")
             time.sleep(1)
 
 def parse_log_level(s):
@@ -203,7 +203,7 @@ def suppress(cmd, *args):
     return run(cmd, *args, stdout_log_level="debug", stderr_log_level="debug", raise_on_error=False).rc
 
 def get_pachyderm(deploy_version):
-    print("Deploying pachd:{}".format(deploy_version))
+    log.info("Deploying pachd:{}".format(deploy_version))
 
     should_download = suppress("which", "pachctl") != 0 \
         or capture("pachctl", "version", "--client-only") != deploy_version
@@ -228,13 +228,13 @@ def main():
     log.setLevel(args.log_level)
 
     if "GOPATH" not in os.environ:
-        print("Must set GOPATH")
+        log.critical("Must set GOPATH")
         sys.exit(1)
     if not args.no_deploy and "PACH_CA_CERTS" in os.environ:
-        print("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS", file=sys.stderr)
+        log.critical("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS", file=sys.stderr)
         sys.exit(1)
     if args.deploy_version == "local" and not os.getcwd().startswith(os.path.join(os.environ["GOPATH"], "src", "github.com", "pachyderm", "pachyderm")):
-        print("Must be in a Pachyderm client", file=sys.stderr)
+        log.critical("Must be in a Pachyderm client", file=sys.stderr)
         sys.exit(1)
 
     if MinikubeDriver().available():
@@ -274,10 +274,10 @@ def main():
     driver.inspect()
 
     version = capture("pachctl", "version", "--client-only")
-    print("Deploy pachyderm version v{}".format(version))
+    log.info("Deploy pachyderm version v{}".format(version))
 
     while suppress("pachctl", "version", "--client-only") != 0:
-        print("Waiting for pachctl to build...")
+        log.info("Waiting for pachctl to build...")
         time.sleep(1)
 
     run("which", "pachctl")
