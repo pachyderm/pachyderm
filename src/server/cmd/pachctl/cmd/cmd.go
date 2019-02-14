@@ -200,11 +200,11 @@ Environment variables:
 	for _, cmd := range deployCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	authCmds := authcmds.Cmds(&noPortForwarding)
+	authCmds := authcmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range authCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	enterpriseCmds := enterprisecmds.Cmds(&noPortForwarding)
+	enterpriseCmds := enterprisecmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range enterpriseCmds {
 		rootCmd.AddCommand(cmd)
 	}

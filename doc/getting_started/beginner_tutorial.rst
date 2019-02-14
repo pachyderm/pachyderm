@@ -5,7 +5,7 @@ Welcome to the beginner tutorial for Pachyderm! If you've already got Pachyderm 
 Image processing with OpenCV
 ----------------------------
 
-This guide will walk you through the deployment of a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's built-in processing primatives, we'll be able to keep our code simple but still run the pipeline in a distributed, streaming fashion. Moreover, as new data is added, the pipeline will automatically process it and output the results.
+This guide will walk you through the deployment of a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's built-in processing primitives, we'll be able to keep our code simple but still run the pipeline in a distributed, streaming fashion. Moreover, as new data is added, the pipeline will automatically process it and output the results.
 
 If you hit any errors not covered in this guide, get help in our `public community Slack <http://slack.pachyderm.io>`_, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_. We are more than happy to help!
 

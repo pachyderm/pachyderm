@@ -43,10 +43,10 @@ To reset your kubernetes cluster on Docker For Desktop just click the reset butt
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
 
 # For Debian based linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.3/pachctl_1.8.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.4/pachctl_1.8.4_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 
 # For all other linux flavors
-$ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.3/pachctl_1.8.3_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.8.3_linux_amd64/pachctl /usr/local/bin
+$ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.4/pachctl_1.8.4_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.8.4_linux_amd64/pachctl /usr/local/bin
 ```
 
 
@@ -89,15 +89,17 @@ We're good to go!
 $ minikube ip
 192.168.99.100
 
-# Set the `ADDRESS` environemnt variable
-$ export ADDRESS=192.168.99.100:30650
+# Set the `PACHD_ADDRESS` environment variable
+$ export PACHD_ADDRESS=192.168.99.100:30650
 
 # Run a command
 $ pachctl version
 ```
 
+**Note**: `ADDRESS` was renamed to `PACHD_ADDRESS` in 1.8.3. If you are using an older version of Pachyderm, use the `ADDRESS` environment variable instead.
+
 ## Next Steps
 
 Now that you have everything installed and working, check out our [Beginner Tutorial](./beginner_tutorial.html) to learn the basics of Pachyderm such as adding data and building pipelines for analysis.
 
-The Pachyderm Enterprise dashboard is deployed by default with Pachyderm. We offer a FREE trial token to experiment with this interface to Pachyderm. To check it out, first enable port forwarding via `pachctl port-forward`, then point your web browser to `localhost:30080`. Alternatively, if you set the `ADDRESS` environment variable like in the previous section, you can circumvent port forwarding by just pointing your web browser to port 30080 on your minikube IP address.
+The Pachyderm Enterprise dashboard is deployed by default with Pachyderm. We offer a FREE trial token to experiment with this interface to Pachyderm. To check it out, first enable port forwarding via `pachctl port-forward`, then point your web browser to `localhost:30080`. Alternatively, if you set the `PACHD_ADDRESS` environment variable like in the previous section, you can circumvent port forwarding by just pointing your web browser to port 30080 on your minikube IP address.
