@@ -23,8 +23,6 @@ LOG_COLORS = {
     "critical": "\x1b[31;1m",
     "error": "\x1b[31;1m",
     "warning": "\x1b[33;1m",
-    #"info": "\x1b[32;1m",
-    #"debug": "\x1b[35;1m",
 }
 
 log = logging.getLogger(__name__)
@@ -282,9 +280,6 @@ def main():
     while suppress("pachctl", "version", "--client-only") != 0:
         print("Waiting for pachctl to build...")
         time.sleep(1)
-
-    # TODO: does this do anything when run in a python sub-process?
-    # run("hash", "-r")
 
     run("which", "pachctl")
 
