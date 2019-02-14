@@ -33,16 +33,16 @@ are commented in the file so read on there for more details.
 
 ## Creating the pipeline
 
-Ensure these environment variables are specified (self-explanatory):
-
-1) `$DOCKER_REGISTRY_USERNAME`
-2) `$DOCKER_REGISTRY_PASSWORD`
-3) `$DOCKER_REGISTRY_EMAIL`
-
-On top of that, make sure any customizations needed have been made to `config/pipeline.conf` and `config/secrets.yaml`.
-
-Run `make`, this will create a `target` folder with required configuration files. Then run `make install` to create a pipeline based on the created configuration. 
-After a while, run `make verify` to see if the job ran ok.
+1) Make any customizations to `config/pipeline.conf` that you need
+2) Ensure the repo specified in `config/pipeline.conf`'s `PIPELINE_REPO` exists in pachyderm: `pachctl create-repo foobar`
+3) Ensure these env vars are specified:
+  * `$DOCKER_REGISTRY_USERNAME`
+  * `$DOCKER_REGISTRY_PASSWORD`
+  * `$DOCKER_REGISTRY_EMAIL`
+  * Any env vars used in `config/secrets.yaml`
+4) Run `make`. This will create a `target` folder with required configuration files.
+5) Run `make install` to create a pipeline based on the created configuration.
+6) After a while, run `make verify` to see if the job ran ok.
 
 ## Cleanup
 
