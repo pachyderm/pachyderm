@@ -62,6 +62,7 @@ if [[ -z "${port}" ]]; then
   echo "not work if this is not the correct port)" >/dev/fd/2
   exit 1
 fi
+port="${port:-30650}"
 
 # Define a minimal openssl config for our micro-CA
 read -d '' -r tls_config <<EOF
