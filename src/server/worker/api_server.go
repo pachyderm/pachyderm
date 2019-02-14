@@ -28,7 +28,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/go-playground/webhooks.v3/github"
+	"gopkg.in/go-playground/webhooks.v5/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
 	kube "k8s.io/client-go/kubernetes"
