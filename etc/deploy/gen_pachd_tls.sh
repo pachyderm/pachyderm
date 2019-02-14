@@ -60,7 +60,6 @@ dns="${dns:-localhost}"
 if [[ -z "${port}" ]]; then
   echo -n "Warning, --port is unset. Assuming :30650 (cert will " >/dev/fd/2
   echo "not work if this is not the correct port)" >/dev/fd/2
-  exit 1
 fi
 port="${port:-30650}"
 
