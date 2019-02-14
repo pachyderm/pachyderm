@@ -45,6 +45,7 @@ Deploy a Pachyderm cluster running on AWS. Arguments are:
       --no-expose-docker-socket       Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.
       --no-guaranteed                 Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.
       --no-metrics                    Don't report user metrics for this command
+      --no-port-forwarding            Disable implicit port forwarding
       --no-rbac                       Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)
   -o, --output string                 Output formmat. One of: json|yaml (default "json")
       --pachd-cpu-request string      (rarely set) The size of Pachd's CPU request, which we give to Kubernetes. Size is in cores (with partial cores allowed and encouraged).

@@ -160,8 +160,6 @@ func (f *PortForwarder) RunForSAMLACS(localPort uint16) error {
 	if localPort == 0 {
 		localPort = samlAcsLocalPort
 	}
-	// TODO(ys): using a suite selector because the original code had that.
-	// check if it is necessary.
 	return f.Run("pachd", localPort, 654)
 }
 

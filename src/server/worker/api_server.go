@@ -29,7 +29,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/go-playground/webhooks.v3/github"
+	"gopkg.in/go-playground/webhooks.v5/github"
 	"gopkg.in/src-d/go-git.v4"
 	gitPlumbing "gopkg.in/src-d/go-git.v4/plumbing"
 	kube "k8s.io/client-go/kubernetes"
@@ -134,8 +134,8 @@ type APIServer struct {
 	// We only export application statistics if enterprise is enabled
 	exportStats bool
 
-	uid uint32
-	gid uint32
+	uid *uint32
+	gid *uint32
 
 	// hashtreeStorage is the where we store on disk hashtrees
 	hashtreeStorage string
@@ -402,20 +402,21 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		if err != nil && !os.IsNotExist(err) {
 			return nil, err
 		}
-		// if User == "" then uid, and gid don't get set which
-		// means they default to a value of 0 which means we run the code as
-		// root which is the only sane default.
+		// If `user` is `nil`, `uid` and `gid` will get set, and we won't
+		// customize the user that executes the worker process.
 		if user != nil { // user is nil when os.IsNotExist(err) is true in which case we use root
 			uid, err := strconv.ParseUint(user.Uid, 10, 32)
 			if err != nil {
 				return nil, err
 			}
-			server.uid = uint32(uid)
+			uid32 := uint32(uid)
+			server.uid = &uid32
 			gid, err := strconv.ParseUint(user.Gid, 10, 32)
 			if err != nil {
 				return nil, err
 			}
-			server.gid = uint32(gid)
+			gid32 := uint32(gid)
+			server.gid = &gid32
 		}
 	}
 	if pipelineInfo.Service == nil {
@@ -622,11 +623,13 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Credential: &syscall.Credential{
-			Uid: a.uid,
-			Gid: a.gid,
-		},
+	if a.uid != nil && a.gid != nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: &syscall.Credential{
+				Uid: *a.uid,
+				Gid: *a.gid,
+			},
+		}
 	}
 	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
 	err := cmd.Start()
@@ -1993,10 +1996,12 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 						retErr = fmt.Errorf("error unlinkData: %v", err)
 					}
 				}()
-				if a.pipelineInfo.Transform.User != "" {
+				// If the pipeline spec set a custom user to execute the
+				// process, make sure `/pfs` and its content are owned by it
+				if a.uid != nil && a.gid != nil {
 					filepath.Walk("/pfs", func(name string, info os.FileInfo, err error) error {
 						if err == nil {
-							err = os.Chown(name, int(a.uid), int(a.gid))
+							err = os.Chown(name, int(*a.uid), int(*a.gid))
 						}
 						return err
 					})

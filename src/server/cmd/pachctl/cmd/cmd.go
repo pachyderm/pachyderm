@@ -160,7 +160,7 @@ func PachctlCmd() (*cobra.Command, error) {
 		Long: `Access the Pachyderm API.
 
 Environment variables:
-  ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
+  PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if !verbose {
@@ -185,34 +185,34 @@ Environment variables:
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 	rootCmd.PersistentFlags().BoolVarP(&noPortForwarding, "no-port-forwarding", "", false, "Disable implicit port forwarding")
 
-	pfsCmds := pfscmds.Cmds(!noMetrics, !noPortForwarding)
+	pfsCmds := pfscmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range pfsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	ppsCmds, err := ppscmds.Cmds(!noMetrics, !noPortForwarding)
+	ppsCmds, err := ppscmds.Cmds(&noMetrics, &noPortForwarding)
 	if err != nil {
 		return nil, err
 	}
 	for _, cmd := range ppsCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	deployCmds := deploycmds.Cmds(!noMetrics, !noPortForwarding)
+	deployCmds := deploycmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range deployCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	authCmds := authcmds.Cmds(!noPortForwarding)
+	authCmds := authcmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range authCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	enterpriseCmds := enterprisecmds.Cmds(!noPortForwarding)
+	enterpriseCmds := enterprisecmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range enterpriseCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	adminCmds := admincmds.Cmds(!noMetrics, !noPortForwarding)
+	adminCmds := admincmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range adminCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	debugCmds := debugcmds.Cmds(!noMetrics, !noPortForwarding)
+	debugCmds := debugcmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range debugCmds {
 		rootCmd.AddCommand(cmd)
 	}
@@ -267,9 +267,9 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, true, "user", client.WithDialTimeout(timeout))
+				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, true, "user")
+				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user")
 			}
 			if err != nil {
 				return err
@@ -416,7 +416,7 @@ This resets the cluster to its initial state.`,
 
 			ch := make(chan os.Signal, 1)
 			signal.Notify(ch, os.Interrupt)
-			<- ch
+			<-ch
 			return nil
 		}),
 	}
@@ -446,7 +446,7 @@ This resets the cluster to its initial state.`,
 					}
 					return err
 				}
-				
+
 				defer func() {
 					if err := f.Close(); err != nil && retErr == nil {
 						retErr = err

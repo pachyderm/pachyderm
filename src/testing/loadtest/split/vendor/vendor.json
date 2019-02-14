@@ -1,0 +1,20 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "ThFld47fsBZklOb0BK7HzSJGbJs=",
+			"path": "golang.org/x/sync/errgroup",
+			"revision": "37e7f081c4d4c64e13b10787722085407fe5d15f",
+			"revisionTime": "2018-09-24T18:15:43Z"
+		},
+		{
+			"checksumSHA1": "4aJtX8YvEiKNzgG5otNZV9qjFfY=",
+			"path": "golang.org/x/sync/semaphore",
+			"revision": "37e7f081c4d4c64e13b10787722085407fe5d15f",
+			"revisionTime": "2018-09-24T18:15:43Z",
+			"version": "v1.11"
+		}
+	],
+	"rootPath": "github.com/pachyderm/pachyderm/src/testing/loadtest/split"
+}

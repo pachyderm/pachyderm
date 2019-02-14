@@ -1,12 +1,23 @@
 # RBAC
 
-Pachyderm has support for Kubernetes Role-Based Access Controls (RBAC).
-This support is a default part of all Pachyderm deployments, there's nothing
-special for you to do as a user. You can see the ClusterRole which is created
-for Pachyderm's service account by doing:
+Pachyderm has support for Kubernetes Role-Based Access Controls (RBAC) and is a default part of all Pachyderm deployments. For most users, you shouldn't have any issues as Pachyderm takes care of setting all the RBAC permissions automatically. However, if you are deploying Pachyderm on a cluster that your company owns, security policies might not allow certain RBAC permissions by default. Therefore, it's suggested that you contact your Kubernetes admin and provide the following to ensure you don't encounter any permissions issues:
 
-```shell
-kubectl get clusterrole/pachyderm -o json
+Pachyderm Permission Requirements
+```
+Rules: []rbacv1.PolicyRule{{
+	APIGroups: []string{""},
+	Verbs:     []string{"get", "list", "watch"},
+	Resources: []string{"nodes", "pods", "pods/log", "endpoints"},
+}, {
+	APIGroups: []string{""},
+	Verbs:     []string{"get", "list", "watch", "create", "update", "delete"},
+	Resources: []string{"replicationcontrollers", "services"},
+}, {
+	APIGroups:     []string{""},
+	Verbs:         []string{"get", "list", "watch", "create", "update", "delete"},
+	Resources:     []string{"secrets"},
+	ResourceNames: []string{client.StorageSecretName},
+}},
 ```
 
 ## RBAC and DNS
@@ -47,3 +58,18 @@ kubectl -n kube-system patch deploy/kube-dns -p '{"spec": {"template": {"spec": 
 this will tell Kubernetes that `kube-dns` should use the appropriate
 ServiceAccount. Kubernetes creates the ServiceAccount, it just doesn't actually
 use it.
+
+## RBAC Permissions on GKE
+If you're deploying Pachyderm on GKE and run into the following error:
+
+```
+Error from server (Forbidden): error when creating "STDIN": clusterroles.rbac.authorization.k8s.io "pachyderm" is forbidden: attempt to grant extra privileges:
+```
+
+Run the following and redeploy Pachyderm:
+
+```
+kubectl create clusterrolebinding cluster-admin-binding \ --clusterrole cluster-admin --user $(gcloud config get-value account)
+
+```
+

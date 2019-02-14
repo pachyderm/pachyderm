@@ -2,14 +2,19 @@
 
 ![alt tag](pipeline.png)
 
-This example illustrates the use of GATK in Pachyderm for [Germline](https://en.wikipedia.org/wiki/Germline) variant calling and joint [genotyping](https://en.wikipedia.org/wiki/Genotyping). Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
+This example illustrates the use of GATK in Pachyderm for [Germline](https://en.wikipedia.org/wiki/Germline) variant calling and joint [genotyping](https://en.wikipedia.org/wiki/Genotyping).
+
+GATK is a toolkit provided by the Broad Institute that was created to assist scientists with variant discovery and genotyping. Each stage of this GATK best practice pipeline can be scaled individually and is automatically triggered as data flows into the top of the pipeline. The example follows [this tutorial](https://drive.google.com/open?id=0BzI1CyccGsZiQ1BONUxfaGhZRGc) from GATK, which includes more details about the various stages.
 
 ## Committing the reference genome
 
 You can retrieve all the input data for this pipeline from the Broad Institute [here](https://drive.google.com/open?id=0BzI1CyccGsZicE5HNkR6anpLTnM). We will utilize a b37 human genome reference containing only a subset of chromosome 20, which we prepared specially for GATK tutorials in order to provide a reasonable size for download. It is accompanied by its index and sequence dictionary.
 
-Download `GATK_Germline.zip` from the link above. Then:
+Download `GATK_Germline.zip` and unzip it to your local dir.
 
+```sh
+wget GATK_Germline.zip https://s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip
+``` 
 ```sh
 $ unzip GATK_Germline.zip
 Archive:  GATK_Germline.zip
@@ -22,17 +27,27 @@ Archive:  GATK_Germline.zip
    creating: data/bams/
   inflating: data/bams/.DS_Store
   etc...
+```
+Change into the directory that contains the files we want to import
+```sh
 $ cd data/ref
 $ ls
 Icon  ref.dict  ref.fasta  ref.fasta.fai  refSDF
+```
+Next, we want to create our pachyderm repo and then instruct pachyderm to import those into our repo
+```sh
 $ pachctl create-repo reference
 $ pachctl put-file reference master -r -f .
+```
+First milestone reached! Lets just check and make sure everything looks good
+```sh
 $ pachctl list-repo
 NAME                CREATED             SIZE
 reference           43 seconds ago      83.68MiB
+```
+```sh
 $ pachctl list-file reference master
 NAME                TYPE                SIZE
-DS_Store            file                8.004KiB
 Icon                file                0B
 ref.dict            file                164B
 ref.fasta           file                61.11MiB
@@ -41,21 +56,21 @@ refSDF              dir                 22.57MiB
 $ cd ../../
 ```
 
-## Committing a sample
+## Committing a sample 
 
-Create a repositories for input `*.bam` files:
+Next, we're going to work on commiting the `*.bam` files for Mom. Let's start by create a repositories for input `*.bam` files to go into:
 
 ```sh
 $ pachctl create-repo samples
 ```
 
-Add a `*.bam` file (along with it's index file) corresponding to a first sample (`mother`). Here we will assume that the files corresponding to each sample are committed to separate directories (e.g., `/mother`):
+Add a `*.bam` file (along with it's index file) corresponding to a first sample, in our case it's the `mother`. Here we will assume that the files corresponding to each sample are committed to separate directories (e.g., `/mother`). 
 
 ```sh
 $ cd data/bams/
 $ pachctl start-commit samples master
-$ for f in $(ls mother.*); do pachctl put-file samples 64f1d3456e184efa8f8c9ea7a2994edd mother/$f -f $f; done
-$ pachctl finish-commit samples 64f1d3456e184efa8f8c9ea7a2994edd
+$ for f in $(ls mother.*); do pachctl put-file samples master mother/$f -f $f; done
+$ pachctl finish-commit samples master
 $ cd ../../
 ```
 
@@ -158,5 +173,3 @@ c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1c
 If you are using the [Enterprise Edition](http://pachyderm.readthedocs.io/en/latest/enterprise/overview.html), you should be able to see the DAG and data as shown below:
 
 ![alt tag](dash.png)
-
-

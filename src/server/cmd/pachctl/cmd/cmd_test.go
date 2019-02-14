@@ -15,26 +15,26 @@ var stdoutMutex = &sync.Mutex{}
 
 func TestMetricsNormalDeployment(t *testing.T) {
 	// Run deploy normally, should see METRICS=true
-	testDeploy(t, false, true, true)
+	testDeploy(t, false, false, true)
 }
 
 func TestMetricsNormalDeploymentNoMetricsFlagSet(t *testing.T) {
 	// Run deploy normally, should see METRICS=true
-	testDeploy(t, false, false, false)
+	testDeploy(t, false, true, false)
 }
 
 func TestMetricsDevDeployment(t *testing.T) {
 	// Run deploy w dev flag, should see METRICS=false
-	testDeploy(t, true, true, false)
+	testDeploy(t, true, false, false)
 }
 
 func TestMetricsDevDeploymentNoMetricsFlagSet(t *testing.T) {
 	// Run deploy w dev flag, should see METRICS=false
-	testDeploy(t, true, false, false)
+	testDeploy(t, true, true, false)
 }
 
 func TestPortForwardError(t *testing.T) {
-	os.Setenv("ADDRESS", "localhost:30650")
+	os.Setenv("PACHD_ADDRESS", "localhost:30650")
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns", "--no-port-forwarding")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
@@ -45,7 +45,7 @@ func TestPortForwardError(t *testing.T) {
 }
 
 func TestNoPortError(t *testing.T) {
-	os.Setenv("ADDRESS", "127.127.127.0")
+	os.Setenv("PACHD_ADDRESS", "127.127.127.0")
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns", "--no-port-forwarding")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
@@ -56,7 +56,7 @@ func TestNoPortError(t *testing.T) {
 }
 
 func TestWeirdPortError(t *testing.T) {
-	os.Setenv("ADDRESS", "localhost:30560")
+	os.Setenv("PACHD_ADDRESS", "localhost:30560")
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns", "--no-port-forwarding")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
@@ -66,7 +66,7 @@ func TestWeirdPortError(t *testing.T) {
 	require.Matches(t, "30650", errMsg.String())
 }
 
-func testDeploy(t *testing.T, devFlag bool, metrics bool, expectedEnvValue bool) {
+func testDeploy(t *testing.T, devFlag bool, noMetrics bool, expectedEnvValue bool) {
 	//t.Parallel()
 	//stdoutMutex.Lock()
 	//defer stdoutMutex.Unlock()
@@ -86,7 +86,7 @@ func testDeploy(t *testing.T, devFlag bool, metrics bool, expectedEnvValue bool)
 	//"--dry-run",
 	//fmt.Sprintf("-d=%v", devFlag),
 	//}
-	//err = deploycmds.DeployCmd(&metrics).Execute()
+	//err = deploycmds.DeployCmd(&noMetrics).Execute()
 	//require.NoError(t, err)
 	//require.NoError(t, w.Close())
 	//// restore stdout

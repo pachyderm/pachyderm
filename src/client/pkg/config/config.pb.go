@@ -45,7 +45,7 @@ func (m *Config) Reset()         { *m = Config{} }
 func (m *Config) String() string { return proto.CompactTextString(m) }
 func (*Config) ProtoMessage()    {}
 func (*Config) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_3513b4c1056a9a4e, []int{0}
+	return fileDescriptor_config_a7e17ddc72688625, []int{0}
 }
 func (m *Config) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -93,7 +93,8 @@ func (m *Config) GetV1() *ConfigV1 {
 // configs will become unparseable.
 type ConfigV1 struct {
 	// A host:port pointing pachd at a pachyderm cluster. Similar to the
-	// ADDRESS environment variable, though ADDRESS overrides this.
+	// PACHD_ADDRESS environment variable, though PACHD_ADDRESS overrides
+	// this.
 	PachdAddress string `protobuf:"bytes,2,opt,name=pachd_address,json=pachdAddress,proto3" json:"pachd_address,omitempty"`
 	// Trusted root certificates (overrides installed certificates), formatted
 	// as base64-encoded PEM
@@ -111,7 +112,7 @@ func (m *ConfigV1) Reset()         { *m = ConfigV1{} }
 func (m *ConfigV1) String() string { return proto.CompactTextString(m) }
 func (*ConfigV1) ProtoMessage()    {}
 func (*ConfigV1) Descriptor() ([]byte, []int) {
-	return fileDescriptor_config_3513b4c1056a9a4e, []int{1}
+	return fileDescriptor_config_a7e17ddc72688625, []int{1}
 }
 func (m *ConfigV1) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -664,10 +665,10 @@ var (
 )
 
 func init() {
-	proto.RegisterFile("client/pkg/config/config.proto", fileDescriptor_config_3513b4c1056a9a4e)
+	proto.RegisterFile("client/pkg/config/config.proto", fileDescriptor_config_a7e17ddc72688625)
 }
 
-var fileDescriptor_config_3513b4c1056a9a4e = []byte{
+var fileDescriptor_config_a7e17ddc72688625 = []byte{
 	// 279 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x4b, 0xce, 0xc9, 0x4c,
 	0xcd, 0x2b, 0xd1, 0x2f, 0xc8, 0x4e, 0xd7, 0x4f, 0xce, 0xcf, 0x4b, 0xcb, 0x84, 0x51, 0x7a, 0x05,

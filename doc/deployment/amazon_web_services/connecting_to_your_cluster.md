@@ -1,7 +1,7 @@
 # Connecting to your Pachyderm Cluster
 
 
-## Directly Via ADDRESS
+## Directly Via PACHD_ADDRESS
 
 This is recommended if you're using the Pachyderm Dashboard for any real amount of time, if you're doing big uploads, or if you're using a Pachyderm client to connect to the cluster.
 
@@ -30,7 +30,7 @@ E.g. `internal-afsdfasdlkfjh34lkjh-3485763487.us-west-1.elb.amazonaws.com:650`
 You can test that it's working by doing:
 
 ```
-$ ADDRESS=internal-afsdfasdlkfjh34lkjh-3485763487.us-west-1.elb.amazonaws.com:650 pachctl version
+$ PACHD_ADDRESS=internal-afsdfasdlkfjh34lkjh-3485763487.us-west-1.elb.amazonaws.com:650 pachctl version
 COMPONENT           VERSION                                          
 pachctl             1.7.3  
 pachd               1.7.3
@@ -56,6 +56,6 @@ service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
 
 ## Port Forwarding
 
-Whenever you run a `pachctl` command and `ADDRESS` is not set, `pachctl` implicitly starts port forwarding to try to connect to your cluster. Port forwarding is the easiest way to poke around and verify your cluster is working, however, we don't recommend using it for production workloads, as it is rate limited to about 1MB/s.
+Whenever you run a `pachctl` command and `PACHD_ADDRESS` is not set, `pachctl` implicitly starts port forwarding to try to connect to your cluster. Port forwarding is the easiest way to poke around and verify your cluster is working, however, we don't recommend using it for production workloads, as it is rate limited to about 1MB/s.
 
 You can also explicitly start port forwarding via `pachctl port-forward`. This has the added bonus of port forwarding for Pachyderm Dashboard-related functionality. From there, you'll be able to access the Dashboard at `localhost:30080`.
