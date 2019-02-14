@@ -16,7 +16,7 @@ type MyEnterprise struct {
 }
 
 // GetState is required to keep the workerPodSpec from attempting to **actually** contact pachd
-func (_ *MyEnterprise) GetState(ctx context.Context, in *enterprise.GetStateRequest, opts ...grpc.CallOption) (*enterprise.GetStateResponse, error) {
+func (*MyEnterprise) GetState(ctx context.Context, in *enterprise.GetStateRequest, opts ...grpc.CallOption) (*enterprise.GetStateResponse, error) {
 	return &enterprise.GetStateResponse{
 		State: enterprise.State_NONE,
 	}, nil
