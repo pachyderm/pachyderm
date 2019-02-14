@@ -245,7 +245,7 @@ def main():
         driver = MicroK8sDriver()
     else:
         log.info("using the k8s for docker driver")
-        log.warn("with this driver, it's not possible to fully reset the cluster")
+        log.warning("with this driver, it's not possible to fully reset the cluster")
         driver = DefaultDriver()
 
     driver.clear()
