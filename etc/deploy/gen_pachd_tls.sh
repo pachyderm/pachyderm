@@ -68,7 +68,6 @@ fi
 port="${port:-30650}"
 
 # Define a minimal openssl config for our micro-CA
-common_name="${dns:-localhost}"
 read -d '' -r tls_config <<EOF
 [ req ]
 default_md         = sha256 # MD = message digest. md5 is the openSSL default in 1.1.0 (see 'man req')
@@ -77,7 +76,7 @@ distinguished_name = dn
 x509_extensions    = exn    # Since we're making self-signed certs. For CSRs, use req_extensions
 
 [ dn ]
-CN = ${common_name}
+CN = ${dns:-localhost} # TODO(msteffen) better default domain name
 
 [ exn ]
 EOF
