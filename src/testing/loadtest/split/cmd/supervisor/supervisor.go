@@ -29,11 +29,10 @@ import (
 )
 
 const (
-	keySz       = 10        // the size of each row's key, in bytes
-	separator   = '|'       // the key/value separator
-	separatorSz = 1         // the size of the key/value separator ('|'), for readability
-	minValueSz  = 24        // see NewInputFile for an explanation
-	p           = 533000389 // a largish prime
+	keySz       = 10  // the size of each row's key, in bytes
+	separator   = '|' // the key/value separator
+	separatorSz = 1   // the size of the key/value separator ('|'), for readability
+	minValueSz  = 24  // see NewInputFile for an explanation
 )
 
 var (
@@ -282,9 +281,9 @@ func main() {
 // InputFile is a synthetic file that generates test data for reading into
 // Pachyderm
 type InputFile struct {
-	written int64
-	keys    []string
-	value   string // all keys in a given input file have the same value
+	written  int64
+	keyStart int64
+	value    string // all keys in a given input file have the same value
 }
 
 // NewInputFile constructs a new InputFile reader
@@ -305,17 +304,8 @@ func NewInputFile(fileNo int) *InputFile {
 	leftMargin, rightMargin := (valueSz-minValueSz)/2, (valueSz-minValueSz+1)/2
 	value := fmt.Sprintf("[%*s%010d:%%010d%*s]\n", leftMargin, "", fileNo, rightMargin, "")
 	result := &InputFile{
-		keys:  make([]string, uniqueKeysPerFile),
-		value: value,
-	}
-
-	// this is probably stupid, but try to achieve a uniform distribution of keys
-	// across files
-	pSmall := p % totalUniqueKeys
-	key := ((int64(fileNo) % totalUniqueKeys) * uniqueKeysPerFile) % totalUniqueKeys
-	for i := int64(0); i < uniqueKeysPerFile; i++ {
-		key = (key + pSmall) % totalUniqueKeys
-		result.keys[i] = fmt.Sprintf("%0*d", keySz, key)
+		keyStart: ((int64(fileNo) % totalUniqueKeys) * uniqueKeysPerFile) % totalUniqueKeys,
+		value:    value,
 	}
 	return result
 }
@@ -336,7 +326,7 @@ func (t *InputFile) Read(b []byte) (int, error) {
 	for len(b) > 0 && t.written < fileSz {
 		// figure out line & column based on # of bytes written
 		line, c := t.written/recordSz, t.written%recordSz
-		key := t.keys[line%uniqueKeysPerFile]
+		key := fmt.Sprintf("%0*d", keySz, t.keyStart+(line%uniqueKeysPerFile))
 		value := fmt.Sprintf(t.value, line) // replace formatting directive w/ line
 		switch {
 		case c < keySz:
