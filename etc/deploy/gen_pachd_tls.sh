@@ -2,9 +2,13 @@
 # This script generates a self-signed TLS cert to be used by pachd in tests
 
 if [[ -n "${ADDRESS}" ]] || [[ -n "${PACHD_ADDRESS}" ]]; then
-  echo -n "must run 'unset ADDRESS; unset PACHD_ADDRESS' to use " >/dev/fd/2
-  echo "this script's cert" >/dev/fd/2
+  echo "must run 'unset ADDRESS; unset PACHD_ADDRESS' to use this" >/dev/fd/2
+  echo "script's cert. These variables prevent pachctl from trusting" >/dev/fd/2
+  echo "the cert that this script generates"
   exit 1
+else
+  echo "Note that \$ADDRESS and \$PACHD_ADDRESS prevent pachctl from trusting "
+  echo "the cert that this script generates--do not set them"
 fi
 
 eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
@@ -57,9 +61,19 @@ if [[ -z "${dns}" ]] && [[ -z "${ip}" ]]; then
   exit 1
 fi
 dns="${dns:-localhost}"
+if [[ -n "${dns}" ]] && [[ -n "${ip}" ]]; then
+  echo "both --dns and --ip are set. Note that if you connect to your "
+  echo "Pachyderm cluster via domain name, it MUST resolve to the IP set in "
+  echo "--ip (otherwise the connection will fail)"
+  echo
+  echo "(However, if you connect to your cluster via IP address, the domain "
+  echo "name in --dns does not need to resolve to the IP address in --ip. In "
+  echo "other words, pachctl won't resolve or verify the domain name in --dns "
+  echo "if it doesn't need it)"
+fi
 if [[ -z "${port}" ]]; then
-  echo -n "Warning, --port is unset. Assuming :30650 (cert will " >/dev/fd/2
-  echo "not work if this is not the correct port)" >/dev/fd/2
+  echo "Warning, --port is unset. Assuming :30650 (cert will not " >/dev/fd/2
+  echo "work if this is not the correct port)" >/dev/fd/2
 fi
 port="${port:-30650}"
 
