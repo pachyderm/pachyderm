@@ -254,28 +254,46 @@ func main() {
 	var expectedOutputFileSize = expectedTotalOutputSize / totalUniqueKeys
 	fis, err := c.ListFile("split", "master", "/")
 	if err != nil {
-		log.Printf("[Warning] could not list output files to verify output: %v", err)
-	}
-	for _, fi := range fis {
-		fileSz := int64(fi.SizeBytes)
-		totalOutputSize += fileSz
-		numFiles++
-		if fileSz%recordSz != 0 {
-			log.Printf("[Warning] output file %s appears to have fragmented records", fi.File.Path)
+		log.Printf("[ Warning ] could not list output files to verify output: %v", err)
+	} else {
+		// Validate total # of output files
+		if int64(len(fis)) != totalUniqueKeys {
+			log.Printf("[ Warning ] expected %d output files, but saw %d", totalUniqueKeys, len(fis))
+		} else {
+			log.Printf("[  Pass   ] pipeline produced %d output files, as expected", totalUniqueKeys)
 		}
-		if fileSz < (expectedOutputFileSize / 2) {
-			log.Printf("[Warning] output file %s seems too small", fi.File.Path)
+
+		// Validate approximate size of each output file
+		var warningsIssued bool
+		for _, fi := range fis {
+			fileSz := int64(fi.SizeBytes)
+			totalOutputSize += fileSz
+			numFiles++
+			if fileSz%recordSz != 0 {
+				log.Printf("[ Warning ] output file %s appears to have fragmented records", fi.File.Path)
+				warningsIssued = true
+			}
+			if fileSz < (expectedOutputFileSize / 2) {
+				log.Printf("[ Warning ] output file %s seems too small", fi.File.Path)
+				warningsIssued = true
+			}
+			if fileSz > (expectedOutputFileSize * 2) {
+				log.Printf("[ Warning ] output file %s seems too large", fi.File.Path)
+				warningsIssued = true
+			}
 		}
-		if fileSz > (expectedOutputFileSize * 3 / 2) {
-			log.Printf("[Warning] output file %s seems too large", fi.File.Path)
+		if !warningsIssued {
+			log.Printf("[  Pass   ] All output file sizes appear to be correct")
+		}
+
+		// Validate total size of all output
+		if totalOutputSize != expectedTotalOutputSize {
+			log.Printf("[ Warning ] output data is not the same size as input data (%d input vs %d output)",
+				expectedTotalOutputSize, totalOutputSize)
+		} else {
+			log.Printf("[  Pass   ] Total output size appears to be correct")
 		}
 	}
-	log.Printf("All output files appear to be correct")
-	if totalOutputSize != expectedTotalOutputSize {
-		log.Printf("[Warning] output data is not the same size as input data (%d input vs %d output)",
-			expectedTotalOutputSize, totalOutputSize)
-	}
-	log.Printf("Total output size appears to be correct")
 }
 
 // InputFile is a synthetic file that generates test data for reading into
@@ -326,15 +344,17 @@ func (t *InputFile) Read(b []byte) (int, error) {
 	for len(b) > 0 && t.written < fileSz {
 		// figure out line & column based on # of bytes written
 		line, c := t.written/recordSz, t.written%recordSz
-		key := fmt.Sprintf("%0*d", keySz, t.keyStart+(line%uniqueKeysPerFile))
-		value := fmt.Sprintf(t.value, line) // replace formatting directive w/ line
 		switch {
 		case c < keySz:
+			idx := (line % uniqueKeysPerFile)
+			keyNo := (t.keyStart + idx) % totalUniqueKeys
+			key := fmt.Sprintf("%0*d", keySz, keyNo)
 			dn = copy(b, key[c:])
 		case c == keySz:
 			b[0] = separator
 			dn = 1
 		default:
+			value := fmt.Sprintf(t.value, line) // replace formatting directive w/ line
 			dn = copy(b, value[c-keySz-separatorSz:])
 		}
 		b = b[dn:]
