@@ -57,7 +57,6 @@ if [[ -z "${dns}" ]] && [[ -z "${ip}" ]]; then
   exit 1
 fi
 dns="${dns:-localhost}"
-ip="${ip:-127.0.0.1}"
 if [[ -z "${port}" ]]; then
   echo -n "Warning, --port is unset. Assuming :30650 (cert will " >/dev/fd/2
   echo "not work if this is not the correct port)" >/dev/fd/2
