@@ -232,6 +232,8 @@ func topLevelService(fullyQualifiedService string) string {
 // `Formatter` interface
 type FormatterFunc func(entry *logrus.Entry) ([]byte, error)
 
+// Format proxies the closure in order to satisfy `logrus.Formatter`'s
+// interface.
 func (f FormatterFunc) Format(entry *logrus.Entry) ([]byte, error) {
 	return f(entry)
 }
