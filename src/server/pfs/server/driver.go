@@ -2572,7 +2572,6 @@ func (d *driver) filesFromByteStream(server pfs.API_GetFilesServer, pachClient *
 	// it must be split into multiple GetFileResponse messages
 	// with only the first containing non-nil File metadata.
 	for _, node := range nodes {
-		fmt.Println("filesFrom node: ", node)
 		for i := int64(0); i <= node.SubtreeSize; i += int64(grpcutil.MaxMsgSize) {
 			_, err := io.CopyN(&buf, objReader, int64(node.SubtreeSize))
 			if err != nil && err != io.EOF {

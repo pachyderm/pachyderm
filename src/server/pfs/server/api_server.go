@@ -279,13 +279,6 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	return grpcutil.WriteToStreamingBytesServer(file, apiGetFileServer)
 }
 
-func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	return a.driver.inspectFile(a.getPachClient(ctx), request.File)
-}
-
 func (a *apiServer) GetFiles(request *pfs.GetFileRequest, apiGetFilesServer pfs.API_GetFilesServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
@@ -293,15 +286,24 @@ func (a *apiServer) GetFiles(request *pfs.GetFileRequest, apiGetFilesServer pfs.
 		a.Log(request, fmt.Sprintf("stream containing %d GetFileResponses", sent), retErr, time.Since(start))
 	}(time.Now())
 
+	// First we collect the nodes that we've gotten from getFile().
 	file, nodes, err := a.driver.getFile(a.getPachClient(apiGetFilesServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
 		return err
 	}
 
+	// Then we parse each file from the bytestream (breaking it up into messages of grpc max size) and send it to the apiGetFilesServer.
 	return a.driver.filesFromByteStream(apiGetFilesServer, a.getPachClient(apiGetFilesServer.Context()), file, request.File, nodes, func(gfr *pfs.GetFileResponse) error {
 		sent++
 		return apiGetFilesServer.Send(gfr)
 	})
+}
+
+func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	return a.driver.inspectFile(a.getPachClient(ctx), request.File)
 }
 
 func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {

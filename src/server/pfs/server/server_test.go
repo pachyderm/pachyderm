@@ -1962,7 +1962,6 @@ func TestGetFile(t *testing.T) {
 		require.NoError(t, err)
 	})
 }
-
 func TestGetFiles(t *testing.T) {
 	c := GetPachClient(t)
 
@@ -1986,9 +1985,10 @@ func TestGetFiles(t *testing.T) {
 	sort.Strings(paths)
 	i := 0
 	// Confirm when we glob for all the files we put, that it finds each of them individually.
-	require.NoError(t, c.GetFiles("repo", "master", "*", 0, 0, func(gfr *pfs.GetFileResponse) error {
-		fmt.Println("i: ", i, "gfr: ", gfr)
-		require.Equal(t, []byte(paths[i]), gfr.Value)
+	require.NoError(t, c.GetFiles("repo", "master", "*", 0, 0, func(file *pfs.File, r io.Reader) error {
+		data, err := ioutil.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, []byte(paths[i]), data)
 		i++
 		return nil
 	}))
