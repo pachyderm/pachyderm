@@ -93,7 +93,7 @@ EOF
 
 # If 'ip' is set, include IP in TLS cert
 if [[ -n "${ip}" ]]; then
-  tls_config+=$'\n'"subjectAltName = IP:${ip}"
+  tls_config+=$'\n'"subjectAltName = DNS:${dns}, IP:${ip}"
 fi
 
 echo "${tls_config}"
