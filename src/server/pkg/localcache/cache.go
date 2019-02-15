@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
 
 // Cache is a simple unbounded disk cache and is safe for concurrency.
@@ -37,7 +39,9 @@ func (c *Cache) Put(key string, value io.Reader) (retErr error) {
 			retErr = err
 		}
 	}()
-	if _, err := io.Copy(f, value); err != nil {
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	if _, err := io.CopyBuffer(f, value, buf); err != nil {
 		return err
 	}
 	c.keys[key] = true
