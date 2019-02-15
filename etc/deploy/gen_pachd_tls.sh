@@ -1,11 +1,17 @@
 #!/bin/bash
 # This script generates a self-signed TLS cert to be used by pachd in tests
 
-eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
+if [[ -n "${ADDRESS}" ]] || [[ -n "${PACHD_ADDRESS}" ]]; then
+  echo "must run 'unset ADDRESS; unset PACHD_ADDRESS' to use this" >/dev/fd/2
+  echo "script's cert. These variables prevent pachctl from trusting" >/dev/fd/2
+  echo "the cert that this script generates" >/dev/fd/2
+  exit 1
+else
+  echo "Note that \$ADDRESS and \$PACHD_ADDRESS prevent pachctl from trusting "
+  echo "the cert that this script generates--do not set them"
+fi
 
-dns="localhost"
-ip="127.0.0.1"
-port=650
+eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
 output_prefix=pachd
 while true; do
   case "${1}" in
@@ -49,6 +55,18 @@ EOF
   esac
 done
 
+# Validate flags
+if [[ -z "${dns}" ]] && [[ -z "${ip}" ]]; then
+  echo "You must set either --dns or --ip" >/dev/fd/2
+  exit 1
+fi
+if [[ -z "${port}" ]]; then
+  echo "Warning, --port is unset. Assuming :30650 (.v1.pachd_address in your "
+  echo "Pachyderm config must be updated if this is not the correct port, or "
+  echo "pachd will fail to connect)"
+fi
+port="${port:-30650}"
+
 # Define a minimal openssl config for our micro-CA
 read -d '' -r tls_config <<EOF
 [ req ]
@@ -58,7 +76,7 @@ distinguished_name = dn
 x509_extensions    = exn    # Since we're making self-signed certs. For CSRs, use req_extensions
 
 [ dn ]
-CN = ${dns}
+CN = ${dns:-localhost} # TODO(msteffen) better default domain name
 
 [ exn ]
 EOF
@@ -66,6 +84,9 @@ EOF
 # If 'ip' is set, include IP in TLS cert
 if [[ -n "${ip}" ]]; then
   tls_config+=$'\n'"subjectAltName = IP:${ip}"
+  if [[ -n "${dns}" ]]; then
+    tls_config+=", DNS:${dns}"
+  fi
 fi
 
 echo "${tls_config}"
@@ -101,5 +122,7 @@ tls_opts=(
 openssl req "${tls_opts[@]}" -config <(echo "${tls_config}")
 
 # Copy pachd public key to pachyderm config
+echo "Backing up Pachyderm config to \$HOME/.pachyderm/config.json.backup"
+echo "New config with address and cert is at \$HOME/.pachyderm/config.json"
 cp ~/.pachyderm/config.json ~/.pachyderm/config.json.backup
-cat ~/.pachyderm/config.json.backup | jq ".v1.pachd_address = \"${ip}:${port}\" | .v1.server_cas = \"$(cat ./pachd.pem | base64)\" | ." >~/.pachyderm/config.json
+jq ".v1.pachd_address = \"${dns:-$ip}:${port}\" | .v1.server_cas = \"$(cat ./pachd.pem | base64)\"" ~/.pachyderm/config.json.backup >~/.pachyderm/config.json

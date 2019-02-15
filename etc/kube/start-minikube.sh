@@ -28,7 +28,7 @@ fi
 # Repeatedly restart minikube until it comes up. This corrects for an issue in
 # Travis, where minikube will get stuck on startup and never recover
 while true; do
-  sudo CHANGE_MINIKUBE_NONE_USER=true minikube start "${minikube_args[@]}"
+  sudo env "PATH=$PATH" "CHANGE_MINIKUBE_NONE_USER=true" minikube start "${minikube_args[@]}"
   HEALTHY=false
   # Try to connect for one minute
   for i in $(seq 12); do
