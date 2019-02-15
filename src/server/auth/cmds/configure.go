@@ -18,14 +18,14 @@ import (
 
 // GetConfig returns a cobra command that lets the caller see the configured
 // auth backends in Pachyderm
-func GetConfig() *cobra.Command {
+func GetConfig(noPortForwarding *bool) *cobra.Command {
 	var format string
 	getConfig := &cobra.Command{
 		Use:   "get-config",
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, true, "user")
+			c, err := client.NewOnUserMachine(true, !*noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -64,14 +64,14 @@ func GetConfig() *cobra.Command {
 
 // SetConfig returns a cobra command that lets the caller configure auth
 // backends in Pachyderm
-func SetConfig() *cobra.Command {
+func SetConfig(noPortForwarding *bool) *cobra.Command {
 	var file string
 	configure := &cobra.Command{
 		Use:   "set-config",
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, true, "user")
+			c, err := client.NewOnUserMachine(true, !*noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}

@@ -50,7 +50,7 @@ func NewLocalLogger(service string) Logger {
 
 func newLogger(service string, exportStats bool) Logger {
 	l := logrus.New()
-	l.Formatter = new(prettyFormatter)
+	l.Formatter = FormatterFunc(Pretty)
 	newLogger := &logger{
 		l.WithFields(logrus.Fields{"service": service}),
 		make(map[string]*prometheus.HistogramVec),
@@ -228,9 +228,21 @@ func topLevelService(fullyQualifiedService string) string {
 	return tokens[0]
 }
 
-type prettyFormatter struct{}
+// FormatterFunc is a type alias for a function that satisfies logrus'
+// `Formatter` interface
+type FormatterFunc func(entry *logrus.Entry) ([]byte, error)
 
-func (f *prettyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+// Format proxies the closure in order to satisfy `logrus.Formatter`'s
+// interface.
+func (f FormatterFunc) Format(entry *logrus.Entry) ([]byte, error) {
+	return f(entry)
+}
+
+// Pretty formats a logrus entry like so:
+// ```
+// 2019-02-11T16:02:02Z INFO pfs.API.InspectRepo {"request":{"repo":{"name":"images"}}} []
+// ```
+func Pretty(entry *logrus.Entry) ([]byte, error) {
 	serialized := []byte(
 		fmt.Sprintf(
 			"%v %v ",

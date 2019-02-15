@@ -200,11 +200,11 @@ Environment variables:
 	for _, cmd := range deployCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	authCmds := authcmds.Cmds(&noPortForwarding)
+	authCmds := authcmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range authCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	enterpriseCmds := enterprisecmds.Cmds(&noPortForwarding)
+	enterpriseCmds := enterprisecmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range enterpriseCmds {
 		rootCmd.AddCommand(cmd)
 	}
@@ -267,9 +267,9 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, true, "user", client.WithDialTimeout(timeout))
+				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, true, "user")
+				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user")
 			}
 			if err != nil {
 				return err
@@ -416,7 +416,7 @@ This resets the cluster to its initial state.`,
 
 			ch := make(chan os.Signal, 1)
 			signal.Notify(ch, os.Interrupt)
-			<- ch
+			<-ch
 			return nil
 		}),
 	}
@@ -446,7 +446,7 @@ This resets the cluster to its initial state.`,
 					}
 					return err
 				}
-				
+
 				defer func() {
 					if err := f.Close(); err != nil && retErr == nil {
 						retErr = err

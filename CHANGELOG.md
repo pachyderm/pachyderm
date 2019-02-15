@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.4
+
+- Azure Blob Storage block size has been changed to 4MB due to object body too large errors. (#3464)
+- Fixed a bug in `--no-metrics` and `--no-port-forwarding`. (#3462)
+- Fixes a bug that caused `list-job` to panic if the `Reason` field was too short. (#3453)
+
 ## 1.8.3
 
 - `--push-images` on `create-pipeline` has been replaced with `--build` which builds and pushes docker images. (#3370)

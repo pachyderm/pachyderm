@@ -20,6 +20,7 @@ pushd examples/opencv
     pachctl --no-port-forwarding inspect-file montage master montage.png
 popd
 
+yes | pachctl --no-port-forwarding delete-all
 
 pushd examples/shuffle
     pachctl --no-port-forwarding create-repo fruits
@@ -57,6 +58,8 @@ pushd examples/shuffle
     fi
 popd
 
+yes | pachctl --no-port-forwarding delete-all
+
 pushd examples/word_count
     # note: we do not test reducing because it's slower
     pachctl --no-port-forwarding create-repo urls
@@ -73,6 +76,68 @@ pushd examples/word_count
     wikipedia_count=`pachctl --no-port-forwarding get-file map master wikipedia`
     if [ $wikipedia_count -le 0 ]; then
         echo "Unexpected count for the word 'wikipedia': $wikipedia_count"
+        exit 1
+    fi
+popd
+
+yes | pachctl --no-port-forwarding delete-all
+
+pushd examples/ml/hyperparameter
+    pachctl --no-port-forwarding create-repo raw_data
+    pachctl --no-port-forwarding create-repo parameters
+    pachctl --no-port-forwarding list-repo
+
+    pushd data
+        pachctl --no-port-forwarding put-file raw_data master iris.csv -f noisy_iris.csv
+
+        pushd parameters
+            pachctl --no-port-forwarding put-file parameters master -f c_parameters.txt --split line --target-file-datums 1 
+            pachctl --no-port-forwarding put-file parameters master -f gamma_parameters.txt --split line --target-file-datums 1
+        popd
+    popd
+
+    pachctl --no-port-forwarding create-pipeline -f split.json 
+    pachctl --no-port-forwarding create-pipeline -f model.json
+    pachctl --no-port-forwarding create-pipeline -f test.json 
+    pachctl --no-port-forwarding create-pipeline -f select.json
+
+    commit_id=`pachctl --no-port-forwarding list-commit raw_data -n 1 --raw | jq .commit.id -r`
+    pachctl --no-port-forwarding flush-job raw_data/$commit_id
+
+    # just make sure we outputted some files
+    selected_file_count=`pachctl --no-port-forwarding list-file select master | wc -l`
+    if [ $selected_file_count -le 2 ]; then
+        echo "Expected some files to be outputted in the select repo"
+        exit 1
+    fi
+popd
+
+yes | pachctl --no-port-forwarding delete-all
+
+pushd examples/ml/iris
+    pachctl --no-port-forwarding create-repo training
+    pachctl --no-port-forwarding create-repo attributes
+
+    pushd data
+        pachctl --no-port-forwarding put-file training master -f iris.csv
+    popd
+
+    pachctl --no-port-forwarding create-pipeline -f julia_train.json
+
+    pushd data/test
+        pachctl --no-port-forwarding put-file attributes master -r -f .
+    popd
+
+    pachctl --no-port-forwarding list-file attributes master
+    pachctl --no-port-forwarding create-pipeline -f julia_infer.json
+
+    commit_id=`pachctl --no-port-forwarding list-commit training -n 1 --raw | jq .commit.id -r`
+    pachctl --no-port-forwarding flush-job training/$commit_id
+
+    # just make sure we outputted some files
+    inference_file_count=`pachctl --no-port-forwarding list-file inference master | wc -l`
+    if [ $inference_file_count -ne 3 ]; then
+        echo "Unexpected file count in inference repo"
         exit 1
     fi
 popd
