@@ -1,12 +1,12 @@
 package s3
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
-	"reflect"
 	"strings"
 
 	"github.com/gogo/protobuf/types"
@@ -158,7 +158,7 @@ func (h handler) putFileVerifying(w http.ResponseWriter, r *http.Request, repo, 
 
 	actualHash := hasher.Sum(nil)
 
-	if !reflect.DeepEqual(expectedHash, actualHash) {
+	if !bytes.Equal(expectedHash, actualHash) {
 		err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
 		writeServerError(w, err)
 		return
