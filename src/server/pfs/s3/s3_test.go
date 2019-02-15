@@ -124,8 +124,8 @@ func TestNonExistingRepo(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
-func TestPutFile(t *testing.T) {
-	repo := tu.UniqueString("testputfile")
+func TestPutObject(t *testing.T) {
+	repo := tu.UniqueString("testputobject")
 	pc := server.GetPachClient(t)
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
