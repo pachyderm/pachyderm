@@ -26,10 +26,6 @@ func writeBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 }
 
-func writeMethodNotAllowed(w http.ResponseWriter) {
-	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-}
-
 func writeNotFound(w http.ResponseWriter) {
 	http.Error(w, "not found", http.StatusNotFound)
 }
@@ -51,55 +47,37 @@ type handler struct {
 }
 
 func (h handler) ping(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		writeOK(w)
-	} else {
-		writeMethodNotAllowed(w)
-	}
+	writeOK(w)
 }
 
 func (h handler) repo(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
-		vars := mux.Vars(r)
-		repo := vars["repo"]
+	vars := mux.Vars(r)
+	repo := vars["repo"]
 
-		if err := r.ParseForm(); err != nil {
-			writeBadRequest(w, err)
-			return
-		}
+	if err := r.ParseForm(); err != nil {
+		writeBadRequest(w, err)
+		return
+	}
 
-		if _, err := h.pc.InspectRepo(repo); err != nil {
-			writeMaybeNotFound(w, err)
-			return
-		}
+	if _, err := h.pc.InspectRepo(repo); err != nil {
+		writeMaybeNotFound(w, err)
+		return
+	}
 
-		if _, ok := r.Form["location"]; ok {
-			w.Header().Set("Content-Type", "application/xml")
-			w.Write([]byte(locationResponse))
-		} else {
-			writeOK(w)
-		}
+	if _, ok := r.Form["location"]; ok {
+		w.Header().Set("Content-Type", "application/xml")
+		w.Write([]byte(locationResponse))
 	} else {
-		writeMethodNotAllowed(w)
+		writeOK(w)
 	}
 }
 
-func (h handler) object(w http.ResponseWriter, r *http.Request) {
+func (h handler) getObject(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
 	branch := vars["branch"]
 	file := vars["file"]
 
-	if r.Method == http.MethodGet {
-		h.getObject(w, r, repo, branch, file)
-	} else if r.Method == http.MethodPut {
-		h.putObject(w, r, repo, branch, file)
-	} else {
-		writeMethodNotAllowed(w)
-	}
-}
-
-func (h handler) getObject(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
 	fileInfo, err := h.pc.InspectFile(repo, branch, file)
 	if err != nil {
 		writeMaybeNotFound(w, err)
@@ -121,7 +99,12 @@ func (h handler) getObject(w http.ResponseWriter, r *http.Request, repo, branch,
 	http.ServeContent(w, r, "", timestamp, reader)
 }
 
-func (h handler) putObject(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
+func (h handler) putObject(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	repo := vars["repo"]
+	branch := vars["branch"]
+	file := vars["file"]
+
 	expectedHash := r.Header.Get("Content-MD5")
 
 	if expectedHash != "" {
@@ -198,9 +181,10 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 func Server(pc *client.APIClient, port uint16) *http.Server {
 	handler := handler{pc: pc}
 	router := mux.NewRouter()
-	router.HandleFunc("/_ping", handler.ping)
-	router.HandleFunc("/{repo}/", handler.repo)
-	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.object)
+	router.HandleFunc("/_ping", handler.ping).Methods("GET")
+	router.HandleFunc("/{repo}/", handler.repo).Methods("GET")
+	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.getObject).Methods("GET")
+	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.putObject).Methods("PUT")
 
 	return &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
