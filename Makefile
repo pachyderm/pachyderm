@@ -20,6 +20,7 @@ COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+GC_FLAGS = "all=-trimpath=${PWD}"
 
 CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
@@ -78,11 +79,11 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -90,7 +91,7 @@ install-clean:
 	@make install
 
 install-doc:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
+	GO15VENDOREXPERIMENT=1 go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
 	# The latest docker client requires server api version >= 1.24.
@@ -312,8 +313,8 @@ launch-kube: check-kubectl
 
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	@if [ -z "${PACHD_ADDRESS}" ]; then \
+		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
@@ -333,8 +334,8 @@ launch-dev-vm: check-kubectl
 # point-release version of pachd, instead of whatever's in the current branch)
 launch-release-vm:
 	@# Make sure the caller sets address to avoid confusion later
-	@if [ -z "${ADDRESS}" ]; then \
-		$$( which echo ) -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+	@if [ -z "${PACHD_ADDRESS}" ]; then \
+		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
@@ -507,9 +508,9 @@ test-enterprise:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
-# TODO This is not very robust -- it doesn't work when the ADDRESS host isn't an IPv4 address
-PACHD_HOST := $(word 1,$(subst :, ,$(ADDRESS)))
-PACHD_PORT := $(word 2,$(subst :, ,$(ADDRESS)))
+# TODO This is not very robust -- it doesn't work when the PACHD_ADDRESS host isn't an IPv4 address
+PACHD_HOST := $(word 1,$(subst :, ,$(PACHD_ADDRESS)))
+PACHD_PORT := $(word 2,$(subst :, ,$(PACHD_ADDRESS)))
 
 test-tls:
 	# Pachyderm must be running when this target is called
@@ -667,11 +668,11 @@ goxc-release:
 	  @exit 1; \
 	fi
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
-	goxc -pv="$(VERSION)" -wd=./src/server/cmd/pachctl
+	goxc -pv="$(VERSION)" -build-gcflags="$(GC_FLAGS)" -wd=./src/server/cmd/pachctl
 
 goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
-	goxc -tasks=xc -wd=./src/server/cmd/pachctl
+	goxc -build-gcflags="$(GC_FLAGS)" -tasks=xc -wd=./src/server/cmd/pachctl
 
 .PHONY: all \
 	version \

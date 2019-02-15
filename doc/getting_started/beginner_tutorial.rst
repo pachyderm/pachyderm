@@ -5,7 +5,7 @@ Welcome to the beginner tutorial for Pachyderm! If you've already got Pachyderm 
 Image processing with OpenCV
 ----------------------------
 
-This guide will walk you through the deployment of a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's built in processing primatives, we'll be able to keep our code simple but still run the pipeline in a distributed, streaming fashion. Moreover, as new data is added, the pipeline will automatically process it and output the results.
+This guide will walk you through the deployment of a Pachyderm pipeline to do some simple `edge detection <https://en.wikipedia.org/wiki/Edge_detection>`_ on a few images. Thanks to Pachyderm's built-in processing primitives, we'll be able to keep our code simple but still run the pipeline in a distributed, streaming fashion. Moreover, as new data is added, the pipeline will automatically process it and output the results.
 
 If you hit any errors not covered in this guide, get help in our `public community Slack <http://slack.pachyderm.io>`_, submit an issue on `GitHub <https://github.com/pachyderm/pachyderm>`_, or email us at `support@pachyderm.io <mailto:support@pachyderm.io>`_. We are more than happy to help!
 
@@ -16,7 +16,7 @@ This guide assumes that you already have Pachyderm running locally. Check out ou
 Create a Repo
 ^^^^^^^^^^^^^
 
-A ``repo`` is the highest level data primitive in Pachyderm. Like many things in Pachyderm, it shares its name with primitives in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them.
+A ``repo`` is the highest level data primitive in Pachyderm. Like many things in Pachyderm, it shares its name with a primitive in Git and is designed to behave analogously. Generally, repos should be dedicated to a single source of data such as log messages from a particular service, a users table, or training data for an ML model. Repos are dirt cheap so don't be shy about making tons of them.
 
 For this demo, we'll simply create a repo called ``images`` to hold the data we want to process:
 

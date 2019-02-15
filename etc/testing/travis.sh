@@ -62,6 +62,9 @@ if [[ "$BUCKET" == "MISC" ]]; then
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
             test-pfs-cmds test-deploy-cmds test-libs test-admin test-s3
     fi
+elif [[ "$BUCKET" == "EXAMPLES" ]]; then
+    echo "Running the example test suite"
+    ./etc/testing/examples.sh    
 elif [[ $PPS_SUITE -eq 0 ]]; then
     PART=`echo $BUCKET | grep -Po '\d+'`
     NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`

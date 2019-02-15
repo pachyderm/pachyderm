@@ -14,7 +14,8 @@ Set the scope of access that 'username' has to 'repo'. For example, 'pachctl aut
 ### Options inherited from parent commands
 
 ```
-      --no-metrics   Don't report user metrics for this command
-  -v, --verbose      Output verbose logs
+      --no-metrics           Don't report user metrics for this command
+      --no-port-forwarding   Disable implicit port forwarding
+  -v, --verbose              Output verbose logs
 ```
 

@@ -42,6 +42,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -110,6 +111,8 @@ type appEnv struct {
 }
 
 func main() {
+	log.SetFormatter(logutil.FormatterFunc(logutil.Pretty))
+
 	switch {
 	case readiness:
 		cmdutil.Main(doReadinessCheck, &appEnv{})
@@ -234,6 +237,9 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 					appEnv.IAMRole,
 					reporter,
 					appEnv.PPSWorkerPort,
+					appEnv.PProfPort,
+					appEnv.HTTPPort,
+					appEnv.PeerPort,
 				)
 				if err != nil {
 					return fmt.Errorf("pps.NewSidecarAPIServer: %v", err)
