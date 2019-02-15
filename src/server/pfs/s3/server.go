@@ -93,7 +93,7 @@ func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) 
 		writeMaybeNotFound(w, err)
 		return
 	}
-	
+
 	if _, ok := r.Form["location"]; ok {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Write([]byte(locationResponse))
@@ -131,7 +131,7 @@ func (h handler) putFile(w http.ResponseWriter, r *http.Request, repo, branch, f
 		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
 
 		if err != nil {
-			writeBadRequest(w, fmt.Errorf("could not decode `Content-MD5`, as it is not hex or base64"))
+			writeBadRequest(w, fmt.Errorf("could not decode `Content-MD5`, as it is not base64-encoded"))
 			return
 		}
 
@@ -183,7 +183,7 @@ func (h handler) putFileUnverified(w http.ResponseWriter, r *http.Request, repo,
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
-// 
+//
 // Bucket names correspond to repo names, and files are accessible via the s3
 // key pattern "<branch>/<filepath>". For example, to get the file "a/b/c.txt"
 // on the "foo" repo's "master" branch, you'd making an s3 get request with
@@ -195,8 +195,8 @@ func (h handler) putFileUnverified(w http.ResponseWriter, r *http.Request, repo,
 // (this includes minio), repos whose names do not comply with RFC 1123 will
 // not be accessible.
 func Server(pc *client.APIClient, port uint16) *http.Server {
-	return &http.Server {
-		Addr: fmt.Sprintf(":%d", port),
-		Handler: handler{ pc: pc },
+	return &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: handler{pc: pc},
 	}
 }
