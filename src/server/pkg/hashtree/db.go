@@ -1800,7 +1800,8 @@ func (u *Unordered) Ordered() *Ordered {
 	}
 	sort.Strings(paths)
 	o := NewOrdered("")
-	for _, path := range paths {
+	for i := 1; i < len(paths); i++ {
+		path := paths[i]
 		n := u.fs[path]
 		if n.DirNode != nil {
 			o.putDir(path, n)
