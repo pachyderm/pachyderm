@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -49,60 +50,56 @@ type handler struct {
 	pc *client.APIClient
 }
 
-func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	parts := strings.SplitN(r.URL.Path, "/", 4)
-
-	if len(parts) == 2 && parts[1] == "_ping" {
-		// matches `/_ping`
-		if r.Method == http.MethodGet {
-			writeOK(w)
-		} else {
-			writeMethodNotAllowed(w)
-		}
-	} else if len(parts) == 3 && parts[2] == "" {
-		// matches `/repo/`
-		if r.Method == http.MethodGet {
-			h.serveRoot(w, r, parts[1])
-		} else {
-			writeMethodNotAllowed(w)
-		}
-	} else if len(parts) == 4 {
-		// matches /repo/branch/path/to/file.txt
-		repo := parts[1]
-		branch := parts[2]
-		file := parts[3]
-		if r.Method == http.MethodGet {
-			h.serveFile(w, r, repo, branch, file)
-		} else if r.Method == http.MethodPut {
-			h.putFile(w, r, repo, branch, file)
-		} else {
-			writeMethodNotAllowed(w)
-		}
-	} else {
-		writeNotFound(w)
-	}
-}
-
-func (h handler) serveRoot(w http.ResponseWriter, r *http.Request, repo string) {
-	if err := r.ParseForm(); err != nil {
-		writeBadRequest(w, err)
-		return
-	}
-
-	if _, err := h.pc.InspectRepo(repo); err != nil {
-		writeMaybeNotFound(w, err)
-		return
-	}
-
-	if _, ok := r.Form["location"]; ok {
-		w.Header().Set("Content-Type", "application/xml")
-		w.Write([]byte(locationResponse))
-	} else {
+func (h handler) ping(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
 		writeOK(w)
+	} else {
+		writeMethodNotAllowed(w)
 	}
 }
 
-func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
+func (h handler) repo(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		vars := mux.Vars(r)
+		repo := vars["repo"]
+
+		if err := r.ParseForm(); err != nil {
+			writeBadRequest(w, err)
+			return
+		}
+
+		if _, err := h.pc.InspectRepo(repo); err != nil {
+			writeMaybeNotFound(w, err)
+			return
+		}
+
+		if _, ok := r.Form["location"]; ok {
+			w.Header().Set("Content-Type", "application/xml")
+			w.Write([]byte(locationResponse))
+		} else {
+			writeOK(w)
+		}
+	} else {
+		writeMethodNotAllowed(w)
+	}
+}
+
+func (h handler) object(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	repo := vars["repo"]
+	branch := vars["branch"]
+	file := vars["file"]
+
+	if r.Method == http.MethodGet {
+		h.getObject(w, r, repo, branch, file)
+	} else if r.Method == http.MethodPut {
+		h.putObject(w, r, repo, branch, file)
+	} else {
+		writeMethodNotAllowed(w)
+	}
+}
+
+func (h handler) getObject(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
 	fileInfo, err := h.pc.InspectFile(repo, branch, file)
 	if err != nil {
 		writeMaybeNotFound(w, err)
@@ -124,7 +121,7 @@ func (h handler) serveFile(w http.ResponseWriter, r *http.Request, repo, branch,
 	http.ServeContent(w, r, "", timestamp, reader)
 }
 
-func (h handler) putFile(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
+func (h handler) putObject(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
 	expectedHash := r.Header.Get("Content-MD5")
 
 	if expectedHash != "" {
@@ -135,14 +132,14 @@ func (h handler) putFile(w http.ResponseWriter, r *http.Request, repo, branch, f
 			return
 		}
 
-		h.putFileVerifying(w, r, repo, branch, file, expectedHashBytes)
+		h.putObjectVerifying(w, r, repo, branch, file, expectedHashBytes)
 		return
 	}
 
-	h.putFileUnverified(w, r, repo, branch, file)
+	h.putObjectUnverified(w, r, repo, branch, file)
 }
 
-func (h handler) putFileVerifying(w http.ResponseWriter, r *http.Request, repo, branch, file string, expectedHash []byte) {
+func (h handler) putObjectVerifying(w http.ResponseWriter, r *http.Request, repo, branch, file string, expectedHash []byte) {
 	hasher := md5.New()
 	reader := io.TeeReader(r.Body, hasher)
 
@@ -167,7 +164,7 @@ func (h handler) putFileVerifying(w http.ResponseWriter, r *http.Request, repo, 
 	writeOK(w)
 }
 
-func (h handler) putFileUnverified(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
+func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
 	_, err := h.pc.PutFileOverwrite(repo, branch, file, r.Body, 0)
 	if err != nil {
 		// the error may be because the repo or branch does not exist -
@@ -184,6 +181,10 @@ func (h handler) putFileUnverified(w http.ResponseWriter, r *http.Request, repo,
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
 //
+// This returns an `http.Server` instance. It is the responsibility of the
+// caller to start the server. This also makes it possible for the caller to
+// enable graceful shutdown if desired; see the `http` package for details.
+//
 // Bucket names correspond to repo names, and files are accessible via the s3
 // key pattern "<branch>/<filepath>". For example, to get the file "a/b/c.txt"
 // on the "foo" repo's "master" branch, you'd making an s3 get request with
@@ -195,8 +196,14 @@ func (h handler) putFileUnverified(w http.ResponseWriter, r *http.Request, repo,
 // (this includes minio), repos whose names do not comply with RFC 1123 will
 // not be accessible.
 func Server(pc *client.APIClient, port uint16) *http.Server {
+	handler := handler{pc: pc}
+	router := mux.NewRouter()
+	router.HandleFunc("/_ping", handler.ping)
+	router.HandleFunc("/{repo}/", handler.repo)
+	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.object)
+
 	return &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
-		Handler: handler{pc: pc},
+		Handler: router,
 	}
 }
