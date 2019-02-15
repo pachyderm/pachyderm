@@ -203,45 +203,6 @@ func TestCreateAndInspectRepo(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRepoSize(t *testing.T) {
-	client := GetPachClient(t)
-
-	repo := "repo"
-	require.NoError(t, client.CreateRepo(repo))
-
-	repoInfo, err := client.InspectRepo(repo)
-	require.NoError(t, err)
-	require.Equal(t, 0, int(repoInfo.SizeBytes))
-
-	fileContent1 := "foo"
-	fileContent2 := "bar"
-	fileContent3 := "buzz"
-	commit, err := client.StartCommit(repo, "")
-	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent1))
-	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit.ID, "bar", strings.NewReader(fileContent2))
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, commit.ID))
-
-	repoInfo, err = client.InspectRepo(repo)
-	require.NoError(t, err)
-	require.Equal(t, len(fileContent1)+len(fileContent2), int(repoInfo.SizeBytes))
-
-	commit, err = client.StartCommit(repo, "")
-	require.NoError(t, err)
-	// Deleting a file shouldn't affect the repo size, since the actual
-	// data has not been removed from the storage system.
-	require.NoError(t, client.DeleteFile(repo, commit.ID, "foo"))
-	_, err = client.PutFile(repo, commit.ID, "buzz", strings.NewReader(fileContent3))
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, commit.ID))
-
-	repoInfo, err = client.InspectRepo(repo)
-	require.NoError(t, err)
-	require.Equal(t, len(fileContent1)+len(fileContent2)+len(fileContent3), int(repoInfo.SizeBytes))
-}
-
 func TestListRepo(t *testing.T) {
 	client := GetPachClient(t)
 
@@ -1920,7 +1881,8 @@ func TestInspectRepoSimple(t *testing.T) {
 	info, err := client.InspectRepo(repo)
 	require.NoError(t, err)
 
-	require.Equal(t, int(info.SizeBytes), len(file1Content)+len(file2Content))
+	// Size should be 0 because the files were not added to master
+	require.Equal(t, int(info.SizeBytes), 0)
 }
 
 func TestInspectRepoComplex(t *testing.T) {
@@ -1929,7 +1891,7 @@ func TestInspectRepoComplex(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit, err := client.StartCommit(repo, "")
+	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	numFiles := 100
