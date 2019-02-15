@@ -41,6 +41,7 @@ func serve(t *testing.T, pc *client.APIClient) (*http.Server, uint16) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
+
 	return srv, port
 }
 

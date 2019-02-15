@@ -26,13 +26,10 @@ func writeBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 }
 
-func writeNotFound(w http.ResponseWriter) {
-	http.Error(w, "not found", http.StatusNotFound)
-}
-
 func writeMaybeNotFound(w http.ResponseWriter, err error) {
 	if strings.Contains(err.Error(), "not found") {
-		writeNotFound(w)
+		// This error message matches what the mux router returns when it 404s
+		http.Error(w, "404 page not found", http.StatusNotFound)
 	} else {
 		writeServerError(w, err)
 	}
