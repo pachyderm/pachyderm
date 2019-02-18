@@ -104,6 +104,80 @@ func TestSimplePipeline(t *testing.T) {
 	require.Equal(t, "foo", buf.String())
 }
 
+// TestRepoSize ensures that a repo's size is equal to it's master branch's
+// HEAD's size. This test should prevent a regression where output repos would
+// incorrectly report their size to be 0B. See here for more details:
+// https://github.com/pachyderm/pachyderm/issues/3330
+func TestRepoSize(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// create a data repo
+	dataRepo := tu.UniqueString("TestRepoSize_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// create a pipeline
+	pipeline := tu.UniqueString("TestRepoSize")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	// put a file without an open commit - should count towards repo size
+	_, err := c.PutFile(dataRepo, "master", "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	// put a file on another branch - should not count towards repo size
+	_, err = c.PutFile(dataRepo, "develop", "file3", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	// put a file on an open commit - should count toward repo size
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	// wait for everything to be processed
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// check data repo size
+	repoInfo, err := pachClient.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	require.Equal(t, uint64(6), repoInfo.SizeBytes)
+
+	// check pipeline repo size
+	repoInfo, err = pachClient.InspectRepo(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, uint64(6), repoInfo.SizeBytes)
+
+	// ensure size is updated when we delete a commit
+	require.NoError(t, c.DeleteCommit(dataRepo, commit1.ID))
+	repoInfo, err = pachClient.InspectRepo(dataRepo)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+	repoInfo, err = pachClient.InspectRepo(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, uint64(3), repoInfo.SizeBytes)
+}
+
 func TestAtomPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
