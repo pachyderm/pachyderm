@@ -297,7 +297,6 @@ message GetFileRequest {
 message GetFileResponse {
   File file = 1;
   bytes value = 2;
-  bytes hash = 3;
 }
 
 enum Delimiter {
