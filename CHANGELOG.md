@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.8.5
+- New shuffle step which should improve the merge performance on certain workloads.
+
 ## 1.8.4
 
 - Azure Blob Storage block size has been changed to 4MB due to object body too large errors. (#3464)
