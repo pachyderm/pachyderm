@@ -226,6 +226,10 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 // more liberal. If the s3 client does any kind of bucket name validation
 // (this includes minio), repos whose names do not comply with RFC 1123 will
 // not be accessible.
+//
+// Note: In `s3cmd`, you must set the access key and secret key, even though
+// this API will ignore them - otherwise, you'll get an opaque config error:
+// https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
 func Server(pc *client.APIClient, port uint16) *http.Server {
 	handler := newHandler(pc)
 
