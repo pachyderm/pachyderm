@@ -30,6 +30,7 @@ import (
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -153,14 +154,14 @@ Environment variables:
   PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			log.SetFormatter(new(prefixed.TextFormatter))
+
 			if !verbose {
+				log.SetLevel(log.ErrorLevel)
 				// Silence grpc logs
-				l := log.New()
-				l.Level = log.FatalLevel
 				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 			} else {
 				log.SetLevel(log.DebugLevel)
-
 				// etcd overrides grpc's logs--there's no way to enable one without
 				// enabling both.
 				// Error and warning logs are discarded because they will be
