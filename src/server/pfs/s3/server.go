@@ -8,18 +8,33 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	stdlog "log"
+	"text/template"
 
-	"github.com/gorilla/mux"
 	"github.com/gogo/protobuf/types"
+	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
-	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
 const locationResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
+
+const listBucketSource = `<?xml version="1.0" encoding="UTF-8"?>
+<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01">
+    <Owner>
+    	<ID>000000000000000000000000000000</ID>
+    	<DisplayName>pachyderm</DisplayName>
+    </Owner>
+    <Buckets>
+        {{ range . }}
+            <Bucket>
+                <Name>{{ .Repo.Name }}</Name>
+                <CreationDate>{{ formatTime .Created }}</CreationDate>
+            </Bucket>
+        {{ end }}
+    </Buckets>
+</ListAllMyBucketsResult>`
 
 func writeOK(w http.ResponseWriter) {
 	w.Write([]byte("OK"))
@@ -43,11 +58,44 @@ func writeServerError(w http.ResponseWriter, err error) {
 }
 
 type handler struct {
-	pc     *client.APIClient
+	pc                  *client.APIClient
+	listBucketsTemplate *template.Template
+}
+
+func newHandler(pc *client.APIClient) handler {
+	funcMap := template.FuncMap{
+		"formatTime": func(timestamp *types.Timestamp) string {
+			return timestamp.String()
+		},
+	}
+
+	listBucketsTemplate := template.Must(template.New("list-buckets").
+		Funcs(funcMap).
+		Parse(listBucketSource))
+
+	return handler{
+		pc:                  pc,
+		listBucketsTemplate: listBucketsTemplate,
+	}
 }
 
 func (h handler) ping(w http.ResponseWriter, r *http.Request) {
 	writeOK(w)
+}
+
+func (h handler) root(w http.ResponseWriter, r *http.Request) {
+	buckets, err := h.pc.ListRepo()
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	if err = h.listBucketsTemplate.Execute(w, buckets); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/xml")
 }
 
 func (h handler) repo(w http.ResponseWriter, r *http.Request) {
@@ -179,23 +227,26 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 // (this includes minio), repos whose names do not comply with RFC 1123 will
 // not be accessible.
 func Server(pc *client.APIClient, port uint16) *http.Server {
-	handler := handler{pc: pc}
+	handler := newHandler(pc)
 
 	router := mux.NewRouter()
-	router.HandleFunc("/_ping", handler.ping).Methods("GET")
+	router.HandleFunc("/", handler.root).Methods("GET")
 	router.HandleFunc("/{repo}/", handler.repo).Methods("GET")
 	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.getObject).Methods("GET")
 	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.putObject).Methods("PUT")
+	router.HandleFunc("/_ping", handler.ping).Methods("GET")
 
-	writer := logutil.NewGRPCLogWriter(log.StandardLogger(), "s3gateway")
-	logger := stdlog.New(writer, "", 0)
-
+	// Note: error log is not customized on this `http.Server`, which means
+	// it'll default to using the stdlib logger and produce log messages that
+	// don't look like the ones produced elsewhere, and aren't configured
+	// properly. In testing, this didn't seem to be a big deal because it's
+	// rather hard to trigger it anyways, but if we find a reliable way to
+	// create error logs, it might be worthwhile to fix.
 	return &http.Server{
-		Addr:     fmt.Sprintf(":%d", port),
-		Handler:  http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Addr: fmt.Sprintf(":%d", port),
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			log.Debugf("s3 gateway request: %s %s", r.Method, r.RequestURI)
 			router.ServeHTTP(w, r)
 		}),
-		ErrorLog: logger,
 	}
 }
