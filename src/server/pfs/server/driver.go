@@ -1266,7 +1266,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			return err
 		}
 	}
-	
+
 	// Now wait for the root commits to finish. These are not passed to `f`
 	// because it's expecting to just get downstream commits.
 	for _, commit := range fromCommits {
@@ -1800,7 +1800,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-	
+
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
@@ -2521,7 +2521,11 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	blockRefs := []*pfs.BlockRef{}
 	var totalSize int64
 	var found bool
-	if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return nil, err
+	}
+	if err := mr.Glob(file.Path, func(path string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
 		}
@@ -2669,7 +2673,11 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 			}
 		}
 	}()
-	node, err := hashtree.Get(rs, file.Path)
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return nil, err
+	}
+	node, err := mr.Get(file.Path)
 	if err != nil {
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
@@ -2741,7 +2749,11 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 			}
 		}
 	}()
-	return hashtree.List(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return err
+	}
+	return mr.List(file.Path, func(path string, node *hashtree.NodeProto) error {
 		if history != 0 {
 			return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), history, f)
 		}
@@ -2824,7 +2836,11 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 			}
 		}
 	}()
-	return hashtree.Walk(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return err
+	}
+	return mr.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(commitInfo, path, node, false))
 	})
 }
@@ -2880,7 +2896,11 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 			}
 		}
 	}()
-	return hashtree.Glob(rs, pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return err
+	}
+	return mr.Glob(pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(commitInfo, rootPath, rootNode, false))
 	})
 }
@@ -3337,7 +3357,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					branch = commit.ID
 				}
 				// inspect the commit where we're adding files and figure out
-				// if this is a one-off put-file. 
+				// if this is a one-off put-file.
 				// - if 'commit' refers to an open commit                -> not oneOff
 				// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
 				// Note that if commit is a specific commit ID, it must be
