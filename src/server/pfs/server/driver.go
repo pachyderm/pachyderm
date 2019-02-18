@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -530,9 +531,10 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 		}
 
-		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
-		// tree (inside txn) and update the repo size
+		isStartCommit := false
 		if treeRef != nil || records != nil {
+			// BuildCommit case: Now that 'parent' is resolved, read the
+			// parent commit's tree (inside txn)
 			parentTree, err := d.getTreeForCommit(pachClient, parent)
 			if err != nil {
 				return err
@@ -556,16 +558,23 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 					return err
 				}
 			}
-			repoInfo.SizeBytes += sizeChange(tree, parentTree)
 		} else {
+			isStartCommit = true
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
 		}
+
 		if treeRef != nil {
 			newCommitInfo.Tree = treeRef
 			newCommitInfo.SizeBytes = uint64(tree.FSSize())
 			newCommitInfo.Finished = now()
+		}
+
+		// Update the repo size if we're on the master branch and this is not
+		// an open commit
+		if !isStartCommit && branch == "master" {
+			repoInfo.SizeBytes = newCommitInfo.SizeBytes
 		}
 
 		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
@@ -690,33 +699,7 @@ func (d *driver) finishCommit(pachClient *client.APIClient, commit *pfs.Commit, 
 	}
 
 	commitInfo.Finished = now()
-	sizeChange := sizeChange(finishedTree, parentTree)
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
-		repos := d.repos.ReadWrite(stm)
-		if err := commits.Put(commit.ID, commitInfo); err != nil {
-			return err
-		}
-		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
-			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
-		}
-		if sizeChange > 0 {
-			// update repo size
-			repoInfo := new(pfs.RepoInfo)
-			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
-				return err
-			}
-
-			// Increment the repo sizes by the sizes of the files that have
-			// been added in this commit.
-			repoInfo.SizeBytes += sizeChange
-			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return err
+	return d.writeFinishedCommit(ctx, commit, commitInfo)
 }
 
 func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
@@ -735,13 +718,41 @@ func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Co
 	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
 	commitInfo.Finished = now()
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	return d.writeFinishedCommit(ctx, commit, commitInfo)
+}
+
+// writeFinishedCommit writes these changes to etcd:
+// 1) it closes the input commit (i.e., it writes any changes made to it and
+//    removes it from the open commits)
+// 2) if the commit is the new HEAD of master, it updates the repo size
+func (d *driver) writeFinishedCommit(ctx context.Context, commit *pfs.Commit, commitInfo *pfs.CommitInfo) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		if err := commits.Put(commit.ID, commitInfo); err != nil {
 			return err
 		}
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
+		}
+		// update the repo size if this is the head of master
+		repos := d.repos.ReadWrite(stm)
+		repoInfo := new(pfs.RepoInfo)
+		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+			return err
+		}
+		for _, branch := range repoInfo.Branches {
+			if branch.Name == "master" {
+				branchInfo := &pfs.BranchInfo{}
+				if err := d.branches(commit.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
+					return err
+				}
+				if branchInfo.Head.ID == commit.ID {
+					repoInfo.SizeBytes = commitInfo.SizeBytes
+					if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		return nil
 	})
@@ -917,23 +928,6 @@ nextSubvBranch:
 		}
 	}
 	return nil
-}
-
-func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
-	if tree == nil {
-		return 0 // output commit from a failed job -- will be ignored
-	}
-	if parentTree == nil {
-		return uint64(tree.FSSize())
-	}
-	var result uint64
-	tree.Diff(parentTree, "", "", -1, func(path string, node *hashtree.NodeProto, new bool) error {
-		if node.FileNode != nil && new {
-			result += uint64(node.SubtreeSize)
-		}
-		return nil
-	})
-	return result
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.
@@ -1253,6 +1247,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	for _, toRepo := range toRepos {
 		toRepoMap[toRepo.Name] = toRepo
 	}
+
 	// Wait for each of the commitsToWatch to be finished.
 	for _, commitToWatch := range commitsToWatch {
 		if len(toRepoMap) > 0 {
@@ -1271,6 +1266,19 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			return err
 		}
 	}
+	
+	// Now wait for the root commits to finish. These are not passed to `f`
+	// because it's expecting to just get downstream commits.
+	for _, commit := range fromCommits {
+		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
+		if err != nil {
+			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+				continue // just skip this
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -1316,20 +1324,6 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 				}
 				deleted[commit.ID] = commitInfo
 				if err := commits.Delete(commit.ID); err != nil {
-					return err
-				}
-
-				// Update repo size
-				// TODO this is basically wrong. Other commits could share data with the
-				// commit being removed, in which case we're subtracting too much.
-				// We could also modify makeCommit and FinishCommit so that
-				// commitInfo.SizeBytes stores incremental size (which could cause
-				// commits to have negative sizes)
-				repoInfo := &pfs.RepoInfo{}
-				if err := d.repos.ReadWrite(stm).Update(commit.Repo.Name, repoInfo, func() error {
-					repoInfo.SizeBytes -= commitInfo.SizeBytes
-					return nil
-				}); err != nil {
 					return err
 				}
 				if commit.ID == lower.ID {
@@ -1505,9 +1499,10 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		// points to a deleted commit
 		var shortestBranch *pfs.Branch
 		var shortestBranchLen = maxInt
+		repos := d.repos.ReadWrite(stm)
 		for repo := range affectedRepos {
 			repoInfo := &pfs.RepoInfo{}
-			if err := d.repos.ReadWrite(stm).Get(repo, repoInfo); err != nil {
+			if err := repos.Get(repo, repoInfo); err != nil {
 				return err
 			}
 			for _, brokenBranch := range repoInfo.Branches {
@@ -1534,6 +1529,23 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 					// If err is NotFound, branch is in downstream provenance but
 					// doesn't exist yet--nothing to update
 					return fmt.Errorf("error updating branch %v/%v: %v", brokenBranch.Repo.Name, brokenBranch.Name, err)
+				}
+				// Update repo size if this is the master branch
+				if branchInfo.Name == "master" {
+					if branchInfo.Head != nil {
+						headCommitInfo, err := d.inspectCommit(pachClient, branchInfo.Head, pfs.CommitState_STARTED)
+						if err != nil {
+							return err
+						}
+						repoInfo.SizeBytes = headCommitInfo.SizeBytes
+					} else {
+						// No HEAD commit, set the repo size to 0
+						repoInfo.SizeBytes = 0
+					}
+
+					if err := repos.Put(repo, repoInfo); err != nil {
+						return err
+					}
 				}
 			}
 		}
