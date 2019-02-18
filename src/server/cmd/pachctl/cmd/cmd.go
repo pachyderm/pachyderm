@@ -162,12 +162,15 @@ Environment variables:
 				log.SetLevel(log.DebugLevel)
 
 				// etcd overrides grpc's logs--there's no way to enable one without
-				// enabling both
+				// enabling both.
+				// Error and warning logs are discarded because they will be
+				// redundantly sent to the info logger. See:
+				// https://godoc.org/google.golang.org/grpc/grpclog#NewLoggerV2
 				logger := log.StandardLogger()
 				etcd.SetLogger(grpclog.NewLoggerV2(
-					logutil.NewInfoWriter(logger, "etcd/grpc:"),
-					logutil.NewWarningWriter(logger, "etcd/grpc:"),
-					logutil.NewErrorWriter(logger, "etcd/grpc:"),
+					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
+					ioutil.Discard,
+					ioutil.Discard,
 				))
 			}
 
