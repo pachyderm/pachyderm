@@ -271,3 +271,63 @@ func Pretty(entry *logrus.Entry) ([]byte, error) {
 	serialized = append(serialized, '\n')
 	return serialized, nil
 }
+
+// InfoWriter implements `io.Writer`. You can use this in places that work
+// with the stdlib logger (or just general `io.Writer`s) to proxy messages to
+// a logrus logger with an info level. 
+type InfoWriter struct {
+	logger *logrus.Logger
+	prefix string
+}
+
+func NewInfoWriter(logger *logrus.Logger, prefix string) *InfoWriter {
+	return &InfoWriter{
+		logger: logger,
+		prefix: prefix,
+	}
+}
+
+func (l *InfoWriter) Write(p []byte) (int, error) {
+	l.logger.Infof("%s%s", l.prefix, p)
+	return len(p), nil
+}
+
+// WarningWriter implements `io.Writer`. You can use this in places that work
+// with the stdlib logger (or just general `io.Writer`s) to proxy messages to
+// a logrus logger with a warning level. 
+type WarningWriter struct {
+	logger *logrus.Logger
+	prefix string
+}
+
+func NewWarningWriter(logger *logrus.Logger, prefix string) *WarningWriter {
+	return &WarningWriter{
+		logger: logger,
+		prefix: prefix,
+	}
+}
+
+func (l *WarningWriter) Write(p []byte) (int, error) {
+	l.logger.Warningf("%s%s", l.prefix, p)
+	return len(p), nil
+}
+
+// ErrorWriter implements `io.Writer`. You can use this in places that work
+// with the stdlib logger (or just general `io.Writer`s) to proxy messages to
+// a logrus logger with an error level. 
+type ErrorWriter struct {
+	logger *logrus.Logger
+	prefix string
+}
+
+func NewErrorWriter(logger *logrus.Logger, prefix string) *ErrorWriter {
+	return &ErrorWriter{
+		logger: logger,
+		prefix: prefix,
+	}
+}
+
+func (l *ErrorWriter) Write(p []byte) (int, error) {
+	l.logger.Errorf("%s%s", l.prefix, p)
+	return len(p), nil
+}

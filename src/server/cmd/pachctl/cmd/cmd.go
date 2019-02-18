@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	golog "log"
 	"os"
 	"os/signal"
 	"strings"
@@ -27,6 +26,7 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
@@ -133,16 +133,6 @@ __custom_func() {
 }`
 )
 
-type logWriter golog.Logger
-
-func (l *logWriter) Write(p []byte) (int, error) {
-	err := (*golog.Logger)(l).Output(2, string(p))
-	if err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
@@ -169,12 +159,15 @@ Environment variables:
 				l.Level = log.FatalLevel
 				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 			} else {
+				log.SetLevel(log.DebugLevel)
+
 				// etcd overrides grpc's logs--there's no way to enable one without
 				// enabling both
+				logger := log.StandardLogger()
 				etcd.SetLogger(grpclog.NewLoggerV2(
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] INFO  ", golog.LstdFlags|golog.Lshortfile)),
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] WARN  ", golog.LstdFlags|golog.Lshortfile)),
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] ERROR ", golog.LstdFlags|golog.Lshortfile)),
+					logutil.NewInfoWriter(logger, "etcd/grpc:"),
+					logutil.NewWarningWriter(logger, "etcd/grpc:"),
+					logutil.NewErrorWriter(logger, "etcd/grpc:"),
 				))
 			}
 
