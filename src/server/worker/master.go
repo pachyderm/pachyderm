@@ -22,10 +22,12 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
+	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
 
 const (
@@ -591,38 +593,23 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 		var failedDatumID string
 		for _, high := range plan.Chunks {
-			// Watch this chunk's lock and when it's finished, handle the result
-			// (merge chunk output into commit trees, fail if chunk failed, etc)
-			if err := func() error {
-				chunkState := &ChunkState{}
-				watcher, err := chunks.WatchOne(fmt.Sprint(high))
-				if err != nil {
+			chunkState := &ChunkState{}
+			if err := chunks.WatchOneF(fmt.Sprint(high), func(e *watch.Event) error {
+				var key string
+				if err := e.Unmarshal(&key, chunkState); err != nil {
 					return err
 				}
-				defer watcher.Close()
-			EventLoop:
-				for {
-					select {
-					case e := <-watcher.Watch():
-						var key string
-						if err := e.Unmarshal(&key, chunkState); err != nil {
-							return err
-						}
-						if key != fmt.Sprint(high) {
-							continue
-						}
-						if chunkState.State != State_RUNNING {
-							if chunkState.State == State_FAILED {
-								failedDatumID = chunkState.DatumID
-							}
-							break EventLoop
-						}
-					case <-ctx.Done():
-						return context.Canceled
+				if key != fmt.Sprint(high) {
+					return nil
+				}
+				if chunkState.State != State_RUNNING {
+					if chunkState.State == State_FAILED {
+						failedDatumID = chunkState.DatumID
 					}
+					return errutil.ErrBreak
 				}
 				return nil
-			}(); err != nil {
+			}); err != nil {
 				return err
 			}
 		}
@@ -635,37 +622,24 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 			// Wait for all merges to happen.
 			merges := a.merges(jobInfo.Job.ID).ReadOnly(ctx)
 			for merge := int64(0); merge < plan.Merges; merge++ {
-				if err := func() error {
-					mergeState := &MergeState{}
-					watcher, err := merges.WatchOne(fmt.Sprint(merge))
-					if err != nil {
+				mergeState := &MergeState{}
+				if err := merges.WatchOneF(fmt.Sprint(merge), func(e *watch.Event) error {
+					var key string
+					if err := e.Unmarshal(&key, mergeState); err != nil {
 						return err
 					}
-					defer watcher.Close()
-				EventLoop:
-					for {
-						select {
-						case e := <-watcher.Watch():
-							var key string
-							if err := e.Unmarshal(&key, mergeState); err != nil {
-								return err
-							}
-							if key != fmt.Sprint(merge) {
-								continue
-							}
-							if mergeState.State != State_RUNNING {
-								trees = append(trees, mergeState.Tree)
-								size += mergeState.SizeBytes
-								statsTrees = append(statsTrees, mergeState.StatsTree)
-								statsSize += mergeState.StatsSizeBytes
-								break EventLoop
-							}
-						case <-ctx.Done():
-							return context.Canceled
-						}
+					if key != fmt.Sprint(merge) {
+						return nil
+					}
+					if mergeState.State != State_RUNNING {
+						trees = append(trees, mergeState.Tree)
+						size += mergeState.SizeBytes
+						statsTrees = append(statsTrees, mergeState.StatsTree)
+						statsSize += mergeState.StatsSizeBytes
+						return errutil.ErrBreak
 					}
 					return nil
-				}(); err != nil {
+				}); err != nil {
 					return err
 				}
 			}
