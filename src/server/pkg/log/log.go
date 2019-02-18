@@ -281,6 +281,9 @@ type GRPCLogWriter struct {
 	source string
 }
 
+// NewGRPCLogWriter creates a new GRPC log writer. `logger` specifies the
+// underlying logger, and `source` specifies where these logs are coming from;
+// it is added as a entry field for all log messages.
 func NewGRPCLogWriter(logger *logrus.Logger, source string) *GRPCLogWriter {
 	return &GRPCLogWriter{
 		logger: logger,
