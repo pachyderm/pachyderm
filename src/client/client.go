@@ -277,7 +277,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		if !strings.Contains(envAddr, ":") {
-			envAddr = fmt.Sprintf("%s:%d", envAddr, DefaultPachdPort)
+			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
 		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
@@ -290,7 +290,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
 		log.Warnf("the `ADDRESS` environment variable is deprecated; please use `PACHD_ADDRESS`")
 		if !strings.Contains(envAddr, ":") {
-			envAddr = fmt.Sprintf("%s:%d", envAddr, DefaultPachdPort)
+			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
 		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
