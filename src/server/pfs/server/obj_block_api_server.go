@@ -72,7 +72,7 @@ func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objC
 	if err := obj.TestIsNotExist(objClient); err != nil {
 		return nil, err
 	}
-	oneCacheShare := cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares)
+	oneCacheShare := cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares + blockCacheShares)
 	s := &objBlockAPIServer{
 		Logger:           log.NewLogger("pfs.BlockAPI.Obj"),
 		dir:              dir,
@@ -488,19 +488,19 @@ func (s *objBlockAPIServer) GetBlocks(request *pfsclient.GetBlocksRequest, getBl
 			if err := r.Close(); err != nil && retErr == nil {
 				retErr = err
 			}
-			continue
-		}
-		var data []byte
-		key := blockRef.Block.Hash + "|" + strconv.FormatUint(blockRef.Range.Lower, 10) + "|" + strconv.FormatUint(blockRef.Range.Upper, 10)
-		sink := groupcache.AllocatingByteSliceSink(&data)
-		if err := s.blockCache.Get(getBlockServer.Context(), key, sink); err != nil {
-			return err
-		}
-		if uint64(len(data)) < offset+readSize {
-			return fmt.Errorf("undersized object (this is likely a bug)")
-		}
-		if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getBlockServer); err != nil {
-			return err
+		} else {
+			var data []byte
+			key := blockRef.Block.Hash + "|" + strconv.FormatUint(blockRef.Range.Lower, 10) + "|" + strconv.FormatUint(blockRef.Range.Upper, 10)
+			sink := groupcache.AllocatingByteSliceSink(&data)
+			if err := s.blockCache.Get(getBlockServer.Context(), key, sink); err != nil {
+				return err
+			}
+			if uint64(len(data)) < offset+readSize {
+				return fmt.Errorf("undersized object (this is likely a bug)")
+			}
+			if err := grpcutil.WriteToStreamingBytesServer(bytes.NewReader(data[offset:offset+readSize]), getBlockServer); err != nil {
+				return err
+			}
 		}
 		// We've hit the offset so we set it to 0
 		offset = 0

@@ -281,6 +281,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 		}
 	}()
 	appEnv := appEnvObj.(*appEnv)
+	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", appEnv.PProfPort), nil))
 	}()
