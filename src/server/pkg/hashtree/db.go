@@ -168,24 +168,6 @@ func (h *dbHashTree) Get(path string) (*NodeProto, error) {
 	return node, nil
 }
 
-// Get gets a hashtree node.
-func Get(rs []io.ReadCloser, filePath string) (*NodeProto, error) {
-	filePath = clean(filePath)
-	var fileNode *NodeProto
-	if err := nodes(rs, func(path string, node *NodeProto) error {
-		if path == filePath {
-			fileNode = node
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	if fileNode == nil {
-		return nil, errorf(PathNotFound, "file \"%s\" not found", filePath)
-	}
-	return fileNode, nil
-}
-
 // dirPrefix returns the prefix that keys must have to be considered under the
 // directory at path
 func dirPrefix(path string) string {
@@ -247,24 +229,6 @@ func (h *dbHashTree) ListAll(path string) ([]*NodeProto, error) {
 	return result, nil
 }
 
-// List executes a callback for each file under a directory (or a file if the path is a file).
-func List(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	pattern = clean(pattern)
-	if pattern == "" {
-		pattern = "/"
-	}
-	g, err := globlib.Compile(pattern, '/')
-	if err != nil {
-		return errorf(MalformedGlob, err.Error())
-	}
-	return nodes(rs, func(path string, node *NodeProto) error {
-		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
-			return f(path, node)
-		}
-		return nil
-	})
-}
-
 func glob(tx *bolt.Tx, pattern string, f func(string, *NodeProto) error) error {
 	if !IsGlob(pattern) {
 		node, err := get(tx, pattern)
@@ -304,21 +268,6 @@ func (h *dbHashTree) Glob(pattern string, f func(string, *NodeProto) error) erro
 	})
 }
 
-// Glob executes a callback for each path that matches the glob pattern.
-func Glob(rs []io.ReadCloser, pattern string, f func(string, *NodeProto) error) (retErr error) {
-	pattern = clean(pattern)
-	g, err := globlib.Compile(pattern, '/')
-	if err != nil {
-		return errorf(MalformedGlob, err.Error())
-	}
-	return nodes(rs, func(path string, node *NodeProto) error {
-		if g.Match(path) {
-			return f(externalDefault(path), node)
-		}
-		return nil
-	})
-}
-
 // FSSize gets the size of the hashtree
 func (h *dbHashTree) FSSize() int64 {
 	rootNode, err := h.Get("/")
@@ -352,26 +301,6 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 				}
 				return err
 			}
-		}
-		return nil
-	})
-}
-
-// Walk executes a callback against every node in the subtree of path.
-func Walk(rs []io.ReadCloser, walkPath string, f func(path string, node *NodeProto) error) error {
-	walkPath = clean(walkPath)
-	return nodes(rs, func(path string, node *NodeProto) error {
-		if path == "" {
-			path = "/"
-		}
-		if path != walkPath && !strings.HasPrefix(path, walkPath+"/") {
-			return nil
-		}
-		if err := f(path, node); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
-			return err
 		}
 		return nil
 	})
@@ -1314,17 +1243,98 @@ func Merge(w *Writer, rs []*Reader) error {
 	return nil
 }
 
-func nodes(rs []io.ReadCloser, f func(path string, nodeProto *NodeProto) error) error {
+// MergeReader provides hashtree access operations (get, list, etc.) to a set of serialized hashtree shards.
+type MergeReader struct {
+	mq *mergePQ
+}
+
+// NewMergeReader creates a new merge hashtree reader.
+func NewMergeReader(rs []io.ReadCloser) (*MergeReader, error) {
 	mq := &mergePQ{q: make([]*nodeStream, len(rs)+1)}
 	// Setup first set of nodes
 	for _, r := range rs {
 		if err := mq.insert(&nodeStream{r: NewReader(r, nil)}); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	for mq.q[1] != nil {
+	return &MergeReader{mq}, nil
+}
+
+// Glob executes a callback for each path that matches the glob pattern.
+func (m *MergeReader) Glob(pattern string, f func(string, *NodeProto) error) (retErr error) {
+	pattern = clean(pattern)
+	g, err := globlib.Compile(pattern, '/')
+	if err != nil {
+		return errorf(MalformedGlob, err.Error())
+	}
+	return m.nodes(func(path string, node *NodeProto) error {
+		if g.Match(path) {
+			return f(externalDefault(path), node)
+		}
+		return nil
+	})
+}
+
+// Get gets a hashtree node.
+func (m *MergeReader) Get(filePath string) (*NodeProto, error) {
+	filePath = clean(filePath)
+	var fileNode *NodeProto
+	if err := m.nodes(func(path string, node *NodeProto) error {
+		if path == filePath {
+			fileNode = node
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if fileNode == nil {
+		return nil, errorf(PathNotFound, "file \"%s\" not found", filePath)
+	}
+	return fileNode, nil
+}
+
+// List executes a callback for each file under a directory (or a file if the path is a file).
+func (m *MergeReader) List(pattern string, f func(string, *NodeProto) error) (retErr error) {
+	pattern = clean(pattern)
+	if pattern == "" {
+		pattern = "/"
+	}
+	g, err := globlib.Compile(pattern, '/')
+	if err != nil {
+		return errorf(MalformedGlob, err.Error())
+	}
+	return m.nodes(func(path string, node *NodeProto) error {
+		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
+			return f(path, node)
+		}
+		return nil
+	})
+}
+
+// Walk executes a callback against every node in the subtree of path.
+func (m *MergeReader) Walk(walkPath string, f func(string, *NodeProto) error) error {
+	walkPath = clean(walkPath)
+	return m.nodes(func(path string, node *NodeProto) error {
+		if path == "" {
+			path = "/"
+		}
+		if path != walkPath && !strings.HasPrefix(path, walkPath+"/") {
+			return nil
+		}
+		if err := f(path, node); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+		return nil
+	})
+}
+
+func (m *MergeReader) nodes(f func(string, *NodeProto) error) error {
+	for m.mq.q[1] != nil {
 		// Get next node
-		ns, err := mq.next()
+		ns, err := m.mq.next()
 		if err != nil {
 			return err
 		}

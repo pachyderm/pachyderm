@@ -2534,7 +2534,11 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	blockRefs := []*pfs.BlockRef{}
 	var totalSize int64
 	var found bool
-	if err := hashtree.Glob(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return nil, err
+	}
+	if err := mr.Glob(file.Path, func(path string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
 		}
@@ -2751,7 +2755,11 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 			}
 		}
 	}()
-	node, err := hashtree.Get(rs, file.Path)
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return nil, err
+	}
+	node, err := mr.Get(file.Path)
 	if err != nil {
 		return nil, pfsserver.ErrFileNotFound{file}
 	}
@@ -2823,7 +2831,11 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 			}
 		}
 	}()
-	return hashtree.List(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return err
+	}
+	return mr.List(file.Path, func(path string, node *hashtree.NodeProto) error {
 		if history != 0 {
 			return d.fileHistory(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, path), history, f)
 		}
@@ -2906,7 +2918,11 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 			}
 		}
 	}()
-	return hashtree.Walk(rs, file.Path, func(path string, node *hashtree.NodeProto) error {
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return err
+	}
+	return mr.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(commitInfo, path, node, false))
 	})
 }
@@ -2962,7 +2978,11 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 			}
 		}
 	}()
-	return hashtree.Glob(rs, pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
+	mr, err := hashtree.NewMergeReader(rs)
+	if err != nil {
+		return err
+	}
+	return mr.Glob(pattern, func(rootPath string, rootNode *hashtree.NodeProto) error {
 		return f(nodeToFileInfo(commitInfo, rootPath, rootNode, false))
 	})
 }
