@@ -8,9 +8,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	stdlog "log"
 
 	"github.com/gorilla/mux"
 	"github.com/gogo/protobuf/types"
+	log "github.com/sirupsen/logrus"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 
 	"github.com/pachyderm/pachyderm/src/client"
 )
@@ -40,7 +43,7 @@ func writeServerError(w http.ResponseWriter, err error) {
 }
 
 type handler struct {
-	pc *client.APIClient
+	pc     *client.APIClient
 }
 
 func (h handler) ping(w http.ResponseWriter, r *http.Request) {
@@ -177,14 +180,22 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 // not be accessible.
 func Server(pc *client.APIClient, port uint16) *http.Server {
 	handler := handler{pc: pc}
+
 	router := mux.NewRouter()
 	router.HandleFunc("/_ping", handler.ping).Methods("GET")
 	router.HandleFunc("/{repo}/", handler.repo).Methods("GET")
 	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.getObject).Methods("GET")
 	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.putObject).Methods("PUT")
 
+	writer := logutil.NewGRPCLogWriter(log.StandardLogger(), "s3gateway")
+	logger := stdlog.New(writer, "", 0)
+
 	return &http.Server{
-		Addr:    fmt.Sprintf(":%d", port),
-		Handler: router,
+		Addr:     fmt.Sprintf(":%d", port),
+		Handler:  http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			log.Debugf("s3 gateway request: %s %s", r.Method, r.RequestURI)
+			router.ServeHTTP(w, r)
+		}),
+		ErrorLog: logger,
 	}
 }
