@@ -21,15 +21,15 @@ func TestPortForwardError(t *testing.T) {
 	require.Matches(t, "port-forward", errMsg.String())
 }
 
-func TestNoPortError(t *testing.T) {
-	os.Setenv("PACHD_ADDRESS", "127.127.127.0")
+func TestNoPort(t *testing.T) {
+	os.Setenv("PACHD_ADDRESS", "localhost")
 	c := tu.Cmd("pachctl", "version", "--timeout=1ns", "--no-port-forwarding")
 	var errMsg bytes.Buffer
 	c.Stdout = ioutil.Discard
 	c.Stderr = &errMsg
 	err := c.Run()
 	require.YesError(t, err) // 1ns should prevent even local connections
-	require.Matches(t, "does not seem to be host:port", errMsg.String())
+	require.Matches(t, "30650", errMsg.String())
 }
 
 func TestWeirdPortError(t *testing.T) {
