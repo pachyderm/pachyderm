@@ -218,7 +218,7 @@ def get_pachyderm(deploy_version):
     run("docker", "pull", "pachyderm/worker:{}".format(deploy_version))
 
 def main():
-    parser = argparse.ArgumentParser(description="Resets the pachyderm cluster and tools.")
+    parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
     parser.add_argument("--no-deploy", default=False, action="store_true", help="Disables deployment")
     parser.add_argument("--deploy-args", default="", help="Arguments to be passed into `pachctl deploy`")
     parser.add_argument("--deploy-version", default="local", help="Sets the deployment version")
