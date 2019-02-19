@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	golog "log"
 	"os"
 	"os/signal"
 	"strings"
@@ -27,9 +26,11 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -133,16 +134,6 @@ __custom_func() {
 }`
 )
 
-type logWriter golog.Logger
-
-func (l *logWriter) Write(p []byte) (int, error) {
-	err := (*golog.Logger)(l).Output(2, string(p))
-	if err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
@@ -163,18 +154,24 @@ Environment variables:
   PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			log.SetFormatter(new(prefixed.TextFormatter))
+
 			if !verbose {
+				log.SetLevel(log.ErrorLevel)
 				// Silence grpc logs
-				l := log.New()
-				l.Level = log.FatalLevel
 				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 			} else {
+				log.SetLevel(log.DebugLevel)
 				// etcd overrides grpc's logs--there's no way to enable one without
-				// enabling both
+				// enabling both.
+				// Error and warning logs are discarded because they will be
+				// redundantly sent to the info logger. See:
+				// https://godoc.org/google.golang.org/grpc/grpclog#NewLoggerV2
+				logger := log.StandardLogger()
 				etcd.SetLogger(grpclog.NewLoggerV2(
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] INFO  ", golog.LstdFlags|golog.Lshortfile)),
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] WARN  ", golog.LstdFlags|golog.Lshortfile)),
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] ERROR ", golog.LstdFlags|golog.Lshortfile)),
+					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
+					ioutil.Discard,
+					ioutil.Discard,
 				))
 			}
 
