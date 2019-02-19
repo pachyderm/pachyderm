@@ -13,9 +13,9 @@ import (
 
 const (
 	// RepoHeader is the header for repos.
-	RepoHeader = "NAME\tCREATED\tSIZE\t\n"
+	RepoHeader = "NAME\tCREATED\tSIZE (MASTER)\t\n"
 	// RepoAuthHeader is the header for repos with auth information attached.
-	RepoAuthHeader = "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n"
+	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
 	CommitHeader = "REPO\tCOMMIT\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
 	// BranchHeader is the header for branches.
@@ -54,7 +54,7 @@ func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
 		`Name: {{.Repo.Name}}{{if .Description}}
 Description: {{.Description}}{{end}}
 Created: {{prettyAgo .Created}}
-Size: {{prettySize .SizeBytes}}{{if .AuthInfo}}
+Size of HEAD on master: {{prettySize .SizeBytes}}{{if .AuthInfo}}
 Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {

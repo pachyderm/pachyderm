@@ -4,8 +4,9 @@ set -ex
 
 echo 'DOCKER_OPTS="-H unix:///var/run/docker.sock -s devicemapper"' | tee /etc/default/docker > /dev/null
 
-# Install jq
-sudo apt-get install jq
+# Install jq and ag
+sudo apt-get update -y
+sudo apt-get install jq silversearcher-ag
 
 # Install fuse
 apt-get install -qq pkg-config fuse

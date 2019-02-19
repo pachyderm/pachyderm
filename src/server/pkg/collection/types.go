@@ -110,5 +110,6 @@ type ReadonlyCollection interface {
 	// versions of the key/value.
 	WatchWithPrev() (watch.Watcher, error)
 	WatchOne(key string) (watch.Watcher, error)
+	WatchOneF(key string, f func(*watch.Event) error) error
 	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }

@@ -276,6 +276,9 @@ func getCertOptionsFromEnv() ([]Option, error) {
 func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
+		if !strings.Contains(envAddr, ":") {
+			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
+		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
 			return "", nil, err
@@ -286,6 +289,9 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	// TODO(ys): remove this eventually
 	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
 		log.Warnf("the `ADDRESS` environment variable is deprecated; please use `PACHD_ADDRESS`")
+		if !strings.Contains(envAddr, ":") {
+			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
+		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
 			return "", nil, err
@@ -322,11 +328,11 @@ func portForwarder() *PortForwarder {
 	// `pachctl port-forward` should be explicitly called.
 	fw, err := NewPortForwarder("", ioutil.Discard, os.Stderr)
 	if err != nil {
-		log.Errorf("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
+		log.Debugf("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
 		return nil
 	}
 	if err = fw.Lock(); err != nil {
-		log.Warningf("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
+		log.Debugf("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
 		return nil
 	}
 
@@ -342,7 +348,7 @@ func portForwarder() *PortForwarder {
 
 	if err = eg.Wait(); err != nil {
 		fw.Close()
-		log.Errorf("Implicit port forwarding was not enabled because of an error: %v", err)
+		log.Debugf("Implicit port forwarding was not enabled because of an error: %v", err)
 		return nil
 	}
 
