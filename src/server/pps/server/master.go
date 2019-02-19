@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path"
@@ -563,15 +562,16 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	var tstamp *types.Timestamp
-	var buffer bytes.Buffer
-	if err := pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
+	files, err := pachClient.ListFile(in.Cron.Repo, "master", "/")
+	if err != nil && !isNilBranchErr(err) {
 		return err
-	} else if err != nil {
+	} else if err != nil || len(files) == 0 {
 		// File not found, this happens the first time the pipeline is run
 		tstamp = in.Cron.Start
 	} else {
 		tstamp = &types.Timestamp{}
-		if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
+		// Take the name of the most recent file as the timestamp
+		if err := jsonpb.UnmarshalString(files[len(files)-1].File.Path, tstamp); err != nil {
 			return err
 		}
 	}
@@ -580,23 +580,23 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		return err
 	}
 	for {
-		t = schedule.Next(t)
-		time.Sleep(time.Until(t))
+		next := schedule.Next(t)
+		time.Sleep(time.Until(next))
 		if err != nil {
 			return err
 		}
-		if err != nil {
-			return err
-		}
+
 		if in.Cron.Overwrite {
-			if _, err := pachClient.PutFileOverwrite(in.Cron.Repo, "master", t.Format(time.RFC3339), strings.NewReader(""), 0); err != nil {
-				return err
-			}
-		} else {
-			if _, err := pachClient.PutFile(in.Cron.Repo, "master", t.Format(time.RFC3339), strings.NewReader("")); err != nil {
+			// If we want to "overwrite" the file, we need to delete the file with the previous time
+			if err := pachClient.DeleteFile(in.Cron.Repo, "master", t.Format(time.RFC3339)); err != nil {
 				return err
 			}
 		}
+
+		if _, err := pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader("")); err != nil {
+			return err
+		}
+		t = next
 	}
 }
 

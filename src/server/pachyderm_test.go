@@ -5146,13 +5146,41 @@ func TestCronPipeline(t *testing.T) {
 			require.Equal(t, 2, len(commitInfos))
 
 			for _, ci := range commitInfos {
-				fmt.Println(ci.Commit.Repo.Name, ci.Commit.ID)
 				files, err := c.ListFile(ci.Commit.Repo.Name, ci.Commit.ID, "")
 				require.NoError(t, err)
 				require.Equal(t, i, len(files))
 
 			}
 		}
+	})
+
+	t.Run("CronOverwrite", func(t *testing.T) {
+		pipeline3 := tu.UniqueString("cron3-")
+		overwriteInput := client.NewCronInput("time", "@every 20s")
+		overwriteInput.Cron.Overwrite = true
+		require.NoError(t, c.CreatePipeline(
+			pipeline3,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
+			nil,
+			overwriteInput,
+			"",
+			false,
+		))
+		repo := fmt.Sprintf("%s_%s", pipeline3, "time")
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+		defer cancel() //cleanup resources
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
+		require.NoError(t, err)
+
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+
+		commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+		require.NoError(t, err)
+		commitInfos := collectCommitInfos(t, commitIter)
+		require.Equal(t, 1, len(commitInfos))
 	})
 
 	// Create a non-cron input repo, and test a pipeline with a cross of cron and
