@@ -582,16 +582,20 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 	for {
 		t = schedule.Next(t)
 		time.Sleep(time.Until(t))
-		timestamp, err := types.TimestampProto(t)
 		if err != nil {
 			return err
 		}
-		timeString, err := (&jsonpb.Marshaler{}).MarshalToString(timestamp)
 		if err != nil {
 			return err
 		}
-		if _, err := pachClient.PutFileOverwrite(in.Cron.Repo, "master", "time", strings.NewReader(timeString), 0); err != nil {
-			return err
+		if in.Cron.Overwrite {
+			if _, err := pachClient.PutFileOverwrite(in.Cron.Repo, "master", t.Format(time.RFC3339), strings.NewReader(""), 0); err != nil {
+				return err
+			}
+		} else {
+			if _, err := pachClient.PutFile(in.Cron.Repo, "master", t.Format(time.RFC3339), strings.NewReader("")); err != nil {
+				return err
+			}
 		}
 	}
 }

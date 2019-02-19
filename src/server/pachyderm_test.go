@@ -5111,8 +5111,8 @@ func TestCronPipeline(t *testing.T) {
 		require.NoError(t, c.CreatePipeline(
 			pipeline1,
 			"",
-			[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
-			nil,
+			[]string{"/bin/bash"},
+			[]string{"cp /pfs/time/* /pfs/out/"},
 			nil,
 			client.NewCronInput("time", "@every 20s"),
 			"",
@@ -5122,8 +5122,8 @@ func TestCronPipeline(t *testing.T) {
 		require.NoError(t, c.CreatePipeline(
 			pipeline2,
 			"",
-			[]string{"cp", fmt.Sprintf("/pfs/%s/time", pipeline1), "/pfs/out/time"},
-			nil,
+			[]string{"/bin/bash"},
+			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline1) + " /pfs/out/"},
 			nil,
 			client.NewPFSInput(pipeline1, "/*"),
 			"",
@@ -5136,13 +5136,23 @@ func TestCronPipeline(t *testing.T) {
 		defer cancel() //cleanup resources
 		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
-		commitInfo, err := iter.Next()
-		require.NoError(t, err)
+		for i := 1; i <= 3; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
 
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
-		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
-		require.Equal(t, 2, len(commitInfos))
+			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+			require.NoError(t, err)
+			commitInfos := collectCommitInfos(t, commitIter)
+			require.Equal(t, 2, len(commitInfos))
+
+			for _, ci := range commitInfos {
+				fmt.Println(ci.Commit.Repo.Name, ci.Commit.ID)
+				files, err := c.ListFile(ci.Commit.Repo.Name, ci.Commit.ID, "")
+				require.NoError(t, err)
+				require.Equal(t, i, len(files))
+
+			}
+		}
 	})
 
 	// Create a non-cron input repo, and test a pipeline with a cross of cron and
