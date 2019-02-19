@@ -255,7 +255,8 @@ func DeployCmd(noMetrics *bool, noPortForwarding *bool) *cobra.Command {
 				}
 				cred = string(credBytes)
 			}
-			if err = assets.WriteGoogleAssets(manifest, opts, args[0], cred, volumeSize); err != nil {
+			bucket := strings.TrimPrefix(args[0], "gs://")
+			if err = assets.WriteGoogleAssets(manifest, opts, bucket, cred, volumeSize); err != nil {
 				return err
 			}
 			return kubectlCreate(dryRun, manifest, opts, metrics)
