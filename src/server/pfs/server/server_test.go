@@ -1992,6 +1992,41 @@ func TestGetFiles(t *testing.T) {
 		i++
 		return nil
 	}))
+	require.Equal(t, i, 4)
+}
+
+func TestGetFilesDirectory(t *testing.T) {
+	c := GetPachClient(t)
+
+	// Put some files in a new repo/commit.
+	require.NoError(t, c.CreateRepo("repo"))
+	pfclient, err := c.PfsAPIClient.PutFile(c.Ctx())
+	require.NoError(t, err)
+	paths := []string{"dir1/foo", "dir1/bar", "dir2/fizz", "dir2/buzz", "dir2/dirA/biz", "dir2/dirA/fuz"}
+	for _, path := range paths {
+		require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+			File:  pclient.NewFile("repo", "master", path),
+			Value: []byte(path),
+		}))
+	}
+	_, err = pfclient.CloseAndRecv()
+	require.NoError(t, err)
+
+	cis, err := c.ListCommit("repo", "", "", 0)
+	require.Equal(t, 1, len(cis))
+
+	sort.Strings(paths)
+	i := 0
+	// Confirm when we glob for all the files we put, that it finds each of them individually.
+	require.NoError(t, c.GetFiles("repo", "master", "/*/", 0, 0, func(file *pfs.File, r io.Reader) error {
+		data, err := ioutil.ReadAll(r)
+		require.NoError(t, err)
+		require.Equal(t, paths[i], string(data))
+		i++
+		return nil
+	}))
+	fmt.Println("i", i)
+	require.Equal(t, i, 6)
 }
 
 func TestManyPutsSingleFileSingleCommit(t *testing.T) {
