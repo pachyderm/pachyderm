@@ -838,6 +838,12 @@
 			"revisionTime": "2017-11-06T23:33:03Z"
 		},
 		{
+			"checksumSHA1": "yGnECJsPZBlk5khJmLUP8thNNxM=",
+			"path": "github.com/gorilla/mux",
+			"revision": "a7962380ca08b5a188038c69871b8d3fbdf31e89",
+			"revisionTime": "2019-01-25T16:05:53Z"
+		},
+		{
 			"checksumSHA1": "r6K62RDCh/i1nHMCfPSRoMX3BrQ=",
 			"path": "github.com/gregjones/httpcache",
 			"revision": "22a0b1feae53974ed4cfe27bcce70dba061cc5fd",

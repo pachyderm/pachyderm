@@ -41,6 +41,7 @@ func serve(t *testing.T, pc *client.APIClient) (*http.Server, uint16) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
+
 	return srv, port
 }
 
@@ -121,5 +122,25 @@ func TestNonExistingRepo(t *testing.T) {
 	_, err = getObject(c, repo, "master", "file")
 	require.YesError(t, err)
 	require.Equal(t, err.Error(), "The specified bucket does not exist.")
+	require.NoError(t, srv.Close())
+}
+
+func TestPutObject(t *testing.T) {
+	repo := tu.UniqueString("testputobject")
+	pc := server.GetPachClient(t)
+	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
+
+	srv, port := serve(t, pc)
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	_, err = c.PutObject(repo, fmt.Sprintf("%s/%s", "branch", "file"), strings.NewReader("content"), "text/plain")
+	require.NoError(t, err)
+
+	fetchedContent, err := getObject(c, repo, "branch", "file")
+	require.NoError(t, err)
+	require.Equal(t, "content", fetchedContent)
+
 	require.NoError(t, srv.Close())
 }
