@@ -437,7 +437,9 @@ func DeployCmd(noMetrics *bool, noPortForwarding *bool) *cobra.Command {
 				return fmt.Errorf("volume size needs to be an integer; instead got %v", args[3])
 			}
 			manifest := getEncoder(outputFormat)
-			if err = assets.WriteMicrosoftAssets(manifest, opts, args[0], args[1], args[2], volumeSize); err != nil {
+			container := strings.TrimPrefix(args[0], "wasb://")
+			accountName, accountKey := args[1], args[2]
+			if err = assets.WriteMicrosoftAssets(manifest, opts, container, accountName, accountKey, volumeSize); err != nil {
 				return err
 			}
 			return kubectlCreate(dryRun, manifest, opts, metrics)
