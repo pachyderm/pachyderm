@@ -154,17 +154,17 @@ What Happens When You Create a Pipeline
 
 Creating a pipeline tells Pachyderm to run your code on the data in your input repo (the HEAD commit) as well as **all future commits** that occur after the pipeline is created. Our repo already had a commit, so Pachyderm automatically launched a ``job`` to process that data. 
 
-This first time Pachyderm runs a pipeline job, it needs to download the Docker image (specified in the pipeline spec) from the specified Docker registry (DockerHub in this case). This first run this might take a minute or so because of the image download, depending on your Internet connection. Subsequent runs will be much faster. 
+The first time Pachyderm runs a pipeline job, it needs to download the Docker image (specified in the pipeline spec) from the specified Docker registry (DockerHub in this case). This first run this might take a minute or so because of the image download, depending on your Internet connection. Subsequent runs will be much faster. 
 
 You can view the job with:
 
 .. code-block:: shell
 
   $ pachctl list-job
-  ID                               OUTPUT COMMIT                          STARTED       DURATION   RESTART PROGRESS  DL       UL       STATE
-  490a28be32de491e942372018cd42460 edges/bc2d20d0c23740f397622a62b0978c57 2 minutes ago 35 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
+  ID                                STARTED       DURATION   RESTART PROGRESS  DL       UL       STATE
+  490a28be32de491e942372018cd42460  2 minutes ago 35 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
 
-Yay! Our pipeline succeeded! Notice, that there is an ``OUTPUT COMMIT`` column specified above. Pachyderm creates a corresponding output repo for every pipeline. This output repo will have the same name as the pipeline, and all the results of that pipeline will be versioned in this output repo. In our example, the "edges" pipeline created a repo called "edges" to store the results. 
+Yay! Our pipeline succeeded! Pachyderm creates a corresponding output repo for every pipeline. This output repo will have the same name as the pipeline, and all the results of that pipeline will be versioned in this output repo. In our example, the "edges" pipeline created a repo called "edges" to store the results. 
 
 .. code-block:: shell
 
@@ -210,10 +210,10 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
 
   # view the jobs that were kicked off
   $ pachctl list-job
-  ID                               OUTPUT COMMIT                          STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
-  81ae47a802f14038b95f8f248cddbed2 edges/146a5e398f3f40a09f5151559fd4a6cb 7 seconds ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
-  ce448c12d0dd4410b3a5ae0c0f07e1f9 edges/c5d7ded9ba214d9aa4aa2c044625198c 16 seconds ago Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
-  490a28be32de491e942372018cd42460 edges/bc2d20d0c23740f397622a62b0978c57 9 minutes ago  35 seconds         0       1 + 0 / 1 57.27KiB 22.22KiB success
+  ID                                STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
+  81ae47a802f14038b95f8f248cddbed2  7 seconds ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
+  ce448c12d0dd4410b3a5ae0c0f07e1f9  16 seconds ago Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
+  490a28be32de491e942372018cd42460  9 minutes ago  35 seconds         0       1 + 0 / 1 57.27KiB 22.22KiB success
 
 .. code-block:: shell
 
@@ -281,11 +281,11 @@ Pipeline creating triggers a job that generates a montage for all the current HE
 .. code-block:: shell
 
   $ pachctl list-job
-  ID                               OUTPUT COMMIT                            STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
-  92cecc40c3144fd5b4e07603bb24b104 montage/1af4657db2404fcfba1c6cee6c71ae16 45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success
-  81ae47a802f14038b95f8f248cddbed2 edges/146a5e398f3f40a09f5151559fd4a6cb   2 minutes ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
-  ce448c12d0dd4410b3a5ae0c0f07e1f9 edges/c5d7ded9ba214d9aa4aa2c044625198c   2 minutes ago  Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
-  490a28be32de491e942372018cd42460 edges/bc2d20d0c23740f397622a62b0978c57   11 minutes ago 35 seconds         0       1 + 0 / 1 57.27KiB 22.22KiB success
+  ID                                  STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
+  92cecc40c3144fd5b4e07603bb24b104    45 seconds ago 6 seconds          0       1 + 0 / 1 371.9KiB 1.284MiB success
+  81ae47a802f14038b95f8f248cddbed2    2 minutes ago  Less than a second 0       1 + 2 / 3 102.4KiB 74.21KiB success
+  ce448c12d0dd4410b3a5ae0c0f07e1f9    2 minutes ago  Less than a second 0       1 + 1 / 2 78.7KiB  37.15KiB success
+  490a28be32de491e942372018cd42460    11 minutes ago 35 seconds         0       1 + 0 / 1 57.27KiB 22.22KiB success
 
 And you can view the generated montage image via:
 
