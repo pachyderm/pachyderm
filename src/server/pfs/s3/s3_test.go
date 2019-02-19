@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -58,6 +59,33 @@ func getObject(c *minio.Client, repo, branch, file string) (string, error) {
 	return string(bytes), err
 }
 
+func TestListBuckets(t *testing.T) {
+	startTime := time.Now()
+
+	pc := server.GetPachClient(t)
+	repo1 := tu.UniqueString("testlistbuckets1")
+	require.NoError(t, pc.CreateRepo(repo1))
+	repo2 := tu.UniqueString("testlistbuckets2")
+	require.NoError(t, pc.CreateRepo(repo2))
+
+	endTime := time.Now()
+
+	srv, port := serve(t, pc)
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	buckets, err := c.ListBuckets()
+	require.NoError(t, err)
+	require.Equal(t, 2, len(buckets))
+
+	for _, bucket := range buckets {
+		require.EqualOneOf(t, []string{repo1, repo2}, bucket.Name)
+		require.True(t, startTime.Before(bucket.CreationDate))
+		require.True(t, endTime.After(bucket.CreationDate))
+	}
+
+	require.NoError(t, srv.Close())
+}
 
 func TestGetFile(t *testing.T) {
 	repo := tu.UniqueString("testgetfile")
