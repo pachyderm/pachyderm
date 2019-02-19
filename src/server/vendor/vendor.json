@@ -3381,6 +3381,12 @@
 			"versionExact": "v10.0.0"
 		},
 		{
+			"checksumSHA1": "+kMi/it7Yzffry9orVTxDhtxlTM=",
+			"path": "k8s.io/client-go/plugin/pkg/client/auth",
+			"revision": "0c67a1f23ff9b6db00723652c1c45cdff65b5591",
+			"revisionTime": "2019-02-19T04:16:46Z"
+		},
+		{
 			"checksumSHA1": "d3gPzoqPqze/wfPs1jXitWCDybg=",
 			"path": "k8s.io/client-go/plugin/pkg/client/auth/exec",
 			"revision": "e64494209f554a6723674bd494d69445fb76a1d4",
