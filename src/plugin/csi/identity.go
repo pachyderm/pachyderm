@@ -32,8 +32,17 @@ func (s *identitySvc) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoR
 
 func (s *identitySvc) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
 	return &csi.GetPluginCapabilitiesResponse{
-		// as this CSI driver doesn't export a controller, we advertise no
-		// capabilities at all
+		Capabilities: []*csi.PluginCapability{
+			{
+				// Advertise the CONTROLLER_SERVICE capability, as we do have a minimal
+				// controller service
+				Type: &csi.PluginCapability_Service_{
+					Service: &csi.PluginCapability_Service{
+						Type: csi.PluginCapability_Service_CONTROLLER_SERVICE,
+					},
+				},
+			},
+		},
 	}, nil
 }
 

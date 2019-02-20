@@ -19,6 +19,13 @@ import (
 )
 
 const (
+	// ___Param are used to pass information from the Controller service (which
+	// has access to fields in the original PVC) to the NodeService (which only
+	// has access to information passed from the Controller API)
+	RepoParam   = "repo"
+	CommitParam = "commit"
+	PathParam   = "path"
+
 	// provisionRoot indicates the directory on the node in which this plugin
 	// will store pachyderm data before exposing it to pods
 	provisionRoot = "/tmp/pachyderm/"
@@ -74,20 +81,20 @@ func (s *NodeSvc) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeR
 	if len(req.GetStagingTargetPath()) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
-	if len(req.PublishContext["repo"]) == 0 {
+	if len(req.PublishContext[RepoParam]) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "\"repo\" missing from request's publish context")
 	}
-	repo := req.PublishContext["repo"]
-	if len(req.PublishContext["commit"]) == 0 {
+	repo := req.PublishContext[RepoParam]
+	if len(req.PublishContext[CommitParam]) == 0 {
 		return nil, status.Error(codes.InvalidArgument, "\"commit\" missing from request's publish context")
 	}
-	commit := req.PublishContext["commit"]
+	commit := req.PublishContext[CommitParam]
 
 	// If non-default 'path'is set, make sure it exists in Pachyderm
 	c := getPachClient()
 	commitPath := "/"
-	if len(req.PublishContext["path"]) > 0 {
-		commitPath = req.PublishContext["path"]
+	if len(req.PublishContext[PathParam]) > 0 {
+		commitPath = req.PublishContext[PathParam]
 		if _, err := c.ListFile(repo, commit, commitPath); err != nil {
 			return nil, status.Error(codes.InvalidArgument,
 				fmt.Sprintf("could not stat Pachyderm data at %s@%s:%s: %v", repo, commit, commitPath, err))
