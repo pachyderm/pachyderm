@@ -141,7 +141,13 @@ func (h handler) getObject(w http.ResponseWriter, r *http.Request) {
 
 	fileInfo, err := h.pc.InspectFile(repo, branch, file)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		if strings.Contains(err.Error(), "has no head") {
+			// occurs if the branch exists, but there's no head commit
+			http.NotFound(w, r)
+		} else {
+			writeMaybeNotFound(w, r, err)
+		}
+
 		return
 	}
 
@@ -201,7 +207,7 @@ func (h handler) putObjectVerifying(w http.ResponseWriter, r *http.Request, repo
 
 	if !bytes.Equal(expectedHash, actualHash) {
 		err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
-		writeServerError(w, err)
+		writeBadRequest(w, err)
 		return
 	}
 

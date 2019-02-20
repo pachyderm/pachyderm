@@ -22,7 +22,7 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
-func serve(t *testing.T, pc *client.APIClient) (*http.Server, uint16) {
+func serve(t *testing.T, pc *client.APIClient) (*http.Server, *minio.Client) {
 	port := tu.UniquePort()
 	srv := Server(pc, port)
 
@@ -44,7 +44,9 @@ func serve(t *testing.T, pc *client.APIClient) (*http.Server, uint16) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 
-	return srv, port
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+	return srv, c
 }
 
 func getObject(c *minio.Client, repo, branch, file string) (string, error) {
@@ -61,19 +63,15 @@ func getObject(c *minio.Client, repo, branch, file string) (string, error) {
 }
 
 func TestListBuckets(t *testing.T) {
-	startTime := time.Now()
-
 	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	startTime := time.Now()
 	repo1 := tu.UniqueString("testlistbuckets1")
 	require.NoError(t, pc.CreateRepo(repo1))
 	repo2 := tu.UniqueString("testlistbuckets2")
 	require.NoError(t, pc.CreateRepo(repo2))
-
 	endTime := time.Now()
-
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
 
 	buckets, err := c.ListBuckets()
 	require.NoError(t, err)
@@ -89,14 +87,12 @@ func TestListBuckets(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	repo := tu.UniqueString("testgetfile")
 	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("testgetobject")
 	require.NoError(t, pc.CreateRepo(repo))
 	_, err := pc.PutFile(repo, "master", "file", strings.NewReader("content"))
-	require.NoError(t, err)
-
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
 	require.NoError(t, err)
 
 	fetchedContent, err := getObject(c, repo, "master", "file")
@@ -107,15 +103,13 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestGetObjectInBranch(t *testing.T) {
-	repo := tu.UniqueString("testgetfileinbranch")
 	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("testgetobjectinbranch")
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 	_, err := pc.PutFile(repo, "branch", "file", strings.NewReader("content"))
-	require.NoError(t, err)
-
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
 	require.NoError(t, err)
 
 	fetchedContent, err := getObject(c, repo, "branch", "file")
@@ -126,8 +120,10 @@ func TestGetObjectInBranch(t *testing.T) {
 }
 
 func TestStatObject(t *testing.T) {
-	repo := tu.UniqueString("teststatobject")
 	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("teststatobject")
 	require.NoError(t, pc.CreateRepo(repo))
 	_, err := pc.PutFile(repo, "master", "file", strings.NewReader("content"))
 	require.NoError(t, err)
@@ -139,10 +135,6 @@ func TestStatObject(t *testing.T) {
 	_, err = pc.PutFileOverwrite(repo, "master", "file", strings.NewReader("new-content"), 0)
 	require.NoError(t, err)
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
-
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
 
 	info, err := c.StatObject(repo, "master/file")
 	require.NoError(t, err)
@@ -156,16 +148,14 @@ func TestStatObject(t *testing.T) {
 }
 
 func TestPutObject(t *testing.T) {
-	repo := tu.UniqueString("testputobject")
 	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("testputobject")
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
-
-	_, err = c.PutObject(repo, fmt.Sprintf("%s/%s", "branch", "file"), strings.NewReader("content"), "text/plain")
+	_, err := c.PutObject(repo, "branch/file", strings.NewReader("content"), "text/plain")
 	require.NoError(t, err)
 
 	fetchedContent, err := getObject(c, repo, "branch", "file")
@@ -175,30 +165,40 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
-func TestNonExistingBranch(t *testing.T) {
-	repo := tu.UniqueString("testnonexistingbranch")
+// Tries to get an object on a branch that does not have a head
+func TestNonExistingHead(t *testing.T) {
 	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("testputobject2")
+	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
+
+	_, err := getObject(c, repo, "branch", "file")
+	require.YesError(t, err)
+
+	require.NoError(t, srv.Close())
+}
+
+func TestNonExistingBranch(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("testnonexistingbranch")
 	require.NoError(t, pc.CreateRepo(repo))
 
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
-
-	_, err = getObject(c, repo, "branch", "file")
+	_, err := getObject(c, repo, "branch", "file")
 	require.YesError(t, err)
 	require.Equal(t, err.Error(), "The specified key does not exist.")
 	require.NoError(t, srv.Close())
 }
 
 func TestNonExistingRepo(t *testing.T) {
-	repo := tu.UniqueString("testnonexistingrepo")
 	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
 
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
-
-	_, err = getObject(c, repo, "master", "file")
+	repo := tu.UniqueString("testnonexistingrepo")
+	_, err := getObject(c, repo, "master", "file")
 	require.YesError(t, err)
 	require.Equal(t, err.Error(), "The specified bucket does not exist.")
 	require.NoError(t, srv.Close())
@@ -206,10 +206,7 @@ func TestNonExistingRepo(t *testing.T) {
 
 func TestMakeBucket(t *testing.T) {
 	pc := server.GetPachClient(t)
-
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
+	srv, c := serve(t, pc)
 
 	repo1 := tu.UniqueString("testmakebucket1")
 	require.NoError(t, c.MakeBucket(repo1, ""))
@@ -217,7 +214,7 @@ func TestMakeBucket(t *testing.T) {
 	repo2 := tu.UniqueString("testmakebucket2")
 	require.NoError(t, c.MakeBucket(repo2, "us-east-1"))
 
-	_, err = pc.InspectRepo(repo1)
+	_, err := pc.InspectRepo(repo1)
 	require.NoError(t, err)
 
 	_, err = pc.InspectRepo(repo2)
@@ -228,10 +225,7 @@ func TestMakeBucket(t *testing.T) {
 
 func TestBucketExists(t *testing.T) {
 	pc := server.GetPachClient(t)
-
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
+	srv, c := serve(t, pc)
 
 	repo1 := tu.UniqueString("testbucketexists1")
 	require.NoError(t, pc.CreateRepo(repo1))
@@ -249,10 +243,7 @@ func TestBucketExists(t *testing.T) {
 
 func TestRemoveBucket(t *testing.T) {
 	pc := server.GetPachClient(t)
-
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
+	srv, c := serve(t, pc)
 
 	repo1 := tu.UniqueString("testremovebucket1")
 	require.NoError(t, pc.CreateRepo(repo1))
