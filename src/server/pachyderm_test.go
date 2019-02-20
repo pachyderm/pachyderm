@@ -5136,6 +5136,9 @@ func TestCronPipeline(t *testing.T) {
 		defer cancel() //cleanup resources
 		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
+
+		// We'll look at three commits - with one created in each tick
+		// We expect the first commit to have 1 file, the second to have 2 files, etc...
 		for i := 1; i <= 3; i++ {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
@@ -5175,6 +5178,8 @@ func TestCronPipeline(t *testing.T) {
 		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 
+		// We'll look at three commits - with one created in each tick
+		// We expect each of the commits to have just a single file in this case
 		for i := 1; i <= 3; i++ {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)

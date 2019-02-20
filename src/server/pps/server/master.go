@@ -571,6 +571,8 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 	} else {
 		tstamp = &types.Timestamp{}
 		// Take the name of the most recent file as the timestamp
+		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
+		// from largest unit of time to smallest, so the most recent file will be the last one
 		if err := jsonpb.UnmarshalString(files[len(files)-1].File.Path, tstamp); err != nil {
 			return err
 		}
@@ -586,6 +588,11 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 			return err
 		}
 
+		// We need the DeleteFile and the PutFile to happen in the same commit
+		_, err = pachClient.StartCommit(in.Cron.Repo, "master")
+		if err != nil {
+			return err
+		}
 		if in.Cron.Overwrite {
 			// If we want to "overwrite" the file, we need to delete the file with the previous time
 			err := pachClient.DeleteFile(in.Cron.Repo, "master", t.Format(time.RFC3339))
@@ -594,9 +601,17 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 			}
 		}
 
-		if _, err := pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader("")); err != nil {
+		_, err = pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader(""))
+		if err != nil {
 			return err
 		}
+
+		err = pachClient.FinishCommit(in.Cron.Repo, "master")
+		if err != nil {
+			return err
+		}
+
+		// set t to the next time
 		t = next
 	}
 }
