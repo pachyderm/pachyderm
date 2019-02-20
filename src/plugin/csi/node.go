@@ -2,49 +2,28 @@ package csi
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"os"
 	pathlib "path"
+	"sync"
+	"syscall"
 
+	"github.com/pachyderm/pachyderm/src/client"
+	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
-	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"k8s.io/kubernetes/pkg/util/mount"
 )
 
-// The CSI spec provides examples in which plugin names are reversed domain
-// names, but more recent examples of CSI plugins use regular domain names (see
-// e.g. http://pach-links.s3-website-us-west-1.amazonaws.com/csi-example)
-const pluginName = "csi.pachyderm.com"
-
-// The Pachyderm CSI plugin is versioned separately from Pachyderm itself in
-// case we need to release bug fixes for the CSI plugin without releasing pachd
-// itself
-const pluginVersion = "v1.0"
-
-type identitySvc struct{}
-
-func (s *identitySvc) GetPluginInfo(ctx context.Context, req *csi.GetPluginInfoRequest) (*csi.GetPluginInfoResponse, error) {
-	return &csi.GetPluginInfoResponse{
-		Name:          pluginName,
-		VendorVersion: pluginVersion,
-	}, nil
-}
-
-func (s *identitySvc) GetPluginCapabilities(ctx context.Context, req *csi.GetPluginCapabilitiesRequest) (*csi.GetPluginCapabilitiesResponse, error) {
-	return &csi.GetPluginCapabilitiesResponse{
-		// as this CSI driver doesn't export a controller, we advertise no
-		// capabilities at all
-	}, nil
-}
-
-func (s *identitySvc) Probe(ctx context.Context, req *csi.ProbeRequest) (*csi.ProbeResponse, error) {
-	return &csi.ProbeResponse{
-		Ready: &wrappers.BoolValue{Value: true},
-	}, nil
-}
+const (
+	// provisionRoot indicates the directory on the node in which this plugin
+	// will store pachyderm data before exposing it to pods
+	provisionRoot = "/tmp/pachyderm/"
+	concurrency   = 100 // max concurrent Pachyderm download/upload operations
+)
 
 // NodeSvc implements this CSI NodeService GRPC service interface
 type NodeSvc struct {
@@ -58,11 +37,98 @@ func NewNodeSvc() *NodeSvc {
 	}
 }
 
+var (
+	// _pachClient is a Pachyderm client for gRPC endpoints to share. Don't
+	// access it directly, as it may still be 'nil' when the first few RPCs
+	// arrive
+	_pachClient    *client.APIClient
+	pachClientOnce sync.Once
+)
+
+// Initialize 'pachClient' for RPC endpoints
+// TODO(msteffen): handle auth-is-activated case
+func getPachClient() *client.APIClient {
+	pachClientOnce.Do(func() {
+		_pachClient, err := client.NewInCluster()
+		if err != nil {
+			panic(fmt.Sprintf("could not connect to Pachyderm: %v", err))
+		}
+	})
+	return _pachClient
+}
+
+func init() {
+	getPachClient() // start connecting to Pachd on startup
+}
+
 // NodeStageVolume implements the corresponding endpoint in the CSI service
-// definition. It's used to partition and format the disk and mount the disk on
-// a node global directory
+// definition. In general, it's used to partition and format the disk and mount
+// the disk on a node global directory. We use it to download Pachyderm data
+// into a node global directory
 func (s *NodeSvc) NodeStageVolume(ctx context.Context, req *csi.NodeStageVolumeRequest) (*csi.NodeStageVolumeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "")
+	// Check arguments (including publish context parameters)
+	if len(req.GetVolumeId()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Volume ID missing in request")
+	}
+	if len(req.GetStagingTargetPath()) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
+	}
+	if len(req.PublishContext["repo"]) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "\"repo\" missing from request's publish context")
+	}
+	repo := req.PublishContext["repo"]
+	if len(req.PublishContext["commit"]) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "\"commit\" missing from request's publish context")
+	}
+	commit := req.PublishContext["commit"]
+
+	// If non-default 'path'is set, make sure it exists in Pachyderm
+	c := getPachClient()
+	commitPath := "/"
+	if len(req.PublishContext["path"]) > 0 {
+		commitPath = req.PublishContext["path"]
+		if _, err := c.ListFile(repo, commit, commitPath); err != nil {
+			return nil, status.Error(codes.InvalidArgument,
+				fmt.Sprintf("could not stat Pachyderm data at %s@%s:%s: %v", repo, commit, commitPath, err))
+		}
+	}
+
+	path := pathlib.Join(provisionRoot + req.VolumeId)
+	// see if staging path exists
+	var fi os.FileInfo
+	for {
+		var err error
+		fi, err = os.Stat(path)
+		if err == nil {
+			// TODO(msteffen): handle case where data is partially-synced.
+			if err := os.RemoveAll(path); err != nil {
+				return nil, status.Error(codes.Internal,
+					fmt.Sprintf("could not remove existing dir at %q: %v", path, err.Error()))
+			}
+			continue // retry stat()
+		} else if !os.IsNotExist(err) {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+	}
+	if err := os.MkdirAll(path, 0750); err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	if !fi.IsDir() {
+		return nil, status.Error(codes.Internal, fmt.Sprintf(
+			"cannot stage volume at %q (%s): it is not a directory",
+			path, fi.Mode()))
+	}
+
+	// sync pachyderm data to staging volume
+	p := filesync.NewPuller()
+	if err := p.Pull(c, path, repo, commit, commitPath,
+		false /*lazy*/, false, /*empty*/
+		concurrency,
+		nil /*statsTree*/, "" /*statsRoot*/); err != nil {
+		return nil, status.Error(codes.Internal,
+			fmt.Sprintf("could not download Pachyderm data at %s@%s:%s: %v", repo, commit, path, err))
+	}
+	return &csi.NodeStageVolumeResponse{}, nil
 }
 
 // NodePublishVolume implements the corresponding endpoint in the CSI service
@@ -80,10 +146,11 @@ func (s *NodeSvc) NodePublishVolume(ctx context.Context, req *csi.NodePublishVol
 		return nil, status.Error(codes.InvalidArgument, "Target path missing in request")
 	}
 
+	// Create mount point (or re-use existing mount point if it's there)
 	fi, err := os.Stat(req.TargetPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if err = os.MkdirAll(targetPath, 0750); err != nil {
+			if err = os.MkdirAll(req.TargetPath, 0750); err != nil {
 				return nil, status.Error(codes.Internal, err.Error())
 			}
 		} else {
@@ -94,22 +161,18 @@ func (s *NodeSvc) NodePublishVolume(ctx context.Context, req *csi.NodePublishVol
 		return nil, status.Error(codes.Internal, fmt.Sprintf("%q (%s) is not a directory", req.TargetPath, fi.Mode()))
 	}
 
-	// deviceID := ""
-	// if req.GetPublishContext() != nil {
-	// 	deviceID = req.GetPublishContext()[deviceID]
-	// }
+	// log mount information
+	log.Printf("target %v\nfstype %v\nreadonly %v\nvolumeId %v\nattributes %v\nmountflags %v\n",
+		req.TargetPath, req.VolumeCapability.GetMount().FsType, req.Readonly,
+		req.VolumeId, req.VolumeContext, req.VolumeCapability.GetMount().MountFlags)
 
-	// volumeID := req.GetVolumeId()
-	// attrib := req.GetVolumeContext()
-	// mountFlags := req.GetVolumeCapability().GetMount().GetMountFlags()
-
-	options := []string{"bind"}
-	if req.Readonly {
-		options = append(options, "ro")
-	}
-	mounter := mount.New("")
+	// finally, mount 'path' to 'targetPath', exposing pach data to pod
 	path := pathlib.Join(provisionRoot + req.VolumeId)
-	if err := mounter.Mount(path, targetPath, "", options); err != nil {
+	var mntOpts uintptr = syscall.MS_BIND
+	if req.Readonly {
+		mntOpts |= syscall.MS_RDONLY
+	}
+	if err := syscall.Mount(path, req.TargetPath, "", mntOpts, ""); err != nil {
 		return nil, err
 	}
 
@@ -145,6 +208,7 @@ func (s *NodeSvc) NodeExpandVolume(ctx context.Context, req *csi.NodeExpandVolum
 func (s *NodeSvc) NodeGetCapabilities(ctx context.Context, req *csi.NodeGetCapabilitiesRequest) (*csi.NodeGetCapabilitiesResponse, error) {
 	return &csi.NodeGetCapabilitiesResponse{
 		Capabilities: []*csi.NodeServiceCapability{
+			// Support Stage/Unstage volume, which we use to download Pachyderm data
 			{
 				Type: &csi.NodeServiceCapability_Rpc{
 					Rpc: &csi.NodeServiceCapability_RPC{
