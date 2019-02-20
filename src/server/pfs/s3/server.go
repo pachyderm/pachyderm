@@ -98,21 +98,31 @@ func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
 
-	if err := r.ParseForm(); err != nil {
-		writeBadRequest(w, err)
-		return
-	}
+	if r.Method == http.MethodGet {
+		if err := r.ParseForm(); err != nil {
+			writeBadRequest(w, err)
+			return
+		}
 
-	if _, err := h.pc.InspectRepo(repo); err != nil {
-		writeMaybeNotFound(w, err)
-		return
-	}
+		if _, err := h.pc.InspectRepo(repo); err != nil {
+			writeMaybeNotFound(w, err)
+			return
+		}
 
-	if _, ok := r.Form["location"]; ok {
-		w.Header().Set("Content-Type", "application/xml")
-		w.Write([]byte(locationResponse))
-	} else {
-		w.Write([]byte{})
+		if _, ok := r.Form["location"]; ok {
+			w.Header().Set("Content-Type", "application/xml")
+			w.Write([]byte(locationResponse))
+		} else {
+			w.Write([]byte{})
+		}
+	} else if r.Method == http.MethodPut {
+		err := h.pc.CreateRepo(repo)
+
+		if err != nil {
+			writeServerError(w, err)
+		} else {
+			w.Write([]byte{})
+		}
 	}
 }
 
@@ -229,12 +239,13 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 func Server(pc *client.APIClient, port uint16) *http.Server {
 	handler := newHandler(pc)
 
+	// repo validation regex is the same as minio
 	router := mux.NewRouter()
-	router.HandleFunc("/", handler.root).Methods("GET")
-	router.HandleFunc("/{repo}/", handler.repo).Methods("GET")
-	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.getObject).Methods("GET")
-	router.HandleFunc("/{repo}/{branch}/{file:.+}", handler.putObject).Methods("PUT")
-	router.HandleFunc("/_ping", handler.ping).Methods("GET")
+	router.HandleFunc(`/`, handler.root).Methods("GET")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.repo).Methods("GET", "PUT")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.getObject).Methods("GET")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.putObject).Methods("PUT")
+	router.HandleFunc(`/_ping`, handler.ping).Methods("GET")
 
 	// Note: error log is not customized on this `http.Server`, which means
 	// it'll default to using the stdlib logger and produce log messages that
