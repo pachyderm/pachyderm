@@ -36,10 +36,6 @@ const listBucketSource = `<?xml version="1.0" encoding="UTF-8"?>
     </Buckets>
 </ListAllMyBucketsResult>`
 
-func writeOK(w http.ResponseWriter) {
-	w.Write([]byte("OK"))
-}
-
 func writeBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 }
@@ -80,7 +76,7 @@ func newHandler(pc *client.APIClient) handler {
 }
 
 func (h handler) ping(w http.ResponseWriter, r *http.Request) {
-	writeOK(w)
+	w.Write([]byte{})
 }
 
 func (h handler) root(w http.ResponseWriter, r *http.Request) {
@@ -116,7 +112,7 @@ func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Write([]byte(locationResponse))
 	} else {
-		writeOK(w)
+		w.Write([]byte{})
 	}
 }
 
@@ -192,7 +188,7 @@ func (h handler) putObjectVerifying(w http.ResponseWriter, r *http.Request, repo
 		return
 	}
 
-	writeOK(w)
+	w.Write([]byte{})
 }
 
 func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
@@ -206,7 +202,7 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 		return
 	}
 
-	writeOK(w)
+	w.Write([]byte{})
 }
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
