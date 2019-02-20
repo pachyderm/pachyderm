@@ -588,7 +588,8 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 
 		if in.Cron.Overwrite {
 			// If we want to "overwrite" the file, we need to delete the file with the previous time
-			if err := pachClient.DeleteFile(in.Cron.Repo, "master", t.Format(time.RFC3339)); err != nil {
+			err := pachClient.DeleteFile(in.Cron.Repo, "master", t.Format(time.RFC3339))
+			if err != nil && !isNotFoundErr(err) && !isNilBranchErr(err) {
 				return err
 			}
 		}

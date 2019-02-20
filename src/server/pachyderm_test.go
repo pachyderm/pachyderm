@@ -5154,6 +5154,7 @@ func TestCronPipeline(t *testing.T) {
 		}
 	})
 
+	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 20s")
@@ -5174,13 +5175,22 @@ func TestCronPipeline(t *testing.T) {
 		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 
-		commitInfo, err := iter.Next()
-		require.NoError(t, err)
+		for i := 1; i <= 3; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
 
-		commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
-		require.NoError(t, err)
-		commitInfos := collectCommitInfos(t, commitIter)
-		require.Equal(t, 1, len(commitInfos))
+			commitIter, err := c.FlushCommit([]*pfs.Commit{commitInfo.Commit}, nil)
+			require.NoError(t, err)
+			commitInfos := collectCommitInfos(t, commitIter)
+			require.Equal(t, 1, len(commitInfos))
+
+			for _, ci := range commitInfos {
+				files, err := c.ListFile(ci.Commit.Repo.Name, ci.Commit.ID, "")
+				require.NoError(t, err)
+				require.Equal(t, 1, len(files))
+
+			}
+		}
 	})
 
 	// Create a non-cron input repo, and test a pipeline with a cross of cron and
@@ -5188,9 +5198,9 @@ func TestCronPipeline(t *testing.T) {
 	t.Run("CronPFSCross", func(t *testing.T) {
 		dataRepo := tu.UniqueString("TestCronPipeline_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
-		pipeline3 := tu.UniqueString("cron3-")
+		pipeline4 := tu.UniqueString("cron4-")
 		require.NoError(t, c.CreatePipeline(
-			pipeline3,
+			pipeline4,
 			"",
 			[]string{"bash"},
 			[]string{
@@ -5210,7 +5220,7 @@ func TestCronPipeline(t *testing.T) {
 		_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("file"))
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
-		repo := fmt.Sprintf("%s_%s", pipeline3, "time")
+		repo := fmt.Sprintf("%s_%s", pipeline4, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 		defer cancel() //cleanup resources
 		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
