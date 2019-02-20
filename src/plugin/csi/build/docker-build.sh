@@ -35,10 +35,18 @@ BUILD_CMD="go install ./${BUILD_PATH}"
 #
 # - Mounting ${GOPATH}/bin into src/client/vendor/.../pachyderm avoids a stupid
 #   bug where src/client/vendor/github.com/pachyderm/pachyderm/src/client fails
-#   to build because of recursive dependencies. We break the recursive
-#   dependency of the client on itself by mounting a directory over it that
-#   contains no go code:
-#     /go/src/../pachyderm/src/client/vendor/github.com/pachyderm/ <- ./_out
+#   to build because of recursive dependencies on
+#   src/client/vendor/.../pachyderm/src/client/vendor/.../pachyderm. We break
+#   the recursive dependency of the client on itself by mounting a directory
+#   over it that contains no go code:
+#     /go/src/../pachyderm/src/client/vendor/github.com/pachyderm/ <- $GOPATH/bin
+#
+# - Mounting ${GOPATH}/bin into src/server/vendor/.../pachyderm avoids a stupid
+#   bug where packages in src/client/pkg/... can't be used by the CSI plugin
+#   because those packages depend on protos in
+#   src/server/vendor/.../pachyderm/src/client, while the CSI plugin uses
+#   the real protos in src/client:
+#     /go/src/../pachyderm/src/server/vendor/github.com/pachyderm/ <- $GOPATH/bin
 PACH_PATH=src/github.com/pachyderm/pachyderm
 docker run \
   -w /go/src \
@@ -48,4 +56,5 @@ docker run \
   -v "${GOPATH}/${PACH_PATH}:/go/${PACH_PATH}" \
   -v "${GOPATH}/${PACH_PATH}/src/server/vendor:/go/${PACH_PATH}/src/client/vendor" \
   -v "${GOPATH}/bin:/go/${PACH_PATH}/src/client/vendor/github.com/pachyderm" \
+  -v "${GOPATH}/bin:/go/${PACH_PATH}/src/server/vendor/github.com/pachyderm" \
   golang:1.11 /bin/sh -c "${BUILD_CMD}"

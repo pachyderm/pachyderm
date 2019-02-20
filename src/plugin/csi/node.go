@@ -49,7 +49,8 @@ var (
 // TODO(msteffen): handle auth-is-activated case
 func getPachClient() *client.APIClient {
 	pachClientOnce.Do(func() {
-		_pachClient, err := client.NewInCluster()
+		var err error
+		_pachClient, err = client.NewInCluster()
 		if err != nil {
 			panic(fmt.Sprintf("could not connect to Pachyderm: %v", err))
 		}
