@@ -36,14 +36,18 @@ const listBucketSource = `<?xml version="1.0" encoding="UTF-8"?>
     </Buckets>
 </ListAllMyBucketsResult>`
 
+func writeOK(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusNoContent)
+	w.Write([]byte{})
+}
+
 func writeBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 }
 
-func writeMaybeNotFound(w http.ResponseWriter, err error) {
+func writeMaybeNotFound(w http.ResponseWriter, r *http.Request, err error) {
 	if strings.Contains(err.Error(), "not found") {
-		// This error message matches what the mux router returns when it 404s
-		http.Error(w, "404 page not found", http.StatusNotFound)
+		http.NotFound(w, r)
 	} else {
 		writeServerError(w, err)
 	}
@@ -76,7 +80,7 @@ func newHandler(pc *client.APIClient) handler {
 }
 
 func (h handler) ping(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte{})
+	writeOK(w)
 }
 
 func (h handler) root(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +109,7 @@ func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if _, err := h.pc.InspectRepo(repo); err != nil {
-			writeMaybeNotFound(w, err)
+			writeMaybeNotFound(w, r, err)
 			return
 		}
 
@@ -113,7 +117,7 @@ func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/xml")
 			w.Write([]byte(locationResponse))
 		} else {
-			w.Write([]byte{})
+			writeOK(w)
 		}
 	} else if r.Method == http.MethodPut {
 		err := h.pc.CreateRepo(repo)
@@ -121,7 +125,18 @@ func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeServerError(w, err)
 		} else {
-			w.Write([]byte{})
+			writeOK(w)
+		}
+	} else if r.Method == http.MethodDelete {
+		err := h.pc.DeleteRepo(repo, false)
+		// TODO: handle 404
+
+		if err != nil {
+			fmt.Printf("XXX %s\n", err)
+			writeServerError(w, err)
+		} else {
+			fmt.Printf("YYY\n")
+			writeOK(w)
 		}
 	}
 }
@@ -134,7 +149,7 @@ func (h handler) getObject(w http.ResponseWriter, r *http.Request) {
 
 	fileInfo, err := h.pc.InspectFile(repo, branch, file)
 	if err != nil {
-		writeMaybeNotFound(w, err)
+		writeMaybeNotFound(w, r, err)
 		return
 	}
 
@@ -186,7 +201,7 @@ func (h handler) putObjectVerifying(w http.ResponseWriter, r *http.Request, repo
 		// double-check that by inspecting the branch, so we can serve a 404
 		// instead
 		_, inspectError := h.pc.InspectBranch(repo, branch)
-		writeMaybeNotFound(w, inspectError)
+		writeMaybeNotFound(w, r, inspectError)
 		return
 	}
 
@@ -198,7 +213,7 @@ func (h handler) putObjectVerifying(w http.ResponseWriter, r *http.Request, repo
 		return
 	}
 
-	w.Write([]byte{})
+	writeOK(w)
 }
 
 func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
@@ -208,11 +223,11 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 		// double-check that by inspecting the branch, so we can serve a 404
 		// instead
 		_, inspectError := h.pc.InspectBranch(repo, branch)
-		writeMaybeNotFound(w, inspectError)
+		writeMaybeNotFound(w, r, inspectError)
 		return
 	}
 
-	w.Write([]byte{})
+	writeOK(w)
 }
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
@@ -242,7 +257,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	// repo validation regex is the same as minio
 	router := mux.NewRouter()
 	router.HandleFunc(`/`, handler.root).Methods("GET", "HEAD")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.repo).Methods("GET", "PUT", "HEAD")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.repo).Methods("DELETE", "GET", "PUT", "HEAD")
 	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.getObject).Methods("GET", "HEAD")
 	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.putObject).Methods("PUT", "HEAD")
 	router.HandleFunc(`/_ping`, handler.ping).Methods("GET", "HEAD")
