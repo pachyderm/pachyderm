@@ -18,14 +18,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// The parameters below are used to pass information from the Controller
+// service (which has access to fields in the original PVC) to the NodeService
+// (which only has access to information passed from the Controller API)
 const (
-	// ___Param are used to pass information from the Controller service (which
-	// has access to fields in the original PVC) to the NodeService (which only
-	// has access to information passed from the Controller API)
 	RepoParam   = "repo"
 	CommitParam = "commit"
 	PathParam   = "path"
+)
 
+const (
 	// provisionRoot indicates the directory on the node in which this plugin
 	// will store pachyderm data before exposing it to pods
 	provisionRoot = "/tmp/pachyderm/"
