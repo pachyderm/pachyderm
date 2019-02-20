@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	// log "github.com/sirupsen/logrus"
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -195,3 +196,24 @@ func TestMakeBucket(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
+func TestBucketExists(t *testing.T) {
+	//log.SetLevel(log.DebugLevel)
+	pc := server.GetPachClient(t)
+
+	srv, port := serve(t, pc)
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	repo1 := tu.UniqueString("testbucketexists1")
+	require.NoError(t, pc.CreateRepo(repo1))
+	exists, err := c.BucketExists(repo1)
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	repo2 := tu.UniqueString("testbucketexists1")
+	exists, err = c.BucketExists(repo2)
+	require.NoError(t, err)
+	require.False(t, exists)
+	
+	require.NoError(t, srv.Close())
+}

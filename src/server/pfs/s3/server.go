@@ -241,11 +241,11 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 
 	// repo validation regex is the same as minio
 	router := mux.NewRouter()
-	router.HandleFunc(`/`, handler.root).Methods("GET")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.repo).Methods("GET", "PUT")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.getObject).Methods("GET")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.putObject).Methods("PUT")
-	router.HandleFunc(`/_ping`, handler.ping).Methods("GET")
+	router.HandleFunc(`/`, handler.root).Methods("GET", "HEAD")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.repo).Methods("GET", "PUT", "HEAD")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.getObject).Methods("GET", "HEAD")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.putObject).Methods("PUT", "HEAD")
+	router.HandleFunc(`/_ping`, handler.ping).Methods("GET", "HEAD")
 
 	// Note: error log is not customized on this `http.Server`, which means
 	// it'll default to using the stdlib logger and produce log messages that
