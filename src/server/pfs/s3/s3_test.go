@@ -144,3 +144,26 @@ func TestPutObject(t *testing.T) {
 
 	require.NoError(t, srv.Close())
 }
+
+func TestMakeBucket(t *testing.T) {
+	pc := server.GetPachClient(t)
+
+	srv, port := serve(t, pc)
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	repo1 := tu.UniqueString("testmakebucket1")
+	require.NoError(t, c.MakeBucket(repo1, ""))
+
+	repo2 := tu.UniqueString("testmakebucket2")
+	require.NoError(t, c.MakeBucket(repo2, "us-east-1"))
+
+	_, err = pc.InspectRepo(repo1)
+	require.NoError(t, err)
+
+	_, err = pc.InspectRepo(repo2)
+	require.NoError(t, err)
+
+	require.NoError(t, srv.Close())
+}
+
