@@ -236,6 +236,19 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h handler) removeObject(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	repo := vars["repo"]
+	branch := vars["branch"]
+	file := vars["file"]
+
+	if err := h.pc.DeleteFile(repo, branch, file); err != nil {
+		writeMaybeNotFound(w, r, err)
+	} else {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
 //
@@ -268,6 +281,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.deleteRepo).Methods("DELETE")
 	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.getObject).Methods("GET", "HEAD")
 	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.putObject).Methods("PUT")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.removeObject).Methods("DELETE")
 	router.HandleFunc(`/_ping`, handler.ping).Methods("GET", "HEAD")
 
 	// Note: error log is not customized on this `http.Server`, which means

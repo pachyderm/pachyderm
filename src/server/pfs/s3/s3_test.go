@@ -165,6 +165,22 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
+func TestRemoveObject(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("testremoveobject")
+	require.NoError(t, pc.CreateRepo(repo))
+	_, err := pc.PutFile(repo, "master", "file", strings.NewReader("content"))
+	require.NoError(t, err)
+
+	// as per PFS semantics, the second delete should be a no-op
+	require.NoError(t, c.RemoveObject(repo, "master/file"))
+	require.NoError(t, c.RemoveObject(repo, "master/file"))
+
+	require.NoError(t, srv.Close())
+}
+
 // Tries to get an object on a branch that does not have a head
 func TestNonExistingHead(t *testing.T) {
 	pc := server.GetPachClient(t)
