@@ -10,6 +10,12 @@ var (
 	// should be swallowed by iteration functions and treated as successful
 	// iteration.
 	ErrBreak = fmt.Errorf("BREAK")
+
+	// ErrUnusedPeek is an error used to indicate that a callback function did
+	// not use a parameter that was peeked off of something. Make this comment better.
+	ErrUnusedPeek = fmt.Errorf("UNUSED_PEEK")
+
+	ErrStop = fmt.Errorf("STOP")
 )
 
 // IsAlreadyExistError returns true if err is due to trying to create a

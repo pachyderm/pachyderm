@@ -104,6 +104,225 @@ func TestSimplePipeline(t *testing.T) {
 	require.Equal(t, "foo", buf.String())
 }
 
+func TestSimplePipelineGetFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("file"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	//var buf bytes.Buffer
+	require.NoError(t, c.GetFiles(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, func(file *pfs.File, r io.Reader) error {
+		fmt.Println("commit infos", commitInfos[0].Commit.Repo.Name, "commit id", commitInfos[0].Commit.ID)
+		data, err := ioutil.ReadAll(r)
+		fmt.Println("testing: ", string(data))
+		require.NoError(t, err)
+		require.Equal(t, "file", string(data))
+		return nil
+	}))
+	//require.Equal(t, "foo", buf.String())
+}
+
+func TestSimplePipelineGetFiles2(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo, commit1.ID, "dir1/foo", strings.NewReader("dir1/foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp -R /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*/"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	//var buf bytes.Buffer
+	require.NoError(t, c.GetFiles(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "/*/*", 0, 0, func(file *pfs.File, r io.Reader) error {
+		fmt.Println("commit infos", commitInfos[0].Commit.Repo.Name, "commit id", commitInfos[0].Commit.ID)
+		data, err := ioutil.ReadAll(r)
+		fmt.Println("testing: ", string(data))
+		require.NoError(t, err)
+		return nil
+	}))
+	//require.Equal(t, "foo", buf.String())
+}
+
+func TestSimplePipelineGetFiles3(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	// _, err = c.PutFile(dataRepo, commit1.ID, "dir1/foo", strings.NewReader("dir1/foo"))
+	// _, err = c.PutFile(dataRepo, commit1.ID, "dir1/bar", strings.NewReader("dir1/bar"))
+	//require.NoError(t, err)
+	paths := []string{"dir1/foo", "dir1/bar", "dir2/fizz", "dir2/buzz", "dir2/dirA/biz", "dir2/dirA/fuz"}
+	for _, path := range paths {
+		_, err = c.PutFile(dataRepo, commit1.ID, path, strings.NewReader(path))
+		require.NoError(t, err)
+	}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp -R /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	//var buf bytes.Buffer
+	require.NoError(t, c.GetFiles(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "/*/", 0, 0, func(file *pfs.File, r io.Reader) error {
+		fmt.Println("commit infos", commitInfos[0].Commit.Repo.Name, "commit id", commitInfos[0].Commit.ID)
+		data, err := ioutil.ReadAll(r)
+		fmt.Println("testing: ", string(data))
+		require.NoError(t, err)
+		return nil
+	}))
+	//require.Equal(t, "foo", buf.String())
+}
+
+func TestGetFilesOnOutputRepoDirectories(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestSimplePipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	// require.NoError(t, err)
+	// fmt.Println("input repo", dataRepo, "input commit id", commit1.ID)
+	// _, err = c.PutFile(dataRepo, commit1.ID, "file", strings.NewReader("foo"))
+	// require.NoError(t, err)
+	//pfclient, err := c.PfsAPIClient.PutFile(c.Ctx())
+	require.NoError(t, err)
+	paths := []string{"dir1/foo", "dir1/bar", "dir2/fizz", "dir2/buzz", "dir2/dirA/biz", "dir2/dirA/fuz"}
+
+	//for _, path := range paths {
+	// require.NoError(t, pfclient.Send(&pfs.PutFileRequest{
+	// 	File:  client.NewFile(dataRepo, commit1.ID, path),
+	// 	Value: []byte(path),
+	// }))
+	_, err = c.PutFile(dataRepo, commit1.ID, paths[0], strings.NewReader(paths[0]))
+	require.NoError(t, err)
+	//}
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*/*"),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	fi, err := c.ListFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "/*/*")
+	fmt.Println("fi", fi, "len", len(fi), "err", err)
+
+	//var buf bytes.Buffer
+	require.NoError(t, c.GetFiles(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "/*/*", 0, 0, func(file *pfs.File, r io.Reader) error {
+		fmt.Println("commit infos", commitInfos[0].Commit.Repo.Name, "commit id", commitInfos[0].Commit.ID)
+		data, err := ioutil.ReadAll(r)
+		fmt.Println("testing: ", string(data))
+		require.NoError(t, err)
+		return nil
+	}))
+	//require.Equal(t, "foo", buf.String())
+}
+
 // TestRepoSize ensures that a repo's size is equal to it's master branch's
 // HEAD's size. This test should prevent a regression where output repos would
 // incorrectly report their size to be 0B. See here for more details:

@@ -293,8 +293,10 @@ func (h *dbHashTree) Walk(path string, f func(path string, node *NodeProto) erro
 			}
 			if nodePath != path && !strings.HasPrefix(nodePath, path+"/") {
 				// node is a sibling of path, and thus doesn't get walked
+				//fmt.Println("db walk returning nil prefunc p", nodePath, "walkpath", path)
 				continue
 			}
+			//fmt.Println("db walk calling callback p", nodePath, "walkpath", path)
 			if err := f(nodePath, node); err != nil {
 				if err == errutil.ErrBreak {
 					return nil
@@ -1130,6 +1132,34 @@ func (mq *mergePQ) insert(s *nodeStream) error {
 	return nil
 }
 
+func (mq *mergePQ) peek() ([]*MergeNode, error) {
+	if len(mq.q) == 0 || mq.size == 0 || mq.q[1] == nil {
+		return nil, errutil.ErrBreak
+	}
+	ns := []*MergeNode{mq.q[1].node}
+	i := 1
+	var next int
+	for {
+		l, r := i*2, i*2+1
+		if l > mq.size {
+			break
+		} else if r > mq.size || bytes.Compare(mq.k(l), mq.k(r)) <= 0 {
+			next = l
+		} else {
+			next = r
+		}
+		if bytes.Compare(mq.k(i), mq.k(next)) <= 0 {
+			break
+		}
+		if bytes.Compare(mq.k(1), ns[0].k) != 0 {
+			break
+		}
+		ns = append(ns, mq.q[i].node)
+		i = next
+	}
+	return ns, nil
+}
+
 func (mq *mergePQ) next() ([]*MergeNode, error) {
 	ns := []*MergeNode{mq.q[1].node}
 	if err := mq.fill(); err != nil {
@@ -1263,14 +1293,18 @@ func NewMergeReader(rs []io.ReadCloser) (*MergeReader, error) {
 // Glob executes a callback for each path that matches the glob pattern.
 func (m *MergeReader) Glob(pattern string, f func(string, *NodeProto) error) (retErr error) {
 	pattern = clean(pattern)
+	fmt.Println("mergereader globbing", pattern)
 	g, err := globlib.Compile(pattern, '/')
 	if err != nil {
 		return errorf(MalformedGlob, err.Error())
 	}
 	return m.nodes(func(path string, node *NodeProto) error {
+		fmt.Println("db glob p", path)
 		if g.Match(path) {
+			fmt.Println("matched on", path)
 			return f(externalDefault(path), node)
 		}
+		//return errutil.ErrUnusedPeek
 		return nil
 	})
 }
@@ -1283,7 +1317,7 @@ func (m *MergeReader) Get(filePath string) (*NodeProto, error) {
 		if path == filePath {
 			fileNode = node
 		}
-		return nil
+		return errutil.ErrUnusedPeek
 	}); err != nil {
 		return nil, err
 	}
@@ -1307,20 +1341,29 @@ func (m *MergeReader) List(pattern string, f func(string, *NodeProto) error) (re
 		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
 			return f(path, node)
 		}
-		return nil
+		return errutil.ErrUnusedPeek
 	})
 }
 
 // Walk executes a callback against every node in the subtree of path.
 func (m *MergeReader) Walk(walkPath string, f func(string, *NodeProto) error) error {
+	before, err := m.mq.peek()
+	if err != nil {
+		fmt.Println("peek err", err)
+		return err
+	}
+
 	walkPath = clean(walkPath)
-	return m.nodes(func(path string, node *NodeProto) error {
+	fmt.Println("mr walking", walkPath)
+	err = m.nodes(func(path string, node *NodeProto) error {
 		if path == "" {
 			path = "/"
 		}
 		if path != walkPath && !strings.HasPrefix(path, walkPath+"/") {
-			return nil
+			fmt.Println("mr walk STOP returning nil prefunc p", path, "walkpath", walkPath)
+			return errutil.ErrStop
 		}
+		fmt.Println("mr walk calling callback p", path, "walkpath", walkPath)
 		if err := f(path, node); err != nil {
 			if err == errutil.ErrBreak {
 				return nil
@@ -1329,26 +1372,139 @@ func (m *MergeReader) Walk(walkPath string, f func(string, *NodeProto) error) er
 		}
 		return nil
 	})
-}
 
-func (m *MergeReader) nodes(f func(string, *NodeProto) error) error {
-	for m.mq.q[1] != nil {
-		// Get next node
-		ns, err := m.mq.next()
+	if err != nil {
+		fmt.Println("walk nodes err", err)
+		return err
+	}
+
+	after, err := m.mq.peek()
+	if err != nil {
+		if err == errutil.ErrBreak {
+			fmt.Println("walk break")
+			return nil
+		}
+		fmt.Println("walk after err", err)
+		return err
+	}
+	if bytes.Compare(after[0].k, before[0].k) == 0 {
+		fmt.Println("walk never popped")
+		_, err := m.mq.next()
 		if err != nil {
-			return err
-		}
-		// Unmarshal node and run callback
-		n := ns[0]
-		n.nodeProto = &NodeProto{}
-		if err := n.nodeProto.Unmarshal(n.v); err != nil {
-			return err
-		}
-		if err := f(s(n.k), n.nodeProto); err != nil {
+			fmt.Println("walk error nexting", err)
 			return err
 		}
 	}
 	return nil
+}
+
+func (m *MergeReader) nodes(f func(string, *NodeProto) error) error {
+	fmt.Println("mq length", len(m.mq.q))
+	// for m.mq.q[1] != nil {
+	// 	ns, err := m.mq.peek()
+	// 	// Unmarshal node and run callback
+	// 	n := ns[0]
+	// 	n.nodeProto = &NodeProto{}
+	// 	if err := n.nodeProto.Unmarshal(n.v); err != nil {
+	// 		return err
+	// 	}
+	// 	fmt.Println("peeked on ", n.nodeProto.Name)
+
+	// 	err = f(s(n.k), n.nodeProto)
+	// 	if err == errutil.ErrUnusedPeek {
+	// 		// Node not used, do not increment the priority queue.
+	// 		fmt.Println("unused peek on nodeproto", n.nodeProto.Name)
+	// 		continue
+	// 	} else if err != nil {
+	// 		return err
+	// 	}
+	// 	// Node was used, get next node
+	// 	fmt.Println("nexting, used peek on nodeproto", n.nodeProto.Name)
+	// 	_, err = m.mq.next()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// }
+	// return nil
+
+	//WIP peeking first
+	for m.mq.q[1] != nil {
+		// See what's in the peeked node
+		before, err := m.mq.peek()
+		if err != nil {
+			fmt.Println("peek err", err)
+			return err
+		}
+		p := before[0]
+		p.nodeProto = &NodeProto{}
+		if err := p.nodeProto.Unmarshal(p.v); err != nil {
+			fmt.Println("peek unmarshaling err", err)
+		}
+		fmt.Println("peeked node", p.nodeProto.Name)
+		// Get next node
+		// ns, err := m.mq.next()
+		// if err != nil {
+		// 	return err
+		// }
+		// // Unmarshal node and run callback
+		// n := ns[0]
+		// n.nodeProto = &NodeProto{}
+		// if err := n.nodeProto.Unmarshal(n.v); err != nil {
+		// 	return err
+		// }
+
+		//mt.Println("nexted node", n.nodeProto.Name)
+		if err := f(s(p.k), p.nodeProto); err != nil {
+			if err == errutil.ErrStop {
+				fmt.Println("errstop, breaking out")
+				return nil
+			}
+			return err
+		}
+
+		after, err := m.mq.peek()
+		if err != nil {
+			if err == errutil.ErrBreak {
+				fmt.Println("nodes break")
+				return nil
+			}
+			fmt.Println("after err", err)
+			return err
+		}
+		if bytes.Compare(after[0].k, before[0].k) == 0 {
+			fmt.Println("nodes never popped")
+			_, err := m.mq.next()
+			if err != nil {
+				fmt.Println("error nexting", err)
+				return err
+			}
+		}
+	}
+	return nil
+
+	// 	// AS IS plus err stoping
+	// 	for m.mq.q[1] != nil {
+	// 		// Get next node
+	// 		ns, err := m.mq.next()
+	// 		if err != nil {
+	// 			return err
+	// 		}
+	// 		// Unmarshal node and run callback
+	// 		n := ns[0]
+	// 		n.nodeProto = &NodeProto{}
+	// 		if err := n.nodeProto.Unmarshal(n.v); err != nil {
+	// 			return err
+	// 		}
+	// 		fmt.Println("nexted node", n.nodeProto.Name)
+	// 		if err := f(s(n.k), n.nodeProto); err != nil {
+	// 			if err == errutil.ErrStop {
+	// 				return nil
+	// 			}
+	// 			return err
+	// 		}
+	// 	}
+	// 	return nil
 }
 
 func hasChanged(tx *bolt.Tx, path string) bool {
