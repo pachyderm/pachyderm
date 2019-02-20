@@ -36,11 +36,6 @@ const listBucketSource = `<?xml version="1.0" encoding="UTF-8"?>
     </Buckets>
 </ListAllMyBucketsResult>`
 
-func writeOK(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusNoContent)
-	w.Write([]byte{})
-}
-
 func writeBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 }
@@ -80,7 +75,7 @@ func newHandler(pc *client.APIClient) handler {
 }
 
 func (h handler) ping(w http.ResponseWriter, r *http.Request) {
-	writeOK(w)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h handler) root(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +112,7 @@ func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/xml")
 			w.Write([]byte(locationResponse))
 		} else {
-			writeOK(w)
+			w.WriteHeader(http.StatusOK)
 		}
 	} else if r.Method == http.MethodPut {
 		err := h.pc.CreateRepo(repo)
@@ -125,18 +120,15 @@ func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			writeServerError(w, err)
 		} else {
-			writeOK(w)
+			w.WriteHeader(http.StatusOK)
 		}
 	} else if r.Method == http.MethodDelete {
 		err := h.pc.DeleteRepo(repo, false)
-		// TODO: handle 404
 
 		if err != nil {
-			fmt.Printf("XXX %s\n", err)
-			writeServerError(w, err)
+			writeMaybeNotFound(w, r, err)
 		} else {
-			fmt.Printf("YYY\n")
-			writeOK(w)
+			w.WriteHeader(http.StatusNoContent)
 		}
 	}
 }
@@ -213,7 +205,7 @@ func (h handler) putObjectVerifying(w http.ResponseWriter, r *http.Request, repo
 		return
 	}
 
-	writeOK(w)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
@@ -227,7 +219,7 @@ func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, rep
 		return
 	}
 
-	writeOK(w)
+	w.WriteHeader(http.StatusOK)
 }
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to

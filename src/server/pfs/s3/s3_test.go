@@ -38,7 +38,7 @@ func serve(t *testing.T, pc *client.APIClient) (*http.Server, uint16) {
 		res, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/_ping", port))
 		if err != nil {
 			return err
-		} else if res.StatusCode != 204 {
+		} else if res.StatusCode != 200 && res.StatusCode != 204 {
 			return fmt.Errorf("Unexpected status code: %d", res.StatusCode)
 		}
 		return nil
@@ -88,7 +88,7 @@ func TestListBuckets(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
-func TestGetFile(t *testing.T) {
+func TestGetObject(t *testing.T) {
 	repo := tu.UniqueString("testgetfile")
 	pc := server.GetPachClient(t)
 	require.NoError(t, pc.CreateRepo(repo))
@@ -106,7 +106,7 @@ func TestGetFile(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
-func TestGetFileInBranch(t *testing.T) {
+func TestGetObjectInBranch(t *testing.T) {
 	repo := tu.UniqueString("testgetfileinbranch")
 	pc := server.GetPachClient(t)
 	require.NoError(t, pc.CreateRepo(repo))
@@ -116,6 +116,56 @@ func TestGetFileInBranch(t *testing.T) {
 
 	srv, port := serve(t, pc)
 	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	fetchedContent, err := getObject(c, repo, "branch", "file")
+	require.NoError(t, err)
+	require.Equal(t, "content", fetchedContent)
+
+	require.NoError(t, srv.Close())
+}
+
+func TestStatObject(t *testing.T) {
+	repo := tu.UniqueString("teststatobject")
+	pc := server.GetPachClient(t)
+	require.NoError(t, pc.CreateRepo(repo))
+	_, err := pc.PutFile(repo, "master", "file", strings.NewReader("content"))
+	require.NoError(t, err)
+
+	// `startTime` and `endTime` will be used to ensure that an object's
+	// `LastModified` date is correct. A few minutes are subtracted/added to
+	// each to tolerate the node time not being the same as the host time.
+	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
+	_, err = pc.PutFileOverwrite(repo, "master", "file", strings.NewReader("new-content"), 0)
+	require.NoError(t, err)
+	endTime := time.Now().Add(time.Duration(5) * time.Minute)
+
+	srv, port := serve(t, pc)
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	info, err := c.StatObject(repo, "master/file")
+	require.NoError(t, err)
+	require.True(t, startTime.Before(info.LastModified))
+	require.True(t, endTime.After(info.LastModified))
+	require.Equal(t, "", info.ETag) //etags aren't returned by our API
+	require.Equal(t, "text/plain; charset=utf-8", info.ContentType)
+	require.Equal(t, int64(11), info.Size)
+
+	require.NoError(t, srv.Close())
+}
+
+func TestPutObject(t *testing.T) {
+	repo := tu.UniqueString("testputobject")
+	pc := server.GetPachClient(t)
+	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
+
+	srv, port := serve(t, pc)
+	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
+	require.NoError(t, err)
+
+	_, err = c.PutObject(repo, fmt.Sprintf("%s/%s", "branch", "file"), strings.NewReader("content"), "text/plain")
 	require.NoError(t, err)
 
 	fetchedContent, err := getObject(c, repo, "branch", "file")
@@ -151,26 +201,6 @@ func TestNonExistingRepo(t *testing.T) {
 	_, err = getObject(c, repo, "master", "file")
 	require.YesError(t, err)
 	require.Equal(t, err.Error(), "The specified bucket does not exist.")
-	require.NoError(t, srv.Close())
-}
-
-func TestPutObject(t *testing.T) {
-	repo := tu.UniqueString("testputobject")
-	pc := server.GetPachClient(t)
-	require.NoError(t, pc.CreateRepo(repo))
-	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
-
-	srv, port := serve(t, pc)
-	c, err := minio.New(fmt.Sprintf("127.0.0.1:%d", port), "id", "secret", false)
-	require.NoError(t, err)
-
-	_, err = c.PutObject(repo, fmt.Sprintf("%s/%s", "branch", "file"), strings.NewReader("content"), "text/plain")
-	require.NoError(t, err)
-
-	fetchedContent, err := getObject(c, repo, "branch", "file")
-	require.NoError(t, err)
-	require.Equal(t, "content", fetchedContent)
-
 	require.NoError(t, srv.Close())
 }
 
