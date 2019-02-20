@@ -245,7 +245,13 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 			Created:     created,
 			Description: description,
 		}
-		return repos.Put(repo.Name, repoInfo)
+		// Only Put the new repoInfo if something has changed.  This
+		// optimization is impactful because pps will frequently update the
+		// __spec__ repo to make sure it exists.
+		if !proto.Equal(repoInfo, &existingRepoInfo) {
+			return repos.Put(repo.Name, repoInfo)
+		}
+		return nil
 	})
 	return err
 }
