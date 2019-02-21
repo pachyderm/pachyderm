@@ -84,6 +84,12 @@ func (s *controllerSvc) ControllerGetCapabilities(ctx context.Context, req *csi.
 	}, nil
 }
 
+// ControllerExpandVolume implements the corresponding method of the CSI controller
+// interface
+func (s *controllerSvc) ControllerExpandVolume(ctx context.Context, req *csi.ControllerExpandVolumeRequest) (*csi.ControllerExpandVolumeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "")
+}
+
 // CreateSnapshot implements the corresponding method of the CSI controller
 // interface
 func (s *controllerSvc) CreateSnapshot(ctx context.Context, req *csi.CreateSnapshotRequest) (*csi.CreateSnapshotResponse, error) {
