@@ -73,7 +73,7 @@ func (s *controllerSvc) ControllerGetCapabilities(ctx context.Context, req *csi.
 		Capabilities: []*csi.ControllerServiceCapability{
 			{
 				// We need CreateVolume to pass information in the PVC to the Node
-				// service so we support that capability but nothing else
+				// service, so we support that capability but nothing else
 				Type: &csi.ControllerServiceCapability_Rpc{
 					Rpc: &csi.ControllerServiceCapability_RPC{
 						Type: csi.ControllerServiceCapability_RPC_CREATE_DELETE_VOLUME,
