@@ -561,15 +561,15 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
 	// make sure there isn't an unfinished commit on the branch
-	// commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master")
-	// if err != nil && !isNilBranchErr(err) {
-	// 	return err
-	// } else if commitInfo != nil && commitInfo.Finished == nil {
-	// 	// and if there is, delete it
-	// 	if err = pachClient.DeleteCommit(in.Cron.Repo, "master"); err != nil {
-	// 		return err
-	// 	}
-	// }
+	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master")
+	if err != nil && !isNilBranchErr(err) {
+		return err
+	} else if commitInfo != nil && commitInfo.Finished == nil {
+		// and if there is, delete it
+		if err = pachClient.DeleteCommit(in.Cron.Repo, "master"); err != nil {
+			return err
+		}
+	}
 
 	var latestTime time.Time
 	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
@@ -601,17 +601,17 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		}
 
 		// We need the DeleteFile and the PutFile to happen in the same commit
-		// _, err = pachClient.StartCommit(in.Cron.Repo, "master")
-		// if err != nil {
-		// 	return err
-		// }
-		// if in.Cron.Overwrite {
-		// 	// If we want to "overwrite" the file, we need to delete the file with the previous time
-		// 	err := pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
-		// 	if err != nil && !isNotFoundErr(err) && !isNilBranchErr(err) {
-		// 		return fmt.Errorf("delete error %v", err)
-		// 	}
-		// }
+		_, err = pachClient.StartCommit(in.Cron.Repo, "master")
+		if err != nil {
+			return err
+		}
+		if in.Cron.Overwrite {
+			// If we want to "overwrite" the file, we need to delete the file with the previous time
+			err := pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
+			if err != nil && !isNotFoundErr(err) && !isNilBranchErr(err) {
+				return fmt.Errorf("delete error %v", err)
+			}
+		}
 
 		// Put in an empty file named by the timestamp
 		_, err = pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader(""))
@@ -619,10 +619,10 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 			return fmt.Errorf("put error %v", err)
 		}
 
-		// err = pachClient.FinishCommit(in.Cron.Repo, "master")
-		// if err != nil {
-		// 	return err
-		// }
+		err = pachClient.FinishCommit(in.Cron.Repo, "master")
+		if err != nil {
+			return err
+		}
 
 		// set latestTime to the next time
 		latestTime = next
