@@ -7759,13 +7759,15 @@ func TestRapidUpdatePipelines(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	pipeline := tu.UniqueString("TestRapidUpdatePipelines")
+	cronInput := client.NewCronInput("time", "@every 5s")
+	// cronInput.Cron.Overwrite = true
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
-		[]string{"cp", "/pfs/time/time", "/pfs/out/time"},
+		[]string{"true"},
+		nil, //[]string{"cp /pfs/time/* /pfs/out/"},
 		nil,
-		nil,
-		client.NewCronInput("time", "@every 5s"),
+		cronInput,
 		"",
 		false,
 	))
@@ -7778,9 +7780,10 @@ func TestRapidUpdatePipelines(t *testing.T) {
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pipeline),
 				Transform: &pps.Transform{
-					Cmd: []string{"cp", "/pfs/time/time", "/pfs/out/time"},
+					Cmd: []string{"true"},
+					// Stdin: []string{"cp /pfs/time/* /pfs/out/"},
 				},
-				Input:     client.NewCronInput("time", "@every 5s"),
+				Input:     cronInput,
 				Update:    true,
 				Reprocess: true,
 			})
@@ -7792,13 +7795,13 @@ func TestRapidUpdatePipelines(t *testing.T) {
 			return err
 		}
 		if len(jis) < 10 {
-			return fmt.Errorf("should have more than 10 jobs in 2 minutes")
+			return fmt.Errorf("should have more than 10 jobs in 2 minutes %v", len(jis))
 		}
 		for i := 0; i < 5; i++ {
 			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
-			if difference < 4 {
+			if difference < 3 {
 				return fmt.Errorf("jobs too close together")
-			} else if difference > 6 {
+			} else if difference > 7 {
 				return fmt.Errorf("jobs too far apart")
 			}
 		}

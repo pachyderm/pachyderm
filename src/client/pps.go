@@ -158,7 +158,7 @@ func NewUnionInput(input ...*pps.Input) *pps.Input {
 
 // NewCronInput returns an input which will trigger based on a timed schedule.
 // It uses cron syntax to specify the schedule. The input will be exposed to
-// jobs as `/pfs/<name>/time` which will contain a timestamp.
+// jobs as `/pfs/<name>/<timestamp>`.
 func NewCronInput(name string, spec string) *pps.Input {
 	return &pps.Input{
 		Cron: &pps.CronInput{
