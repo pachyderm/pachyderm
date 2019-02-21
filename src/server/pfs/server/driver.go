@@ -2418,9 +2418,6 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 }
 
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64, recursive bool) (r io.Reader, retErr error) {
-	fmt.Println("Inside getFile")
-	fmt.Println("Initial path", file.Path)
-	//return nil, nil
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
@@ -2437,15 +2434,12 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		isInput   bool
 	)
 	collectMetadata := func(p string, child *hashtree.NodeProto) error {
-		fmt.Println("collecting metadata: ", p)
 		if child.FileNode == nil {
 			return nil
 		}
 		if isInput {
-			fmt.Println("Collecting input: ", p)
 			objects = append(objects, child.FileNode.Objects...)
 		} else {
-			fmt.Println("Collecting output: ", p)
 			blockRefs = append(blockRefs, child.FileNode.BlockRefs...)
 		}
 		totalSize += uint64(child.SubtreeSize)
@@ -2454,8 +2448,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 
 	// Handle commits to input repos
 	if commitInfo.Provenance == nil {
-		//return nil, nil
-		fmt.Println("input repo")
 		isInput = true
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
@@ -2467,11 +2459,9 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			prevDir    string
 		)
 		if err := tree.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
-			fmt.Println("Input globbing path:", p)
 			pathsFound++
 			if node.DirNode != nil {
 				if recursive {
-					fmt.Println("Input: Wallking directory path", p)
 					return tree.Walk(node.GetName(), collectMetadata)
 				}
 				return nil
@@ -2511,7 +2501,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 					}
 				}
 			}
-			fmt.Println("Input: Not walking file:", p)
 			collectMetadata(p, node)
 			return nil
 		}); err != nil {
@@ -2524,7 +2513,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 		}
 
-		fmt.Println("length", len(objects))
 		// retrieve the content of all objects in 'objects'
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
@@ -2540,8 +2528,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
 	}
 	// Handle commits to output repos
-	fmt.Println("output repo")
-	//return nil, nil
 	isInput = false
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
@@ -2566,28 +2552,23 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			}
 		}
 	}()
-	//var found bool
 	mr, err := hashtree.NewMergeReader(rs)
 	if err != nil {
 		return nil, err
 	}
 	if err := mr.Glob(file.Path, func(path string, node *hashtree.NodeProto) error {
-		fmt.Println("Output globbing path:", path)
 		if node.DirNode != nil {
 			if recursive {
-				fmt.Println("Output: Wallking directory path", path)
 				return mr.Walk(node.GetName(), collectMetadata)
 			}
 			return nil
 		}
-		fmt.Println("Output: Not walking file:", path)
 		collectMetadata(path, node)
 		//found = true
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	fmt.Println("block refs length", len(blockRefs))
 	if len(blockRefs) == 0 {
 		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
 	}
@@ -2609,7 +2590,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, file *pfs.File, f func(*pfs.GetFileResponse) error) (retErr error) {
 	var buf bytes.Buffer
 	parseFilesFromStream := func(p string, node *hashtree.NodeProto) error {
-		fmt.Println("parsing getFilesPath path", p)
 		if node.FileNode == nil {
 			return nil
 		}
@@ -2646,10 +2626,8 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 		}
 		err = tree.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
 			if node.DirNode != nil {
-				fmt.Println("gfs input glob walk path", p)
 				return tree.Walk(p, parseFilesFromStream)
 			}
-			fmt.Println("gfs input glob parse path", p)
 			return parseFilesFromStream(p, node)
 		})
 		return err
@@ -2682,10 +2660,8 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	mr, err := hashtree.NewMergeReader(rs)
 	if err := mr.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
 		if node.DirNode != nil {
-			fmt.Println("gfs output glob walk path", p)
 			return mr.Walk(p, parseFilesFromStream)
 		}
-		fmt.Println("gfs output glob parse path", p)
 		return parseFilesFromStream(p, node)
 	}); err != nil {
 		return err

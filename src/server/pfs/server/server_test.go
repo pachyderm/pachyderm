@@ -1995,7 +1995,7 @@ func TestGetFiles(t *testing.T) {
 	require.Equal(t, i, 4)
 }
 
-func TestGetFilesDirectory(t *testing.T) {
+func TestGetFilesRecursive(t *testing.T) {
 	c := GetPachClient(t)
 
 	// Put some files in a new repo/commit.
@@ -2025,8 +2025,7 @@ func TestGetFilesDirectory(t *testing.T) {
 		i++
 		return nil
 	}))
-	fmt.Println("i", i)
-	require.Equal(t, i, 6)
+	require.Equal(t, i, len(paths))
 }
 
 func TestManyPutsSingleFileSingleCommit(t *testing.T) {
