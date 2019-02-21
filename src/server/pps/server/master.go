@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path"
@@ -10,7 +9,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 	log "github.com/sirupsen/logrus"
@@ -562,37 +560,72 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 	if err != nil {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
-	var tstamp *types.Timestamp
-	var buffer bytes.Buffer
-	if err := pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
+	// make sure there isn't an unfinished commit on the branch
+	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master")
+	if err != nil && !isNilBranchErr(err) {
 		return err
-	} else if err != nil {
+	} else if commitInfo != nil && commitInfo.Finished == nil {
+		// and if there is, delete it
+		if err = pachClient.DeleteCommit(in.Cron.Repo, "master"); err != nil {
+			return err
+		}
+	}
+
+	var latestTime time.Time
+	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
+	if err != nil && !isNilBranchErr(err) {
+		return err
+	} else if err != nil || len(files) == 0 {
 		// File not found, this happens the first time the pipeline is run
-		tstamp = in.Cron.Start
+		latestTime, err = types.TimestampFromProto(in.Cron.Start)
+		if err != nil {
+			return err
+		}
 	} else {
-		tstamp = &types.Timestamp{}
-		if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
+		// Take the name of the most recent file as the latest timestamp
+		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
+		// from largest unit of time to smallest, so the most recent file will be the last one
+		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		if err != nil {
 			return err
 		}
 	}
-	t, err := types.TimestampFromProto(tstamp)
-	if err != nil {
-		return err
-	}
+
 	for {
-		t = schedule.Next(t)
-		time.Sleep(time.Until(t))
-		timestamp, err := types.TimestampProto(t)
+		// get the time of the next time from the latest time using the cron schedule
+		next := schedule.Next(latestTime)
+		// and wait until then to make the next commit
+		time.Sleep(time.Until(next))
 		if err != nil {
 			return err
 		}
-		timeString, err := (&jsonpb.Marshaler{}).MarshalToString(timestamp)
+
+		// We need the DeleteFile and the PutFile to happen in the same commit
+		_, err = pachClient.StartCommit(in.Cron.Repo, "master")
 		if err != nil {
 			return err
 		}
-		if _, err := pachClient.PutFileOverwrite(in.Cron.Repo, "master", "time", strings.NewReader(timeString), 0); err != nil {
+		if in.Cron.Overwrite {
+			// If we want to "overwrite" the file, we need to delete the file with the previous time
+			err := pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
+			if err != nil && !isNotFoundErr(err) && !isNilBranchErr(err) {
+				return fmt.Errorf("delete error %v", err)
+			}
+		}
+
+		// Put in an empty file named by the timestamp
+		_, err = pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader(""))
+		if err != nil {
+			return fmt.Errorf("put error %v", err)
+		}
+
+		err = pachClient.FinishCommit(in.Cron.Repo, "master")
+		if err != nil {
 			return err
 		}
+
+		// set latestTime to the next time
+		latestTime = next
 	}
 }
 
