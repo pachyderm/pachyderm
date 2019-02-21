@@ -3,7 +3,7 @@
     "name": "GoT_train"
   },
   "transform": {
-    "image": "tensor_flow_rnn_got",
+    "image": "nickharvey/tensorflow_0_10_rnn_got:v1",
     "cmd": [ "sh" ],
     "stdin": [
       "cd /code && python ptb_word_lm.py --data_path=/pfs/GoT_scripts/ --model=test --model_path_prefix=/pfs/out/"
@@ -24,7 +24,7 @@
     "name": "GoT_generate"
   },
   "transform": {
-    "image": "tensor_flow_rnn_got",
+    "image": "nickharvey/tensorflow_0_10_rnn_got:v1",
     "cmd": [ "sh" ],
     "stdin": [
       "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/pfs/GoT_train > /pfs/out/new_script.txt"
