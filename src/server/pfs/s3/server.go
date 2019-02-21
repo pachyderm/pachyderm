@@ -5,22 +5,28 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
-	"text/template"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
+
+const defaultMaxKeys = 1000
 
 const locationResponse = `<?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
 
-const listBucketSource = `<?xml version="1.0" encoding="UTF-8"?>
+const listBucketsSource = `<?xml version="1.0" encoding="UTF-8"?>
 <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01">
     <Owner>
     	<ID>000000000000000000000000000000</ID>
@@ -35,6 +41,35 @@ const listBucketSource = `<?xml version="1.0" encoding="UTF-8"?>
         {{ end }}
     </Buckets>
 </ListAllMyBucketsResult>`
+
+const listObjectsSource = `<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+    <Name>{{ .bucket }}</Name>
+    <Prefix>{{ .prefix }}</Prefix>
+    <Marker>{{ .marker }}</Marker>
+    <MaxKeys>{{ .maxKeys }}</MaxKeys>
+    <IsTruncated>{{ .isTruncated }}</IsTruncated>
+    {{ range .files }}
+	    <Contents>
+	        <Key>{{ .File.Path }}</Key>
+	        <LastModified>{{ formatTime .Committed }}</LastModified>
+	        <ETag></ETag>
+	        <Size>{{ .SizeBytes }}</Size>
+	        <StorageClass>STANDARD</StorageClass>
+	        <Owner>
+		    	<ID>000000000000000000000000000000</ID>
+		    	<DisplayName>pachyderm</DisplayName>
+	        </Owner>
+	    </Contents>
+    {{ end }}
+    {{ if .dirs }}
+	    <CommonPrefixes>
+	    	{{ range .dirs }}
+	    		<Prefix>{{ .File.Path }}</Prefix>
+	    	{{ end }}
+	    </CommonPrefixes>
+    {{ end }}
+</ListBucketResult>`
 
 func writeBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
@@ -55,6 +90,7 @@ func writeServerError(w http.ResponseWriter, err error) {
 type handler struct {
 	pc                  *client.APIClient
 	listBucketsTemplate *template.Template
+	listObjectsTemplate *template.Template
 }
 
 func newHandler(pc *client.APIClient) handler {
@@ -66,11 +102,16 @@ func newHandler(pc *client.APIClient) handler {
 
 	listBucketsTemplate := template.Must(template.New("list-buckets").
 		Funcs(funcMap).
-		Parse(listBucketSource))
+		Parse(listBucketsSource))
+
+	listObjectsTemplate := template.Must(template.New("list-objects").
+		Funcs(funcMap).
+		Parse(listObjectsSource))
 
 	return handler{
 		pc:                  pc,
 		listBucketsTemplate: listBucketsTemplate,
+		listObjectsTemplate: listObjectsTemplate,
 	}
 }
 
@@ -93,6 +134,7 @@ func (h handler) root(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/xml")
 }
 
+// TODO: handle no head commits in a branch
 func (h handler) getRepo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
@@ -102,7 +144,8 @@ func (h handler) getRepo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.pc.InspectRepo(repo); err != nil {
+	repoInfo, err := h.pc.InspectRepo(repo)
+	if err != nil {
 		writeMaybeNotFound(w, r, err)
 		return
 	}
@@ -110,9 +153,111 @@ func (h handler) getRepo(w http.ResponseWriter, r *http.Request) {
 	if _, ok := r.Form["location"]; ok {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Write([]byte(locationResponse))
-	} else {
-		w.WriteHeader(http.StatusOK)
+		return
 	}
+
+	delimiter := r.FormValue("delimiter")
+	if delimiter != "" && delimiter != "/" {
+		writeBadRequest(w, fmt.Errorf("invalid delimiter '%s'; only '/' is allowed", delimiter))
+		return
+	}
+
+	marker := r.FormValue("marker")
+	maxKeys := defaultMaxKeys
+	maxKeysStr := r.FormValue("max-keys")
+	if maxKeysStr != "" {
+		maxKeys, err = strconv.Atoi(maxKeysStr)
+		if err != nil {
+			writeBadRequest(w, fmt.Errorf("invalid max-keys value '%s': %s", maxKeysStr, err))
+			return
+		}
+		if maxKeys <= 0 {
+			writeBadRequest(w, fmt.Errorf("max-keys value '%d' is too small", maxKeys))
+			return
+		}
+		if maxKeys > defaultMaxKeys {
+			writeBadRequest(w, fmt.Errorf("max-keys value '%d' is too large; it can only go up to %d", maxKeys, defaultMaxKeys))
+			return
+		}
+	}
+
+	fullPrefix := r.FormValue("prefix")
+	fullPrefixParts := strings.SplitN(fullPrefix, "/", 2)
+	var branches []string
+	var pathPrefix string
+	if len(fullPrefixParts) >= 1 && fullPrefixParts[0] != "" {
+		branches = []string{fullPrefixParts[0]}
+	}
+	if len(fullPrefixParts) >= 2 {
+		pathPrefix = fullPrefixParts[1]
+	}
+	if branches == nil {
+		for _, branchInfo := range repoInfo.Branches {
+			branches = append(branches, branchInfo.Name)
+		}
+	}
+	sort.Strings(branches)
+
+	var files []*pfs.FileInfo
+	var dirs []*pfs.FileInfo
+	isTruncated := false
+
+	for _, branch := range branches {
+		err = h.pc.Walk(repo, branch, pathPrefix, func(fileInfo *pfs.FileInfo) error {
+			if fileInfo.FileType == pfs.FileType_FILE {
+				// update the path to match s3
+				fileInfo.File.Path = fmt.Sprintf("%s/%s", branch, fileInfo.File.Path)
+
+				if fileInfo.File.Path <= marker {
+					return nil
+				}
+
+				if len(files) == maxKeys {
+					isTruncated = true
+					return errutil.ErrBreak
+				}
+
+				files = append(files, fileInfo)
+			} else if fileInfo.FileType == pfs.FileType_DIR {
+				// skip the root directory
+				if fileInfo.File.Path == "" {
+					return nil
+				}
+
+				// update the path to match s3
+				fileInfo.File.Path = fmt.Sprintf("%s/%s/", branch, fileInfo.File.Path)
+
+				if fileInfo.File.Path <= marker {
+					return nil
+				}
+
+				dirs = append(dirs, fileInfo)
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			writeMaybeNotFound(w, r, err)
+			return
+		}
+	}
+
+	args := map[string]interface{}{
+		"bucket":      repo,
+		"prefix":      fullPrefix,
+		"marker":      marker,
+		"maxKeys":     maxKeys,
+		"isTruncated": isTruncated,
+		"files":       files,
+		"dirs":        dirs,
+	}
+	if err = h.listObjectsTemplate.Execute(w, args); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/xml")
 }
 
 func (h handler) putRepo(w http.ResponseWriter, r *http.Request) {

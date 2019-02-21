@@ -1194,7 +1194,8 @@ func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
 type WalkFn func(*pfs.FileInfo) error
 
 // Walk walks the pfs filesystem rooted at path. walkFn will be called for each
-// file found under path, this includes both regular files and directories.
+// file found under path in lexicographical order. This includes both regular
+// files and directories.
 func (c APIClient) Walk(repoName string, commitID string, path string, f WalkFn) error {
 	fs, err := c.PfsAPIClient.WalkFile(
 		c.Ctx(),

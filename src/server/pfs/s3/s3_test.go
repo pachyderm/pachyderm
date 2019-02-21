@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +61,24 @@ func getObject(c *minio.Client, repo, branch, file string) (string, error) {
 		return "", err
 	}
 	return string(bytes), err
+}
+
+func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.Time, endTime time.Time, expectedFiles []string) {
+	sort.Strings(expectedFiles)
+
+	objs := []minio.ObjectInfo{}
+	for obj := range ch {
+		objs = append(objs, obj)
+	}
+
+	require.Equal(t, len(expectedFiles), len(objs))
+	for i := 0; i < len(expectedFiles); i++ {
+		require.Equal(t, expectedFiles[i], objs[i].Key)
+		require.Equal(t, len(strings.Split(expectedFiles[i], "/")[1])+1, objs[i].Size)
+		require.Equal(t, "", objs[i].ETag)
+		require.True(t, startTime.Before(objs[i].LastModified))
+		require.True(t, endTime.After(objs[i].LastModified))
+	}
 }
 
 func TestListBuckets(t *testing.T) {
@@ -253,7 +272,7 @@ func TestBucketExists(t *testing.T) {
 	exists, err = c.BucketExists(repo2)
 	require.NoError(t, err)
 	require.False(t, exists)
-	
+
 	require.NoError(t, srv.Close())
 }
 
@@ -267,6 +286,60 @@ func TestRemoveBucket(t *testing.T) {
 
 	repo2 := tu.UniqueString("testremovebucket2")
 	require.YesError(t, c.RemoveBucket(repo2))
-	
+
+	require.NoError(t, srv.Close())
+}
+
+func TestListObjects(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	// create 2 "pages" worth of files, including 1 file in a separate branch
+	// `startTime` and `endTime` will be used to ensure that an object's
+	// `LastModified` date is correct. A few minutes are subtracted/added to
+	// each to tolerate the node time not being the same as the host time.
+	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
+	repo := tu.UniqueString("testlistobjects")
+	require.NoError(t, pc.CreateRepo(repo))
+	commit, err := pc.StartCommit(repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
+	endTime := time.Now().Add(time.Duration(5) * time.Minute)
+
+	for i := 0; i < 1001; i++ {
+		_, err = pc.PutFile(
+			repo,
+			commit.ID,
+			fmt.Sprintf("%d/%d", i%10, i),
+			strings.NewReader(fmt.Sprintf("%d\n", i)),
+		)
+		require.NoError(t, err)
+	}
+	require.NoError(t, pc.FinishCommit(repo, commit.ID))
+	_, err = pc.PutFile(repo, "branch", "1/1001", strings.NewReader("1001\n"))
+
+	// read all objects across all branches, since no prefix is specified
+	expectedFiles := []string{}
+	for i := 0; i < 1002; i++ {
+		expectedFiles = append(expectedFiles, fmt.Sprintf("%d/%d", i%10, i))
+	}
+	ch := c.ListObjects(repo, "", false, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
+	// read files in just the develop branch
+	expectedFiles = []string{"2/1002"}
+	ch = c.ListObjects(repo, "branch", false, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	ch = c.ListObjects(repo, "branch/", false, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
+	// read files in just a folder of master
+	expectedFiles = []string{}
+	for i := 0; i < 1001; i += 10 {
+		expectedFiles = append(expectedFiles, fmt.Sprintf("%d/%d", i%10, i))
+	}
+	ch = c.ListObjects(repo, "master/1", false, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
 	require.NoError(t, srv.Close())
 }
