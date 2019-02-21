@@ -531,16 +531,21 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 		}
 
-		isStartCommit := false
+		// Write 'commit' to 'openCommits' collection OR
+		// Finish 'commit' if necessary. This can happen for two reasons:
+		// 1. PutFile has been called on a finished commit (records != nil), and
+		//    we want to apply 'records' to the parentCommit, use that new
+		//    filesystem with this commit, and then finish this commit
+		// 2. BuildCommit has been called by migration (treeRef != nil) and we
+		//    want a new, finished commit with the given treeRef
 		if treeRef != nil || records != nil {
-			// BuildCommit case: Now that 'parent' is resolved, read the
-			// parent commit's tree (inside txn)
-			parentTree, err := d.getTreeForCommit(pachClient, parent)
-			if err != nil {
-				return err
-			}
 			if records != nil {
-				var err error
+				// Handle PutFile. Apply 'records' to parent commit and put result in
+				// 'treeRef'
+				parentTree, err := d.getTreeForCommit(pachClient, parent)
+				if err != nil {
+					return err
+				}
 				tree, err = parentTree.Copy()
 				if err != nil {
 					return err
@@ -558,35 +563,30 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 					return err
 				}
 			}
+
+			// treeRef is now guaranteed to be set -- finish commit
+			newCommitInfo.Tree = treeRef
+			newCommitInfo.SizeBytes = uint64(tree.FSSize())
+			newCommitInfo.Finished = now()
+
+			// If we're updating the master branch, also update the repo size
+			if branch == "master" {
+				repoInfo.SizeBytes = newCommitInfo.SizeBytes
+				if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
+					return err
+				}
+			}
 		} else {
-			isStartCommit = true
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
 		}
 
-		if treeRef != nil {
-			newCommitInfo.Tree = treeRef
-			newCommitInfo.SizeBytes = uint64(tree.FSSize())
-			newCommitInfo.Finished = now()
-		}
-
-		// Update the repo size if we're on the master branch and this is not
-		// an open commit
-		if !isStartCommit && branch == "master" {
-			repoInfo.SizeBytes = newCommitInfo.SizeBytes
-		}
-
-		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
-			return err
-		}
-
-		// 'newCommitProv' holds newCommit's provenance (use map for deduping).
+		// Build newCommit's full provenance. B/c commitInfo.Provenance is a
+		// transitive closure, there's no need to search the full provenance graph,
+		// just take the union of the immediate parents' (in the 'provenance' arg)
+		// commitInfo.Provenance
 		newCommitProv := make(map[string]*pfs.Commit)
-
-		// Build newCommit's full provenance; my provenance's provenance is my
-		// provenance (b/c provenance' is a transitive closure, there's no need to
-		// explore full graph)
 		for _, provCommit := range provenance {
 			newCommitProv[provCommit.ID] = provCommit
 			provCommitInfo := &pfs.CommitInfo{}
@@ -1266,7 +1266,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			return err
 		}
 	}
-	
+
 	// Now wait for the root commits to finish. These are not passed to `f`
 	// because it's expecting to just get downstream commits.
 	for _, commit := range fromCommits {
@@ -1800,7 +1800,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-	
+
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
@@ -3337,7 +3337,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					branch = commit.ID
 				}
 				// inspect the commit where we're adding files and figure out
-				// if this is a one-off put-file. 
+				// if this is a one-off put-file.
 				// - if 'commit' refers to an open commit                -> not oneOff
 				// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
 				// Note that if commit is a specific commit ID, it must be
