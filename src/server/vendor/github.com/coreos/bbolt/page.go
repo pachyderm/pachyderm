@@ -75,7 +75,7 @@ func (p *page) branchPageElement(index uint16) *branchPageElement {
 
 // branchPageElements retrieves a list of branch nodes.
 func (p *page) branchPageElements() []branchPageElement {
-	if p.count == 0 {
+	if p == nil || p.count == 0 {
 		return nil
 	}
 	return ((*[0x7FFFFFF]branchPageElement)(unsafe.Pointer(&p.ptr)))[:]

@@ -246,6 +246,7 @@ func (c *Cursor) next() (key []byte, value []byte, flags uint32) {
 // search recursively performs a binary search against a given page/node until it finds a given key.
 func (c *Cursor) search(key []byte, pgid pgid) {
 	p, n := c.bucket.pageNode(pgid)
+	
 	if p != nil && (p.flags&(branchPageFlag|leafPageFlag)) == 0 {
 		panic(fmt.Sprintf("invalid page type: %d: %x", p.id, p.flags))
 	}
@@ -286,6 +287,9 @@ func (c *Cursor) searchNode(key []byte, n *node) {
 }
 
 func (c *Cursor) searchPage(key []byte, p *page) {
+	if p == nil {
+		return
+	}
 	// Binary search for the correct range.
 	inodes := p.branchPageElements()
 
@@ -383,6 +387,9 @@ type elemRef struct {
 func (r *elemRef) isLeaf() bool {
 	if r.node != nil {
 		return r.node.isLeaf
+	}
+	if r.page == nil {
+		return false
 	}
 	return (r.page.flags & leafPageFlag) != 0
 }
