@@ -1591,11 +1591,10 @@ func (d *ChildCursor) V() []byte {
 
 // Next gets the next key, value pair.
 func (d *ChildCursor) Next() ([]byte, []byte) {
-	if d == nil || d.c == nil || d.k == nil || d.c.Bucket() == nil {
+	if d == nil || d.c == nil {
 		return nil, nil
 	}
-	dk1 := append(d.k, 1)
-	k, v := d.c.Seek(dk1)
+	k, v := d.c.Seek(append(d.k, 1))
 	if !bytes.HasPrefix(k, d.dir) {
 		k, v = nil, nil
 	}
