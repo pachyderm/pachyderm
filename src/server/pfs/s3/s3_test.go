@@ -109,7 +109,7 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 func nonServerError(t *testing.T, err error) {
 	t.Helper()
 	require.YesError(t, err)
-	require.NotEqual(t, "500 Internal Server Error", err.Error())
+	require.NotEqual(t, "500 Internal Server Error", err.Error(), "expected a non-500 error")
 }
 
 func TestListBuckets(t *testing.T) {

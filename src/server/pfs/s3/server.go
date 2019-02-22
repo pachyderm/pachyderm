@@ -309,12 +309,17 @@ func (h handler) getFiles(w http.ResponseWriter, r *http.Request, repo string, b
 
 func (h handler) putRepo(w http.ResponseWriter, r *http.Request, repo string) {
 	err := h.pc.CreateRepo(repo)
-
 	if err != nil {
-		writeServerError(w, err)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		if strings.Contains(err.Error(), "as it already exists") {
+			writeBadRequest(w, err)
+		} else {
+			writeServerError(w, err)
+		}
+
+		return
 	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h handler) deleteRepo(w http.ResponseWriter, r *http.Request, repo string) {
@@ -322,9 +327,10 @@ func (h handler) deleteRepo(w http.ResponseWriter, r *http.Request, repo string)
 
 	if err != nil {
 		writeMaybeNotFound(w, r, err)
-	} else {
-		w.WriteHeader(http.StatusNoContent)
+		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h handler) object(w http.ResponseWriter, r *http.Request) {
