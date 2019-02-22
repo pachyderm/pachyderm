@@ -512,8 +512,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			return err
 		}
 
-		// create/update 'branch' (if it was set) and set parent.ID (if, in addition,
-		// 'parent.ID' was not set)
+		// create/update 'branch' (if it was set) and set parent.ID (if, in
+		// addition, 'parent.ID' was not set)
 		if branch != "" {
 			branchInfo := &pfs.BranchInfo{}
 			if err := branches.Upsert(branch, branchInfo, func() error {
@@ -528,6 +528,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}); err != nil {
 				return err
 			}
+			// Add branch to repo (but repoInfo doesn't get written until below)
 			add(&repoInfo.Branches, branchInfo.Branch)
 			if len(branchInfo.Provenance) > 0 && treeRef == nil {
 				return fmt.Errorf("cannot start a commit on an output branch")
@@ -569,14 +570,16 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			// If we're updating the master branch, also update the repo size
 			if branch == "master" {
 				repoInfo.SizeBytes = newCommitInfo.SizeBytes
-				if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
-					return err
-				}
 			}
 		} else {
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
+		}
+
+		// Update repoInfo (potentially with new branch and new size)
+		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
+			return err
 		}
 
 		// Build newCommit's full provenance. B/c commitInfo.Provenance is a
@@ -1550,6 +1553,8 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		// 8) propagate the changes to 'branch' and its subvenance. This may start
 		// new HEAD commits downstream, if the new branch heads haven't been
 		// processed yet
+		// TODO(msteffen) propagate all changed branches? Use heap to topologically
+		// sort them?
 		return d.propagateCommit(stm, shortestBranch)
 	}); err != nil {
 		return fmt.Errorf("error rewriting commit graph: %v", err)
