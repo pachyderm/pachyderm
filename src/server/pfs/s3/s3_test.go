@@ -9,18 +9,19 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
-	// log "github.com/sirupsen/logrus"
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	// log "github.com/sirupsen/logrus"
 )
 
 func serve(t *testing.T, pc *client.APIClient) (*http.Server, *minio.Client) {
@@ -64,6 +65,8 @@ func getObject(c *minio.Client, repo, branch, file string) (string, error) {
 }
 
 func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.Time, endTime time.Time, expectedFiles []string) {
+	// sort expectedFiles, as the S3 gateway should always return results in
+	// sorted order
 	sort.Strings(expectedFiles)
 
 	objs := []minio.ObjectInfo{}
@@ -72,12 +75,25 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 	}
 
 	require.Equal(t, len(expectedFiles), len(objs))
+
 	for i := 0; i < len(expectedFiles); i++ {
-		require.Equal(t, expectedFiles[i], objs[i].Key)
-		require.Equal(t, len(strings.Split(expectedFiles[i], "/")[1])+1, objs[i].Size)
-		require.Equal(t, "", objs[i].ETag)
-		require.True(t, startTime.Before(objs[i].LastModified))
-		require.True(t, endTime.After(objs[i].LastModified))
+		expectedFilename := expectedFiles[i]
+		obj := objs[i]
+		require.Equal(t, expectedFilename, obj.Key)
+		require.Equal(t, "", obj.ETag, fmt.Sprintf("unexpected etag for %s", expectedFilename))
+
+		if strings.HasSuffix(expectedFilename, "/") {
+			// expected file is a dir
+			require.Equal(t, int64(0), obj.Size)
+			require.True(t, obj.LastModified.IsZero(), fmt.Sprintf("unexpected last modified for %s: %v", expectedFilename, obj.LastModified))
+
+		} else {
+			// expected file is a file
+			expectedLen := int64(len(filepath.Base(expectedFilename)) + 1)
+			require.Equal(t, expectedLen, obj.Size, fmt.Sprintf("unexpected file length for %s", expectedFilename))
+			require.True(t, startTime.Before(obj.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
+			require.True(t, endTime.After(obj.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
+		}
 	}
 }
 
@@ -294,7 +310,8 @@ func TestListObjects(t *testing.T) {
 	pc := server.GetPachClient(t)
 	srv, c := serve(t, pc)
 
-	// create 2 "pages" worth of files, including 1 file in a separate branch
+	// create a bunch of files - enough to require the use of paginated
+	// requests when browsing all files
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
@@ -304,41 +321,60 @@ func TestListObjects(t *testing.T) {
 	commit, err := pc.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
-	endTime := time.Now().Add(time.Duration(5) * time.Minute)
-
-	for i := 0; i < 1001; i++ {
+	for i := 0; i <= 1000; i++ {
 		_, err = pc.PutFile(
 			repo,
 			commit.ID,
-			fmt.Sprintf("%d/%d", i%10, i),
+			fmt.Sprintf("%d", i),
 			strings.NewReader(fmt.Sprintf("%d\n", i)),
 		)
 		require.NoError(t, err)
 	}
+	for i := 0; i < 10; i++ {
+		_, err = pc.PutFile(
+			repo,
+			commit.ID,
+			fmt.Sprintf("dir/%d", i),
+			strings.NewReader(fmt.Sprintf("%d\n", i)),
+		)
+		require.NoError(t, err)
+	}
+	_, err = pc.PutFile(repo, "branch", "1001", strings.NewReader("1001\n"))
 	require.NoError(t, pc.FinishCommit(repo, commit.ID))
-	_, err = pc.PutFile(repo, "branch", "1/1001", strings.NewReader("1001\n"))
+	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	// read all objects across all branches, since no prefix is specified
-	expectedFiles := []string{}
-	for i := 0; i < 1002; i++ {
-		expectedFiles = append(expectedFiles, fmt.Sprintf("%d/%d", i%10, i))
-	}
+	// Request that will list branches as common prefixes
 	ch := c.ListObjects(repo, "", false, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, []string{"branch/", "master/"})
+	ch = c.ListObjects(repo, "master", false, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, []string{"master/"})
 
-	// read files in just the develop branch
-	expectedFiles = []string{"2/1002"}
-	ch = c.ListObjects(repo, "branch", false, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
-	ch = c.ListObjects(repo, "branch/", false, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
-
-	// read files in just a folder of master
-	expectedFiles = []string{}
-	for i := 0; i < 1001; i += 10 {
-		expectedFiles = append(expectedFiles, fmt.Sprintf("%d/%d", i%10, i))
+	// Request that will list all files in master's root
+	ch = c.ListObjects(repo, "master/", false, make(chan struct{}))
+	expectedFiles := []string{"master/dir/"}
+	for i := 0; i <= 1000; i++ {
+		expectedFiles = append(expectedFiles, fmt.Sprintf("master/%d", i))
 	}
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
+	// Request that will list all files in master starting with 1
 	ch = c.ListObjects(repo, "master/1", false, make(chan struct{}))
+	expectedFiles = []string{}
+	for i := 0; i <= 1000; i++ {
+		file := fmt.Sprintf("master/%d", i)
+		if strings.HasPrefix(file, "master/1") {
+			expectedFiles = append(expectedFiles, file)
+		}
+
+	}
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
+	// Request that will list all files in a directory in master
+	ch = c.ListObjects(repo, "master/dir/", false, make(chan struct{}))
+	expectedFiles = []string{}
+	for i := 0; i < 10; i++ {
+		expectedFiles = append(expectedFiles, fmt.Sprintf("master/dir/%d", i))
+	}
 	checkListObjects(t, ch, startTime, endTime, expectedFiles)
 
 	require.NoError(t, srv.Close())

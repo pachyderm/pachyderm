@@ -5,12 +5,12 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"fmt"
-	"html/template"
 	"io"
 	"net/http"
-	"sort"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
@@ -18,7 +18,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
 const defaultMaxKeys = 1000
@@ -63,11 +62,11 @@ const listObjectsSource = `<?xml version="1.0" encoding="UTF-8"?>
 	    </Contents>
     {{ end }}
     {{ if .dirs }}
-	    <CommonPrefixes>
-	    	{{ range .dirs }}
-	    		<Prefix>{{ .File.Path }}</Prefix>
-	    	{{ end }}
-	    </CommonPrefixes>
+    	{{ range .dirs }}
+		    <CommonPrefixes>
+		    	<Prefix>{{ . }}/</Prefix>
+		    </CommonPrefixes>
+	    {{ end }}
     {{ end }}
 </ListBucketResult>`
 
@@ -93,6 +92,7 @@ type handler struct {
 	listObjectsTemplate *template.Template
 }
 
+// TODO: support xml escaping
 func newHandler(pc *client.APIClient) handler {
 	funcMap := template.FuncMap{
 		"formatTime": func(timestamp *types.Timestamp) string {
@@ -134,7 +134,6 @@ func (h handler) root(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/xml")
 }
 
-// TODO: handle no head commits in a branch
 func (h handler) getRepo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
@@ -157,7 +156,7 @@ func (h handler) getRepo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	delimiter := r.FormValue("delimiter")
-	if delimiter != "" && delimiter != "/" {
+	if delimiter != "/" {
 		writeBadRequest(w, fmt.Errorf("invalid delimiter '%s'; only '/' is allowed", delimiter))
 		return
 	}
@@ -172,80 +171,112 @@ func (h handler) getRepo(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if maxKeys <= 0 {
-			writeBadRequest(w, fmt.Errorf("max-keys value '%d' is too small", maxKeys))
+			writeBadRequest(w, fmt.Errorf("max-keys value %d cannot be less than 1", maxKeys))
 			return
 		}
 		if maxKeys > defaultMaxKeys {
-			writeBadRequest(w, fmt.Errorf("max-keys value '%d' is too large; it can only go up to %d", maxKeys, defaultMaxKeys))
+			writeBadRequest(w, fmt.Errorf("max-keys value %d is too large; it can only go up to %d", maxKeys, defaultMaxKeys))
 			return
 		}
 	}
 
-	fullPrefix := r.FormValue("prefix")
-	fullPrefixParts := strings.SplitN(fullPrefix, "/", 2)
-	var branches []string
-	var pathPrefix string
-	if len(fullPrefixParts) >= 1 && fullPrefixParts[0] != "" {
-		branches = []string{fullPrefixParts[0]}
-	}
-	if len(fullPrefixParts) >= 2 {
-		pathPrefix = fullPrefixParts[1]
-	}
-	if branches == nil {
-		for _, branchInfo := range repoInfo.Branches {
-			branches = append(branches, branchInfo.Name)
-		}
-	}
-	sort.Strings(branches)
+	prefix := r.FormValue("prefix")
+	prefixParts := strings.SplitN(prefix, "/", 2)
 
-	var files []*pfs.FileInfo
-	var dirs []*pfs.FileInfo
+	if len(prefixParts) == 1 {
+		branchPattern := fmt.Sprintf("%s*", prefixParts[0])
+		h.getBranches(w, r, repoInfo, branchPattern, prefix, marker, maxKeys)
+	} else {
+		branch := prefixParts[0]
+		filePattern := fmt.Sprintf("%s*", prefixParts[1])
+		h.getFiles(w, r, repo, branch, filePattern, prefix, marker, maxKeys)
+	}
+}
+
+func (h handler) getBranches(w http.ResponseWriter, r *http.Request, repoInfo *pfs.RepoInfo, pattern string, prefix string, marker string, maxKeys int) {
+	var dirs []string
 	isTruncated := false
 
-	for _, branch := range branches {
-		err = h.pc.Walk(repo, branch, pathPrefix, func(fileInfo *pfs.FileInfo) error {
-			if fileInfo.FileType == pfs.FileType_FILE {
-				// update the path to match s3
-				fileInfo.File.Path = fmt.Sprintf("%s/%s", branch, fileInfo.File.Path)
-
-				if fileInfo.File.Path <= marker {
-					return nil
-				}
-
-				if len(files) == maxKeys {
-					isTruncated = true
-					return errutil.ErrBreak
-				}
-
-				files = append(files, fileInfo)
-			} else if fileInfo.FileType == pfs.FileType_DIR {
-				// skip the root directory
-				if fileInfo.File.Path == "" {
-					return nil
-				}
-
-				// update the path to match s3
-				fileInfo.File.Path = fmt.Sprintf("%s/%s/", branch, fileInfo.File.Path)
-
-				if fileInfo.File.Path <= marker {
-					return nil
-				}
-
-				dirs = append(dirs, fileInfo)
-			}
-
-			return nil
-		})
+	// TODO: remove branches that don't have a head
+	for _, branchInfo := range repoInfo.Branches {
+		match, err := filepath.Match(pattern, branchInfo.Name)
 
 		if err != nil {
-			writeMaybeNotFound(w, r, err)
+			writeBadRequest(w, fmt.Errorf("invalid prefix '%s' (compiled to pattern '%s'): %v", prefix, pattern, err))
 			return
+		}
+
+		if !match {
+			continue
+		}
+		if len(dirs) == maxKeys {
+			isTruncated = true
+			break
+		}
+
+		dirs = append(dirs, branchInfo.Name)
+	}
+
+	args := map[string]interface{}{
+		"bucket":      repoInfo.Repo.Name,
+		"prefix":      prefix,
+		"marker":      marker,
+		"maxKeys":     maxKeys,
+		"isTruncated": isTruncated,
+		"files":       []*pfs.FileInfo{},
+		"dirs":        dirs,
+	}
+	if err := h.listObjectsTemplate.Execute(w, args); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/xml")
+}
+
+func (h handler) getFiles(w http.ResponseWriter, r *http.Request, repo string, branch string, pattern string, prefix string, marker string, maxKeys int) {
+	var files []*pfs.FileInfo
+	var dirs []string
+	isTruncated := false
+	fileInfos, err := h.pc.GlobFile(repo, branch, pattern)
+
+	// TODO: handle branches w/o heads
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	for _, fileInfo := range fileInfos {
+		isFile := fileInfo.FileType == pfs.FileType_FILE
+		isDir := fileInfo.FileType == pfs.FileType_DIR
+		if !isFile && !isDir {
+			continue
+		}
+		if len(files)+len(dirs) == maxKeys {
+			isTruncated = true
+			break
+		}
+		if isDir && fileInfo.File.Path == "" {
+			// skip the root directory
+			continue
+		}
+
+		// update the path to match s3
+		fileInfo.File.Path = fmt.Sprintf("%s%s", branch, fileInfo.File.Path)
+		if fileInfo.File.Path <= marker {
+			continue
+		}
+
+		if isFile {
+			files = append(files, fileInfo)
+		} else {
+			dirs = append(dirs, fileInfo.File.Path)
 		}
 	}
 
 	args := map[string]interface{}{
 		"bucket":      repo,
-		"prefix":      fullPrefix,
+		"prefix":      prefix,
 		"marker":      marker,
 		"maxKeys":     maxKeys,
 		"isTruncated": isTruncated,
