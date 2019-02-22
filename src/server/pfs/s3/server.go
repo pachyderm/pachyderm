@@ -141,6 +141,7 @@ func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == http.MethodDelete {
 		h.deleteRepo(w, r, repo)
 	} else {
+		// method filtering on the mux router should prevent this
 		panic("unreachable")
 	}
 }
@@ -345,6 +346,7 @@ func (h handler) object(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == http.MethodDelete {
 		h.deleteObject(w, r, branchInfo, file)
 	} else {
+		// method filtering on the mux router should prevent this
 		panic("unreachable")
 	}
 }
