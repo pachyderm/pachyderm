@@ -395,7 +395,6 @@ func (c Client) listObjectsQuery(bucketName, objectPrefix, objectMarker, delimit
 			return ListBucketResult{}, httpRespToErrorResponse(resp, bucketName, "")
 		}
 	}
-
 	// Decode listBuckets XML.
 	listBucketResult := ListBucketResult{}
 	err = xmlDecoder(resp.Body, &listBucketResult)
