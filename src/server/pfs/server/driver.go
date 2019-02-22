@@ -464,9 +464,9 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 	//    HashTree for this commit's filesystem, and then finish this commit
 	// 2. BuildCommit has been called by migration (treeRef != nil) and we
 	//    want a new, finished commit with the given treeRef
-	// In either case, retrieve (in 'tree') this commit's HashTree, so we have
-	// its size, or compute+store a new HashTree (in 'treeRef'), so we have a
-	// reference to use
+	// In either case, store this commit's HashTree in 'tree', so we have its
+	// size, and store a pointer to the tree (in object store) in 'treeRef', to
+	// put in commitInfo.Tree.
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
