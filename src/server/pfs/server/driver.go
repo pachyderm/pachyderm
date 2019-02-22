@@ -458,7 +458,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		Description: description,
 	}
 
-	// FinishCommit case. We need to create AND finish 'commit' in two cases:
+	// FinishCommit case. We need to create AND finish 'newCommit' in two cases:
 	// 1. PutFile has been called on a finished commit (records != nil), and
 	//    we want to apply 'records' to the parentCommit's HashTree, use that new
 	//    HashTree for this commit's filesystem, and then finish this commit
@@ -466,7 +466,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 	//    want a new, finished commit with the given treeRef
 	// In either case, store this commit's HashTree in 'tree', so we have its
 	// size, and store a pointer to the tree (in object store) in 'treeRef', to
-	// put in commitInfo.Tree.
+	// put in newCommitInfo.Tree.
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
@@ -559,8 +559,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 		}
 
-		// Write 'commit' to 'openCommits' collection OR
-		// Finish 'commit' (if treeRef != nil; see "FinishCommit case" above)
+		// Write 'newCommit' to 'openCommits' collection OR
+		// Finish 'newCommit' (if treeRef != nil; see "FinishCommit case" above)
 		if treeRef != nil {
 			newCommitInfo.Tree = treeRef
 			newCommitInfo.SizeBytes = uint64(tree.FSSize())
