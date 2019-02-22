@@ -130,18 +130,30 @@ func (h handler) root(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/xml")
 }
 
-func (h handler) getRepo(w http.ResponseWriter, r *http.Request) {
+func (h handler) repo(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
 
-	if err := r.ParseForm(); err != nil {
-		writeBadRequest(w, err)
-		return
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		h.getRepo(w, r, repo)
+	} else if r.Method == http.MethodPut {
+		h.putRepo(w, r, repo)
+	} else if r.Method == http.MethodDelete {
+		h.deleteRepo(w, r, repo)
+	} else {
+		panic("unreachable")
 	}
+}
 
+func (h handler) getRepo(w http.ResponseWriter, r *http.Request, repo string) {
 	repoInfo, err := h.pc.InspectRepo(repo)
 	if err != nil {
 		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		writeBadRequest(w, err)
 		return
 	}
 
@@ -294,10 +306,7 @@ func (h handler) getFiles(w http.ResponseWriter, r *http.Request, repo string, b
 	w.Header().Set("Content-Type", "application/xml")
 }
 
-func (h handler) putRepo(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	repo := vars["repo"]
-
+func (h handler) putRepo(w http.ResponseWriter, r *http.Request, repo string) {
 	err := h.pc.CreateRepo(repo)
 
 	if err != nil {
@@ -307,10 +316,7 @@ func (h handler) putRepo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h handler) deleteRepo(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	repo := vars["repo"]
-
+func (h handler) deleteRepo(w http.ResponseWriter, r *http.Request, repo string) {
 	err := h.pc.DeleteRepo(repo, false)
 
 	if err != nil {
@@ -320,21 +326,38 @@ func (h handler) deleteRepo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h handler) getObject(w http.ResponseWriter, r *http.Request) {
+func (h handler) object(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
 	branch := vars["branch"]
 	file := vars["file"]
 
-	fileInfo, err := h.pc.InspectFile(repo, branch, file)
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		if strings.Contains(err.Error(), "has no head") {
-			// occurs if the branch exists, but there's no head commit
-			http.NotFound(w, r)
-		} else {
-			writeMaybeNotFound(w, r, err)
-		}
+		writeMaybeNotFound(w, r, err)
+		return
+	}
 
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		h.getObject(w, r, branchInfo, file)
+	} else if r.Method == http.MethodPut {
+		h.putObject(w, r, branchInfo, file)
+	} else if r.Method == http.MethodDelete {
+		h.deleteObject(w, r, branchInfo, file)
+	} else {
+		panic("unreachable")
+	}
+}
+
+func (h handler) getObject(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+	if branchInfo.Head == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
 		return
 	}
 
@@ -344,7 +367,7 @@ func (h handler) getObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reader, err := h.pc.GetFileReadSeeker(repo, branch, file)
+	reader, err := h.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
 	if err != nil {
 		writeServerError(w, err)
 		return
@@ -353,79 +376,57 @@ func (h handler) getObject(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, "", timestamp, reader)
 }
 
-func (h handler) putObject(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	repo := vars["repo"]
-	branch := vars["branch"]
-	file := vars["file"]
-
+func (h handler) putObject(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	expectedHash := r.Header.Get("Content-MD5")
 
 	if expectedHash != "" {
 		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
-
 		if err != nil {
 			writeBadRequest(w, fmt.Errorf("could not decode `Content-MD5`, as it is not base64-encoded"))
 			return
 		}
 
-		h.putObjectVerifying(w, r, repo, branch, file, expectedHashBytes)
+		hasher := md5.New()
+		reader := io.TeeReader(r.Body, hasher)
+
+		_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
+		if err != nil {
+			writeServerError(w, err)
+			return
+		}
+
+		actualHash := hasher.Sum(nil)
+		if !bytes.Equal(expectedHashBytes, actualHash) {
+			err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
+			writeBadRequest(w, err)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	h.putObjectUnverified(w, r, repo, branch, file)
-}
-
-func (h handler) putObjectVerifying(w http.ResponseWriter, r *http.Request, repo, branch, file string, expectedHash []byte) {
-	hasher := md5.New()
-	reader := io.TeeReader(r.Body, hasher)
-
-	_, err := h.pc.PutFileOverwrite(repo, branch, file, reader, 0)
+	_, err := h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, r.Body, 0)
 	if err != nil {
-		// the error may be because the repo or branch does not exist -
-		// double-check that by inspecting the branch, so we can serve a 404
-		// instead
-		_, inspectError := h.pc.InspectBranch(repo, branch)
-		writeMaybeNotFound(w, r, inspectError)
-		return
-	}
-
-	actualHash := hasher.Sum(nil)
-
-	if !bytes.Equal(expectedHash, actualHash) {
-		err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
-		writeBadRequest(w, err)
+		writeServerError(w, err)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h handler) putObjectUnverified(w http.ResponseWriter, r *http.Request, repo, branch, file string) {
-	_, err := h.pc.PutFileOverwrite(repo, branch, file, r.Body, 0)
-	if err != nil {
-		// the error may be because the repo or branch does not exist -
-		// double-check that by inspecting the branch, so we can serve a 404
-		// instead
-		_, inspectError := h.pc.InspectBranch(repo, branch)
-		writeMaybeNotFound(w, r, inspectError)
+func (h handler) deleteObject(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+	if branchInfo.Head == nil {
+		http.NotFound(w, r)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-}
-
-func (h handler) removeObject(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	repo := vars["repo"]
-	branch := vars["branch"]
-	file := vars["file"]
-
-	if err := h.pc.DeleteFile(repo, branch, file); err != nil {
+	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
 		writeMaybeNotFound(w, r, err)
-	} else {
-		w.WriteHeader(http.StatusNoContent)
+		return
 	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
@@ -455,12 +456,8 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	// repo validation regex is the same as minio
 	router := mux.NewRouter()
 	router.HandleFunc(`/`, handler.root).Methods("GET", "HEAD")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.getRepo).Methods("GET", "HEAD")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.putRepo).Methods("PUT")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.deleteRepo).Methods("DELETE")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.getObject).Methods("GET", "HEAD")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.putObject).Methods("PUT")
-	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.removeObject).Methods("DELETE")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, handler.repo).Methods("GET", "HEAD", "PUT", "DELETE")
+	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.object).Methods("GET", "HEAD", "PUT", "DELETE")
 
 	// Note: error log is not customized on this `http.Server`, which means
 	// it'll default to using the stdlib logger and produce log messages that
