@@ -464,34 +464,16 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 	//    HashTree for this commit's filesystem, and then finish this commit
 	// 2. BuildCommit has been called by migration (treeRef != nil) and we
 	//    want a new, finished commit with the given treeRef
-	// In either case, store this commit's HashTree in 'tree', so we have its
-	// size, and store a pointer to the tree (in object store) in 'treeRef', to
-	// put in newCommitInfo.Tree. Actually finish the commit inside txn below.
+	// - In either case, store this commit's HashTree in 'tree', so we have its
+	//   size, and store a pointer to the tree (in object store) in 'treeRef', to
+	//   put in newCommitInfo.Tree.
+  // - We also don't want to resolve 'branch' or 'parent.ID' (if it's a branch)
+  //   outside the txn below, so the 'PutFile' case is handled (by computing
+	//   'tree' and 'treeRef') below as well
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
 		tree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
-		if err != nil {
-			return nil, err
-		}
-	} else if records != nil {
-		parentTree, err := d.getTreeForCommit(pachClient, parent)
-		if err != nil {
-			return nil, err
-		}
-		tree, err = parentTree.Copy()
-		if err != nil {
-			return nil, err
-		}
-		for i, record := range records {
-			if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
-				return nil, err
-			}
-		}
-		if err := tree.Hash(); err != nil {
-			return nil, err
-		}
-		treeRef, err = hashtree.PutHashTree(pachClient, tree)
 		if err != nil {
 			return nil, err
 		}
@@ -560,14 +542,40 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 		}
 
-		// Write 'newCommit' to 'openCommits' collection OR
-		// Finish 'newCommit' (if treeRef != nil; see "FinishCommit case" above)
-		if treeRef != nil {
+		// 1. Write 'newCommit' to 'openCommits' collection OR
+		// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
+		//    "FinishCommit case" above)
+		if treeRef != nil || records != nil {
+			if records != nil {
+				parentTree, err := d.getTreeForCommit(pachClient, parent)
+				if err != nil {
+					return nil, err
+				}
+				tree, err = parentTree.Copy()
+				if err != nil {
+					return err
+				}
+				for i, record := range records {
+					if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
+						return err
+					}
+				}
+				if err := tree.Hash(); err != nil {
+					return err
+				}
+				treeRef, err = hashtree.PutHashTree(pachClient, tree)
+				if err != nil {
+					return err
+				}
+			}
+			
+			// now 'treeRef' is guaranteed to be set
 			newCommitInfo.Tree = treeRef
 			newCommitInfo.SizeBytes = uint64(tree.FSSize())
 			newCommitInfo.Finished = now()
 
-			// If we're updating the master branch, also update the repo size
+			// If we're updating the master branch, also set the repo size (persisted
+      // below, along with new branch)
 			if branch == "master" {
 				repoInfo.SizeBytes = newCommitInfo.SizeBytes
 			}
