@@ -458,12 +458,40 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		Description: description,
 	}
 
-	//  BuildCommit case: if the caller passed a tree reference with the commit
-	// contents then retrieve the full tree so we can compute its size
+	// FinishCommit case. We need to create AND finish 'commit' in two cases:
+	// 1. PutFile has been called on a finished commit (records != nil), and
+	//    we want to apply 'records' to the parentCommit's HashTree, use that new
+	//    HashTree for this commit's filesystem, and then finish this commit
+	// 2. BuildCommit has been called by migration (treeRef != nil) and we
+	//    want a new, finished commit with the given treeRef
+	// In either case, retrieve (in 'tree') this commit's HashTree, so we have
+	// its size, or compute+store a new HashTree (in 'treeRef'), so we have a
+	// reference to use
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
 		tree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
+		if err != nil {
+			return nil, err
+		}
+	} else if records != nil {
+		parentTree, err := d.getTreeForCommit(pachClient, parent)
+		if err != nil {
+			return nil, err
+		}
+		tree, err = parentTree.Copy()
+		if err != nil {
+			return nil, err
+		}
+		for i, record := range records {
+			if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
+				return nil, err
+			}
+		}
+		if err := tree.Hash(); err != nil {
+			return nil, err
+		}
+		treeRef, err = hashtree.PutHashTree(pachClient, tree)
 		if err != nil {
 			return nil, err
 		}
@@ -532,39 +560,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		}
 
 		// Write 'commit' to 'openCommits' collection OR
-		// Finish 'commit' if necessary. This can happen for two reasons:
-		// 1. PutFile has been called on a finished commit (records != nil), and
-		//    we want to apply 'records' to the parentCommit, use that new
-		//    filesystem with this commit, and then finish this commit
-		// 2. BuildCommit has been called by migration (treeRef != nil) and we
-		//    want a new, finished commit with the given treeRef
-		if treeRef != nil || records != nil {
-			if records != nil {
-				// Handle PutFile. Apply 'records' to parent commit and put result in
-				// 'treeRef'
-				parentTree, err := d.getTreeForCommit(pachClient, parent)
-				if err != nil {
-					return err
-				}
-				tree, err = parentTree.Copy()
-				if err != nil {
-					return err
-				}
-				for i, record := range records {
-					if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
-						return err
-					}
-				}
-				if err := tree.Hash(); err != nil {
-					return err
-				}
-				treeRef, err = hashtree.PutHashTree(pachClient, tree)
-				if err != nil {
-					return err
-				}
-			}
-
-			// treeRef is now guaranteed to be set -- finish commit
+		// Finish 'commit' (if treeRef != nil; see "FinishCommit case" above)
+		if treeRef != nil {
 			newCommitInfo.Tree = treeRef
 			newCommitInfo.SizeBytes = uint64(tree.FSSize())
 			newCommitInfo.Finished = now()
