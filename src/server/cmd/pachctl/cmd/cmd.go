@@ -26,10 +26,11 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
+	pshcmds "github.com/pachyderm/pachyderm/src/server/psh"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 
 	log "github.com/sirupsen/logrus"
@@ -211,6 +212,10 @@ Environment variables:
 	}
 	debugCmds := debugcmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range debugCmds {
+		rootCmd.AddCommand(cmd)
+	}
+	pshCmds := pshcmds.Cmds(&noMetrics, &noPortForwarding)
+	for _, cmd := range pshCmds {
 		rootCmd.AddCommand(cmd)
 	}
 
