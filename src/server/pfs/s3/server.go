@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"text/template"
@@ -221,6 +222,12 @@ func (h handler) getBranches(w http.ResponseWriter, r *http.Request, repoInfo *p
 		return
 	}
 
+	// `branchInfos` is not sorted by default, but we need to sort in order to
+	// match the s3 spec
+	sort.Slice(branchInfos, func(i, j int) bool {
+		return branchInfos[i].Branch.Name < branchInfos[j].Branch.Name
+	})
+
 	for _, branchInfo := range branchInfos {
 		match, err := filepath.Match(pattern, branchInfo.Branch.Name)
 		if err != nil {
@@ -262,10 +269,20 @@ func (h handler) getBranches(w http.ResponseWriter, r *http.Request, repoInfo *p
 func (h handler) getFiles(w http.ResponseWriter, r *http.Request, repo string, branch string, pattern string, prefix string, marker string, maxKeys int) {
 	var files []*pfs.FileInfo
 	var dirs []string
+
+	// ensure the branch exists and has a head
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	if branchInfo.Head == nil {
+		http.NotFound(w, r)
+		return
+	}
+
 	isTruncated := false
 	fileInfos, err := h.pc.GlobFile(repo, branch, pattern)
-
-	// TODO: handle branches w/o heads
 	if err != nil {
 		writeServerError(w, err)
 		return

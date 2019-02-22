@@ -78,6 +78,7 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 
 	objs := []minio.ObjectInfo{}
 	for obj := range ch {
+		require.NoError(t, obj.Err)
 		objs = append(objs, obj)
 	}
 
@@ -409,15 +410,14 @@ func TestRemoveBucket(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
-func TestListObjects(t *testing.T) {
+func TestListObjectsPaginated(t *testing.T) {
 	pc := server.GetPachClient(t)
 	srv, c := serve(t, pc)
 
 	// create a bunch of files - enough to require the use of paginated
 	// requests when browsing all files. One file will be included on a
 	// separate branch to ensure it's not returned when querying against the
-	// master branch. We also create a branch `emptybranch`. Because it has no
-	// head commit, it should not show up when listing branches.
+	// master branch.
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
@@ -426,8 +426,6 @@ func TestListObjects(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	commit, err := pc.StartCommit(repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
-	require.NoError(t, pc.CreateBranch(repo, "emptybranch", "", nil))
 	for i := 0; i <= 1000; i++ {
 		_, err = pc.PutFile(
 			repo,
@@ -450,14 +448,8 @@ func TestListObjects(t *testing.T) {
 	require.NoError(t, pc.FinishCommit(repo, commit.ID))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	// Request that will list branches as common prefixes
-	ch := c.ListObjects(repo, "", false, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, []string{"branch/", "master/"})
-	ch = c.ListObjects(repo, "master", false, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, []string{"master/"})
-
 	// Request that will list all files in master's root
-	ch = c.ListObjects(repo, "master/", false, make(chan struct{}))
+	ch := c.ListObjects(repo, "master/", false, make(chan struct{}))
 	expectedFiles := []string{"master/dir/"}
 	for i := 0; i <= 1000; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("master/%d", i))
@@ -483,6 +475,52 @@ func TestListObjects(t *testing.T) {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("master/dir/%d", i))
 	}
 	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
+	require.NoError(t, srv.Close())
+}
+
+func TestListObjectsBranches(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("testlistobjectsbranches")
+	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
+	require.NoError(t, pc.CreateBranch(repo, "emptybranch", "", nil))
+
+	// put files on `master` and `branch`, but not on `emptybranch`. As a
+	// result, `emptybranch` will have no head commit.
+	_, err := pc.PutFile(repo, "master", "1", strings.NewReader("1\n"))
+	require.NoError(t, err)
+	_, err = pc.PutFile(repo, "branch", "2", strings.NewReader("2\n"))
+	require.NoError(t, err)
+
+	// Request that will list branches as common prefixes
+	ch := c.ListObjects(repo, "", false, make(chan struct{}))
+	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{"branch/", "master/"})
+	ch = c.ListObjects(repo, "master", false, make(chan struct{}))
+	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{"master/"})
+
+	require.NoError(t, srv.Close())
+}
+
+func TestListObjectsHeadlessBranch(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	repo := tu.UniqueString("testlistobjectsheadlessbranch")
+	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "emptybranch", "", nil))
+
+	// Request into branch that has no head
+	ch := c.ListObjects(repo, "emptybranch/", false, make(chan struct{}))
+	objs := []minio.ObjectInfo{}
+	for obj := range ch {
+		objs = append(objs, obj)
+	}
+
+	require.Equal(t, len(objs), 1)
+	nonServerError(t, objs[0].Err)
 
 	require.NoError(t, srv.Close())
 }
