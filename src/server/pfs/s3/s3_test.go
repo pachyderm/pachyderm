@@ -353,19 +353,29 @@ func TestGetObjectNoRepo(t *testing.T) {
 func TestMakeBucket(t *testing.T) {
 	pc := server.GetPachClient(t)
 	srv, c := serve(t, pc)
-
-	repo1 := tu.UniqueString("testmakebucket1")
-	require.NoError(t, c.MakeBucket(repo1, ""))
-
-	repo2 := tu.UniqueString("testmakebucket2")
-	require.NoError(t, c.MakeBucket(repo2, "us-east-1"))
-
-	_, err := pc.InspectRepo(repo1)
+	repo := tu.UniqueString("testmakebucket")
+	require.NoError(t, c.MakeBucket(repo, ""))
+	_, err := pc.InspectRepo(repo)
 	require.NoError(t, err)
+	require.NoError(t, srv.Close())
+}
 
-	_, err = pc.InspectRepo(repo2)
+func TestMakeBucketWithRegion(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+	repo := tu.UniqueString("testmakebucketwithregion")
+	require.NoError(t, c.MakeBucket(repo, "us-east-1"))
+	_, err := pc.InspectRepo(repo)
 	require.NoError(t, err)
+	require.NoError(t, srv.Close())
+}
 
+func TestMakeBucketRedundant(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+	repo := tu.UniqueString("testmakebucketredundant")
+	require.NoError(t, c.MakeBucket(repo, ""))
+	nonServerError(t, c.MakeBucket(repo, ""))
 	require.NoError(t, srv.Close())
 }
 
