@@ -25,8 +25,6 @@ import (
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
 
-// TODO: tests to redundantly put bucket, branch
-
 func serve(t *testing.T, pc *client.APIClient) (*http.Server, *minio.Client) {
 	t.Helper()
 
