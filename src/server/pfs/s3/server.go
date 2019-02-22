@@ -152,6 +152,13 @@ func (h handler) getRepo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	delimiter := r.FormValue("delimiter")
+	if delimiter == "" {
+		// Just return OK so the callee knows that the bucket exists. This is
+		// to support `BucketExists`, which is a `HEAD` request on `/<repo>/`.
+		// TODO: should this be implemented more thoroughly?
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	if delimiter != "/" {
 		writeBadRequest(w, fmt.Errorf("invalid delimiter '%s'; only '/' is allowed", delimiter))
 		return
@@ -464,7 +471,8 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			log.Debugf("s3 gateway request: %s %s", r.Method, r.RequestURI)
+			// TODO: reduce log level
+			log.Infof("s3 gateway request: %s %s", r.Method, r.RequestURI)
 			router.ServeHTTP(w, r)
 		}),
 	}
