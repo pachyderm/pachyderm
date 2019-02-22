@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -24,6 +25,13 @@ import (
 const (
 	defaultLimit  int64  = 262144
 	DefaultPrefix string = "pachyderm/1.7.0"
+)
+
+var (
+	// ErrNotClaimed is an error used to indicate that a different requester beat
+	// the current requester to a key claim.
+	ErrNotClaimed = fmt.Errorf("NOT_CLAIMED")
+	ttl           = int64(30)
 )
 
 type collection struct {
@@ -88,6 +96,51 @@ func (c *collection) ReadOnly(ctx context.Context) ReadonlyCollection {
 		collection: c,
 		ctx:        ctx,
 	}
+}
+
+func (c *collection) Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error {
+	var claimed bool
+	if _, err := NewSTM(ctx, c.etcdClient, func(stm STM) error {
+		readWriteC := c.ReadWrite(stm)
+		if err := readWriteC.Get(key, val); err != nil {
+			if !IsErrNotFound(err) {
+				return err
+			}
+			claimed = true
+			return readWriteC.PutTTL(key, val, ttl)
+		}
+		claimed = false
+		return nil
+	}); err != nil {
+		return err
+	}
+	if !claimed {
+		return ErrNotClaimed
+	}
+	claimCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		for {
+			select {
+			case <-time.After((time.Second * time.Duration(ttl)) / 2):
+				// (bryce) potential race condition, goroutine does PutTTL after Put for completion which deletes work
+				// potential way around this is to have this only update the lease and not do a put (maybe through keepalive?)
+				if _, err := NewSTM(claimCtx, c.etcdClient, func(stm STM) error {
+					readWriteC := c.ReadWrite(stm)
+					if err := readWriteC.Get(key, val); err != nil {
+						return err
+					}
+					return readWriteC.PutTTL(key, val, ttl)
+				}); err != nil {
+					cancel()
+					return
+				}
+			case <-claimCtx.Done():
+				return
+			}
+		}
+	}()
+	return f(claimCtx)
 }
 
 // Path returns the full path of a key in the etcd namespace
@@ -544,12 +597,8 @@ func (c *readonlyCollection) Count() (int64, error) {
 
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
-func (c *readonlyCollection) Watch() (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template)
-}
-
-func (c *readonlyCollection) WatchWithPrev() (watch.Watcher, error) {
-	return watch.NewWatcherWithPrev(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template)
+func (c *readonlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template, opts...)
 }
 
 // WatchByIndex watches items in a collection that match a particular index

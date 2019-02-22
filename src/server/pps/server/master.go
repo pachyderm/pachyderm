@@ -61,7 +61,7 @@ func (a *apiServer) master() {
 
 		log.Infof("Launching PPS master process")
 
-		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
+		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch(watch.WithPrevKV())
 		if err != nil {
 			return fmt.Errorf("error creating watch: %+v", err)
 		}
