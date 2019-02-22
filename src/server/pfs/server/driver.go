@@ -433,6 +433,8 @@ func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pf
 //   to the new commit
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
+// - If only 'parent.ID' is set, and it contains a branch, then the new commit's
+//   parent will be the HEAD of that branch, but the branch will not be moved
 func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
@@ -499,8 +501,12 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		if branch != "" {
 			branchInfo := &pfs.BranchInfo{}
 			if err := branches.Upsert(branch, branchInfo, func() error {
+				// validate branch
 				if parent.ID == "" && branchInfo.Head != nil {
 					parent.ID = branchInfo.Head.ID
+				}
+				if len(branchInfo.Provenance) > 0 && treeRef == nil {
+					return fmt.Errorf("cannot start a commit on an output branch")
 				}
 				// Point 'branch' at the new commit
 				branchInfo.Name = branch // set in case 'branch' is new
@@ -510,11 +516,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}); err != nil {
 				return err
 			}
-			// Add branch to repo (but repoInfo doesn't get written until below)
+			// Add branch to repo (see "Update repoInfo" below)
 			add(&repoInfo.Branches, branchInfo.Branch)
-			if len(branchInfo.Provenance) > 0 && treeRef == nil {
-				return fmt.Errorf("cannot start a commit on an output branch")
-			}
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
@@ -549,7 +552,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			if records != nil {
 				parentTree, err := d.getTreeForCommit(pachClient, parent)
 				if err != nil {
-					return nil, err
+					return err
 				}
 				tree, err = parentTree.Copy()
 				if err != nil {
@@ -574,8 +577,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			newCommitInfo.SizeBytes = uint64(tree.FSSize())
 			newCommitInfo.Finished = now()
 
-			// If we're updating the master branch, also set the repo size (persisted
-			// below, along with new branch)
+			// If we're updating the master branch, also update the repo size (see
+			// "Update repoInfo" below)
 			if branch == "master" {
 				repoInfo.SizeBytes = newCommitInfo.SizeBytes
 			}
