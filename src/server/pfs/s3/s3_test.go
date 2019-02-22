@@ -26,6 +26,8 @@ import (
 	// log "github.com/sirupsen/logrus"
 )
 
+// TODO: tests to redundantly put bucket, branch
+
 func serve(t *testing.T, pc *client.APIClient) (*http.Server, *minio.Client) {
 	port := tu.UniquePort()
 	srv := Server(pc, port)
@@ -97,6 +99,11 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 			require.True(t, endTime.After(obj.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
 		}
 	}
+}
+
+func nonServerError(t *testing.T, err error) {
+	require.YesError(t, err)
+	require.NotEqual(t, "500 Internal Server Error", err.Error())
 }
 
 func TestListBuckets(t *testing.T) {
@@ -249,7 +256,7 @@ func TestRemoveObject(t *testing.T) {
 // 	// first ensure that putting into a repo that doesn't exist triggers an
 // 	// error
 // 	_, err = c.FPutObject(repo2, "file", inputFile.Name(), "text/plain")
-// 	require.YesError(t, err)
+// 	nonServerError(t, err)
 
 // 	// now try putting into a legit repo
 // 	l, err := c.FPutObject(repo1, "file", inputFile.Name(), "text/plain")
@@ -263,7 +270,7 @@ func TestRemoveObject(t *testing.T) {
 
 // 	// try getting an object that does not exist
 // 	err = c.FGetObject(repo2, "file", outputFile.Name())
-// 	require.YesError(t, err)
+// 	nonServerError(t, err)
 // 	bytes, err := ioutil.ReadFile(outputFile.Name())
 // 	require.NoError(t, err)
 // 	require.Equal(t, 0, len(bytes))
@@ -295,41 +302,40 @@ func TestRemoveObject(t *testing.T) {
 // 	require.NoError(t, srv.Close())
 // }
 
-// Tries to get an object on a branch that does not have a head
-func TestNonExistingHead(t *testing.T) {
+func TestGetObjectNoHead(t *testing.T) {
 	pc := server.GetPachClient(t)
 	srv, c := serve(t, pc)
 
-	repo := tu.UniqueString("testputobject2")
+	repo := tu.UniqueString("testgetobjectnohead")
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
 	_, err := getObject(c, repo, "branch", "file")
-	require.YesError(t, err)
+	nonServerError(t, err)
 
 	require.NoError(t, srv.Close())
 }
 
-func TestNonExistingBranch(t *testing.T) {
+func TestGetObjectNoBranch(t *testing.T) {
 	pc := server.GetPachClient(t)
 	srv, c := serve(t, pc)
 
-	repo := tu.UniqueString("testnonexistingbranch")
+	repo := tu.UniqueString("testgetobjectnobranch")
 	require.NoError(t, pc.CreateRepo(repo))
 
 	_, err := getObject(c, repo, "branch", "file")
-	require.YesError(t, err)
+	nonServerError(t, err)
 	require.Equal(t, err.Error(), "The specified key does not exist.")
 	require.NoError(t, srv.Close())
 }
 
-func TestNonExistingRepo(t *testing.T) {
+func TestGetObjectNoRepo(t *testing.T) {
 	pc := server.GetPachClient(t)
 	srv, c := serve(t, pc)
 
-	repo := tu.UniqueString("testnonexistingrepo")
+	repo := tu.UniqueString("testgetobjectnorepo")
 	_, err := getObject(c, repo, "master", "file")
-	require.YesError(t, err)
+	nonServerError(t, err)
 	require.Equal(t, err.Error(), "The specified bucket does not exist.")
 	require.NoError(t, srv.Close())
 }
@@ -380,7 +386,7 @@ func TestRemoveBucket(t *testing.T) {
 	require.NoError(t, c.RemoveBucket(repo1))
 
 	repo2 := tu.UniqueString("testremovebucket2")
-	require.YesError(t, c.RemoveBucket(repo2))
+	nonServerError(t, c.RemoveBucket(repo2))
 
 	require.NoError(t, srv.Close())
 }
