@@ -39,10 +39,10 @@ func serve(t *testing.T, pc *client.APIClient) (*http.Server, *minio.Client) {
 	// Wait for the server to start
 	require.NoError(t, backoff.Retry(func() error {
 		c := &http.Client{}
-		res, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/_ping", port))
+		res, err := c.Get(fmt.Sprintf("http://127.0.0.1:%d/", port))
 		if err != nil {
 			return err
-		} else if res.StatusCode != 200 && res.StatusCode != 204 {
+		} else if res.StatusCode != 200 {
 			return fmt.Errorf("Unexpected status code: %d", res.StatusCode)
 		}
 		return nil

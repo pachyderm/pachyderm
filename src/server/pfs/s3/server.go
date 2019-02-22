@@ -115,10 +115,6 @@ func newHandler(pc *client.APIClient) handler {
 	}
 }
 
-func (h handler) ping(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-}
-
 func (h handler) root(w http.ResponseWriter, r *http.Request) {
 	buckets, err := h.pc.ListRepo()
 	if err != nil {
@@ -458,7 +454,6 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.getObject).Methods("GET", "HEAD")
 	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.putObject).Methods("PUT")
 	router.HandleFunc(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, handler.removeObject).Methods("DELETE")
-	router.HandleFunc(`/_ping`, handler.ping).Methods("GET", "HEAD")
 
 	// Note: error log is not customized on this `http.Server`, which means
 	// it'll default to using the stdlib logger and produce log messages that
