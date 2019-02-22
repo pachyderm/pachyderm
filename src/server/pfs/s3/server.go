@@ -213,16 +213,25 @@ func (h handler) getBranches(w http.ResponseWriter, r *http.Request, repoInfo *p
 	var dirs []string
 	isTruncated := false
 
-	// TODO: remove branches that don't have a head
-	for _, branchInfo := range repoInfo.Branches {
-		match, err := filepath.Match(pattern, branchInfo.Name)
+	// While `repoInfo` has the list of branch names, it doesn't include head
+	// commit info. We need this to remove branches without a head commit.
+	branchInfos, err := h.pc.ListBranch(repoInfo.Repo.Name)
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
 
+	for _, branchInfo := range branchInfos {
+		match, err := filepath.Match(pattern, branchInfo.Branch.Name)
 		if err != nil {
 			writeBadRequest(w, fmt.Errorf("invalid prefix '%s' (compiled to pattern '%s'): %v", prefix, pattern, err))
 			return
 		}
-
 		if !match {
+			continue
+		}
+
+		if branchInfo.Head == nil {
 			continue
 		}
 		if len(dirs) == maxKeys {
@@ -230,7 +239,7 @@ func (h handler) getBranches(w http.ResponseWriter, r *http.Request, repoInfo *p
 			break
 		}
 
-		dirs = append(dirs, branchInfo.Name)
+		dirs = append(dirs, branchInfo.Branch.Name)
 	}
 
 	args := map[string]interface{}{

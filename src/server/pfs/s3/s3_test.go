@@ -414,7 +414,10 @@ func TestListObjects(t *testing.T) {
 	srv, c := serve(t, pc)
 
 	// create a bunch of files - enough to require the use of paginated
-	// requests when browsing all files
+	// requests when browsing all files. One file will be included on a
+	// separate branch to ensure it's not returned when querying against the
+	// master branch. We also create a branch `emptybranch`. Because it has no
+	// head commit, it should not show up when listing branches.
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
@@ -424,6 +427,7 @@ func TestListObjects(t *testing.T) {
 	commit, err := pc.StartCommit(repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
+	require.NoError(t, pc.CreateBranch(repo, "emptybranch", "", nil))
 	for i := 0; i <= 1000; i++ {
 		_, err = pc.PutFile(
 			repo,
