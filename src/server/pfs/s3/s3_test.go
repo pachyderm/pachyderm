@@ -23,12 +23,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	// log "github.com/sirupsen/logrus"
 )
 
 // TODO: tests to redundantly put bucket, branch
 
 func serve(t *testing.T, pc *client.APIClient) (*http.Server, *minio.Client) {
+	t.Helper()
+
 	port := tu.UniquePort()
 	srv := Server(pc, port)
 
@@ -55,7 +56,9 @@ func serve(t *testing.T, pc *client.APIClient) (*http.Server, *minio.Client) {
 	return srv, c
 }
 
-func getObject(c *minio.Client, repo, branch, file string) (string, error) {
+func getObject(t *testing.T, c *minio.Client, repo, branch, file string) (string, error) {
+	t.Helper()
+
 	obj, err := c.GetObject(repo, fmt.Sprintf("%s/%s", branch, file))
 	if err != nil {
 		return "", err
@@ -69,6 +72,8 @@ func getObject(c *minio.Client, repo, branch, file string) (string, error) {
 }
 
 func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.Time, endTime time.Time, expectedFiles []string) {
+	t.Helper()
+
 	// sort expectedFiles, as the S3 gateway should always return results in
 	// sorted order
 	sort.Strings(expectedFiles)
@@ -102,6 +107,7 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 }
 
 func nonServerError(t *testing.T, err error) {
+	t.Helper()
 	require.YesError(t, err)
 	require.NotEqual(t, "500 Internal Server Error", err.Error())
 }
@@ -139,7 +145,7 @@ func TestGetObject(t *testing.T) {
 	_, err := pc.PutFile(repo, "master", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(c, repo, "master", "file")
+	fetchedContent, err := getObject(t, c, repo, "master", "file")
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 
@@ -156,7 +162,7 @@ func TestGetObjectInBranch(t *testing.T) {
 	_, err := pc.PutFile(repo, "branch", "file", strings.NewReader("content"))
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(c, repo, "branch", "file")
+	fetchedContent, err := getObject(t, c, repo, "branch", "file")
 	require.NoError(t, err)
 	require.Equal(t, "content", fetchedContent)
 
@@ -199,12 +205,16 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	_, err := c.PutObject(repo, "branch/file", strings.NewReader("content"), "text/plain")
+	_, err := c.PutObject(repo, "branch/file", strings.NewReader("content1"), "text/plain")
 	require.NoError(t, err)
 
-	fetchedContent, err := getObject(c, repo, "branch", "file")
+	// this should act as a PFS PutFileOverwrite
+	_, err = c.PutObject(repo, "branch/file", strings.NewReader("content2"), "text/plain")
 	require.NoError(t, err)
-	require.Equal(t, "content", fetchedContent)
+
+	fetchedContent, err := getObject(t, c, repo, "branch", "file")
+	require.NoError(t, err)
+	require.Equal(t, "content2", fetchedContent)
 
 	require.NoError(t, srv.Close())
 }
@@ -310,7 +320,7 @@ func TestGetObjectNoHead(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	_, err := getObject(c, repo, "branch", "file")
+	_, err := getObject(t, c, repo, "branch", "file")
 	nonServerError(t, err)
 
 	require.NoError(t, srv.Close())
@@ -323,7 +333,7 @@ func TestGetObjectNoBranch(t *testing.T) {
 	repo := tu.UniqueString("testgetobjectnobranch")
 	require.NoError(t, pc.CreateRepo(repo))
 
-	_, err := getObject(c, repo, "branch", "file")
+	_, err := getObject(t, c, repo, "branch", "file")
 	nonServerError(t, err)
 	require.Equal(t, err.Error(), "The specified key does not exist.")
 	require.NoError(t, srv.Close())
@@ -334,7 +344,7 @@ func TestGetObjectNoRepo(t *testing.T) {
 	srv, c := serve(t, pc)
 
 	repo := tu.UniqueString("testgetobjectnorepo")
-	_, err := getObject(c, repo, "master", "file")
+	_, err := getObject(t, c, repo, "master", "file")
 	nonServerError(t, err)
 	require.Equal(t, err.Error(), "The specified bucket does not exist.")
 	require.NoError(t, srv.Close())
