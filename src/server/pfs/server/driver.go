@@ -466,7 +466,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 	//    want a new, finished commit with the given treeRef
 	// In either case, store this commit's HashTree in 'tree', so we have its
 	// size, and store a pointer to the tree (in object store) in 'treeRef', to
-	// put in newCommitInfo.Tree.
+	// put in newCommitInfo.Tree. Actually finishing the commit happens below.
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
