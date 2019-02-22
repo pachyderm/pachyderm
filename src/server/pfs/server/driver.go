@@ -467,8 +467,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 	// - In either case, store this commit's HashTree in 'tree', so we have its
 	//   size, and store a pointer to the tree (in object store) in 'treeRef', to
 	//   put in newCommitInfo.Tree.
-  // - We also don't want to resolve 'branch' or 'parent.ID' (if it's a branch)
-  //   outside the txn below, so the 'PutFile' case is handled (by computing
+	// - We also don't want to resolve 'branch' or 'parent.ID' (if it's a branch)
+	//   outside the txn below, so the 'PutFile' case is handled (by computing
 	//   'tree' and 'treeRef') below as well
 	var tree hashtree.HashTree
 	if treeRef != nil {
@@ -568,14 +568,14 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 					return err
 				}
 			}
-			
+
 			// now 'treeRef' is guaranteed to be set
 			newCommitInfo.Tree = treeRef
 			newCommitInfo.SizeBytes = uint64(tree.FSSize())
 			newCommitInfo.Finished = now()
 
 			// If we're updating the master branch, also set the repo size (persisted
-      // below, along with new branch)
+			// below, along with new branch)
 			if branch == "master" {
 				repoInfo.SizeBytes = newCommitInfo.SizeBytes
 			}
