@@ -8285,3 +8285,33 @@ func getEtcdClient(t testing.TB) *etcd.Client {
 	})
 	return etcdClient
 }
+
+func TestSpout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("pipelinespout")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipelineService(
+		pipeline,
+		"",
+		[]string{"/bin/sh"},
+		[]string{"date > date", "tar -cvf /pfs/out ./"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/"),
+		false,
+		8000,
+		31800,
+	))
+}
