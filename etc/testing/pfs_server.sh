@@ -7,6 +7,7 @@ export TIMEOUT=$2
 # If etcd is not available, start it in a docker container
 if ! ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2379 get "testkey"; then
     docker run \
+        --rm \
         --publish 32379:2379 \
         --ulimit nofile=2048 \
         $ETCD_IMAGE \
