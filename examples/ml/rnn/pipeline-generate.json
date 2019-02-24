@@ -3,7 +3,7 @@
     "name": "GoT_generate"
   },
   "transform": {
-    "image": "nickharvey/tensorflow_0_10_rnn_got:v1",
+    "image": "<yourregistry>/tensorflow_0_10_rnn_got:v1",
     "cmd": [ "sh" ],
     "stdin": [
       "cd /code && python ptb_word_lm.py --model=test --generate=true --model_path_prefix=/pfs/GoT_train > /pfs/out/new_script.txt"
