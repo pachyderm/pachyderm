@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"text/template"
 
 	"github.com/gorilla/mux"
 
@@ -18,10 +17,10 @@ import (
 
 const defaultMaxKeys = 1000
 
-const locationSource = `<?xml version="1.0" encoding="UTF-8"?>
+const locationSource = `
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
 
-const listObjectsSource = `<?xml version="1.0" encoding="UTF-8"?>
+const listObjectsSource = `
 <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
     <Name>{{ .bucket }}</Name>
     <Prefix>{{ .prefix }}</Prefix>
@@ -53,28 +52,21 @@ const listObjectsSource = `<?xml version="1.0" encoding="UTF-8"?>
 const globSpecialCharacters = "*?[\\"
 
 type bucketHandler struct {
-	pc           *client.APIClient
-	listTemplate *template.Template
+	pc               *client.APIClient
+	locationTemplate xmlTemplate
+	listTemplate     xmlTemplate
 }
 
-// TODO: support xml escaping
 func newBucketHandler(pc *client.APIClient) bucketHandler {
-	funcMap := template.FuncMap{
-		"formatTime": formatTime,
-	}
-
-	listTemplate := template.Must(template.New("list-objects").
-		Funcs(funcMap).
-		Parse(listObjectsSource))
-
 	return bucketHandler{
-		pc:           pc,
-		listTemplate: listTemplate,
+		pc:               pc,
+		locationTemplate: newXmlTemplate(http.StatusOK, "location", locationSource),
+		listTemplate:     newXmlTemplate(http.StatusOK, "list-objects", listObjectsSource),
 	}
 }
 
 func (h bucketHandler) renderList(w http.ResponseWriter, bucket, prefix, marker string, maxKeys int, isTruncated bool, files []*pfs.FileInfo, dirs []string) {
-	args := map[string]interface{}{
+	h.listTemplate.render(w, map[string]interface{}{
 		"bucket":      bucket,
 		"prefix":      prefix,
 		"marker":      marker,
@@ -82,13 +74,7 @@ func (h bucketHandler) renderList(w http.ResponseWriter, bucket, prefix, marker 
 		"isTruncated": isTruncated,
 		"files":       files,
 		"dirs":        dirs,
-	}
-	if err := h.listTemplate.Execute(w, args); err != nil {
-		writeServerError(w, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/xml")
+	})
 }
 
 // rootDirs determines the root directories (common prefixes in s3 parlance)
@@ -148,8 +134,7 @@ func (h bucketHandler) getRepo(w http.ResponseWriter, r *http.Request, repo stri
 	}
 
 	if _, ok := r.Form["location"]; ok {
-		w.Header().Set("Content-Type", "application/xml")
-		w.Write([]byte(locationSource))
+		h.locationTemplate.render(w, nil)
 		return
 	}
 
@@ -292,7 +277,7 @@ func (h bucketHandler) listRepoRecursive(w http.ResponseWriter, r *http.Request,
 			return nil
 		})
 		if err != nil {
-			writeMaybeNotFound(w, r, err)
+			writeServerError(w, err)
 			return
 		}
 		if isTruncated {
@@ -342,7 +327,7 @@ func (h bucketHandler) listFilesRecursive(w http.ResponseWriter, r *http.Request
 	})
 
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		writeServerError(w, err)
 		return
 	}
 
