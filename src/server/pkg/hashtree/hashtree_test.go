@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"testing"
+	"time"
 
 	bolt "github.com/coreos/bbolt"
 	"github.com/golang/protobuf/proto"
@@ -620,17 +621,25 @@ func TestChildIterator(t *testing.T) {
 }
 
 func TestCache(t *testing.T) {
+	// Cache with size 2
 	c, err := NewCache(2)
 	require.NoError(t, err)
 
 	h := newHashTree(t)
 	require.NoError(t, h.PutFile("foo", obj(`hash:"1d4a7"`), 1))
 	require.NoError(t, h.Hash())
+
+	// Put a hashtree into the cache
 	c.Add(1, h)
+
+	// After adding a second hashtree, the first hashtree should still be in the cache
 	c.Add(2, newHashTree(t))
 	_, err = h.Get("foo")
 	require.NoError(t, err)
+
+	// But after adding a third, the first one should be evicted
 	c.Add(3, newHashTree(t))
+	time.Sleep(time.Second) // since eviction is done concurrently, give it a second
 	_, err = h.Get("foo")
 	require.YesError(t, err)
 }
