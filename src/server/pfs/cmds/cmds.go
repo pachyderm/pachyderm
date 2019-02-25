@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -23,12 +24,12 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
-	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
-
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -1156,7 +1157,17 @@ $ pachctl diff-file foo master path1 bar master path2
 				return err
 			}
 			defer client.Close()
-			server := s3.Server(client, port)
+
+			logWriter := log.StandardLogger().Writer()
+			defer logWriter.Close()
+
+			multipartDir, err := ioutil.TempDir("pachyderm-s3gateway-multipart")
+			if err != nil {
+				return err
+			}
+			defer os.RemoveAll(multipartDir)
+
+			server := s3.Server(client, port, logWriter, multipartDir)
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				return err
 			}

@@ -25,12 +25,14 @@ const initMultipartSource = `
 
 type objectHandler struct {
 	pc                    *client.APIClient
+	multipartDir          string
 	initMultipartTemplate xmlTemplate
 }
 
-func newObjectHandler(pc *client.APIClient) objectHandler {
+func newObjectHandler(pc *client.APIClient, multipartDir string) objectHandler {
 	return objectHandler{
-		pc: pc,
+		pc:                    pc,
+		multipartDir:          multipartDir,
 		initMultipartTemplate: newXmlTemplate(http.StatusOK, "init-multipart", initMultipartSource),
 	}
 }
@@ -167,21 +169,36 @@ func (h objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo
 }
 
 func (h objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
-	//
+	if h.multipartDir == "" {
+		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
+		return
+	}
 }
 
 func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
-	//
+	if h.multipartDir == "" {
+		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
+		return
+	}
 }
 
 func (h objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
-	//
+	if h.multipartDir == "" {
+		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
+		return
+	}
 }
 
 func (h objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
-	//
+	if h.multipartDir == "" {
+		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
+		return
+	}
 }
 
 func (h objectHandler) abortMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
-	//
+	if h.multipartDir == "" {
+		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
+		return
+	}
 }

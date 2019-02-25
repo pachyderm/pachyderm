@@ -2,6 +2,7 @@ package s3
 
 import (
 	"fmt"
+	"io"
 	stdlog "log"
 	"net/http"
 
@@ -15,8 +16,15 @@ import (
 // use s3 clients to acccess PFS contents.
 //
 // This returns an `http.Server` instance. It is the responsibility of the
-// caller to start the server. This also makes it possible for the caller to
-// enable graceful shutdown if desired; see the `http` package for details.
+// caller to:
+// 1) start the returned server
+// 2) close `errLogWriter`
+// 3) remove `multipartDir`, unless you want to persist in-flight multipart
+//    contents between server runs
+// Furthermore, it's possible for the caller to gracefully shutdown the server
+// if desired; see the `http` package for details.
+//
+// If `multipartDir` is an empty string, multipart uploads are disabled.
 //
 // Bucket names correspond to repo names, and files are accessible via the s3
 // key pattern "<branch>/<filepath>". For example, to get the file "a/b/c.txt"
@@ -31,12 +39,12 @@ import (
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(pc *client.APIClient, port uint16) *http.Server {
+func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipartDir string) *http.Server {
 	// repo validation regex is the same as minio
 	router := mux.NewRouter()
 	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
 	router.Handle(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, newBucketHandler(pc)).Methods("GET", "HEAD", "PUT", "DELETE")
-	router.Handle(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, newObjectHandler(pc)).Methods("GET", "HEAD", "POST", "PUT", "DELETE")
+	router.Handle(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, newObjectHandler(pc, multipartDir)).Methods("GET", "HEAD", "POST", "PUT", "DELETE")
 
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
@@ -45,8 +53,6 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 			logrus.Infof("s3gateway: http request: %s %s", r.Method, r.RequestURI)
 			router.ServeHTTP(w, r)
 		}),
-		// Note: the log writer isn't closed. If many servers are
-		// started/stopped, this may leak.
-		ErrorLog: stdlog.New(logrus.StandardLogger().Writer(), "s3gateway: ", 0),
+		ErrorLog: stdlog.New(errLogWriter, "s3gateway: ", 0),
 	}
 }
