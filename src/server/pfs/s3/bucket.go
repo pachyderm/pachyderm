@@ -50,6 +50,8 @@ const listObjectsSource = `<?xml version="1.0" encoding="UTF-8"?>
     {{ end }}
 </ListBucketResult>`
 
+const globSpecialCharacters = "*?[\\"
+
 type bucketHandler struct {
 	pc           *client.APIClient
 	listTemplate *template.Template
@@ -224,8 +226,14 @@ func (h bucketHandler) listFiles(w http.ResponseWriter, r *http.Request, repo, b
 		return
 	}
 
+	// ensure that we can globify the prefix string
+	if !isGlobless(filePrefix) {
+		writeBadRequest(w, fmt.Errorf("file prefix (everything after the first `/` in the prefix) cannot contain glob special characters"))
+		return
+	}
+
 	isTruncated := false
-	fileInfos, err := h.pc.GlobFile(repo, branch, fmt.Sprintf("%s*", filePrefix)) //TODO: escape filePrefix
+	fileInfos, err := h.pc.GlobFile(repo, branch, fmt.Sprintf("%s*", filePrefix))
 	if err != nil {
 		writeServerError(w, err)
 		return
@@ -390,4 +398,10 @@ func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo
 	}
 
 	return fileInfo
+}
+
+// isGlobless checks whether any a string contains any characters used in
+// glob file path matching
+func isGlobless(s string) bool {
+	return !strings.ContainsAny(s, globSpecialCharacters)
 }
