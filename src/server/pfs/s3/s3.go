@@ -3,9 +3,10 @@ package s3
 import (
 	"fmt"
 	"net/http"
+	stdlog "log"
 
 	"github.com/gorilla/mux"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
 )
@@ -38,18 +39,15 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	router.Handle(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, newBucketHandler(pc)).Methods("GET", "HEAD", "PUT", "DELETE")
 	router.Handle(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, newObjectHandler(pc)).Methods("GET", "HEAD", "PUT", "DELETE")
 
-	// Note: error log is not customized on this `http.Server`, which means
-	// it'll default to using the stdlib logger and produce log messages that
-	// don't look like the ones produced elsewhere, and aren't configured
-	// properly. In testing, this didn't seem to be a big deal because it's
-	// rather hard to trigger it anyways, but if we find a reliable way to
-	// create error logs, it might be worthwhile to fix.
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// TODO: reduce log level
-			log.Infof("s3 gateway request: %s %s", r.Method, r.RequestURI)
+			logrus.Infof("s3gateway: http request: %s %s", r.Method, r.RequestURI)
 			router.ServeHTTP(w, r)
 		}),
+		// Note: the log writer isn't closed. If many servers are
+		// started/stopped, this may leak.
+		ErrorLog: stdlog.New(logrus.StandardLogger().Writer(), "s3gateway: ", 0),
 	}
 }
