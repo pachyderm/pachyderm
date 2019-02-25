@@ -171,6 +171,9 @@ func collectStatsForNewPath(client *pachclient.APIClient, root, file string, fil
 // treeRoot is the root the data is mirrored to within tree
 func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
+	// if err := os.MkdirAll(root, 0700); err != nil {
+	// 	return err
+	// }
 	limiter := limit.New(concurrency)
 	var eg errgroup.Group
 	if !pipes && !emptyFiles {
@@ -182,6 +185,9 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 				if err != nil {
 					return err
 				}
+				// if fi.FileType == pfs.FileType_DIR {
+				// 	return os.MkdirAll(newPath, 0700)
+				// }
 				err = p.makeFile(newPath, func(w io.Writer) error {
 					_, err := io.Copy(w, r)
 					return err
@@ -204,10 +210,14 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
 			})
 		}
-		return p.makeFile(newPath, func(w io.Writer) error { return nil })
+		if emptyFiles {
+			return p.makeFile(newPath, func(w io.Writer) error { return nil })
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
+
 	return nil
 }
 
