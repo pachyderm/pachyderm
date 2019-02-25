@@ -8,18 +8,18 @@ import (
 
 const listBucketsSource = `
 <ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01">
-    <Owner>
-    	<ID>000000000000000000000000000000</ID>
-    	<DisplayName>pachyderm</DisplayName>
-    </Owner>
-    <Buckets>
-        {{ range . }}
-            <Bucket>
-                <Name>{{ .Repo.Name }}</Name>
-                <CreationDate>{{ formatTime .Created }}</CreationDate>
-            </Bucket>
-        {{ end }}
-    </Buckets>
+	<Owner>
+		<ID>00000000000000000000000000000000</ID>
+		<DisplayName>pachyderm</DisplayName>
+	</Owner>
+	<Buckets>
+		{{ range . }}
+			<Bucket>
+				<Name>{{ .Repo.Name }}</Name>
+				<CreationDate>{{ formatTime .Created }}</CreationDate>
+			</Bucket>
+		{{ end }}
+	</Buckets>
 </ListAllMyBucketsResult>`
 
 type rootHandler struct {

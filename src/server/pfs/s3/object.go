@@ -15,13 +15,23 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
+const initLargeSource = `
+<InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+	<Bucket>{{ .bucket }}</Bucket>
+	<Key>{{ .key }}</Key>
+	<UploadId>{{ .uploadId }}</UploadId>
+</InitiateMultipartUploadResult>
+`
+
 type objectHandler struct {
-	pc *client.APIClient
+	pc                *client.APIClient
+	initLargeTemplate xmlTemplate
 }
 
 func newObjectHandler(pc *client.APIClient) objectHandler {
 	return objectHandler{
-		pc: pc,
+		pc:                pc,
+		initLargeTemplate: newXmlTemplate(http.StatusOK, "init-large", initLargeSource),
 	}
 }
 

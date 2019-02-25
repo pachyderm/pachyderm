@@ -22,31 +22,31 @@ const locationSource = `
 
 const listObjectsSource = `
 <ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-    <Name>{{ .bucket }}</Name>
-    <Prefix>{{ .prefix }}</Prefix>
-    <Marker>{{ .marker }}</Marker>
-    <MaxKeys>{{ .maxKeys }}</MaxKeys>
-    <IsTruncated>{{ .isTruncated }}</IsTruncated>
-    {{ range .files }}
-	    <Contents>
-	        <Key>{{ .File.Path }}</Key>
-	        <LastModified>{{ formatTime .Committed }}</LastModified>
-	        <ETag></ETag>
-	        <Size>{{ .SizeBytes }}</Size>
-	        <StorageClass>STANDARD</StorageClass>
-	        <Owner>
-		    	<ID>000000000000000000000000000000</ID>
-		    	<DisplayName>pachyderm</DisplayName>
-	        </Owner>
-	    </Contents>
-    {{ end }}
-    {{ if .dirs }}
-    	{{ range .dirs }}
-		    <CommonPrefixes>
-		    	<Prefix>{{ . }}/</Prefix>
-		    </CommonPrefixes>
-	    {{ end }}
-    {{ end }}
+	<Name>{{ .bucket }}</Name>
+	<Prefix>{{ .prefix }}</Prefix>
+	<Marker>{{ .marker }}</Marker>
+	<MaxKeys>{{ .maxKeys }}</MaxKeys>
+	<IsTruncated>{{ .isTruncated }}</IsTruncated>
+	{{ range .files }}
+		<Contents>
+			<Key>{{ .File.Path }}</Key>
+			<LastModified>{{ formatTime .Committed }}</LastModified>
+			<ETag></ETag>
+			<Size>{{ .SizeBytes }}</Size>
+			<StorageClass>STANDARD</StorageClass>
+			<Owner>
+				<ID>000000000000000000000000000000</ID>
+				<DisplayName>pachyderm</DisplayName>
+			</Owner>
+		</Contents>
+	{{ end }}
+	{{ if .dirs }}
+		{{ range .dirs }}
+			<CommonPrefixes>
+				<Prefix>{{ . }}/</Prefix>
+			</CommonPrefixes>
+		{{ end }}
+	{{ end }}
 </ListBucketResult>`
 
 const globSpecialCharacters = "*?[\\"
