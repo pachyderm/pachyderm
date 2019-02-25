@@ -538,6 +538,8 @@ func TestListObjectsRecursive(t *testing.T) {
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
 	repo := tu.UniqueString("testlistobjectsrecursive")
 	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
+	require.NoError(t, pc.CreateBranch(repo, "emptybranch", "", nil))
 	commit, err := pc.StartCommit(repo, "master")
 	require.NoError(t, err)
 	putListFileTestObject(t, pc, repo, commit.ID, "", 0)
@@ -591,6 +593,17 @@ func TestListObjectsRecursive(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 	ch = c.ListObjects(repo, "master/rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+
+	// Request that will list all files in emptybranch - should 404 since
+	// emptybranch has no head
+	ch = c.ListObjects(repo, "emptybranch/", false, make(chan struct{}))
+	objs := []minio.ObjectInfo{}
+	for obj := range ch {
+		objs = append(objs, obj)
+	}
+
+	require.Equal(t, len(objs), 1)
+	nonServerError(t, objs[0].Err)
 
 	require.NoError(t, srv.Close())
 }
