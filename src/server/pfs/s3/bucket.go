@@ -291,7 +291,7 @@ func (h bucketHandler) listRepoRecursive(w http.ResponseWriter, r *http.Request,
 			break
 		}
 	}
-	
+
 	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
 }
 
@@ -313,16 +313,12 @@ func (h bucketHandler) listFilesRecursive(w http.ResponseWriter, r *http.Request
 
 	// get what directory we should be recursing into
 	dir := filepath.Dir(filePrefix)
-	if dir == "." {
-		dir = ""
-	}
-
 	err = h.pc.Walk(repo, branch, dir, func(fileInfo *pfs.FileInfo) error {
 		fileInfo = updateFileInfo(branch, marker, fileInfo)
 		if fileInfo == nil {
 			return nil
 		}
-		if !strings.HasPrefix(fileInfo.File.Path, filePrefix) {
+		if !strings.HasPrefix(fileInfo.File.Path, completePrefix) {
 			return nil
 		}
 		if len(files)+len(dirs) == maxKeys {
@@ -341,7 +337,7 @@ func (h bucketHandler) listFilesRecursive(w http.ResponseWriter, r *http.Request
 		writeMaybeNotFound(w, r, err)
 		return
 	}
-	
+
 	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
 }
 
@@ -387,7 +383,7 @@ func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo
 
 	// update the path to match s3
 	fileInfo.File.Path = fmt.Sprintf("%s%s", branch, fileInfo.File.Path)
-	
+
 	if fileInfo.File.Path <= marker {
 		// skip file paths below the marker
 		return nil

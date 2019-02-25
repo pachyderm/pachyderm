@@ -69,39 +69,45 @@ func getObject(t *testing.T, c *minio.Client, repo, branch, file string) (string
 	return string(bytes), err
 }
 
-func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.Time, endTime time.Time, expectedFiles []string) {
+func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.Time, endTime time.Time, expectedFiles []string, expectedDirs []string) {
 	t.Helper()
 
-	// sort expectedFiles, as the S3 gateway should always return results in
-	// sorted order
+	// sort expected files/dirs, as the S3 gateway should always return
+	// results in sorted order
 	sort.Strings(expectedFiles)
+	sort.Strings(expectedDirs)
 
-	objs := []minio.ObjectInfo{}
+	actualFiles := []minio.ObjectInfo{}
+	actualDirs := []minio.ObjectInfo{}
 	for obj := range ch {
 		require.NoError(t, obj.Err)
-		objs = append(objs, obj)
+
+		if strings.HasSuffix(obj.Key, "/") {
+			actualDirs = append(actualDirs, obj)
+		} else {
+			actualFiles = append(actualFiles, obj)
+		}
 	}
 
-	require.Equal(t, len(expectedFiles), len(objs))
+	require.Equal(t, len(expectedFiles), len(actualFiles), "unexpected number of files")
+	require.Equal(t, len(expectedDirs), len(actualDirs), "unexpected number of dirs")
 
-	for i := 0; i < len(expectedFiles); i++ {
-		expectedFilename := expectedFiles[i]
-		obj := objs[i]
-		require.Equal(t, expectedFilename, obj.Key)
-		require.Equal(t, "", obj.ETag, fmt.Sprintf("unexpected etag for %s", expectedFilename))
+	for i, expectedFilename := range expectedFiles {
+		actualFile := actualFiles[i]
+		require.Equal(t, expectedFilename, actualFile.Key)
+		require.Equal(t, "", actualFile.ETag, fmt.Sprintf("unexpected etag for %s", expectedFilename))
+		expectedLen := int64(len(filepath.Base(expectedFilename)) + 1)
+		require.Equal(t, expectedLen, actualFile.Size, fmt.Sprintf("unexpected file length for %s", expectedFilename))
+		require.True(t, startTime.Before(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
+		require.True(t, endTime.After(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
+	}
 
-		if strings.HasSuffix(expectedFilename, "/") {
-			// expected file is a dir
-			require.Equal(t, int64(0), obj.Size)
-			require.True(t, obj.LastModified.IsZero(), fmt.Sprintf("unexpected last modified for %s: %v", expectedFilename, obj.LastModified))
-
-		} else {
-			// expected file is a file
-			expectedLen := int64(len(filepath.Base(expectedFilename)) + 1)
-			require.Equal(t, expectedLen, obj.Size, fmt.Sprintf("unexpected file length for %s", expectedFilename))
-			require.True(t, startTime.Before(obj.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
-			require.True(t, endTime.After(obj.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
-		}
+	for i, expectedDirname := range expectedDirs {
+		actualDir := actualDirs[i]
+		require.Equal(t, expectedDirname, actualDir.Key)
+		require.Equal(t, "", actualDir.ETag, fmt.Sprintf("unexpected etag for %s", expectedDirname))
+		require.Equal(t, int64(0), actualDir.Size)
+		require.True(t, actualDir.LastModified.IsZero(), fmt.Sprintf("unexpected last modified for %s", expectedDirname))
 	}
 }
 
@@ -450,11 +456,11 @@ func TestListObjectsPaginated(t *testing.T) {
 
 	// Request that will list all files in master's root
 	ch := c.ListObjects(repo, "master/", false, make(chan struct{}))
-	expectedFiles := []string{"master/dir/"}
+	expectedFiles := []string{}
 	for i := 0; i <= 1000; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("master/%d", i))
 	}
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{"master/dir/"})
 
 	// Request that will list all files in master starting with 1
 	ch = c.ListObjects(repo, "master/1", false, make(chan struct{}))
@@ -464,9 +470,8 @@ func TestListObjectsPaginated(t *testing.T) {
 		if strings.HasPrefix(file, "master/1") {
 			expectedFiles = append(expectedFiles, file)
 		}
-
 	}
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
 	// Request that will list all files in a directory in master
 	ch = c.ListObjects(repo, "master/dir/", false, make(chan struct{}))
@@ -474,7 +479,7 @@ func TestListObjectsPaginated(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("master/dir/%d", i))
 	}
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
 	require.NoError(t, srv.Close())
 }
@@ -495,9 +500,9 @@ func TestListObjectsBranches(t *testing.T) {
 
 	// Request that will list branches as common prefixes
 	ch := c.ListObjects(repo, "", false, make(chan struct{}))
-	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{"branch/", "master/"})
+	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{}, []string{"branch/", "master/"})
 	ch = c.ListObjects(repo, "master", false, make(chan struct{}))
-	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{"master/"})
+	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{}, []string{"master/"})
 
 	require.NoError(t, srv.Close())
 }
@@ -543,38 +548,49 @@ func TestListObjectsRecursive(t *testing.T) {
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	// Request that will list all files across all branches
-	expectedFiles := []string{"master/", "master/0", "master/rootdir/", "master/rootdir/1", "master/rootdir/subdir/", "master/rootdir/subdir/2", "branch/", "branch/3"}
+	expectedFiles := []string{"master/0", "master/rootdir/1", "master/rootdir/subdir/2", "branch/3"}
+	expectedDirs := []string{"master/", "master/rootdir/", "master/rootdir/subdir/", "branch/"}
 	ch := c.ListObjects(repo, "", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
-	// Requests that will list all files in master
+	// Requests that will list all files and dirs in master, including master itself
 	expectedFiles = []string{"master/0", "master/rootdir/1", "master/rootdir/subdir/2"}
+	expectedDirs = []string{"master/", "master/rootdir/", "master/rootdir/subdir/"}
 	ch = c.ListObjects(repo, "mas", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 	ch = c.ListObjects(repo, "master", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
-	ch = c.ListObjects(repo, "master/", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
-	// Requests that will list all files in rootdir
+	// Request that will list all files and dirs in master, excluding master itself
+	expectedDirs = []string{"master/rootdir/", "master/rootdir/subdir/"}
+	ch = c.ListObjects(repo, "master/", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+
+	// Requests that will list all files in rootdir, including rootdir itself
 	expectedFiles = []string{"master/rootdir/1", "master/rootdir/subdir/2"}
 	ch = c.ListObjects(repo, "master/r", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 	ch = c.ListObjects(repo, "master/rootdir", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
-	ch = c.ListObjects(repo, "master/rootdir/", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
-	// Requests that will list all files in subdir
+	// Request that will list all files in rootdir, excluding rootdir itself
+	expectedDirs = []string{"master/rootdir/subdir/"}
+	ch = c.ListObjects(repo, "master/rootdir/", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+
+	// Requests that will list all files in subdir, including subdir itself
 	expectedFiles = []string{"master/rootdir/subdir/2"}
 	ch = c.ListObjects(repo, "master/rootdir/s", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 	ch = c.ListObjects(repo, "master/rootdir/subdir", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+
+	// Request that will list all files in subdir, excluding subdir itself
+	expectedDirs = []string{}
 	ch = c.ListObjects(repo, "master/rootdir/subdir/", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 	ch = c.ListObjects(repo, "master/rootdir/subdir/2", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	require.NoError(t, srv.Close())
 }
