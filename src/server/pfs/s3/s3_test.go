@@ -253,8 +253,6 @@ func TestRemoveObject(t *testing.T) {
 
 // // Tests inserting and getting files over 64mb in size
 // func TestLargeObjects(t *testing.T) {
-// 	log.SetLevel(log.DebugLevel)
-
 // 	pc := server.GetPachClient(t)
 // 	srv, c := serve(t, pc)
 
@@ -263,19 +261,20 @@ func TestRemoveObject(t *testing.T) {
 // 	repo2 := tu.UniqueString("testlargeobject2")
 // 	require.NoError(t, pc.CreateRepo(repo1))
 
-// 	// create a temporary file to put 100mb of contents into it
+// 	// create a temporary file to put ~65mb of contents into it
+// 	// TODO: see how much faster it is to just hold everything in memory
 // 	bytesWritten := 0
 // 	inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
 // 	require.NoError(t, err)
 // 	defer os.Remove(inputFile.Name())
-// 	for i := 0; i<2097152; i++ {
+// 	for i := 0; i < 1363149; i++ {
 // 		n, err := inputFile.WriteString("no tv and no beer make homer something something.\n")
 // 		require.NoError(t, err)
 // 		bytesWritten += n
 // 	}
 
-// 	// make sure we wrote at least 65mb
-// 	if bytesWritten < 68157440 {
+// 	// make sure we wrote ~65mb
+// 	if bytesWritten < 68157450 {
 // 		t.Errorf("too few bytes written to %s: %d", inputFile.Name(), bytesWritten)
 // 	}
 
@@ -317,7 +316,7 @@ func TestRemoveObject(t *testing.T) {
 // 		require.Equal(t, n1, n2)
 
 // 		if err1 == io.EOF && err2 == io.EOF {
-// 			break;
+// 			break
 // 		}
 
 // 		require.NoError(t, err1)
@@ -517,13 +516,7 @@ func TestListObjectsHeadlessBranch(t *testing.T) {
 
 	// Request into branch that has no head
 	ch := c.ListObjects(repo, "emptybranch/", false, make(chan struct{}))
-	objs := []minio.ObjectInfo{}
-	for obj := range ch {
-		objs = append(objs, obj)
-	}
-
-	require.Equal(t, len(objs), 1)
-	nonServerError(t, objs[0].Err)
+	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{}, []string{})
 
 	require.NoError(t, srv.Close())
 }
@@ -593,17 +586,6 @@ func TestListObjectsRecursive(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 	ch = c.ListObjects(repo, "master/rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-
-	// Request that will list all files in emptybranch - should 404 since
-	// emptybranch has no head
-	ch = c.ListObjects(repo, "emptybranch/", false, make(chan struct{}))
-	objs := []minio.ObjectInfo{}
-	for obj := range ch {
-		objs = append(objs, obj)
-	}
-
-	require.Equal(t, len(objs), 1)
-	nonServerError(t, objs[0].Err)
 
 	require.NoError(t, srv.Close())
 }

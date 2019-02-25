@@ -157,90 +157,54 @@ func (h bucketHandler) getRepo(w http.ResponseWriter, r *http.Request, repo stri
 		}
 	}
 
-	prefix := r.FormValue("prefix")
-	prefixParts := strings.SplitN(prefix, "/", 2)
+	recursive := false
 	delimiter := r.FormValue("delimiter")
 	if delimiter == "" {
-		// a delimiter was not specified; recurse into subdirectories
-		if len(prefixParts) == 1 {
-			h.listRepoRecursive(w, r, repo, prefixParts[0], prefix, marker, maxKeys)
+		recursive = true
+	} else if delimiter != "/" {
+		writeBadRequest(w, fmt.Errorf("invalid delimiter '%s'; only '/' is allowed", delimiter))
+		return
+	}
+
+	prefix := r.FormValue("prefix")
+	prefixParts := strings.SplitN(prefix, "/", 2)
+
+	if len(prefixParts) == 1 {
+		branchPrefix := prefixParts[0]
+
+		if recursive {
+			h.listRepoRecursive(w, r, repo, branchPrefix, prefix, marker, maxKeys)
 		} else {
-			h.listFilesRecursive(w, r, repo, prefixParts[0], prefixParts[1], prefix, marker, maxKeys)
-		}
-	} else if delimiter == "/" {
-		// a delimiter was specified; do not recurse into subdirectories
-		if len(prefixParts) == 1 {
-			h.listRepo(w, r, repo, prefixParts[0], prefix, marker, maxKeys)
-		} else {
-			h.listFiles(w, r, repo, prefixParts[0], prefixParts[1], prefix, marker, maxKeys)
+			h.listRepo(w, r, repo, branchPrefix, prefix, marker, maxKeys)
 		}
 	} else {
-		writeBadRequest(w, fmt.Errorf("invalid delimiter '%s'; only '/' is allowed", delimiter))
-	}
-}
+		branch := prefixParts[0]
+		filePrefix := prefixParts[1]
+		isEmpty := false
 
-func (h bucketHandler) listRepo(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
-	var dirs []string
-	isTruncated := false
-	dirs, err := h.rootDirs(repo, branchPrefix)
-	if err != nil {
-		writeServerError(w, err)
-		return
-	}
-
-	if len(dirs) > maxKeys {
-		dirs = dirs[:maxKeys]
-		isTruncated = true
-	}
-
-	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, []*pfs.FileInfo{}, dirs)
-}
-
-func (h bucketHandler) listFiles(w http.ResponseWriter, r *http.Request, repo, branch, filePrefix, completePrefix, marker string, maxKeys int) {
-	var files []*pfs.FileInfo
-	var dirs []string
-
-	// ensure the branch exists and has a head
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
-	if err != nil {
-		writeMaybeNotFound(w, r, err)
-		return
-	}
-	if branchInfo.Head == nil {
-		http.NotFound(w, r)
-		return
-	}
-
-	// ensure that we can globify the prefix string
-	if !isGlobless(filePrefix) {
-		writeBadRequest(w, fmt.Errorf("file prefix (everything after the first `/` in the prefix) cannot contain glob special characters"))
-		return
-	}
-
-	isTruncated := false
-	fileInfos, err := h.pc.GlobFile(repo, branch, fmt.Sprintf("%s*", filePrefix))
-	if err != nil {
-		writeServerError(w, err)
-		return
-	}
-
-	for _, fileInfo := range fileInfos {
-		fileInfo = updateFileInfo(branch, marker, fileInfo)
-		if fileInfo == nil {
-			continue
+		// ensure the branch exists and has a head
+		branchInfo, err := h.pc.InspectBranch(repo, branch)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				isEmpty = true
+			} else {
+				writeServerError(w, err)
+				return
+			}
+		} else if branchInfo.Head == nil {
+			isEmpty = true
 		}
-		if len(files)+len(dirs) == maxKeys {
-			isTruncated = true
-			break
-		}
-		if fileInfo.FileType == pfs.FileType_FILE {
-			files = append(files, fileInfo)
+
+		if isEmpty {
+			// render an empty list if this branch doesn't exist or doesn't have a
+			// head
+			h.renderList(w, repo, prefix, marker, maxKeys, false, []*pfs.FileInfo{}, []string{})
+		} else if recursive {
+			h.listFilesRecursive(w, r, repo, branch, filePrefix, prefix, marker, maxKeys)
 		} else {
-			dirs = append(dirs, fileInfo.File.Path)
+			h.listFiles(w, r, repo, branch, filePrefix, prefix, marker, maxKeys)
 		}
 	}
-
-	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
 }
 
 func (h bucketHandler) listRepoRecursive(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
@@ -288,25 +252,31 @@ func (h bucketHandler) listRepoRecursive(w http.ResponseWriter, r *http.Request,
 	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
 }
 
+func (h bucketHandler) listRepo(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
+	var dirs []string
+	isTruncated := false
+	dirs, err := h.rootDirs(repo, branchPrefix)
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	if len(dirs) > maxKeys {
+		dirs = dirs[:maxKeys]
+		isTruncated = true
+	}
+
+	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, []*pfs.FileInfo{}, dirs)
+}
+
 func (h bucketHandler) listFilesRecursive(w http.ResponseWriter, r *http.Request, repo string, branch string, filePrefix string, completePrefix string, marker string, maxKeys int) {
 	var files []*pfs.FileInfo
 	var dirs []string
 	isTruncated := false
 
-	// ensure the branch exists and has a head
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
-	if err != nil {
-		writeMaybeNotFound(w, r, err)
-		return
-	}
-	if branchInfo.Head == nil {
-		http.NotFound(w, r)
-		return
-	}
-
 	// get what directory we should be recursing into
 	dir := filepath.Dir(filePrefix)
-	err = h.pc.Walk(repo, branch, dir, func(fileInfo *pfs.FileInfo) error {
+	err := h.pc.Walk(repo, branch, dir, func(fileInfo *pfs.FileInfo) error {
 		fileInfo = updateFileInfo(branch, marker, fileInfo)
 		if fileInfo == nil {
 			return nil
@@ -329,6 +299,42 @@ func (h bucketHandler) listFilesRecursive(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		writeServerError(w, err)
 		return
+	}
+
+	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
+}
+
+func (h bucketHandler) listFiles(w http.ResponseWriter, r *http.Request, repo, branch, filePrefix, completePrefix, marker string, maxKeys int) {
+	var files []*pfs.FileInfo
+	var dirs []string
+	isTruncated := false
+
+	// ensure that we can globify the prefix string
+	if !isGlobless(filePrefix) {
+		writeBadRequest(w, fmt.Errorf("file prefix (everything after the first `/` in the prefix) cannot contain glob special characters"))
+		return
+	}
+
+	fileInfos, err := h.pc.GlobFile(repo, branch, fmt.Sprintf("%s*", filePrefix))
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	for _, fileInfo := range fileInfos {
+		fileInfo = updateFileInfo(branch, marker, fileInfo)
+		if fileInfo == nil {
+			continue
+		}
+		if len(files)+len(dirs) == maxKeys {
+			isTruncated = true
+			break
+		}
+		if fileInfo.FileType == pfs.FileType_FILE {
+			files = append(files, fileInfo)
+		} else {
+			dirs = append(dirs, fileInfo.File.Path)
+		}
 	}
 
 	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
