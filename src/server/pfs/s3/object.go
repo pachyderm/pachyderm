@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
-const initLargeSource = `
+const initMultipartSource = `
 <InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 	<Bucket>{{ .bucket }}</Bucket>
 	<Key>{{ .key }}</Key>
@@ -24,14 +24,14 @@ const initLargeSource = `
 `
 
 type objectHandler struct {
-	pc                *client.APIClient
-	initLargeTemplate xmlTemplate
+	pc                    *client.APIClient
+	initMultipartTemplate xmlTemplate
 }
 
 func newObjectHandler(pc *client.APIClient) objectHandler {
 	return objectHandler{
-		pc:                pc,
-		initLargeTemplate: newXmlTemplate(http.StatusOK, "init-large", initLargeSource),
+		pc: pc,
+		initMultipartTemplate: newXmlTemplate(http.StatusOK, "init-multipart", initMultipartSource),
 	}
 }
 
@@ -56,27 +56,27 @@ func (h objectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
 		if uploadId != "" {
-			h.listLargeParts(w, r, branchInfo, file, uploadId)
+			h.listMultipart(w, r, branchInfo, file, uploadId)
 		} else {
 			h.get(w, r, branchInfo, file)
 		}
 	} else if r.Method == http.MethodPost {
 		if _, ok := r.Form["uploads"]; ok {
-			h.initLarge(w, r, branchInfo, file)
+			h.initMultipart(w, r, branchInfo, file)
 		} else if uploadId != "" {
-			h.completeLarge(w, r, branchInfo, file, uploadId)
+			h.completeMultipart(w, r, branchInfo, file, uploadId)
 		} else {
 			http.NotFound(w, r)
 		}
 	} else if r.Method == http.MethodPut {
 		if uploadId != "" {
-			h.uploadLargePart(w, r, branchInfo, file, uploadId)
+			h.uploadMultipart(w, r, branchInfo, file, uploadId)
 		} else {
 			h.put(w, r, branchInfo, file)
 		}
 	} else if r.Method == http.MethodDelete {
 		if uploadId != "" {
-			h.abortLarge(w, r, branchInfo, file, uploadId)
+			h.abortMultipart(w, r, branchInfo, file, uploadId)
 		} else {
 			h.delete(w, r, branchInfo, file)
 		}
@@ -166,22 +166,22 @@ func (h objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h objectHandler) initLarge(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+func (h objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	//
 }
 
-func (h objectHandler) listLargeParts(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
 	//
 }
 
-func (h objectHandler) uploadLargePart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+func (h objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
 	//
 }
 
-func (h objectHandler) completeLarge(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+func (h objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
 	//
 }
 
-func (h objectHandler) abortLarge(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+func (h objectHandler) abortMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
 	//
 }
