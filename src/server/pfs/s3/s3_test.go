@@ -7,10 +7,10 @@ package s3
 
 import (
 	"fmt"
-	// "io"
+	"io"
 	"io/ioutil"
 	"net/http"
-	// "os"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -251,81 +251,81 @@ func TestRemoveObject(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
-// // Tests inserting and getting files over 64mb in size
-// func TestLargeObjects(t *testing.T) {
-// 	pc := server.GetPachClient(t)
-// 	srv, c := serve(t, pc)
+// Tests inserting and getting files over 64mb in size
+func TestLargeObjects(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
 
-// 	// test repos: repo1 exists, repo2 does not
-// 	repo1 := tu.UniqueString("testlargeobject1")
-// 	repo2 := tu.UniqueString("testlargeobject2")
-// 	require.NoError(t, pc.CreateRepo(repo1))
+	// test repos: repo1 exists, repo2 does not
+	repo1 := tu.UniqueString("testlargeobject1")
+	repo2 := tu.UniqueString("testlargeobject2")
+	require.NoError(t, pc.CreateRepo(repo1))
 
-// 	// create a temporary file to put ~65mb of contents into it
-// 	// TODO: see how much faster it is to just hold everything in memory
-// 	bytesWritten := 0
-// 	inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
-// 	require.NoError(t, err)
-// 	defer os.Remove(inputFile.Name())
-// 	for i := 0; i < 1363149; i++ {
-// 		n, err := inputFile.WriteString("no tv and no beer make homer something something.\n")
-// 		require.NoError(t, err)
-// 		bytesWritten += n
-// 	}
+	// create a temporary file to put ~65mb of contents into it
+	// TODO: see how much faster it is to just hold everything in memory
+	bytesWritten := 0
+	inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
+	require.NoError(t, err)
+	defer os.Remove(inputFile.Name())
+	for i := 0; i < 1363149; i++ {
+		n, err := inputFile.WriteString("no tv and no beer make homer something something.\n")
+		require.NoError(t, err)
+		bytesWritten += n
+	}
 
-// 	// make sure we wrote ~65mb
-// 	if bytesWritten < 68157450 {
-// 		t.Errorf("too few bytes written to %s: %d", inputFile.Name(), bytesWritten)
-// 	}
+	// make sure we wrote ~65mb
+	if bytesWritten < 68157450 {
+		t.Errorf("too few bytes written to %s: %d", inputFile.Name(), bytesWritten)
+	}
 
-// 	// first ensure that putting into a repo that doesn't exist triggers an
-// 	// error
-// 	_, err = c.FPutObject(repo2, "file", inputFile.Name(), "text/plain")
-// 	nonServerError(t, err)
+	// first ensure that putting into a repo that doesn't exist triggers an
+	// error
+	_, err = c.FPutObject(repo2, "master/file", inputFile.Name(), "text/plain")
+	nonServerError(t, err)
 
-// 	// now try putting into a legit repo
-// 	l, err := c.FPutObject(repo1, "file", inputFile.Name(), "text/plain")
-// 	require.NoError(t, err)
-// 	require.Equal(t, bytesWritten, l)
+	// now try putting into a legit repo
+	l, err := c.FPutObject(repo1, "master/file", inputFile.Name(), "text/plain")
+	require.NoError(t, err)
+	require.Equal(t, bytesWritten, l)
 
-// 	// create a file to write the results back to
-// 	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
-// 	require.NoError(t, err)
-// 	defer os.Remove(outputFile.Name())
+	// create a file to write the results back to
+	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
+	require.NoError(t, err)
+	defer os.Remove(outputFile.Name())
 
-// 	// try getting an object that does not exist
-// 	err = c.FGetObject(repo2, "file", outputFile.Name())
-// 	nonServerError(t, err)
-// 	bytes, err := ioutil.ReadFile(outputFile.Name())
-// 	require.NoError(t, err)
-// 	require.Equal(t, 0, len(bytes))
+	// try getting an object that does not exist
+	err = c.FGetObject(repo2, "master/file", outputFile.Name())
+	nonServerError(t, err)
+	bytes, err := ioutil.ReadFile(outputFile.Name())
+	require.NoError(t, err)
+	require.Equal(t, 0, len(bytes))
 
-// 	// get the file that does exist
-// 	err = c.FGetObject(repo1, "file", outputFile.Name())
-// 	require.NoError(t, err)
+	// get the file that does exist
+	err = c.FGetObject(repo1, "master/file", outputFile.Name())
+	require.NoError(t, err)
 
-// 	// compare the input file and output file to ensure they're the same
-// 	b1 := make([]byte, 65536)
-// 	b2 := make([]byte, 65536)
-// 	inputFile.Seek(0, 0)
-// 	outputFile.Seek(0, 0)
-// 	for {
-// 		n1, err1 := inputFile.Read(b1)
-// 		n2, err2 := outputFile.Read(b2)
+	// compare the input file and output file to ensure they're the same
+	b1 := make([]byte, 65536)
+	b2 := make([]byte, 65536)
+	inputFile.Seek(0, 0)
+	outputFile.Seek(0, 0)
+	for {
+		n1, err1 := inputFile.Read(b1)
+		n2, err2 := outputFile.Read(b2)
 
-// 		require.Equal(t, n1, n2)
+		require.Equal(t, n1, n2)
 
-// 		if err1 == io.EOF && err2 == io.EOF {
-// 			break
-// 		}
+		if err1 == io.EOF && err2 == io.EOF {
+			break
+		}
 
-// 		require.NoError(t, err1)
-// 		require.NoError(t, err2)
-// 		require.Equal(t, b1, b2)
-// 	}
+		require.NoError(t, err1)
+		require.NoError(t, err2)
+		require.Equal(t, b1, b2)
+	}
 
-// 	require.NoError(t, srv.Close())
-// }
+	require.NoError(t, srv.Close())
+}
 
 func TestGetObjectNoHead(t *testing.T) {
 	pc := server.GetPachClient(t)

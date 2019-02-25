@@ -110,18 +110,18 @@ func (h bucketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	repo := vars["repo"]
 
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		h.getRepo(w, r, repo)
+		h.get(w, r, repo)
 	} else if r.Method == http.MethodPut {
-		h.putRepo(w, r, repo)
+		h.put(w, r, repo)
 	} else if r.Method == http.MethodDelete {
-		h.deleteRepo(w, r, repo)
+		h.delete(w, r, repo)
 	} else {
 		// method filtering on the mux router should prevent this
 		panic("unreachable")
 	}
 }
 
-func (h bucketHandler) getRepo(w http.ResponseWriter, r *http.Request, repo string) {
+func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) {
 	_, err := h.pc.InspectRepo(repo)
 	if err != nil {
 		writeMaybeNotFound(w, r, err)
@@ -173,9 +173,9 @@ func (h bucketHandler) getRepo(w http.ResponseWriter, r *http.Request, repo stri
 		branchPrefix := prefixParts[0]
 
 		if recursive {
-			h.listRepoRecursive(w, r, repo, branchPrefix, prefix, marker, maxKeys)
+			h.listRecursive(w, r, repo, branchPrefix, prefix, marker, maxKeys)
 		} else {
-			h.listRepo(w, r, repo, branchPrefix, prefix, marker, maxKeys)
+			h.list(w, r, repo, branchPrefix, prefix, marker, maxKeys)
 		}
 	} else {
 		branch := prefixParts[0]
@@ -200,14 +200,14 @@ func (h bucketHandler) getRepo(w http.ResponseWriter, r *http.Request, repo stri
 			// head
 			h.renderList(w, repo, prefix, marker, maxKeys, false, []*pfs.FileInfo{}, []string{})
 		} else if recursive {
-			h.listFilesRecursive(w, r, repo, branch, filePrefix, prefix, marker, maxKeys)
+			h.listBranchRecursive(w, r, repo, branch, filePrefix, prefix, marker, maxKeys)
 		} else {
-			h.listFiles(w, r, repo, branch, filePrefix, prefix, marker, maxKeys)
+			h.listBranch(w, r, repo, branch, filePrefix, prefix, marker, maxKeys)
 		}
 	}
 }
 
-func (h bucketHandler) listRepoRecursive(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
+func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
 	var files []*pfs.FileInfo
 	var dirs []string
 	isTruncated := false
@@ -252,7 +252,7 @@ func (h bucketHandler) listRepoRecursive(w http.ResponseWriter, r *http.Request,
 	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
 }
 
-func (h bucketHandler) listRepo(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
+func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
 	var dirs []string
 	isTruncated := false
 	dirs, err := h.rootDirs(repo, branchPrefix)
@@ -269,7 +269,7 @@ func (h bucketHandler) listRepo(w http.ResponseWriter, r *http.Request, repo, br
 	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, []*pfs.FileInfo{}, dirs)
 }
 
-func (h bucketHandler) listFilesRecursive(w http.ResponseWriter, r *http.Request, repo string, branch string, filePrefix string, completePrefix string, marker string, maxKeys int) {
+func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Request, repo string, branch string, filePrefix string, completePrefix string, marker string, maxKeys int) {
 	var files []*pfs.FileInfo
 	var dirs []string
 	isTruncated := false
@@ -304,7 +304,7 @@ func (h bucketHandler) listFilesRecursive(w http.ResponseWriter, r *http.Request
 	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
 }
 
-func (h bucketHandler) listFiles(w http.ResponseWriter, r *http.Request, repo, branch, filePrefix, completePrefix, marker string, maxKeys int) {
+func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, repo, branch, filePrefix, completePrefix, marker string, maxKeys int) {
 	var files []*pfs.FileInfo
 	var dirs []string
 	isTruncated := false
@@ -340,7 +340,7 @@ func (h bucketHandler) listFiles(w http.ResponseWriter, r *http.Request, repo, b
 	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
 }
 
-func (h bucketHandler) putRepo(w http.ResponseWriter, r *http.Request, repo string) {
+func (h bucketHandler) put(w http.ResponseWriter, r *http.Request, repo string) {
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "as it already exists") {
@@ -355,7 +355,7 @@ func (h bucketHandler) putRepo(w http.ResponseWriter, r *http.Request, repo stri
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h bucketHandler) deleteRepo(w http.ResponseWriter, r *http.Request, repo string) {
+func (h bucketHandler) delete(w http.ResponseWriter, r *http.Request, repo string) {
 	err := h.pc.DeleteRepo(repo, false)
 
 	if err != nil {

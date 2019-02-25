@@ -2,15 +2,14 @@ package s3
 
 import (
 	"fmt"
-	"net/http"
 	stdlog "log"
+	"net/http"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
 )
-
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
@@ -37,7 +36,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	router := mux.NewRouter()
 	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
 	router.Handle(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`, newBucketHandler(pc)).Methods("GET", "HEAD", "PUT", "DELETE")
-	router.Handle(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, newObjectHandler(pc)).Methods("GET", "HEAD", "PUT", "DELETE")
+	router.Handle(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`, newObjectHandler(pc)).Methods("GET", "HEAD", "POST", "PUT", "DELETE")
 
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),

@@ -37,19 +37,46 @@ func (h objectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := r.ParseForm(); err != nil {
+		writeBadRequest(w, err)
+		return
+	}
+
+	uploadId := r.FormValue("uploadId")
+
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		h.getObject(w, r, branchInfo, file)
+		if uploadId != "" {
+			h.listLargeParts(w, r, branchInfo, file, uploadId)
+		} else {
+			h.get(w, r, branchInfo, file)
+		}
+	} else if r.Method == http.MethodPost {
+		if _, ok := r.Form["uploads"]; ok {
+			h.initLarge(w, r, branchInfo, file)
+		} else if uploadId != "" {
+			h.completeLarge(w, r, branchInfo, file, uploadId)
+		} else {
+			http.NotFound(w, r)
+		}
 	} else if r.Method == http.MethodPut {
-		h.putObject(w, r, branchInfo, file)
+		if uploadId != "" {
+			h.uploadLargePart(w, r, branchInfo, file, uploadId)
+		} else {
+			h.put(w, r, branchInfo, file)
+		}
 	} else if r.Method == http.MethodDelete {
-		h.deleteObject(w, r, branchInfo, file)
+		if uploadId != "" {
+			h.abortLarge(w, r, branchInfo, file, uploadId)
+		} else {
+			h.delete(w, r, branchInfo, file)
+		}
 	} else {
 		// method filtering on the mux router should prevent this
 		panic("unreachable")
 	}
 }
 
-func (h objectHandler) getObject(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+func (h objectHandler) get(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	if branchInfo.Head == nil {
 		http.NotFound(w, r)
 		return
@@ -76,7 +103,7 @@ func (h objectHandler) getObject(w http.ResponseWriter, r *http.Request, branchI
 	http.ServeContent(w, r, "", timestamp, reader)
 }
 
-func (h objectHandler) putObject(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+func (h objectHandler) put(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	expectedHash := r.Header.Get("Content-MD5")
 
 	if expectedHash != "" {
@@ -115,7 +142,7 @@ func (h objectHandler) putObject(w http.ResponseWriter, r *http.Request, branchI
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h objectHandler) deleteObject(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+func (h objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	if branchInfo.Head == nil {
 		http.NotFound(w, r)
 		return
@@ -127,4 +154,24 @@ func (h objectHandler) deleteObject(w http.ResponseWriter, r *http.Request, bran
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h objectHandler) initLarge(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+	//
+}
+
+func (h objectHandler) listLargeParts(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+	//
+}
+
+func (h objectHandler) uploadLargePart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+	//
+}
+
+func (h objectHandler) completeLarge(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+	//
+}
+
+func (h objectHandler) abortLarge(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+	//
 }
