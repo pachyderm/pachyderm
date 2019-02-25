@@ -93,17 +93,7 @@ func (s byModRev) Less(i, j int) bool {
 }
 
 // NewWatcher watches a given etcd prefix for events.
-func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message) (Watcher, error) {
-	return newWatcher(ctx, client, []byte(trimPrefix), prefix, false, template)
-}
-
-// NewWatcherWithPrev is like NewWatcher, except that the returned events
-// include the previous version of the values.
-func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message) (Watcher, error) {
-	return newWatcher(ctx, client, []byte(trimPrefix), prefix, true, template)
-}
-
-func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, prefix string, withPrev bool, template proto.Message) (Watcher, error) {
+func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message, opts ...OpOption) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
 	// First list the collection to get the current items
@@ -121,8 +111,8 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 	// when we list the collection and when we start watching the collection,
 	// we won't miss any items.
 	options := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
-	if withPrev {
-		options = append(options, etcd.WithPrevKV())
+	for _, opt := range opts {
+		options = append(options, etcd.OpOption(opt))
 	}
 	rch := etcdWatcher.Watch(ctx, prefix, options...)
 
@@ -142,7 +132,7 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 		}()
 		for _, etcdKv := range resp.Kvs {
 			eventCh <- &Event{
-				Key:      bytes.TrimPrefix(etcdKv.Key, trimPrefix),
+				Key:      bytes.TrimPrefix(etcdKv.Key, []byte(trimPrefix)),
 				Value:    etcdKv.Value,
 				Type:     EventPut,
 				Rev:      etcdKv.ModRevision,
@@ -170,13 +160,13 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 			}
 			for _, etcdEv := range resp.Events {
 				ev := &Event{
-					Key:      bytes.TrimPrefix(etcdEv.Kv.Key, trimPrefix),
+					Key:      bytes.TrimPrefix(etcdEv.Kv.Key, []byte(trimPrefix)),
 					Value:    etcdEv.Kv.Value,
 					Rev:      etcdEv.Kv.ModRevision,
 					Template: template,
 				}
 				if etcdEv.PrevKv != nil {
-					ev.PrevKey = bytes.TrimPrefix(etcdEv.PrevKv.Key, trimPrefix)
+					ev.PrevKey = bytes.TrimPrefix(etcdEv.PrevKv.Key, []byte(trimPrefix))
 					ev.PrevValue = etcdEv.PrevKv.Value
 				}
 				if etcdEv.Type == etcd.EventTypePut {
