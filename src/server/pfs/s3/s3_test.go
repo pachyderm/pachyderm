@@ -9,8 +9,8 @@ import (
 	"fmt"
 	// "io"
 	"io/ioutil"
-	// "os"
 	"net/http"
+	// "os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -103,6 +103,17 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 			require.True(t, endTime.After(obj.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
 		}
 	}
+}
+
+func putListFileTestObject(t *testing.T, pc *client.APIClient, repo string, commitID string, dir string, i int) {
+	t.Helper()
+	_, err := pc.PutFile(
+		repo,
+		commitID,
+		fmt.Sprintf("%s%d", dir, i),
+		strings.NewReader(fmt.Sprintf("%d\n", i)),
+	)
+	require.NoError(t, err)
 }
 
 func nonServerError(t *testing.T, err error) {
@@ -422,29 +433,18 @@ func TestListObjectsPaginated(t *testing.T) {
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	repo := tu.UniqueString("testlistobjects")
+	repo := tu.UniqueString("testlistobjectspaginated")
 	require.NoError(t, pc.CreateRepo(repo))
 	commit, err := pc.StartCommit(repo, "master")
 	require.NoError(t, err)
 	for i := 0; i <= 1000; i++ {
-		_, err = pc.PutFile(
-			repo,
-			commit.ID,
-			fmt.Sprintf("%d", i),
-			strings.NewReader(fmt.Sprintf("%d\n", i)),
-		)
-		require.NoError(t, err)
+		putListFileTestObject(t, pc, repo, commit.ID, "", i)
 	}
 	for i := 0; i < 10; i++ {
-		_, err = pc.PutFile(
-			repo,
-			commit.ID,
-			fmt.Sprintf("dir/%d", i),
-			strings.NewReader(fmt.Sprintf("%d\n", i)),
-		)
+		putListFileTestObject(t, pc, repo, commit.ID, "dir/", i)
 		require.NoError(t, err)
 	}
-	_, err = pc.PutFile(repo, "branch", "1001", strings.NewReader("1001\n"))
+	putListFileTestObject(t, pc, repo, "branch", "", 1001)
 	require.NoError(t, pc.FinishCommit(repo, commit.ID))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
@@ -490,10 +490,8 @@ func TestListObjectsBranches(t *testing.T) {
 
 	// put files on `master` and `branch`, but not on `emptybranch`. As a
 	// result, `emptybranch` will have no head commit.
-	_, err := pc.PutFile(repo, "master", "1", strings.NewReader("1\n"))
-	require.NoError(t, err)
-	_, err = pc.PutFile(repo, "branch", "2", strings.NewReader("2\n"))
-	require.NoError(t, err)
+	putListFileTestObject(t, pc, repo, "master", "", 1)
+	putListFileTestObject(t, pc, repo, "branch", "", 2)
 
 	// Request that will list branches as common prefixes
 	ch := c.ListObjects(repo, "", false, make(chan struct{}))
@@ -521,6 +519,62 @@ func TestListObjectsHeadlessBranch(t *testing.T) {
 
 	require.Equal(t, len(objs), 1)
 	nonServerError(t, objs[0].Err)
+
+	require.NoError(t, srv.Close())
+}
+
+func TestListObjectsRecursive(t *testing.T) {
+	pc := server.GetPachClient(t)
+	srv, c := serve(t, pc)
+
+	// `startTime` and `endTime` will be used to ensure that an object's
+	// `LastModified` date is correct. A few minutes are subtracted/added to
+	// each to tolerate the node time not being the same as the host time.
+	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
+	repo := tu.UniqueString("testlistobjectsrecursive")
+	require.NoError(t, pc.CreateRepo(repo))
+	commit, err := pc.StartCommit(repo, "master")
+	require.NoError(t, err)
+	putListFileTestObject(t, pc, repo, commit.ID, "", 0)
+	putListFileTestObject(t, pc, repo, commit.ID, "rootdir/", 1)
+	putListFileTestObject(t, pc, repo, commit.ID, "rootdir/subdir/", 2)
+	putListFileTestObject(t, pc, repo, "branch", "", 3)
+	require.NoError(t, pc.FinishCommit(repo, commit.ID))
+	endTime := time.Now().Add(time.Duration(5) * time.Minute)
+
+	// Request that will list all files across all branches
+	expectedFiles := []string{"master/", "master/0", "master/rootdir/", "master/rootdir/1", "master/rootdir/subdir/", "master/rootdir/subdir/2", "branch/", "branch/3"}
+	ch := c.ListObjects(repo, "", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
+	// Requests that will list all files in master
+	expectedFiles = []string{"master/0", "master/rootdir/1", "master/rootdir/subdir/2"}
+	ch = c.ListObjects(repo, "mas", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	ch = c.ListObjects(repo, "master", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	ch = c.ListObjects(repo, "master/", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
+	// Requests that will list all files in rootdir
+	expectedFiles = []string{"master/rootdir/1", "master/rootdir/subdir/2"}
+	ch = c.ListObjects(repo, "master/r", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	ch = c.ListObjects(repo, "master/rootdir", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	ch = c.ListObjects(repo, "master/rootdir/", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+
+	// Requests that will list all files in subdir
+	expectedFiles = []string{"master/rootdir/subdir/2"}
+	ch = c.ListObjects(repo, "master/rootdir/s", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	ch = c.ListObjects(repo, "master/rootdir/subdir", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	ch = c.ListObjects(repo, "master/rootdir/subdir/", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
+	ch = c.ListObjects(repo, "master/rootdir/subdir/2", true, make(chan struct{}))
+	checkListObjects(t, ch, startTime, endTime, expectedFiles)
 
 	require.NoError(t, srv.Close())
 }

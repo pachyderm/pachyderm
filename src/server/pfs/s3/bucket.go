@@ -13,6 +13,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
 const defaultMaxKeys = 1000
@@ -65,9 +66,55 @@ func newBucketHandler(pc *client.APIClient) bucketHandler {
 		Parse(listObjectsSource))
 
 	return bucketHandler{
-		pc:                  pc,
+		pc:           pc,
 		listTemplate: listTemplate,
 	}
+}
+
+func (h bucketHandler) renderList(w http.ResponseWriter, bucket, prefix, marker string, maxKeys int, isTruncated bool, files []*pfs.FileInfo, dirs []string) {
+	args := map[string]interface{}{
+		"bucket":      bucket,
+		"prefix":      prefix,
+		"marker":      marker,
+		"maxKeys":     maxKeys,
+		"isTruncated": isTruncated,
+		"files":       files,
+		"dirs":        dirs,
+	}
+	if err := h.listTemplate.Execute(w, args); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/xml")
+}
+
+// rootDirs determines the root directories (common prefixes in s3 parlance)
+// of a bucket by finding branches that have a given prefix
+func (h bucketHandler) rootDirs(repo string, prefix string) ([]string, error) {
+	dirs := []string{}
+	branchInfos, err := h.pc.ListBranch(repo)
+	if err != nil {
+		return nil, err
+	}
+
+	// `branchInfos` is not sorted by default, but we need to sort in order to
+	// match the s3 spec
+	sort.Slice(branchInfos, func(i, j int) bool {
+		return branchInfos[i].Branch.Name < branchInfos[j].Branch.Name
+	})
+
+	for _, branchInfo := range branchInfos {
+		if !strings.HasPrefix(branchInfo.Branch.Name, prefix) {
+			continue
+		}
+		if branchInfo.Head == nil {
+			continue
+		}
+		dirs = append(dirs, branchInfo.Branch.Name)
+	}
+
+	return dirs, nil
 }
 
 func (h bucketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +134,7 @@ func (h bucketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) getRepo(w http.ResponseWriter, r *http.Request, repo string) {
-	repoInfo, err := h.pc.InspectRepo(repo)
+	_, err := h.pc.InspectRepo(repo)
 	if err != nil {
 		writeMaybeNotFound(w, r, err)
 		return
@@ -101,19 +148,6 @@ func (h bucketHandler) getRepo(w http.ResponseWriter, r *http.Request, repo stri
 	if _, ok := r.Form["location"]; ok {
 		w.Header().Set("Content-Type", "application/xml")
 		w.Write([]byte(locationSource))
-		return
-	}
-
-	delimiter := r.FormValue("delimiter")
-	if delimiter == "" {
-		// Just return OK so the callee knows that the bucket exists. This is
-		// to support `BucketExists`, which is a `HEAD` request on `/<repo>/`.
-		// TODO: should this be implemented more thoroughly?
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-	if delimiter != "/" {
-		writeBadRequest(w, fmt.Errorf("invalid delimiter '%s'; only '/' is allowed", delimiter))
 		return
 	}
 
@@ -138,74 +172,44 @@ func (h bucketHandler) getRepo(w http.ResponseWriter, r *http.Request, repo stri
 
 	prefix := r.FormValue("prefix")
 	prefixParts := strings.SplitN(prefix, "/", 2)
-
-	if len(prefixParts) == 1 {
-		branchPattern := fmt.Sprintf("%s*", prefixParts[0])
-		h.getBranches(w, r, repoInfo, branchPattern, prefix, marker, maxKeys)
+	delimiter := r.FormValue("delimiter")
+	if delimiter == "" {
+		// a delimiter was not specified; recurse into subdirectories
+		if len(prefixParts) == 1 {
+			h.listRepoRecursive(w, r, repo, prefixParts[0], prefix, marker, maxKeys)
+		} else {
+			h.listFilesRecursive(w, r, repo, prefixParts[0], prefixParts[1], prefix, marker, maxKeys)
+		}
+	} else if delimiter == "/" {
+		// a delimiter was specified; do not recurse into subdirectories
+		if len(prefixParts) == 1 {
+			h.listRepo(w, r, repo, prefixParts[0], prefix, marker, maxKeys)
+		} else {
+			h.listFiles(w, r, repo, prefixParts[0], prefixParts[1], prefix, marker, maxKeys)
+		}
 	} else {
-		branch := prefixParts[0]
-		filePattern := fmt.Sprintf("%s*", prefixParts[1])
-		h.getFiles(w, r, repo, branch, filePattern, prefix, marker, maxKeys)
+		writeBadRequest(w, fmt.Errorf("invalid delimiter '%s'; only '/' is allowed", delimiter))
 	}
 }
 
-func (h bucketHandler) getBranches(w http.ResponseWriter, r *http.Request, repoInfo *pfs.RepoInfo, pattern string, prefix string, marker string, maxKeys int) {
+func (h bucketHandler) listRepo(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
 	var dirs []string
 	isTruncated := false
-
-	// While `repoInfo` has the list of branch names, it doesn't include head
-	// commit info. We need this to remove branches without a head commit.
-	branchInfos, err := h.pc.ListBranch(repoInfo.Repo.Name)
+	dirs, err := h.rootDirs(repo, branchPrefix)
 	if err != nil {
 		writeServerError(w, err)
 		return
 	}
 
-	// `branchInfos` is not sorted by default, but we need to sort in order to
-	// match the s3 spec
-	sort.Slice(branchInfos, func(i, j int) bool {
-		return branchInfos[i].Branch.Name < branchInfos[j].Branch.Name
-	})
-
-	for _, branchInfo := range branchInfos {
-		match, err := filepath.Match(pattern, branchInfo.Branch.Name)
-		if err != nil {
-			writeBadRequest(w, fmt.Errorf("invalid prefix '%s' (compiled to pattern '%s'): %v", prefix, pattern, err))
-			return
-		}
-		if !match {
-			continue
-		}
-
-		if branchInfo.Head == nil {
-			continue
-		}
-		if len(dirs) == maxKeys {
-			isTruncated = true
-			break
-		}
-
-		dirs = append(dirs, branchInfo.Branch.Name)
+	if len(dirs) > maxKeys {
+		dirs = dirs[:maxKeys]
+		isTruncated = true
 	}
 
-	args := map[string]interface{}{
-		"bucket":      repoInfo.Repo.Name,
-		"prefix":      prefix,
-		"marker":      marker,
-		"maxKeys":     maxKeys,
-		"isTruncated": isTruncated,
-		"files":       []*pfs.FileInfo{},
-		"dirs":        dirs,
-	}
-	if err := h.listTemplate.Execute(w, args); err != nil {
-		writeServerError(w, err)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/xml")
+	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, []*pfs.FileInfo{}, dirs)
 }
 
-func (h bucketHandler) getFiles(w http.ResponseWriter, r *http.Request, repo string, branch string, pattern string, prefix string, marker string, maxKeys int) {
+func (h bucketHandler) listFiles(w http.ResponseWriter, r *http.Request, repo, branch, filePrefix, completePrefix, marker string, maxKeys int) {
 	var files []*pfs.FileInfo
 	var dirs []string
 
@@ -221,55 +225,124 @@ func (h bucketHandler) getFiles(w http.ResponseWriter, r *http.Request, repo str
 	}
 
 	isTruncated := false
-	fileInfos, err := h.pc.GlobFile(repo, branch, pattern)
+	fileInfos, err := h.pc.GlobFile(repo, branch, fmt.Sprintf("%s*", filePrefix)) //TODO: escape filePrefix
 	if err != nil {
 		writeServerError(w, err)
 		return
 	}
 
 	for _, fileInfo := range fileInfos {
-		isFile := fileInfo.FileType == pfs.FileType_FILE
-		isDir := fileInfo.FileType == pfs.FileType_DIR
-		if !isFile && !isDir {
+		fileInfo = updateFileInfo(branch, marker, fileInfo)
+		if fileInfo == nil {
 			continue
 		}
 		if len(files)+len(dirs) == maxKeys {
 			isTruncated = true
 			break
 		}
-		if isDir && fileInfo.File.Path == "" {
-			// skip the root directory
-			continue
-		}
-
-		// update the path to match s3
-		fileInfo.File.Path = fmt.Sprintf("%s%s", branch, fileInfo.File.Path)
-		if fileInfo.File.Path <= marker {
-			continue
-		}
-
-		if isFile {
+		if fileInfo.FileType == pfs.FileType_FILE {
 			files = append(files, fileInfo)
 		} else {
 			dirs = append(dirs, fileInfo.File.Path)
 		}
 	}
 
-	args := map[string]interface{}{
-		"bucket":      repo,
-		"prefix":      prefix,
-		"marker":      marker,
-		"maxKeys":     maxKeys,
-		"isTruncated": isTruncated,
-		"files":       files,
-		"dirs":        dirs,
-	}
-	if err = h.listTemplate.Execute(w, args); err != nil {
+	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
+}
+
+func (h bucketHandler) listRepoRecursive(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
+	var files []*pfs.FileInfo
+	var dirs []string
+	isTruncated := false
+	branches, err := h.rootDirs(repo, branchPrefix)
+	if err != nil {
 		writeServerError(w, err)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/xml")
+	for _, branch := range branches {
+		dirs = append(dirs, branch)
+		if len(files)+len(dirs) == maxKeys {
+			isTruncated = true
+			break
+		}
+
+		err = h.pc.Walk(repo, branch, "", func(fileInfo *pfs.FileInfo) error {
+			fileInfo = updateFileInfo(branch, marker, fileInfo)
+			if fileInfo == nil {
+				return nil
+			}
+			if len(files)+len(dirs) == maxKeys {
+				isTruncated = true
+				return errutil.ErrBreak
+			}
+			if fileInfo.FileType == pfs.FileType_FILE {
+				files = append(files, fileInfo)
+			} else {
+				dirs = append(dirs, fileInfo.File.Path)
+			}
+			return nil
+		})
+		if err != nil {
+			writeMaybeNotFound(w, r, err)
+			return
+		}
+		if isTruncated {
+			break
+		}
+	}
+	
+	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
+}
+
+func (h bucketHandler) listFilesRecursive(w http.ResponseWriter, r *http.Request, repo string, branch string, filePrefix string, completePrefix string, marker string, maxKeys int) {
+	var files []*pfs.FileInfo
+	var dirs []string
+	isTruncated := false
+
+	// ensure the branch exists and has a head
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	if branchInfo.Head == nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	// get what directory we should be recursing into
+	dir := filepath.Dir(filePrefix)
+	if dir == "." {
+		dir = ""
+	}
+
+	err = h.pc.Walk(repo, branch, dir, func(fileInfo *pfs.FileInfo) error {
+		fileInfo = updateFileInfo(branch, marker, fileInfo)
+		if fileInfo == nil {
+			return nil
+		}
+		if !strings.HasPrefix(fileInfo.File.Path, filePrefix) {
+			return nil
+		}
+		if len(files)+len(dirs) == maxKeys {
+			isTruncated = true
+			return errutil.ErrBreak
+		}
+		if fileInfo.FileType == pfs.FileType_FILE {
+			files = append(files, fileInfo)
+		} else {
+			dirs = append(dirs, fileInfo.File.Path)
+		}
+		return nil
+	})
+
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	
+	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
 }
 
 func (h bucketHandler) putRepo(w http.ResponseWriter, r *http.Request, repo string) {
@@ -296,4 +369,29 @@ func (h bucketHandler) deleteRepo(w http.ResponseWriter, r *http.Request, repo s
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// updateFileInfo takes in a `FileInfo`, and updates it to be used in s3
+// object listings:
+// 1) if nil is returned, the `FileInfo` should not be included in the list
+// 2) the path is updated to be prefixed by the branch name
+func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo {
+	if fileInfo.FileType != pfs.FileType_FILE && fileInfo.FileType != pfs.FileType_DIR {
+		// skip anything that isn't a file or dir
+		return nil
+	}
+	if fileInfo.FileType == pfs.FileType_DIR && fileInfo.File.Path == "/" {
+		// skip the root directory
+		return nil
+	}
+
+	// update the path to match s3
+	fileInfo.File.Path = fmt.Sprintf("%s%s", branch, fileInfo.File.Path)
+	
+	if fileInfo.File.Path <= marker {
+		// skip file paths below the marker
+		return nil
+	}
+
+	return fileInfo
 }

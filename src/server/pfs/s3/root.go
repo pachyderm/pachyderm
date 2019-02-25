@@ -39,7 +39,7 @@ func newRootHandler(pc *client.APIClient) rootHandler {
 		Parse(listBucketsSource))
 
 	return rootHandler{
-		pc:                  pc,
+		pc:           pc,
 		listTemplate: listTemplate,
 	}
 }
