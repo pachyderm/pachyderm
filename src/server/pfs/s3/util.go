@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-// TODO: provide standard xml-based errors
-
 func writeBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
 }
