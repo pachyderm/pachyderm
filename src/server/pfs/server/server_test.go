@@ -1985,7 +1985,7 @@ func TestGetFiles(t *testing.T) {
 	sort.Strings(paths)
 	i := 0
 	// Confirm when we glob for all the files we put, that it finds each of them individually.
-	require.NoError(t, c.GetFiles("repo", "master", "*", 0, 0, func(file *pfs.File, r io.Reader) error {
+	require.NoError(t, c.GetFiles("repo", "master", "*", 0, 0, func(fileInfo *pfs.FileInfo, r io.Reader) error {
 		data, err := ioutil.ReadAll(r)
 		require.NoError(t, err)
 		require.Equal(t, []byte(paths[i]), data)
@@ -2018,7 +2018,7 @@ func TestGetFilesRecursive(t *testing.T) {
 	sort.Strings(paths)
 	i := 0
 	// Confirm when we glob for all the files we put, that it finds each of them individually.
-	require.NoError(t, c.GetFiles("repo", "master", "/*/", 0, 0, func(file *pfs.File, r io.Reader) error {
+	require.NoError(t, c.GetFiles("repo", "master", "/*/", 0, 0, func(fileInfo *pfs.FileInfo, r io.Reader) error {
 		data, err := ioutil.ReadAll(r)
 		require.NoError(t, err)
 		require.Equal(t, paths[i], string(data))

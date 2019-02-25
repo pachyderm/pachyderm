@@ -1021,7 +1021,7 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 	return nil
 }
 
-func (c APIClient) GetFiles(repoName string, commitID string, path string, offset int64, size int64, f func(file *pfs.File, r io.Reader) error) error {
+func (c APIClient) GetFiles(repoName string, commitID string, path string, offset int64, size int64, f func(fileInfo *pfs.FileInfo, r io.Reader) error) error {
 	gfc, err := c.PfsAPIClient.GetFiles(
 		c.Ctx(),
 		&pfs.GetFileRequest{
@@ -1040,7 +1040,7 @@ func (c APIClient) GetFiles(repoName string, commitID string, path string, offse
 		} else if err != nil {
 			return grpcutil.ScrubGRPC(err)
 		}
-		if err := f(gfr.File, bytes.NewReader(gfr.Value)); err != nil {
+		if err := f(gfr.FileInfo, bytes.NewReader(gfr.Value)); err != nil {
 			if err == errutil.ErrBreak {
 				return nil
 			}

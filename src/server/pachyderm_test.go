@@ -6867,7 +6867,7 @@ func TestGetFilesRecurisveOutputRepo(t *testing.T) {
 
 	sort.Strings(paths)
 	i := 0
-	require.NoError(t, c.GetFiles(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "/*/", 0, 0, func(file *pfs.File, r io.Reader) error {
+	require.NoError(t, c.GetFiles(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "/*/", 0, 0, func(fileInfo *pfs.FileInfo, r io.Reader) error {
 		data, err := ioutil.ReadAll(r)
 		require.NoError(t, err)
 		require.Equal(t, paths[i], string(data))

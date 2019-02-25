@@ -295,7 +295,7 @@ message GetFileRequest {
 }
 
 message GetFileResponse {
-  File file = 1;
+  FileInfo fileInfo = 1;
   bytes value = 2;
 }
 
