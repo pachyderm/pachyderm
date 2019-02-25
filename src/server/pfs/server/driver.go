@@ -433,6 +433,8 @@ func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pf
 //   to the new commit
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
+// - If only 'parent.ID' is set, and it contains a branch, then the new commit's
+//   parent will be the HEAD of that branch, but the branch will not be moved
 func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
@@ -458,8 +460,18 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		Description: description,
 	}
 
-	//  BuildCommit case: if the caller passed a tree reference with the commit
-	// contents then retrieve the full tree so we can compute its size
+	// FinishCommit case. We need to create AND finish 'newCommit' in two cases:
+	// 1. PutFile has been called on a finished commit (records != nil), and
+	//    we want to apply 'records' to the parentCommit's HashTree, use that new
+	//    HashTree for this commit's filesystem, and then finish this commit
+	// 2. BuildCommit has been called by migration (treeRef != nil) and we
+	//    want a new, finished commit with the given treeRef
+	// - In either case, store this commit's HashTree in 'tree', so we have its
+	//   size, and store a pointer to the tree (in object store) in 'treeRef', to
+	//   put in newCommitInfo.Tree.
+	// - We also don't want to resolve 'branch' or 'parent.ID' (if it's a branch)
+	//   outside the txn below, so the 'PutFile' case is handled (by computing
+	//   'tree' and 'treeRef') below as well
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
@@ -484,13 +496,17 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			return err
 		}
 
-		// create/update 'branch' (if it was set) and set parent.ID (if, in addition,
-		// 'parent.ID' was not set)
+		// create/update 'branch' (if it was set) and set parent.ID (if, in
+		// addition, 'parent.ID' was not set)
 		if branch != "" {
 			branchInfo := &pfs.BranchInfo{}
 			if err := branches.Upsert(branch, branchInfo, func() error {
+				// validate branch
 				if parent.ID == "" && branchInfo.Head != nil {
 					parent.ID = branchInfo.Head.ID
+				}
+				if len(branchInfo.Provenance) > 0 && treeRef == nil {
+					return fmt.Errorf("cannot start a commit on an output branch")
 				}
 				// Point 'branch' at the new commit
 				branchInfo.Name = branch // set in case 'branch' is new
@@ -500,10 +516,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}); err != nil {
 				return err
 			}
+			// Add branch to repo (see "Update repoInfo" below)
 			add(&repoInfo.Branches, branchInfo.Branch)
-			if len(branchInfo.Provenance) > 0 && treeRef == nil {
-				return fmt.Errorf("cannot start a commit on an output branch")
-			}
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
@@ -531,16 +545,15 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 		}
 
-		isStartCommit := false
+		// 1. Write 'newCommit' to 'openCommits' collection OR
+		// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
+		//    "FinishCommit case" above)
 		if treeRef != nil || records != nil {
-			// BuildCommit case: Now that 'parent' is resolved, read the
-			// parent commit's tree (inside txn)
-			parentTree, err := d.getTreeForCommit(pachClient, parent)
-			if err != nil {
-				return err
-			}
 			if records != nil {
-				var err error
+				parentTree, err := d.getTreeForCommit(pachClient, parent)
+				if err != nil {
+					return err
+				}
 				tree, err = parentTree.Copy()
 				if err != nil {
 					return err
@@ -558,35 +571,33 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 					return err
 				}
 			}
+
+			// now 'treeRef' is guaranteed to be set
+			newCommitInfo.Tree = treeRef
+			newCommitInfo.SizeBytes = uint64(tree.FSSize())
+			newCommitInfo.Finished = now()
+
+			// If we're updating the master branch, also update the repo size (see
+			// "Update repoInfo" below)
+			if branch == "master" {
+				repoInfo.SizeBytes = newCommitInfo.SizeBytes
+			}
 		} else {
-			isStartCommit = true
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
 		}
 
-		if treeRef != nil {
-			newCommitInfo.Tree = treeRef
-			newCommitInfo.SizeBytes = uint64(tree.FSSize())
-			newCommitInfo.Finished = now()
-		}
-
-		// Update the repo size if we're on the master branch and this is not
-		// an open commit
-		if !isStartCommit && branch == "master" {
-			repoInfo.SizeBytes = newCommitInfo.SizeBytes
-		}
-
+		// Update repoInfo (potentially with new branch and new size)
 		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
 			return err
 		}
 
-		// 'newCommitProv' holds newCommit's provenance (use map for deduping).
+		// Build newCommit's full provenance. B/c commitInfo.Provenance is a
+		// transitive closure, there's no need to search the full provenance graph,
+		// just take the union of the immediate parents' (in the 'provenance' arg)
+		// commitInfo.Provenance
 		newCommitProv := make(map[string]*pfs.Commit)
-
-		// Build newCommit's full provenance; my provenance's provenance is my
-		// provenance (b/c provenance' is a transitive closure, there's no need to
-		// explore full graph)
 		for _, provCommit := range provenance {
 			newCommitProv[provCommit.ID] = provCommit
 			provCommitInfo := &pfs.CommitInfo{}
@@ -1266,7 +1277,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			return err
 		}
 	}
-	
+
 	// Now wait for the root commits to finish. These are not passed to `f`
 	// because it's expecting to just get downstream commits.
 	for _, commit := range fromCommits {
@@ -1553,6 +1564,8 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		// 8) propagate the changes to 'branch' and its subvenance. This may start
 		// new HEAD commits downstream, if the new branch heads haven't been
 		// processed yet
+		// TODO(msteffen) propagate all changed branches? Use heap to topologically
+		// sort them?
 		return d.propagateCommit(stm, shortestBranch)
 	}); err != nil {
 		return fmt.Errorf("error rewriting commit graph: %v", err)
@@ -1800,7 +1813,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-	
+
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
@@ -3337,7 +3350,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					branch = commit.ID
 				}
 				// inspect the commit where we're adding files and figure out
-				// if this is a one-off put-file. 
+				// if this is a one-off put-file.
 				// - if 'commit' refers to an open commit                -> not oneOff
 				// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
 				// Note that if commit is a specific commit ID, it must be
