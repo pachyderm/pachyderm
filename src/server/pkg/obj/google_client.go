@@ -10,6 +10,8 @@ import (
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+
+	"github.com/opentracing/opentracing-go"
 )
 
 type googleClient struct {
@@ -32,6 +34,8 @@ func newGoogleClient(ctx context.Context, bucket string, credFile string) (*goog
 }
 
 func (c *googleClient) Exists(name string) bool {
+	span := opentracing.StartSpan("gcs.Exists")
+	defer span.Finish()
 	_, err := c.bucket.Object(name).Attrs(c.ctx)
 	return err == nil
 }
@@ -41,6 +45,8 @@ func (c *googleClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *googleClient) Walk(name string, fn func(name string) error) error {
+	span := opentracing.StartSpan("gcs.Walk")
+	defer span.Finish()
 	objectIter := c.bucket.Objects(c.ctx, &storage.Query{Prefix: name})
 	for {
 		objectAttrs, err := objectIter.Next()

@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,11 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // Client is an interface to object storage.
@@ -323,6 +324,8 @@ func newBackoffReadCloser(client Client, reader io.ReadCloser) io.ReadCloser {
 }
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
+	span := opentracing.StartSpan("obj/BackoffReadCloser.Read")
+	defer span.Finish()
 	bytesRead := 0
 	var n int
 	var err error
@@ -346,6 +349,8 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 
 // Close closes the ReaderCloser contained in b.
 func (b *BackoffReadCloser) Close() error {
+	span := opentracing.StartSpan("obj/BackoffReadCloser.Close")
+	defer span.Finish()
 	return b.reader.Close()
 }
 
@@ -365,6 +370,8 @@ func newBackoffWriteCloser(client Client, writer io.WriteCloser) io.WriteCloser 
 }
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
+	span := opentracing.StartSpan("obj/BackoffWriteCloser.Write")
+	defer span.Finish()
 	bytesWritten := 0
 	var n int
 	var err error
@@ -388,6 +395,8 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 
 // Close closes the WriteCloser contained in b.
 func (b *BackoffWriteCloser) Close() error {
+	span := opentracing.StartSpan("obj/BackoffWriteCloser.Close")
+	defer span.Finish()
 	err := b.writer.Close()
 	if b.client.IsIgnorable(err) {
 		return nil

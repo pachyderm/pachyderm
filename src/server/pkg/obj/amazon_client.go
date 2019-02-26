@@ -24,6 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	vault "github.com/hashicorp/vault/api"
+	"github.com/opentracing/opentracing-go"
 )
 
 const oneDayInSeconds = 60 * 60 * 24
@@ -77,6 +78,8 @@ func (v *vaultCredentialsProvider) getLeaseDuration() time.Duration {
 // Retrieve returns nil if it successfully retrieved the value.  Error is
 // returned if the value were not obtainable, or empty.
 func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
+	span := opentracing.StartSpan("vault.Retrieve")
+	defer span.Finish()
 	var emptyCreds, result credentials.Value // result
 
 	// retrieve AWS creds from vault
@@ -215,6 +218,8 @@ func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
 }
 
 func (c *amazonClient) Walk(name string, fn func(name string) error) error {
+	span := opentracing.StartSpan("aws.Walk")
+	defer span.Finish()
 	var fnErr error
 	if err := c.s3.ListObjectsPages(
 		&s3.ListObjectsInput{
@@ -293,6 +298,8 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 }
 
 func (c *amazonClient) Delete(name string) error {
+	span := opentracing.StartSpan("aws.Delete")
+	defer span.Finish()
 	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
@@ -301,6 +308,8 @@ func (c *amazonClient) Delete(name string) error {
 }
 
 func (c *amazonClient) Exists(name string) bool {
+	span := opentracing.StartSpan("aws.Exists")
+	defer span.Finish()
 	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
@@ -378,6 +387,8 @@ func newWriter(client *amazonClient, name string) *amazonWriter {
 }
 
 func (w *amazonWriter) Write(p []byte) (int, error) {
+	span := opentracing.StartSpan("awsWriter.Write")
+	defer span.Finish()
 	return w.pipe.Write(p)
 }
 
