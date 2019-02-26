@@ -3440,7 +3440,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					}
 					if req.Recursive {
 						path := strings.TrimPrefix(url.Object, "/")
-						if err := objClient.Walk(path, func(name string) error {
+						if err := objClient.Walk(server.Context(), path, func(name string) error {
 							if strings.HasSuffix(name, "/") {
 								// Creating a file with a "/" suffix breaks
 								// pfs' directory model, so we don't
@@ -3448,7 +3448,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							r, err := objClient.Reader(name, 0, 0)
+							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
@@ -3467,7 +3467,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
-						r, err := objClient.Reader(url.Object, 0, 0)
+						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}

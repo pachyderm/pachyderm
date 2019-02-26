@@ -86,7 +86,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
-		objW, err := objClient.Writer(url.Object)
+		objW, err := objClient.Writer(extractServer.Context(), url.Object)
 		if err != nil {
 			return err
 		}
@@ -359,7 +359,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				if err != nil {
 					return err
 				}
-				objR, err := objClient.Reader(url.Object, 0, 0)
+				objR, err := objClient.Reader(restoreServer.Context(), url.Object, 0, 0)
 				if err != nil {
 					return err
 				}
