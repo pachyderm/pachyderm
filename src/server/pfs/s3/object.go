@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/base64"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
+	"sort"
+	"strconv"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/sirupsen/logrus"
 )
 
 // this is a var instead of a const so that we can make a pointer to it
@@ -61,23 +62,41 @@ const listMultipartSource = `
 </ListPartsResult>
 `
 
+// multipartCompleteRoot represents the root XML element of a complete
+// multipart request
+type multipartCompleteRoot struct {
+	parts []multipartCompletePart `xml:"Part"`
+}
+
+// multipartCompletePart represents a <Part> XML element of a complete
+// multipart request
+type multipartCompletePart struct {
+	partNumber int    `xml:"PartNumber"`
+	etag       string `xml:"ETag"`
+}
+
 type objectHandler struct {
 	pc                    *client.APIClient
-	multipartDir          string
+	multipartManager      *multipartFileManager
 	initMultipartTemplate xmlTemplate
 	listMultipartTemplate xmlTemplate
 }
 
-func newObjectHandler(pc *client.APIClient, multipartDir string) objectHandler {
-	return objectHandler{
+func newObjectHandler(pc *client.APIClient, multipartDir string) *objectHandler {
+	var multipartManager *multipartFileManager
+	if multipartDir != "" {
+		multipartManager = newMultipartFileManager(multipartDir, maxAllowedParts)
+	}
+
+	return &objectHandler{
 		pc:                    pc,
-		multipartDir:          multipartDir,
+		multipartManager:      multipartManager,
 		initMultipartTemplate: newXmlTemplate(http.StatusOK, "init-multipart", initMultipartSource),
 		listMultipartTemplate: newXmlTemplate(http.StatusOK, "list-multipart", listMultipartSource),
 	}
 }
 
-func (h objectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *objectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
 	branch := vars["branch"]
@@ -128,7 +147,7 @@ func (h objectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h objectHandler) get(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+func (h *objectHandler) get(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	if branchInfo.Head == nil {
 		http.NotFound(w, r)
 		return
@@ -155,7 +174,7 @@ func (h objectHandler) get(w http.ResponseWriter, r *http.Request, branchInfo *p
 	http.ServeContent(w, r, "", timestamp, reader)
 }
 
-func (h objectHandler) put(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+func (h *objectHandler) put(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	success, err := h.withBodyReader(r, func(reader io.Reader) bool {
 		_, err := h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 
@@ -167,6 +186,8 @@ func (h objectHandler) put(w http.ResponseWriter, r *http.Request, branchInfo *p
 		return true
 	})
 
+	// if there's no error but the operation is not successful, we've already
+	// written a response to the client
 	if err != nil {
 		writeBadRequest(w, err)
 	} else if success {
@@ -174,7 +195,7 @@ func (h objectHandler) put(w http.ResponseWriter, r *http.Request, branchInfo *p
 	}
 }
 
-func (h objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+func (h *objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	if branchInfo.Head == nil {
 		http.NotFound(w, r)
 		return
@@ -198,7 +219,7 @@ func (h objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo
 // This function will return whether it succeeded and an error. If there is an
 // error, it is because of a bad request. If this returns a failure but not an
 // error, it implies that the callback returned a failure.
-func (h objectHandler) withBodyReader(r *http.Request, f func(io.Reader) bool) (bool, error) {
+func (h *objectHandler) withBodyReader(r *http.Request, f func(io.Reader) bool) (bool, error) {
 	expectedHash := r.Header.Get("Content-MD5")
 
 	if expectedHash != "" {
@@ -228,51 +249,14 @@ func (h objectHandler) withBodyReader(r *http.Request, f func(io.Reader) bool) (
 	return f(r.Body), nil
 }
 
-func (h objectHandler) multipartNamePath(uploadID string) string {
-	return filepath.Join(h.multipartDir, fmt.Sprintf("%s.txt", uploadID))
-}
-
-func (h objectHandler) multipartPartsPath(uploadID string) string {
-	return filepath.Join(h.multipartDir, uploadID)
-}
-
-func (h objectHandler) multipartParts(uploadID string, limit int) ([]os.FileInfo, error) {
-	f, err := os.Open(h.multipartPartsPath(uploadID))
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	fileInfos, err := f.Readdir(limit)
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	return fileInfos, nil
-}
-
-func (h objectHandler) ensureMultipartExists(uploadID string) error {
-	if _, err := os.Stat(h.multipartNamePath(uploadID)); err != nil {
-		return err
-	}
-
-	_, err := os.Stat(h.multipartPartsPath(uploadID))
-	return err
-}
-
-func (h objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
-	if h.multipartDir == "" {
+func (h *objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
+	if h.multipartManager == nil {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
 
-	uploadID := uuid.NewWithoutDashes()
-
-	if err := ioutil.WriteFile(h.multipartNamePath(uploadID), []byte(file), os.ModePerm); err != nil {
-		writeServerError(w, err)
-		return
-	}
-
-	if err := os.Mkdir(h.multipartPartsPath(uploadID), os.ModePerm); err != nil {
+	uploadID, err := h.multipartManager.init(file)
+	if err != nil {
 		writeServerError(w, err)
 		return
 	}
@@ -284,41 +268,41 @@ func (h objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, bra
 	})
 }
 
-func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
-	if h.multipartDir == "" {
+func (h *objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
+	if h.multipartManager == nil {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
-	if err := h.ensureMultipartExists(uploadID); err != nil {
+	if err := h.multipartManager.checkExists(uploadID); err != nil {
 		writeMaybeNotFound(w, r, err)
 		return
 	}
 
-	marker := r.FormValue("part-number-marker")
+	marker, err := intFormValue(r, "part-number-marker", 1, defaultMaxParts, &defaultMaxParts)
+	if err != nil {
+		writeBadRequest(w, err)
+		return
+	}
+
 	maxParts, err := intFormValue(r, "max-parts", 1, defaultMaxParts, &defaultMaxParts)
 	if err != nil {
 		writeBadRequest(w, err)
 		return
 	}
 
-	// How many files to read; -1 means read all files. If the marker is
-	// empty (i.e. we're trying to read from the beginning of the directory),
-	// limit the results to `maxParts`. Otherwise we don't know how many to
-	// read (since it's marker- instead of offset-based), so just read
-	// everything.
-	readCount := -1
-	if marker == "" {
-		readCount = maxParts
-	}
-	fileInfos, err := h.multipartParts(uploadID, readCount)
+	fileInfos, err := h.multipartManager.listChunks(uploadID)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		writeServerError(w, err)
+		return
 	}
 
 	isTruncated := false
 	parts := []os.FileInfo{}
 	for _, fileInfo := range fileInfos {
-		if fileInfo.Name() < marker {
+		// ignore errors converting the name since it's already been verified
+		name, _ := strconv.Atoi(fileInfo.Name())
+
+		if name < marker {
 			continue
 		}
 		if len(parts) == maxParts {
@@ -345,12 +329,12 @@ func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, bra
 	})
 }
 
-func (h objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
-	if h.multipartDir == "" {
+func (h *objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
+	if h.multipartManager == nil {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
-	if err := h.ensureMultipartExists(uploadID); err != nil {
+	if err := h.multipartManager.checkExists(uploadID); err != nil {
 		writeMaybeNotFound(w, r, err)
 		return
 	}
@@ -361,42 +345,116 @@ func (h objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, b
 		return
 	}
 
-	f, err := os.Create(filepath.Join(h.multipartPartsPath(uploadID), fmt.Sprintf("%d", partNumber)))
-	if err != nil {
-		writeServerError(w, err)
-		return
-	}
-	defer f.Close()
-
 	success, err := h.withBodyReader(r, func(reader io.Reader) bool {
-		if _, err := io.Copy(f, reader); err != nil {
-			writeServerError(w, err)
-			return false
-		}
-		if err := f.Sync(); err != nil {
+		if err := h.multipartManager.writeChunk(uploadID, partNumber, reader); err != nil {
 			writeServerError(w, err)
 			return false
 		}
 		return true
 	})
 
-	if err != nil {
-		writeBadRequest(w, err)
-	} else if success {
+	if err != nil || !success {
+		// try to clean up the file if something failed
+		removeErr := h.multipartManager.removeChunk(uploadID, partNumber)
+		if removeErr != nil {
+			logrus.Error("could not remove uploadID=%s, partNumber=%d: %v", uploadID, partNumber, removeErr)
+		}
+
+		if err != nil {
+			writeBadRequest(w, err)
+		}
+
+		// if there's no error but the operation is not successful, we've
+		// already written a response to the client
+	} else {
 		w.WriteHeader(http.StatusOK)
 	}
 }
 
-func (h objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
-	if h.multipartDir == "" {
+func (h *objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
+	if h.multipartManager == nil {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
+	if err := h.multipartManager.checkExists(uploadID); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	name, err := h.multipartManager.filepath(uploadID)
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		writeServerError(w, fmt.Errorf("could not read request body: %v", err))
+		return
+	}
+
+	payload := multipartCompleteRoot{}
+	err = xml.Unmarshal(bodyBytes, &payload)
+	if err != nil {
+		writeBadRequest(w, fmt.Errorf("body is invalid: %v", err))
+		return
+	}
+
+	// verify that there's at least part, and all parts are in ascending order
+	if len(payload.parts) == 0 {
+		writeBadRequest(w, fmt.Errorf("no parts specified"))
+		return
+	}
+	isSorted := sort.SliceIsSorted(payload.parts, func(i, j int) bool {
+		return payload.parts[i].partNumber < payload.parts[j].partNumber
+	})
+	if !isSorted {
+		writeBadRequest(w, fmt.Errorf("parts not in ascending order"))
+		return
+	}
+
+	// ensure all the files exist
+	for _, part := range payload.parts {
+		if err = h.multipartManager.checkChunkExists(uploadID, part.partNumber); err != nil {
+			// TODO: should this 404?
+			writeBadRequest(w, fmt.Errorf("missing contents for part %d", part.partNumber))
+			return
+		}
+	}
+
+	// pull out the list of part numbers
+	partNumbers := []int{}
+	for _, part := range payload.parts {
+		partNumbers = append(partNumbers, part.partNumber)
+	}
+
+	reader := h.multipartManager.reader(uploadID, partNumbers)
+	defer reader.Close()
+
+	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, name, reader, 0)
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	err = h.multipartManager.remove(uploadID)
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
-func (h objectHandler) abortMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
-	if h.multipartDir == "" {
+func (h *objectHandler) abortMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
+	if h.multipartManager == nil {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
+	if err := h.multipartManager.checkExists(uploadID); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	// TODO
 }
