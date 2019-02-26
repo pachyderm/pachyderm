@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -77,6 +78,8 @@ func Serve(
 				MinTime:             5 * time.Second,
 				PermitWithoutStream: true,
 			}),
+			grpc.UnaryInterceptor(grpc_opentracing.UnaryServerInterceptor()),
+			grpc.StreamInterceptor(grpc_opentracing.StreamServerInterceptor()),
 		}
 		if server.PublicPortTLSAllowed {
 			// Validate environment

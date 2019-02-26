@@ -13,6 +13,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -522,8 +523,12 @@ func (c *APIClient) connect(timeout time.Duration) error {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
-	dialOptions = append(dialOptions, grpc.WithTimeout(timeout))
-	// TODO(msteffen) switch to grpc.DialContext instead
+	dialOptions = append(dialOptions,
+		// TODO(msteffen) switch to grpc.DialContext instead
+		grpc.WithTimeout(timeout),
+		grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(grpc_opentracing.StreamClientInterceptor()),
+	)
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
 		return err
