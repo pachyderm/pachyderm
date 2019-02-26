@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/cmd/pachctl/cmd"
@@ -21,7 +20,7 @@ func main() {
 	}
 	tracing.InstallJaegerTracerFromEnv()
 	err := func() error {
-		defer time.Sleep(3 * time.Second)
+		defer tracing.CloseAndReportTraces()
 		rootCmd, err := cmd.PachctlCmd()
 		if err != nil {
 			return err
