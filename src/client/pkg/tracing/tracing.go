@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -72,6 +73,12 @@ func InstallJaegerTracerFromEnv() {
 		if !DisableLogs {
 			logger = jaeger.StdLogger
 		}
+		// Hack: ignore second argument (io.Closer) because the Jaeger
+		// implementation of opentracing.Tracer also implements io.Closer (i.e. the
+		// first and second return values from cfg.New(), here, are two interfaces
+		// that wrap the same underlying type). Instead of storing the second return
+		// value here, just cast the tracer to io.Closer in CloseAndReportTraces()
+		// (below) and call 'Close()' on it there.
 		tracer, _, err := cfg.New(JaegerServiceName, jaegercfg.Logger(logger))
 		if err != nil {
 			panic(fmt.Sprintf("could not install Jaeger tracer: %v", err))
@@ -98,4 +105,12 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 // StreamServerInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return otgrpc.OpenTracingStreamServerInterceptor(opentracing.GlobalTracer())
+}
+
+// CloseAndReportTraces tries to close the global tracer, which, in the case of
+// the Jaeger tracer, causes it to send any unreported traces to the collector
+func CloseAndReportTraces() {
+	if c, ok := opentracing.GlobalTracer().(io.Closer); ok {
+		c.Close()
+	}
 }
