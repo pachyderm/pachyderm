@@ -2,6 +2,7 @@ package obj
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
 
@@ -210,11 +212,11 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	return awsClient, nil
 }
 
-func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
-	return newBackoffWriteCloser(c, newWriter(c, name)), nil
+func (c *amazonClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
+	return newBackoffWriteCloser(ctx, c, newWriter(ctx, c, name)), nil
 }
 
-func (c *amazonClient) Walk(name string, fn func(name string) error) error {
+func (c *amazonClient) Walk(ctx context.Context, name string, fn func(name string) error) error {
 	var fnErr error
 	if err := c.s3.ListObjectsPages(
 		&s3.ListObjectsInput{
@@ -236,7 +238,7 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	return fnErr
 }
 
-func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
+func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	byteRange := byteRange(offset, size)
 	if byteRange != "" {
 		byteRange = fmt.Sprintf("bytes=%s", byteRange)
@@ -261,6 +263,8 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		req.Header.Add("Range", byteRange)
 
 		backoff.RetryNotify(func() error {
+			span, _ := tracing.AddSpanToAnyExisting(ctx, "aws/cloudfront.Get")
+			defer tracing.FinishAnySpan(span)
 			resp, connErr = http.DefaultClient.Do(req)
 			if connErr != nil && isNetRetryable(connErr) {
 				return connErr
@@ -289,10 +293,10 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}
 		reader = getObjectOutput.Body
 	}
-	return newBackoffReadCloser(c, reader), nil
+	return newBackoffReadCloser(ctx, c, reader), nil
 }
 
-func (c *amazonClient) Delete(name string) error {
+func (c *amazonClient) Delete(ctx context.Context, name string) error {
 	_, err := c.s3.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
@@ -300,7 +304,7 @@ func (c *amazonClient) Delete(name string) error {
 	return err
 }
 
-func (c *amazonClient) Exists(name string) bool {
+func (c *amazonClient) Exists(ctx context.Context, name string) bool {
 	_, err := c.s3.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(c.bucket),
 		Key:    aws.String(name),
@@ -354,13 +358,15 @@ func (c *amazonClient) IsNotExist(err error) bool {
 }
 
 type amazonWriter struct {
+	ctx     context.Context
 	errChan chan error
 	pipe    *io.PipeWriter
 }
 
-func newWriter(client *amazonClient, name string) *amazonWriter {
+func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWriter {
 	reader, writer := io.Pipe()
 	w := &amazonWriter{
+		ctx:     ctx,
 		errChan: make(chan error),
 		pipe:    writer,
 	}
