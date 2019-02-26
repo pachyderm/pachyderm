@@ -7,9 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
+	otgrpc "github.com/opentracing-contrib/go-grpc"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
+	"google.golang.org/grpc"
 )
 
 // JaegerServiceName is the service name used when the client reports traces
@@ -76,4 +78,24 @@ func InstallJaegerTracerFromEnv() {
 		}
 		opentracing.SetGlobalTracer(tracer)
 	})
+}
+
+// UnaryClientInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
+func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
+	return otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer())
+}
+
+// StreamClientInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
+func StreamClientInterceptor() grpc.StreamClientInterceptor {
+	return otgrpc.OpenTracingStreamClientInterceptor(opentracing.GlobalTracer())
+}
+
+// UnaryServerInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
+func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
+	return otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer())
+}
+
+// StreamServerInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
+func StreamServerInterceptor() grpc.StreamServerInterceptor {
+	return otgrpc.OpenTracingStreamServerInterceptor(opentracing.GlobalTracer())
 }

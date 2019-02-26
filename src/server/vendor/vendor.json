@@ -777,30 +777,6 @@
 			"revisionTime": "2017-11-02T01:26:30Z"
 		},
 		{
-			"checksumSHA1": "cwA2z5ZZliFbv5a8UWp7njzrGc8=",
-			"path": "github.com/grpc-ecosystem/go-grpc-middleware",
-			"revision": "cfaf5686ec79ff8344257723b6f5ba1ae0ffeb4d",
-			"revisionTime": "2019-02-22T13:33:41Z"
-		},
-		{
-			"checksumSHA1": "IQN1kqNo4zQyq0S45IDKFw3QZ2w=",
-			"path": "github.com/grpc-ecosystem/go-grpc-middleware/tags",
-			"revision": "cfaf5686ec79ff8344257723b6f5ba1ae0ffeb4d",
-			"revisionTime": "2019-02-22T13:33:41Z"
-		},
-		{
-			"checksumSHA1": "oZFLirwWIrHGE5HEezNtW8WLEqY=",
-			"path": "github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing",
-			"revision": "cfaf5686ec79ff8344257723b6f5ba1ae0ffeb4d",
-			"revisionTime": "2019-02-22T13:33:41Z"
-		},
-		{
-			"checksumSHA1": "aVrmdu/KwRwK18WI2pEP/U7uQHU=",
-			"path": "github.com/grpc-ecosystem/go-grpc-middleware/util/metautils",
-			"revision": "cfaf5686ec79ff8344257723b6f5ba1ae0ffeb4d",
-			"revisionTime": "2019-02-22T13:33:41Z"
-		},
-		{
 			"checksumSHA1": "0uWDQrsSzyQHYg5et19xtS+EWmY=",
 			"path": "github.com/grpc-ecosystem/grpc-gateway/runtime",
 			"revision": "5e0e028ba0a015710eaebf6e47af18812c9f2767",
@@ -1152,6 +1128,12 @@
 			"path": "github.com/opencontainers/runc/libcontainer/user",
 			"revision": "e34cb45a49beb83ababfa32df43b8e7e27f0ac51",
 			"revisionTime": "2016-06-07T23:11:44Z"
+		},
+		{
+			"checksumSHA1": "n38KWy7vkTd5/n7QqyRveENyZ98=",
+			"path": "github.com/opentracing-contrib/go-grpc",
+			"revision": "4b5a12d3ff02ba61ae861b7797e17a0c4f0ecea9",
+			"revisionTime": "2018-09-28T15:53:21Z"
 		},
 		{
 			"checksumSHA1": "a/DHmc9bdsYlZZcwp6i3xhvV7Pk=",
