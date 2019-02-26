@@ -1021,6 +1021,11 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 	return nil
 }
 
+// GetFiles returns a stream of contents from one or more files at a specific Commit.
+// offset specifies a number of bytes that should be skipped in the beginning of the file.
+// size limits the total amount of data returned, note you will get fewer bytes
+// than size if you pass a value larger than the size of the file.
+// If size is set to 0 then all of the data will be returned.
 func (c APIClient) GetFiles(repoName string, commitID string, path string, offset int64, size int64, f func(fileInfo *pfs.FileInfo, r io.Reader) error) error {
 	gfc, err := c.PfsAPIClient.GetFiles(
 		c.Ctx(),
