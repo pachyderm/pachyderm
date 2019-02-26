@@ -8305,7 +8305,7 @@ func TestSpout(t *testing.T) {
 		pipeline,
 		"",
 		[]string{"/bin/sh"},
-		[]string{"date > date", "tar -cvf /pfs/out ./"},
+		[]string{"while [ : ]", "do", "sleep 5", "date > date", "tar -cvf /pfs/out ./date*", "done"},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},

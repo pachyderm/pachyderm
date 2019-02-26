@@ -1,9 +1,11 @@
 package worker
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -823,8 +825,56 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 	})
 }
 
+func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) error {
+	return backoff.RetryNotify(func() error {
+		repo := a.pipelineInfo.Pipeline.Name
+		for {
+			// open connection to the pfs/out named pipe
+			out, err := os.Open("/pfs/out")
+			if err != nil {
+				return err
+			}
+			outTar := tar.NewReader(out)
+
+			// start commit
+			_, err = a.pachClient.StartCommit(repo, "master")
+			if err != nil {
+				return err
+			}
+			for {
+				fileHeader, err := outTar.Next()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return err
+				}
+				// put files
+				_, err = a.pachClient.PutFile(repo, "master", fileHeader.Name, outTar)
+				if err != nil {
+					return err
+				}
+			}
+			// close commit
+			err = a.pachClient.FinishCommit(repo, "master")
+			if err != nil {
+				return err
+			}
+		}
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		select {
+		case <-ctx.Done():
+			return err
+		default:
+			logger.Logf("error running spout: %+v, retrying in: %+v", err, d)
+			return nil
+		}
+	})
+}
+
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
+		go a.receiveSpout(ctx, logger)
 		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {

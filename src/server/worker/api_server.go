@@ -513,16 +513,16 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
-	if a.pipelineInfo.Service == nil {
-		if err := os.MkdirAll(outPath, 0777); err != nil {
-			return "", err
-		}
-	} else {
+	if a.pipelineInfo.Service != nil {
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			return "", fmt.Errorf("mkdirall :%v", err)
 		}
 		if err := syscall.Mkfifo(outPath, 0666); err != nil {
 			return "", fmt.Errorf("mkfifo :%v", err)
+		}
+	} else {
+		if err := os.MkdirAll(outPath, 0777); err != nil {
+			return "", err
 		}
 	}
 	for _, input := range inputs {
