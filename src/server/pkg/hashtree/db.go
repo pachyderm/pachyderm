@@ -1591,7 +1591,7 @@ func (d *ChildCursor) V() []byte {
 
 // Next gets the next key, value pair.
 func (d *ChildCursor) Next() ([]byte, []byte) {
-	if d == nil || d.c == nil {
+	if d.k == nil {
 		return nil, nil
 	}
 	k, v := d.c.Seek(append(d.k, 1))
