@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"testing"
 
 	bolt "github.com/coreos/bbolt"
@@ -485,6 +487,120 @@ func TestWalk(t *testing.T) {
 		return nil
 	}))
 	require.Equal(t, len(expectedPaths), i)
+}
+
+func TestList(t *testing.T) {
+
+	expectedBuf := &bytes.Buffer{}
+	w := NewWriter(expectedBuf)
+	writeMergeNode(w, "/", "5d5e6bf6978265596cc1302f0bc368be893a4c14ce742b76dc20e983eac3446c7b022672c53ed6d80314b0c743fd22f50c07a09a79775165ce063ce984a91946", 8)
+	writeMergeNode(w, "/dir-left", "9cf1225943e6797220168992de346051cdc762b9c1ba99bd6bdcc12ec3f1fea7", 1)
+	writeMergeNode(w, "/dir-left/bar-left", "6c31", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-right", "7dfa4a4878ffe3acb6574123fb775c7758c97270742e3801a093c0b1ea3cb9fc", 1)
+	writeMergeNode(w, "/dir-right/bar-right", "7231", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared", "4302fc8eaa65188e71b5d298cc4c40f95bb91cad8dd1fc9db29529514daad51dacfff5ae58d0b8ac4c65beb4926236261b3eff994e2a3b22b0caed3434e17060", 4)
+	writeMergeNode(w, "/dir-shared/buzz-left", "6c32", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared/buzz-right", "7232", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared/file-shared", "ddc7def93be72db4ed4467edb815395d2bd191c231d0c5f8705dbedb465787202f377e58eb3ff7cd3d63e6c6bfd6ab079328937ed3dc12795f69810d25ed1afa", 2, blocks(``, ``)...)
+	writeMergeNode(w, "/foo-left", "6c30", 1, blocks(``)...)
+	writeMergeNode(w, "/foo-right", "7230", 1, blocks(``)...)
+	rc := ioutil.NopCloser(expectedBuf)
+	rs := []io.ReadCloser{rc}
+	mr, err := NewMergeReader(rs)
+	if err != nil {
+		fmt.Println("merg reader err", err)
+	}
+
+	// np, err := mr.Get("/dir-left/bar-left")
+	// fmt.Println("mr get np name", np, "err", err)
+
+	require.NoError(t, mr.List("/", func(path string, node *NodeProto) error {
+		fmt.Println("mr listing node", node.Name, "path", path)
+		return nil
+	}))
+
+	// np, err := mr.Get("/dir-left/bar-left")
+	// fmt.Println("mr get np name", np.Name, "err", err)
+
+	// h := newHashTree(t)
+	// require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
+	// require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
+	// require.NoError(t, h.PutFile("/dir2/buzz", obj(`hash:"fa347"`), 1))
+	// require.NoError(t, h.PutFile("/dir.bar", obj(`hash:"3ead7"`), 1))
+	// require.NoError(t, h.Hash())
+
+	// //expectedPaths := []string{"/", "/dir", "/dir/bar", "/dir.bar", "/dir2", "/dir2/buzz", "/foo"}
+	// i := 0
+	// require.NoError(t, h.List("/", func(node *NodeProto) error {
+	// 	//require.Equal(t, expectedPaths[i], path)
+	// 	fmt.Println("listing node", node.Name)
+	// 	i++
+	// 	return nil
+	// }))
+	// // require.Equal(t, len(expectedPaths), i)
+
+	// // expectedPaths = []string{"/dir", "/dir/bar"}
+	// // i = 0
+	// // require.NoError(t, h.Walk("/dir", func(path string, node *NodeProto) error {
+	// // 	require.Equal(t, expectedPaths[i], path)
+	// // 	i++
+	// // 	return nil
+	// // }))
+	// // require.Equal(t, len(expectedPaths), i)
+}
+
+func TestMRList(t *testing.T) {
+
+	expectedBuf := &bytes.Buffer{}
+	w := NewWriter(expectedBuf)
+	writeMergeNode(w, "/", "5d5e6bf6978265596cc1302f0bc368be893a4c14ce742b76dc20e983eac3446c7b022672c53ed6d80314b0c743fd22f50c07a09a79775165ce063ce984a91946", 8)
+	writeMergeNode(w, "/dir-left", "9cf1225943e6797220168992de346051cdc762b9c1ba99bd6bdcc12ec3f1fea7", 1)
+	writeMergeNode(w, "/dir-left/bar-left", "6c31", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-right", "7dfa4a4878ffe3acb6574123fb775c7758c97270742e3801a093c0b1ea3cb9fc", 1)
+	writeMergeNode(w, "/dir-right/bar-right", "7231", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared", "4302fc8eaa65188e71b5d298cc4c40f95bb91cad8dd1fc9db29529514daad51dacfff5ae58d0b8ac4c65beb4926236261b3eff994e2a3b22b0caed3434e17060", 4)
+	writeMergeNode(w, "/dir-shared/buzz-left", "6c32", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared/buzz-right", "7232", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared/file-shared", "ddc7def93be72db4ed4467edb815395d2bd191c231d0c5f8705dbedb465787202f377e58eb3ff7cd3d63e6c6bfd6ab079328937ed3dc12795f69810d25ed1afa", 2, blocks(``, ``)...)
+	writeMergeNode(w, "/foo-left", "6c30", 1, blocks(``)...)
+	writeMergeNode(w, "/foo-right", "7230", 1, blocks(``)...)
+	rc := ioutil.NopCloser(expectedBuf)
+	rs := []io.ReadCloser{rc}
+	mr, err := NewMergeReader(rs)
+	if err != nil {
+		fmt.Println("merg reader err", err)
+	}
+
+	require.NoError(t, mr.List("/", func(path string, node *NodeProto) error {
+		fmt.Println("mr listing node", node.Name, "path", path)
+		return nil
+	}))
+
+	// h := newHashTree(t)
+	// require.NoError(t, h.PutFile("/foo", obj(`hash:"20c27"`), 1))
+	// require.NoError(t, h.PutFile("/dir/bar", obj(`hash:"ebc57"`), 1))
+	// require.NoError(t, h.PutFile("/dir2/buzz", obj(`hash:"fa347"`), 1))
+	// require.NoError(t, h.PutFile("/dir.bar", obj(`hash:"3ead7"`), 1))
+	// require.NoError(t, h.Hash())
+
+	// //expectedPaths := []string{"/", "/dir", "/dir/bar", "/dir.bar", "/dir2", "/dir2/buzz", "/foo"}
+	// i := 0
+	// require.NoError(t, h.List("/", func(node *NodeProto) error {
+	// 	//require.Equal(t, expectedPaths[i], path)
+	// 	fmt.Println("listing node", node.Name)
+	// 	i++
+	// 	return nil
+	// }))
+	// // require.Equal(t, len(expectedPaths), i)
+
+	// // expectedPaths = []string{"/dir", "/dir/bar"}
+	// // i = 0
+	// // require.NoError(t, h.Walk("/dir", func(path string, node *NodeProto) error {
+	// // 	require.Equal(t, expectedPaths[i], path)
+	// // 	i++
+	// // 	return nil
+	// // }))
+	// // require.Equal(t, len(expectedPaths), i)
 }
 
 // Test that HashTree methods return the right error codes

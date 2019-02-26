@@ -1311,7 +1311,7 @@ func (m *MergeReader) Get(filePath string) (*NodeProto, error) {
 		if path == filePath {
 			fileNode = node
 		}
-		return errutil.ErrBreak
+		return nil
 	}); err != nil {
 		return nil, err
 	}
@@ -1339,10 +1339,13 @@ func (m *MergeReader) List(pattern string, f func(string, *NodeProto) error) (re
 		return errorf(MalformedGlob, err.Error())
 	}
 	if err := m.nodes(func(path string, node *NodeProto) error {
+		if path == "" {
+			path = "/"
+		}
 		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
 			return f(path, node)
 		}
-		return errutil.ErrBreak
+		return nil
 	}); err != nil {
 		return err
 	}
