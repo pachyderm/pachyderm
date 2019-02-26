@@ -490,7 +490,7 @@ type readonlyCollection struct {
 // get is an internal wrapper around etcdClient.Get that wraps the call in a
 // trace
 func (c *readonlyCollection) get(key string, opts ...etcd.OpOption) (*etcd.GetResponse, error) {
-	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "etcd.Get")
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/Get", "col", c.prefix, "key", key)
 	defer tracing.FinishAnySpan(span)
 	resp, err := c.etcdClient.Get(ctx, key, opts...)
 	return resp, err
@@ -513,6 +513,8 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 }
 
 func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
+	defer tracing.FinishAnySpan(span)
 	if atomic.LoadInt64(&index.limit) == 0 {
 		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}
@@ -532,10 +534,12 @@ func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val 
 }
 
 func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/GetBlock", "col", c.prefix, "key", key)
+	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+	watcher, err := watch.NewWatcher(ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
 	if err != nil {
 		return err
 	}
@@ -558,7 +562,8 @@ func (c *readonlyCollection) TTL(key string) (int64, error) {
 		return 0, ErrNotFound{c.prefix, key}
 	}
 	leaseID := etcd.LeaseID(resp.Kvs[0].Lease)
-	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "etcd.TimeToLive")
+
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/TimeToLive")
 	defer tracing.FinishAnySpan(span)
 	leaseTTLResp, err := c.etcdClient.TimeToLive(ctx, leaseID)
 	if err != nil {
@@ -571,6 +576,8 @@ func (c *readonlyCollection) TTL(key string) (int64, error) {
 // called with each key, val will contain the value for the key.
 // You can break out of iteration by returning errutil.ErrBreak.
 func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/ListPrefix", "col", c.prefix, "prefix", prefix)
+	defer tracing.FinishAnySpan(span)
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
@@ -590,6 +597,8 @@ func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *
 // f to perform a cast before it could be used.
 // You can break out of iteration by returning errutil.ErrBreak.
 func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/List", "col", c.prefix)
+	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
