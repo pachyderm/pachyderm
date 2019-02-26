@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
@@ -125,6 +126,7 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 
 func do(config interface{}) error {
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
+	tracing.InstallJaegerTracerFromEnv()
 	// Expose PProf service
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
