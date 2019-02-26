@@ -25,12 +25,16 @@ func writeServerError(w http.ResponseWriter, err error) {
 }
 
 // intFormValue extracts an int value from a request's form values, ensuring
-// it's within specified bounds. `r.ParseForm()` must be called before using
-// this.
-func intFormValue(r *http.Request, name string, min int, max int, def int) (int, error) {
+// it's within specified bounds. If `def` is non-nil, empty or unspecified
+// form values default to it. Otherwise, an error is thrown. `r.ParseForm()`
+// must be called before using this.
+func intFormValue(r *http.Request, name string, min int, max int, def *int) (int, error) {
 	s := r.FormValue(name)
 	if s == "" {
-		return def, nil
+		if def != nil {
+			return *def, nil
+		}
+		return 0, fmt.Errorf("missing %s", name)
 	}
 
 	i, err := strconv.Atoi(s)

@@ -14,7 +14,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
-const defaultMaxKeys = 1000
+// this is a var instead of a const so that we can make a pointer to it
+var defaultMaxKeys int = 1000
 
 const locationSource = `
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
@@ -138,7 +139,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) 
 	}
 
 	marker := r.FormValue("marker")
-	maxKeys, err := intFormValue(r, "max-keys", 1, defaultMaxKeys, defaultMaxKeys)
+	maxKeys, err := intFormValue(r, "max-keys", 1, defaultMaxKeys, &defaultMaxKeys)
 	if err != nil {
 		writeBadRequest(w, err)
 		return

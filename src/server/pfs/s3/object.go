@@ -19,7 +19,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
-const defaultMaxParts = 1000
+// this is a var instead of a const so that we can make a pointer to it
+var defaultMaxParts int = 1000
+
+const maxAllowedParts = 10000
 
 const initMultipartSource = `
 <InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
@@ -153,42 +156,22 @@ func (h objectHandler) get(w http.ResponseWriter, r *http.Request, branchInfo *p
 }
 
 func (h objectHandler) put(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
-	expectedHash := r.Header.Get("Content-MD5")
+	success, err := h.withBodyReader(r, func(reader io.Reader) bool {
+		_, err := h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 
-	if expectedHash != "" {
-		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
-		if err != nil {
-			writeBadRequest(w, fmt.Errorf("could not decode `Content-MD5`, as it is not base64-encoded"))
-			return
-		}
-
-		hasher := md5.New()
-		reader := io.TeeReader(r.Body, hasher)
-
-		_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 		if err != nil {
 			writeServerError(w, err)
-			return
+			return false
 		}
 
-		actualHash := hasher.Sum(nil)
-		if !bytes.Equal(expectedHashBytes, actualHash) {
-			err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
-			writeBadRequest(w, err)
-			return
-		}
+		return true
+	})
 
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
-	_, err := h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, r.Body, 0)
 	if err != nil {
-		writeServerError(w, err)
-		return
+		writeBadRequest(w, err)
+	} else if success {
+		w.WriteHeader(http.StatusOK)
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
 
 func (h objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
@@ -205,12 +188,75 @@ func (h objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// withBodyReader calls the provided callback with a reader for the HTTP
+// request body. This also verifies the body against the `Content-MD5` header.
+//
+// The callback should return whether or not it succeeded. If it does not
+// succeed, it is assumed that the callback wrote an appropriate failure
+// response to the client.
+//
+// This function will return whether it succeeded and an error. If there is an
+// error, it is because of a bad request. If this returns a failure but not an
+// error, it implies that the callback returned a failure.
+func (h objectHandler) withBodyReader(r *http.Request, f func(io.Reader) bool) (bool, error) {
+	expectedHash := r.Header.Get("Content-MD5")
+
+	if expectedHash != "" {
+		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
+		if err != nil {
+			err = fmt.Errorf("could not decode `Content-MD5`, as it is not base64-encoded")
+			return false, err
+		}
+
+		hasher := md5.New()
+		reader := io.TeeReader(r.Body, hasher)
+
+		succeeded := f(reader)
+		if !succeeded {
+			return false, nil
+		}
+
+		actualHash := hasher.Sum(nil)
+		if !bytes.Equal(expectedHashBytes, actualHash) {
+			err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
+			return false, err
+		}
+
+		return true, nil
+	}
+
+	return f(r.Body), nil
+}
+
 func (h objectHandler) multipartNamePath(uploadID string) string {
 	return filepath.Join(h.multipartDir, fmt.Sprintf("%s.txt", uploadID))
 }
 
 func (h objectHandler) multipartPartsPath(uploadID string) string {
 	return filepath.Join(h.multipartDir, uploadID)
+}
+
+func (h objectHandler) multipartParts(uploadID string, limit int) ([]os.FileInfo, error) {
+	f, err := os.Open(h.multipartPartsPath(uploadID))
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	fileInfos, err := f.Readdir(limit)
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	return fileInfos, nil
+}
+
+func (h objectHandler) ensureMultipartExists(uploadID string) error {
+	if _, err := os.Stat(h.multipartNamePath(uploadID)); err != nil {
+		return err
+	}
+
+	_, err := os.Stat(h.multipartPartsPath(uploadID))
+	return err
 }
 
 func (h objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
@@ -243,25 +289,17 @@ func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, bra
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
+	if err := h.ensureMultipartExists(uploadID); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
 
 	marker := r.FormValue("part-number-marker")
-	maxParts, err := intFormValue(r, "max-parts", 1, defaultMaxParts, defaultMaxParts)
+	maxParts, err := intFormValue(r, "max-parts", 1, defaultMaxParts, &defaultMaxParts)
 	if err != nil {
 		writeBadRequest(w, err)
 		return
 	}
-
-	if _, err := os.Stat(h.multipartNamePath(uploadID)); err != nil {
-		writeMaybeNotFound(w, r, err)
-		return
-	}
-
-	f, err := os.Open(h.multipartPartsPath(uploadID))
-	if err != nil {
-		writeMaybeNotFound(w, r, err)
-		return
-	}
-	defer f.Close()
 
 	// How many files to read; -1 means read all files. If the marker is
 	// empty (i.e. we're trying to read from the beginning of the directory),
@@ -272,15 +310,13 @@ func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, bra
 	if marker == "" {
 		readCount = maxParts
 	}
-
-	fileInfos, err := f.Readdir(readCount)
-	if err != nil && err != io.EOF {
-		writeServerError(w, err)
-		return
+	fileInfos, err := h.multipartParts(uploadID, readCount)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
 	}
 
-	parts := []os.FileInfo{}
 	isTruncated := false
+	parts := []os.FileInfo{}
 	for _, fileInfo := range fileInfos {
 		if fileInfo.Name() < marker {
 			continue
@@ -313,6 +349,41 @@ func (h objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, b
 	if h.multipartDir == "" {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
+	}
+	if err := h.ensureMultipartExists(uploadID); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	partNumber, err := intFormValue(r, "partNumber", 1, maxAllowedParts, nil)
+	if err != nil {
+		writeBadRequest(w, err)
+		return
+	}
+
+	f, err := os.Create(filepath.Join(h.multipartPartsPath(uploadID), fmt.Sprintf("%d", partNumber)))
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+	defer f.Close()
+
+	success, err := h.withBodyReader(r, func(reader io.Reader) bool {
+		if _, err := io.Copy(f, reader); err != nil {
+			writeServerError(w, err)
+			return false
+		}
+		if err := f.Sync(); err != nil {
+			writeServerError(w, err)
+			return false
+		}
+		return true
+	})
+
+	if err != nil {
+		writeBadRequest(w, err)
+	} else if success {
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
