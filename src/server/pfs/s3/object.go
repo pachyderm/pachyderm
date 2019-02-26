@@ -455,6 +455,9 @@ func (h *objectHandler) abortMultipart(w http.ResponseWriter, r *http.Request, b
 		writeMaybeNotFound(w, r, err)
 		return
 	}
-
-	// TODO
+	if err := h.multipartManager.remove(uploadID); err != nil {
+		writeServerError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
