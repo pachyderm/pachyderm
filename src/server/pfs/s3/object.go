@@ -6,21 +6,54 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 const initMultipartSource = `
 <InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 	<Bucket>{{ .bucket }}</Bucket>
 	<Key>{{ .key }}</Key>
-	<UploadId>{{ .uploadId }}</UploadId>
+	<UploadId>{{ .uploadID }}</UploadId>
 </InitiateMultipartUploadResult>
+`
+
+const listMultipartSource = `
+<ListPartsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+	<Bucket>{{ .bucket }}</Bucket>
+	<Key>{{ .key }}</Key>
+	<UploadId>{{ .uploadID }}</UploadId>
+	<Initiator>
+		<ID>00000000000000000000000000000000</ID>
+		<DisplayName>pachyderm</DisplayName>
+	</Initiator>
+	<Owner>
+		<ID>00000000000000000000000000000000</ID>
+		<DisplayName>pachyderm</DisplayName>
+	</Owner>
+	<StorageClass>STANDARD</StorageClass>
+	<PartNumberMarker>{{ .partNumberMarker }}</PartNumberMarker>
+	<NextPartNumberMarker>{{ .nextPartNumberMarker }}</NextPartNumberMarker>
+	<MaxParts>{{ .maxParts }}</MaxParts>
+	<IsTruncated>{{ .isTruncated }}</IsTruncated>
+	{{ range .parts }}
+		<Part>
+			<PartNumber>{{ .partNumber }}</PartNumber>
+			<LastModified>{{ formatTime .lastModified }}</LastModified>
+			<ETag></ETag>
+			<Size>{{ .size }}</Size>
+		</Part>
+	{{ end }}
+</ListPartsResult>
 `
 
 type objectHandler struct {
@@ -54,31 +87,31 @@ func (h objectHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uploadId := r.FormValue("uploadId")
+	uploadID := r.FormValue("uploadId")
 
 	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		if uploadId != "" {
-			h.listMultipart(w, r, branchInfo, file, uploadId)
+		if uploadID != "" {
+			h.listMultipart(w, r, branchInfo, file, uploadID)
 		} else {
 			h.get(w, r, branchInfo, file)
 		}
 	} else if r.Method == http.MethodPost {
 		if _, ok := r.Form["uploads"]; ok {
 			h.initMultipart(w, r, branchInfo, file)
-		} else if uploadId != "" {
-			h.completeMultipart(w, r, branchInfo, file, uploadId)
+		} else if uploadID != "" {
+			h.completeMultipart(w, r, branchInfo, file, uploadID)
 		} else {
 			http.NotFound(w, r)
 		}
 	} else if r.Method == http.MethodPut {
-		if uploadId != "" {
-			h.uploadMultipart(w, r, branchInfo, file, uploadId)
+		if uploadID != "" {
+			h.uploadMultipart(w, r, branchInfo, file, uploadID)
 		} else {
 			h.put(w, r, branchInfo, file)
 		}
 	} else if r.Method == http.MethodDelete {
-		if uploadId != "" {
-			h.abortMultipart(w, r, branchInfo, file, uploadId)
+		if uploadID != "" {
+			h.abortMultipart(w, r, branchInfo, file, uploadID)
 		} else {
 			h.delete(w, r, branchInfo, file)
 		}
@@ -173,30 +206,49 @@ func (h objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, bra
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
+
+	uploadID := uuid.NewWithoutDashes()
+	dir := filepath.Join(h.multipartDir, uploadID)
+
+	if err := os.Mkdir(dir, os.ModePerm); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	if err := ioutil.WriteFile(filepath.Join(dir, "name"), []byte(file), os.ModePerm); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	h.initMultipartTemplate.render(w, map[string]interface{}{
+		"bucket":   branchInfo.Branch.Repo.Name,
+		"key":      fmt.Sprintf("%s/%s", branchInfo.Branch.Name, file),
+		"uploadID": uploadID,
+	})
 }
 
-func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
 	if h.multipartDir == "" {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
 }
 
-func (h objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+func (h objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
 	if h.multipartDir == "" {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
 }
 
-func (h objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+func (h objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
 	if h.multipartDir == "" {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
 }
 
-func (h objectHandler) abortMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadId string) {
+func (h objectHandler) abortMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
 	if h.multipartDir == "" {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
