@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -422,11 +423,20 @@ type readonlyCollection struct {
 	ctx context.Context
 }
 
+// get is an internal wrapper around etcdClient.Get that wraps the call in a
+// trace
+func (c *readonlyCollection) get(key string, opts ...etcd.OpOption) (*etcd.GetResponse, error) {
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/Get", "key", key)
+	defer tracing.FinishAnySpan(span)
+	resp, err := c.etcdClient.Get(ctx, key, opts...)
+	return resp, err
+}
+
 func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
+	resp, err := c.get(c.Path(key))
 	if err != nil {
 		return err
 	}
@@ -439,6 +449,8 @@ func (c *readonlyCollection) Get(key string, val proto.Message) error {
 }
 
 func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/GetByIndex", "index", index, "indexVal", indexVal)
+	defer tracing.FinishAnySpan(span)
 	if atomic.LoadInt64(&index.limit) == 0 {
 		atomic.CompareAndSwapInt64(&index.limit, 0, defaultLimit)
 	}
@@ -458,10 +470,12 @@ func (c *readonlyCollection) GetByIndex(index *Index, indexVal interface{}, val 
 }
 
 func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/GetBlock", "key", key)
+	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+	watcher, err := watch.NewWatcher(ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
 	if err != nil {
 		return err
 	}
@@ -476,7 +490,7 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 }
 
 func (c *readonlyCollection) TTL(key string) (int64, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
+	resp, err := c.get(c.Path(key))
 	if err != nil {
 		return 0, err
 	}
@@ -484,7 +498,10 @@ func (c *readonlyCollection) TTL(key string) (int64, error) {
 		return 0, ErrNotFound{c.prefix, key}
 	}
 	leaseID := etcd.LeaseID(resp.Kvs[0].Lease)
-	leaseTTLResp, err := c.etcdClient.TimeToLive(c.ctx, leaseID)
+
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/TimeToLive")
+	defer tracing.FinishAnySpan(span)
+	leaseTTLResp, err := c.etcdClient.TimeToLive(ctx, leaseID)
 	if err != nil {
 		return 0, fmt.Errorf("could not fetch lease TTL: %v", err)
 	}
@@ -495,6 +512,8 @@ func (c *readonlyCollection) TTL(key string) (int64, error) {
 // called with each key, val will contain the value for the key.
 // You can break out of iteration by returning errutil.ErrBreak.
 func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/ListPrefix", "prefix", prefix)
+	defer tracing.FinishAnySpan(span)
 	queryPrefix := c.prefix
 	if prefix != "" {
 		// If we always call join, we'll get rid of the trailing slash we need
@@ -514,6 +533,8 @@ func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *
 // f to perform a cast before it could be used.
 // You can break out of iteration by returning errutil.ErrBreak.
 func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd/List")
+	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
@@ -534,7 +555,7 @@ func (c *readonlyCollection) list(prefix string, limitPtr *int64, opts *Options,
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
+	resp, err := c.get(c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
 	if err != nil {
 		return 0, err
 	}
@@ -590,7 +611,7 @@ func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.
 				// pass along the error
 				return ev.Err
 			case watch.EventPut:
-				resp, err := c.etcdClient.Get(c.ctx, c.Path(path.Base(string(ev.Key))))
+				resp, err := c.get(c.Path(path.Base(string(ev.Key))))
 				if err != nil {
 					return err
 				}
