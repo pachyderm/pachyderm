@@ -13,7 +13,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -33,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
@@ -526,8 +526,8 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	dialOptions = append(dialOptions,
 		// TODO(msteffen) switch to grpc.DialContext instead
 		grpc.WithTimeout(timeout),
-		grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()),
-		grpc.WithStreamInterceptor(grpc_opentracing.StreamClientInterceptor()),
+		grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 	)
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
