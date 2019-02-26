@@ -3,7 +3,7 @@ package grpcutil
 import (
 	"sync"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"google.golang.org/grpc"
 )
 
@@ -39,8 +39,8 @@ func (d *dialer) Dial(addr string) (*grpc.ClientConn, error) {
 		return conn, nil
 	}
 	opts := append(d.opts,
-		grpc.WithUnaryInterceptor(grpc_opentracing.UnaryClientInterceptor()),
-		grpc.WithStreamInterceptor(grpc_opentracing.StreamClientInterceptor()),
+		grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
 	)
 	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
