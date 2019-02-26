@@ -5,12 +5,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"testing"
-	"time"
 
 	bolt "github.com/coreos/bbolt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
 
 // obj parses a string as an Object
@@ -639,9 +639,15 @@ func TestCache(t *testing.T) {
 
 	// But after adding a third, the first one should be evicted
 	c.Add(3, newHashTree(t))
-	time.Sleep(time.Second) // since eviction is done concurrently, give it a second
-	_, err = h.Get("foo")
-	require.YesError(t, err)
+
+	// since it's done concurrently, we might need to wait a bit for the eviction to finish
+	require.NoError(t, backoff.Retry(func() error {
+		_, err = h.Get("foo")
+		if err == nil {
+			return fmt.Errorf("foo should be evicted, and so the Get should have failed")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func blocks(ss ...string) []*pfs.BlockRef {
