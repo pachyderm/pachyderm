@@ -1639,12 +1639,12 @@ func (a *apiServer) sudo(pachClient *client.APIClient, f func(*client.APIClient)
 			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadOnly(pachClient.Ctx())
 			var result types.StringValue
 			if err := superUserTokenCol.Get("", &result); err != nil {
-				return fmt.Errorf("couldn't get PPS superuser token on startup")
+				return err
 			}
 			superUserToken = result.Value
 			return nil
 		}, b); err != nil {
-			panic("couldn't get PPS superuser token within 60s of starting up")
+			panic(fmt.Sprintf("couldn't get PPS superuser token: %v", err))
 		}
 	})
 
