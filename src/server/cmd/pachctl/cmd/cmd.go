@@ -164,7 +164,6 @@ Environment variables:
 				// enabling both
 				etcd.SetLogger(golog.New(os.Stderr, "[etcd/grpc] ", golog.LstdFlags|golog.Lshortfile))
 			}
-
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
