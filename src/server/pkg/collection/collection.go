@@ -16,6 +16,7 @@ import (
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gogo/protobuf/proto"
+	"github.com/opentracing/opentracing-go"
 )
 
 // defaultLimit was experimentally determined to be the highest value that could work
@@ -422,11 +423,20 @@ type readonlyCollection struct {
 	ctx context.Context
 }
 
+// get is an internal wrapper around etcdClient.Get that wraps the call in a
+// trace
+func (c *readonlyCollection) get(key string, opts ...etcd.OpOption) (*etcd.GetResponse, error) {
+	span, ctx := opentracing.StartSpanFromContext(c.ctx, "etcd.Get")
+	resp, err := c.etcdClient.Get(ctx, key, opts...)
+	span.Finish()
+	return resp, err
+}
+
 func (c *readonlyCollection) Get(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
+	resp, err := c.get(c.Path(key))
 	if err != nil {
 		return err
 	}
@@ -476,7 +486,7 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 }
 
 func (c *readonlyCollection) TTL(key string) (int64, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.Path(key))
+	resp, err := c.get(c.Path(key))
 	if err != nil {
 		return 0, err
 	}
@@ -484,7 +494,9 @@ func (c *readonlyCollection) TTL(key string) (int64, error) {
 		return 0, ErrNotFound{c.prefix, key}
 	}
 	leaseID := etcd.LeaseID(resp.Kvs[0].Lease)
-	leaseTTLResp, err := c.etcdClient.TimeToLive(c.ctx, leaseID)
+	span, ctx := opentracing.StartSpanFromContext(c.ctx, "etcd.TimeToLive")
+	leaseTTLResp, err := c.etcdClient.TimeToLive(ctx, leaseID)
+	span.Finish()
 	if err != nil {
 		return 0, fmt.Errorf("could not fetch lease TTL: %v", err)
 	}
@@ -534,7 +546,7 @@ func (c *readonlyCollection) list(prefix string, limitPtr *int64, opts *Options,
 }
 
 func (c *readonlyCollection) Count() (int64, error) {
-	resp, err := c.etcdClient.Get(c.ctx, c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
+	resp, err := c.get(c.prefix, etcd.WithPrefix(), etcd.WithCountOnly())
 	if err != nil {
 		return 0, err
 	}
@@ -590,7 +602,7 @@ func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.
 				// pass along the error
 				return ev.Err
 			case watch.EventPut:
-				resp, err := c.etcdClient.Get(c.ctx, c.Path(path.Base(string(ev.Key))))
+				resp, err := c.get(c.Path(path.Base(string(ev.Key))))
 				if err != nil {
 					return err
 				}
