@@ -1215,6 +1215,12 @@
 			"revisionTime": "2016-06-07T23:11:44Z"
 		},
 		{
+			"checksumSHA1": "n38KWy7vkTd5/n7QqyRveENyZ98=",
+			"path": "github.com/opentracing-contrib/go-grpc",
+			"revision": "4b5a12d3ff02ba61ae861b7797e17a0c4f0ecea9",
+			"revisionTime": "2018-09-28T15:53:21Z"
+		},
+		{
 			"checksumSHA1": "a/DHmc9bdsYlZZcwp6i3xhvV7Pk=",
 			"path": "github.com/opentracing/opentracing-go",
 			"revision": "25a84ff92183e2f8ac018ba1db54f8a07b3c0e04",
