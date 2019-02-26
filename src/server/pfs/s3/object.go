@@ -19,6 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+const defaultMaxParts = 1000
+
 const initMultipartSource = `
 <InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 	<Bucket>{{ .bucket }}</Bucket>
@@ -47,10 +49,10 @@ const listMultipartSource = `
 	<IsTruncated>{{ .isTruncated }}</IsTruncated>
 	{{ range .parts }}
 		<Part>
-			<PartNumber>{{ .partNumber }}</PartNumber>
-			<LastModified>{{ formatTime .lastModified }}</LastModified>
+			<PartNumber>{{ .Name }}</PartNumber>
+			<LastModified>{{ .ModTime }}</LastModified>
 			<ETag></ETag>
-			<Size>{{ .size }}</Size>
+			<Size>{{ .Size }}</Size>
 		</Part>
 	{{ end }}
 </ListPartsResult>
@@ -60,6 +62,7 @@ type objectHandler struct {
 	pc                    *client.APIClient
 	multipartDir          string
 	initMultipartTemplate xmlTemplate
+	listMultipartTemplate xmlTemplate
 }
 
 func newObjectHandler(pc *client.APIClient, multipartDir string) objectHandler {
@@ -67,6 +70,7 @@ func newObjectHandler(pc *client.APIClient, multipartDir string) objectHandler {
 		pc:                    pc,
 		multipartDir:          multipartDir,
 		initMultipartTemplate: newXmlTemplate(http.StatusOK, "init-multipart", initMultipartSource),
+		listMultipartTemplate: newXmlTemplate(http.StatusOK, "list-multipart", listMultipartSource),
 	}
 }
 
@@ -201,6 +205,14 @@ func (h objectHandler) delete(w http.ResponseWriter, r *http.Request, branchInfo
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (h objectHandler) multipartNamePath(uploadID string) string {
+	return filepath.Join(h.multipartDir, fmt.Sprintf("%s.txt", uploadID))
+}
+
+func (h objectHandler) multipartPartsPath(uploadID string) string {
+	return filepath.Join(h.multipartDir, uploadID)
+}
+
 func (h objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string) {
 	if h.multipartDir == "" {
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
@@ -208,14 +220,13 @@ func (h objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, bra
 	}
 
 	uploadID := uuid.NewWithoutDashes()
-	dir := filepath.Join(h.multipartDir, uploadID)
 
-	if err := os.Mkdir(dir, os.ModePerm); err != nil {
+	if err := ioutil.WriteFile(h.multipartNamePath(uploadID), []byte(file), os.ModePerm); err != nil {
 		writeServerError(w, err)
 		return
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(dir, "name"), []byte(file), os.ModePerm); err != nil {
+	if err := os.Mkdir(h.multipartPartsPath(uploadID), os.ModePerm); err != nil {
 		writeServerError(w, err)
 		return
 	}
@@ -232,6 +243,70 @@ func (h objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, bra
 		writeBadRequest(w, fmt.Errorf("multipart uploads disabled"))
 		return
 	}
+
+	marker := r.FormValue("part-number-marker")
+	maxParts, err := intFormValue(r, "max-parts", 1, defaultMaxParts, defaultMaxParts)
+	if err != nil {
+		writeBadRequest(w, err)
+		return
+	}
+
+	if _, err := os.Stat(h.multipartNamePath(uploadID)); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	f, err := os.Open(h.multipartPartsPath(uploadID))
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	defer f.Close()
+
+	// How many files to read; -1 means read all files. If the marker is
+	// empty (i.e. we're trying to read from the beginning of the directory),
+	// limit the results to `maxParts`. Otherwise we don't know how many to
+	// read (since it's marker- instead of offset-based), so just read
+	// everything.
+	readCount := -1
+	if marker == "" {
+		readCount = maxParts
+	}
+
+	fileInfos, err := f.Readdir(readCount)
+	if err != nil && err != io.EOF {
+		writeServerError(w, err)
+		return
+	}
+
+	parts := []os.FileInfo{}
+	isTruncated := false
+	for _, fileInfo := range fileInfos {
+		if fileInfo.Name() < marker {
+			continue
+		}
+		if len(parts) == maxParts {
+			isTruncated = true
+			break
+		}
+		parts = append(parts, fileInfo)
+	}
+
+	nextPartNumberMarker := ""
+	if len(parts) > 0 {
+		nextPartNumberMarker = parts[len(parts)-1].Name()
+	}
+
+	h.listMultipartTemplate.render(w, map[string]interface{}{
+		"bucket":               branchInfo.Branch.Repo.Name,
+		"key":                  file,
+		"uploadID":             uploadID,
+		"partNumberMarker":     marker,
+		"nextPartNumberMarker": nextPartNumberMarker,
+		"maxParts":             maxParts,
+		"isTruncated":          isTruncated,
+		"parts":                parts,
+	})
 }
 
 func (h objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {

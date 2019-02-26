@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -139,22 +138,10 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) 
 	}
 
 	marker := r.FormValue("marker")
-	maxKeys := defaultMaxKeys
-	maxKeysStr := r.FormValue("max-keys")
-	if maxKeysStr != "" {
-		maxKeys, err = strconv.Atoi(maxKeysStr)
-		if err != nil {
-			writeBadRequest(w, fmt.Errorf("invalid max-keys value '%s': %s", maxKeysStr, err))
-			return
-		}
-		if maxKeys <= 0 {
-			writeBadRequest(w, fmt.Errorf("max-keys value %d cannot be less than 1", maxKeys))
-			return
-		}
-		if maxKeys > defaultMaxKeys {
-			writeBadRequest(w, fmt.Errorf("max-keys value %d is too large; it can only go up to %d", maxKeys, defaultMaxKeys))
-			return
-		}
+	maxKeys, err := intFormValue(r, "max-keys", 1, defaultMaxKeys, defaultMaxKeys)
+	if err != nil {
+		writeBadRequest(w, err)
+		return
 	}
 
 	recursive := false
@@ -168,7 +155,6 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) 
 
 	prefix := r.FormValue("prefix")
 	prefixParts := strings.SplitN(prefix, "/", 2)
-
 	if len(prefixParts) == 1 {
 		branchPrefix := prefixParts[0]
 
