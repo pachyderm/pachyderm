@@ -33,41 +33,36 @@ import (
 
 // appEnv stores the environment variables that this worker needs
 type appEnv struct {
+	featureFlags
 	// PPSWorkerPort is the port that the worker gRPC server runs on
 	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,required"`
-	
 	// The port at which this worker will expose its pprof port
 	PProfPort uint16 `env:"PPROF_PORT,required"`
-
 	// Pachd's peer port (where the worker will connect to its sidecar)
 	PeerPort string `env:"PEER_PORT,required"`
-
 	// Host and port of Pachyderm's Etcd cluster, so that this worker can write
 	// its IP address there for discover
 	EtcdHost string `env:"ETCD_SERVICE_HOST,required"`
 	EtcdPort string `env:"ETCD_SERVICE_PORT,required"`
-
 	// Prefix in etcd for all pachd-related records
 	PPSPrefix string `env:"PPS_ETCD_PREFIX,required"`
-
 	// worker gets its own IP here, via the k8s downward API. It then writes that
 	// IP back to etcd so that pachd can discover it
 	PPSWorkerIP string `env:"PPS_WORKER_IP,required"`
-
 	// The name of the pipeline that this worker belongs to
 	PPSPipelineName string `env:"PPS_PIPELINE_NAME,required"`
-
 	// The ID of the commit that contains the pipeline spec.
 	PPSSpecCommitID string `env:"PPS_SPEC_COMMIT,required"`
-
 	// The name of this pod
 	PodName string `env:"PPS_POD_NAME,required"`
-
 	// The namespace in which Pachyderm is deployed
 	Namespace string `env:"PPS_NAMESPACE,required"`
-
 	// StorageRoot is where we store hashtrees
 	StorageRoot string `env:"PACH_ROOT,default=/pach"`
+}
+
+type featureFlags struct {
+	NewHashTree bool `env:"NEW_HASH_TREE,default=false"`
 }
 
 func main() {

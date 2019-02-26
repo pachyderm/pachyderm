@@ -74,6 +74,7 @@ func init() {
 }
 
 type appEnv struct {
+	featureFlags
 	// Ports served by Pachd
 	PPSWorkerPort uint16 `env:"PPS_WORKER_GRPC_PORT,default=80"`
 	Port          uint16 `env:"PORT,default=650"`
@@ -108,6 +109,10 @@ type appEnv struct {
 	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
 	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot        bool   `env:"WORKER_USES_ROOT,default=true"`
+}
+
+type featureFlags struct {
+	NewHashTree bool `env:"NEW_HASH_TREE,default=false"`
 }
 
 func main() {
