@@ -142,16 +142,12 @@ $ pachctl list-job -p foo bar/YYY
 			}
 
 			if raw {
-				if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+				return client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
 					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
 						return err
 					}
 					return nil
-					return nil
-				}); err != nil {
-					return err
-				}
-				return nil
+				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
@@ -295,11 +291,9 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 				return fmt.Errorf("page must be zero or positive")
 			}
 			if raw {
-				if err := client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
+				return client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
 					return marshaller.Marshal(os.Stdout, di)
-				}); err != nil {
-					return err
-				}
+				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.DatumHeader)
 			if err := client.ListDatumF(args[0], pageSize, page, func(di *ppsclient.DatumInfo) error {
@@ -884,7 +878,7 @@ func dockerConfig(registry string, username string) (*docker.Client, docker.Auth
 				err = fmt.Errorf("error parsing auth: %s; it looks like you may have a docker configuration not supported by the client library that we use; as a workaround, try specifying the `--username` flag", err.Error())
 				return nil, authConfig, err
 			}
-			
+
 			err = fmt.Errorf("error parsing auth: %s, try running `docker login`", err.Error())
 			return nil, authConfig, err
 		}
@@ -936,7 +930,7 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, regis
 		err = fmt.Errorf("could not tag docker image: %s", err)
 		return "", err
 	}
-	
+
 	if err := client.PushImage(
 		docker.PushImageOptions{
 			Name: fullRepo,
@@ -947,7 +941,7 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, regis
 		err = fmt.Errorf("could not push docker image: %s", err)
 		return "", err
 	}
-	
+
 	return destImage, nil
 }
 
