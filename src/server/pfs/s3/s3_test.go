@@ -297,21 +297,13 @@ func TestLargeObjects(t *testing.T) {
 	require.NoError(t, pc.CreateBranch(repo1, "master", "", nil))
 
 	// create a temporary file to put ~65mb of contents into it
-	// TODO: see how much faster it is to just hold everything in memory
-	bytesWritten := 0
 	inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
 	require.NoError(t, err)
 	defer os.Remove(inputFile.Name())
-	for i := 0; i < 1363149; i++ {
-		n, err := inputFile.WriteString("no tv and no beer make homer something something.\n")
-		require.NoError(t, err)
-		bytesWritten += n
-	}
-
-	// make sure we wrote ~65mb
-	if bytesWritten < 68157450 {
-		t.Errorf("too few bytes written to %s: %d", inputFile.Name(), bytesWritten)
-	}
+	n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
+	require.NoError(t, err)
+	require.Equal(t, n, 68157450)
+	require.NoError(t, inputFile.Sync())
 
 	// first ensure that putting into a repo that doesn't exist triggers an
 	// error
@@ -321,7 +313,7 @@ func TestLargeObjects(t *testing.T) {
 	// now try putting into a legit repo
 	l, err := c.FPutObject(repo1, "master/file", inputFile.Name(), "text/plain")
 	require.Equal(t, err, io.EOF)
-	require.Equal(t, bytesWritten, int(l))
+	require.Equal(t, int(l), 68157450)
 
 	// try getting an object that does not exist
 	err = c.FGetObject(repo2, "master/file", "foo")
