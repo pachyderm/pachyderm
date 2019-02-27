@@ -427,17 +427,26 @@ func (h *objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request
 		partNumbers = append(partNumbers, part.PartNumber)
 	}
 
+	// A reader that reads each file chunk. Because this acquires a lock,
+	// `Close` MUST be called, or the multipart manager will deadlock
 	reader := newMultipartReader(h.multipartManager, uploadID, partNumbers)
-	defer reader.Close()
 
 	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, name, reader, 0)
 	if err != nil {
+		if closeErr := reader.Close(); closeErr != nil {
+			logrus.Errorf("could not close reader for uploadID=%s: %v", uploadID, closeErr)
+		}
+
 		writeServerError(w, err)
 		return
 	}
 
-	err = h.multipartManager.remove(uploadID)
-	if err != nil {
+	if err = reader.Close(); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	if err = h.multipartManager.remove(uploadID); err != nil {
 		writeServerError(w, err)
 		return
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+// TODO: per-uploadID locking
 type multipartFileManager struct {
 	root            string
 	maxAllowedParts int
@@ -187,8 +188,11 @@ func (r *multipartReader) Read(p []byte) (n int, err error) {
 		if closeErr := r.cur.Close(); closeErr != nil {
 			r.cur = nil
 			return n, closeErr
+		} else {
+			// do not return an EOF, as there may be another chunk to read
+			r.cur = nil
+			return n, nil
 		}
-		r.cur = nil
 	}
 	return n, err
 }

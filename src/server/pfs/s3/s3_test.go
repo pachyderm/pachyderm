@@ -6,6 +6,7 @@ package s3
 // names. Otherwise minio complains that the bucket name is not valid.
 
 import (
+	"crypto/md5"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -143,6 +144,26 @@ func keyNotFoundError(t *testing.T, err error) {
 	t.Helper()
 	require.YesError(t, err)
 	require.Equal(t, "The specified key does not exist.", err.Error())
+}
+
+func fileHash(t *testing.T, name string) (int64, []byte) {
+	t.Helper()
+
+	f, err := os.Open(name)
+	require.NoError(t, err)
+
+	fi, err := f.Stat()
+	require.NoError(t, err)
+
+	hash := md5.New()
+	_, err = io.Copy(hash, f)
+	require.NoError(t, err)
+
+	// make sure it's not the hash of an empty string
+	hashSum := hash.Sum(nil)
+	require.NotEqual(t, hashSum, []byte{0xd4, 0x1d, 0x8c, 0xd9, 0x8f, 0x0, 0xb2, 0x4, 0xe9, 0x80, 0x9, 0x98, 0xec, 0xf8, 0x42, 0x7e})
+
+	return fi.Size(), hashSum
 }
 
 func TestListBuckets(t *testing.T) {
@@ -299,44 +320,28 @@ func TestLargeObjects(t *testing.T) {
 
 	// now try putting into a legit repo
 	l, err := c.FPutObject(repo1, "master/file", inputFile.Name(), "text/plain")
-	require.NoError(t, err)
-	require.Equal(t, bytesWritten, l)
+	require.Equal(t, err, io.EOF)
+	require.Equal(t, bytesWritten, int(l))
 
-	// create a file to write the results back to
+	// try getting an object that does not exist
+	err = c.FGetObject(repo2, "master/file", "foo")
+	bucketNotFoundError(t, err)
+
+	// get the file that does exist
 	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name())
-
-	// try getting an object that does not exist
-	err = c.FGetObject(repo2, "master/file", outputFile.Name())
-	keyNotFoundError(t, err)
-	bytes, err := ioutil.ReadFile(outputFile.Name())
-	require.NoError(t, err)
-	require.Equal(t, 0, len(bytes))
-
-	// get the file that does exist
 	err = c.FGetObject(repo1, "master/file", outputFile.Name())
 	require.NoError(t, err)
 
-	// compare the input file and output file to ensure they're the same
-	b1 := make([]byte, 65536)
-	b2 := make([]byte, 65536)
-	inputFile.Seek(0, 0)
-	outputFile.Seek(0, 0)
-	for {
-		n1, err1 := inputFile.Read(b1)
-		n2, err2 := outputFile.Read(b2)
-
-		require.Equal(t, n1, n2)
-
-		if err1 == io.EOF && err2 == io.EOF {
-			break
-		}
-
-		require.NoError(t, err1)
-		require.NoError(t, err2)
-		require.Equal(t, b1, b2)
-	}
+	// compare the files and ensure they're the same
+	// NOTE: Because minio's `FGetObject` does a rename from a buffer file
+	// to the given filepath, `outputFile` will refer to an empty, overwritten
+	// file. We can still use `outputFile.Name()` though.
+	inputFileSize, inputFileHash := fileHash(t, inputFile.Name())
+	outputFileSize, outputFileHash := fileHash(t, inputFile.Name())
+	require.Equal(t, inputFileSize, outputFileSize)
+	require.Equal(t, inputFileHash, outputFileHash)
 
 	require.NoError(t, srv.Close())
 }
