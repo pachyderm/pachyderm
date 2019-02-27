@@ -252,12 +252,16 @@ func TestRemoveObject(t *testing.T) {
 
 // Tests inserting and getting files over 64mb in size
 func TestLargeObjects(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	multipartDir, err := ioutil.TempDir("", "pachyderm-test-s3gateway-multipart")
+	require.NoError(t, err)
+	defer os.RemoveAll(multipartDir)
+	srv, pc, c := serve(t, multipartDir)
 
 	// test repos: repo1 exists, repo2 does not
 	repo1 := tu.UniqueString("testlargeobject1")
 	repo2 := tu.UniqueString("testlargeobject2")
 	require.NoError(t, pc.CreateRepo(repo1))
+	require.NoError(t, pc.CreateBranch(repo1, "master", "", nil))
 
 	// create a temporary file to put ~65mb of contents into it
 	// TODO: see how much faster it is to just hold everything in memory

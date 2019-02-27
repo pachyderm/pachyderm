@@ -64,15 +64,15 @@ const listMultipartSource = `
 
 // multipartCompleteRoot represents the root XML element of a complete
 // multipart request
-type multipartCompleteRoot struct {
-	parts []multipartCompletePart `xml:"Part"`
+type CompleteMultipartUpload struct {
+	Parts []MultipartCompletePart `xml:"Part"`
 }
 
 // multipartCompletePart represents a <Part> XML element of a complete
 // multipart request
-type multipartCompletePart struct {
-	partNumber int    `xml:"PartNumber"`
-	etag       string `xml:"ETag"`
+type MultipartCompletePart struct {
+	PartNumber int    `xml:"PartNumber"`
+	ETag       string `xml:"ETag"`
 }
 
 type objectHandler struct {
@@ -393,7 +393,7 @@ func (h *objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	payload := multipartCompleteRoot{}
+	payload := CompleteMultipartUpload{}
 	err = xml.Unmarshal(bodyBytes, &payload)
 	if err != nil {
 		writeBadRequest(w, fmt.Errorf("body is invalid: %v", err))
@@ -401,12 +401,12 @@ func (h *objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request
 	}
 
 	// verify that there's at least part, and all parts are in ascending order
-	if len(payload.parts) == 0 {
+	if len(payload.Parts) == 0 {
 		writeBadRequest(w, fmt.Errorf("no parts specified"))
 		return
 	}
-	isSorted := sort.SliceIsSorted(payload.parts, func(i, j int) bool {
-		return payload.parts[i].partNumber < payload.parts[j].partNumber
+	isSorted := sort.SliceIsSorted(payload.Parts, func(i, j int) bool {
+		return payload.Parts[i].PartNumber < payload.Parts[j].PartNumber
 	})
 	if !isSorted {
 		writeBadRequest(w, fmt.Errorf("parts not in ascending order"))
@@ -414,21 +414,20 @@ func (h *objectHandler) completeMultipart(w http.ResponseWriter, r *http.Request
 	}
 
 	// ensure all the files exist
-	for _, part := range payload.parts {
-		if err = h.multipartManager.checkChunkExists(uploadID, part.partNumber); err != nil {
-			// TODO: should this 404?
-			writeBadRequest(w, fmt.Errorf("missing contents for part %d", part.partNumber))
+	for _, part := range payload.Parts {
+		if err = h.multipartManager.checkChunkExists(uploadID, part.PartNumber); err != nil {
+			writeBadRequest(w, fmt.Errorf("missing part %d", part.PartNumber))
 			return
 		}
 	}
 
 	// pull out the list of part numbers
 	partNumbers := []int{}
-	for _, part := range payload.parts {
-		partNumbers = append(partNumbers, part.partNumber)
+	for _, part := range payload.Parts {
+		partNumbers = append(partNumbers, part.PartNumber)
 	}
 
-	reader := h.multipartManager.reader(uploadID, partNumbers)
+	reader := newMultipartReader(h.multipartManager, uploadID, partNumbers)
 	defer reader.Close()
 
 	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, name, reader, 0)

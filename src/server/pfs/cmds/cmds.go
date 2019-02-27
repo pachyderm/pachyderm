@@ -1161,7 +1161,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			logWriter := log.StandardLogger().Writer()
 			defer logWriter.Close()
 
-			multipartDir, err := ioutil.TempDir("pachyderm-s3gateway-multipart")
+			multipartDir, err := ioutil.TempDir("", "pachyderm-s3gateway-multipart")
 			if err != nil {
 				return err
 			}
