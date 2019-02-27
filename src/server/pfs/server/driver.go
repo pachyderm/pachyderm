@@ -2594,7 +2594,7 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 			return nil
 		}
 		for i := int64(0); i <= node.SubtreeSize; i += int64(grpcutil.MaxMsgSize) {
-			_, err := io.CopyN(&buf, objReader, int64(node.SubtreeSize))
+			_, err := io.CopyN(&buf, objReader, int64(grpcutil.MaxMsgSize))
 			if err != nil && err != io.EOF {
 				return err
 			}
