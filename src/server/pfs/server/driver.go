@@ -2589,43 +2589,38 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 
 func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, file *pfs.File, f func(*pfs.GetFileResponse) error) (retErr error) {
 	var buf bytes.Buffer
-	maxData := int64(grpcutil.MaxMsgSize - (16 * 1024))
+	maxData := int64(grpcutil.MaxMsgSize / 10)
 	parseFilesFromStream := func(p string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
 		}
-		if node.SubtreeSize <= maxData {
-			_, err := io.CopyN(&buf, objReader, node.SubtreeSize)
+		remainingData := node.SubtreeSize
+		i := 0
+		for remainingData > 0 {
+			var err error
+			if remainingData <= maxData {
+				_, err = io.CopyN(&buf, objReader, remainingData)
+			} else {
+				_, err = io.CopyN(&buf, objReader, maxData)
+			}
 			if err != nil && err != io.EOF {
 				return err
 			}
 			gfr := &pfs.GetFileResponse{
-				FileInfo: &pfs.FileInfo{},
-				Value:    buf.Bytes(),
+				Value: buf.Bytes(),
 			}
-			buf.Reset()
-			gfr.FileInfo.File = file
-			gfr.FileInfo.File.Path = p
-			return f(gfr)
-		}
-		for i := int64(0); i <= node.SubtreeSize; i += int64(grpcutil.MaxMsgSize - (16 * 1024)) {
-			_, err := io.CopyN(&buf, objReader, int64(grpcutil.MaxMsgSize-(16*1024)))
-			if err != nil && err != io.EOF {
-				return err
-			}
-			gfr := &pfs.GetFileResponse{
-				FileInfo: &pfs.FileInfo{},
-				Value:    buf.Bytes(),
-			}
-			buf.Reset()
 			if i == 0 {
-				gfr.FileInfo.File = file
+				gfr.FileInfo = &pfs.FileInfo{
+					File: file,
+				}
 				gfr.FileInfo.File.Path = p
 			}
-			err = f(gfr)
-			if err != nil {
+			if err := f(gfr); err != nil {
 				return err
 			}
+			remainingData -= maxData
+			buf.Reset()
+			i++
 		}
 		return nil
 	}
