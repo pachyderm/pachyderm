@@ -8298,17 +8298,21 @@ func TestSpout(t *testing.T) {
 
 	pipeline := tu.UniqueString("pipelinespout")
 	// This pipeline sleeps for 10 secs per datum
-	require.NoError(t, c.CreatePipelineService(
-		pipeline,
-		"",
-		[]string{"/bin/sh"},
-		[]string{"while [ : ]", "do", "sleep 5", "date > date", "tar -cvf /pfs/out ./date*", "done"},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		nil,
-		false,
-		8000,
-		31800,
-	))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd: []string{"/bin/sh"},
+				Stdin: []string{
+					"while [ : ]",
+					"do",
+					"sleep 5",
+					"date > date",
+					"tar -cvf /pfs/out ./date*",
+					"done"},
+			},
+			Spout: &pps.Spout{},
+		})
+	require.NoError(t, err)
 }

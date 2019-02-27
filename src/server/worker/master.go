@@ -143,7 +143,7 @@ func (a *APIServer) serviceMaster() {
 		if paused {
 			return fmt.Errorf("can't run master for a paused pipeline")
 		}
-		if a.pipelineInfo.Input == nil {
+		if a.pipelineInfo.Spout != nil {
 			return a.spoutSpawner(pachClient)
 		}
 		return a.serviceSpawner(pachClient)

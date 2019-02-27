@@ -419,7 +419,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			server.gid = &gid32
 		}
 	}
-	if pipelineInfo.Service == nil {
+	if pipelineInfo.Service == nil && pipelineInfo.Spout == nil {
 		go server.master()
 	} else {
 		go server.serviceMaster()
@@ -513,7 +513,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
-	if a.pipelineInfo.Service != nil {
+	if a.pipelineInfo.Spout != nil {
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			return "", fmt.Errorf("mkdirall :%v", err)
 		}
