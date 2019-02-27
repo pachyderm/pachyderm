@@ -47,7 +47,7 @@ type ListPartsResult struct {
 
 
 func (r *ListPartsResult) isFull() bool {
-	return len(r.Part) >= r.MaxKeys
+	return len(r.Part) >= r.MaxParts
 }
 
 // multipartCompleteRoot represents the root XML element of a complete
