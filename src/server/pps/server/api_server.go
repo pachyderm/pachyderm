@@ -778,6 +778,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.ParallelismSpec = pipelineInfo.ParallelismSpec
 	result.Egress = pipelineInfo.Egress
 	result.Service = pipelineInfo.Service
+	result.Spout = pipelineInfo.Spout
 	result.OutputRepo = &pfs.Repo{Name: jobPtr.Pipeline.Name}
 	result.OutputBranch = pipelineInfo.OutputBranch
 	result.ResourceRequests = pipelineInfo.ResourceRequests
@@ -1827,6 +1828,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Batch:            request.Batch,
 		MaxQueueSize:     request.MaxQueueSize,
 		Service:          request.Service,
+		Spout:            request.Spout,
 		ChunkSpec:        request.ChunkSpec,
 		DatumTimeout:     request.DatumTimeout,
 		JobTimeout:       request.JobTimeout,
