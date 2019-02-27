@@ -15,18 +15,19 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
-// TODO: per-uploadID locking
 type multipartFileManager struct {
 	root            string
 	maxAllowedParts int
-	lock            *sync.RWMutex
+	masterLock      *sync.Mutex
+	locks           map[string]*sync.RWMutex
 }
 
 func newMultipartFileManager(root string, maxAllowedParts int) *multipartFileManager {
 	return &multipartFileManager{
 		root:            root,
 		maxAllowedParts: maxAllowedParts,
-		lock:            &sync.RWMutex{},
+		masterLock:      &sync.Mutex{},
+		locks:           map[string]*sync.RWMutex{},
 	}
 }
 
@@ -42,9 +43,22 @@ func (m *multipartFileManager) chunkPath(uploadID string, partNumber int) string
 	return filepath.Join(m.chunksPath(uploadID), strconv.Itoa(partNumber))
 }
 
+func (m *multipartFileManager) lock(uploadID string) *sync.RWMutex {
+	m.masterLock.Lock()
+	defer m.masterLock.Unlock()
+
+	lock, ok := m.locks[uploadID]
+	if !ok {
+		lock = &sync.RWMutex{}
+		m.locks[uploadID] = lock
+	}
+	return lock
+}
+
 func (m *multipartFileManager) checkExists(uploadID string) error {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
+	lock := m.lock(uploadID)
+	lock.RLock()
+	defer lock.RUnlock()
 
 	if _, err := os.Stat(m.namePath(uploadID)); err != nil {
 		return err
@@ -55,16 +69,14 @@ func (m *multipartFileManager) checkExists(uploadID string) error {
 }
 
 func (m *multipartFileManager) checkChunkExists(uploadID string, partNumber int) error {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
+	lock := m.lock(uploadID)
+	lock.RLock()
+	defer lock.RUnlock()
 	_, err := os.Stat(m.chunkPath(uploadID, partNumber))
 	return err
 }
 
 func (m *multipartFileManager) init(file string) (string, error) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
 	uploadID := uuid.NewWithoutDashes()
 
 	if err := ioutil.WriteFile(m.namePath(uploadID), []byte(file), os.ModePerm); err != nil {
@@ -79,8 +91,9 @@ func (m *multipartFileManager) init(file string) (string, error) {
 }
 
 func (m *multipartFileManager) filepath(uploadID string) (string, error) {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
+	lock := m.lock(uploadID)
+	lock.RLock()
+	defer lock.RUnlock()
 
 	name, err := ioutil.ReadFile(m.namePath(uploadID))
 	if err != nil {
@@ -90,8 +103,9 @@ func (m *multipartFileManager) filepath(uploadID string) (string, error) {
 }
 
 func (m *multipartFileManager) writeChunk(uploadID string, partNumber int, reader io.Reader) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	lock := m.lock(uploadID)
+	lock.Lock()
+	defer lock.Unlock()
 
 	chunkPath := m.chunkPath(uploadID, partNumber)
 	f, err := os.Create(chunkPath)
@@ -106,14 +120,17 @@ func (m *multipartFileManager) writeChunk(uploadID string, partNumber int, reade
 }
 
 func (m *multipartFileManager) removeChunk(uploadID string, partNumber int) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	lock := m.lock(uploadID)
+	lock.Lock()
+	defer lock.Unlock()
+
 	return os.Remove(m.chunkPath(uploadID, partNumber))
 }
 
 func (m *multipartFileManager) listChunks(uploadID string) ([]os.FileInfo, error) {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
+	lock := m.lock(uploadID)
+	lock.RLock()
+	defer lock.RUnlock()
 
 	fileInfos, err := ioutil.ReadDir(m.chunksPath(uploadID))
 	if err != nil {
@@ -141,13 +158,24 @@ func (m *multipartFileManager) listChunks(uploadID string) ([]os.FileInfo, error
 }
 
 func (m *multipartFileManager) remove(uploadID string) error {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	lock := m.lock(uploadID)
+	lock.Lock()
+
 	err := os.Remove(m.namePath(uploadID))
 	if err != nil {
+		lock.Unlock()
 		return err
 	}
-	return os.RemoveAll(m.chunksPath(uploadID))
+	err = os.RemoveAll(m.chunksPath(uploadID))
+	if err != nil {
+		lock.Unlock()
+		return err
+	}
+	lock.Unlock()
+	m.masterLock.Lock()
+	defer m.masterLock.Unlock()
+	delete(m.locks, uploadID)
+	return nil
 }
 
 // multipartReader is a reader for multiparted content
@@ -159,7 +187,8 @@ type multipartReader struct {
 }
 
 func newMultipartReader(manager *multipartFileManager, uploadID string, partNumbers []int) *multipartReader {
-	manager.lock.RLock()
+	lock := manager.lock(uploadID)
+	lock.RLock()
 
 	return &multipartReader{
 		manager:     manager,
@@ -198,7 +227,9 @@ func (r *multipartReader) Read(p []byte) (n int, err error) {
 }
 
 func (r *multipartReader) Close() error {
-	r.manager.lock.RUnlock()
+	lock := r.manager.lock(r.uploadID)
+	lock.RUnlock()
+
 	if r.cur != nil {
 		return r.cur.Close()
 	}
