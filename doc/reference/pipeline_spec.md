@@ -729,7 +729,7 @@ Services that are running inside the cluster. These allow you to connect to
 those outside services, which can be powerful but also can be hard to reason
 about, as processing might be retried multiple times. For example if your code
 writes a row to a database that row may be written multiple times due to
-retries. Interaction with outside services should be idempotent to prevent
+retries. Interaction with outside services should be [idempotent](https://en.wikipedia.org/wiki/Idempotence) to prevent
 unexpected behavior. Furthermore, one of the running services that your code
 can connect to is Pachyderm itself, this is generally not recommended as very
 little of the Pachyderm API is idempotent, but in some specific cases it can be

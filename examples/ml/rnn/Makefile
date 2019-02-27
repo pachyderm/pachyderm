@@ -31,12 +31,7 @@ clean-input-data:
 
 load-input-data:
 	pachctl create-repo GoT_scripts
-	pachctl start-commit GoT_scripts master > commitID
-	# For now, use the CLI to input the data because of OS X Fuse bug (https://github.com/pachyderm/pachyderm/issues/629)
-	# this is a heavy handed way to do a copy:
-	ls -1 data/* | while read -r file; do cat $$file | pachctl put-file GoT_scripts `cat commitID` `basename $$file`; done
-	pachctl finish-commit GoT_scripts `cat commitID`
-	rm commitID
+	pachctl put-file GoT_scripts master -f ./data/ -r
 
 gather-input-data: get-input-data extract-input-data clean-input-data
 
@@ -55,7 +50,7 @@ docker-build:
 setup: docker-build input-data
 
 run: verify-pachctl docker-build
-	pachctl create-pipeline -f pipeline.json
+	pachctl create-pipeline -f pipeline-combined.json
 
 clean: verify-pachctl
 	pachctl delete-pipeline -f pipeline.json

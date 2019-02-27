@@ -224,6 +224,11 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 		if err != nil {
 			return v1.PodSpec{}, err
 		}
+
+		// the json now contained in jsonPodSpec is the authoritative copy
+		// so we should deserialize in into a fresh structure
+		podSpec = v1.PodSpec{}
+
 		if options.podSpec != "" {
 			jsonPodSpec, err = jsonpatch.MergePatch(jsonPodSpec, []byte(options.podSpec))
 			if err != nil {

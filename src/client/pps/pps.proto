@@ -90,6 +90,9 @@ message CronInput {
   string repo = 2;
   string commit = 3;
   string spec = 4;
+  // Overwrite, if true, will expose a single datum that gets overwritten each
+  // tick. If false, it will create a new datum for each tick.
+  bool overwrite = 6;
   google.protobuf.Timestamp start = 5;
 }
 

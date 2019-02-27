@@ -18,14 +18,16 @@ type Cache struct {
 // NewCache creates a new cache.
 func NewCache(size int) (*Cache, error) {
 	c, err := lru.NewWithEvict(size, func(key interface{}, value interface{}) {
-		tree, ok := value.(*dbHashTree)
-		if !ok {
-			logrus.Infof("non hashtree slice value of type: %v", reflect.TypeOf(value))
-			return
-		}
-		if err := tree.Destroy(); err != nil {
-			logrus.Infof("failed to destroy hashtree: %v", err)
-		}
+		go func() {
+			tree, ok := value.(*dbHashTree)
+			if !ok {
+				logrus.Infof("non hashtree slice value of type: %v", reflect.TypeOf(value))
+				return
+			}
+			if err := tree.Destroy(); err != nil {
+				logrus.Infof("failed to destroy hashtree: %v", err)
+			}
+		}()
 	})
 	if err != nil {
 		return nil, err

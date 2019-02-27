@@ -1040,107 +1040,75 @@ type processResult struct {
 type processFunc func(low, high int64) (*processResult, error)
 
 func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger, process processFunc) error {
-	complete := false
+	chunks := a.chunks(jobID)
+	watcher, err := chunks.ReadOnly(ctx).Watch(watch.WithFilterPut())
+	if err != nil {
+		return fmt.Errorf("error creating chunk watcher: %v", err)
+	}
+	var complete bool
 	for !complete {
-		// func to defer cancel in
-		if err := func() error {
-			ctx, cancel := context.WithCancel(ctx)
-			defer cancel()
-			var found bool
-			low, high := int64(0), int64(0)
-			// we set complete to true and then unset it if we find an incomplete chunk
-			complete = true
-			for _, high = range plan.Chunks {
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					found = false
-					chunks := a.chunks(jobID).ReadWrite(stm)
-					var chunkState ChunkState
-					if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
-						if col.IsErrNotFound(err) {
-							found = true
-						} else {
-							return err
-						}
-					}
-					// This gets triggered either if we found a chunk that wasn't
-					// complete or if we didn't find a chunk at all.
-					if chunkState.State == State_RUNNING {
-						complete = false
-					}
-					if found {
-						return chunks.PutTTL(fmt.Sprint(high), &ChunkState{State: State_RUNNING}, ttl)
-					}
-					return nil
-				}); err != nil {
-					return err
+		// We set complete to true and then unset it if we find an incomplete chunk
+		complete = true
+		// Attempt to claim a chunk
+		low, high := int64(0), int64(0)
+		for _, high = range plan.Chunks {
+			var chunkState ChunkState
+			if err := chunks.Claim(ctx, fmt.Sprint(high), &chunkState, func(ctx context.Context) error {
+				return a.processChunk(ctx, jobID, low, high, process)
+			}); err == col.ErrNotClaimed {
+				// Check if a different worker is processing this chunk
+				if chunkState.State == State_RUNNING {
+					complete = false
 				}
-				if found {
-					break
-				}
-				low = high
+			} else if err != nil {
+				return fmt.Errorf("error claiming/processing chunk: %v", err)
 			}
-			if found {
-				go func() {
-				Renew:
-					for {
-						select {
-						case <-time.After((time.Second * time.Duration(ttl)) / 2):
-						case <-ctx.Done():
-							break Renew
-						}
-						if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-							chunks := a.chunks(jobID).ReadWrite(stm)
-							var chunkState ChunkState
-							if err := chunks.Get(fmt.Sprint(high), &chunkState); err != nil {
-								return err
-							}
-							if chunkState.State == State_RUNNING {
-								return chunks.PutTTL(fmt.Sprint(high), &chunkState, ttl)
-							}
-							return nil
-						}); err != nil {
-							cancel()
-							logger.Logf("failed to renew lock: %v", err)
-						}
-					}
-				}()
-				// process the datums in newRange
-				processResult, err := process(low, high)
-				if err != nil {
-					return err
-				}
-
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					jobs := a.jobs.ReadWrite(stm)
-					jobPtr := &pps.EtcdJobInfo{}
-					if err := jobs.Update(jobID, jobPtr, func() error {
-						jobPtr.DataProcessed += processResult.datumsProcessed
-						jobPtr.DataSkipped += processResult.datumsSkipped
-						jobPtr.DataFailed += processResult.datumsFailed
-						return nil
-					}); err != nil {
-						return err
-					}
-					chunks := a.chunks(jobID).ReadWrite(stm)
-					if processResult.failedDatumID != "" {
-						return chunks.Put(fmt.Sprint(high), &ChunkState{
-							State:   State_FAILED,
-							DatumID: processResult.failedDatumID,
-							Address: os.Getenv(client.PPSWorkerIPEnv),
-						})
-					}
-					return chunks.Put(fmt.Sprint(high), &ChunkState{
-						State:   State_COMPLETE,
-						Address: os.Getenv(client.PPSWorkerIPEnv),
-					})
-				}); err != nil {
-					return err
-				}
+			low = high
+		}
+		// Wait for a deletion event (ttl expired) before attempting to claim a chunk again
+		select {
+		case e := <-watcher.Watch():
+			if e.Type == watch.EventError {
+				return fmt.Errorf("chunk watch error: %v", e.Err)
 			}
 			return nil
-		}(); err != nil {
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
+func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high int64, process processFunc) error {
+	processResult, err := process(low, high)
+	if err != nil {
+		return err
+	}
+	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		jobs := a.jobs.ReadWrite(stm)
+		jobPtr := &pps.EtcdJobInfo{}
+		if err := jobs.Update(jobID, jobPtr, func() error {
+			jobPtr.DataProcessed += processResult.datumsProcessed
+			jobPtr.DataSkipped += processResult.datumsSkipped
+			jobPtr.DataFailed += processResult.datumsFailed
+			return nil
+		}); err != nil {
 			return err
 		}
+		chunks := a.chunks(jobID).ReadWrite(stm)
+		if processResult.failedDatumID != "" {
+			return chunks.Put(fmt.Sprint(high), &ChunkState{
+				State:   State_FAILED,
+				DatumID: processResult.failedDatumID,
+				Address: os.Getenv(client.PPSWorkerIPEnv),
+			})
+		}
+		return chunks.Put(fmt.Sprint(high), &ChunkState{
+			State:   State_COMPLETE,
+			Address: os.Getenv(client.PPSWorkerIPEnv),
+		})
+	}); err != nil {
+		return err
 	}
 	return nil
 }
@@ -1776,80 +1744,35 @@ func (a *APIServer) worker() {
 }
 
 func (a *APIServer) claimShard(ctx context.Context) {
-	shards := a.shards.ReadOnly(ctx)
-	watcher, err := shards.Watch()
+	watcher, err := a.shards.ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
 		log.Printf("error creating shard watcher: %v", err)
 		return
 	}
-	// attempt to claim a shard as they become available
 	for {
-		claimedShard := noShard
+		// Attempt to claim a shard
 		for shard := int64(0); shard < a.numShards; shard++ {
 			var shardInfo ShardInfo
-			if err := shards.Get(fmt.Sprint(shard), &shardInfo); err != nil {
-				if !col.IsErrNotFound(err) {
-					log.Printf("error checking shards: %v", err)
-					return
-				}
-				// attempt to claim shard
-				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-					shards := a.shards.ReadWrite(stm)
-					var shardInfo ShardInfo
-					if err := shards.Get(fmt.Sprint(shard), &shardInfo); err != nil {
-						if !col.IsErrNotFound(err) {
-							return err
-						}
-						claimedShard = shard
-						return shards.PutTTL(fmt.Sprint(shard), &ShardInfo{}, shardTTL)
-					}
-					claimedShard = noShard
-					return nil
-				}); err != nil {
-					log.Printf("shard claim error: %v", err)
-					return
-				}
-				if claimedShard != noShard {
-					break
-				}
-			}
-		}
-		if claimedShard != noShard {
-			shardCtx, cancel := context.WithCancel(ctx)
-			a.claimedShard <- context.WithValue(shardCtx, shardKey, claimedShard)
-			// renew lock on shard
-			for {
-				select {
-				case <-time.After((time.Second * time.Duration(shardTTL)) / 2):
-					if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-						shards := a.shards.ReadWrite(stm)
-						var shardInfo ShardInfo
-						if err := shards.Get(fmt.Sprint(claimedShard), &shardInfo); err != nil {
-							return err
-						}
-						return shards.PutTTL(fmt.Sprint(claimedShard), &shardInfo, shardTTL)
-					}); err != nil {
-						cancel()
-						log.Printf("failed to renew lock on shard: %v", err)
-						break
-					}
-				case <-ctx.Done():
-					return
-				}
-			}
-		}
-		// wait for a deletion event (ttl expired) to attempt to acquire a shard again
-		var e *watch.Event
-		for e == nil || e.Type != watch.EventDelete {
-			select {
-			case e = <-watcher.Watch():
-				if e.Type == watch.EventError {
-					log.Printf("shard watch error: %v", e.Err)
-					return
-				}
-			case <-ctx.Done():
+			err := a.shards.Claim(ctx, fmt.Sprint(shard), &shardInfo, func(ctx context.Context) error {
+				ctx = context.WithValue(ctx, shardKey, shard)
+				a.claimedShard <- ctx
+				<-ctx.Done()
+				return nil
+			})
+			if err != nil && err != col.ErrNotClaimed {
+				log.Printf("error attempting to claim shard: %v", err)
 				return
 			}
+		}
+		// Wait for a deletion event (ttl expired) before attempting to claim a shard again
+		select {
+		case e := <-watcher.Watch():
+			if e.Type == watch.EventError {
+				log.Printf("shard watch error: %v", e.Err)
+				return
+			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
