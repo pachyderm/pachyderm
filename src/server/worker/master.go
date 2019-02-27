@@ -864,35 +864,46 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 	return backoff.RetryNotify(func() error {
 		repo := a.pipelineInfo.Pipeline.Name
 		for {
-			// open connection to the pfs/out named pipe
-			out, err := os.Open("/pfs/out")
-			if err != nil {
-				return err
-			}
-			outTar := tar.NewReader(out)
+			if err := func() (retErr error) {
+				// open connection to the pfs/out named pipe
+				out, err := os.Open("/pfs/out")
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := out.Close(); err != nil && retErr == nil {
+						retErr = err
+					}
+				}()
 
-			// start commit
-			_, err = a.pachClient.StartCommit(repo, "master")
-			if err != nil {
-				return err
-			}
-			for {
-				fileHeader, err := outTar.Next()
-				if err == io.EOF {
-					break
-				}
+				outTar := tar.NewReader(out)
+
+				// start commit
+				_, err = a.pachClient.StartCommit(repo, "master")
 				if err != nil {
 					return err
 				}
-				// put files
-				_, err = a.pachClient.PutFile(repo, "master", fileHeader.Name, outTar)
+				for {
+					fileHeader, err := outTar.Next()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return err
+					}
+					// put files
+					_, err = a.pachClient.PutFile(repo, "master", fileHeader.Name, outTar)
+					if err != nil {
+						return err
+					}
+				}
+				// close commit
+				err = a.pachClient.FinishCommit(repo, "master")
 				if err != nil {
 					return err
 				}
-			}
-			// close commit
-			err = a.pachClient.FinishCommit(repo, "master")
-			if err != nil {
+				return nil
+			}(); err != nil {
 				return err
 			}
 		}
