@@ -357,7 +357,7 @@ func (h *objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, 
 		// try to clean up the file if something failed
 		removeErr := h.multipartManager.removeChunk(uploadID, partNumber)
 		if removeErr != nil {
-			logrus.Error("could not remove uploadID=%s, partNumber=%d: %v", uploadID, partNumber, removeErr)
+			logrus.Errorf("could not remove uploadID=%s, partNumber=%d: %v", uploadID, partNumber, removeErr)
 		}
 
 		if err != nil {
