@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	kube "k8s.io/client-go/kubernetes"
@@ -15,10 +16,8 @@ import (
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
-	etcdAddress string,
+	env *serviceenv.ServiceEnv,
 	etcdPrefix string,
-	address string,
-	kubeClient *kube.Clientset,
 	namespace string,
 	workerImage string,
 	workerSidecarImage string,

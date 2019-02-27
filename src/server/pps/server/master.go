@@ -45,19 +45,20 @@ var (
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
-	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath))
+	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		// Use the PPS token to authenticate requests. Note that all requests
 		// performed in this function are performed as a cluster admin, so do not
 		// pass any unvalidated user input to any requests
-		pachClient := a.getPachClient().WithCtx(ctx)
+		pachClient := a.env.GetPachClient(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
+		kubeClient := a.env.GetKubeClient()
 
 		log.Infof("Launching PPS master process")
 
@@ -73,7 +74,7 @@ func (a *apiServer) master() {
 		// prevents pachyderm from creating pipelines when there's an issue
 		// talking to k8s.
 		var watchChan <-chan kube_watch.Event
-		kubePipelineWatch, err := a.kubeClient.CoreV1().Pods(a.namespace).Watch(
+		kubePipelineWatch, err := kubeClient.CoreV1().Pods(a.namespace).Watch(
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{
@@ -205,7 +206,7 @@ func (a *apiServer) master() {
 					if kubePipelineWatch != nil {
 						kubePipelineWatch.Stop()
 					}
-					kubePipelineWatch, err = a.kubeClient.CoreV1().Pods(a.namespace).Watch(
+					kubePipelineWatch, err = kubeClient.CoreV1().Pods(a.namespace).Watch(
 						metav1.ListOptions{
 							LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 								map[string]string{
@@ -248,15 +249,16 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
-	return ppsutil.FailPipeline(ctx, a.etcdClient, a.pipelines, pipelineName, reason)
+	return ppsutil.FailPipeline(ctx, a.env.GetEtcdClient(), a.pipelines, pipelineName, reason)
 }
 
 func (a *apiServer) checkOrDeployGithookService() error {
-	_, err := getGithookService(a.kubeClient, a.namespace)
+	kubeClient := a.env.GetKubeClient()
+	_, err := getGithookService(kubeClient, a.namespace)
 	if err != nil {
 		if _, ok := err.(*errGithookServiceNotFound); ok {
 			svc := assets.GithookService(a.namespace)
-			_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
+			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
 			return err
 		}
 		return err
@@ -310,7 +312,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 		// Retrieve the current state of the RC.  If the RC is scaled down,
 		// we want to ensure that it remains scaled down.
-		rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+		rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
 		workerRc, err := rc.Get(
 			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			metav1.GetOptions{})
@@ -373,28 +375,29 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
 		cancel()
 		delete(a.monitorCancels, pipelineName)
 	}
+	kubeClient := a.env.GetKubeClient()
 	selector := fmt.Sprintf("pipelineName=%s", pipelineName)
 	falseVal := false
 	opts := &metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	services, err := a.kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	services, err := kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return err
 	}
 	for _, service := range services.Items {
-		if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return err
 			}
 		}
 	}
-	rcs, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	rcs, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return err
 	}
 	for _, rc := range rcs.Items {
-		if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return err
 			}
@@ -404,7 +407,7 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
 }
 
 func (a *apiServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		metav1.GetOptions{})
@@ -417,14 +420,14 @@ func (a *apiServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) 
 }
 
 func (a *apiServer) scaleUpWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
 	if err != nil {
 		log.Errorf("error getting number of workers, default to 1 worker: %v", err)
 		parallelism = 1

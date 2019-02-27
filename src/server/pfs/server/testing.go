@@ -19,8 +19,11 @@ import (
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"google.golang.org/grpc"
+
+	"golang.org/x/net/context"
 )
 
 const (
@@ -91,10 +94,11 @@ func GetPachClient(t testing.TB) *client.APIClient {
 
 	root := tu.UniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
-	servePort := atomic.AddInt32(&port, 1)
-	serveAddress := fmt.Sprintf("localhost:%d", port)
+	pfsPort := atomic.AddInt32(&port, 1)
+	pfsAddress := fmt.Sprintf("localhost:%d", pfsPort)
 
 	// initialize new BlockAPIServier
+	env := serviceenv.InitServiceEnv(pfsAddress, etcdAddress)
 	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, etcdAddress)
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
@@ -102,10 +106,8 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	if err != nil {
 		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
 	}
-	apiServer, err := newAPIServer(serveAddress, []string{"localhost:32379"}, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
+	apiServer, err := newAPIServer(nil, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
-	runServers(t, servePort, apiServer, blockAPIServer)
-	c, err := client.NewFromAddress(serveAddress)
-	require.NoError(t, err)
-	return c
+	runServers(t, pfsPort, apiServer, blockAPIServer)
+	return env.GetPachClient(context.Background())
 }
