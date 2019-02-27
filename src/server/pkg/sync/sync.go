@@ -176,7 +176,7 @@ func collectStatsForNewPath(client *pachclient.APIClient, root, file string, fil
 // mutually exclusive with pipes.
 // tree is a hashtree to mirror the pulled content into (it may be left nil)
 // treeRoot is the root the data is mirrored to within tree
-func (p *Puller) NewPull(client *pachclient.APIClient, root string, repo, commit, file string,
+func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
 	fmt.Println("Inside puller.Pull")
 	// if err := os.MkdirAll(root, 0700); err != nil {
@@ -271,70 +271,6 @@ func (p *Puller) NewPull(client *pachclient.APIClient, root string, repo, commit
 
 	return nil
 }
-
-// Pull clones an entire repo at a certain commit.
-// root is the local path you want to clone to.
-// fileInfo is the file/dir we are puuling.
-// pipes causes the function to create named pipes in place of files, thus
-// lazily downloading the data as it's needed.
-// emptyFiles causes the function to create empty files with no content, it's
-// mutually exclusive with pipes.
-// tree is a hashtree to mirror the pulled content into (it may be left nil)
-// treeRoot is the root the data is mirrored to within tree
-// func (p *Puller) OldPull(client *pachclient.APIClient, root string, repo, commit, file string,
-// 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
-// 	limiter := limit.New(concurrency)
-// 	var eg errgroup.Group
-// 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
-// 		fmt.Println("basepathing for file", file, "fi", fileInfo.File.Path)
-// 		basepath, err := filepath.Rel(file, fileInfo.File.Path)
-// 		fmt.Println("basepath is", basepath)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if statsTree != nil {
-// 			statsPath := filepath.Join(statsRoot, basepath)
-// 			if fileInfo.FileType == pfs.FileType_DIR {
-// 				statsTree.PutDir(statsPath)
-// 			} else {
-// 				var blockRefs []*pfs.BlockRef
-// 				for _, object := range fileInfo.Objects {
-// 					objectInfo, err := client.InspectObject(object.Hash)
-// 					if err != nil {
-// 						return err
-// 					}
-// 					blockRefs = append(blockRefs, objectInfo.BlockRef)
-// 				}
-// 				blockRefs = append(blockRefs, fileInfo.BlockRefs...)
-// 				statsTree.PutFile(statsPath, fileInfo.Hash, int64(fileInfo.SizeBytes), &hashtree.FileNodeProto{BlockRefs: blockRefs})
-// 			}
-// 		}
-// 		path := filepath.Join(root, basepath)
-// 		fmt.Println("old pull \nroot", root, "\nrepo", repo, "\ncommit", commit, "\nfile", file, "\nnewPath", path, "\nfileInfo.File.Path", fileInfo.File.Path)
-// 		if fileInfo.FileType == pfs.FileType_DIR {
-// 			return os.MkdirAll(path, 0700)
-// 		}
-// 		if pipes {
-// 			return p.makePipe(path, func(w io.Writer) error {
-// 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
-// 			})
-// 		}
-// 		if emptyFiles {
-// 			return p.makeFile(path, func(w io.Writer) error { return nil })
-// 		}
-// 		eg.Go(func() (retErr error) {
-// 			limiter.Acquire()
-// 			defer limiter.Release()
-// 			return p.makeFile(path, func(w io.Writer) error {
-// 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
-// 			})
-// 		})
-// 		return nil
-// 	}); err != nil {
-// 		return err
-// 	}
-// 	return eg.Wait()
-// }
 
 // PullDiff is like Pull except that it materializes a Diff of the content
 // rather than a the actual content. If newOnly is true then only new files

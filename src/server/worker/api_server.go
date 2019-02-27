@@ -530,7 +530,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			parent, _ := path.Split(statsRoot)
 			statsTree.MkdirAll(parent)
 		}
-		if err := puller.NewPull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, statsRoot); err != nil {
+		if err := puller.Pull(pachClient, root, file.Commit.Repo.Name, file.Commit.ID, file.Path, input.Lazy, input.EmptyFiles, concurrency, statsTree, statsRoot); err != nil {
 			fmt.Println("puller pull err", err)
 			return "", err
 		}
