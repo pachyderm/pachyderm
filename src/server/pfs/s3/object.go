@@ -45,6 +45,11 @@ type ListPartsResult struct {
 	Part []Part `xml:"Part"`
 }
 
+
+func (r *ListPartsResult) isFull() bool {
+	return len(r.Part) >= r.MaxKeys
+}
+
 // multipartCompleteRoot represents the root XML element of a complete
 // multipart request
 type CompleteMultipartUpload struct {
@@ -296,7 +301,7 @@ func (h *objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, br
 		if name < marker {
 			continue
 		}
-		if len(result.Part) == maxParts {
+		if result.isFull() {
 			result.IsTruncated = true
 			break
 		}
