@@ -354,7 +354,6 @@ func TestRegressionPutFileIntoOpenCommit(t *testing.T) {
 	require.NoError(t, err)
 }
 
-
 func TestCreateInvalidBranchName(t *testing.T) {
 
 	client := GetPachClient(t)
@@ -4692,7 +4691,7 @@ func TestFileHistory(t *testing.T) {
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
-	numCommits := 5
+	numCommits := 10
 	for i := 0; i < numCommits; i++ {
 		_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)
@@ -4724,4 +4723,3 @@ func TestFileHistory(t *testing.T) {
 		require.Equal(t, i, len(fileInfos))
 	}
 }
-

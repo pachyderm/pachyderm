@@ -451,11 +451,11 @@ func (db *DB) Close() error {
 	db.rwlock.Lock()
 	defer db.rwlock.Unlock()
 
+	db.mmaplock.Lock()
+	defer db.mmaplock.Unlock()
+
 	db.metalock.Lock()
 	defer db.metalock.Unlock()
-
-	db.mmaplock.RLock()
-	defer db.mmaplock.RUnlock()
 
 	return db.close()
 }
