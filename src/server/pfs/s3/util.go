@@ -1,9 +1,9 @@
 package s3
 
 import (
+	"encoding/xml"
 	"fmt"
 	"net/http"
-	"encoding/xml"
 	"os"
 	"strconv"
 	"strings"
@@ -11,12 +11,15 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// The S3 storage class that all PFS content will be reported to be stored in
 const storageClass = "STANDARD"
 
-var defaultUser = User { ID: "00000000000000000000000000000000", DisplayName: "pachyderm" }
+// The S3 user associated with all PFS content
+var defaultUser = User{ID: "00000000000000000000000000000000", DisplayName: "pachyderm"}
 
+// User is an XML-encodable representation of an S3 user
 type User struct {
-	ID string `xml:"ID"`
+	ID          string `xml:"ID"`
 	DisplayName string `xml:"DisplayName"`
 }
 

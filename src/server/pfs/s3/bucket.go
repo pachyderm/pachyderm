@@ -10,8 +10,8 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
@@ -19,18 +19,21 @@ import (
 // this is a var instead of a const so that we can make a pointer to it
 var defaultMaxKeys int = 1000
 
+// the raw XML returned for a request to get the location of a bucket
 const locationSource = `
 <?xml version="1.0" encoding="UTF-8"?>
 <LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>
 `
 
+// ListBucketResult is an XML-encodable listing of files/objects in a
+// repo/bucket
 type ListBucketResult struct {
-	Name string `xml:"Name"`
-	Prefix string `xml:"Prefix"`
-	Marker string `xml:"Marker"`
-	MaxKeys int `xml:"MaxKeys"`
-	IsTruncated bool `xml:"IsTruncated"`
-	Contents []Contents `xml:"Contents"`
+	Name           string           `xml:"Name"`
+	Prefix         string           `xml:"Prefix"`
+	Marker         string           `xml:"Marker"`
+	MaxKeys        int              `xml:"MaxKeys"`
+	IsTruncated    bool             `xml:"IsTruncated"`
+	Contents       []Contents       `xml:"Contents"`
 	CommonPrefixes []CommonPrefixes `xml:"CommonPrefixes"`
 }
 
@@ -38,13 +41,14 @@ func (r *ListBucketResult) isFull() bool {
 	return len(r.Contents)+len(r.CommonPrefixes) >= r.MaxKeys
 }
 
+// Contents is an individual file/object
 type Contents struct {
-	Key string `xml:"Key"`
+	Key          string    `xml:"Key"`
 	LastModified time.Time `xml:"LastModified"`
-	ETag string `xml:"ETag"`
-	Size uint64 `xml:"Size"`
-	StorageClass string `xml:"StorageClass"`
-	Owner User `xml:"Owner"`
+	ETag         string    `xml:"ETag"`
+	Size         uint64    `xml:"Size"`
+	StorageClass string    `xml:"StorageClass"`
+	Owner        User      `xml:"Owner"`
 }
 
 func newContents(fileInfo *pfs.FileInfo) (Contents, error) {
@@ -54,15 +58,16 @@ func newContents(fileInfo *pfs.FileInfo) (Contents, error) {
 	}
 
 	return Contents{
-		Key: fileInfo.File.Path,
+		Key:          fileInfo.File.Path,
 		LastModified: t,
-		ETag: "",
-		Size: fileInfo.SizeBytes,
+		ETag:         "",
+		Size:         fileInfo.SizeBytes,
 		StorageClass: storageClass,
-		Owner: defaultUser,
+		Owner:        defaultUser,
 	}, nil
 }
 
+// CommonPrefixes is an individual PFS directory
 type CommonPrefixes struct {
 	Prefix string `xml:"Prefix"`
 }
@@ -76,11 +81,11 @@ func newCommonPrefixes(dir string) CommonPrefixes {
 const globSpecialCharacters = "*?[\\"
 
 type bucketHandler struct {
-	pc               *client.APIClient
+	pc *client.APIClient
 }
 
 func newBucketHandler(pc *client.APIClient) bucketHandler {
-	return bucketHandler{ pc: pc }
+	return bucketHandler{pc: pc}
 }
 
 // rootDirs determines the root directories (common prefixes in s3 parlance)
@@ -166,10 +171,10 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) 
 	prefixParts := strings.SplitN(prefix, "/", 2)
 
 	result := &ListBucketResult{
-		Name: repo,
-		Prefix: prefix,
-		Marker: marker,
-		MaxKeys: maxKeys,
+		Name:        repo,
+		Prefix:      prefix,
+		Marker:      marker,
+		MaxKeys:     maxKeys,
 		IsTruncated: false,
 	}
 

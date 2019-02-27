@@ -4,22 +4,24 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/gogo/protobuf/types"
+	"github.com/pachyderm/pachyderm/src/client"
 )
 
+// ListAllMyBucketsResult is an XML-encodable listing of repos as buckets
 type ListAllMyBucketsResult struct {
-	Owner User `xml:"Owner"`
+	Owner   User     `xml:"Owner"`
 	Buckets []Bucket `xml:"Buckets>Bucket"`
 }
 
+// Bucket is an XML-encodable repo, represented as an S3 bucket
 type Bucket struct {
-	Name string `xml:"Name"`
+	Name         string    `xml:"Name"`
 	CreationDate time.Time `xml:"CreationDate"`
 }
 
 type rootHandler struct {
-	pc           *client.APIClient
+	pc *client.APIClient
 }
 
 func newRootHandler(pc *client.APIClient) rootHandler {
@@ -45,7 +47,7 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		result.Buckets = append(result.Buckets, Bucket{
-			Name: repo.Repo.Name,
+			Name:         repo.Repo.Name,
 			CreationDate: t,
 		})
 	}

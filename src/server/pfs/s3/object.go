@@ -9,9 +9,9 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"time"
 	"sort"
 	"strconv"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
@@ -25,47 +25,52 @@ var defaultMaxParts int = 1000
 
 const maxAllowedParts = 10000
 
+// InitiateMultipartUploadResult is an XML-encodable response to initiate a
+// new multipart upload
 type InitiateMultipartUploadResult struct {
-	Bucket string `xml:"Bucket"`
-	Key string `xml:"Key"`
+	Bucket   string `xml:"Bucket"`
+	Key      string `xml:"Key"`
 	UploadID string `xml:"UploadId"`
 }
 
+// ListPartsResult is an XML-encodable listing of parts associated with a
+// multipart upload
 type ListPartsResult struct {
-	Bucket string `xml:"Bucket"`
-	Key string `xml:"Key"`
-	UploadID string `xml:"UploadId"`
-	Initiator User `xml:"Initiator"`
-	Owner User `xml:"Owner"`
-	StorageClass string `xml:"StorageClass"`
-	PartNumberMarker int `xml:"PartNumberMarker"`
-	NextPartNumberMarker int `xml:"NextPartNumberMarker"`
-	MaxParts int `xml:"PartNumberMarker"`
-	IsTruncated bool `xml:"IsTruncated"`
-	Part []Part `xml:"Part"`
+	Bucket               string `xml:"Bucket"`
+	Key                  string `xml:"Key"`
+	UploadID             string `xml:"UploadId"`
+	Initiator            User   `xml:"Initiator"`
+	Owner                User   `xml:"Owner"`
+	StorageClass         string `xml:"StorageClass"`
+	PartNumberMarker     int    `xml:"PartNumberMarker"`
+	NextPartNumberMarker int    `xml:"NextPartNumberMarker"`
+	MaxParts             int    `xml:"PartNumberMarker"`
+	IsTruncated          bool   `xml:"IsTruncated"`
+	Part                 []Part `xml:"Part"`
 }
-
 
 func (r *ListPartsResult) isFull() bool {
 	return len(r.Part) >= r.MaxParts
 }
 
-// multipartCompleteRoot represents the root XML element of a complete
-// multipart request
+// CompleteMultipartUpload is an XML-encodable listing of parts associated
+// with a multipart upload to complete
 type CompleteMultipartUpload struct {
 	Parts []Part `xml:"Part"`
 }
 
+// Part is an XML-encodable chunk of content associated with a multipart
+// upload
 type Part struct {
-	PartNumber int `xml:"PartNumber"`
+	PartNumber   int       `xml:"PartNumber"`
 	LastModified time.Time `xml:"LastModified,omitempty"`
-	ETag string `xml:"ETag"`
-	Size int64 `xml"Size,omitempty"`
+	ETag         string    `xml:"ETag"`
+	Size         int64     `xml"Size,omitempty"`
 }
 
 type objectHandler struct {
-	pc                    *client.APIClient
-	multipartManager      *multipartFileManager
+	pc               *client.APIClient
+	multipartManager *multipartFileManager
 }
 
 func newObjectHandler(pc *client.APIClient, multipartDir string) *objectHandler {
@@ -75,8 +80,8 @@ func newObjectHandler(pc *client.APIClient, multipartDir string) *objectHandler 
 	}
 
 	return &objectHandler{
-		pc:                    pc,
-		multipartManager:      multipartManager,
+		pc:               pc,
+		multipartManager: multipartManager,
 	}
 }
 
@@ -245,7 +250,7 @@ func (h *objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, br
 		return
 	}
 
-	result := InitiateMultipartUploadResult {
+	result := InitiateMultipartUploadResult{
 		Bucket:   branchInfo.Branch.Repo.Name,
 		Key:      fmt.Sprintf("%s/%s", branchInfo.Branch.Name, file),
 		UploadID: uploadID,
@@ -283,15 +288,15 @@ func (h *objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, br
 	}
 
 	result := ListPartsResult{
-		Bucket: branchInfo.Branch.Repo.Name,
-		Key: file,
-		UploadID: uploadID,
-		Initiator: defaultUser,
-		Owner: defaultUser,
-		StorageClass: storageClass,
+		Bucket:           branchInfo.Branch.Repo.Name,
+		Key:              file,
+		UploadID:         uploadID,
+		Initiator:        defaultUser,
+		Owner:            defaultUser,
+		StorageClass:     storageClass,
 		PartNumberMarker: marker,
-		MaxParts: maxParts,
-		IsTruncated: false,
+		MaxParts:         maxParts,
+		IsTruncated:      false,
 	}
 
 	for _, fileInfo := range fileInfos {
@@ -306,9 +311,9 @@ func (h *objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, br
 			break
 		}
 		result.Part = append(result.Part, Part{
-			PartNumber: name,
+			PartNumber:   name,
 			LastModified: fileInfo.ModTime(),
-			Size: fileInfo.Size(),
+			Size:         fileInfo.Size(),
 		})
 	}
 

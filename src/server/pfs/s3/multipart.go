@@ -15,11 +15,26 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+// multipartFileManager manages the underlying files associated with multipart
+// content
+//
+// multipart content is stored in the local filesystem until it's complete,
+// then all of the content is flushed to PFS and the content in the local
+// filesystem is removed. This means that ingressing data via multipart upload
+// is constrained by local filesystem limitations.
 type multipartFileManager struct {
-	root            string
+	// the parent directory for all of the multipart contnet
+	root string
+
+	// the maximum number of allowed parts that can be associated with any
+	// given file
 	maxAllowedParts int
-	masterLock      *sync.Mutex
-	locks           map[string]*sync.RWMutex
+
+	// a lock to the `locks` mapping
+	masterLock *sync.Mutex
+
+	// a mapping of uploadIDs -> their associated r/w locks
+	locks map[string]*sync.RWMutex
 }
 
 func newMultipartFileManager(root string, maxAllowedParts int) *multipartFileManager {
@@ -31,18 +46,23 @@ func newMultipartFileManager(root string, maxAllowedParts int) *multipartFileMan
 	}
 }
 
+// namePath returns the path to the file storing the filename that will be
+// placed in PFS
 func (m *multipartFileManager) namePath(uploadID string) string {
 	return filepath.Join(m.root, fmt.Sprintf("%s.txt", uploadID))
 }
 
+// chunksPath returns the path to the directory storing the chunks/parts
 func (m *multipartFileManager) chunksPath(uploadID string) string {
 	return filepath.Join(m.root, uploadID)
 }
 
+// chunkPath returns the path to the file storing an individual chunk/part
 func (m *multipartFileManager) chunkPath(uploadID string, partNumber int) string {
 	return filepath.Join(m.chunksPath(uploadID), strconv.Itoa(partNumber))
 }
 
+// lock returns the lock associated with an uploadID
 func (m *multipartFileManager) lock(uploadID string) *sync.RWMutex {
 	m.masterLock.Lock()
 	defer m.masterLock.Unlock()
@@ -55,6 +75,8 @@ func (m *multipartFileManager) lock(uploadID string) *sync.RWMutex {
 	return lock
 }
 
+// checkExists checks if an uploadID exists (both the name file and the chunks
+// directory)
 func (m *multipartFileManager) checkExists(uploadID string) error {
 	lock := m.lock(uploadID)
 	lock.RLock()
@@ -68,6 +90,7 @@ func (m *multipartFileManager) checkExists(uploadID string) error {
 	return err
 }
 
+// checkChunkExists checks if a chunk exists
 func (m *multipartFileManager) checkChunkExists(uploadID string, partNumber int) error {
 	lock := m.lock(uploadID)
 	lock.RLock()
@@ -76,6 +99,7 @@ func (m *multipartFileManager) checkChunkExists(uploadID string, partNumber int)
 	return err
 }
 
+// init starts a new multipart upload, returning its uploadID
 func (m *multipartFileManager) init(file string) (string, error) {
 	uploadID := uuid.NewWithoutDashes()
 
@@ -90,6 +114,7 @@ func (m *multipartFileManager) init(file string) (string, error) {
 	return uploadID, nil
 }
 
+// filepath returns the PFS filepath
 func (m *multipartFileManager) filepath(uploadID string) (string, error) {
 	lock := m.lock(uploadID)
 	lock.RLock()
@@ -102,6 +127,7 @@ func (m *multipartFileManager) filepath(uploadID string) (string, error) {
 	return string(name), nil
 }
 
+// writeChunk writes a chunk/part to the local filesystem from a reader
 func (m *multipartFileManager) writeChunk(uploadID string, partNumber int, reader io.Reader) error {
 	lock := m.lock(uploadID)
 	lock.Lock()
@@ -119,6 +145,7 @@ func (m *multipartFileManager) writeChunk(uploadID string, partNumber int, reade
 	return f.Sync()
 }
 
+// removeChunk removes a chunk/part
 func (m *multipartFileManager) removeChunk(uploadID string, partNumber int) error {
 	lock := m.lock(uploadID)
 	lock.Lock()
@@ -127,6 +154,8 @@ func (m *multipartFileManager) removeChunk(uploadID string, partNumber int) erro
 	return os.Remove(m.chunkPath(uploadID, partNumber))
 }
 
+// listChunks lists chunks/parts that have been stored in the local filesystem.
+// Returned file infos are sorted by the part number they're associated with.
 func (m *multipartFileManager) listChunks(uploadID string) ([]os.FileInfo, error) {
 	lock := m.lock(uploadID)
 	lock.RLock()
@@ -157,6 +186,7 @@ func (m *multipartFileManager) listChunks(uploadID string) ([]os.FileInfo, error
 	return fileInfos, nil
 }
 
+// remove removes an uploadID and all of its content stored in the local filesystem
 func (m *multipartFileManager) remove(uploadID string) error {
 	lock := m.lock(uploadID)
 	lock.Lock()
@@ -183,7 +213,9 @@ type multipartReader struct {
 	manager     *multipartFileManager
 	uploadID    string
 	partNumbers []int
-	cur         *os.File
+
+	// the current chunk/part being read
+	cur *os.File
 }
 
 func newMultipartReader(manager *multipartFileManager, uploadID string, partNumbers []int) *multipartReader {

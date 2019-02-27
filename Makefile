@@ -493,6 +493,13 @@ test-vault:
 test-s3:
 	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
+./etc/testing/s3gateway/s3-tests:
+	cd ./etc/testing/s3gateway && git clone git@github.com:ceph/s3-tests.git
+	cd ./etc/testing/s3gateway/s3-tests && ./bootstrap
+
+test-s3gateway: ./etc/testing/s3gateway/s3-tests install
+	./etc/testing/s3gateway/s3gateway.sh
+
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
@@ -722,6 +729,7 @@ goxc-build:
 	test \
 	test-client \
 	test-s3 \
+	test-s3gateway \
 	test-fuse \
 	test-local \
 	clean \
