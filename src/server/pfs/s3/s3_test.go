@@ -127,10 +127,22 @@ func putListFileTestObject(t *testing.T, pc *client.APIClient, repo string, comm
 	require.NoError(t, err)
 }
 
-func nonServerError(t *testing.T, err error) {
+func badRequestError(t *testing.T, err error) {
 	t.Helper()
 	require.YesError(t, err)
-	require.NotEqual(t, "500 Internal Server Error", err.Error(), "expected a non-500 error")
+	require.Equal(t, "400 Bad Request", err.Error())
+}
+
+func bucketNotFoundError(t *testing.T, err error) {
+	t.Helper()
+	require.YesError(t, err)
+	require.Equal(t, "The specified bucket does not exist.", err.Error())
+}
+
+func keyNotFoundError(t *testing.T, err error) {
+	t.Helper()
+	require.YesError(t, err)
+	require.Equal(t, "The specified key does not exist.", err.Error())
 }
 
 func TestListBuckets(t *testing.T) {
@@ -283,7 +295,7 @@ func TestLargeObjects(t *testing.T) {
 	// first ensure that putting into a repo that doesn't exist triggers an
 	// error
 	_, err = c.FPutObject(repo2, "master/file", inputFile.Name(), "text/plain")
-	nonServerError(t, err)
+	keyNotFoundError(t, err)
 
 	// now try putting into a legit repo
 	l, err := c.FPutObject(repo1, "master/file", inputFile.Name(), "text/plain")
@@ -297,7 +309,7 @@ func TestLargeObjects(t *testing.T) {
 
 	// try getting an object that does not exist
 	err = c.FGetObject(repo2, "master/file", outputFile.Name())
-	nonServerError(t, err)
+	keyNotFoundError(t, err)
 	bytes, err := ioutil.ReadFile(outputFile.Name())
 	require.NoError(t, err)
 	require.Equal(t, 0, len(bytes))
@@ -337,7 +349,7 @@ func TestGetObjectNoHead(t *testing.T) {
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
 	_, err := getObject(t, c, repo, "branch", "file")
-	nonServerError(t, err)
+	keyNotFoundError(t, err)
 
 	require.NoError(t, srv.Close())
 }
@@ -349,8 +361,7 @@ func TestGetObjectNoBranch(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 
 	_, err := getObject(t, c, repo, "branch", "file")
-	nonServerError(t, err)
-	require.Equal(t, err.Error(), "The specified key does not exist.")
+	keyNotFoundError(t, err)
 	require.NoError(t, srv.Close())
 }
 
@@ -359,8 +370,7 @@ func TestGetObjectNoRepo(t *testing.T) {
 
 	repo := tu.UniqueString("testgetobjectnorepo")
 	_, err := getObject(t, c, repo, "master", "file")
-	nonServerError(t, err)
-	require.Equal(t, err.Error(), "The specified bucket does not exist.")
+	bucketNotFoundError(t, err)
 	require.NoError(t, srv.Close())
 }
 
@@ -386,7 +396,7 @@ func TestMakeBucketRedundant(t *testing.T) {
 	srv, _, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucketredundant")
 	require.NoError(t, c.MakeBucket(repo, ""))
-	nonServerError(t, c.MakeBucket(repo, ""))
+	badRequestError(t, c.MakeBucket(repo, ""))
 	require.NoError(t, srv.Close())
 }
 
@@ -415,7 +425,7 @@ func TestRemoveBucket(t *testing.T) {
 	require.NoError(t, c.RemoveBucket(repo1))
 
 	repo2 := tu.UniqueString("testremovebucket2")
-	nonServerError(t, c.RemoveBucket(repo2))
+	bucketNotFoundError(t, c.RemoveBucket(repo2))
 
 	require.NoError(t, srv.Close())
 }
