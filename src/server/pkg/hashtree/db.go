@@ -1364,8 +1364,13 @@ func (m *MergeReader) Walk(walkPath string, f func(string, *NodeProto) error) er
 			path = "/"
 		}
 		if path != walkPath && !strings.HasPrefix(path, walkPath+"/") {
-			// node is a sibling of path, and thus doesn't get walked
-			return errutil.ErrBreak
+			// node is a sibling of path, and thus doesn't get walked.
+			// We want to break out of the nodes call entirely
+			// in the case where we have reached the sibling lexographically later than the root of our search.
+			if walkPath < path {
+				return errutil.ErrBreak
+			}
+			return nil
 		}
 		if err := f(path, node); err != nil {
 			if err == errutil.ErrBreak {
