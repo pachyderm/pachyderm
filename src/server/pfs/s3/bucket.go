@@ -6,10 +6,12 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
@@ -18,63 +20,67 @@ import (
 var defaultMaxKeys int = 1000
 
 const locationSource = `
-<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
+<?xml version="1.0" encoding="UTF-8"?>
+<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>
+`
 
-const listObjectsSource = `
-<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-	<Name>{{ .bucket }}</Name>
-	<Prefix>{{ .prefix }}</Prefix>
-	<Marker>{{ .marker }}</Marker>
-	<MaxKeys>{{ .maxKeys }}</MaxKeys>
-	<IsTruncated>{{ .isTruncated }}</IsTruncated>
-	{{ range .files }}
-		<Contents>
-			<Key>{{ .File.Path }}</Key>
-			<LastModified>{{ formatTime .Committed }}</LastModified>
-			<ETag></ETag>
-			<Size>{{ .SizeBytes }}</Size>
-			<StorageClass>STANDARD</StorageClass>
-			<Owner>
-				<ID>000000000000000000000000000000</ID>
-				<DisplayName>pachyderm</DisplayName>
-			</Owner>
-		</Contents>
-	{{ end }}
-	{{ if .dirs }}
-		{{ range .dirs }}
-			<CommonPrefixes>
-				<Prefix>{{ . }}/</Prefix>
-			</CommonPrefixes>
-		{{ end }}
-	{{ end }}
-</ListBucketResult>`
+type ListBucketResult struct {
+	Name string `xml:"Name"`
+	Prefix string `xml:"Prefix"`
+	Marker string `xml:"Marker"`
+	MaxKeys int `xml:"MaxKeys"`
+	IsTruncated bool `xml:"IsTruncated"`
+	Contents []Contents `xml:"Contents"`
+	CommonPrefixes []CommonPrefixes `xml:"CommonPrefixes"`
+}
+
+func (r *ListBucketResult) isFull() bool {
+	return len(r.Contents)+len(r.CommonPrefixes) >= r.MaxKeys
+}
+
+type Contents struct {
+	Key string `xml:"Key"`
+	LastModified time.Time `xml:"LastModified"`
+	ETag string `xml:"ETag"`
+	Size uint64 `xml:"Size"`
+	StorageClass string `xml:"StorageClass"`
+	Owner User `xml:"Owner"`
+}
+
+func newContents(fileInfo *pfs.FileInfo) (Contents, error) {
+	t, err := types.TimestampFromProto(fileInfo.Committed)
+	if err != nil {
+		return Contents{}, err
+	}
+
+	return Contents{
+		Key: fileInfo.File.Path,
+		LastModified: t,
+		ETag: "",
+		Size: fileInfo.SizeBytes,
+		StorageClass: storageClass,
+		Owner: defaultUser,
+	}, nil
+}
+
+type CommonPrefixes struct {
+	Prefix string `xml:"Prefix"`
+}
+
+func newCommonPrefixes(dir string) CommonPrefixes {
+	return CommonPrefixes{
+		Prefix: fmt.Sprintf("%s/", dir),
+	}
+}
 
 const globSpecialCharacters = "*?[\\"
 
 type bucketHandler struct {
 	pc               *client.APIClient
-	locationTemplate xmlTemplate
-	listTemplate     xmlTemplate
 }
 
 func newBucketHandler(pc *client.APIClient) bucketHandler {
-	return bucketHandler{
-		pc:               pc,
-		locationTemplate: newXmlTemplate(http.StatusOK, "location", locationSource),
-		listTemplate:     newXmlTemplate(http.StatusOK, "list-objects", listObjectsSource),
-	}
-}
-
-func (h bucketHandler) renderList(w http.ResponseWriter, bucket, prefix, marker string, maxKeys int, isTruncated bool, files []*pfs.FileInfo, dirs []string) {
-	h.listTemplate.render(w, map[string]interface{}{
-		"bucket":      bucket,
-		"prefix":      prefix,
-		"marker":      marker,
-		"maxKeys":     maxKeys,
-		"isTruncated": isTruncated,
-		"files":       files,
-		"dirs":        dirs,
-	})
+	return bucketHandler{ pc: pc }
 }
 
 // rootDirs determines the root directories (common prefixes in s3 parlance)
@@ -134,7 +140,9 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) 
 	}
 
 	if _, ok := r.Form["location"]; ok {
-		h.locationTemplate.render(w, nil)
+		w.Header().Set("Content-Type", "application/xml")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(locationSource))
 		return
 	}
 
@@ -156,13 +164,22 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) 
 
 	prefix := r.FormValue("prefix")
 	prefixParts := strings.SplitN(prefix, "/", 2)
+
+	result := &ListBucketResult{
+		Name: repo,
+		Prefix: prefix,
+		Marker: marker,
+		MaxKeys: maxKeys,
+		IsTruncated: false,
+	}
+
 	if len(prefixParts) == 1 {
 		branchPrefix := prefixParts[0]
 
 		if recursive {
-			h.listRecursive(w, r, repo, branchPrefix, prefix, marker, maxKeys)
+			h.listRecursive(w, r, result, branchPrefix)
 		} else {
-			h.list(w, r, repo, branchPrefix, prefix, marker, maxKeys)
+			h.list(w, r, result, branchPrefix)
 		}
 	} else {
 		branch := prefixParts[0]
@@ -185,45 +202,47 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) 
 		if isEmpty {
 			// render an empty list if this branch doesn't exist or doesn't have a
 			// head
-			h.renderList(w, repo, prefix, marker, maxKeys, false, []*pfs.FileInfo{}, []string{})
+			writeXML(w, http.StatusOK, &result)
 		} else if recursive {
-			h.listBranchRecursive(w, r, repo, branch, filePrefix, prefix, marker, maxKeys)
+			h.listBranchRecursive(w, r, result, branch, filePrefix)
 		} else {
-			h.listBranch(w, r, repo, branch, filePrefix, prefix, marker, maxKeys)
+			h.listBranch(w, r, result, branch, filePrefix)
 		}
 	}
 }
 
-func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
-	var files []*pfs.FileInfo
-	var dirs []string
-	isTruncated := false
-	branches, err := h.rootDirs(repo, branchPrefix)
+func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branchPrefix string) {
+	branches, err := h.rootDirs(result.Name, branchPrefix)
 	if err != nil {
 		writeServerError(w, err)
 		return
 	}
 
 	for _, branch := range branches {
-		dirs = append(dirs, branch)
-		if len(files)+len(dirs) == maxKeys {
-			isTruncated = true
+		result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(branch))
+
+		if result.isFull() {
+			result.IsTruncated = true
 			break
 		}
 
-		err = h.pc.Walk(repo, branch, "", func(fileInfo *pfs.FileInfo) error {
-			fileInfo = updateFileInfo(branch, marker, fileInfo)
+		err = h.pc.Walk(result.Name, branch, "", func(fileInfo *pfs.FileInfo) error {
+			fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
 			if fileInfo == nil {
 				return nil
 			}
-			if len(files)+len(dirs) == maxKeys {
-				isTruncated = true
+			if result.isFull() {
+				result.IsTruncated = true
 				return errutil.ErrBreak
 			}
 			if fileInfo.FileType == pfs.FileType_FILE {
-				files = append(files, fileInfo)
+				contents, err := newContents(fileInfo)
+				if err != nil {
+					return err
+				}
+				result.Contents = append(result.Contents, contents)
 			} else {
-				dirs = append(dirs, fileInfo.File.Path)
+				result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 			}
 			return nil
 		})
@@ -231,54 +250,54 @@ func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, rep
 			writeServerError(w, err)
 			return
 		}
-		if isTruncated {
+		if result.IsTruncated {
 			break
 		}
 	}
 
-	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
+	writeXML(w, http.StatusOK, result)
 }
 
-func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, repo, branchPrefix, completePrefix, marker string, maxKeys int) {
-	var dirs []string
-	isTruncated := false
-	dirs, err := h.rootDirs(repo, branchPrefix)
+func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branchPrefix string) {
+	dirs, err := h.rootDirs(result.Name, branchPrefix)
 	if err != nil {
 		writeServerError(w, err)
 		return
 	}
 
-	if len(dirs) > maxKeys {
-		dirs = dirs[:maxKeys]
-		isTruncated = true
+	if len(dirs) > result.MaxKeys {
+		dirs = dirs[:result.MaxKeys]
+		result.IsTruncated = true
 	}
 
-	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, []*pfs.FileInfo{}, dirs)
+	for _, dir := range dirs {
+		result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(dir))
+	}
+
+	writeXML(w, http.StatusOK, result)
 }
 
-func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Request, repo string, branch string, filePrefix string, completePrefix string, marker string, maxKeys int) {
-	var files []*pfs.FileInfo
-	var dirs []string
-	isTruncated := false
-
-	// get what directory we should be recursing into
-	dir := filepath.Dir(filePrefix)
-	err := h.pc.Walk(repo, branch, dir, func(fileInfo *pfs.FileInfo) error {
-		fileInfo = updateFileInfo(branch, marker, fileInfo)
+func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string, filePrefix string) {
+	err := h.pc.Walk(result.Name, branch, filepath.Dir(filePrefix), func(fileInfo *pfs.FileInfo) error {
+		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
 		if fileInfo == nil {
 			return nil
 		}
-		if !strings.HasPrefix(fileInfo.File.Path, completePrefix) {
+		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
 			return nil
 		}
-		if len(files)+len(dirs) == maxKeys {
-			isTruncated = true
+		if result.isFull() {
+			result.IsTruncated = true
 			return errutil.ErrBreak
 		}
 		if fileInfo.FileType == pfs.FileType_FILE {
-			files = append(files, fileInfo)
+			contents, err := newContents(fileInfo)
+			if err != nil {
+				return err
+			}
+			result.Contents = append(result.Contents, contents)
 		} else {
-			dirs = append(dirs, fileInfo.File.Path)
+			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 		}
 		return nil
 	})
@@ -288,43 +307,44 @@ func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
+	writeXML(w, http.StatusOK, result)
 }
 
-func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, repo, branch, filePrefix, completePrefix, marker string, maxKeys int) {
-	var files []*pfs.FileInfo
-	var dirs []string
-	isTruncated := false
-
+func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string, filePrefix string) {
 	// ensure that we can globify the prefix string
 	if !isGlobless(filePrefix) {
 		writeBadRequest(w, fmt.Errorf("file prefix (everything after the first `/` in the prefix) cannot contain glob special characters"))
 		return
 	}
 
-	fileInfos, err := h.pc.GlobFile(repo, branch, fmt.Sprintf("%s*", filePrefix))
+	fileInfos, err := h.pc.GlobFile(result.Name, branch, fmt.Sprintf("%s*", filePrefix))
 	if err != nil {
 		writeServerError(w, err)
 		return
 	}
 
 	for _, fileInfo := range fileInfos {
-		fileInfo = updateFileInfo(branch, marker, fileInfo)
+		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
 		if fileInfo == nil {
 			continue
 		}
-		if len(files)+len(dirs) == maxKeys {
-			isTruncated = true
+		if result.isFull() {
+			result.IsTruncated = true
 			break
 		}
 		if fileInfo.FileType == pfs.FileType_FILE {
-			files = append(files, fileInfo)
+			contents, err := newContents(fileInfo)
+			if err != nil {
+				writeServerError(w, err)
+				return
+			}
+			result.Contents = append(result.Contents, contents)
 		} else {
-			dirs = append(dirs, fileInfo.File.Path)
+			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 		}
 	}
 
-	h.renderList(w, repo, completePrefix, marker, maxKeys, isTruncated, files, dirs)
+	writeXML(w, http.StatusOK, result)
 }
 
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request, repo string) {

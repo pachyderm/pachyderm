@@ -3,10 +3,22 @@ package s3
 import (
 	"fmt"
 	"net/http"
+	"encoding/xml"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
+
+const storageClass = "STANDARD"
+
+var defaultUser = User { ID: "00000000000000000000000000000000", DisplayName: "pachyderm" }
+
+type User struct {
+	ID string `xml:"ID"`
+	DisplayName string `xml:"DisplayName"`
+}
 
 func writeBadRequest(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
@@ -22,6 +34,15 @@ func writeMaybeNotFound(w http.ResponseWriter, r *http.Request, err error) {
 
 func writeServerError(w http.ResponseWriter, err error) {
 	http.Error(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
+}
+
+func writeXML(w http.ResponseWriter, code int, v interface{}) {
+	w.Header().Set("Content-Type", "application/xml")
+	w.WriteHeader(code)
+	encoder := xml.NewEncoder(w)
+	if err := encoder.Encode(v); err != nil {
+		logrus.Errorf("s3gateway: could not enocde xml response: %v", err)
+	}
 }
 
 // intFormValue extracts an int value from a request's form values, ensuring

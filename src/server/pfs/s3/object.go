@@ -9,7 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
+	"time"
 	"sort"
 	"strconv"
 
@@ -25,61 +25,42 @@ var defaultMaxParts int = 1000
 
 const maxAllowedParts = 10000
 
-const initMultipartSource = `
-<InitiateMultipartUploadResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-	<Bucket>{{ .bucket }}</Bucket>
-	<Key>{{ .key }}</Key>
-	<UploadId>{{ .uploadID }}</UploadId>
-</InitiateMultipartUploadResult>
-`
+type InitiateMultipartUploadResult struct {
+	Bucket string `xml:"Bucket"`
+	Key string `xml:"Key"`
+	UploadID string `xml:"UploadId"`
+}
 
-const listMultipartSource = `
-<ListPartsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-	<Bucket>{{ .bucket }}</Bucket>
-	<Key>{{ .key }}</Key>
-	<UploadId>{{ .uploadID }}</UploadId>
-	<Initiator>
-		<ID>00000000000000000000000000000000</ID>
-		<DisplayName>pachyderm</DisplayName>
-	</Initiator>
-	<Owner>
-		<ID>00000000000000000000000000000000</ID>
-		<DisplayName>pachyderm</DisplayName>
-	</Owner>
-	<StorageClass>STANDARD</StorageClass>
-	<PartNumberMarker>{{ .partNumberMarker }}</PartNumberMarker>
-	<NextPartNumberMarker>{{ .nextPartNumberMarker }}</NextPartNumberMarker>
-	<MaxParts>{{ .maxParts }}</MaxParts>
-	<IsTruncated>{{ .isTruncated }}</IsTruncated>
-	{{ range .parts }}
-		<Part>
-			<PartNumber>{{ .Name }}</PartNumber>
-			<LastModified>{{ .ModTime }}</LastModified>
-			<ETag></ETag>
-			<Size>{{ .Size }}</Size>
-		</Part>
-	{{ end }}
-</ListPartsResult>
-`
+type ListPartsResult struct {
+	Bucket string `xml:"Bucket"`
+	Key string `xml:"Key"`
+	UploadID string `xml:"UploadId"`
+	Initiator User `xml:"Initiator"`
+	Owner User `xml:"Owner"`
+	StorageClass string `xml:"StorageClass"`
+	PartNumberMarker int `xml:"PartNumberMarker"`
+	NextPartNumberMarker int `xml:"NextPartNumberMarker"`
+	MaxParts int `xml:"PartNumberMarker"`
+	IsTruncated bool `xml:"IsTruncated"`
+	Part []Part `xml:"Part"`
+}
 
 // multipartCompleteRoot represents the root XML element of a complete
 // multipart request
 type CompleteMultipartUpload struct {
-	Parts []MultipartCompletePart `xml:"Part"`
+	Parts []Part `xml:"Part"`
 }
 
-// multipartCompletePart represents a <Part> XML element of a complete
-// multipart request
-type MultipartCompletePart struct {
-	PartNumber int    `xml:"PartNumber"`
-	ETag       string `xml:"ETag"`
+type Part struct {
+	PartNumber int `xml:"PartNumber"`
+	LastModified time.Time `xml:"LastModified,omitempty"`
+	ETag string `xml:"ETag"`
+	Size int64 `xml"Size,omitempty"`
 }
 
 type objectHandler struct {
 	pc                    *client.APIClient
 	multipartManager      *multipartFileManager
-	initMultipartTemplate xmlTemplate
-	listMultipartTemplate xmlTemplate
 }
 
 func newObjectHandler(pc *client.APIClient, multipartDir string) *objectHandler {
@@ -91,8 +72,6 @@ func newObjectHandler(pc *client.APIClient, multipartDir string) *objectHandler 
 	return &objectHandler{
 		pc:                    pc,
 		multipartManager:      multipartManager,
-		initMultipartTemplate: newXmlTemplate(http.StatusOK, "init-multipart", initMultipartSource),
-		listMultipartTemplate: newXmlTemplate(http.StatusOK, "list-multipart", listMultipartSource),
 	}
 }
 
@@ -261,11 +240,13 @@ func (h *objectHandler) initMultipart(w http.ResponseWriter, r *http.Request, br
 		return
 	}
 
-	h.initMultipartTemplate.render(w, map[string]interface{}{
-		"bucket":   branchInfo.Branch.Repo.Name,
-		"key":      fmt.Sprintf("%s/%s", branchInfo.Branch.Name, file),
-		"uploadID": uploadID,
-	})
+	result := InitiateMultipartUploadResult {
+		Bucket:   branchInfo.Branch.Repo.Name,
+		Key:      fmt.Sprintf("%s/%s", branchInfo.Branch.Name, file),
+		UploadID: uploadID,
+	}
+
+	writeXML(w, http.StatusOK, &result)
 }
 
 func (h *objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {
@@ -296,8 +277,18 @@ func (h *objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, br
 		return
 	}
 
-	isTruncated := false
-	parts := []os.FileInfo{}
+	result := ListPartsResult{
+		Bucket: branchInfo.Branch.Repo.Name,
+		Key: file,
+		UploadID: uploadID,
+		Initiator: defaultUser,
+		Owner: defaultUser,
+		StorageClass: storageClass,
+		PartNumberMarker: marker,
+		MaxParts: maxParts,
+		IsTruncated: false,
+	}
+
 	for _, fileInfo := range fileInfos {
 		// ignore errors converting the name since it's already been verified
 		name, _ := strconv.Atoi(fileInfo.Name())
@@ -305,28 +296,22 @@ func (h *objectHandler) listMultipart(w http.ResponseWriter, r *http.Request, br
 		if name < marker {
 			continue
 		}
-		if len(parts) == maxParts {
-			isTruncated = true
+		if len(result.Part) == maxParts {
+			result.IsTruncated = true
 			break
 		}
-		parts = append(parts, fileInfo)
+		result.Part = append(result.Part, Part{
+			PartNumber: name,
+			LastModified: fileInfo.ModTime(),
+			Size: fileInfo.Size(),
+		})
 	}
 
-	nextPartNumberMarker := ""
-	if len(parts) > 0 {
-		nextPartNumberMarker = parts[len(parts)-1].Name()
+	if len(result.Part) > 0 {
+		result.NextPartNumberMarker = result.Part[len(result.Part)-1].PartNumber
 	}
 
-	h.listMultipartTemplate.render(w, map[string]interface{}{
-		"bucket":               branchInfo.Branch.Repo.Name,
-		"key":                  file,
-		"uploadID":             uploadID,
-		"partNumberMarker":     marker,
-		"nextPartNumberMarker": nextPartNumberMarker,
-		"maxParts":             maxParts,
-		"isTruncated":          isTruncated,
-		"parts":                parts,
-	})
+	writeXML(w, http.StatusOK, &result)
 }
 
 func (h *objectHandler) uploadMultipart(w http.ResponseWriter, r *http.Request, branchInfo *pfs.BranchInfo, file string, uploadID string) {

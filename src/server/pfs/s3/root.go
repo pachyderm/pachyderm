@@ -2,44 +2,53 @@ package s3
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gogo/protobuf/types"
 )
 
-const listBucketsSource = `
-<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01">
-	<Owner>
-		<ID>00000000000000000000000000000000</ID>
-		<DisplayName>pachyderm</DisplayName>
-	</Owner>
-	<Buckets>
-		{{ range . }}
-			<Bucket>
-				<Name>{{ .Repo.Name }}</Name>
-				<CreationDate>{{ formatTime .Created }}</CreationDate>
-			</Bucket>
-		{{ end }}
-	</Buckets>
-</ListAllMyBucketsResult>`
+type ListAllMyBucketsResult struct {
+	Owner User `xml:"Owner"`
+	Buckets []Bucket `xml:"Buckets>Bucket"`
+}
+
+type Bucket struct {
+	Name string `xml:"Name"`
+	CreationDate time.Time `xml:"CreationDate"`
+}
 
 type rootHandler struct {
 	pc           *client.APIClient
-	listTemplate xmlTemplate
 }
 
 func newRootHandler(pc *client.APIClient) rootHandler {
-	return rootHandler{
-		pc:           pc,
-		listTemplate: newXmlTemplate(http.StatusOK, "list-buckets", listBucketsSource),
-	}
+	return rootHandler{pc: pc}
 }
 
 func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	buckets, err := h.pc.ListRepo()
+	repos, err := h.pc.ListRepo()
 	if err != nil {
 		writeServerError(w, err)
 		return
 	}
 
-	h.listTemplate.render(w, buckets)
+	result := ListAllMyBucketsResult{
+		Owner: defaultUser,
+	}
+
+	for _, repo := range repos {
+		t, err := types.TimestampFromProto(repo.Created)
+		if err != nil {
+			writeServerError(w, err)
+			return
+		}
+
+		result.Buckets = append(result.Buckets, Bucket{
+			Name: repo.Repo.Name,
+			CreationDate: t,
+		})
+	}
+
+	writeXML(w, http.StatusOK, &result)
 }
