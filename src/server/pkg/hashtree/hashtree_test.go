@@ -771,10 +771,10 @@ func TestMRList(t *testing.T) {
 	mr, err := makeMergeReader()
 	require.NoError(t, err)
 
-	expectedPaths := []string{"", "dir-left", "dir-right", "dir-shared", "foo-left", "foo-right"}
+	expectedPaths := []string{"/dir-left", "/dir-right", "/dir-shared", "/foo-left", "/foo-right"}
 	i := 0
 	require.NoError(t, mr.List("/", func(path string, node *NodeProto) error {
-		require.Equal(t, expectedPaths[i], node.Name)
+		require.Equal(t, expectedPaths[i], path)
 		i++
 		return nil
 	}))

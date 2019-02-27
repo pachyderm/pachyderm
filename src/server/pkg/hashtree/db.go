@@ -1339,9 +1339,6 @@ func (m *MergeReader) List(pattern string, f func(string, *NodeProto) error) (re
 		return errorf(MalformedGlob, err.Error())
 	}
 	if err := m.nodes(func(path string, node *NodeProto) error {
-		if path == "" {
-			path = "/"
-		}
 		if (g.Match(path) && node.DirNode == nil) || (g.Match(pathlib.Dir(path))) {
 			return f(path, node)
 		}
