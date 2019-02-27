@@ -143,6 +143,9 @@ func (a *APIServer) serviceMaster() {
 		if paused {
 			return fmt.Errorf("can't run master for a paused pipeline")
 		}
+		if a.pipelineInfo.Input == nil {
+			return a.spoutSpawner(pachClient)
+		}
 		return a.serviceSpawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
@@ -208,6 +211,38 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			return err
 		}
 	}
+}
+
+func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
+	ctx := pachClient.Ctx()
+
+	var dir string
+
+	logger, err := a.getTaggedLogger(pachClient, "spout", nil, false)
+	puller := filesync.NewPuller()
+
+	// If this is our second time through the loop cleanup the old data.
+	if dir != "" {
+		if err := a.unlinkData(nil); err != nil {
+			return fmt.Errorf("unlinkData: %v", err)
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			return fmt.Errorf("os.RemoveAll: %v", err)
+		}
+	}
+	dir, err = a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
+	if err != nil {
+		return err
+	}
+	if err := a.linkData(nil, dir); err != nil {
+		return fmt.Errorf("linkData: %v", err)
+	}
+
+	err = a.runService(ctx, logger)
+	if err != nil {
+		logger.Logf("error from runService: %+v", err)
+	}
+	return nil
 }
 
 func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {

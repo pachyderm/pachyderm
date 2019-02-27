@@ -518,6 +518,9 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 			// Add branch to repo (see "Update repoInfo" below)
 			add(&repoInfo.Branches, branchInfo.Branch)
+			// if len(branchInfo.Provenance) > 0 && treeRef == nil {
+			// 	return fmt.Errorf("cannot start a commit on an output branch")
+			// }
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add

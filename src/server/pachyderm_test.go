@@ -8296,9 +8296,6 @@ func TestSpout(t *testing.T) {
 	dataRepo := tu.UniqueString("TestService_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	_, err := c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-
 	pipeline := tu.UniqueString("pipelinespout")
 	// This pipeline sleeps for 10 secs per datum
 	require.NoError(t, c.CreatePipelineService(
@@ -8309,7 +8306,7 @@ func TestSpout(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewPFSInput(dataRepo, "/"),
+		nil,
 		false,
 		8000,
 		31800,
