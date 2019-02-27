@@ -2589,12 +2589,27 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 
 func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, file *pfs.File, f func(*pfs.GetFileResponse) error) (retErr error) {
 	var buf bytes.Buffer
+	maxData := int64(grpcutil.MaxMsgSize - (16 * 1024))
 	parseFilesFromStream := func(p string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
 		}
-		for i := int64(0); i <= node.SubtreeSize; i += int64(grpcutil.MaxMsgSize) {
-			_, err := io.CopyN(&buf, objReader, int64(grpcutil.MaxMsgSize))
+		if node.SubtreeSize <= maxData {
+			_, err := io.CopyN(&buf, objReader, node.SubtreeSize)
+			if err != nil && err != io.EOF {
+				return err
+			}
+			gfr := &pfs.GetFileResponse{
+				FileInfo: &pfs.FileInfo{},
+				Value:    buf.Bytes(),
+			}
+			buf.Reset()
+			gfr.FileInfo.File = file
+			gfr.FileInfo.File.Path = p
+			return f(gfr)
+		}
+		for i := int64(0); i <= node.SubtreeSize; i += int64(grpcutil.MaxMsgSize - (16 * 1024)) {
+			_, err := io.CopyN(&buf, objReader, int64(grpcutil.MaxMsgSize-(16*1024)))
 			if err != nil && err != io.EOF {
 				return err
 			}
