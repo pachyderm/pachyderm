@@ -295,7 +295,7 @@ func TestLargeObjects(t *testing.T) {
 	// first ensure that putting into a repo that doesn't exist triggers an
 	// error
 	_, err = c.FPutObject(repo2, "master/file", inputFile.Name(), "text/plain")
-	keyNotFoundError(t, err)
+	bucketNotFoundError(t, err)
 
 	// now try putting into a legit repo
 	l, err := c.FPutObject(repo1, "master/file", inputFile.Name(), "text/plain")
