@@ -106,9 +106,9 @@ type ctxAndCancel struct {
 
 type apiServer struct {
 	log.Logger
-	env                   *serviceenv.ServiceEnv
 	etcdPrefix            string
 	hasher                *ppsserver.Hasher
+	env                   *serviceenv.ServiceEnv
 	namespace             string
 	workerImage           string
 	workerSidecarImage    string

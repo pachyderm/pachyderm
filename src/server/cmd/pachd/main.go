@@ -56,7 +56,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	v1 "k8s.io/api/core/v1"
-	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -170,7 +169,7 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	pachAddress := net.JoinHostPort(pachIP, appEnv.PeerPort)
+	pachAddress := net.JoinHostPort(pachIP, fmt.Sprintf("%d", appEnv.PeerPort))
 	env := serviceenv.InitWithKube(pachAddress, etcdAddress)
 
 	clusterID, err := getClusterID(env.GetEtcdClient())
@@ -222,9 +221,8 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 				pfsclient.RegisterAPIServer(s, pfsAPIServer)
 
 				ppsAPIServer, err := pps_server.NewSidecarAPIServer(
-					etcdAddress,
+					env,
 					path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-					address,
 					appEnv.IAMRole,
 					reporter,
 					appEnv.PPSWorkerPort,
@@ -238,15 +236,14 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
 				authAPIServer, err := authserver.NewAuthServer(
-					address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
-					false)
+					env, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix), false)
 				if err != nil {
 					return fmt.Errorf("NewAuthServer: %v", err)
 				}
 				authclient.RegisterAPIServer(s, authAPIServer)
 
 				enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-					address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
+					env, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 				if err != nil {
 					return fmt.Errorf("NewEnterpriseServer: %v", err)
 				}
@@ -298,7 +295,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 	if err != nil {
 		return err
 	}
-	pachAddress := net.JoinHostPort(pachIP, appEnv.PeerPort)
+	pachAddress := net.JoinHostPort(pachIP, fmt.Sprintf("%d", appEnv.PeerPort))
 	env := serviceenv.InitWithKube(pachAddress, etcdAddress)
 	etcdClientV2 := getEtcdClient(etcdAddress)
 
@@ -388,17 +385,15 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					if err != nil {
 						return err
 					}
-					pfsAPIServer, err := pfs_server.NewAPIServer(address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
+					pfsAPIServer, err := pfs_server.NewAPIServer(env, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
 					if err != nil {
 						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
 					pfsclient.RegisterAPIServer(s, pfsAPIServer)
 
 					ppsAPIServer, err := pps_server.NewAPIServer(
-						etcdAddress,
+						env,
 						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-						address,
-						env.GetKubeClient(),
 						kubeNamespace,
 						appEnv.WorkerImage,
 						appEnv.WorkerSidecarImage,
@@ -436,15 +431,14 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					}
 
 					authAPIServer, err := authserver.NewAuthServer(
-						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
-						true)
+						env, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix), true)
 					if err != nil {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
 
 					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
+						env, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 					if err != nil {
 						return fmt.Errorf("NewEnterpriseServer: %v", err)
 					}
@@ -509,17 +503,15 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 						return err
 					}
 					pfsAPIServer, err := pfs_server.NewAPIServer(
-						address, []string{etcdAddress}, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
+						env, path.Join(appEnv.EtcdPrefix, appEnv.PFSEtcdPrefix), treeCache, appEnv.StorageRoot, memoryRequestBytes)
 					if err != nil {
 						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
 					pfsclient.RegisterAPIServer(s, pfsAPIServer)
 
 					ppsAPIServer, err := pps_server.NewAPIServer(
-						etcdAddress,
+						env,
 						path.Join(appEnv.EtcdPrefix, appEnv.PPSEtcdPrefix),
-						address,
-						env.GetKubeClient(),
 						kubeNamespace,
 						appEnv.WorkerImage,
 						appEnv.WorkerSidecarImage,
@@ -544,7 +536,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
 					authAPIServer, err := authserver.NewAuthServer(
-						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
+						env, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
 						false)
 					if err != nil {
 						return fmt.Errorf("NewAuthServer: %v", err)
@@ -552,7 +544,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					authclient.RegisterAPIServer(s, authAPIServer)
 
 					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
-						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
+						env, path.Join(appEnv.EtcdPrefix, appEnv.EnterpriseEtcdPrefix))
 					if err != nil {
 						return fmt.Errorf("NewEnterpriseServer: %v", err)
 					}

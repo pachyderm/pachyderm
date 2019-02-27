@@ -158,6 +158,9 @@ func (env *ServiceEnv) initKubeClient() error {
 // a Pachyderm client, and internal Pachyderm calls should accept clients
 // returned by this call.
 func (env *ServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if err := env.pachEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}

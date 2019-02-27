@@ -357,9 +357,9 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		return err
 	}
 	if _, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]; !ok {
-		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
+		ctx, cancel := context.WithCancel(context.Background())
 		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
-		pachClient := a.pachClient.WithCtx(ctx)
+		pachClient := a.env.GetPachClient(ctx)
 
 		go a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 			a.monitorPipeline(superUserClient, pipelineInfo)
@@ -451,7 +451,7 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 
 func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState, reason string) error {
 	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {

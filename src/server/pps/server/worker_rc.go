@@ -149,7 +149,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	if a.workerUsesRoot {
 		securityContext = &v1.PodSecurityContext{RunAsUser: &zeroVal}
 	}
-	resp, err := a.getPachClient().Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
+	resp, err := a.env.GetPachClient(nil).Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		return v1.PodSpec{}, err
 	}
@@ -433,7 +433,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-	if _, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace).Create(rc); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
@@ -467,7 +467,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 		},
 	}
-	if _, err := a.kubeClient.CoreV1().Services(a.namespace).Create(service); err != nil {
+	if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
 		if !isAlreadyExistsErr(err) {
 			return err
 		}
@@ -496,7 +496,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 				},
 			},
 		}
-		if _, err := a.kubeClient.CoreV1().Services(a.namespace).Create(service); err != nil {
+		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
 			if !isAlreadyExistsErr(err) {
 				return err
 			}
