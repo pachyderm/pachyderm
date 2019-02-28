@@ -518,9 +518,20 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 			// Add branch to repo (see "Update repoInfo" below)
 			add(&repoInfo.Branches, branchInfo.Branch)
-			// if len(branchInfo.Provenance) > 0 && treeRef == nil {
-			// 	return fmt.Errorf("cannot start a commit on an output branch")
-			// }
+
+			// Don't count the __spec__ repo towards the provenance count
+			// since spouts will have __spec__ as provenance, but need to accept commits
+			provenanceCount := len(branchInfo.Provenance)
+			for _, p := range branchInfo.Provenance {
+				if p.Repo.Name == ppsconsts.SpecRepo {
+					provenanceCount--
+					break
+				}
+			}
+
+			if provenanceCount > 0 && treeRef == nil {
+				return fmt.Errorf("cannot start a commit on an output branch")
+			}
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
@@ -1280,7 +1291,6 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			return err
 		}
 	}
-
 	// Now wait for the root commits to finish. These are not passed to `f`
 	// because it's expecting to just get downstream commits.
 	for _, commit := range fromCommits {
@@ -1816,7 +1826,6 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
