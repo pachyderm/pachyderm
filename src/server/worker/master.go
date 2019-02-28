@@ -98,10 +98,9 @@ func (a *APIServer) master(spawner func(*client.APIClient) error) {
 		}
 		defer masterLock.Unlock(ctx)
 		logger.Logf("Launching master process")
-
 		return spawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
-		logger.Logf("master: error running the spout master process: %v; retrying in %v", err, d)
+		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
@@ -817,14 +816,17 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 	return backoff.RetryNotify(func() error {
 		repo := a.pipelineInfo.Pipeline.Name
 		for {
+			// this extra closure is so that we can scope the defer
 			if err := func() (retErr error) {
 				// open connection to the pfs/out named pipe
 				out, err := os.Open("/pfs/out")
 				if err != nil {
 					return err
 				}
+				// and close it at the end of each loop
 				defer func() {
 					if err := out.Close(); err != nil && retErr == nil {
+						// this lets us pass the error through if Close fails
 						retErr = err
 					}
 				}()
@@ -880,7 +882,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		// if we have a spout, then asynchronously recevie spout data
+		// if we have a spout, then asynchronously receive spout data
 		if a.pipelineInfo.Spout != nil {
 			go a.receiveSpout(ctx, logger)
 		}

@@ -14,7 +14,7 @@ import (
 func VisitInput(input *Input, f func(*Input)) {
 	switch {
 	case input == nil:
-		return
+		return // Spouts may have nil input
 	case input.Cross != nil:
 		for _, input := range input.Cross {
 			VisitInput(input, f)

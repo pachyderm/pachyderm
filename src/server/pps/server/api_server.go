@@ -146,7 +146,7 @@ func merge(from, to map[string]bool) {
 func validateNames(names map[string]bool, input *pps.Input) error {
 	switch {
 	case input == nil:
-		return nil // spouts have nil input
+		return nil // spouts can have nil input
 	case input.Atom != nil:
 		if names[input.Atom.Name] {
 			return fmt.Errorf(`name "%s" was used more than once`, input.Atom.Name)

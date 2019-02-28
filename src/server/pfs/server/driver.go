@@ -505,7 +505,16 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 				if parent.ID == "" && branchInfo.Head != nil {
 					parent.ID = branchInfo.Head.ID
 				}
-				if len(branchInfo.Provenance) > 0 && treeRef == nil {
+				// Don't count the __spec__ repo towards the provenance count
+				// since spouts will have __spec__ as provenance, but need to accept commits
+				provenanceCount := len(branchInfo.Provenance)
+				for _, p := range branchInfo.Provenance {
+					if p.Repo.Name == ppsconsts.SpecRepo {
+						provenanceCount--
+						break
+					}
+				}
+				if provenanceCount > 0 && treeRef == nil {
 					return fmt.Errorf("cannot start a commit on an output branch")
 				}
 				// Point 'branch' at the new commit
@@ -518,20 +527,6 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 			// Add branch to repo (see "Update repoInfo" below)
 			add(&repoInfo.Branches, branchInfo.Branch)
-
-			// Don't count the __spec__ repo towards the provenance count
-			// since spouts will have __spec__ as provenance, but need to accept commits
-			provenanceCount := len(branchInfo.Provenance)
-			for _, p := range branchInfo.Provenance {
-				if p.Repo.Name == ppsconsts.SpecRepo {
-					provenanceCount--
-					break
-				}
-			}
-
-			if provenanceCount > 0 && treeRef == nil {
-				return fmt.Errorf("cannot start a commit on an output branch")
-			}
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add

@@ -427,7 +427,6 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	default:
 		go server.master(server.jobSpawner)
 	}
-
 	go server.worker()
 	return server, nil
 }
@@ -518,6 +517,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
 	if a.pipelineInfo.Spout != nil {
+		// Spouts need to create a named pipe at /pfs/out
 		if err := os.MkdirAll(filepath.Dir(outPath), 0700); err != nil {
 			return "", fmt.Errorf("mkdirall :%v", err)
 		}

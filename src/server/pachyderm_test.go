@@ -8293,10 +8293,10 @@ func TestSpout(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 	t.Run("SpoutBasic", func(t *testing.T) {
-
 		dataRepo := tu.UniqueString("TestSpoutBasic_data")
 		require.NoError(t, c.CreateRepo(dataRepo))
 
+		// create a spout pipeline
 		pipeline := tu.UniqueString("pipelinespoutbasic")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
@@ -8312,10 +8312,12 @@ func TestSpout(t *testing.T) {
 						"tar -cvf /pfs/out ./date*",
 						"done"},
 				},
-				Spout: &pps.Spout{},
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
 			})
 		require.NoError(t, err)
 
+		// get 5 succesive commits, and ensure that the file size increases each time
+		// since the spout should be appending to that file on each commit
 		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
@@ -8360,6 +8362,8 @@ func TestSpout(t *testing.T) {
 			})
 		require.NoError(t, err)
 
+		// if the overwrite flag is enabled, then the spout will overwrite the file on each commit
+		// so the commits should have files that stay the same size
 		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
