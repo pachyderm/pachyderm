@@ -2,7 +2,6 @@
 package sync
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"path"
@@ -116,23 +115,23 @@ func (p *Puller) makePipe(path string, f func(io.Writer) error) error {
 
 func (p *Puller) makeFile(path string, f func(io.Writer) error) (file *os.File, retErr error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		fmt.Println("mf1", err)
+		//fmt.Println("mf1", err)
 		return nil, err
 	}
 	file, err := os.Create(path)
 	if err != nil {
-		fmt.Println("mf2", err)
+		//fmt.Println("mf2", err)
 		return nil, err
 	}
 	defer func() {
 		if err := file.Close(); err != nil && retErr == nil {
-			fmt.Println("mf3", err)
+			//fmt.Println("mf3", err)
 			retErr = err
 		}
 	}()
 	w := &sizeWriter{w: file}
 	if err := f(w); err != nil {
-		fmt.Println("mf4", err)
+		//fmt.Println("mf4", err)
 		return nil, err
 	}
 	atomic.AddInt64(&p.size, w.size)
@@ -140,9 +139,9 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (file *os.File, 
 }
 
 func collectStatsForNewPath(client *pachclient.APIClient, root, file string, fileInfo *pfs.FileInfo, statsTree *hashtree.Ordered, statsRoot string) (string, error) {
-	fmt.Println("inside collect for file", file, "fi", fileInfo.File.Path)
+	//fmt.Println("inside collect for file", file, "fi", fileInfo.File.Path)
 	basepath, err := filepath.Rel(file, fileInfo.File.Path)
-	fmt.Println("basepath is", basepath)
+	//fmt.Println("basepath is", basepath)
 	if err != nil {
 		return "", err
 	}
@@ -286,7 +285,7 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 		}
 		if statsTree != nil {
 			statsPath := filepath.Join(statsRoot, basepath)
-			fmt.Println("new stats \nroot", root, "\nrepo", repo, "\ncommit", commit, "\nfile", file, "\nstatsRoot", statsRoot, "\nfileInfo.File.Path", fileInfo.File.Path, "\nfileType", fileInfo.FileType.String())
+			//fmt.Println("new stats \nroot", root, "\nrepo", repo, "\ncommit", commit, "\nfile", file, "\nstatsRoot", statsRoot, "\nfileInfo.File.Path", fileInfo.File.Path, "\nfileType", fileInfo.FileType.String())
 			if fileInfo.FileType == pfs.FileType_DIR {
 				statsTree.PutDir(statsPath)
 			} else {
@@ -300,13 +299,13 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 				}
 
 				blockRefs = append(blockRefs, fileInfo.BlockRefs...)
-				fmt.Println("brefs", len(blockRefs), "objs", len(fileInfo.Objects))
-				fmt.Println("new putting stats \nstatsPath", statsPath, "\nhash", fileInfo.Hash)
+				//fmt.Println("brefs", len(blockRefs), "objs", len(fileInfo.Objects))
+				//fmt.Println("new putting stats \nstatsPath", statsPath, "\nhash", fileInfo.Hash)
 				statsTree.PutFile(statsPath, fileInfo.Hash, int64(fileInfo.SizeBytes), &hashtree.FileNodeProto{BlockRefs: blockRefs})
 			}
 		}
 		path := filepath.Join(root, basepath)
-		fmt.Println("new pull \nroot", root, "\nrepo", repo, "\ncommit", commit, "\nfile", file, "\npath", path, "\nfileInfo.File.Path", fileInfo.File.Path)
+		//fmt.Println("new pull \nroot", root, "\nrepo", repo, "\ncommit", commit, "\nfile", file, "\npath", path, "\nfileInfo.File.Path", fileInfo.File.Path)
 		if fileInfo.FileType == pfs.FileType_DIR {
 			return os.MkdirAll(path, 0700)
 		}
@@ -324,7 +323,7 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 			limiter.Acquire()
 			defer limiter.Release()
 			_, err = p.makeFile(path, func(w io.Writer) error {
-				fmt.Println("new get file \nrepo", repo, "\ncommit", commit, "\nfi file path", fileInfo.File.Path)
+				//fmt.Println("new get file \nrepo", repo, "\ncommit", commit, "\nfi file path", fileInfo.File.Path)
 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
 			})
 			//f.Close()
