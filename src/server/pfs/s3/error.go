@@ -2,7 +2,6 @@ package s3
 
 import (
 	"net/http"
-	"fmt"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 

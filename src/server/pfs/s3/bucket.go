@@ -116,38 +116,26 @@ func (h bucketHandler) rootDirs(repo string, prefix string) ([]string, error) {
 	return dirs, nil
 }
 
-func (h bucketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
-
-	if r.Method == http.MethodGet || r.Method == http.MethodHead {
-		h.get(w, r, repo)
-	} else if r.Method == http.MethodPut {
-		h.put(w, r, repo)
-	} else if r.Method == http.MethodDelete {
-		h.delete(w, r, repo)
-	} else {
-		// method filtering on the mux router should prevent this
-		panic("unreachable")
-	}
-}
-
-func (h bucketHandler) get(w http.ResponseWriter, r *http.Request, repo string) {
 	_, err := h.pc.InspectRepo(repo)
 	if err != nil {
 		writeMaybeNotFound(w, r, err)
 		return
 	}
 
-	if err := r.ParseForm(); err != nil {
-		writeBadRequest(w, err)
-		return
-	}
+	w.Header().Set("Content-Type", "application/xml")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(locationSource))
+}
 
-	if _, ok := r.Form["location"]; ok {
-		w.Header().Set("Content-Type", "application/xml")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(locationSource))
+func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	repo := vars["repo"]
+	_, err := h.pc.InspectRepo(repo)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
 		return
 	}
 
@@ -352,7 +340,10 @@ func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, result
 	writeXML(w, http.StatusOK, result)
 }
 
-func (h bucketHandler) put(w http.ResponseWriter, r *http.Request, repo string) {
+func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	repo := vars["repo"]
+
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "as it already exists") {
@@ -367,7 +358,10 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request, repo string) 
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h bucketHandler) delete(w http.ResponseWriter, r *http.Request, repo string) {
+func (h bucketHandler) delete(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	repo := vars["repo"]
+
 	err := h.pc.DeleteRepo(repo, false)
 
 	if err != nil {
