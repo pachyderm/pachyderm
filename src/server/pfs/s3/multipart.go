@@ -3,17 +3,70 @@ package s3
 // code for managing multiparted content
 
 import (
+	"encoding/xml"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/sirupsen/logrus"
 )
+
+// this is a var instead of a const so that we can make a pointer to it
+var defaultMaxParts int = 1000
+
+const maxAllowedParts = 10000
+
+// InitiateMultipartUploadResult is an XML-encodable response to initiate a
+// new multipart upload
+type InitiateMultipartUploadResult struct {
+	Bucket   string `xml:"Bucket"`
+	Key      string `xml:"Key"`
+	UploadID string `xml:"UploadId"`
+}
+
+// ListPartsResult is an XML-encodable listing of parts associated with a
+// multipart upload
+type ListPartsResult struct {
+	Bucket               string `xml:"Bucket"`
+	Key                  string `xml:"Key"`
+	UploadID             string `xml:"UploadId"`
+	Initiator            User   `xml:"Initiator"`
+	Owner                User   `xml:"Owner"`
+	StorageClass         string `xml:"StorageClass"`
+	PartNumberMarker     int    `xml:"PartNumberMarker"`
+	NextPartNumberMarker int    `xml:"NextPartNumberMarker"`
+	MaxParts             int    `xml:"PartNumberMarker"`
+	IsTruncated          bool   `xml:"IsTruncated"`
+	Part                 []Part `xml:"Part"`
+}
+
+func (r *ListPartsResult) isFull() bool {
+	return len(r.Part) >= r.MaxParts
+}
+
+// CompleteMultipartUpload is an XML-encodable listing of parts associated
+// with a multipart upload to complete
+type CompleteMultipartUpload struct {
+	Parts []Part `xml:"Part"`
+}
+
+// Part is an XML-encodable chunk of content associated with a multipart
+// upload
+type Part struct {
+	PartNumber   int       `xml:"PartNumber"`
+	LastModified time.Time `xml:"LastModified,omitempty"`
+	ETag         string    `xml:"ETag"`
+	Size         int64     `xml"Size,omitempty"`
+}
 
 // multipartFileManager manages the underlying files associated with multipart
 // content
@@ -266,4 +319,257 @@ func (r *multipartReader) Close() error {
 		return r.cur.Close()
 	}
 	return nil
+}
+
+type multipartHandler struct {
+	pc               *client.APIClient
+	multipartManager *multipartFileManager
+}
+
+func newMultipartHandler(pc *client.APIClient, multipartDir string) *multipartHandler {
+	return &multipartHandler{
+		pc:               pc,
+		multipartManager: newMultipartFileManager(multipartDir, maxAllowedParts),
+	}
+}
+
+func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
+	repo, branch, file := objectArgs(r)
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	uploadID, err := h.multipartManager.init(file)
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	result := InitiateMultipartUploadResult{
+		Bucket:   branchInfo.Branch.Repo.Name,
+		Key:      fmt.Sprintf("%s/%s", branchInfo.Branch.Name, file),
+		UploadID: uploadID,
+	}
+
+	writeXML(w, http.StatusOK, &result)
+}
+
+func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
+	repo, branch, file := objectArgs(r)
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	uploadID := r.FormValue("uploadId")
+	if err := h.multipartManager.checkExists(uploadID); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	marker, err := intFormValue(r, "part-number-marker", 1, defaultMaxParts, &defaultMaxParts)
+	if err != nil {
+		writeBadRequest(w, err)
+		return
+	}
+
+	maxParts, err := intFormValue(r, "max-parts", 1, defaultMaxParts, &defaultMaxParts)
+	if err != nil {
+		writeBadRequest(w, err)
+		return
+	}
+
+	fileInfos, err := h.multipartManager.listChunks(uploadID)
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	result := ListPartsResult{
+		Bucket:           branchInfo.Branch.Repo.Name,
+		Key:              file,
+		UploadID:         uploadID,
+		Initiator:        defaultUser,
+		Owner:            defaultUser,
+		StorageClass:     storageClass,
+		PartNumberMarker: marker,
+		MaxParts:         maxParts,
+		IsTruncated:      false,
+	}
+
+	for _, fileInfo := range fileInfos {
+		// ignore errors converting the name since it's already been verified
+		name, _ := strconv.Atoi(fileInfo.Name())
+
+		if name < marker {
+			continue
+		}
+		if result.isFull() {
+			result.IsTruncated = true
+			break
+		}
+		result.Part = append(result.Part, Part{
+			PartNumber:   name,
+			LastModified: fileInfo.ModTime(),
+			Size:         fileInfo.Size(),
+		})
+	}
+
+	if len(result.Part) > 0 {
+		result.NextPartNumberMarker = result.Part[len(result.Part)-1].PartNumber
+	}
+
+	writeXML(w, http.StatusOK, &result)
+}
+
+func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
+	repo, branch, _ := objectArgs(r)
+	_, err := h.pc.InspectBranch(repo, branch)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	uploadID := r.FormValue("uploadId")
+	if err := h.multipartManager.checkExists(uploadID); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	partNumber, err := intFormValue(r, "partNumber", 1, maxAllowedParts, nil)
+	if err != nil {
+		writeBadRequest(w, err)
+		return
+	}
+
+	success, err := withBodyReader(r, func(reader io.Reader) bool {
+		if err := h.multipartManager.writeChunk(uploadID, partNumber, reader); err != nil {
+			writeServerError(w, err)
+			return false
+		}
+		return true
+	})
+
+	if err != nil || !success {
+		// try to clean up the file if something failed
+		removeErr := h.multipartManager.removeChunk(uploadID, partNumber)
+		if removeErr != nil {
+			logrus.Errorf("could not remove uploadID=%s, partNumber=%d: %v", uploadID, partNumber, removeErr)
+		}
+
+		if err != nil {
+			writeBadRequest(w, err)
+		}
+
+		// if there's no error but the operation is not successful, we've
+		// already written a response to the client
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
+	repo, branch, _ := objectArgs(r)
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	uploadID := r.FormValue("uploadId")
+	if err := h.multipartManager.checkExists(uploadID); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+
+	name, err := h.multipartManager.filepath(uploadID)
+	if err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		writeServerError(w, fmt.Errorf("could not read request body: %v", err))
+		return
+	}
+
+	payload := CompleteMultipartUpload{}
+	err = xml.Unmarshal(bodyBytes, &payload)
+	if err != nil {
+		writeBadRequest(w, fmt.Errorf("body is invalid: %v", err))
+		return
+	}
+
+	// verify that there's at least part, and all parts are in ascending order
+	if len(payload.Parts) == 0 {
+		writeBadRequest(w, fmt.Errorf("no parts specified"))
+		return
+	}
+	isSorted := sort.SliceIsSorted(payload.Parts, func(i, j int) bool {
+		return payload.Parts[i].PartNumber < payload.Parts[j].PartNumber
+	})
+	if !isSorted {
+		writeBadRequest(w, fmt.Errorf("parts not in ascending order"))
+		return
+	}
+
+	// ensure all the files exist
+	for _, part := range payload.Parts {
+		if err = h.multipartManager.checkChunkExists(uploadID, part.PartNumber); err != nil {
+			writeBadRequest(w, fmt.Errorf("missing part %d", part.PartNumber))
+			return
+		}
+	}
+
+	// pull out the list of part numbers
+	partNumbers := []int{}
+	for _, part := range payload.Parts {
+		partNumbers = append(partNumbers, part.PartNumber)
+	}
+
+	// A reader that reads each file chunk. Because this acquires a lock,
+	// `Close` MUST be called, or the multipart manager will deadlock
+	reader := newMultipartReader(h.multipartManager, uploadID, partNumbers)
+
+	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, name, reader, 0)
+	if err != nil {
+		if closeErr := reader.Close(); closeErr != nil {
+			logrus.Errorf("could not close reader for uploadID=%s: %v", uploadID, closeErr)
+		}
+
+		writeServerError(w, err)
+		return
+	}
+
+	if err = reader.Close(); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	if err = h.multipartManager.remove(uploadID); err != nil {
+		writeServerError(w, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *multipartHandler) del(w http.ResponseWriter, r *http.Request) {
+	repo, branch, _ := objectArgs(r)
+	_, err := h.pc.InspectBranch(repo, branch)
+	if err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	uploadID := r.FormValue("uploadId")
+	if err := h.multipartManager.checkExists(uploadID); err != nil {
+		writeMaybeNotFound(w, r, err)
+		return
+	}
+	if err := h.multipartManager.remove(uploadID); err != nil {
+		writeServerError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

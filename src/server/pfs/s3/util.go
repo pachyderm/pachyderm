@@ -1,13 +1,18 @@
 package s3
 
 import (
+	"bytes"
+	"crypto/md5"
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,7 +50,7 @@ func writeXML(w http.ResponseWriter, code int, v interface{}) {
 	w.WriteHeader(code)
 	encoder := xml.NewEncoder(w)
 	if err := encoder.Encode(v); err != nil {
-		// just log a message since a status code - and maybe part of 
+		// just log a message since a status code - and maybe part of
 		logrus.Errorf("s3gateway: could not enocde xml response: %v", err)
 	}
 }
@@ -76,4 +81,52 @@ func intFormValue(r *http.Request, name string, min int, max int, def *int) (int
 	}
 
 	return i, nil
+}
+
+// withBodyReader calls the provided callback with a reader for the HTTP
+// request body. This also verifies the body against the `Content-MD5` header.
+//
+// The callback should return whether or not it succeeded. If it does not
+// succeed, it is assumed that the callback wrote an appropriate failure
+// response to the client.
+//
+// This function will return whether it succeeded and an error. If there is an
+// error, it is because of a bad request. If this returns a failure but not an
+// error, it implies that the callback returned a failure.
+func withBodyReader(r *http.Request, f func(io.Reader) bool) (bool, error) {
+	expectedHash := r.Header.Get("Content-MD5")
+
+	if expectedHash != "" {
+		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
+		if err != nil {
+			err = fmt.Errorf("could not decode `Content-MD5`, as it is not base64-encoded")
+			return false, err
+		}
+
+		hasher := md5.New()
+		reader := io.TeeReader(r.Body, hasher)
+
+		succeeded := f(reader)
+		if !succeeded {
+			return false, nil
+		}
+
+		actualHash := hasher.Sum(nil)
+		if !bytes.Equal(expectedHashBytes, actualHash) {
+			err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
+			return false, err
+		}
+
+		return true, nil
+	}
+
+	return f(r.Body), nil
+}
+
+func objectArgs(r *http.Request) (string, string, string) {
+	vars := mux.Vars(r)
+	repo := vars["repo"]
+	branch := vars["branch"]
+	file := vars["file"]
+	return repo, branch, file
 }

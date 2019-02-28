@@ -356,7 +356,7 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h bucketHandler) delete(w http.ResponseWriter, r *http.Request) {
+func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
 

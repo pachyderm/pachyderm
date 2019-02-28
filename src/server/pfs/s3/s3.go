@@ -52,19 +52,22 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	bucketRouter.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(bucketHandler.location)
 	bucketRouter.Methods("GET", "HEAD").HandlerFunc(bucketHandler.get)
 	bucketRouter.Methods("PUT").HandlerFunc(bucketHandler.put)
-	bucketRouter.Methods("DELETE").HandlerFunc(bucketHandler.delete)
+	bucketRouter.Methods("DELETE").HandlerFunc(bucketHandler.del)
 
 	// object-related routes
-	objectHandler := newObjectHandler(pc, multipartDir)
 	objectRouter := router.Path(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`).Subrouter()
-	objectRouter.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(objectHandler.listMultipart)
+	if multipartDir != "" {
+		multipartHandler := newMultipartHandler(pc, multipartDir)
+		objectRouter.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(multipartHandler.list)
+		objectRouter.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
+		objectRouter.Methods("POST").Queries("uploadId", "").HandlerFunc(multipartHandler.complete)
+		objectRouter.Methods("PUT").Queries("uploadId", "").HandlerFunc(multipartHandler.put)
+		objectRouter.Methods("DELETE").Queries("uploadId", "").HandlerFunc(multipartHandler.del)
+	}
+	objectHandler := newObjectHandler(pc)
 	objectRouter.Methods("GET", "HEAD").HandlerFunc(objectHandler.get)
-	objectRouter.Methods("POST").Queries("uploads", "").HandlerFunc(objectHandler.initMultipart)
-	objectRouter.Methods("POST").Queries("uploadId", "").HandlerFunc(objectHandler.completeMultipart)
-	objectRouter.Methods("PUT").Queries("uploadId", "").HandlerFunc(objectHandler.uploadMultipart)
 	objectRouter.Methods("PUT").HandlerFunc(objectHandler.put)
-	objectRouter.Methods("DELETE").Queries("uploadId", "").HandlerFunc(objectHandler.abortMultipart)
-	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.delete)
+	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.del)
 
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
