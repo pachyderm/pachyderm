@@ -2432,6 +2432,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		blockRefs []*pfs.BlockRef
 		totalSize uint64
 		isInput   bool
+		found     bool
 	)
 	collectMetadata := func(p string, child *hashtree.NodeProto) error {
 		if child.FileNode == nil {
@@ -2440,6 +2441,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		if isInput {
 			objects = append(objects, child.FileNode.Objects...)
 		} else {
+			found = true
 			blockRefs = append(blockRefs, child.FileNode.BlockRefs...)
 		}
 		totalSize += uint64(child.SubtreeSize)
@@ -2552,7 +2554,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			}
 		}
 	}()
-	var found bool
 	mr, err := hashtree.NewMergeReader(rs)
 	if err != nil {
 		return nil, err
