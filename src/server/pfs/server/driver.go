@@ -2510,7 +2510,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			objects = append(objects, footer) // apply final footer
 		}
 		if pathsFound == 0 {
-			return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+			return nil, fmt.Errorf("1 no file(s) found that match %v", file.Path)
 		}
 
 		// retrieve the content of all objects in 'objects'
@@ -2533,7 +2533,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+		return nil, fmt.Errorf("2 no file(s) found that match %v", file.Path)
 	}
 	var rs []io.ReadCloser
 	// Handles the case when looking for a specific file/directory
@@ -2552,6 +2552,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			}
 		}
 	}()
+	var found bool
 	mr, err := hashtree.NewMergeReader(rs)
 	if err != nil {
 		return nil, err
@@ -2564,13 +2565,14 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			return nil
 		}
 		collectMetadata(path, node)
-		//found = true
+		found = true
 		return nil
 	}); err != nil {
 		return nil, err
 	}
-	if len(blockRefs) == 0 {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+	// if len(blockRefs) == 0 && len(objects) == 0 {
+	if !found {
+		return nil, fmt.Errorf("3 no file(s) found that match %v", file.Path)
 	}
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
 		ctx,
@@ -2649,7 +2651,7 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return fmt.Errorf("no file(s) found that match %v", file.Path)
+		return fmt.Errorf("4 no file(s) found that match %v", file.Path)
 	}
 	var rs []io.ReadCloser
 	// Handles the case when looking for a specific file/directory
@@ -2758,6 +2760,7 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 	node.FileNode.Objects = newObjects
 	node.SubtreeSize += s.HeaderSize + s.FooterSize
 	node.Hash = hashtree.HashFileNode(node.FileNode)
+	fmt.Println("node objs", len(node.FileNode.Objects))
 	return nodeToFileInfo(ci, filePath, node, full), nil
 }
 
@@ -2786,7 +2789,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+		return nil, fmt.Errorf("5 no file(s) found that match %v", file.Path)
 	}
 	rs, err := d.getTree(pachClient, commitInfo, file.Path)
 	if err != nil {
@@ -2937,7 +2940,8 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 			return err
 		}
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
-			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, false)
+			fmt.Println("walk calling ntfihf path", path)
+			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, true)
 			if err != nil {
 				return err
 			}
@@ -2967,7 +2971,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 		return err
 	}
 	return mr.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
-		return f(nodeToFileInfo(commitInfo, path, node, false))
+		return f(nodeToFileInfo(commitInfo, path, node, true))
 	})
 }
 
