@@ -2761,7 +2761,6 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 	node.FileNode.Objects = newObjects
 	node.SubtreeSize += s.HeaderSize + s.FooterSize
 	node.Hash = hashtree.HashFileNode(node.FileNode)
-	fmt.Println("node objs", len(node.FileNode.Objects))
 	return nodeToFileInfo(ci, filePath, node, full), nil
 }
 
@@ -2941,7 +2940,6 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 			return err
 		}
 		return tree.Walk(file.Path, func(path string, node *hashtree.NodeProto) error {
-			fmt.Println("walk calling ntfihf path", path)
 			fi, err := nodeToFileInfoHeaderFooter(commitInfo, path, node, tree, true)
 			if err != nil {
 				return err
