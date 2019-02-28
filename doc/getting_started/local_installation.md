@@ -9,7 +9,7 @@ If you hit any errors not covered in this guide, check our [general troubleshoot
 
 ### Minikube
 
-Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikube, and Kubectl. Then come back here to start Minikube:
+Kubernetes offers an excellent guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikube, and Kubectl. Then come back here to start Minikube:
 ```shell
 minikube start
 ```
