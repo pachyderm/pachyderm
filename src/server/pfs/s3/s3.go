@@ -57,6 +57,9 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	// object-related routes
 	objectRouter := router.Path(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`).Subrouter()
 	if multipartDir != "" {
+		// Nultipart handlers are only registered if a root dir is specified.
+		// It's registered before the other object routers because will
+		// otherwise route multipart-related requests to `objectHandler`.
 		multipartHandler := newMultipartHandler(pc, multipartDir)
 		objectRouter.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(multipartHandler.list)
 		objectRouter.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
