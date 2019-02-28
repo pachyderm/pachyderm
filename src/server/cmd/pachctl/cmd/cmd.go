@@ -18,6 +18,7 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
@@ -138,6 +139,7 @@ __custom_func() {
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
 	var verbose bool
+	var trace bool
 	var noMetrics bool
 	var noPortForwarding bool
 	raw := false
@@ -174,11 +176,14 @@ Environment variables:
 					ioutil.Discard,
 				))
 			}
-
+			if trace {
+				tracing.EnableTracing(true)
+			}
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
+	rootCmd.PersistentFlags().BoolVarP(&trace, "trace", "t", false, "Attach a Jaeger trace to any outgoing RPCs")
 	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
 	rootCmd.PersistentFlags().BoolVarP(&noPortForwarding, "no-port-forwarding", "", false, "Disable implicit port forwarding")
 

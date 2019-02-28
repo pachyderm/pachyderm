@@ -12,13 +12,13 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gogo/protobuf/proto"
-	"github.com/opentracing/opentracing-go"
 )
 
 // defaultLimit was experimentally determined to be the highest value that could work
@@ -480,9 +480,9 @@ type readonlyCollection struct {
 // get is an internal wrapper around etcdClient.Get that wraps the call in a
 // trace
 func (c *readonlyCollection) get(key string, opts ...etcd.OpOption) (*etcd.GetResponse, error) {
-	span, ctx := opentracing.StartSpanFromContext(c.ctx, "etcd.Get")
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "etcd.Get")
+	defer tracing.FinishAnySpan(span)
 	resp, err := c.etcdClient.Get(ctx, key, opts...)
-	span.Finish()
 	return resp, err
 }
 
@@ -548,9 +548,9 @@ func (c *readonlyCollection) TTL(key string) (int64, error) {
 		return 0, ErrNotFound{c.prefix, key}
 	}
 	leaseID := etcd.LeaseID(resp.Kvs[0].Lease)
-	span, ctx := opentracing.StartSpanFromContext(c.ctx, "etcd.TimeToLive")
+	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "etcd.TimeToLive")
+	defer tracing.FinishAnySpan(span)
 	leaseTTLResp, err := c.etcdClient.TimeToLive(ctx, leaseID)
-	span.Finish()
 	if err != nil {
 		return 0, fmt.Errorf("could not fetch lease TTL: %v", err)
 	}

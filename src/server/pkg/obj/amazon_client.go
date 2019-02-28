@@ -21,11 +21,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
 
 	vault "github.com/hashicorp/vault/api"
-	"github.com/opentracing/opentracing-go"
 )
 
 const oneDayInSeconds = 60 * 60 * 24
@@ -88,8 +88,6 @@ func (v *vaultCredentialsProvider) getLeaseDuration() time.Duration {
 // Retrieve returns nil if it successfully retrieved the value.  Error is
 // returned if the value were not obtainable, or empty.
 func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
-	span := opentracing.StartSpan("vault.Retrieve")
-	defer span.Finish()
 	var emptyCreds, result credentials.Value // result
 
 	// retrieve AWS creds from vault
@@ -301,8 +299,8 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		req.Header.Add("Range", byteRange)
 
 		backoff.RetryNotify(func() error {
-			span, _ := opentracing.StartSpanFromContext(ctx, "aws/cloudfront.Get")
-			defer span.Finish()
+			span, _ := tracing.AddSpanToAnyExisting(ctx, "aws/cloudfront.Get")
+			defer tracing.FinishAnySpan(span)
 			resp, connErr = http.DefaultClient.Do(req)
 			if connErr != nil && isNetRetryable(connErr) {
 				return connErr

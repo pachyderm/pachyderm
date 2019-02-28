@@ -22,7 +22,7 @@ import (
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
-	"github.com/opentracing/opentracing-go"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"golang.org/x/net/context"
 )
 
@@ -181,9 +181,9 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 	if ttl > 0 {
 		lease, ok := s.newLeases[ttl]
 		if !ok {
-			span, ctx := opentracing.StartSpanFromContext(s.ctx, "etcd.Grant")
+			span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Grant")
+			defer tracing.FinishAnySpan(span)
 			leaseResp, err := s.client.Grant(ctx, ttl)
-			span.Finish()
 			if err != nil {
 				return fmt.Errorf("error granting lease: %v", err)
 			}
@@ -211,9 +211,9 @@ func (s *stm) Rev(key string) int64 {
 func (s *stm) commit() *v3.TxnResponse {
 	cmps := s.cmps()
 	puts := s.puts()
-	span, ctx := opentracing.StartSpanFromContext(s.ctx, "etcd.Txn")
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Txn")
+	defer tracing.FinishAnySpan(span)
 	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(puts...).Commit()
-	span.Finish()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
 			fmt.Errorf(
@@ -243,9 +243,9 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	if resp, ok := s.rset[key]; ok {
 		return resp
 	}
-	span, ctx := opentracing.StartSpanFromContext(s.ctx, "etcd.Get")
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Get")
+	defer tracing.FinishAnySpan(span)
 	resp, err := s.client.Get(ctx, key, s.getOpts...)
-	span.Finish()
 	if err != nil {
 		panic(stmError{err})
 	}
@@ -317,9 +317,9 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 	keys, getops := s.gets()
 	cmps := s.cmps()
 	puts := s.puts()
-	span, ctx := opentracing.StartSpanFromContext(s.ctx, "etcd.Txn")
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Txn")
+	defer tracing.FinishAnySpan(span)
 	txn := s.client.Txn(ctx).If(cmps...).Then(puts...)
-	span.Finish()
 	// use Else to prefetch keys in case of conflict to save a round trip
 	txnresp, err := txn.Else(getops...).Commit()
 	if err == rpctypes.ErrTooManyOps {
@@ -395,9 +395,9 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 		s.ttlset[key] = 0 // 0 is default value, but now 'ok' will be true on check
 		return 0, nil
 	}
-	span, ctx := opentracing.StartSpanFromContext(s.ctx, "etcd.TimeToLive")
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.TimeToLive")
+	defer tracing.FinishAnySpan(span)
 	leaseResp, err := s.client.TimeToLive(ctx, leaseID)
-	span.Finish()
 	if err != nil {
 		panic(stmError{err})
 	}

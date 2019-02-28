@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
@@ -446,7 +446,7 @@ func NewClientFromURLAndSecret(url *ObjectStoreURL) (c Client, err error, revers
 	case err != nil:
 		return nil, err
 	case c != nil:
-		return Tracing(url.Store, c), nil
+		return TracingObjClient(url.Store, c), nil
 	default:
 		return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
 	}
@@ -491,24 +491,31 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 }
 
 // NewClientFromEnv creates a client based on environment variables.
-func NewClientFromEnv(ctx context.Context, storageRoot string) (Client, error) {
+func NewClientFromEnv(ctx context.Context, storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
 		return nil, fmt.Errorf("storage backend environment variable not found")
 	}
 	switch storageBackend {
 	case Amazon:
-		return NewAmazonClientFromEnv()
+		c, err = NewAmazonClientFromEnv()
 	case Google:
-		return NewGoogleClientFromEnv(ctx)
+		c, err = NewGoogleClientFromEnv(ctx)
 	case Microsoft:
-		return NewMicrosoftClientFromEnv()
+		c, err = NewMicrosoftClientFromEnv()
 	case Minio:
-		return NewMinioClientFromEnv()
+		c, err = NewMinioClientFromEnv()
 	case Local:
-		return NewLocalClient(storageRoot)
+		c, err = NewLocalClient(storageRoot)
 	}
-	return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+	switch {
+	case err != nil:
+		return nil, err
+	case c != nil:
+		return TracingObjClient(storageBackend, c), nil
+	default:
+		return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+	}
 }
 
 // NewExponentialBackOffConfig creates an exponential back-off config with
@@ -547,8 +554,8 @@ func newBackoffReadCloser(ctx context.Context, client Client, reader io.ReadClos
 }
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
-	span, _ := opentracing.StartSpanFromContext(b.ctx, "obj/BackoffReadCloser.Read")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffReadCloser.Read")
+	defer tracing.FinishAnySpan(span)
 	bytesRead := 0
 	var n int
 	var err error
@@ -572,8 +579,8 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 
 // Close closes the ReaderCloser contained in b.
 func (b *BackoffReadCloser) Close() error {
-	span, _ := opentracing.StartSpanFromContext(b.ctx, "obj/BackoffReadCloser.Close")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffReadCloser.Close")
+	defer tracing.FinishAnySpan(span)
 	return b.reader.Close()
 }
 
@@ -595,8 +602,8 @@ func newBackoffWriteCloser(ctx context.Context, client Client, writer io.WriteCl
 }
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
-	span, _ := opentracing.StartSpanFromContext(b.ctx, "obj/BackoffWriteCloser.Write")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffWriteCloser.Write")
+	defer tracing.FinishAnySpan(span)
 	bytesWritten := 0
 	var n int
 	var err error
@@ -620,8 +627,8 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 
 // Close closes the WriteCloser contained in b.
 func (b *BackoffWriteCloser) Close() error {
-	span, _ := opentracing.StartSpanFromContext(b.ctx, "obj/BackoffWriteCloser.Close")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffWriteCloser.Close")
+	defer tracing.FinishAnySpan(span)
 	err := b.writer.Close()
 	if b.client.IsIgnorable(err) {
 		return nil
