@@ -1,17 +1,17 @@
 package s3
 
 import (
-	"net/http"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"net/http"
 )
 
 // Error is an XML-encodable error response
 type Error struct {
-	httpStatus int `xml"-"`
-	Code string `xml:"Code"`
-	Message string `xml:"Message"`
-	Resource string `xml:"Resource"`
-	RequestID string `xml:"RequestId"`
+	httpStatus int    `xml"-"`
+	Code       string `xml:"Code"`
+	Message    string `xml:"Message"`
+	Resource   string `xml:"Resource"`
+	RequestID  string `xml:"RequestId"`
 }
 
 func (e *Error) write(w http.ResponseWriter) {
@@ -20,9 +20,9 @@ func (e *Error) write(w http.ResponseWriter) {
 
 func newError(r *http.Request, httpStatus int, code string, message string) *Error {
 	return &Error{
-		Code: code,
-		Message: message,
-		Resource: r.URL.Path, // fmt.Sprintf("/%s", r.URL.Path),
+		Code:      code,
+		Message:   message,
+		Resource:  r.URL.Path, // fmt.Sprintf("/%s", r.URL.Path),
 		RequestID: uuid.NewWithoutDashes(),
 	}
 }

@@ -5,12 +5,15 @@ import (
 	"io"
 	stdlog "log"
 	"net/http"
+	"regexp"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
 )
+
+var repoMatcher = regexp.MustCompile(`^/[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]/.*`)
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
@@ -71,6 +74,18 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	objectRouter.Methods("GET", "HEAD").HandlerFunc(objectHandler.get)
 	objectRouter.Methods("PUT").HandlerFunc(objectHandler.put)
 	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.del)
+
+	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !repoMatcher.MatchString(r.URL.Path) {
+			newInvalidBucketNameError(r).write(w)
+		} else {
+			newMissingBranchError(r).write(w)
+		}
+	})
+
+	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		newMethodNotAllowedError(r).write(w)
+	})
 
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
