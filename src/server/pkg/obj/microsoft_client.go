@@ -8,9 +8,9 @@ import (
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
-	"github.com/opentracing/opentracing-go"
 )
 
 type microsoftClient struct {
@@ -143,8 +143,8 @@ func newMicrosoftWriter(ctx context.Context, client *microsoftClient, name strin
 }
 
 func (w *microsoftWriter) Write(b []byte) (int, error) {
-	span, _ := opentracing.StartSpanFromContext(w.ctx, "microsoftWriter.Write")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "microsoftWriter.Write")
+	defer tracing.FinishAnySpan(span)
 	blockList, err := w.blobClient.GetBlockList(w.container, w.blob, storage.BlockListTypeAll)
 	if err != nil {
 		return 0, err

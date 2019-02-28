@@ -4,8 +4,9 @@ import (
 	"context"
 	"io"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+
 	minio "github.com/minio/minio-go"
-	"github.com/opentracing/opentracing-go"
 )
 
 // Represents minio client instance for any s3 compatible server.
@@ -64,15 +65,15 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 }
 
 func (w *minioWriter) Write(p []byte) (int, error) {
-	span, _ := opentracing.StartSpanFromContext(w.ctx, "minioWriter.Write")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "minioWriter.Write")
+	defer tracing.FinishAnySpan(span)
 	return w.pipe.Write(p)
 }
 
 // This will block till upload is done
 func (w *minioWriter) Close() error {
-	span, _ := opentracing.StartSpanFromContext(w.ctx, "minioWriter.Close")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "minioWriter.Close")
+	defer tracing.FinishAnySpan(span)
 	if err := w.pipe.Close(); err != nil {
 		return err
 	}
@@ -84,8 +85,6 @@ func (c *minioClient) Writer(ctx context.Context, name string) (io.WriteCloser, 
 }
 
 func (c *minioClient) Walk(ctx context.Context, name string, fn func(name string) error) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "minio.Walk")
-	defer span.Finish()
 	recursive := true // Recursively walk by default.
 
 	doneCh := make(chan struct{})
@@ -105,7 +104,7 @@ func (c *minioClient) Walk(ctx context.Context, name string, fn func(name string
 // for a size limited reader.
 type limitReadCloser struct {
 	io.Reader
-	ctx context.Context
+	ctx  context.Context
 	mObj *minio.Object
 }
 
@@ -114,8 +113,6 @@ func (l *limitReadCloser) Close() (err error) {
 }
 
 func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "minio.Reader")
-	defer span.Finish()
 	obj, err := c.GetObject(c.bucket, name)
 	if err != nil {
 		return nil, err
@@ -127,24 +124,20 @@ func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, si
 	}
 	if size > 0 {
 		return &limitReadCloser{
-				Reader: io.LimitReader(obj, int64(size)),
-				ctx: ctx,
-				mObj: obj,
-     }, nil
+			Reader: io.LimitReader(obj, int64(size)),
+			ctx:    ctx,
+			mObj:   obj,
+		}, nil
 	}
 	return obj, nil
 
 }
 
 func (c *minioClient) Delete(ctx context.Context, name string) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "minio.Delete")
-	defer span.Finish()
 	return c.RemoveObject(c.bucket, name)
 }
 
 func (c *minioClient) Exists(ctx context.Context, name string) bool {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "minio.Exists")
-	defer span.Finish()
 	_, err := c.StatObject(c.bucket, name)
 	return err == nil
 }

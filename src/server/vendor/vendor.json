@@ -777,6 +777,12 @@
 			"revisionTime": "2017-11-02T01:26:30Z"
 		},
 		{
+			"checksumSHA1": "cwA2z5ZZliFbv5a8UWp7njzrGc8=",
+			"path": "github.com/grpc-ecosystem/go-grpc-middleware",
+			"revision": "cfaf5686ec79ff8344257723b6f5ba1ae0ffeb4d",
+			"revisionTime": "2019-02-22T13:33:41Z"
+		},
+		{
 			"checksumSHA1": "0uWDQrsSzyQHYg5et19xtS+EWmY=",
 			"path": "github.com/grpc-ecosystem/grpc-gateway/runtime",
 			"revision": "5e0e028ba0a015710eaebf6e47af18812c9f2767",

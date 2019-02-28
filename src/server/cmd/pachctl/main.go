@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -14,11 +15,10 @@ func main() {
 	// Remove kubernetes client flags from the spf13 flag set
 	// (we link the kubernetes client, so otherwise they're in 'pachctl --help')
 	pflag.CommandLine = pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
-	/* >>> */ if os.Args[1] == "version" {
-		/* >>> */ tracing.DisableLogs = true
-		/* >>> */
+	jaegerEndpoint := tracing.InstallJaegerTracerFromEnv()
+	if os.Args[1] != "version" && jaegerEndpoint != "" {
+		log.Printf("using Jaeger collector endpoint: %s\n", jaegerEndpoint)
 	}
-	tracing.InstallJaegerTracerFromEnv()
 	err := func() error {
 		defer tracing.CloseAndReportTraces()
 		rootCmd, err := cmd.PachctlCmd()

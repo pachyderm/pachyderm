@@ -139,7 +139,10 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 		}
 	}()
 	appEnv := appEnvObj.(*appEnv)
-	tracing.InstallJaegerTracerFromEnv()
+	jaegerEndpoint := tracing.InstallJaegerTracerFromEnv()
+	if jaegerEndpoint != "" {
+		log.Printf("using Jaeger collector endpoint: %s\n", jaegerEndpoint)
+	}
 	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", appEnv.PProfPort), nil))

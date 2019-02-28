@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/opentracing/opentracing-go"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
@@ -253,7 +253,7 @@ func NewClientFromURLAndSecret(url *ObjectStoreURL) (c Client, err error) {
 	case err != nil:
 		return nil, err
 	case c != nil:
-		return Tracing(url.Store, c), nil
+		return TracingObjClient(url.Store, c), nil
 	default:
 		return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
 	}
@@ -333,8 +333,8 @@ func newBackoffReadCloser(ctx context.Context, client Client, reader io.ReadClos
 }
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
-	span, _ := opentracing.StartSpanFromContext(b.ctx, "obj/BackoffReadCloser.Read")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffReadCloser.Read")
+	defer tracing.FinishAnySpan(span)
 	bytesRead := 0
 	var n int
 	var err error
@@ -358,8 +358,8 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 
 // Close closes the ReaderCloser contained in b.
 func (b *BackoffReadCloser) Close() error {
-	span, _ := opentracing.StartSpanFromContext(b.ctx, "obj/BackoffReadCloser.Close")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffReadCloser.Close")
+	defer tracing.FinishAnySpan(span)
 	return b.reader.Close()
 }
 
@@ -381,8 +381,8 @@ func newBackoffWriteCloser(ctx context.Context, client Client, writer io.WriteCl
 }
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
-	span, _ := opentracing.StartSpanFromContext(b.ctx, "obj/BackoffWriteCloser.Write")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffWriteCloser.Write")
+	defer tracing.FinishAnySpan(span)
 	bytesWritten := 0
 	var n int
 	var err error
@@ -406,8 +406,8 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 
 // Close closes the WriteCloser contained in b.
 func (b *BackoffWriteCloser) Close() error {
-	span, _ := opentracing.StartSpanFromContext(b.ctx, "obj/BackoffWriteCloser.Close")
-	defer span.Finish()
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffWriteCloser.Close")
+	defer tracing.FinishAnySpan(span)
 	err := b.writer.Close()
 	if b.client.IsIgnorable(err) {
 		return nil

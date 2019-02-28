@@ -125,7 +125,10 @@ func main() {
 func getPipelineInfo(etcdClient *etcd.Client, pachClient *client.APIClient, appEnv *appEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	tracing.InstallJaegerTracerFromEnv()
+	jaegerEndpoint := tracing.InstallJaegerTracerFromEnv()
+	if jaegerEndpoint != "" {
+		log.Printf("using Jaeger collector endpoint: %s\n", jaegerEndpoint)
+	}
 	resp, err := etcdClient.Get(ctx, path.Join(appEnv.PPSPrefix, "pipelines", appEnv.PPSPipelineName))
 	if err != nil {
 		return nil, err

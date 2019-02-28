@@ -37,11 +37,10 @@ func Read() (*Config, error) {
 		}
 	} else if os.IsNotExist(err) {
 		// File doesn't exist, so create a new config
-		fmt.Printf(">>> could not read config at %q: %v\n", p, err)
-		fmt.Println("No config detected. Generating new config...")
+		fmt.Println("no config detected at %q. Generating new config...", p)
 		c = &Config{}
 	} else {
-		return nil, fmt.Errorf("could not read config: %v", err)
+		return nil, fmt.Errorf("fatal: could not read config at %q: %v", p, err)
 	}
 	if c.UserID == "" {
 		fmt.Printf("No UserID present in config. Generating new UserID and "+
