@@ -880,7 +880,10 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
-		go a.receiveSpout(ctx, logger)
+		// if we have a spout, then asynchronously recevie spout data
+		if a.pipelineInfo.Spout != nil {
+			go a.receiveSpout(ctx, logger)
+		}
 		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
