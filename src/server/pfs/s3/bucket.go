@@ -20,10 +20,8 @@ import (
 var defaultMaxKeys int = 1000
 
 // the raw XML returned for a request to get the location of a bucket
-const locationSource = `
-<?xml version="1.0" encoding="UTF-8"?>
-<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>
-`
+const locationSource = `<?xml version="1.0" encoding="UTF-8"?>
+<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/">PACHYDERM</LocationConstraint>`
 
 // ListBucketResult is an XML-encodable listing of files/objects in a
 // repo/bucket
