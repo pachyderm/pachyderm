@@ -845,9 +845,16 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 						return err
 					}
 					// put files
-					_, err = a.pachClient.PutFile(repo, "master", fileHeader.Name, outTar)
-					if err != nil {
-						return err
+					if a.pipelineInfo.Spout.Overwrite {
+						_, err = a.pachClient.PutFileOverwrite(repo, "master", fileHeader.Name, outTar, 0)
+						if err != nil {
+							return err
+						}
+					} else {
+						_, err = a.pachClient.PutFile(repo, "master", fileHeader.Name, outTar)
+						if err != nil {
+							return err
+						}
 					}
 				}
 				// close commit
