@@ -98,7 +98,7 @@ func (a *APIServer) master(spawner func(*client.APIClient) error) {
 		}
 		defer masterLock.Unlock(ctx)
 		logger.Logf("Launching master process")
-		// a.pachClient.apiServer.MarkPipelineRunning(pachClient, a.pipelineInfo)
+
 		return spawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the spout master process: %v; retrying in %v", err, d)

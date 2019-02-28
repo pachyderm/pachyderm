@@ -8297,7 +8297,6 @@ func TestSpout(t *testing.T) {
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	pipeline := tu.UniqueString("pipelinespout")
-	// This pipeline sleeps for 10 secs per datum
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -8307,7 +8306,7 @@ func TestSpout(t *testing.T) {
 				Stdin: []string{
 					"while [ : ]",
 					"do",
-					"sleep 5",
+					"sleep 2",
 					"date > date",
 					"tar -cvf /pfs/out ./date*",
 					"done"},
@@ -8315,4 +8314,15 @@ func TestSpout(t *testing.T) {
 			Spout: &pps.Spout{},
 		})
 	require.NoError(t, err)
+
+	iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+	require.NoError(t, err)
+
+	for i := 0; i < 5; i++ {
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+		files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+	}
 }
