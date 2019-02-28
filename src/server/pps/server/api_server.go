@@ -2364,9 +2364,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
 		return nil, err
 	}
-	if err := a.markPipelineRunning(pachClient, request.Pipeline.Name); err != nil {
-		return nil, err
-	}
 	return &types.Empty{}, nil
 }
 
@@ -2776,22 +2773,6 @@ func isAlreadyExistsErr(err error) bool {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func (a *apiServer) markPipelineRunning(pachClient *client.APIClient, pipelineName string) error {
-	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-		pipelines := a.pipelines.ReadWrite(stm)
-		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
-			return err
-		}
-		pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-		return pipelines.Put(pipelineName, pipelinePtr)
-	})
-	if isNotFoundErr(err) {
-		return newErrPipelineNotFound(pipelineName)
-	}
-	return err
 }
 
 func (a *apiServer) updatePipelineSpecCommit(pachClient *client.APIClient, pipelineName string, commit *pfs.Commit) error {

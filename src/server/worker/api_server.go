@@ -419,11 +419,15 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			server.gid = &gid32
 		}
 	}
-	if pipelineInfo.Service == nil && pipelineInfo.Spout == nil {
-		go server.master()
-	} else {
-		go server.serviceMaster()
+	switch {
+	case pipelineInfo.Service != nil:
+		go server.master(server.serviceSpawner)
+	case pipelineInfo.Spout != nil:
+		go server.master(server.spoutSpawner)
+	default:
+		go server.master(server.jobSpawner)
 	}
+
 	go server.worker()
 	return server, nil
 }

@@ -74,7 +74,7 @@ func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
 	return result
 }
 
-func (a *APIServer) master() {
+func (a *APIServer) master(spawner func(*client.APIClient) error) {
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
@@ -88,28 +88,6 @@ func (a *APIServer) master() {
 	// to restart.
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
-		// We use a.pachClient.Ctx here because it contains auth information.
-		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
-		defer cancel() // make sure that everything this loop might spawn gets cleaned up
-		ctx, err := masterLock.Lock(ctx)
-		pachClient := a.pachClient.WithCtx(ctx)
-		if err != nil {
-			return err
-		}
-		defer masterLock.Unlock(ctx)
-		logger.Logf("Launching worker master process")
-		return a.jobSpawner(pachClient)
-	}, b, func(err error, d time.Duration) error {
-		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
-		return nil
-	})
-}
-
-func (a *APIServer) serviceMaster() {
-	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
-	logger := a.getMasterLogger()
-	b := backoff.NewInfiniteBackOff()
-	backoff.RetryNotify(func() error {
 		// We use pachClient.Ctx here because it contains auth information.
 		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
@@ -119,36 +97,11 @@ func (a *APIServer) serviceMaster() {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
-
 		logger.Logf("Launching master process")
-
-		paused := false
-		// Set pipeline state to running
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			pipelineName := a.pipelineInfo.Pipeline.Name
-			pipelines := a.pipelines.ReadWrite(stm)
-			pipelinePtr := &pps.EtcdPipelineInfo{}
-			if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
-				return err
-			}
-			if a.pipelineInfo.Stopped {
-				paused = true
-				return nil
-			}
-			pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-			return pipelines.Put(pipelineName, pipelinePtr)
-		}); err != nil {
-			return err
-		}
-		if paused {
-			return fmt.Errorf("can't run master for a paused pipeline")
-		}
-		if a.pipelineInfo.Spout != nil {
-			return a.spoutSpawner(pachClient)
-		}
-		return a.serviceSpawner(pachClient)
+		// a.pachClient.apiServer.MarkPipelineRunning(pachClient, a.pipelineInfo)
+		return spawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
-		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
+		logger.Logf("master: error running the spout master process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
