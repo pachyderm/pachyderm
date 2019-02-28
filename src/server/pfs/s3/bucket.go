@@ -16,8 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
-// this is a var instead of a const so that we can make a pointer to it
-var defaultMaxKeys int = 1000
+const defaultMaxKeys int = 1000
 
 // the raw XML returned for a request to get the location of a bucket
 const locationSource = `<?xml version="1.0" encoding="UTF-8"?>
@@ -119,7 +118,7 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	repo := vars["repo"]
 	_, err := h.pc.InspectRepo(repo)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNotFoundError(r, err).write(w)
 		return
 	}
 
@@ -133,23 +132,19 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	repo := vars["repo"]
 	_, err := h.pc.InspectRepo(repo)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNotFoundError(r, err).write(w)
 		return
 	}
 
 	marker := r.FormValue("marker")
-	maxKeys, err := intFormValue(r, "max-keys", 1, defaultMaxKeys, &defaultMaxKeys)
-	if err != nil {
-		writeBadRequest(w, err)
-		return
-	}
+	maxKeys := intFormValue(r, "max-keys", 1, defaultMaxKeys, defaultMaxKeys)
 
 	recursive := false
 	delimiter := r.FormValue("delimiter")
 	if delimiter == "" {
 		recursive = true
 	} else if delimiter != "/" {
-		writeBadRequest(w, fmt.Errorf("invalid delimiter '%s'; only '/' is allowed", delimiter))
+		newInvalidDelimiterError(r).write(w)
 		return
 	}
 
@@ -175,26 +170,25 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	} else {
 		branch := prefixParts[0]
 		filePrefix := prefixParts[1]
-		isEmpty := false
 
 		// ensure the branch exists and has a head
 		branchInfo, err := h.pc.InspectBranch(repo, branch)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
-				isEmpty = true
+				// render an empty list if this branch doesn't exist
+				writeXML(w, http.StatusOK, &result)
 			} else {
-				writeServerError(w, err)
-				return
+				newInternalError(r, err).write(w)
 			}
-		} else if branchInfo.Head == nil {
-			isEmpty = true
+			return
+		}
+		if branchInfo.Head == nil {
+			// render an empty list if this branch has no head
+			writeXML(w, http.StatusOK, &result)
+			return
 		}
 
-		if isEmpty {
-			// render an empty list if this branch doesn't exist or doesn't have a
-			// head
-			writeXML(w, http.StatusOK, &result)
-		} else if recursive {
+		if recursive {
 			h.listBranchRecursive(w, r, result, branch, filePrefix)
 		} else {
 			h.listBranch(w, r, result, branch, filePrefix)
@@ -205,7 +199,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branchPrefix string) {
 	branches, err := h.rootDirs(result.Name, branchPrefix)
 	if err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -238,7 +232,7 @@ func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, res
 			return nil
 		})
 		if err != nil {
-			writeServerError(w, err)
+			newInternalError(r, err).write(w)
 			return
 		}
 		if result.IsTruncated {
@@ -252,7 +246,7 @@ func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, res
 func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branchPrefix string) {
 	dirs, err := h.rootDirs(result.Name, branchPrefix)
 	if err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -294,7 +288,7 @@ func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Reques
 	})
 
 	if err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -304,13 +298,13 @@ func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Reques
 func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string, filePrefix string) {
 	// ensure that we can globify the prefix string
 	if !isGlobless(filePrefix) {
-		writeBadRequest(w, fmt.Errorf("file prefix (everything after the first `/` in the prefix) cannot contain glob special characters"))
+		newGlobbyPrefixError(r).write(w)
 		return
 	}
 
 	fileInfos, err := h.pc.GlobFile(result.Name, branch, fmt.Sprintf("%s*", filePrefix))
 	if err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -326,7 +320,7 @@ func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, result
 		if fileInfo.FileType == pfs.FileType_FILE {
 			contents, err := newContents(fileInfo)
 			if err != nil {
-				writeServerError(w, err)
+				newInternalError(r, err).write(w)
 				return
 			}
 			result.Contents = append(result.Contents, contents)
@@ -345,9 +339,9 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "as it already exists") {
-			writeBadRequest(w, err)
+			newBucketAlreadyExistsError(r).write(w)
 		} else {
-			writeServerError(w, err)
+			newInternalError(r, err).write(w)
 		}
 
 		return
@@ -363,7 +357,7 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	err := h.pc.DeleteRepo(repo, false)
 
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNotFoundError(r, err).write(w)
 		return
 	}
 

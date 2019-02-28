@@ -128,12 +128,6 @@ func putListFileTestObject(t *testing.T, pc *client.APIClient, repo string, comm
 	require.NoError(t, err)
 }
 
-func badRequestError(t *testing.T, err error) {
-	t.Helper()
-	require.YesError(t, err)
-	require.Equal(t, "400 Bad Request", err.Error())
-}
-
 func bucketNotFoundError(t *testing.T, err error) {
 	t.Helper()
 	require.YesError(t, err)
@@ -280,6 +274,10 @@ func TestRemoveObject(t *testing.T) {
 	require.NoError(t, c.RemoveObject(repo, "master/file"))
 	require.NoError(t, c.RemoveObject(repo, "master/file"))
 
+	// make sure the object no longer exists
+	_, err = getObject(t, c, repo, "master", "file")
+	keyNotFoundError(t, err)
+
 	require.NoError(t, srv.Close())
 }
 
@@ -393,7 +391,9 @@ func TestMakeBucketRedundant(t *testing.T) {
 	srv, _, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucketredundant")
 	require.NoError(t, c.MakeBucket(repo, ""))
-	badRequestError(t, c.MakeBucket(repo, ""))
+	err := c.MakeBucket(repo, "")
+	require.YesError(t, err)
+	require.Equal(t, err.Error(), "There is already a repo with that name.")
 	require.NoError(t, srv.Close())
 }
 

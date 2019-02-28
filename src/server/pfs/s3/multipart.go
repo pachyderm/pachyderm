@@ -20,8 +20,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// this is a var instead of a const so that we can make a pointer to it
-var defaultMaxParts int = 1000
+const defaultMaxParts int = 1000
 
 const maxAllowedParts = 10000
 
@@ -337,13 +336,13 @@ func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
 	repo, branch, file := objectArgs(r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNotFoundError(r, err).write(w)
 		return
 	}
 
 	uploadID, err := h.multipartManager.init(file)
 	if err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -360,30 +359,21 @@ func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
 	repo, branch, file := objectArgs(r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNotFoundError(r, err).write(w)
 		return
 	}
 	uploadID := r.FormValue("uploadId")
 	if err := h.multipartManager.checkExists(uploadID); err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNoSuchUploadError(r).write(w)
 		return
 	}
 
-	marker, err := intFormValue(r, "part-number-marker", 1, defaultMaxParts, &defaultMaxParts)
-	if err != nil {
-		writeBadRequest(w, err)
-		return
-	}
-
-	maxParts, err := intFormValue(r, "max-parts", 1, defaultMaxParts, &defaultMaxParts)
-	if err != nil {
-		writeBadRequest(w, err)
-		return
-	}
+	marker := intFormValue(r, "part-number-marker", 1, defaultMaxParts, 0)
+	maxParts := intFormValue(r, "max-parts", 1, defaultMaxParts, defaultMaxParts)
 
 	fileInfos, err := h.multipartManager.listChunks(uploadID)
 	if err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -428,44 +418,36 @@ func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
 	repo, branch, _ := objectArgs(r)
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNotFoundError(r, err).write(w)
 		return
 	}
 	uploadID := r.FormValue("uploadId")
 	if err := h.multipartManager.checkExists(uploadID); err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNoSuchUploadError(r).write(w)
 		return
 	}
 
-	partNumber, err := intFormValue(r, "partNumber", 1, maxAllowedParts, nil)
-	if err != nil {
-		writeBadRequest(w, err)
+	partNumber := intFormValue(r, "partNumber", 1, maxAllowedParts, -1)
+	if partNumber == -1 {
+		// TODO: it's not clear from s3 docs whether this is the right error
+		newInvalidPartError(r).write(w)
 		return
 	}
 
-	success, err := withBodyReader(r, func(reader io.Reader) bool {
+	success := withBodyReader(w, r, func(reader io.Reader) bool {
 		if err := h.multipartManager.writeChunk(uploadID, partNumber, reader); err != nil {
-			writeServerError(w, err)
+			newInternalError(r, err).write(w)
 			return false
 		}
 		return true
 	})
 
-	if err != nil || !success {
+	if !success {
 		// try to clean up the file if something failed
-		removeErr := h.multipartManager.removeChunk(uploadID, partNumber)
-		if removeErr != nil {
-			logrus.Errorf("could not remove uploadID=%s, partNumber=%d: %v", uploadID, partNumber, removeErr)
-		}
-
+		err = h.multipartManager.removeChunk(uploadID, partNumber)
 		if err != nil {
-			writeBadRequest(w, err)
+			logrus.Errorf("could not remove uploadID=%s, partNumber=%d: %v", uploadID, partNumber, err)
 		}
-
-		// if there's no error but the operation is not successful, we've
-		// already written a response to the client
-	} else {
-		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -473,51 +455,48 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 	repo, branch, _ := objectArgs(r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNotFoundError(r, err).write(w)
 		return
 	}
 	uploadID := r.FormValue("uploadId")
 	if err := h.multipartManager.checkExists(uploadID); err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNoSuchUploadError(r).write(w)
 		return
 	}
 
 	name, err := h.multipartManager.filepath(uploadID)
 	if err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		writeServerError(w, fmt.Errorf("could not read request body: %v", err))
+		err = fmt.Errorf("could not read request body: %v", err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
 	payload := CompleteMultipartUpload{}
 	err = xml.Unmarshal(bodyBytes, &payload)
 	if err != nil {
-		writeBadRequest(w, fmt.Errorf("body is invalid: %v", err))
+		newMalformedXMLError(r).write(w)
 		return
 	}
 
 	// verify that there's at least part, and all parts are in ascending order
-	if len(payload.Parts) == 0 {
-		writeBadRequest(w, fmt.Errorf("no parts specified"))
-		return
-	}
 	isSorted := sort.SliceIsSorted(payload.Parts, func(i, j int) bool {
 		return payload.Parts[i].PartNumber < payload.Parts[j].PartNumber
 	})
-	if !isSorted {
-		writeBadRequest(w, fmt.Errorf("parts not in ascending order"))
+	if len(payload.Parts) == 0 || !isSorted {
+		newInvalidPartOrderError(r).write(w)
 		return
 	}
 
 	// ensure all the files exist
 	for _, part := range payload.Parts {
 		if err = h.multipartManager.checkChunkExists(uploadID, part.PartNumber); err != nil {
-			writeBadRequest(w, fmt.Errorf("missing part %d", part.PartNumber))
+			newInvalidPartError(r).write(w)
 			return
 		}
 	}
@@ -537,18 +516,17 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 		if closeErr := reader.Close(); closeErr != nil {
 			logrus.Errorf("could not close reader for uploadID=%s: %v", uploadID, closeErr)
 		}
-
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
 	if err = reader.Close(); err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
 	if err = h.multipartManager.remove(uploadID); err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -559,16 +537,16 @@ func (h *multipartHandler) del(w http.ResponseWriter, r *http.Request) {
 	repo, branch, _ := objectArgs(r)
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNotFoundError(r, err).write(w)
 		return
 	}
 	uploadID := r.FormValue("uploadId")
 	if err := h.multipartManager.checkExists(uploadID); err != nil {
-		writeMaybeNotFound(w, r, err)
+		newNoSuchUploadError(r).write(w)
 		return
 	}
 	if err := h.multipartManager.remove(uploadID); err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

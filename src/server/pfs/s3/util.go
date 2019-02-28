@@ -5,12 +5,9 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strconv"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -28,22 +25,6 @@ type User struct {
 	DisplayName string `xml:"DisplayName"`
 }
 
-func writeBadRequest(w http.ResponseWriter, err error) {
-	http.Error(w, fmt.Sprintf("%v", err), http.StatusBadRequest)
-}
-
-func writeMaybeNotFound(w http.ResponseWriter, r *http.Request, err error) {
-	if os.IsNotExist(err) || strings.Contains(err.Error(), "not found") {
-		http.NotFound(w, r)
-	} else {
-		writeServerError(w, err)
-	}
-}
-
-func writeServerError(w http.ResponseWriter, err error) {
-	http.Error(w, fmt.Sprintf("%v", err), http.StatusInternalServerError)
-}
-
 // writeXML serializes a struct to a response as XML
 func writeXML(w http.ResponseWriter, code int, v interface{}) {
 	w.Header().Set("Content-Type", "application/xml")
@@ -56,31 +37,19 @@ func writeXML(w http.ResponseWriter, code int, v interface{}) {
 }
 
 // intFormValue extracts an int value from a request's form values, ensuring
-// it's within specified bounds. If `def` is non-nil, empty or unspecified
-// form values default to it. Otherwise, an error is thrown. `r.ParseForm()`
-// must be called before using this.
-func intFormValue(r *http.Request, name string, min int, max int, def *int) (int, error) {
+// it's within specified bounds. If the value is not specified, is not an int,
+// or is not within the specified bounds, it defaults to `def`.
+func intFormValue(r *http.Request, name string, min int, max int, def int) int {
 	s := r.FormValue(name)
 	if s == "" {
-		if def != nil {
-			return *def, nil
-		}
-		return 0, fmt.Errorf("missing %s", name)
+		return def
 	}
 
 	i, err := strconv.Atoi(s)
-	if err != nil {
-		return 0, fmt.Errorf("invalid %s value '%s': %s", name, s, err)
+	if err != nil || i < min || i > max {
+		return def
 	}
-
-	if i < min {
-		return 0, fmt.Errorf("%s value %d cannot be less than %d", name, i, min)
-	}
-	if i > max {
-		return 0, fmt.Errorf("%s value %d cannot be greater than %d", name, i, max)
-	}
-
-	return i, nil
+	return i
 }
 
 // withBodyReader calls the provided callback with a reader for the HTTP
@@ -90,17 +59,15 @@ func intFormValue(r *http.Request, name string, min int, max int, def *int) (int
 // succeed, it is assumed that the callback wrote an appropriate failure
 // response to the client.
 //
-// This function will return whether it succeeded and an error. If there is an
-// error, it is because of a bad request. If this returns a failure but not an
-// error, it implies that the callback returned a failure.
-func withBodyReader(r *http.Request, f func(io.Reader) bool) (bool, error) {
+// This function will return whether it succeeded.
+func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bool) bool {
 	expectedHash := r.Header.Get("Content-MD5")
 
 	if expectedHash != "" {
 		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
 		if err != nil {
-			err = fmt.Errorf("could not decode `Content-MD5`, as it is not base64-encoded")
-			return false, err
+			newInvalidDigestError(r).write(w)
+			return false
 		}
 
 		hasher := md5.New()
@@ -108,19 +75,24 @@ func withBodyReader(r *http.Request, f func(io.Reader) bool) (bool, error) {
 
 		succeeded := f(reader)
 		if !succeeded {
-			return false, nil
+			return false
 		}
 
 		actualHash := hasher.Sum(nil)
 		if !bytes.Equal(expectedHashBytes, actualHash) {
-			err = fmt.Errorf("content checksums differ; expected=%x, actual=%x", expectedHash, actualHash)
-			return false, err
+			newBadDigestError(r).write(w)
+			return false
 		}
 
-		return true, nil
+		w.WriteHeader(http.StatusOK)
+		return true
 	}
 
-	return f(r.Body), nil
+	succeeded := f(r.Body)
+	if succeeded {
+		w.WriteHeader(http.StatusOK)
+	}
+	return true
 }
 
 func objectArgs(r *http.Request) (string, string, string) {

@@ -31,7 +31,7 @@ func newRootHandler(pc *client.APIClient) rootHandler {
 func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	repos, err := h.pc.ListRepo()
 	if err != nil {
-		writeServerError(w, err)
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -42,7 +42,7 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, repo := range repos {
 		t, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
-			writeServerError(w, err)
+			newInternalError(r, err).write(w)
 			return
 		}
 
