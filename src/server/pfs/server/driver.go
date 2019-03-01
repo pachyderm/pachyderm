@@ -2598,12 +2598,13 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	var buf bytes.Buffer
 	maxData := int64(grpcutil.MaxMsgSize / 10)
 	parseFilesFromStream := func(p string, node *hashtree.NodeProto) error {
+		fmt.Println("parsing getFilesPath path", p, "\nnode", node.String(), "\nsubtree size", node.SubtreeSize)
 		if node.FileNode == nil {
 			return nil
 		}
 		remainingData := node.SubtreeSize
 		i := 0
-		for remainingData > 0 {
+		for remainingData > 0 || i == 0 {
 			var err error
 			if remainingData <= maxData {
 				_, err = io.CopyN(&buf, objReader, remainingData)
