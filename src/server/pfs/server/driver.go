@@ -2591,6 +2591,10 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 }
 
 func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, file *pfs.File, f func(*pfs.GetFileResponse) error) (retErr error) {
+	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+	if err != nil {
+		return err
+	}
 	var buf bytes.Buffer
 	maxData := int64(grpcutil.MaxMsgSize / 10)
 	parseFilesFromStream := func(p string, node *hashtree.NodeProto) error {
@@ -2613,10 +2617,19 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 				Value: buf.Bytes(),
 			}
 			if i == 0 {
-				gfr.FileInfo = &pfs.FileInfo{
-					File: file,
-				}
-				gfr.FileInfo.File.Path = p
+				// commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+				// if isInput {
+				// 	fi, err := nodeToFileInfoHeaderFooter(commitInfo, p, node, )
+				// } else {
+				// 	fi, err := nodeToFileInfo()
+				// }
+				// TODO(kdelga): is it cool that we aren't doing header/footer stuff for input repos?
+				gfr.FileInfo = nodeToFileInfo(commitInfo, p, node, true)
+				// gfr.FileInfo = &pfs.FileInfo{
+				// 	File: file,
+				// 	FileType:
+				// }
+				// gfr.FileInfo.File.Path = p
 			}
 			if err := f(gfr); err != nil {
 				return err
@@ -2628,10 +2641,10 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 		return nil
 	}
 
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return err
-	}
+	// commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+	// if err != nil {
+	// 	return err
+	// }
 	// Handle commits to input repos
 	if commitInfo.Provenance == nil {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))

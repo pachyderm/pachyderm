@@ -7660,7 +7660,10 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
+	fmt.Println("BEFORE DELETE")
+	time.Sleep(30 * time.Second)
 	require.NoError(t, c.DeleteAll())
+	fmt.Println("AFTER DELETE")
 
 	require.NoError(t, c.CreateRepo(dataRepo))
 	commit, err = c.StartCommit(dataRepo, "master")
