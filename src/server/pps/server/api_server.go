@@ -2313,15 +2313,13 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil
 	})
 	// Delete cron input repos
-	if pipelineInfo.Input != nil {
-		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-			if input.Cron != nil {
-				eg.Go(func() error {
-					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
-				})
-			}
-		})
-	}
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Cron != nil {
+			eg.Go(func() error {
+				return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+			})
+		}
+	})
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}

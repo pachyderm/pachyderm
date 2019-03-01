@@ -30,6 +30,8 @@ func VisitInput(input *Input, f func(*Input)) {
 // InputName computes the name of an Input.
 func InputName(input *Input) string {
 	switch {
+	case input == nil:
+		return ""
 	case input.Atom != nil:
 		return input.Atom.Name
 	case input.Pfs != nil:
