@@ -335,13 +335,14 @@ This resets the cluster to its initial state.`,
 			for _, pi := range pipelineInfos {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
 			}
-			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs?\nyN\n")
+			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
 				fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
 			}
 			if len(pipelines) > 0 {
 				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			}
+			fmt.Println("Are you sure you want to do this? (y/n):")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {

@@ -673,42 +673,40 @@ flag), the underlying volumes will be removed, making metadata such repos,
 commits, pipelines, and jobs unrecoverable. If your persistent volume was
 manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.
-
-Are you sure you want to proceed? yN
 `)
-				r := bufio.NewReader(os.Stdin)
-				bytes, err := r.ReadBytes('\n')
-				if err != nil {
-					return err
+			}
+			fmt.Println("Are you sure you want to do this? (y/n):")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				io := cmdutil.IO{
+					Stdout: os.Stdout,
+					Stderr: os.Stderr,
 				}
-				if !(bytes[0] == 'y' || bytes[0] == 'Y') {
-					return nil
+				assets := []string{
+					"service",
+					"replicationcontroller",
+					"deployment",
+					"serviceaccount",
+					"secret",
+					"statefulset",
+					"clusterrole",
+					"clusterrolebinding",
 				}
-			}
-			io := cmdutil.IO{
-				Stdout: os.Stdout,
-				Stderr: os.Stderr,
-			}
-			assets := []string{
-				"service",
-				"replicationcontroller",
-				"deployment",
-				"serviceaccount",
-				"secret",
-				"statefulset",
-				"clusterrole",
-				"clusterrolebinding",
-			}
-			if all {
-				assets = append(assets, []string{
-					"storageclass",
-					"persistentvolumeclaim",
-					"persistentvolume",
-				}...)
-			}
-			for _, asset := range assets {
-				if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
-					return err
+				if all {
+					assets = append(assets, []string{
+						"storageclass",
+						"persistentvolumeclaim",
+						"persistentvolume",
+					}...)
+				}
+				for _, asset := range assets {
+					if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
+						return err
+					}
 				}
 			}
 			return nil
