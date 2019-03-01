@@ -15,7 +15,6 @@ import (
 
 	"google.golang.org/grpc/metadata"
 
-	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-github/github"
@@ -24,7 +23,6 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/pachyderm/pachyderm/src/client"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -33,6 +31,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
@@ -89,12 +88,8 @@ var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
 var epsilon = &types.BoolValue{Value: true}
 
 type apiServer struct {
+	env        *serviceenv.ServiceEnv
 	pachLogger log.Logger
-	etcdClient *etcd.Client
-
-	address        string            // address of a Pachd server
-	pachClient     *client.APIClient // pachd client
-	pachClientOnce sync.Once         // used to initialize pachClient
 
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // guard 'adminCache'
@@ -160,34 +155,14 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 	}
 }
 
-func (a *apiServer) getPachClient() *client.APIClient {
-	a.pachClientOnce.Do(func() {
-		var err error
-		a.pachClient, err = client.NewFromAddress(a.address)
-		if err != nil {
-			panic(err)
-		}
-	})
-	return a.pachClient
-}
-
 // NewAuthServer returns an implementation of authclient.APIServer.
-func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, public bool) (authclient.APIServer, error) {
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   []string{etcdAddress},
-		DialOptions: client.DefaultDialOptions(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error constructing etcdClient: %v", err)
-	}
-
+func NewAuthServer(env *serviceenv.ServiceEnv, etcdPrefix string, public bool) (authclient.APIServer, error) {
 	s := &apiServer{
+		env:        env,
 		pachLogger: log.NewLogger("authclient.API"),
-		etcdClient: etcdClient,
-		address:    pachdAddress,
 		adminCache: make(map[string]struct{}),
 		tokens: col.NewCollection(
-			etcdClient,
+			env.GetEtcdClient(),
 			path.Join(etcdPrefix, tokensPrefix),
 			nil,
 			&authclient.TokenInfo{},
@@ -195,7 +170,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 			nil,
 		),
 		authenticationCodes: col.NewCollection(
-			etcdClient,
+			env.GetEtcdClient(),
 			path.Join(etcdPrefix, authenticationCodesPrefix),
 			nil,
 			&authclient.OTPInfo{},
@@ -203,7 +178,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 			nil,
 		),
 		acls: col.NewCollection(
-			etcdClient,
+			env.GetEtcdClient(),
 			path.Join(etcdPrefix, aclsPrefix),
 			nil,
 			&authclient.ACL{},
@@ -211,7 +186,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 			nil,
 		),
 		admins: col.NewCollection(
-			etcdClient,
+			env.GetEtcdClient(),
 			path.Join(etcdPrefix, adminsPrefix),
 			nil,
 			&types.BoolValue{}, // smallest value that etcd actually stores
@@ -219,7 +194,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 			nil,
 		),
 		members: col.NewCollection(
-			etcdClient,
+			env.GetEtcdClient(),
 			path.Join(etcdPrefix, membersPrefix),
 			nil,
 			&authclient.Groups{},
@@ -227,7 +202,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 			nil,
 		),
 		groups: col.NewCollection(
-			etcdClient,
+			env.GetEtcdClient(),
 			path.Join(etcdPrefix, groupsPrefix),
 			nil,
 			&authclient.Users{},
@@ -235,7 +210,7 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 			nil,
 		),
 		authConfig: col.NewCollection(
-			etcdClient,
+			env.GetEtcdClient(),
 			path.Join(etcdPrefix, configKey),
 			nil,
 			&authclient.AuthConfig{},
@@ -245,7 +220,6 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 		public: public,
 	}
 	go s.retrieveOrGeneratePPSToken()
-	go s.getPachClient() // initialize connection to Pachd
 	go s.watchAdmins(path.Join(etcdPrefix, adminsPrefix))
 
 	if public {
@@ -297,8 +271,8 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	b.MaxElapsedTime = 60 * time.Second
 	b.MaxInterval = 5 * time.Second
 	if err := backoff.Retry(func() error {
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			superUserTokenCol := col.NewCollection(a.etcdClient, ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
 			// TODO(msteffen): Don't use an empty key, as it will not be erased by
 			// superUserTokenCol.DeleteAll()
 			err := superUserTokenCol.Get("", &tokenProto)
@@ -430,7 +404,7 @@ func (a *apiServer) watchConfig() {
 }
 
 func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
-	pachClient := a.getPachClient()
+	pachClient := a.env.GetPachClient(context.Background())
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
 	if err != nil {
@@ -440,8 +414,8 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 }
 
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
-	pachClient := a.getPachClient().WithCtx(ctx)
-	ctx = a.pachClient.Ctx()
+	pachClient := a.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx() // copy auth information
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -502,7 +476,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// in the "partial" activation state. Users cannot authenticate, but auth
 	// checks are now enforced, which means no pipelines or repos can be created
 	// while ACLs are being added to every repo for the existing pipelines
-	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.admins.ReadWrite(stm).Put(magicUser, epsilon)
 	}); err != nil {
 		return nil, err
@@ -531,7 +505,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	// Generate a new Pachyderm token (as the caller is authenticating) and
 	// initialize admins (watchAdmins() above will see the write)
 	pachToken := uuid.NewWithoutDashes()
-	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		admins := a.admins.ReadWrite(stm)
 		tokens := a.tokens.ReadWrite(stm)
 		if err := admins.Delete(magicUser); err != nil {
@@ -588,7 +562,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 		_, magicUserIsAdmin = a.adminCache[magicUser]
 	}()
 	if magicUserIsAdmin {
-		_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
 			return nil
 		})
@@ -614,7 +588,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 			AdminOp: "DeactivateAuth",
 		}
 	}
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
 		a.admins.ReadWrite(stm).DeleteAll() // watchAdmins() will see the write
@@ -795,14 +769,14 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 
 	// Update "admins" list (watchAdmins() will update admins cache)
 	for _, user := range canonicalizedToAdd {
-		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			return a.admins.ReadWrite(stm).Put(user, epsilon)
 		}); err != nil && retErr == nil {
 			retErr = err
 		}
 	}
 	for _, user := range canonicalizedToRemove {
-		if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			return a.admins.ReadWrite(stm).Delete(user)
 		}); err != nil && retErr == nil {
 			retErr = err
@@ -867,7 +841,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 
 		// Generate a new Pachyderm token and write it
 		pachToken = uuid.NewWithoutDashes()
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			tokens := a.tokens.ReadWrite(stm)
 			return tokens.PutTTL(hashToken(pachToken),
 				&authclient.TokenInfo{
@@ -880,7 +854,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 		}
 
 	case req.OneTimePassword != "":
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			// read short-lived authentication code (and delete it if found)
 			codes := a.authenticationCodes.ReadWrite(stm)
 			key := hashToken(req.OneTimePassword)
@@ -1058,7 +1032,7 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, exp
 
 	// Generate and store new OTP
 	code = "auth_code:" + uuid.NewWithoutDashes()
-	if _, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.authenticationCodes.ReadWrite(stm).PutTTL(hashToken(code),
 			otpInfo, defaultAuthCodeTTLSecs)
 	}); err != nil {
@@ -1200,7 +1174,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := a.getPachClient().WithCtx(ctx)
+	pachClient := a.env.GetPachClient(ctx)
 
 	// validate request & authenticate user
 	if err := validateSetScopeRequest(ctx, req); err != nil {
@@ -1215,7 +1189,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		return nil, err
 	}
 
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
 		var acl authclient.ACL
 		if err := acls.Get(req.Repo, &acl); err != nil {
@@ -1490,7 +1464,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	}
 
 	// Read repo ACL from etcd
-	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		acls := a.acls.ReadWrite(stm)
 
 		// determine if the caller is authorized to set this repo's ACL
@@ -1529,7 +1503,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 			}
 
 			// No ACL -- check if the repo being modified exists
-			_, err = a.getPachClient().WithCtx(ctx).InspectRepo(req.Repo)
+			_, err = a.env.GetPachClient(ctx).InspectRepo(req.Repo)
 			err = grpcutil.ScrubGRPC(err)
 			if err == nil {
 				// Repo exists -- user isn't authorized
@@ -1643,7 +1617,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 
 	// generate new token, and write to etcd
 	token := uuid.NewWithoutDashes()
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		return a.tokens.ReadWrite(stm).PutTTL(hashToken(token), &tokenInfo, req.TTL)
 	}); err != nil {
 		if tokenInfo.Subject != magicUser {
@@ -1691,7 +1665,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 
 	// The token must already exist. If a token has been revoked, it can't be
 	// extended
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
 
 		// Actually look up the request token in the relevant collections
@@ -1742,7 +1716,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 		return nil, err
 	}
 
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		tokens := a.tokens.ReadWrite(stm)
 		var tokenInfo authclient.TokenInfo
 		if err := tokens.Get(hashToken(req.Token), &tokenInfo); err != nil {
@@ -1769,7 +1743,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 // on signed SAML assertions). This does no auth checks, so the caller must do
 // all relevant authorization.
 func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
-	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
 
 		// Get groups to remove/add user from/to
@@ -1885,7 +1859,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMem
 		return nil, err
 	}
 
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
 		var groupsProto authclient.Groups
 		for _, username := range add {
@@ -2028,7 +2002,7 @@ func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersReques
 	// Filter by group
 	if req.Group != "" {
 		var membersProto authclient.Users
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 			groups := a.groups.ReadWrite(stm)
 			if err := groups.Get(req.Group, &membersProto); err != nil {
 				return err
@@ -2287,7 +2261,7 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 	}
 
 	// upsert new config
-	if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		var liveConfig authclient.AuthConfig
 		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
 			// Empty config case
