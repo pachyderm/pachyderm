@@ -72,7 +72,7 @@ We can also view the file we just added to Pachyderm. Since this is an image, we
 
 .. code-block:: shell
  
-  # on OSX
+  # on macOS
   $ pachctl get-file images master liberty.png | open -f -a /Applications/Preview.app
 
   # on Linux
@@ -181,7 +181,7 @@ We can view the output data from the "edges" repo in the same fashion that we vi
 
 .. code-block:: shell
  
-  # on OSX
+  # on macOS
   $ pachctl get-file edges master liberty.png | open -f -a /Applications/Preview.app
 
   # on Linux
@@ -219,7 +219,7 @@ Adding a new commit of data will automatically trigger the pipeline to run on th
 
   # View the output data
 
-  # on OSX
+  # on macOS
   $ pachctl get-file edges master AT-AT.png | open -f -a /Applications/Preview.app
 
   $ pachctl get-file edges master kitten.png | open -f -a /Applications/Preview.app
@@ -291,7 +291,7 @@ And you can view the generated montage image via:
 
 .. code-block:: shell
 
-  # on OSX
+  # on macOS
   $ pachctl get-file montage master montage.png | open -f -a /Applications/Preview.app
 
   # on Linux

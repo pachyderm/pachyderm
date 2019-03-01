@@ -101,7 +101,7 @@ $ gsutil ls
 `pachctl` is a command-line utility for interacting with a Pachyderm cluster. You can install it locally as follows:
 
 ```sh
-# For OSX:
+# For macOS:
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
 
 # For Linux (64 bit) or Window 10+ on WSL:
