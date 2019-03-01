@@ -286,14 +286,13 @@ func (r *multipartReader) Read(p []byte) (n int, err error) {
 	if r.cur == nil {
 		if len(r.partNumbers) == 0 {
 			return 0, io.EOF
-		} else {
-			f, err := os.Open(r.manager.chunkPath(r.uploadID, r.partNumbers[0]))
-			if err != nil {
-				return 0, err
-			}
-			r.partNumbers = r.partNumbers[1:]
-			r.cur = f
 		}
+		f, err := os.Open(r.manager.chunkPath(r.uploadID, r.partNumbers[0]))
+		if err != nil {
+			return 0, err
+		}
+		r.partNumbers = r.partNumbers[1:]
+		r.cur = f
 	}
 
 	n, err = r.cur.Read(p)
@@ -301,11 +300,10 @@ func (r *multipartReader) Read(p []byte) (n int, err error) {
 		if closeErr := r.cur.Close(); closeErr != nil {
 			r.cur = nil
 			return n, closeErr
-		} else {
-			// do not return an EOF, as there may be another chunk to read
-			r.cur = nil
-			return n, nil
 		}
+		// do not return an EOF, as there may be another chunk to read
+		r.cur = nil
+		return n, nil
 	}
 	return n, err
 }
