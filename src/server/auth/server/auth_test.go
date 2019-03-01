@@ -1185,7 +1185,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestDeletePipeline")
+	repo := tu.UniqueString("TestStopAndDeletePipeline")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), GetACL(t, aliceClient, repo))
 
@@ -1475,7 +1475,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestListRepo")
+	repo := tu.UniqueString("TestListRepoNotLoggedIn")
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), GetACL(t, aliceClient, repo))

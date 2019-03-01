@@ -236,9 +236,17 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 				}
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
+				authIDCache, err := lru.New(1000)
+				if err != nil {
+					return fmt.Errorf("could not create auth ID cache: %v", err)
+				}
+				authACLCache, err := lru.New(1000)
+				if err != nil {
+					return fmt.Errorf("could not create auth ACL cache: %v", err)
+				}
 				authAPIServer, err := authserver.NewAuthServer(
 					address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
-					false)
+					authIDCache, authACLCache, false)
 				if err != nil {
 					return fmt.Errorf("NewAuthServer: %v", err)
 				}
@@ -377,6 +385,14 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 		}
 		return fmt.Errorf("ListenAndServe: %v", err)
 	})
+	authIDCache, err := lru.New(1000)
+	if err != nil {
+		return fmt.Errorf("could not create auth ID cache: %v", err)
+	}
+	authACLCache, err := lru.New(1000)
+	if err != nil {
+		return fmt.Errorf("could not create auth ACL cache: %v", err)
+	}
 	eg.Go(func() error {
 		err := grpcutil.Serve(
 			grpcutil.ServerOptions{
@@ -427,7 +443,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 
 					authAPIServer, err := authserver.NewAuthServer(
 						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
-						true)
+						authIDCache, authACLCache, true)
 					if err != nil {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
@@ -524,7 +540,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 
 					authAPIServer, err := authserver.NewAuthServer(
 						address, etcdAddress, path.Join(appEnv.EtcdPrefix, appEnv.AuthEtcdPrefix),
-						false)
+						authIDCache, authACLCache, false)
 					if err != nil {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
