@@ -2518,6 +2518,9 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	}
 
 	handleInputFIle := func(p string, node *hashtree.NodeProto) error {
+		if node.FileNode == nil {
+			return nil
+		}
 		if err := appendHeaderFooter(p, node); err != nil {
 			return err
 		}
@@ -2679,8 +2682,8 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	if err != nil {
 		return err
 	}
-	//var isInput bool
-	//var tree hashtree.HashTree
+	// var isInput bool
+	// var tree hashtree.HashTree
 	var buf bytes.Buffer
 	maxData := int64(grpcutil.MaxMsgSize / 10)
 	parseFilesFromStream := func(p string, node *hashtree.NodeProto) error {
