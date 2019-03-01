@@ -834,7 +834,15 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				outTar := tar.NewReader(out)
 
 				// start commit
-				_, err = a.pachClient.StartCommit(repo, "master")
+				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
+					Parent: &pfs.Commit{
+						Repo: &pfs.Repo{
+							Name: repo,
+						},
+					},
+					Branch:     "master",
+					Provenance: []*pfs.Commit{a.pipelineInfo.SpecCommit},
+				})
 				if err != nil {
 					return err
 				}
@@ -848,19 +856,19 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					}
 					// put files
 					if a.pipelineInfo.Spout.Overwrite {
-						_, err = a.pachClient.PutFileOverwrite(repo, "master", fileHeader.Name, outTar, 0)
+						_, err = a.pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
 						if err != nil {
 							return err
 						}
 					} else {
-						_, err = a.pachClient.PutFile(repo, "master", fileHeader.Name, outTar)
+						_, err = a.pachClient.PutFile(repo, commit.ID, fileHeader.Name, outTar)
 						if err != nil {
 							return err
 						}
 					}
 				}
 				// close commit
-				err = a.pachClient.FinishCommit(repo, "master")
+				err = a.pachClient.FinishCommit(repo, commit.ID)
 				if err != nil {
 					return err
 				}

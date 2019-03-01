@@ -2709,8 +2709,16 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		// TODO this should be a MalformedGlob error like the hashtree returns
 		return err
 	}
-	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+
+	// Handle commits to input repos and spouts
+	provenanceCount := len(commitInfo.Provenance)
+	for _, p := range commitInfo.Provenance {
+		if p.Repo.Name == ppsconsts.SpecRepo {
+			provenanceCount--
+			break
+		}
+	}
+	if provenanceCount == 0 {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return err
