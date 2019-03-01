@@ -19,6 +19,7 @@ import (
 	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-github/github"
+	lru "github.com/hashicorp/golang-lru"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -102,6 +103,13 @@ type apiServer struct {
 	configCache *canonicalConfig // cache of auth config in etcd
 	configMu    sync.Mutex       // guard 'configCache'. Always lock before 'samlSPMu' (if using both)
 
+	// cache token -> ID and ACL values.
+	// TODO(msteffen) this stuff should be stored in the context, but to propagate
+	// that information from one RPC to its sibling will require us to implement
+	// interceptors for every RPC that pach client supports
+	idCache  *lru.Cache
+	aclCache *lru.Cache
+
 	samlSP          *saml.ServiceProvider // object for parsing saml responses
 	redirectAddress *url.URL              // address where users will be redirected after authenticating
 	samlSPMu        sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
@@ -172,7 +180,7 @@ func (a *apiServer) getPachClient() *client.APIClient {
 }
 
 // NewAuthServer returns an implementation of authclient.APIServer.
-func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, public bool) (authclient.APIServer, error) {
+func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, idCache, aclCache *lru.Cache, public bool) (authclient.APIServer, error) {
 	etcdClient, err := etcd.New(etcd.Config{
 		Endpoints:   []string{etcdAddress},
 		DialOptions: client.DefaultDialOptions(),
@@ -242,7 +250,9 @@ func NewAuthServer(pachdAddress string, etcdAddress string, etcdPrefix string, p
 			nil,
 			nil,
 		),
-		public: public,
+		idCache:  idCache,
+		aclCache: aclCache,
+		public:   public,
 	}
 	go s.retrieveOrGeneratePPSToken()
 	go s.getPachClient() // initialize connection to Pachd
@@ -442,8 +452,9 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
 	pachClient := a.getPachClient().WithCtx(ctx)
 	ctx = a.pachClient.Ctx()
-	// We don't want to actually log the request/response since they contain
-	// credentials.
+	// We don't want to actually log the request/response messages since they
+	// contain credentials.
+	a.LogReq(nil)
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
 	// If the cluster's Pachyderm Enterprise token isn't active, the auth system
 	// cannot be activated
@@ -614,6 +625,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 			AdminOp: "DeactivateAuth",
 		}
 	}
+
 	_, err = col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		a.acls.ReadWrite(stm).DeleteAll()
 		a.tokens.ReadWrite(stm).DeleteAll()
@@ -626,6 +638,10 @@ func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRe
 	if err != nil {
 		return nil, err
 	}
+
+	// Purge ACL and ID caches
+	a.aclCache.Purge()
+	a.idCache.Purge()
 
 	// wait until watchAdmins has deactivated auth, so that Deactivate() is less
 	// likely to race with subsequent calls that expect auth to be deactivated.
@@ -1067,6 +1083,34 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, exp
 	return code, nil
 }
 
+type cachedACL struct {
+	acl             *authclient.ACL
+	cacheExpiration time.Time
+}
+
+func (a *apiServer) getACL(ctx context.Context, repo string) (*authclient.ACL, error) {
+	if val, ok := a.aclCache.Get(repo); ok {
+		if acl, ok := val.(cachedACL); ok && acl.cacheExpiration.After(time.Now()) {
+			return acl.acl, nil
+		}
+		a.aclCache.Remove(repo) // shouldn't happen, but remove the k/v if it does
+	}
+
+	// No cached value--retrieve ACL from etcd
+	acl := &authclient.ACL{}
+	if err := a.acls.ReadOnly(ctx).Get(repo, acl); err != nil && !col.IsErrNotFound(err) {
+		return nil, fmt.Errorf("error getting ACL for repo %q: %v", repo, err)
+	} else if !col.IsErrNotFound(err) {
+		// Add ACL to cache (cache entry only lives for 5 seconds)
+		a.aclCache.Add(repo, cachedACL{
+			acl:             acl,
+			cacheExpiration: time.Now().Add(5 * time.Second),
+		})
+	}
+
+	return acl, nil
+}
+
 func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1110,12 +1154,12 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}
 
 	// Get ACL to check
-	var acl authclient.ACL
-	if err := a.acls.ReadOnly(ctx).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
-		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
+	acl, err := a.getACL(ctx, req.Repo)
+	if err != nil {
+		return nil, err
 	}
 
-	scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+	scope, err := a.getScope(ctx, callerInfo.Subject, acl)
 	if err != nil {
 		return nil, err
 	}
@@ -1131,32 +1175,18 @@ func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (
 		return nil, authclient.ErrNotActivated
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	// Get any cached token info
+	ti, err := a.readthroughCachedAuthUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
-	if err != nil {
-		return nil, err
+	ttl := int64(-1)
+	if !ti.expiration.IsZero() {
+		ttl = int64(ti.expiration.Sub(time.Now()).Seconds())
 	}
-
-	// Get TTL of user's token
-	ttl := int64(-1) // value returned by etcd for keys w/ no lease (no TTL)
-	if callerInfo.Subject != magicUser {
-		token, err := getAuthToken(ctx)
-		if err != nil {
-			return nil, err
-		}
-		ttl, err = a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
-		if err != nil {
-			return nil, fmt.Errorf("error looking up TTL for token: %v", err)
-		}
-	}
-
-	// return final result
 	return &authclient.WhoAmIResponse{
-		Username: callerInfo.Subject,
-		IsAdmin:  isAdmin,
+		Username: ti.subject,
+		IsAdmin:  ti.isAdmin,
 		TTL:      ttl,
 	}, nil
 }
@@ -1274,6 +1304,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		}
 
 		// Scope change is authorized. Make the change
+		a.aclCache.Remove(req.Repo) // invalidate cache entry
 		principal, err := a.canonicalizeSubject(ctx, req.Username)
 		if err != nil {
 			return err
@@ -1365,11 +1396,11 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	// that pfs.ListRepo overrides this logic—the auth info it returns for a
 	// listed repo indicates that a user is OWNER of all repos if they are an
 	// admin
-	acls := a.acls.ReadOnly(ctx)
 	resp = new(authclient.GetScopeResponse)
 	for _, repo := range req.Repos {
-		var acl authclient.ACL
-		if err := acls.Get(repo, &acl); err != nil && !col.IsErrNotFound(err) {
+		// Get ACL for repo
+		acl, err := a.getACL(ctx, repo)
+		if err != nil {
 			return nil, err
 		}
 
@@ -1377,7 +1408,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		if mustHaveReadAccess && !callerIsAdmin {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
-			callerScope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+			callerScope, err := a.getScope(ctx, callerInfo.Subject, acl)
 			if err != nil {
 				return nil, err
 			}
@@ -1391,7 +1422,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 		}
 
 		// compute target's access scope to this repo
-		targetScope, err := a.getScope(ctx, targetSubject, &acl)
+		targetScope, err := a.getScope(ctx, targetSubject, acl)
 		if err != nil {
 			return nil, err
 		}
@@ -1423,8 +1454,8 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	}
 
 	// Read repo ACL from etcd
-	acl := &authclient.ACL{}
-	if err = a.acls.ReadOnly(ctx).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
+	acl, err := a.getACL(ctx, req.Repo)
+	if err != nil {
 		return nil, err
 	}
 	resp = &authclient.GetACLResponse{
@@ -1558,6 +1589,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 		}
 
 		// Set new ACL
+		a.aclCache.Remove(req.Repo) // invalidate cache entry
 		if len(newACL.Entries) == 0 {
 			return acls.Delete(req.Repo)
 		}
@@ -1757,6 +1789,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 				AdminOp: "RevokeAuthToken on another user's token",
 			}
 		}
+		a.idCache.Remove(req.Token)
 		return tokens.Delete(hashToken(req.Token))
 	}); err != nil {
 		return nil, err
@@ -2087,33 +2120,108 @@ func getAuthToken(ctx context.Context) (string, error) {
 	return md[authclient.ContextTokenKey][0], nil
 }
 
-func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.TokenInfo, error) {
-	// TODO(msteffen) cache these lookups, especially since users always authorize
-	// themselves at the beginning of a request. Don't want to look up the same
-	// token -> username entry twice.
+type cachedTokenInfo struct {
+	subject    string
+	source     authclient.TokenInfo_TokenSource
+	isAdmin    bool
+	expiration time.Time
+
+	// cacheExpiration is at most 5s after this cachedTokenInfo was added to
+	// a.idCache. The reason is that if a user is running multiple pachd nodes and
+	// calls Revoke(t) on one node, that node has no way to invalidate the idCache
+	// on the other nodes. So, we keep cache entries around for at most 5s, so
+	// token invalidations take at most 5s to take effect.
+	//
+	// functions outside of readthroughCachedAuthUser should ignore this field,
+	// as it may not always be set (e.g. for the PPS token)
+	cacheExpiration time.Time
+}
+
+func (a *apiServer) readthroughCachedAuthUser(ctx context.Context) (*cachedTokenInfo, error) {
 	token, err := getAuthToken(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	if token == a.ppsToken {
 		// TODO(msteffen): This is a hack. The idea is that there is a logical user
 		// entry mapping ppsToken to magicUser. Soon, magicUser will go away and
 		// this check should happen in authorize
-		return &authclient.TokenInfo{
-			Subject: magicUser,
-			Source:  authclient.TokenInfo_GET_TOKEN,
+		return &cachedTokenInfo{
+			subject: magicUser,
+			source:  authclient.TokenInfo_GET_TOKEN,
+			isAdmin: true,
+			// no expiration or cacheExpiration
 		}, nil
 	}
 
-	// Lookup the token
-	var tokenInfo authclient.TokenInfo
-	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &tokenInfo); err != nil {
+	// check ID cache for token
+	if val, ok := a.idCache.Get(token); ok {
+		if ti, ok := val.(*cachedTokenInfo); ok && ti != nil && ti.cacheExpiration.After(time.Now()) {
+			return ti, nil
+		}
+		a.idCache.Remove(token) // ti is wrong type, nil, or (likely) exipired
+	}
+
+	// retrieve tokenInfo for cache
+	var callerInfo authclient.TokenInfo
+	if err := a.tokens.ReadOnly(ctx).Get(hashToken(token), &callerInfo); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, authclient.ErrBadToken
 		}
 		return nil, err
 	}
-	return &tokenInfo, nil
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get TTL of user's token
+	ttl, err := a.tokens.ReadOnly(ctx).TTL(hashToken(token)) // lookup token TTL
+	if err != nil {
+		return nil, fmt.Errorf("error looking up TTL for token: %v", err)
+	}
+	if ttl == 0 {
+		// Treat TTL == 0 as a missing token, rather than putting the token in
+		// idCache for 0 seconds
+		return nil, authclient.ErrBadToken
+	}
+
+	// update any cached identity with new data
+	// Note that token lookups are only cached for 5 seconds, so that revocations
+	// take at most 5 seconds to apply
+	var expiration, cacheExpiration time.Time
+	switch {
+	case ttl < 0:
+		// expiration = time zero (no expiration)
+		cacheExpiration = time.Now().Add(5 * time.Second)
+	case ttl > 5:
+		expiration = time.Now().Add(time.Duration(ttl) * time.Second)
+		cacheExpiration = time.Now().Add(5 * time.Second)
+	default:
+		expiration = time.Now().Add(time.Duration(ttl) * time.Second)
+		cacheExpiration = expiration
+	}
+	ti := &cachedTokenInfo{
+		subject:         callerInfo.Subject,
+		source:          callerInfo.Source,
+		isAdmin:         isAdmin,
+		expiration:      expiration,
+		cacheExpiration: cacheExpiration,
+	}
+	a.idCache.Add(token, ti)
+	return ti, nil
+}
+
+func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.TokenInfo, error) {
+	ti, err := a.readthroughCachedAuthUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &authclient.TokenInfo{
+		Subject: ti.subject,
+		Source:  ti.source,
+	}, nil
 }
 
 // canonicalizeSubjects applies canonicalizeSubject to a list

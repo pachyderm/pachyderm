@@ -1243,6 +1243,8 @@ func TestTokenTTLExtend(t *testing.T) {
 	repos, err = aliceClient.ListRepo()
 	require.NoError(t, err)
 	require.ElementsEqualUnderFn(t, []string{repo}, repos, RepoInfoToName)
+	whoAmI, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
+	require.True(t, whoAmI.TTL <= 5 && whoAmI.TTL >= 0)
 	// admin extends token
 	_, err = adminClient.ExtendAuthToken(adminClient.Ctx(), &auth.ExtendAuthTokenRequest{
 		Token: resp.Token,
