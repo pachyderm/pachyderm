@@ -421,11 +421,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	}
 	switch {
 	case pipelineInfo.Service != nil:
-		go server.master(server.serviceSpawner)
+		go server.master("serviceSpawner", server.serviceSpawner)
 	case pipelineInfo.Spout != nil:
-		go server.master(server.spoutSpawner)
+		go server.master("spoutSpawner", server.spoutSpawner)
 	default:
-		go server.master(server.jobSpawner)
+		go server.master("jobSpawner", server.jobSpawner)
 	}
 	go server.worker()
 	return server, nil

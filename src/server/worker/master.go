@@ -74,7 +74,7 @@ func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
 	return result
 }
 
-func (a *APIServer) master(spawner func(*client.APIClient) error) {
+func (a *APIServer) master(spawnerName string, spawner func(*client.APIClient) error) {
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
@@ -97,10 +97,10 @@ func (a *APIServer) master(spawner func(*client.APIClient) error) {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
-		logger.Logf("Launching master process")
+		logger.Logf("Launching %v master process", spawnerName)
 		return spawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
-		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
+		logger.Logf("master: error running the %v master process: %v; retrying in %v", spawnerName, err, d)
 		return nil
 	})
 }
