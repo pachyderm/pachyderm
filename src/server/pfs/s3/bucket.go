@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/gobwas/glob"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -74,8 +75,6 @@ func newCommonPrefixes(dir string) CommonPrefixes {
 		Prefix: fmt.Sprintf("%s/", dir),
 	}
 }
-
-const globSpecialCharacters = "*?[\\"
 
 type bucketHandler struct {
 	pc *client.APIClient
@@ -296,13 +295,8 @@ func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Reques
 }
 
 func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string, filePrefix string) {
-	// ensure that we can globify the prefix string
-	if !isGlobless(filePrefix) {
-		newGlobbyPrefixError(r).write(w)
-		return
-	}
-
-	fileInfos, err := h.pc.GlobFile(result.Name, branch, fmt.Sprintf("%s*", filePrefix))
+	pattern := fmt.Sprintf("%s*", glob.QuoteMeta(filePrefix))
+	fileInfos, err := h.pc.GlobFile(result.Name, branch, pattern)
 	if err != nil {
 		newInternalError(r, err).write(w)
 		return
@@ -387,10 +381,4 @@ func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo
 	}
 
 	return fileInfo
-}
-
-// isGlobless checks whether any a string contains any characters used in
-// glob file path matching
-func isGlobless(s string) bool {
-	return !strings.ContainsAny(s, globSpecialCharacters)
 }

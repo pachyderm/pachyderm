@@ -48,11 +48,6 @@ func newBucketAlreadyExistsError(r *http.Request) *Error {
 	return newError(r, http.StatusBadRequest, "BucketAlreadyExists", "There is already a repo with that name.")
 }
 
-// note: this is not a standard s3 error
-func newGlobbyPrefixError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "GlobbyPrefix", "The prefix cannot contain special glob characters.")
-}
-
 func newInternalError(r *http.Request, err error) *Error {
 	return newError(r, http.StatusInternalServerError, "InternalError", err.Error())
 }
