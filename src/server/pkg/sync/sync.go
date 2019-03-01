@@ -321,30 +321,6 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 		})
 		return eg.Wait()
 	}
-	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
-		newPath, err := collectStatsForNewPath(client, root, file, fileInfo, statsTree, statsRoot)
-		if err != nil {
-			return nil
-		}
-		if fileInfo.FileType == pfs.FileType_DIR {
-			return os.MkdirAll(newPath, 0700)
-		}
-		if pipes {
-			fmt.Println("pipes")
-			return p.makePipe(newPath, func(w io.Writer) error {
-				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
-			})
-		}
-		if emptyFiles {
-			fmt.Println("emptyFiles")
-			f, err := p.makeFile(newPath, func(w io.Writer) error { return nil })
-			f.Close()
-			return err
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
 	return nil
 }
 
