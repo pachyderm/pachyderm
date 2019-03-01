@@ -177,64 +177,65 @@ func generateNewPath(root, file string, fileInfo *pfs.FileInfo) (string, error) 
 // mutually exclusive with pipes.
 // tree is a hashtree to mirror the pulled content into (it may be left nil)
 // treeRoot is the root the data is mirrored to within tree
-// func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
-// 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
-// 	limiter := limit.New(concurrency)
-// 	var eg errgroup.Group
-// 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
-// 		fmt.Println("Walking: \nroot", root, "\nfile", file, "\nfileInfo", fileInfo.String(), "\nstatsRoot", statsRoot)
-// 		basepath, err := filepath.Rel(file, fileInfo.File.Path)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if statsTree != nil {
-// 			statsPath := filepath.Join(statsRoot, basepath)
-// 			if fileInfo.FileType == pfs.FileType_DIR {
-// 				fmt.Println("not putting dir ", statsPath)
-// 				statsTree.PutDir(statsPath)
-// 			} else {
-// 				var blockRefs []*pfs.BlockRef
-// 				for _, object := range fileInfo.Objects {
-// 					objectInfo, err := client.InspectObject(object.Hash)
-// 					if err != nil {
-// 						return err
-// 					}
-// 					blockRefs = append(blockRefs, objectInfo.BlockRef)
-// 				}
+func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
+	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
+	limiter := limit.New(concurrency)
+	var eg errgroup.Group
+	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
+		fmt.Println("Walking: \nroot", root, "\nfile", file, "\nfileInfo", fileInfo.String(), "\nstatsRoot", statsRoot)
+		basepath, err := filepath.Rel(file, fileInfo.File.Path)
+		if err != nil {
+			return err
+		}
+		if statsTree != nil {
+			statsPath := filepath.Join(statsRoot, basepath)
+			if fileInfo.FileType == pfs.FileType_DIR {
+				fmt.Println("not putting dir ", statsPath)
+				statsTree.PutDir(statsPath)
+			} else {
+				var blockRefs []*pfs.BlockRef
+				for _, object := range fileInfo.Objects {
+					objectInfo, err := client.InspectObject(object.Hash)
+					if err != nil {
+						return err
+					}
+					blockRefs = append(blockRefs, objectInfo.BlockRef)
+				}
 
-// 				blockRefs = append(blockRefs, fileInfo.BlockRefs...)
-// 				fmt.Println("putting files: \n statsPath", statsPath, "\n obj length", len(fileInfo.Objects), "\nblock length", len(blockRefs))
-// 				statsTree.PutFile(statsPath, fileInfo.Hash, int64(fileInfo.SizeBytes), &hashtree.FileNodeProto{BlockRefs: blockRefs})
-// 			}
-// 		}
-// 		path := filepath.Join(root, basepath)
-// 		if fileInfo.FileType == pfs.FileType_DIR {
-// 			return os.MkdirAll(path, 0700)
-// 		}
-// 		if pipes {
-// 			return p.makePipe(path, func(w io.Writer) error {
-// 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
-// 			})
-// 		}
-// 		if emptyFiles {
-// 			f, err := p.makeFile(path, func(w io.Writer) error { return nil })
-// 			f.Close()
-// 			return err
-// 		}
-// 		eg.Go(func() (retErr error) {
-// 			limiter.Acquire()
-// 			defer limiter.Release()
-// 			_, err = p.makeFile(path, func(w io.Writer) error {
-// 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
-// 			})
-// 			return err
-// 		})
-// 		return nil
-// 	}); err != nil {
-// 		return err
-// 	}
-// 	return eg.Wait()
-// }
+				blockRefs = append(blockRefs, fileInfo.BlockRefs...)
+				fmt.Println("putting files: \n statsPath", statsPath, "\n obj length", len(fileInfo.Objects), "\nblock length", len(blockRefs))
+				statsTree.PutFile(statsPath, fileInfo.Hash, int64(fileInfo.SizeBytes), &hashtree.FileNodeProto{BlockRefs: blockRefs})
+			}
+		}
+		path := filepath.Join(root, basepath)
+		if fileInfo.FileType == pfs.FileType_DIR {
+			return os.MkdirAll(path, 0700)
+		}
+		if pipes {
+			return p.makePipe(path, func(w io.Writer) error {
+				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
+			})
+		}
+		if emptyFiles {
+			f, err := p.makeFile(path, func(w io.Writer) error { return nil })
+			f.Close()
+			return err
+		}
+		eg.Go(func() (retErr error) {
+			limiter.Acquire()
+			defer limiter.Release()
+			_, err = p.makeFile(path, func(w io.Writer) error {
+				fmt.Println("old getting: \nrepo:", repo, "\ncommit:", commit, "\nfileinfo", fileInfo.String())
+				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
+			})
+			return err
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	return eg.Wait()
+}
 
 // Pull clones an entire repo at a certain commit.
 // root is the local path you want to clone to.
@@ -245,84 +246,87 @@ func generateNewPath(root, file string, fileInfo *pfs.FileInfo) (string, error) 
 // mutually exclusive with pipes.
 // tree is a hashtree to mirror the pulled content into (it may be left nil)
 // treeRoot is the root the data is mirrored to within tree
-func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
-	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
-	fmt.Println("Inside puller.Pull")
-	// if err := os.MkdirAll(root, 0700); err != nil {
-	// 	fmt.Println("e0", err)
-	// 	return err
-	// }
-	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
-		newPath, err := collectStatsForNewPath(client, root, file, fileInfo, statsTree, statsRoot)
-		if err != nil {
-			return nil
-		}
-		if fileInfo.FileType == pfs.FileType_DIR {
-			return os.MkdirAll(newPath, 0700)
-		}
-		if pipes {
-			fmt.Println("pipes")
-			return p.makePipe(newPath, func(w io.Writer) error {
-				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
-			})
-		}
-		if emptyFiles {
-			fmt.Println("emptyFiles")
-			f, err := p.makeFile(newPath, func(w io.Writer) error { return nil })
-			f.Close()
-			return err
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	limiter := limit.New(concurrency)
-	var eg errgroup.Group
-	if !pipes && !emptyFiles {
-		fmt.Println("not pipes or emptyFiles")
-		eg.Go(func() (retErr error) {
-			limiter.Acquire()
-			defer limiter.Release()
-			path := ""
-			var oldFile *os.File
-			//defer oldFile.Close()
-			err := client.GetFiles(repo, commit, file, 0, 0, func(fi *pfs.FileInfo, r io.Reader) error {
-				fmt.Println("Getting: \nroot", root, "\nfile", file, "\nfileInfo", fi.String(), "\nstatsRoot", statsRoot)
-				if fi != nil && fi.File != nil && fi.File.Path != "" {
-					fmt.Println("collecting stats on file", file, "fi", fi.File.Path)
-					//newPath, err := collectStatsForNewPath(client, root, file, fi, statsTree, statsRoot)
-					newPath, err := generateNewPath(root, file, fi)
-					if err != nil {
-						fmt.Println("e1", err)
-						return err
-					}
-					if fi.FileType == pfs.FileType_DIR {
-						return os.MkdirAll(newPath, 0700)
-					}
-					path = newPath
-					if oldFile != nil {
-						oldFile.Close()
-					}
-					newFile, err := p.makeFile(path, func(w io.Writer) error {
-						_, err := io.Copy(w, r)
-						return err
-					})
-					oldFile = newFile
-				} else {
-					_, err := io.Copy(oldFile, r)
-					return err
-				}
-				return nil
-			})
-			if oldFile != nil {
-				oldFile.Close()
-			}
-			return err
-		})
-		return eg.Wait()
-	}
-	return nil
-}
+// func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
+// 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
+// 	fmt.Println("Inside puller.Pull")
+// 	// if err := os.MkdirAll(root, 0700); err != nil {
+// 	// 	fmt.Println("e0", err)
+// 	// 	return err
+// 	// }
+// 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
+// 		// TODO(kdelga): decouple nePath generation from stats collection.
+// 		newPath, err := collectStatsForNewPath(client, root, file, fileInfo, statsTree, statsRoot)
+// 		if err != nil {
+// 			return nil
+// 		}
+// 		if fileInfo.FileType == pfs.FileType_DIR {
+// 			return os.MkdirAll(newPath, 0700)
+// 		}
+// 		if pipes {
+// 			fmt.Println("pipes")
+// 			return p.makePipe(newPath, func(w io.Writer) error {
+// 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
+// 			})
+// 		}
+// 		if emptyFiles {
+// 			fmt.Println("emptyFiles")
+// 			f, err := p.makeFile(newPath, func(w io.Writer) error { return nil })
+// 			f.Close()
+// 			return err
+// 		}
+// 		return nil
+// 	}); err != nil {
+// 		return err
+// 	}
+// 	limiter := limit.New(concurrency)
+// 	var eg errgroup.Group
+// 	if !pipes && !emptyFiles {
+// 		fmt.Println("not pipes or emptyFiles")
+// 		eg.Go(func() (retErr error) {
+// 			limiter.Acquire()
+// 			defer limiter.Release()
+// 			path := ""
+// 			var oldFile *os.File
+// 			//defer oldFile.Close()
+// 			fmt.Println("")
+// 			fmt.Println("Getting: \nroot", root, "\nrepo", repo, "\ncommit", commit, "\nfile", file, "\nstatsRoot", statsRoot)
+// 			err := client.GetFiles(repo, commit, file, 0, 0, func(fi *pfs.FileInfo, r io.Reader) error {
+// 				fmt.Println("Got: \nfileInfo", fi.String())
+// 				if fi != nil && fi.File != nil && fi.File.Path != "" {
+// 					fmt.Println("collecting stats on file", file, "fi", fi.File.Path)
+// 					//newPath, err := collectStatsForNewPath(client, root, file, fi, statsTree, statsRoot)
+// 					newPath, err := generateNewPath(root, file, fi)
+// 					if err != nil {
+// 						fmt.Println("e1", err)
+// 						return err
+// 					}
+// 					if fi.FileType == pfs.FileType_DIR {
+// 						return os.MkdirAll(newPath, 0700)
+// 					}
+// 					path = newPath
+// 					if oldFile != nil {
+// 						oldFile.Close()
+// 					}
+// 					newFile, err := p.makeFile(path, func(w io.Writer) error {
+// 						_, err := io.Copy(w, r)
+// 						return err
+// 					})
+// 					oldFile = newFile
+// 				} else {
+// 					_, err := io.Copy(oldFile, r)
+// 					return err
+// 				}
+// 				return nil
+// 			})
+// 			if oldFile != nil {
+// 				oldFile.Close()
+// 			}
+// 			return err
+// 		})
+// 		return eg.Wait()
+// 	}
+// 	return nil
+// }
 
 // PullDiff is like Pull except that it materializes a Diff of the content
 // rather than a the actual content. If newOnly is true then only new files
