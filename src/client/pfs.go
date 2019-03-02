@@ -1027,6 +1027,7 @@ func (c APIClient) GetFile(repoName string, commitID string, path string, offset
 // than size if you pass a value larger than the size of the file.
 // If size is set to 0 then all of the data will be returned.
 func (c APIClient) GetFiles(repoName string, commitID string, path string, offset int64, size int64, f func(fileInfo *pfs.FileInfo, r io.Reader) error) error {
+	fmt.Println("Inside c.GetFiles")
 	gfc, err := c.PfsAPIClient.GetFiles(
 		c.Ctx(),
 		&pfs.GetFileRequest{

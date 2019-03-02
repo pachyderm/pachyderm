@@ -2418,6 +2418,7 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 }
 
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64, recursive bool) (r io.Reader, retErr error) {
+	fmt.Println("inside getFile")
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
@@ -2601,6 +2602,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		}
 
 		// retrieve the content of all objects in 'objects'
+		fmt.Println("obj length", len(objects), "\ntotal size", totalSize)
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
 			&pfs.GetObjectsRequest{
@@ -2615,6 +2617,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
 	}
 	// Handle commits to output repos
+	fmt.Println("output repo")
 	isInput = false
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
@@ -2644,12 +2647,15 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, err
 	}
 	if err := mr.Glob(file.Path, func(path string, node *hashtree.NodeProto) error {
+		fmt.Println("Output globbing path:", path)
 		if node.DirNode != nil {
 			if recursive {
+				fmt.Println("Output: Wallking directory path", path)
 				return mr.Walk(node.GetName(), collectMetadata)
 			}
 			return nil
 		}
+		fmt.Println("Output: Not walking file:", path)
 		collectMetadata(path, node)
 		found = true
 		return nil
@@ -2682,8 +2688,10 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	if err != nil {
 		return err
 	}
-	// var isInput bool
-	// var tree hashtree.HashTree
+	var isInputRepo bool
+	// var fileInfo *pfs.FileInfo
+	fmt.Println("begin isInput", isInputRepo)
+	//var tree hashtree.HashTree
 	var buf bytes.Buffer
 	maxData := int64(grpcutil.MaxMsgSize / 10)
 	parseFilesFromStream := func(p string, node *hashtree.NodeProto) error {
@@ -2691,7 +2699,33 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 		if node.FileNode == nil {
 			return nil
 		}
-		remainingData := node.SubtreeSize
+
+		// Get the file info first
+		// var fileInfo *pfs.FileInfo
+		// if isInputRepo {
+		// 	fmt.Println("fi is input")
+		// 	if tree == nil {
+		// 		fmt.Println("tree nil, something bad")
+		// 	}
+		// 	fileInfo, err = nodeToFileInfoHeaderFooter(commitInfo, p, node, tree, true)
+		// 	if err != nil {
+		// 		fmt.Println("nod to file err", err)
+		// 		return err
+		// 	}
+		// } else {
+		// 	fmt.Println("fi is output")
+		// 	fileInfo = nodeToFileInfo(commitInfo, p, node, true)
+		// }
+
+		// if fileInfo != nil {
+		// 	fmt.Println("fileInfo is nil")
+		// 	fileInfo = nodeToFileInfo(commitInfo, p, node, true)
+		// }
+		fileInfo := nodeToFileInfo(commitInfo, p, node, true)
+		fmt.Println("fileInfo computed", fileInfo.String()) //, "\n tree size is", tree.FSSize())
+
+		// remainingData := node.SubtreeSize
+		remainingData := int64(fileInfo.SizeBytes)
 		i := 0
 		for remainingData > 0 || i == 0 {
 			var err error
@@ -2704,27 +2738,106 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 				return err
 			}
 			gfr := &pfs.GetFileResponse{
-				Value: buf.Bytes(),
+				Value:    buf.Bytes(),
+				FileInfo: fileInfo,
 			}
-			if i == 0 {
-				// var fi *pfs.FileInfo
-				// // commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-				// if isInput {
-				// 	if tree == nil {
-				// 		fmt.Println("tree nil, something bad")
-				// 	}
-				// 	fi, err = nodeToFileInfoHeaderFooter(commitInfo, p, node, tree, true)
-				// 	if err != nil {
-				// 		fmt.Println("nod to file err", err)
-				// 		return err
-				// 	}
-				// } else {
-				// 	fi = nodeToFileInfo(commitInfo, p, node, true)
-				// }
-				// gfr.FileInfo = fi
+			fileInfo = nil
+			// if i == 0 {
+			// 	var fi *pfs.FileInfo
+			// 	// commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+			// 	if isInput {
+			// 		if tree == nil {
+			// 			fmt.Println("tree nil, something bad")
+			// 		}
+			// 		fi, err = nodeToFileInfoHeaderFooter(commitInfo, p, node, tree, true)
+			// 		if err != nil {
+			// 			fmt.Println("nod to file err", err)
+			// 			return err
+			// 		}
+			// 	} else {
+			// 		fi = nodeToFileInfo(commitInfo, p, node, true)
+			// 	}
+			// 	gfr.FileInfo = fi
 
-				gfr.FileInfo = nodeToFileInfo(commitInfo, p, node, true)
+			// 	gfr.FileInfo = nodeToFileInfo(commitInfo, p, node, true)
+			// }
+			fmt.Println("sending gfr", gfr.String())
+			if err := f(gfr); err != nil {
+				return err
 			}
+			remainingData -= maxData
+			buf.Reset()
+			i++
+		}
+		return nil
+	}
+
+	parseFilesFromStreamHF := func(p string, node *hashtree.NodeProto, fileInfo *pfs.FileInfo) error {
+		fmt.Println("parsing getFilesPath path", p, "\nnode", node.String(), "\nsubtree size", node.SubtreeSize)
+		if node.FileNode == nil {
+			return nil
+		}
+
+		// Get the file info first
+		// var fileInfo *pfs.FileInfo
+		// if isInputRepo {
+		// 	fmt.Println("fi is input")
+		// 	if tree == nil {
+		// 		fmt.Println("tree nil, something bad")
+		// 	}
+		// 	fileInfo, err = nodeToFileInfoHeaderFooter(commitInfo, p, node, tree, true)
+		// 	if err != nil {
+		// 		fmt.Println("nod to file err", err)
+		// 		return err
+		// 	}
+		// } else {
+		// 	fmt.Println("fi is output")
+		// 	fileInfo = nodeToFileInfo(commitInfo, p, node, true)
+		// }
+
+		// if fileInfo != nil {
+		// 	fmt.Println("fileInfo is nil")
+		// 	fileInfo = nodeToFileInfo(commitInfo, p, node, true)
+		// }
+		fmt.Println("fileInfo computed", fileInfo.String()) //, "\n tree size is", tree.FSSize())
+
+		// remainingData := node.SubtreeSize
+		remainingData := int64(fileInfo.SizeBytes)
+		i := 0
+		for remainingData > 0 || i == 0 {
+			var err error
+			if remainingData <= maxData {
+				_, err = io.CopyN(&buf, objReader, remainingData)
+			} else {
+				_, err = io.CopyN(&buf, objReader, maxData)
+			}
+			if err != nil && err != io.EOF {
+				return err
+			}
+			gfr := &pfs.GetFileResponse{
+				Value:    buf.Bytes(),
+				FileInfo: fileInfo,
+			}
+			fileInfo = nil
+			// if i == 0 {
+			// 	var fi *pfs.FileInfo
+			// 	// commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+			// 	if isInput {
+			// 		if tree == nil {
+			// 			fmt.Println("tree nil, something bad")
+			// 		}
+			// 		fi, err = nodeToFileInfoHeaderFooter(commitInfo, p, node, tree, true)
+			// 		if err != nil {
+			// 			fmt.Println("nod to file err", err)
+			// 			return err
+			// 		}
+			// 	} else {
+			// 		fi = nodeToFileInfo(commitInfo, p, node, true)
+			// 	}
+			// 	gfr.FileInfo = fi
+
+			// 	gfr.FileInfo = nodeToFileInfo(commitInfo, p, node, true)
+			// }
 			fmt.Println("sending gfr", gfr.String())
 			if err := f(gfr); err != nil {
 				return err
@@ -2742,7 +2855,8 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	// }
 	// Handle commits to input repos
 	if commitInfo.Provenance == nil {
-		// isInput = true
+		isInputRepo = true
+		fmt.Println("setting isInput TRUE", isInputRepo)
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return err
@@ -2752,14 +2866,21 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 				fmt.Println("gfs input glob walk path", p)
 				return tree.Walk(p, parseFilesFromStream)
 			}
-			fmt.Println("gfs input glob parse path", p)
-			return parseFilesFromStream(p, node)
+			fileInfo, err := nodeToFileInfoHeaderFooter(commitInfo, p, node, tree, true)
+			if err != nil {
+				fmt.Println("node to fi err", err)
+				return err
+			}
+			fmt.Println("gfs input glob parse path", p, "\nfile info", fileInfo.String())
+			return parseFilesFromStreamHF(p, node, fileInfo)
+			// return parseFilesFromStream(p, node)
 		})
 		return err
 	}
 
 	// Handle commits to output repos
-	// isInput = false
+	isInputRepo = false
+	fmt.Println("setting isInput FALSE", isInputRepo)
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
@@ -2786,8 +2907,10 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	mr, err := hashtree.NewMergeReader(rs)
 	if err := mr.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
 		if node.DirNode != nil {
+			fmt.Println("gfs output glob walk path", p)
 			return mr.Walk(p, parseFilesFromStream)
 		}
+		fmt.Println("gfs output glob parse path", p)
 		return parseFilesFromStream(p, node)
 	}); err != nil {
 		return err
