@@ -1,18 +1,18 @@
-## Example Developer Workflow
+# Example Developer Workflow
 
-### Introduction
+## Introduction
 
 Pachyderm is a powerful system for providing data provenance and scalable processing to data scientists and engineers.  You can make it even more powerful by integrating it with your existing continuous integration and continuous deployment workflows. If your organization is fielding a new, production data science application, this workflow can help you by making it the foundation of new CI/CD processes you establish within your data science and engineering groups. In this document, we&#39;ll discuss this basic workflow you can use as the basis for your own workflows.
 
 
 
-### Basic workflow
+## Basic workflow
 
 ![alt tag](developer_workflow.png)
 
 Figure 1
 
-As you write code, you test it in containers and notebooks against sample data in Pachyderm repos.  You can also run your code in development pipelines in Pachyderm.  Pachyderm provides facilities to help with day-to-day development practices, including the &quot;--build&quot; and &quot;--push&quot; flags to the &quot;update-pipeline&quot; command, which can build &amp; push or just push images to a local docker registry.
+As you write code, you test it in containers and notebooks against sample data in Pachyderm repos.  You can also run your code in development pipelines in Pachyderm.  Pachyderm provides facilities to help with day-to-day development practices, including the ``--build`` and ``--push`` flags to the ``update-pipeline`` command, which can build &amp; push or just push images to a local docker registry.
 
 There are a couple of things to note about the files shown in git, in the left-hand side of the diagram above.  The pipeline.json template file, in addition to being used for CI/CD as noted below,  could be used with local build targets in a makefile for development purposes: the local build uses DOCKERFILE and creates a pipeline.json for use in development pipelines.  This is optional, of course, but may fit in with some workflows.
 
@@ -35,16 +35,16 @@ The docker image created in the prior step is then pushed to your preferred dock
 
 4. Update-pipeline using template with tagged image
 
-In this step, your CI/CD infrastructure would use the pipeline.json template that was checked in, and fill in the git commit SHA for the version of the image that should be used in this pipeline.  It will then use pachctl&#39;s &quot;update-pipeline&quot; command to push it to pachyderm.
+In this step, your CI/CD infrastructure would use the pipeline.json template that was checked in, and fill in the git commit SHA for the version of the image that should be used in this pipeline.  It will then use ``pachctl``&#39;s ``update-pipeline`` command to push it to pachyderm.
 
 5. Pull tagged image from registry
 
 Pachyderm handles this part automatically for you, but we include it here for completeness.  When the production pipeline is updated with the pipeline.json file that has the correct image tag in it, it will automatically restart all pods for this pipeline with the new image.
 
-### Tracing provenance
+## Tracing provenance
 
-When looking at a job using pachctl&#39;s &quot;inspect-job&quot; command, you can the exact image tag that produced the the commits in that job, bridging from data provenance to code provenance.
+When looking at a job using pachctl&#39;s ``inspect-job`` command, you can the exact image tag that produced the the commits in that job, bridging from data provenance to code provenance.
 
-### Summary
+## Summary
 
 Pachyderm can provide data provenance and reproducibility to your production data science applications by integrating it with your existing continuous integration and continuous deployment workflows, or creating new workflows using standard technologies.
