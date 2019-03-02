@@ -16,24 +16,24 @@ There are a couple of things to note about the files shown in git, in the left-h
 
 Once your code is ready to commit to your git repo, here are the steps that can form the basis of a production workflow.
 
-###1. Git commit hook
+### 1. Git commit hook
 
 A [commit hook in git](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) for your kicks off the
 Continous Integration/Continuous Deployment process.  It should  use the information present in a template for your Pachyderm pipelines for subsequent
 
-###2. Build image
+### 2. Build image
 
 Your CI process should automatically kick off the build of an docker container image based on your code and the DOCKERFILE. That image will be used in the next step.
 
-###3. Push to registry tagged with commit id
+### 3. Push to registry tagged with commit id
 
 The docker image created in the prior step is then pushed to your preferred docker registry and tagged with the git commit SHA, shown as just &quot;tag&quot; in the figure above.
 
-###4. Update-pipeline using template with tagged image
+### 4. Update-pipeline using template with tagged image
 
 In this step, your CI/CD infrastructure would use the pipeline.json template that was checked in, and fill in the git commit SHA for the version of the image that should be used in this pipeline.  It will then use ``pachctl``&#39;s ``update-pipeline`` command to push it to pachyderm.
 
-###5. Pull tagged image from registry
+### 5. Pull tagged image from registry
 
 Pachyderm handles this part automatically for you, but we include it here for completeness.  When the production pipeline is updated with the pipeline.json file that has the correct image tag in it, it will automatically restart all pods for this pipeline with the new image.
 
