@@ -1,38 +1,12 @@
 package server
 
 import (
-	"context"
-	"fmt"
-	"sync"
-
-	"github.com/pachyderm/pachyderm/src/client"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
-	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 )
-
-var initSpecRepoOnce sync.Once
-
-func initSpecRepo(env *serviceenv.ServiceEnv, a *apiServer) {
-	initSpecRepoOnce.Do(func() {
-		// Initialize spec repo
-		if err := a.sudo(
-			env.GetPachClient(context.Background()),
-			func(superUserClient *client.APIClient) error {
-				if err := superUserClient.CreateRepo(ppsconsts.SpecRepo); err != nil {
-					if !isAlreadyExistsErr(err) {
-						return err
-					}
-				}
-				return nil
-			}); err != nil {
-			panic(fmt.Sprintf("could not create pipeline spec repo: %v", err))
-		}
-	})
-}
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
@@ -82,8 +56,7 @@ func NewAPIServer(
 		peerPort:              peerPort,
 	}
 	apiServer.validateKube()
-	initSpecRepo(env, apiServer)
-	go apiServer.master() // calls a.getPachClient(), which initializes spec repo
+	go apiServer.master()
 	return apiServer, nil
 }
 
@@ -114,6 +87,5 @@ func NewSidecarAPIServer(
 		httpPort:       httpPort,
 		peerPort:       peerPort,
 	}
-	initSpecRepo(env, apiServer)
 	return apiServer, nil
 }

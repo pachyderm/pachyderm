@@ -156,6 +156,9 @@ func (env *ServiceEnv) initKubeClient() error {
 // Functions that receive RPCs should call this to convert their RPC context to
 // a Pachyderm client, and internal Pachyderm calls should accept clients
 // returned by this call.
+//
+// (Warning) Do not call this function during server setup unless it is in a goroutine.
+// A Pachyderm client is not available until the server has been setup.
 func (env *ServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
 	if err := env.pachEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover

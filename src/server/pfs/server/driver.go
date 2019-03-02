@@ -123,7 +123,6 @@ func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtre
 	if treeCache == nil {
 		return nil, fmt.Errorf("cannot initialize driver with nil treeCache")
 	}
-
 	// Initialize driver
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
@@ -142,6 +141,18 @@ func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtre
 		storageRoot: storageRoot,
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
+	}
+	// Create spec repo (default repo)
+	repo := client.NewRepo(ppsconsts.SpecRepo)
+	repoInfo := &pfs.RepoInfo{
+		Repo:    repo,
+		Created: now(),
+	}
+	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		return repos.Create(repo.Name, repoInfo)
+	}); err != nil && !col.IsErrExists(err) {
+		return nil, err
 	}
 	return d, nil
 }
