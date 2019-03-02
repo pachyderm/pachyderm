@@ -426,7 +426,7 @@ func NewAmazonClientFromEnv() (Client, error) {
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(url *ObjectStoreURL) (c Client, err error, reversed ...bool) {
+func NewClientFromURLAndSecret(url *ObjectStoreURL, reversed ...bool) (c Client, err error) {
 	switch url.Store {
 	case "s3":
 		c, err = NewAmazonClientFromSecret(url.Bucket, reversed...)
@@ -491,7 +491,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 }
 
 // NewClientFromEnv creates a client based on environment variables.
-func NewClientFromEnv(ctx context.Context, storageRoot string) (c Client, err error) {
+func NewClientFromEnv(storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
 		return nil, fmt.Errorf("storage backend environment variable not found")
@@ -500,7 +500,7 @@ func NewClientFromEnv(ctx context.Context, storageRoot string) (c Client, err er
 	case Amazon:
 		c, err = NewAmazonClientFromEnv()
 	case Google:
-		c, err = NewGoogleClientFromEnv(ctx)
+		c, err = NewGoogleClientFromEnv()
 	case Microsoft:
 		c, err = NewMicrosoftClientFromEnv()
 	case Minio:

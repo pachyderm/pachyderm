@@ -7,12 +7,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/Azure/azure-sdk-for-go/storage"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Azure/azure-sdk-for-go/storage"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 )
 
 // Azure blob storage is a little different from object storage. The best resource for understanding how it works has been:
@@ -215,6 +214,8 @@ func (w *microsoftWriter) writeBlock(b []byte) {
 }
 
 func (w *microsoftWriter) Close() error {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "microsoftWriter.Close")
+	defer tracing.FinishAnySpan(span)
 	if w.buf.Len() > 0 {
 		w.writeBlock(w.buf.Bytes())
 	}

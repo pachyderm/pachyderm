@@ -82,7 +82,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if url.Object == "" {
 			return fmt.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", request.URL)
 		}
-		objClient, err := obj.NewClientFromURLAndSecret(extractServer.Context(), url, false)
+		objClient, err := obj.NewClientFromURLAndSecret(url, false)
 		if err != nil {
 			return err
 		}
@@ -355,7 +355,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				if url.Object == "" {
 					return fmt.Errorf("URL must be <svc>://<bucket>/<object> (no object in %s)", req.URL)
 				}
-				objClient, err := obj.NewClientFromURLAndSecret(restoreServer.Context(), url, false)
+				objClient, err := obj.NewClientFromURLAndSecret(url, false)
 				if err != nil {
 					return err
 				}

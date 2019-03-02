@@ -332,7 +332,7 @@ func (s *objBlockAPIServer) PutObjects(server pfsclient.ObjectAPI_PutObjectsServ
 	putObjectReader := &putObjectReader{
 		server: server,
 	}
-	w, err := s.objClient.Writer(blockPath)
+	w, err := s.objClient.Writer(server.Context(), blockPath)
 	if err != nil {
 		return err
 	}
@@ -345,7 +345,7 @@ func (s *objBlockAPIServer) PutObjects(server pfsclient.ObjectAPI_PutObjectsServ
 	defer grpcutil.PutBuffer(buf)
 	_, err = io.CopyBuffer(w, putObjectReader, buf)
 	if err != nil {
-		s.objClient.Delete(blockPath)
+		s.objClient.Delete(server.Context(), blockPath)
 		return err
 	}
 	return nil
@@ -478,7 +478,7 @@ func (s *objBlockAPIServer) GetBlocks(request *pfsclient.GetBlocksRequest, getBl
 		}
 		if request.TotalSize >= uint64(s.objectCacheBytes/maxCachedObjectDenom) {
 			blockPath := s.blockPath(blockRef.Block)
-			r, err := s.objClient.Reader(blockPath, blockRef.Range.Lower+offset, readSize)
+			r, err := s.objClient.Reader(getBlockServer.Context(), blockPath, blockRef.Range.Lower+offset, readSize)
 			if err != nil {
 				return err
 			}

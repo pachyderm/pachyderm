@@ -34,12 +34,34 @@ func EnableTracing(enabled bool) {
 	enableTracing = enabled
 }
 
+func tagSpan(span opentracing.Span, kvs []interface{}) {
+	for i := 0; i < len(kvs); i += 2 {
+		if len(kvs) == i+1 {
+			span.SetTag("extra", kvs[i]) // likely forgot key or value--best effort
+			break
+		}
+		if key, ok := kvs[i].(string); ok {
+			span.SetTag(key, kvs[i+1]) // common case -- skip printf
+		} else {
+			span.SetTag(fmt.Sprintf("%v", kvs[i]), kvs[i+1])
+		}
+	}
+}
+
+// TagAnySpan adds the tag "key=value" to any span in 'ctx'
+func TagAnySpan(ctx context.Context, kvs ...interface{}) {
+	if span := opentracing.SpanFromContext(ctx); span != nil {
+		tagSpan(span, kvs)
+	}
+}
+
 // AddSpanToAnyExisting checks 'ctx' for Jaeger tracing information, and if
 // tracing metadata is present, it generates a new span for 'operation', marks
 // it as a child of the existing span, and returns it.
-func AddSpanToAnyExisting(ctx context.Context, operation string) (opentracing.Span, context.Context) {
+func AddSpanToAnyExisting(ctx context.Context, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
 	if parentSpan := opentracing.SpanFromContext(ctx); parentSpan != nil {
 		span := opentracing.StartSpan(operation, opentracing.ChildOf(parentSpan.Context()))
+		tagSpan(span, kvs)
 		return span, opentracing.ContextWithSpan(ctx, span)
 	}
 	return nil, ctx

@@ -84,7 +84,7 @@ func (c *minioClient) Writer(ctx context.Context, name string) (io.WriteCloser, 
 	return newMinioWriter(ctx, c, name), nil
 }
 
-func (c *minioClient) Walk(ctx context.Context, name string, fn func(name string) error) error {
+func (c *minioClient) Walk(_ context.Context, name string, fn func(name string) error) error {
 	recursive := true // Recursively walk by default.
 
 	doneCh := make(chan struct{})
@@ -112,6 +112,12 @@ func (l *limitReadCloser) Close() (err error) {
 	return l.mObj.Close()
 }
 
+func (l *limitReadCloser) Read(p []byte) (int, error) {
+	span, _ := tracing.AddSpanToAnyExisting(l.ctx, "minioReader.Read")
+	defer tracing.FinishAnySpan(span)
+	return l.Reader.Read(p)
+}
+
 func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	obj, err := c.GetObject(c.bucket, name)
 	if err != nil {
@@ -133,11 +139,11 @@ func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, si
 
 }
 
-func (c *minioClient) Delete(ctx context.Context, name string) error {
+func (c *minioClient) Delete(_ context.Context, name string) error {
 	return c.RemoveObject(c.bucket, name)
 }
 
-func (c *minioClient) Exists(ctx context.Context, name string) bool {
+func (c *minioClient) Exists(_ context.Context, name string) bool {
 	_, err := c.StatObject(c.bucket, name)
 	return err == nil
 }

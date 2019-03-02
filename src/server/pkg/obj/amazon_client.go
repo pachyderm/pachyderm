@@ -52,7 +52,7 @@ type amazonClient struct {
 	// be written around the same time, and overloading S3. Reversing the
 	// order of keys gives an easy way to spread out S3 assets and
 	// substantially speed up block writing.
-	reversed               bool
+	reversed bool
 }
 
 type vaultCredentialsProvider struct {
@@ -130,7 +130,7 @@ func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
 				v.updateLease(vaultSecret)
 				return nil
 			}, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
-				log.Errorf("couuld not renew vault lease: %v", err)
+				log.Errorf("could not renew vault lease: %v", err)
 				return nil
 			})
 		}
@@ -235,7 +235,7 @@ func (c *amazonClient) Writer(ctx context.Context, name string) (io.WriteCloser,
 	return newBackoffWriteCloser(ctx, c, newWriter(ctx, c, name)), nil
 }
 
-func (c *amazonClient) Walk(ctx context.Context, name string, fn func(name string) error) error {
+func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string) error) error {
 	var fnErr error
 	var prefix *string
 
@@ -332,7 +332,7 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 	return newBackoffReadCloser(ctx, c, reader), nil
 }
 
-func (c *amazonClient) Delete(ctx context.Context, name string) error {
+func (c *amazonClient) Delete(_ context.Context, name string) error {
 	if c.reversed {
 		name = reverse(name)
 	}
@@ -343,7 +343,7 @@ func (c *amazonClient) Delete(ctx context.Context, name string) error {
 	return err
 }
 
-func (c *amazonClient) Exists(ctx context.Context, name string) bool {
+func (c *amazonClient) Exists(_ context.Context, name string) bool {
 	if c.reversed {
 		name = reverse(name)
 	}
@@ -426,10 +426,14 @@ func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWr
 }
 
 func (w *amazonWriter) Write(p []byte) (int, error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "amazonWriter.Write")
+	defer tracing.FinishAnySpan(span)
 	return w.pipe.Write(p)
 }
 
 func (w *amazonWriter) Close() error {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "amazonWriter.Close")
+	defer tracing.FinishAnySpan(span)
 	if err := w.pipe.Close(); err != nil {
 		return err
 	}
