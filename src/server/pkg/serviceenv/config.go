@@ -1,5 +1,6 @@
 package serviceenv
 
+// Configuration is the global configuration structure for Pachyderm.
 type Configuration struct {
 	FeatureFlags
 	// Ports served by Pachd
@@ -38,6 +39,7 @@ type Configuration struct {
 	WorkerUsesRoot        bool   `env:"WORKER_USES_ROOT,default=true"`
 }
 
+// FeatureFlags is the configuration structure for feature flags in Pachyderm.
 type FeatureFlags struct {
 	NewHashTree bool `env:"NEW_HASH_TREE,default=false"`
 }
