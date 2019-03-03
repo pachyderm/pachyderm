@@ -2325,31 +2325,6 @@ func TestSyncFile(t *testing.T) {
 	require.Equal(t, content3, buffer.String())
 }
 
-// func TestSyncEmptyDir(t *testing.T) {
-// 	client := GetPachClient(t)
-
-// 	repo := "repo"
-// 	require.NoError(t, client.CreateRepo(repo))
-
-// 	commit, err := client.StartCommit(repo, "master")
-// 	require.NoError(t, err)
-// 	require.NoError(t, client.FinishCommit(repo, commit.ID))
-
-// 	tmpDir, err := ioutil.TempDir("/tmp", "pfs")
-// 	require.NoError(t, err)
-
-// 	// We want to make sure that Pull creates an empty directory
-// 	// when the path that we are cloning is empty.
-// 	dir := filepath.Join(tmpDir, "tmp")
-
-// 	puller := pfssync.NewPuller()
-// 	require.NoError(t, puller.Pull(client, dir, repo, commit.ID, "/", false, false, 0, nil, ""))
-// 	_, err = os.Stat(dir)
-// 	require.NoError(t, err)
-// 	_, err = puller.CleanUp()
-// 	require.NoError(t, err)
-// }
-
 func TestFlush(t *testing.T) {
 	client := GetPachClient(t)
 	require.NoError(t, client.CreateRepo("A"))

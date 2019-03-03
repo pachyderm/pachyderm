@@ -1383,6 +1383,7 @@ func (m *MergeReader) Walk(walkPath string, f func(string, *NodeProto) error) er
 	return m.maybeProgressReader(before)
 }
 
+// nodes operates a callback on every node in the MergeReader
 func (m *MergeReader) nodes(f func(string, *NodeProto) error) error {
 	for m.mq.q[1] != nil {
 		before, err := m.mq.peek()
@@ -1413,11 +1414,11 @@ func (m *MergeReader) nodes(f func(string, *NodeProto) error) error {
 // If they are the same, that means that no callbacks progressed the reader
 // and thus it must be progressed now.
 // Storing the head before running a hashtree operation (Glob, Walk, etc),
-// calling the callback of the operation by peeking at the head of the reader,
-// and checking it with this function after the operation enables
-// composing these operations together, in ways that would otherwise error out
-// if simply popping the head of the reader was used to access it.
-// (Make this  comment better)
+// calling the callback of the operation with the node obtained
+// by peeking at the head of the reader,
+// and checking it with this function after the operation,
+// enables composing these operations together, in ways that would otherwise error out
+// if simply popping the head of the reader was used to call these operations.
 func (m *MergeReader) maybeProgressReader(before []*MergeNode) error {
 	after, err := m.mq.peek()
 	if err != nil {

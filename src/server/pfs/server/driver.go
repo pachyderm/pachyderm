@@ -2417,6 +2417,10 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 	return tree, nil
 }
 
+// getFile traverses the nodes of an arbitrary glob pattern
+// ultimately generating a stream of bytes (in the form of a reader)
+// of the object storage references containing the data for each node.
+// This byte stream m
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64, recursive bool) (r io.Reader, retErr error) {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -2428,23 +2432,26 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	}
 
 	var (
-		objects   []*pfs.Object
-		blockRefs []*pfs.BlockRef
-		totalSize uint64
-		// isInput   bool
+		objects    []*pfs.Object
+		blockRefs  []*pfs.BlockRef
+		totalSize  uint64
 		found      bool
 		footer     *pfs.Object
 		prevDir    string
 		pathsFound int
 	)
 
+	// collectReferences adds object storage references to a slice
+	// that is converted into a streaming reader after all the nodes
+	// have been traversed. Whether a node contains objects or block
+	// references is determined by whether it originates from an input
+	// or output repo.
 	collectMetadata := func(p string, child *hashtree.NodeProto) error {
 		fmt.Println("collecting metadata: ", p, "\nchild", child.String())
 		if child.FileNode == nil {
 			return nil
 		}
 		if len(child.FileNode.Objects) > 0 {
-			// if isInput {
 			fmt.Println("Collecting input: ", p)
 			objects = append(objects, child.FileNode.Objects...)
 		} else {
@@ -2456,6 +2463,10 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil
 	}
 
+	// attachHeaderFooterToMetadata adds the appropriate header/footer
+	// block before/after the data blocks on the condition that a
+	// node's parent directory has a header/footer.
+	// Only applies to input repos.
 	attachHeaderFooterToMetadata := func(p string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
@@ -2504,7 +2515,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 
 	// Handle commits to input repos
 	if commitInfo.Provenance == nil {
-		// isInput = true
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return nil, err
@@ -2528,7 +2538,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			objects = append(objects, footer) // apply final footer
 		}
 		if pathsFound == 0 {
-			return nil, fmt.Errorf("1 no file(s) found that match %v", file.Path)
+			return nil, fmt.Errorf("file(s) not found that match %v", file.Path)
 		}
 
 		// retrieve the content of all objects in 'objects'
@@ -2552,7 +2562,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return nil, fmt.Errorf("2 no file(s) found that match %v", file.Path)
+		return nil, fmt.Errorf("file(s) not found that match %v", file.Path)
 	}
 	var rs []io.ReadCloser
 	// Handles the case when looking for a specific file/directory
@@ -2593,7 +2603,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	}
 	if !found {
 		// TODO(kdelga): Add regexp flagger NOT FOUND (what JD said)
-		return nil, fmt.Errorf("3 no file(s) found that match %v", file.Path)
+		return nil, fmt.Errorf("file(s) not found that match %v", file.Path)
 	}
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
 		ctx,
@@ -2610,6 +2620,9 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	return grpcutil.NewStreamingBytesReader(getBlocksClient, nil), nil
 }
 
+// getFiles takes the objReader byte stream of object storage references generated in
+// getFile and parses it into GetFileResponses that are then acted upon individually
+// by the callback function f.
 func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, file *pfs.File, f func(*pfs.GetFileResponse) error) (retErr error) {
 	fmt.Println("inside getFiles")
 	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
@@ -2617,14 +2630,17 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 		return err
 	}
 	var isInputRepo bool
-	// var fileInfo *pfs.FileInfo
 	fmt.Println("begin isInput", isInputRepo)
-	//var tree hashtree.HashTree
 	var buf bytes.Buffer
 	maxData := int64(grpcutil.MaxMsgSize / 10)
 
-	// TODO(kdelga): rename this to something sensible, add commentary for what it does.
-	parseFilesFromStreamHF := func(p string, node *hashtree.NodeProto, fileInfo *pfs.FileInfo) error {
+	// parseFiles generates one or more GetFileResponse for the specific node
+	// at the provided path p. The first GetFileResponse for a given node, contains up to
+	// the first 2MB of data as well as FileInfo metadata, while the rest only contain
+	// (up to 2MB of) data.
+	// The fileInfo argument, if provided (i.e.input repo that could potentially have header/footer),
+	// is used for the GetFileResponse for the first block.
+	parseFiles := func(p string, node *hashtree.NodeProto, fileInfo *pfs.FileInfo) error {
 		fmt.Println("parsing getFilesPath path", p, "\nnode", node.String(), "\nsubtree size", node.SubtreeSize)
 		if node.FileNode == nil {
 			return nil
@@ -2680,7 +2696,7 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 					if err != nil {
 						return err
 					}
-					return parseFilesFromStreamHF(pf, nf, fi)
+					return parseFiles(pf, nf, fi)
 				})
 			}
 			fileInfo, err := nodeToFileInfoHeaderFooter(commitInfo, p, node, tree, true)
@@ -2688,7 +2704,7 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 				return err
 			}
 			fmt.Println("gfs input glob parse path", p, "\nfile info", fileInfo.String())
-			return parseFilesFromStreamHF(p, node, fileInfo)
+			return parseFiles(p, node, fileInfo)
 		})
 		return err
 	}
@@ -2700,7 +2716,7 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return fmt.Errorf("4 no file(s) found that match %v", file.Path)
+		return fmt.Errorf("file(s) not found that match %v", file.Path)
 	}
 	var rs []io.ReadCloser
 	// Handles the case when looking for a specific file/directory
@@ -2724,11 +2740,11 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 		if node.DirNode != nil {
 			fmt.Println("gfs output glob walk path", p)
 			return mr.Walk(p, func(pf string, nf *hashtree.NodeProto) error {
-				return parseFilesFromStreamHF(pf, nf, nil)
+				return parseFiles(pf, nf, nil)
 			})
 		}
 		fmt.Println("gfs output glob parse path", p)
-		return parseFilesFromStreamHF(p, node, nil)
+		return parseFiles(p, node, nil)
 	}); err != nil {
 		return err
 	}
@@ -2841,7 +2857,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return nil, fmt.Errorf("5 no file(s) found that match %v", file.Path)
+		return nil, fmt.Errorf("file(s) not found that match %v", file.Path)
 	}
 	rs, err := d.getTree(pachClient, commitInfo, file.Path)
 	if err != nil {

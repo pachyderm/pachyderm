@@ -130,6 +130,7 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (file *os.File, 
 	return file, nil
 }
 
+// TODO(kdelga): comment
 func collectStatsForNewPath(client *pachclient.APIClient, root, file string, fileInfo *pfs.FileInfo, statsTree *hashtree.Ordered, statsRoot string) (string, error) {
 	basepath, err := filepath.Rel(file, fileInfo.File.Path)
 	if err != nil {
@@ -253,8 +254,10 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 	// 	fmt.Println("e0", err)
 	// 	return err
 	// }
+	// TODO(kdelga): comment the walk
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
 		// TODO(kdelga): decouple nePath generation from stats collection.
+		// TODO(kdelga): comment why we have to collect stats here instead of in loop
 		newPath, err := collectStatsForNewPath(client, root, file, fileInfo, statsTree, statsRoot)
 		if err != nil {
 			return nil
