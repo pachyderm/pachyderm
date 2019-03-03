@@ -406,6 +406,7 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	tracing.TagAnySpan(ctx, "file", compactPrintFile(request.File))
 
 	err := a.driver.deleteFile(a.env.GetPachClient(ctx), request.File)
 	if err != nil {
