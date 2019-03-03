@@ -3,6 +3,7 @@ package serviceenv
 import (
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -23,6 +24,8 @@ import (
 // create more, if they want to create multiple pachyderm "clusters" served in
 // separate goroutines.
 type ServiceEnv struct {
+	*Configuration
+
 	// pachAddress is the domain name or hostport where pachd can be reached
 	pachAddress string
 	// pachClient is the "template" client other clients returned by this library
@@ -51,31 +54,36 @@ type ServiceEnv struct {
 	kubeEg errgroup.Group
 }
 
+// InitPachOnlyEnv initializes this service environment. This dials a GRPC
+// connection to pachd only (in a background goroutine), and creates the
+// template pachClient used by future calls to GetPachClient.
+//
+// This call returns immediately, but GetPachClient will block
+// until the client is ready.
+func InitPachOnlyEnv(config *Configuration) *ServiceEnv {
+	env := &ServiceEnv{Configuration: config}
+	env.pachAddress = net.JoinHostPort("localhost", fmt.Sprintf("%d", env.PeerPort))
+	env.pachEg.Go(env.initPachClient)
+	return env // env is not ready yet
+}
+
 // InitServiceEnv initializes this service environment. This dials a GRPC
 // connection to pachd and etcd (in a background goroutine), and creates the
 // template pachClient used by future calls to GetPachClient.
 //
 // This call returns immediately, but GetPachClient and GetEtcdClient block
 // until their respective clients are ready.
-func InitServiceEnv(pachAddress, etcdAddress string) *ServiceEnv {
-	env := &ServiceEnv{
-		pachAddress: pachAddress,
-		etcdAddress: etcdAddress,
-	}
-	env.pachEg.Go(env.initPachClient)
+func InitServiceEnv(config *Configuration) *ServiceEnv {
+	env := InitPachOnlyEnv(config)
+	env.etcdAddress = fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
 	env.etcdEg.Go(env.initEtcdClient)
 	return env // env is not ready yet
 }
 
 // InitWithKube is like InitServiceEnv, but also assumes that it's run inside
 // a kubernetes cluster and tries to connect to the kubernetes API server.
-func InitWithKube(pachAddress, etcdAddress string) *ServiceEnv {
-	env := &ServiceEnv{
-		pachAddress: pachAddress,
-		etcdAddress: etcdAddress,
-	}
-	env.pachEg.Go(env.initPachClient)
-	env.etcdEg.Go(env.initEtcdClient)
+func InitWithKube(config *Configuration) *ServiceEnv {
+	env := InitServiceEnv(config)
 	env.kubeEg.Go(env.initKubeClient)
 	return env // env is not ready yet
 }
@@ -170,6 +178,9 @@ func (env *ServiceEnv) GetPachClient(ctx context.Context) *client.APIClient {
 func (env *ServiceEnv) GetEtcdClient() *etcd.Client {
 	if err := env.etcdEg.Wait(); err != nil {
 		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	if env.etcdClient == nil {
+		panic("service env never connected to etcd")
 	}
 	return env.etcdClient
 }

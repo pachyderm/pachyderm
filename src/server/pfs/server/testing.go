@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -28,7 +29,8 @@ import (
 
 const (
 	testingTreeCacheSize       = 8
-	etcdAddress                = "localhost:32379" // etcd must already be serving at this address
+	etcdHost                   = "localhost"
+	etcdPort                   = "32379"
 	localBlockServerCacheBytes = 256 * 1024 * 1024
 )
 
@@ -82,7 +84,7 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	checkEtcdOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := etcd.New(etcd.Config{
-				Endpoints:   []string{etcdAddress},
+				Endpoints:   []string{net.JoinHostPort(etcdHost, etcdPort)},
 				DialOptions: client.DefaultDialOptions(),
 			})
 			if err != nil {
@@ -95,11 +97,14 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	root := tu.UniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
 	pfsPort := atomic.AddInt32(&port, 1)
-	pfsAddress := fmt.Sprintf("localhost:%d", pfsPort)
 
 	// initialize new BlockAPIServier
-	env := serviceenv.InitServiceEnv(pfsAddress, etcdAddress)
-	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, etcdAddress)
+	config := &serviceenv.Configuration{}
+	config.PeerPort = uint16(pfsPort)
+	config.EtcdHost = etcdHost
+	config.EtcdPort = etcdPort
+	env := serviceenv.InitServiceEnv(config)
+	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, net.JoinHostPort(etcdHost, etcdPort))
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
 	treeCache, err := hashtree.NewCache(testingTreeCacheSize)
