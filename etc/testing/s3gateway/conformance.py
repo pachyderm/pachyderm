@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import sys
 import glob
 import time
@@ -14,6 +15,8 @@ import collections
 TEST_ROOT = os.path.join("etc", "testing", "s3gateway")
 RUNS_ROOT = os.path.join(TEST_ROOT, "runs")
 TRACEBACK_HEADER = "Traceback (most recent call last):\n"
+RAN_PATTERN = re.compile(r"Ran (\d+) tests in [\d\.]+s")
+FAILED_PATTERN = re.compile(r"FAILED \(SKIP=(\d+), errors=(\d+), failures=(\d+)\)")
 
 class Gateway:
     def target(self):
@@ -29,13 +32,28 @@ class Gateway:
             self.proc.kill()
 
 def compute_stats(filename):
-    chars = collections.Counter()
+    ran = 0
+    skipped = 0
+    errored = 0
+    failed = 0
 
     with open(filename, "r") as f:
-        for c in f.readline().rstrip():
-            chars[c] += 1
+        for line in f:
+            match = RAN_PATTERN.match(line)
+            if match:
+                ran = int(match.groups()[0])
+                continue
 
-    return (chars["."] + chars["S"], sum(chars.values()))
+            match = FAILED_PATTERN.match(line)
+            if match:
+                skipped = int(match.groups()[0])
+                errored = int(match.groups()[1])
+                failed = int(match.groups()[2])
+
+    if ran != 0 and skipped != 0 and errored != 0 and failed != 0:
+        return (ran - skipped - errored - failed, ran - skipped)
+    else:
+        return (0, 0)
 
 def test_pass(nose_args):
     proc = subprocess.run("yes | pachctl delete-all", shell=True)
@@ -86,7 +104,7 @@ def main():
     if not args.no_run:
         test_pass(args.nose_args)
 
-    log_files = glob.glob(os.path.join(RUNS_ROOT, "*.txt"))
+    log_files = sorted(glob.glob(os.path.join(RUNS_ROOT, "*.txt")))
 
     if len(log_files) == 0:
         print("No log files found", file=sys.stderr)
@@ -107,11 +125,8 @@ def main():
     in_traceback = False
     causes = collections.Counter()
     with open(filepath, "r") as f:
-        while True:
-            line = f.readline()
-            if line == "":
-                break
-            elif line == TRACEBACK_HEADER:
+        for line in f:
+            if line == TRACEBACK_HEADER:
                 in_traceback = True
             elif in_traceback:
                 if not line.startswith("  "):
