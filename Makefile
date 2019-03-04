@@ -498,7 +498,7 @@ test-s3gateway-integration:
 	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT)
 
 test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
-	./etc/testing/s3gateway/conformance.sh
+	./etc/testing/s3gateway/conformance.py
 
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
