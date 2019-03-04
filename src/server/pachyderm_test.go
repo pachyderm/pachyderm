@@ -8335,6 +8335,22 @@ func TestSpout(t *testing.T) {
 			}
 			prevLength = fileLength
 		}
+		// make sure we can delete commits
+		err = c.DeleteCommit(pipeline, "master")
+		require.NoError(t, err)
+
+		// and make sure we can attatch a downstream pipeline
+		pipeline2 := tu.UniqueString("pipelinespoutdownstream")
+		require.NoError(t, c.CreatePipeline(
+			pipeline2,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
+			nil,
+			client.NewPFSInput(pipeline, "/*"),
+			"",
+			false,
+		))
 	})
 
 	t.Run("SpoutOverwrite", func(t *testing.T) {

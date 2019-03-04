@@ -369,7 +369,7 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 func ShorthandInput(input *ppsclient.Input) string {
 	switch {
 	case input == nil:
-		return ""
+		return "none"
 	case input.Atom != nil:
 		return fmt.Sprintf("%s:%s", input.Atom.Repo, input.Atom.Glob)
 	case input.Pfs != nil:
