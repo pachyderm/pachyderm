@@ -17,7 +17,7 @@ TRACEBACK_HEADER = "Traceback (most recent call last):\n"
 
 class Gateway:
     def target(self):
-        self.proc = subprocess.Popen(["pachctl", "s3gateway"])
+        self.proc = subprocess.Popen(["pachctl", "s3gateway", "-v"])
 
     def __enter__(self):
         t = threading.Thread(target=self.target)
@@ -37,10 +37,10 @@ def compute_stats(filename):
 
     return (chars["."] + chars["S"], sum(chars.values()))
 
-def test_pass():
+def test_pass(nose_args):
     proc = subprocess.run("yes | pachctl delete-all", shell=True)
     if proc.returncode != 0:
-        raise Exception("bad exit code: %d", proc.returncode)
+        raise Exception("bad exit code: {}".format(proc.returncode))
 
     with Gateway():
         for _ in range(10):
@@ -67,12 +67,14 @@ def test_pass():
         cwd = os.path.join(TEST_ROOT, "s3-tests")
 
         with open(filepath, "w") as f:
-            proc = subprocess.run(os.path.join("virtualenv", "bin", "nosetests"), stderr=f, env=env, cwd=cwd)
-            print("Test run exited with %d", proc.returncode)
+            args = [os.path.join("virtualenv", "bin", "nosetests"), nose_args]
+            proc = subprocess.run(args, stderr=f, env=env, cwd=cwd)
+            print("Test run exited with {}".format(proc.returncode))
 
 def main():
     parser = argparse.ArgumentParser(description="Runs conformance tests for the s3gateway.")
     parser.add_argument("--no-run", default=False, action="store_true", help="Disables test run.")
+    parser.add_argument("--nose-args", default="", help="Arguments to be passed into `nosetest`")
     args = parser.parse_args()
 
     output = subprocess.run("ps -ef | grep pachctl | grep -v grep", shell=True, stdout=subprocess.PIPE).stdout
@@ -82,7 +84,7 @@ def main():
         sys.exit(1)
 
     if not args.no_run:
-        test_pass()
+        test_pass(args.nose_args)
 
     log_files = glob.glob(os.path.join(RUNS_ROOT, "*.txt"))
 
@@ -98,9 +100,9 @@ def main():
     stats = compute_stats(filepath)
 
     if old_stats:
-        print("Overall results: %d/%d (vs last run: %d/%d)", *stats, *old_stats)
+        print("Overall results: {}/{} (vs last run: {}/{})".format(*stats, *old_stats))
     else:
-        print("Overall results: %d/%d", *stats)
+        print("Overall results: {}/{}".format(*stats))
 
     in_traceback = False
     causes = collections.Counter()
@@ -118,7 +120,7 @@ def main():
 
     causes = sorted(causes.items(), key=lambda i: i[1], reverse=True)
     for (cause_name, cause_count) in causes:
-        print("%s: %s", cause_name, cause_count)
+        print("{}: {}".format(cause_name, cause_count))
     
 if __name__ == "__main__":
     main()
