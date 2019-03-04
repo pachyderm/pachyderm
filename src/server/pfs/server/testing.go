@@ -99,10 +99,10 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	pfsPort := atomic.AddInt32(&port, 1)
 
 	// initialize new BlockAPIServier
-	config := &serviceenv.Configuration{}
-	config.PeerPort = uint16(pfsPort)
+	config := serviceenv.NewConfiguration(&serviceenv.GlobalConfiguration{})
 	config.EtcdHost = etcdHost
 	config.EtcdPort = etcdPort
+	config.PeerPort = uint16(pfsPort)
 	env := serviceenv.InitServiceEnv(config)
 	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, net.JoinHostPort(etcdHost, etcdPort))
 	require.NoError(t, err)

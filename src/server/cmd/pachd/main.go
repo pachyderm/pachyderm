@@ -74,18 +74,18 @@ func main() {
 
 	switch {
 	case readiness:
-		cmdutil.Main(doReadinessCheck, &serviceenv.Configuration{})
+		cmdutil.Main(doReadinessCheck, &serviceenv.PachdFullConfiguration{})
 	case mode == "full":
-		cmdutil.Main(doFullMode, &serviceenv.Configuration{})
+		cmdutil.Main(doFullMode, &serviceenv.PachdFullConfiguration{})
 	case mode == "sidecar":
-		cmdutil.Main(doSidecarMode, &serviceenv.Configuration{})
+		cmdutil.Main(doSidecarMode, &serviceenv.PachdFullConfiguration{})
 	default:
 		fmt.Printf("unrecognized mode: %s\n", mode)
 	}
 }
 
 func doReadinessCheck(config interface{}) error {
-	env := serviceenv.InitPachOnlyEnv(config.(*serviceenv.Configuration))
+	env := serviceenv.InitPachOnlyEnv(serviceenv.NewConfiguration(config))
 	return env.GetPachClient(context.Background()).Health()
 }
 
@@ -95,7 +95,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	env := serviceenv.InitWithKube(config.(*serviceenv.Configuration))
+	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
@@ -210,7 +210,7 @@ func doFullMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
-	env := serviceenv.InitWithKube(config.(*serviceenv.Configuration))
+	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
