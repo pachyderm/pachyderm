@@ -2447,16 +2447,13 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	// references is determined by whether it originates from an input
 	// or output repo.
 	collectMetadata := func(p string, child *hashtree.NodeProto) error {
-		fmt.Println("collecting metadata: ", p, "\nchild", child.String())
 		if child.FileNode == nil {
 			return nil
 		}
 		if len(child.FileNode.Objects) > 0 {
-			fmt.Println("Collecting input: ", p)
 			objects = append(objects, child.FileNode.Objects...)
 		} else {
 			found = true
-			fmt.Println("Collecting output: ", p)
 			blockRefs = append(blockRefs, child.FileNode.BlockRefs...)
 		}
 		totalSize += uint64(child.SubtreeSize)
@@ -2520,16 +2517,13 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			return nil, err
 		}
 		if err := tree.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
-			fmt.Println("Input globbing path:", p)
 			pathsFound++
 			if node.DirNode != nil {
 				if recursive {
-					fmt.Println("Input: Wallking directory path", p)
 					return tree.Walk(node.GetName(), attachHeaderFooterToMetadata)
 				}
 				return nil
 			}
-			fmt.Println("Input: Not walking file:", p)
 			return attachHeaderFooterToMetadata(p, node)
 		}); err != nil {
 			return nil, err
@@ -2542,7 +2536,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		}
 
 		// retrieve the content of all objects in 'objects'
-		fmt.Println("obj length", len(objects), "\ntotal size", totalSize)
 		getObjectsClient, err := pachClient.ObjectAPIClient.GetObjects(
 			ctx,
 			&pfs.GetObjectsRequest{
@@ -2557,7 +2550,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return grpcutil.NewStreamingBytesReader(getObjectsClient, nil), nil
 	}
 	// Handle commits to output repos
-	fmt.Println("output repo")
 	if commitInfo.Finished == nil {
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
@@ -2586,15 +2578,12 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, err
 	}
 	if err := mr.Glob(file.Path, func(path string, node *hashtree.NodeProto) error {
-		fmt.Println("Output globbing path:", path)
 		if node.DirNode != nil {
 			if recursive {
-				fmt.Println("Output: Wallking directory path", path)
 				return mr.Walk(node.GetName(), collectMetadata)
 			}
 			return nil
 		}
-		fmt.Println("Output: Not walking file:", path)
 		collectMetadata(path, node)
 		found = true
 		return nil
@@ -2602,7 +2591,6 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, err
 	}
 	if !found {
-		// TODO(kdelga): Add regexp flagger NOT FOUND (what JD said)
 		return nil, fmt.Errorf("file(s) not found that match %v", file.Path)
 	}
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
@@ -2624,33 +2612,27 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 // getFile and parses it into GetFileResponses that are then acted upon individually
 // by the callback function f.
 func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, file *pfs.File, f func(*pfs.GetFileResponse) error) (retErr error) {
-	fmt.Println("inside getFiles")
 	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
-	var isInputRepo bool
-	fmt.Println("begin isInput", isInputRepo)
 	var buf bytes.Buffer
 	maxData := int64(grpcutil.MaxMsgSize / 10)
 
 	// parseFiles generates one or more GetFileResponse for the specific node
 	// at the provided path p. The first GetFileResponse for a given node, contains up to
 	// the first 2MB of data as well as FileInfo metadata, while the rest only contain
-	// (up to 2MB of) data.
+	// (up to 2MB of) data and nil FileInfo.
 	// The fileInfo argument, if provided (i.e.input repo that could potentially have header/footer),
-	// is used for the GetFileResponse for the first block.
+	// is used as the GetFileResponse for the first block.
 	parseFiles := func(p string, node *hashtree.NodeProto, fileInfo *pfs.FileInfo) error {
-		fmt.Println("parsing getFilesPath path", p, "\nnode", node.String(), "\nsubtree size", node.SubtreeSize)
 		if node.FileNode == nil {
 			return nil
 		}
 
 		if fileInfo == nil {
-			fmt.Println("fileInfo is nil")
 			fileInfo = nodeToFileInfo(commitInfo, p, node, true)
 		}
-		fmt.Println("fileInfo computed", fileInfo.String()) //, "\n tree size is", tree.FSSize())
 
 		remainingData := int64(fileInfo.SizeBytes)
 		i := 0
@@ -2669,7 +2651,6 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 				FileInfo: fileInfo,
 			}
 			fileInfo = nil
-			fmt.Println("sending gfr", gfr.String())
 			if err := f(gfr); err != nil {
 				return err
 			}
@@ -2682,15 +2663,12 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 
 	// Handle commits to input repos
 	if commitInfo.Provenance == nil {
-		isInputRepo = true
-		fmt.Println("setting isInput TRUE", isInputRepo)
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return err
 		}
 		err = tree.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
 			if node.DirNode != nil {
-				fmt.Println("gfs input glob walk path", p)
 				return tree.Walk(p, func(pf string, nf *hashtree.NodeProto) error {
 					fi, err := nodeToFileInfoHeaderFooter(commitInfo, pf, nf, tree, true)
 					if err != nil {
@@ -2703,15 +2681,12 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 			if err != nil {
 				return err
 			}
-			fmt.Println("gfs input glob parse path", p, "\nfile info", fileInfo.String())
 			return parseFiles(p, node, fileInfo)
 		})
 		return err
 	}
 
 	// Handle commits to output repos
-	isInputRepo = false
-	fmt.Println("setting isInput FALSE", isInputRepo)
 	if commitInfo.Finished == nil {
 		return fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
@@ -2738,12 +2713,10 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	mr, err := hashtree.NewMergeReader(rs)
 	if err := mr.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
 		if node.DirNode != nil {
-			fmt.Println("gfs output glob walk path", p)
 			return mr.Walk(p, func(pf string, nf *hashtree.NodeProto) error {
 				return parseFiles(pf, nf, nil)
 			})
 		}
-		fmt.Println("gfs output glob parse path", p)
 		return parseFiles(p, node, nil)
 	}); err != nil {
 		return err
