@@ -131,10 +131,10 @@ func (p *Puller) makeFile(path string, f func(io.Writer) error) (file *os.File, 
 }
 
 // TODO(kdelga): comment
-func collectStatsForNewPath(client *pachclient.APIClient, root, file string, fileInfo *pfs.FileInfo, statsTree *hashtree.Ordered, statsRoot string) (string, error) {
+func collectStatsForNewPath(client *pachclient.APIClient, root, file string, fileInfo *pfs.FileInfo, statsTree *hashtree.Ordered, statsRoot string) error {
 	basepath, err := filepath.Rel(file, fileInfo.File.Path)
 	if err != nil {
-		return "", err
+		return err
 	}
 	if statsTree != nil {
 		statsPath := filepath.Join(statsRoot, basepath)
@@ -148,7 +148,7 @@ func collectStatsForNewPath(client *pachclient.APIClient, root, file string, fil
 			for _, object := range fileInfo.Objects {
 				objectInfo, err := client.InspectObject(object.Hash)
 				if err != nil {
-					return "", err
+					return err
 				}
 				blockRefs = append(blockRefs, objectInfo.BlockRef)
 			}
@@ -157,86 +157,18 @@ func collectStatsForNewPath(client *pachclient.APIClient, root, file string, fil
 			statsTree.PutFile(statsPath, fileInfo.Hash, int64(fileInfo.SizeBytes), &hashtree.FileNodeProto{BlockRefs: blockRefs})
 		}
 	}
-	path := filepath.Join(root, basepath)
-	return path, nil
+	// path := filepath.Join(root, basepath)
+	// return path, nil
+	return nil
 }
 
 func generateNewPath(root, file string, fileInfo *pfs.FileInfo) (string, error) {
 	basepath, err := filepath.Rel(file, fileInfo.File.Path)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	return filepath.Join(root, basepath), nil
 }
-
-// Pull clones an entire repo at a certain commit.
-// root is the local path you want to clone to.
-// fileInfo is the file/dir we are pulling.
-// pipes causes the function to create named pipes in place of files, thus
-// lazily downloading the data as it's needed.
-// emptyFiles causes the function to create empty files with no content, it's
-// mutually exclusive with pipes.
-// tree is a hashtree to mirror the pulled content into (it may be left nil)
-// treeRoot is the root the data is mirrored to within tree
-// func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
-// 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
-// 	limiter := limit.New(concurrency)
-// 	var eg errgroup.Group
-// 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
-// 		fmt.Println("Walking: \nroot", root, "\nfile", file, "\nfileInfo", fileInfo.String(), "\nstatsRoot", statsRoot)
-// 		basepath, err := filepath.Rel(file, fileInfo.File.Path)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if statsTree != nil {
-// 			statsPath := filepath.Join(statsRoot, basepath)
-// 			if fileInfo.FileType == pfs.FileType_DIR {
-// 				fmt.Println("not putting dir ", statsPath)
-// 				statsTree.PutDir(statsPath)
-// 			} else {
-// 				var blockRefs []*pfs.BlockRef
-// 				for _, object := range fileInfo.Objects {
-// 					objectInfo, err := client.InspectObject(object.Hash)
-// 					if err != nil {
-// 						return err
-// 					}
-// 					blockRefs = append(blockRefs, objectInfo.BlockRef)
-// 				}
-
-// 				blockRefs = append(blockRefs, fileInfo.BlockRefs...)
-// 				fmt.Println("putting files: \n statsPath", statsPath, "\n obj length", len(fileInfo.Objects), "\nblock length", len(blockRefs))
-// 				statsTree.PutFile(statsPath, fileInfo.Hash, int64(fileInfo.SizeBytes), &hashtree.FileNodeProto{BlockRefs: blockRefs})
-// 			}
-// 		}
-// 		path := filepath.Join(root, basepath)
-// 		if fileInfo.FileType == pfs.FileType_DIR {
-// 			return os.MkdirAll(path, 0700)
-// 		}
-// 		if pipes {
-// 			return p.makePipe(path, func(w io.Writer) error {
-// 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
-// 			})
-// 		}
-// 		if emptyFiles {
-// 			f, err := p.makeFile(path, func(w io.Writer) error { return nil })
-// 			f.Close()
-// 			return err
-// 		}
-// 		eg.Go(func() (retErr error) {
-// 			limiter.Acquire()
-// 			defer limiter.Release()
-// 			_, err = p.makeFile(path, func(w io.Writer) error {
-// 				fmt.Println("old getting: \nrepo:", repo, "\ncommit:", commit, "\nfileinfo", fileInfo.String())
-// 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
-// 			})
-// 			return err
-// 		})
-// 		return nil
-// 	}); err != nil {
-// 		return err
-// 	}
-// 	return eg.Wait()
-// }
 
 // Pull clones an entire repo at a certain commit.
 // root is the local path you want to clone to.
@@ -258,22 +190,29 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
 		// TODO(kdelga): decouple nePath generation from stats collection.
 		// TODO(kdelga): comment why we have to collect stats here instead of in loop
-		newPath, err := collectStatsForNewPath(client, root, file, fileInfo, statsTree, statsRoot)
+		// We must collect stats here instead of in the GetFiles callback because walk
+		// triggers a callback for every node (dir and files) under the root, whereas
+		// GetFiles only triggers a callback for every file.
+		// path = generateNewPath(root, file, fileInfo)
+		if err := collectStatsForNewPath(client, root, file, fileInfo, statsTree, statsRoot); err != nil {
+			return nil
+		}
+		path, err := generateNewPath(root, file, fileInfo)
 		if err != nil {
 			return nil
 		}
 		if fileInfo.FileType == pfs.FileType_DIR {
-			return os.MkdirAll(newPath, 0700)
+			return os.MkdirAll(path, 0700)
 		}
 		if pipes {
 			fmt.Println("pipes")
-			return p.makePipe(newPath, func(w io.Writer) error {
+			return p.makePipe(path, func(w io.Writer) error {
 				return client.GetFile(repo, commit, fileInfo.File.Path, 0, 0, w)
 			})
 		}
 		if emptyFiles {
 			fmt.Println("emptyFiles")
-			f, err := p.makeFile(newPath, func(w io.Writer) error { return nil })
+			f, err := p.makeFile(path, func(w io.Writer) error { return nil })
 			f.Close()
 			return err
 		}
@@ -288,7 +227,7 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 		eg.Go(func() (retErr error) {
 			limiter.Acquire()
 			defer limiter.Release()
-			path := ""
+			// path := ""
 			var oldFile *os.File
 			//defer oldFile.Close()
 			fmt.Println("")
@@ -298,15 +237,15 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 				if fi != nil && fi.File != nil && fi.File.Path != "" {
 					fmt.Println("collecting stats on file", file, "fi", fi.File.Path)
 					//newPath, err := collectStatsForNewPath(client, root, file, fi, statsTree, statsRoot)
-					newPath, err := generateNewPath(root, file, fi)
+					path, err := generateNewPath(root, file, fi)
 					if err != nil {
 						fmt.Println("e1", err)
 						return err
 					}
 					if fi.FileType == pfs.FileType_DIR {
-						return os.MkdirAll(newPath, 0700)
+						return os.MkdirAll(path, 0700)
 					}
-					path = newPath
+					// path = newPath
 					if oldFile != nil {
 						oldFile.Close()
 					}
