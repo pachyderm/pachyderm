@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -101,7 +100,7 @@ func main() {
 // worker is part of.
 // getPipelineInfo has the side effect of adding auth to the passed pachClient
 // which is necessary to get the PipelineInfo from pfs.
-func getPipelineInfo(env *serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
+func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	resp, err := env.GetEtcdClient().Get(ctx, path.Join(env.PPSEtcdPrefix, "pipelines", env.PPSPipelineName))
@@ -115,7 +114,6 @@ func getPipelineInfo(env *serviceenv.ServiceEnv) (*pps.PipelineInfo, error) {
 	if err := pipelinePtr.Unmarshal(resp.Kvs[0].Value); err != nil {
 		return nil, err
 	}
-	pachClient := env.GetPachClient(ctx)
 	pachClient.SetAuthToken(pipelinePtr.AuthToken)
 	// Notice we use the SpecCommitID from our env, not from etcd. This is
 	// because the value in etcd might get updated while the worker pod is
@@ -133,20 +131,17 @@ func do(config interface{}) error {
 	}()
 
 	// Construct a client that connects to the sidecar.
-	pachClient, err := client.NewFromAddress(net.JoinHostPort("localhost", fmt.Sprintf("%d", env.PeerPort)))
-	if err != nil {
-		return fmt.Errorf("error constructing pachClient: %v", err)
-	}
+	pachClient := env.GetPachClient(context.Background())
 
 	// Get etcd client, so we can register our IP (so pachd can discover us)
-	pipelineInfo, err := getPipelineInfo(env)
+	pipelineInfo, err := getPipelineInfo(pachClient, env)
 	if err != nil {
 		return fmt.Errorf("error getting pipelineInfo: %v", err)
 	}
 
 	// Construct worker API server.
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version)
-	apiServer, err := worker.NewAPIServer(env.GetPachClient(context.Background()), env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, env.StorageRoot)
+	apiServer, err := worker.NewAPIServer(pachClient, env.GetEtcdClient(), env.PPSEtcdPrefix, pipelineInfo, env.PodName, env.Namespace, env.StorageRoot)
 	if err != nil {
 		return err
 	}
