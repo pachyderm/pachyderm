@@ -539,7 +539,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 					return nil, err
 				}
 				if ppsutil.IsTerminal(jobPtr.State) {
-					return a.jobInfoFromPtr(pachClient, jobPtr)
+					return a.jobInfoFromPtr(pachClient, jobPtr, true)
 				}
 			}
 		}
@@ -549,7 +549,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	if err := jobs.Get(request.Job.ID, jobPtr); err != nil {
 		return nil, err
 	}
-	jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr)
+	jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr, true)
 	if err != nil {
 		return nil, err
 	}
@@ -624,7 +624,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	jobs := a.jobs.ReadOnly(pachClient.Ctx())
 	jobPtr := &pps.EtcdJobInfo{}
 	_f := func(key string) error {
-		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr)
+		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr, false)
 		if err != nil {
 			if isNotFoundErr(err) {
 				// This can happen if a user deletes an upstream commit and thereby
@@ -665,7 +665,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	}
 }
 
-func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.EtcdJobInfo) (*pps.JobInfo, error) {
+func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.EtcdJobInfo, full bool) (*pps.JobInfo, error) {
 	result := &pps.JobInfo{
 		Job:           jobPtr.Job,
 		Pipeline:      jobPtr.Pipeline,
@@ -711,30 +711,32 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	// was created, this prevents races between updating a pipeline and
 	// previous jobs running.
 	pipelinePtr.SpecCommit = specCommit
-	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
+	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr, full)
 	if err != nil {
 		return nil, err
 	}
-	result.Transform = pipelineInfo.Transform
-	result.PipelineVersion = pipelineInfo.Version
-	result.ParallelismSpec = pipelineInfo.ParallelismSpec
-	result.Egress = pipelineInfo.Egress
-	result.Service = pipelineInfo.Service
+	if full {
+		result.Transform = pipelineInfo.Transform
+		result.PipelineVersion = pipelineInfo.Version
+		result.ParallelismSpec = pipelineInfo.ParallelismSpec
+		result.Egress = pipelineInfo.Egress
+		result.Service = pipelineInfo.Service
+		result.OutputBranch = pipelineInfo.OutputBranch
+		result.ResourceRequests = pipelineInfo.ResourceRequests
+		result.ResourceLimits = pipelineInfo.ResourceLimits
+		result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
+		result.Incremental = pipelineInfo.Incremental
+		result.EnableStats = pipelineInfo.EnableStats
+		result.Salt = pipelineInfo.Salt
+		result.Batch = pipelineInfo.Batch
+		result.ChunkSpec = pipelineInfo.ChunkSpec
+		result.DatumTimeout = pipelineInfo.DatumTimeout
+		result.JobTimeout = pipelineInfo.JobTimeout
+		result.DatumTries = pipelineInfo.DatumTries
+		result.SchedulingSpec = pipelineInfo.SchedulingSpec
+		result.PodSpec = pipelineInfo.PodSpec
+	}
 	result.OutputRepo = &pfs.Repo{Name: jobPtr.Pipeline.Name}
-	result.OutputBranch = pipelineInfo.OutputBranch
-	result.ResourceRequests = pipelineInfo.ResourceRequests
-	result.ResourceLimits = pipelineInfo.ResourceLimits
-	result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
-	result.Incremental = pipelineInfo.Incremental
-	result.EnableStats = pipelineInfo.EnableStats
-	result.Salt = pipelineInfo.Salt
-	result.Batch = pipelineInfo.Batch
-	result.ChunkSpec = pipelineInfo.ChunkSpec
-	result.DatumTimeout = pipelineInfo.DatumTimeout
-	result.JobTimeout = pipelineInfo.JobTimeout
-	result.DatumTries = pipelineInfo.DatumTries
-	result.SchedulingSpec = pipelineInfo.SchedulingSpec
-	result.PodSpec = pipelineInfo.PodSpec
 	return result, nil
 }
 
@@ -1856,7 +1858,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			// Read existing PipelineInfo from PFS output repo
 			return a.pipelines.ReadWrite(stm).Update(pipelineName, &pipelinePtr, func() error {
 				var err error
-				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, &pipelinePtr, true)
 				if err != nil {
 					return err
 				}
@@ -2047,7 +2049,7 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		return nil, err
 	}
 	pipelinePtr.SpecCommit.ID = ancestry.Add(pipelinePtr.SpecCommit.ID, ancestors)
-	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+	pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, &pipelinePtr, true)
 	if err != nil {
 		return nil, err
 	}
@@ -2114,7 +2116,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	pipelineInfos := &pps.PipelineInfos{}
 	pipelinePtr := &pps.EtcdPipelineInfo{}
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(pipelinePtr, col.DefaultOptions, func(string) error {
-		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr)
+		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr, true)
 		if err != nil {
 			return err
 		}
