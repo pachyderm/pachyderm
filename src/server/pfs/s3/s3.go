@@ -49,7 +49,7 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	// bucket-related routes
 	// repo validation regex is the same as minio
 	bucketHandler := newBucketHandler(pc)
-	bucketRouter := router.Path(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}`).Subrouter()
+	bucketRouter := router.Path(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`).Subrouter()
 	bucketRouter.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(bucketHandler.location)
 	bucketRouter.Methods("GET", "HEAD").HandlerFunc(bucketHandler.get)
 	bucketRouter.Methods("PUT").HandlerFunc(bucketHandler.put)
