@@ -43,15 +43,13 @@ var repoMatcher = regexp.MustCompile(`^/[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]/.*`)
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
 func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipartDir string) *http.Server {
-	// strict slash is enabled because we don't want to serve back redirects
-	// for typical s3 requests, which usually include a trailing /
-	router := mux.NewRouter().StrictSlash(true)
+	router := mux.NewRouter()
 	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
 
 	// bucket-related routes
 	// repo validation regex is the same as minio
 	bucketHandler := newBucketHandler(pc)
-	bucketRouter := router.Path(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`).Subrouter()
+	bucketRouter := router.Path(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}`).Subrouter()
 	bucketRouter.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(bucketHandler.location)
 	bucketRouter.Methods("GET", "HEAD").HandlerFunc(bucketHandler.get)
 	bucketRouter.Methods("PUT").HandlerFunc(bucketHandler.put)
