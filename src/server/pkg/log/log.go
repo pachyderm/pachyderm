@@ -70,8 +70,11 @@ func newLogger(service string, exportStats bool) Logger {
 				},
 			)
 			if err := prometheus.Register(newReportMetricGauge); err != nil {
-				entry := newLogger.WithFields(logrus.Fields{"method": "NewLogger"})
-				newLogger.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", newReportMetricGauge), err)
+				// metrics may be redundantly registered; ignore these errors
+				if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+					entry := newLogger.WithFields(logrus.Fields{"method": "NewLogger"})
+					newLogger.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric: %v", newReportMetricGauge), err)
+				}
 			} else {
 				reportMetricGauge = newReportMetricGauge
 			}
@@ -150,7 +153,10 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 				},
 			)
 			if err := prometheus.Register(runTime); err != nil {
-				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", runTime, runTimeName), err)
+				// metrics may be redundantly registered; ignore these errors
+				if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+					l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", runTime, runTimeName), err)
+				}
 			} else {
 				l.histogram[runTimeName] = runTime
 			}
@@ -174,7 +180,10 @@ func (l *logger) ReportMetric(method string, duration time.Duration, err error) 
 			},
 		)
 		if err := prometheus.Register(secondsCount); err != nil {
-			l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", secondsCount, secondsCountName), err)
+			// metrics may be redundantly registered; ignore these errors
+			if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+				l.LogAtLevel(entry, logrus.WarnLevel, fmt.Sprintf("error registering prometheus metric %v: %v", secondsCount, secondsCountName), err)
+			}
 		} else {
 			l.counter[secondsCountName] = secondsCount
 		}
