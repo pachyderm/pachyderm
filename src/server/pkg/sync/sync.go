@@ -203,47 +203,37 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 	}); err != nil {
 		return err
 	}
-	limiter := limit.New(concurrency)
-	var eg errgroup.Group
 	if !pipes && !emptyFiles {
-		eg.Go(func() (retErr error) {
-			limiter.Acquire()
-			defer limiter.Release()
-			var oldFile *os.File
-			// for the common case, when neither pipes nor emptyFiles are set, we make a recursive
-			// GetFiles call in order to retrieve all the data for the repo from object storage in a single call.
-			if err := client.GetFiles(repo, commit, file, 0, 0, func(fileInfo *pfs.FileInfo, r io.Reader) error {
-				if fileInfo != nil && fileInfo.File != nil {
-					basepath, err := filepath.Rel(file, fileInfo.File.Path)
-					if err != nil {
-						return err
-					}
-					path := filepath.Join(root, basepath)
-					if fileInfo.FileType == pfs.FileType_DIR {
-						return os.MkdirAll(path, 0700)
-					}
-					if oldFile != nil {
-						oldFile.Close()
-					}
-					newFile, err := p.makeFile(path, true, func(w io.Writer) error {
-						_, err := io.Copy(w, r)
-						return err
-					})
-					oldFile = newFile
-				} else {
-					_, err := io.Copy(oldFile, r)
+		var oldFile *os.File
+		// for the common case, when neither pipes nor emptyFiles are set, we make a recursive
+		// GetFiles call in order to retrieve all the data for the repo from object storage in a single call.
+		if err := client.GetFiles(repo, commit, file, 0, 0, func(fileInfo *pfs.FileInfo, r io.Reader) error {
+			if fileInfo != nil && fileInfo.File != nil {
+				basepath, err := filepath.Rel(file, fileInfo.File.Path)
+				if err != nil {
 					return err
 				}
-				return nil
-			}); err != nil {
-				return err
+				path := filepath.Join(root, basepath)
+				if fileInfo.FileType == pfs.FileType_DIR {
+					return os.MkdirAll(path, 0700)
+				}
+				if oldFile != nil {
+					oldFile.Close()
+				}
+				newFile, err := p.makeFile(path, true, func(w io.Writer) error {
+					return nil
+				})
+				oldFile = newFile
 			}
-			if oldFile != nil {
-				return oldFile.Close()
-			}
-			return nil
-		})
-		return eg.Wait()
+			_, err := io.Copy(oldFile, r)
+			return err
+		}); err != nil {
+			return err
+		}
+		if oldFile != nil {
+			return oldFile.Close()
+		}
+		return nil
 	}
 	return nil
 }

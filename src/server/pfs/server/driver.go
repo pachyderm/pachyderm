@@ -2420,7 +2420,6 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 // getFile traverses the nodes of an arbitrary glob pattern
 // ultimately generating a stream of bytes (in the form of a reader)
 // of the object storage references containing the data for each node.
-// This byte stream m
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64, recursive bool) (r io.Reader, retErr error) {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -2446,7 +2445,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	// have been traversed. Whether a node contains objects or block
 	// references is determined by whether it originates from an input
 	// or output repo.
-	collectMetadata := func(p string, child *hashtree.NodeProto) error {
+	collectReferences := func(p string, child *hashtree.NodeProto) error {
 		if child.FileNode == nil {
 			return nil
 		}
@@ -2507,7 +2506,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 				}
 			}
 		}
-		return collectMetadata(p, node)
+		return collectReferences(p, node)
 	}
 
 	// Handle commits to input repos
@@ -2580,11 +2579,11 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 	if err := mr.Glob(file.Path, func(path string, node *hashtree.NodeProto) error {
 		if node.DirNode != nil {
 			if recursive {
-				return mr.Walk(node.GetName(), collectMetadata)
+				return mr.Walk(node.GetName(), collectReferences)
 			}
 			return nil
 		}
-		collectMetadata(path, node)
+		collectReferences(path, node)
 		found = true
 		return nil
 	}); err != nil {

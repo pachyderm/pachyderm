@@ -1150,30 +1150,25 @@ func (mq *mergePQ) peek() ([]*MergeNode, error) {
 		return nil, errutil.ErrBreak
 	}
 	ns := []*MergeNode{mq.q[1].node}
-	mq.traverse(func(i, next int) {
-		ns = append(ns, mq.q[i].node)
-	})
-	return ns, nil
-}
-
-func (mq *mergePQ) traverse(f func(int, int)) {
 	i := 1
-	var next int
-	for {
-		l, r := i*2, i*2+1
-		if l > mq.size {
-			break
-		} else if r > mq.size || bytes.Compare(mq.k(l), mq.k(r)) <= 0 {
-			next = l
-		} else {
-			next = r
+	queue := []int{i}
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		if bytes.Compare(mq.k(1), mq.k(cur)) == 0 {
+			if cur != 1 {
+				ns = append(ns, mq.q[cur].node)
+			}
+			l, r := cur*2, cur*2+1
+			if l <= mq.size {
+				queue = append(queue, l)
+			}
+			if r <= mq.size {
+				queue = append(queue, r)
+			}
 		}
-		if bytes.Compare(mq.k(i), mq.k(next)) <= 0 {
-			break
-		}
-		f(i, next)
-		i = next
 	}
+	return ns, nil
 }
 
 func merge(ns []*MergeNode) (*MergeNode, error) {
@@ -1218,9 +1213,23 @@ func (mq *mergePQ) fill() error {
 	mq.q[mq.size] = nil
 	mq.size--
 	// Propagate last stream down the queue
-	mq.traverse(func(i, next int) {
+	i := 1
+	var next int
+	for {
+		l, r := i*2, i*2+1
+		if l > mq.size {
+			break
+		} else if r > mq.size || bytes.Compare(mq.k(l), mq.k(r)) <= 0 {
+			next = l
+		} else {
+			next = r
+		}
+		if bytes.Compare(mq.k(i), mq.k(next)) <= 0 {
+			break
+		}
 		mq.swap(i, next)
-	})
+		i = next
+	}
 	// Re-insert stream
 	return mq.insert(ns)
 }
@@ -1428,7 +1437,7 @@ func (m *MergeReader) maybeProgressReader(before []*MergeNode) error {
 		return err
 	}
 	if bytes.Compare(after[0].k, before[0].k) == 0 {
-		// Reader was no previously progressed, progress it now.
+		// Reader was not previously progressed, progress it now.
 		_, err := m.mq.next()
 		if err != nil {
 			return err
