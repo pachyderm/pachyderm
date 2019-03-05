@@ -8340,9 +8340,9 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, err)
 
 		// and make sure we can attatch a downstream pipeline
-		pipeline2 := tu.UniqueString("pipelinespoutdownstream")
+		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
 		require.NoError(t, c.CreatePipeline(
-			pipeline2,
+			downstreamPipeline,
 			"",
 			[]string{"/bin/bash"},
 			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
@@ -8351,6 +8351,11 @@ func TestSpout(t *testing.T) {
 			"",
 			false,
 		))
+
+		// we should have one job between pipeline and downstreamPipeline
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master")}, []string{downstreamPipeline})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfos))
 	})
 
 	t.Run("SpoutOverwrite", func(t *testing.T) {
