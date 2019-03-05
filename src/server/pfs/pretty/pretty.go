@@ -55,6 +55,13 @@ type PrintableRepoInfo struct {
 	FullTimestamp bool
 }
 
+// NewPrintableRepoInfo constructs a PrintableRepoInfo from just a RepoInfo.
+func NewPrintableRepoInfo(ri *pfs.RepoInfo) *PrintableRepoInfo {
+	return &PrintableRepoInfo{
+		RepoInfo: ri,
+	}
+}
+
 // PrintDetailedRepoInfo pretty-prints detailed repo info.
 func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
@@ -124,6 +131,13 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamp bool
 type PrintableCommitInfo struct {
 	*pfs.CommitInfo
 	FullTimestamp bool
+}
+
+// NewPrintableCommitInfo constructs a PrintableCommitInfo from just a CommitInfo.
+func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
+	return &PrintableCommitInfo{
+		CommitInfo: ci,
+	}
 }
 
 // PrintDetailedCommitInfo pretty-prints detailed commit info.

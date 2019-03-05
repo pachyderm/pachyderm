@@ -116,6 +116,13 @@ type PrintableJobInfo struct {
 	FullTimestamp bool
 }
 
+// NewPrintableJobInfo constructs a PrintableJobInfo from just a JobInfo.
+func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
+	return &PrintableJobInfo{
+		JobInfo: ji,
+	}
+}
+
 // PrintDetailedJobInfo pretty-prints detailed job info.
 func PrintDetailedJobInfo(jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
@@ -177,6 +184,13 @@ type PrintablePipelineInfo struct {
 	FullTimestamp bool
 }
 
+// NewPrintablePipelineInfo constructs a PrintablePipelineInfo from just a PipelineInfo.
+func NewPrintablePipelineInfo(pi *ppsclient.PipelineInfo) *PrintablePipelineInfo {
+	return &PrintablePipelineInfo{
+		PipelineInfo: pi,
+	}
+}
+
 // PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
 func PrintDetailedPipelineInfo(pipelineInfo *PrintablePipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
@@ -200,7 +214,7 @@ Parallelism Spec: {{.ParallelismSpec}}
 Datum Timeout: {{.DatumTimeout}}
 Job Timeout: {{.JobTimeout}}
 Input:
-{{pipelineInput .}}
+{{pipelineInput .PipelineInfo}}
 {{ if .GithookURL }}Githook URL: {{.GithookURL}} {{end}}
 Output Branch: {{.OutputBranch}}
 Transform:
