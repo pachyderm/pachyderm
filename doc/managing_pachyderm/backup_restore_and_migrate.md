@@ -1,5 +1,32 @@
 # Backup, Restore, and Migrate
 
+## Contents
+
+## Contents
+
+- [Introduction](#introduction)
+   - [Note about releases prior to Pachyderm 1.7](#note-about-releases-prior-to-pachyderm-1-7)
+- [Backup & restore concepts](#backup-restore-concepts)
+- [General backup procedure](#general-backup-procedure)
+  - [1. Pause all pipeline and data loading/unloading operations](#pause-all-pipeline-and-data-loading-unloading-operations)
+  - [2. Extract a pachyderm backup](#extract-a-pachyderm-backup)
+  - [3. Restart all pipeline and data loading operations](#restart-all-pipeline-and-data-loading-operations)
+- [General restore procedure](#general-restore-procedure)
+  - [ Restore your backup to a pachyderm cluster, same version](#restore-your-backup-to-a-pachyderm-cluster-same-version)
+- [General migration procedure](#general-migration-procedure)
+  - [Types of migrations](#types-of-migrations)
+  - [Migration steps](#migration-steps)
+    - [1. Pause all pipeline and data loading operations](#pause-all-pipeline-and-data-loading-operations)
+    - [2. Extract a pachyderm backup with the --no-objects flag](#extract-a-pachyderm-backup-with-the-no-objects-flag)
+    - [3. Clone your object store bucket](#clone-your-object-store-bucket)
+    - [4. Restart all pipeline and data loading ops](#restart-all-pipeline-and-data-loading-ops)
+    - [5. Deploy a 1.X Pachyderm cluster with cloned bucket](#deploy-a-1-x-pachyderm-cluster-with-cloned-bucket)
+    - [6. Restore the new 1.X Pachyderm cluster from your backup](#restore-the-new-1-x-pachyderm-cluster-from-your-backup)
+    - [7. Load transactional data from checkpoint into new cluster](#load-transactional-data-from-checkpoint-into-new-cluster)
+    - [8. Disable the old cluster](#disable-the-old-cluster)
+- [Pipeline design & operations considerations](#pipeline-design-operations-considerations)
+  - [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm)
+
 ## Introduction
 
 Since release 1.7, Pachyderm provides the commands `pachctl extract` and `pachctl restore` to backup and restore the state of a Pachyderm cluster. (Please see [the note below about releases prior to Pachyderm 1.7](#note-about-releases-prior-to-pachyderm-1-7).)
@@ -191,7 +218,7 @@ You can also use the `-u` or `--url` flag to get the backup directly from the ob
 
 ## General migration procedure
 
-### Types of Migrations
+### Types of migrations
 You'll need to follow one of two procedures when upgrading a Pachyderm cluster:
 
 1. Simple migration path (for minor versions, e.g. v1.8.2 to v1.8.3)
@@ -200,7 +227,7 @@ You'll need to follow one of two procedures when upgrading a Pachyderm cluster:
 The simple migration path is shorter and faster than the full migration path
 because it can reuse Pachyderm's existing internal state.
 
-#### Difference in Detail
+#### Difference in detail
 In general, Pachyderm stores all of its state in two places: `etcd` (which in
 turn stores its state in one or more persistent volumes, which were created when
 the Pachyderm cluster was deployed) and an object store bucket (in e.g. S3).
@@ -232,7 +259,7 @@ pre-migration state. Specifically, you must back up the
 persistent volume that etcd uses and the object store bucket that holds
 pachyderm's actual data, as shown above in [ General backup & restore procedure](#general-backup-procedure). 
 
-### Migration Steps
+### Migration steps
 #### 1. Pause all pipeline and data loading operations
 
 From the directed acyclic graphs (DAG) that define your pachyderm cluster, stop each pipeline step.  You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the 'pachctl stop-pipeline' command.
@@ -314,7 +341,7 @@ Below, we give an example using the Amazon Web Services CLI to clone one bucket 
 
 `aws s3 sync s3://mybucket s3://mybucket2`
 
-### 4. Restart all pipeline and data loading operations
+### 4. Restart all pipeline and data loading ops
 
 Once the backup and clone operations are complete, restart all paused pipelines and data loading operations, setting a checkpoint for the started operations that you can use in step [7. Load transactional data from checkpoint into new cluster](#load-transactional-data-from-checkpoint-into-new-cluster), below.  See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below  to understand why designing this checkpoint into your data loading systems is important.
 
