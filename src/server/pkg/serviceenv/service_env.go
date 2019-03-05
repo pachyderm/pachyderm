@@ -131,24 +131,20 @@ func (env *ServiceEnv) initKubeClient() error {
 		var kubeAddr string
 		var ok bool
 		cfg, err := rest.InClusterConfig()
-		if err == nil {
-			goto connect
+		if err != nil {
+			// InClusterConfig failed, fall back to insecure config
+			log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", err)
+			kubeAddr, ok = os.LookupEnv("KUBERNETES_PORT_443_TCP_ADDR")
+			if !ok {
+				return fmt.Errorf("can't fall back to insecure kube client due to missing env var (failed to retrieve in-cluster config: %v)", err)
+			}
+			cfg = &rest.Config{
+				Host: fmt.Sprintf("%s:443", kubeAddr),
+				TLSClientConfig: rest.TLSClientConfig{
+					Insecure: true,
+				},
+			}
 		}
-
-		// InClusterConfig failed, fall back to insecure config
-		log.Errorf("falling back to insecure kube client due to error from NewInCluster: %s", err)
-		kubeAddr, ok = os.LookupEnv("KUBERNETES_PORT_443_TCP_ADDR")
-		if !ok {
-			return fmt.Errorf("can't fall back to insecure kube client due to missing env var (failed to retrieve in-cluster config: %v)", err)
-		}
-		cfg = &rest.Config{
-			Host: fmt.Sprintf("%s:443", kubeAddr),
-			TLSClientConfig: rest.TLSClientConfig{
-				Insecure: true,
-			},
-		}
-
-	connect:
 		env.kubeClient, err = kube.NewForConfig(cfg)
 		if err != nil {
 			return fmt.Errorf("could not initialize kube client: %v", err)
