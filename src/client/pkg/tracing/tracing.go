@@ -20,39 +20,44 @@ import (
 // to Jaeger
 const JaegerServiceName = "pachd"
 
+// If you have Jaeger deployed and the JAEGER_ENDPOINT environment variable set
+// to the address of your Jaeger instance's HTTP collection API, setting this
+// environment variable to "true" will cause pachyderm to attach a Jaeger trace
+// to any RPCs that it sends (this is primarily intended to be set in pachctl
+// though any binary that includes our go client library will be able to use
+// this env var)
+//
+// Note that tracing calls can slow them down somewhat and make interesting
+// traces hard to find in Jaeger, so you may not want this variable set for
+// every call.
+const jaegerEndpointEnvVar = "JAEGER_ENDPOINT"
+const pachdTracingEnvVar = "PACH_ENABLE_TRACING"
+
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
 
-var enableTracing bool
-
-// EnableTracing causes our opentracing GRPC interceptor to attach traces to
-// outgoing RPCs (once an RPC has a trace attached to it, the trace will cause
-// downstream RPCs to be traced as well). This is called by pachctl (controlled
-// by a flag), but not by pachd, so that the only way to trace a Pachyderm RPC
-// is by setting the appropriate flag in pachctl
-func EnableTracing(enabled bool) {
-	enableTracing = enabled
-}
-
-func tagSpan(span opentracing.Span, kvs []interface{}) {
+func tagSpan(span opentracing.Span, kvs []interface{}) opentracing.Span {
 	for i := 0; i < len(kvs); i += 2 {
 		if len(kvs) == i+1 {
-			span.SetTag("extra", kvs[i]) // likely forgot key or value--best effort
+			span = span.SetTag("extra", kvs[i]) // likely forgot key or value--best effort
 			break
 		}
 		if key, ok := kvs[i].(string); ok {
-			span.SetTag(key, kvs[i+1]) // common case -- skip printf
+			span = span.SetTag(key, kvs[i+1]) // common case -- skip printf
 		} else {
-			span.SetTag(fmt.Sprintf("%v", kvs[i]), kvs[i+1])
+			span = span.SetTag(fmt.Sprintf("%v", kvs[i]), kvs[i+1])
 		}
 	}
+	return span
 }
 
 // TagAnySpan adds the tag "key=value" to any span in 'ctx'
-func TagAnySpan(ctx context.Context, kvs ...interface{}) {
+func TagAnySpan(ctx context.Context, kvs ...interface{}) context.Context {
 	if span := opentracing.SpanFromContext(ctx); span != nil {
-		tagSpan(span, kvs)
+		span = tagSpan(span, kvs)
+		return opentracing.ContextWithSpan(ctx, span)
 	}
+	return ctx
 }
 
 // AddSpanToAnyExisting checks 'ctx' for Jaeger tracing information, and if
@@ -83,7 +88,7 @@ func InstallJaegerTracerFromEnv() string {
 	var jaegerEndpoint string
 	jaegerOnce.Do(func() {
 		var onUserMachine bool
-		jaegerEndpoint, onUserMachine = os.LookupEnv("JAEGER_ENDPOINT")
+		jaegerEndpoint, onUserMachine = os.LookupEnv(jaegerEndpointEnvVar)
 		if !onUserMachine {
 			if host, ok := os.LookupEnv("JAEGER_COLLECTOR_SERVICE_HOST"); ok {
 				port := os.Getenv("JAEGER_COLLECTOR_SERVICE_PORT_JAEGER_COLLECTOR_HTTP")
@@ -98,7 +103,7 @@ func InstallJaegerTracerFromEnv() string {
 		cfg := jaegercfg.Configuration{
 			// Configure Jaeger to sample every call, but use the SpanInclusionFunc
 			// addTraceIfTracingEnabled (defined below) to skip sampling every RPC
-			// unless EnableTracing is set
+			// unless the PACH_ENABLE_TRACING environment variable is set
 			Sampler: &jaegercfg.SamplerConfig{
 				Type:  "const",
 				Param: 1,
@@ -136,8 +141,8 @@ var addTraceIfTracingEnabled otgrpc.SpanInclusionFunc = func(
 	parentSpanCtx opentracing.SpanContext,
 	method string,
 	req, resp interface{}) bool {
-	// Always trace if enableTracing is on
-	if enableTracing {
+	// Always trace if PACH_ENABLE_TRACING is on
+	if _, ok := os.LookupEnv(jaegerEndpointEnvVar); ok && os.Getenv(pachdTracingEnvVar) == "true" {
 		return true
 	}
 

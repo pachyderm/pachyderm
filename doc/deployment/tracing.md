@@ -40,10 +40,21 @@ To use tracing in Pachyderm, you need to:
 
 3. Send Pachyderm a traced request
 
-    Just set the `--trace` flag with any `pachctl` command:
+    Just set the `PACH_ENABLE_TRACING` environment variable to "true" before
+    running any `pachctl` command (note that `JAEGER_ENDPOINT` must also be
+    set/exported):
     ```
-    pachctl --trace list-job # for example
+    PACH_ENABLE_TRACING=true pachctl list-job # for example
     ```
+
+    We generally don't recommend exporting `PACH_ENABLE_TRACING` because
+    tracing calls can slow them down somewhat and make interesting traces hard
+    to find in Jaeger.  Therefore you may only want to set this variable for
+    the specific calls you want to trace.
+
+    However, Pachyderm's client library reads this variable and implements the
+    relevant tracing, so any binary that uses Pachyderm's go client library can
+    trace calls if these variables are set.
 
 ## Viewing Traces
 Just run:
@@ -51,7 +62,7 @@ Just run:
 $ kubectl port-forward svc/jaeger-query 16686:80 & # UI service
 
 ```
-then connect to `localhost:16686` in your browser and you should see all
+then connect to `localhost:16686` in your browser, and you should see all
 collected traces.
 
 [1] https://kubernetes.io/docs/concepts/services-networking/service/#environment-variables
