@@ -2,7 +2,7 @@
 
 Welcome to the documentation portal for first time Pachyderm users! We've organized information into two sections:
 
-1. [Local Installation](local_installation.html): Get Pachyderm deployed locally on OSX or Linux.
+1. [Local Installation](local_installation.html): Get Pachyderm deployed locally on macOS or Linux.
 2. [Beginner Tutorial](beginner_tutorial.html): Learn to use Pachdyerm through a quick and simple tutorial.
 
 If you'd like to read about the Pachyderm's open source and enterprise features before actually running it, check out the following:

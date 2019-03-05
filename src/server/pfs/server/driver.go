@@ -510,7 +510,16 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 				if parent.ID == "" && branchInfo.Head != nil {
 					parent.ID = branchInfo.Head.ID
 				}
-				if len(branchInfo.Provenance) > 0 && treeRef == nil {
+				// Don't count the __spec__ repo towards the provenance count
+				// since spouts will have __spec__ as provenance, but need to accept commits
+				provenanceCount := len(branchInfo.Provenance)
+				for _, p := range branchInfo.Provenance {
+					if p.Repo.Name == ppsconsts.SpecRepo {
+						provenanceCount--
+						break
+					}
+				}
+				if provenanceCount > 0 && treeRef == nil {
 					return fmt.Errorf("cannot start a commit on an output branch")
 				}
 				// Point 'branch' at the new commit
@@ -1282,7 +1291,6 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			return err
 		}
 	}
-
 	// Now wait for the root commits to finish. These are not passed to `f`
 	// because it's expecting to just get downstream commits.
 	for _, commit := range fromCommits {
@@ -1351,7 +1359,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		}
 
 		// 3) Validate the commit (check that it has no provenance) and delete it
-		if len(userCommitInfo.Provenance) > 0 {
+		if provenantOnInput(userCommitInfo.Provenance) {
 			return fmt.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
 		}
 		deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
@@ -1818,7 +1826,6 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
@@ -2422,6 +2429,19 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 	return tree, nil
 }
 
+// this is a helper function to check if the given provenance has provenance on an input branch
+func provenantOnInput(provenance []*pfs.Commit) bool {
+	provenanceCount := len(provenance)
+	for _, p := range provenance {
+		// in particular, we want to exclude provenance on the spec repo (used e.g. for spouts)
+		if p.Repo.Name == ppsconsts.SpecRepo {
+			provenanceCount--
+			break
+		}
+	}
+	return provenanceCount > 0
+}
+
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64) (r io.Reader, retErr error) {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -2432,7 +2452,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, err
 	}
 	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return nil, err
@@ -2658,7 +2678,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		return nil, err
 	}
 	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, file)
 		if err != nil {
 			return nil, err
@@ -2707,8 +2727,9 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		// TODO this should be a MalformedGlob error like the hashtree returns
 		return err
 	}
-	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+
+	// Handle commits to input repos and spouts
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return err
@@ -2811,7 +2832,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 		return err
 	}
 	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
 		if err != nil {
 			return err
@@ -2856,7 +2877,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		return err
 	}
 	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(commit.Repo.Name, commit.ID, ""))
 		if err != nil {
 			return err

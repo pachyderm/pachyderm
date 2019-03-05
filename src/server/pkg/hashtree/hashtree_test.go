@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
 
 // obj parses a string as an Object
@@ -620,19 +621,33 @@ func TestChildIterator(t *testing.T) {
 }
 
 func TestCache(t *testing.T) {
+	// Cache with size 2
 	c, err := NewCache(2)
 	require.NoError(t, err)
 
 	h := newHashTree(t)
 	require.NoError(t, h.PutFile("foo", obj(`hash:"1d4a7"`), 1))
 	require.NoError(t, h.Hash())
+
+	// Put a hashtree into the cache
 	c.Add(1, h)
+
+	// After adding a second hashtree, the first hashtree should still be in the cache
 	c.Add(2, newHashTree(t))
 	_, err = h.Get("foo")
 	require.NoError(t, err)
+
+	// But after adding a third, the first one should be evicted
 	c.Add(3, newHashTree(t))
-	_, err = h.Get("foo")
-	require.YesError(t, err)
+
+	// since it's done concurrently, we might need to wait a bit for the eviction to finish
+	require.NoError(t, backoff.Retry(func() error {
+		_, err = h.Get("foo")
+		if err == nil {
+			return fmt.Errorf("foo should be evicted, and so the Get should have failed")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 
 func blocks(ss ...string) []*pfs.BlockRef {

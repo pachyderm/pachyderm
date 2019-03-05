@@ -102,7 +102,7 @@ $ pachctl put-file images master -f airplane.jpg
 Once the image has been evaluated by Object Detection API you'll be able to see the detection result in the `detect` repo. We can take a look at the result by running the following
 
 ```sh
-# on OSX
+# on macOS
 $ pachctl get-file detect master airplane.jpg | open -f -a /Applications/Preview.app
 
 # on Linux

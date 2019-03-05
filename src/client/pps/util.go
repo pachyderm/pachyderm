@@ -13,6 +13,8 @@ import (
 // VisitInput visits each input recursively in ascending order (root last)
 func VisitInput(input *Input, f func(*Input)) {
 	switch {
+	case input == nil:
+		return // Spouts may have nil input
 	case input.Cross != nil:
 		for _, input := range input.Cross {
 			VisitInput(input, f)
@@ -28,6 +30,8 @@ func VisitInput(input *Input, f func(*Input)) {
 // InputName computes the name of an Input.
 func InputName(input *Input) string {
 	switch {
+	case input == nil:
+		return ""
 	case input.Atom != nil:
 		return input.Atom.Name
 	case input.Pfs != nil:
