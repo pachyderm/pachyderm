@@ -589,6 +589,10 @@ message CreatePipelineRequest {
   string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
 }
 
+message CreatePipelinesRequest {
+  repeated CreatePipelineRequest batch = 1;
+}
+
 message InspectPipelineRequest {
   Pipeline pipeline = 1;
 }
@@ -607,8 +611,16 @@ message StartPipelineRequest {
   Pipeline pipeline = 1;
 }
 
+message StartPipelinesRequest {
+  repeated StartPipelineRequest batch = 1;
+}
+
 message StopPipelineRequest {
   Pipeline pipeline = 1;
+}
+
+message StopPipelinesRequest {
+  repeated StopPipelineRequest batch = 1;
 }
 
 message RerunPipelineRequest {
@@ -648,11 +660,17 @@ service API {
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
+  // CreatePipelines atomically batches together several CreatePipeline calls.
+  rpc CreatePipelines(CreatePipelinesRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
   rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
+  // StartPipelines atomically batches together several CreatePipeline calls.
+  rpc StartPipelines(StartPipelinesRequest) returns (google.protobuf.Empty) {}
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
+  // StopPipelines atomically batches together several CreatePipeline calls.
+  rpc StopPipelines(StopPipelinesRequest) returns (google.protobuf.Empty) {}
   rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
