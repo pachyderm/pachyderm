@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -117,21 +118,13 @@ type driver struct {
 }
 
 // newDriver is used to create a new Driver instance
-func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*driver, error) {
+func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*driver, error) {
 	// Validate arguments
 	if treeCache == nil {
 		return nil, fmt.Errorf("cannot initialize driver with nil treeCache")
 	}
-
-	// Initialize etcd client
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   etcdAddresses,
-		DialOptions: client.DefaultDialOptions(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to etcd: %v", err)
-	}
 	// Initialize driver
+	etcdClient := env.GetEtcdClient()
 	d := &driver{
 		etcdClient:     etcdClient,
 		prefix:         etcdPrefix,
@@ -148,6 +141,18 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Ca
 		storageRoot: storageRoot,
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
+	}
+	// Create spec repo (default repo)
+	repo := client.NewRepo(ppsconsts.SpecRepo)
+	repoInfo := &pfs.RepoInfo{
+		Repo:    repo,
+		Created: now(),
+	}
+	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		return repos.Create(repo.Name, repoInfo)
+	}); err != nil && !col.IsErrExists(err) {
+		return nil, err
 	}
 	return d, nil
 }
