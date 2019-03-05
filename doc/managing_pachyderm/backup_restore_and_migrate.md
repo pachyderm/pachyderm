@@ -2,8 +2,6 @@
 
 ## Contents
 
-## Contents
-
 - [Introduction](#introduction)
    - [Note about releases prior to Pachyderm 1.7](#note-about-releases-prior-to-pachyderm-1-7)
 - [Backup & restore concepts](#backup-restore-concepts)
