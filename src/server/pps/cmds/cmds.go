@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	units "github.com/docker/go-units"
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
@@ -42,6 +42,10 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) ([]*cobra.Command, error) {
 	raw := false
 	rawFlag := func(cmd *cobra.Command) {
 		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	}
+	fullTimestamp := false
+	fullTimestampFlag := func(cmd *cobra.Command) {
+		cmd.Flags().BoolVar(&fullTimestamp, "full-timestamp", false, "Return absolute timestamp from when job was started (as opposed to the default, relative timestamp).")
 	}
 	marshaller := &jsonpb.Marshaler{
 		Indent:   "  ",
@@ -90,11 +94,16 @@ The increase the throughput of a job increase the Shard paremeter.
 			if raw {
 				return marshaller.Marshal(os.Stdout, jobInfo)
 			}
-			return pretty.PrintDetailedJobInfo(jobInfo)
+			ji := &pretty.PrintableJobInfo{
+				JobInfo: jobInfo,
+				FullTimestamp:    fullTimestamp,
+			}
+			return pretty.PrintDetailedJobInfo(ji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
 	rawFlag(inspectJob)
+	fullTimestampFlag(inspectJob)
 
 	var pipelineName string
 	var outputCommitStr string
@@ -151,7 +160,7 @@ $ pachctl list-job -p foo bar/YYY
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
-				pretty.PrintJobInfo(writer, ji)
+				pretty.PrintJobInfo(writer, ji, fullTimestamp)
 				return nil
 			}); err != nil {
 				return err
@@ -162,6 +171,7 @@ $ pachctl list-job -p foo bar/YYY
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit.")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits.")
+	fullTimestampFlag(listJob)
 	rawFlag(listJob)
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -205,7 +215,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			for _, jobInfo := range jobInfos {
-				pretty.PrintJobInfo(writer, jobInfo)
+				pretty.PrintJobInfo(writer, jobInfo, fullTimestamp)
 			}
 
 			return writer.Flush()
@@ -213,6 +223,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 	}
 	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
 	rawFlag(flushJob)
+	fullTimestampFlag(flushJob)
 
 	deleteJob := &cobra.Command{
 		Use:   "delete-job job-id",
@@ -482,10 +493,15 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if raw {
 				return marshaller.Marshal(os.Stdout, pipelineInfo)
 			}
-			return pretty.PrintDetailedPipelineInfo(pipelineInfo)
+			pi := &pretty.PrintablePipelineInfo{
+				PipelineInfo: pipelineInfo,
+				FullTimestamp:         fullTimestamp,
+			}
+			return pretty.PrintDetailedPipelineInfo(pi)
 		}),
 	}
 	rawFlag(inspectPipeline)
+	fullTimestampFlag(inspectPipeline)
 
 	extractPipeline := &cobra.Command{
 		Use:   "extract-pipeline pipeline-name",
@@ -607,12 +623,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.PipelineHeader)
 			for _, pipelineInfo := range pipelineInfos {
-				pretty.PrintPipelineInfo(writer, pipelineInfo)
+				pretty.PrintPipelineInfo(writer, pipelineInfo, fullTimestamp)
 			}
 			return writer.Flush()
 		}),
 	}
 	rawFlag(listPipeline)
+	fullTimestampFlag(listPipeline)
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output create-pipeline compatibility specs.")
 
 	var all bool
@@ -901,9 +918,9 @@ func buildImage(client *docker.Client, registry string, repo string, contextDir 
 	fmt.Printf("Building %s, this may take a while.\n", destImage)
 
 	err := client.BuildImage(docker.BuildImageOptions{
-		Name: destImage,
-		ContextDir: contextDir,
-		Dockerfile: dockerfile,
+		Name:         destImage,
+		ContextDir:   contextDir,
+		Dockerfile:   dockerfile,
 		OutputStream: os.Stdout,
 	})
 
