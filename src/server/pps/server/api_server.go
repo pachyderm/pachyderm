@@ -145,6 +145,8 @@ func merge(from, to map[string]bool) {
 
 func validateNames(names map[string]bool, input *pps.Input) error {
 	switch {
+	case input == nil:
+		return nil // spouts can have nil input
 	case input.Atom != nil:
 		if names[input.Atom.Name] {
 			return fmt.Errorf(`name "%s" was used more than once`, input.Atom.Name)
@@ -776,6 +778,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	result.ParallelismSpec = pipelineInfo.ParallelismSpec
 	result.Egress = pipelineInfo.Egress
 	result.Service = pipelineInfo.Service
+	result.Spout = pipelineInfo.Spout
 	result.OutputRepo = &pfs.Repo{Name: jobPtr.Pipeline.Name}
 	result.OutputBranch = pipelineInfo.OutputBranch
 	result.ResourceRequests = pipelineInfo.ResourceRequests
@@ -1825,6 +1828,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Batch:            request.Batch,
 		MaxQueueSize:     request.MaxQueueSize,
 		Service:          request.Service,
+		Spout:            request.Spout,
 		ChunkSpec:        request.ChunkSpec,
 		DatumTimeout:     request.DatumTimeout,
 		JobTimeout:       request.JobTimeout,
@@ -2309,15 +2313,13 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil
 	})
 	// Delete cron input repos
-	if pipelineInfo.Input != nil {
-		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-			if input.Cron != nil {
-				eg.Go(func() error {
-					return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
-				})
-			}
-		})
-	}
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Cron != nil {
+			eg.Go(func() error {
+				return pachClient.DeleteRepo(input.Cron.Repo, request.Force)
+			})
+		}
+	})
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
@@ -2358,9 +2360,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		return nil, err
 	}
 	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
-		return nil, err
-	}
-	if err := a.markPipelineRunning(pachClient, request.Pipeline.Name); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -2772,22 +2771,6 @@ func isAlreadyExistsErr(err error) bool {
 
 func isNotFoundErr(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func (a *apiServer) markPipelineRunning(pachClient *client.APIClient, pipelineName string) error {
-	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
-		pipelines := a.pipelines.ReadWrite(stm)
-		pipelinePtr := &pps.EtcdPipelineInfo{}
-		if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
-			return err
-		}
-		pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-		return pipelines.Put(pipelineName, pipelinePtr)
-	})
-	if isNotFoundErr(err) {
-		return newErrPipelineNotFound(pipelineName)
-	}
-	return err
 }
 
 func (a *apiServer) updatePipelineSpecCommit(pachClient *client.APIClient, pipelineName string, commit *pfs.Commit) error {
