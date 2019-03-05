@@ -56,7 +56,6 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     deployment/custom_object_stores
     deployment/aws_cloudfront
     deployment/upgrading
-    deployment/migrations
     deployment/namespaces
     deployment/rbac
 
@@ -69,6 +68,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     managing_pachyderm/sharing_gpu_resources
     managing_pachyderm/general_troubleshooting
     managing_pachyderm/deploy_troubleshooting
+    managing_pachyderm/backup_restore_and_migrate
 
 .. toctree::
     :maxdepth: 1
