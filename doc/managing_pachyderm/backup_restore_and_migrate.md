@@ -12,7 +12,7 @@ In this document, we'll take you through the steps to backup and restore a clust
 
 ### Note about releases prior to Pachyderm 1.7
 
-Pachdyerm 1.7 is the first version to support `extract` and `restore`.  To bridge the gap to previous Pachyderm versions,
+Pachyderm 1.7 is the first version to support `extract` and `restore`.  To bridge the gap to previous Pachyderm versions,
 we've made a final 1.6 release, 1.6.10, which backports the `extract` and
 `restore` functionality to the 1.6 series of releases. 
 
