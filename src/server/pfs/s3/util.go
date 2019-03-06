@@ -66,7 +66,7 @@ func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bo
 
 	if expectedHash != "" {
 		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
-		if err != nil {
+		if err != nil || len(expectedHashBytes) != 16 {
 			newInvalidDigestError(r).write(w)
 			return false
 		}
