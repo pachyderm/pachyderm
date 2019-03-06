@@ -326,7 +326,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	ctx := tracing.TagAnySpan(server.Context(), "file", compactPrintFile(request.File))
+	ctx := tracing.TagAnySpan(server.Context(), "file", pretty.CompactPrintFile(request.File))
 
 	return a.driver.walkFile(a.env.GetPachClient(ctx), request.File, func(fi *pfs.FileInfo) error {
 		sent++
