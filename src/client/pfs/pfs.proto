@@ -87,10 +87,6 @@ message Commit {
   string id = 2 [(gogoproto.customname) = "ID"];
 }
 
-message Commits {
-  repeated Commit = 1;
-}
-
 // CommitRange represents chain of commits with Lower being an ancestor of
 // Upper or, in the case of a range of size 1, the same commit.
 message CommitRange {
@@ -210,10 +206,6 @@ message StartCommitRequest {
   repeated Commit provenance = 2;
 }
 
-message StartCommitsRequest {
-  repeated StartCommitRequest batch = 1;
-}
-
 message BuildCommitRequest {
   Commit parent = 1;
   string branch = 4;
@@ -265,10 +257,6 @@ message CreateBranchRequest {
   repeated Branch provenance = 4;
 }
 
-message CreateBranchesRequest {
-  repeated CreateBranchRequest batch = 1;
-}
-
 message InspectBranchRequest {
   Branch branch = 1;
 }
@@ -284,10 +272,6 @@ message DeleteBranchRequest {
 
 message DeleteCommitRequest {
   Commit commit = 1;
-}
-
-message DeleteCommitsRequest {
-  repeated DeleteCommitRequest batch = 1;
 }
 
 message FlushCommitRequest {
@@ -365,10 +349,6 @@ message PutFileRequest {
   OverwriteIndex overwrite_index = 10;
 }
 
-message PutFilesRequest {
-  repeated PutFileRequest batch = 1;
-}
-
 // PutFileRecord is used to record PutFile requests in etcd temporarily.
 message PutFileRecord {
   int64 size_bytes = 1;
@@ -388,10 +368,6 @@ message CopyFileRequest {
   File src = 1;
   File dst = 2;
   bool overwrite = 3;
-}
-
-message CopyFilesRequest {
-  repeated CopyFileRequest batch = 1;
 }
 
 message InspectFileRequest {
@@ -455,10 +431,6 @@ message DeleteFileRequest {
   File file = 1;
 }
 
-message DeleteFilesRequest {
-  repeated DeleteFileRequest batch = 1;
-}
-
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -475,7 +447,7 @@ service API {
   // StartCommit creates a new write commit from a parent commit.
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
   // StartCommits atomically batches together several StartCommit calls.
-  rpc StartCommits(StartCommitsRequest) returns (Commits) {}
+  rpc StartCommits(stream StartCommitRequest) returns (stream Commit) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.
@@ -488,7 +460,7 @@ service API {
   // DeleteCommit deletes a commit.
   rpc DeleteCommit(DeleteCommitRequest) returns (google.protobuf.Empty) {}
   // DeleteCommits atomically batches together several DeleteCommit calls.
-  rpc DeleteCommits(DeleteCommitsRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteCommits(stream DeleteCommitRequest) returns (google.protobuf.Empty) {}
   // FlushCommit waits for downstream commits to finish
   rpc FlushCommit(FlushCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch
@@ -499,7 +471,7 @@ service API {
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
   // CreateBranches atomically batches together several CreateBranch calls.
-  rpc CreateBranches(CreateBranchesRequest) returns (google.protobuf.Empty) {}
+  rpc CreateBranches(stream CreateBranchRequest) returns (google.protobuf.Empty) {}
   // InspectBranch returns info about a branch.
   rpc InspectBranch(InspectBranchRequest) returns (BranchInfo) {}
   // ListBranch returns info about the heads of branches.
@@ -510,12 +482,10 @@ service API {
   // File rpcs
   // PutFile writes the specified file to pfs.
   rpc PutFile(stream PutFileRequest) returns (google.protobuf.Empty) {}
-  // PutFiles atomically batches together several PutFile calls.
-  rpc PutFiles(stream PutFilesRequest) returns (google.protobuf.Empty) {}
   // CopyFile copies the contents of one file to another.
   rpc CopyFile(CopyFileRequest) returns (google.protobuf.Empty) {}
   // CopyFile atomically batches together several CopyFile calls.
-  rpc CopyFiles(CopyFilesRequest) returns (google.protobuf.Empty) {}
+  rpc CopyFiles(stream CopyFileRequest) returns (google.protobuf.Empty) {}
   // GetFile returns a byte stream of the contents of the file.
   rpc GetFile(GetFileRequest) returns (stream google.protobuf.BytesValue) {}
   // InspectFile returns info about a file.
@@ -541,7 +511,7 @@ service API {
   // DeleteFile deletes a file.
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
   // DeleteFiles atomically batches together several DeleteFile calls.
-  rpc DeleteFiles(DeleteFilesRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteFiles(stream DeleteFileRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
