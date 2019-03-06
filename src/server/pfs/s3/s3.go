@@ -33,8 +33,9 @@ import (
 //
 // Note: in s3, bucket names are constrained by IETF RFC 1123, (and its
 // predecessor RFC 952) but pachyderm's repo naming constraints are slightly
-// more liberal. This server only supports the subset of pachyderm repos whose
-// names are RFC 1123 compatible.
+// more liberal. While the bucket name validation in this server is looser
+// than s3's, it still doesn't support all possible pachyderm repo names,
+// which means some pachyderm repos will not be serviceable by this.
 //
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
@@ -44,16 +45,21 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
 
 	// bucket-related routes
-	// repo validation regex is the same as minio
+	// repo validation regex is the same that the aws cli seems to use
 	bucketHandler := newBucketHandler(pc)
-	bucketRouter := router.Path(`/{bucket:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`).Subrouter()
+	trailingSlashBucketRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}/`).Subrouter()
+	trailingSlashBucketRouter.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(bucketHandler.location)
+	trailingSlashBucketRouter.Methods("GET", "HEAD").HandlerFunc(bucketHandler.get)
+	trailingSlashBucketRouter.Methods("PUT").HandlerFunc(bucketHandler.put)
+	trailingSlashBucketRouter.Methods("DELETE").HandlerFunc(bucketHandler.del)
+	bucketRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}`).Subrouter()
 	bucketRouter.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(bucketHandler.location)
 	bucketRouter.Methods("GET", "HEAD").HandlerFunc(bucketHandler.get)
 	bucketRouter.Methods("PUT").HandlerFunc(bucketHandler.put)
 	bucketRouter.Methods("DELETE").HandlerFunc(bucketHandler.del)
 
 	// object-related routes
-	objectRouter := router.Path(`/{bucket:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{file:.+}`).Subrouter()
+	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}/{file:.+}`).Subrouter()
 	if multipartDir != "" {
 		// Nultipart handlers are only registered if a root dir is specified.
 		// It's registered before the other object routers because will

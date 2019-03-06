@@ -47,6 +47,11 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// NOTE: if `repo` has a `master` branch, this will not include
+		// `repo-master` in the list of buckets, but rather just `repo`. This
+		// is to avoid issues with conformance tests, which would try to
+		// otherwise redundantly delete the `repo-master` bucket and fail.
+		// TODO: figure out a more resilient way to manage this
 		for _, branch := range repo.Branches {
 			if branch.Name == "master" {
 				// master branch can be addressed without it specified in the
