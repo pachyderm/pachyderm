@@ -122,6 +122,11 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	return commit, nil
 }
 
+func (a *apiServer) StartCommits(startCommitsServer pfs.API_StartCommitsServer) (retErr error) {
+    // TODO(grey): implement
+    return nil
+}
+
 func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -188,6 +193,11 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesServer) (retErr error) {
+    // TODO(grey): implement
+    return nil
+}
+
 func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -223,6 +233,11 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) DeleteCommits(deleteCommitsServer pfs.API_DeleteCommitsServer) (retErr error) {
+    // TODO(grey): implement
+    return nil
 }
 
 func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
@@ -266,6 +281,11 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) CopyFiles(copyFilesServer pfs.API_CopyFilesServer) (retErr error) {
+    // TODO(grey): implement
+    return nil
 }
 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
@@ -400,6 +420,11 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *apiServer) DeleteFiles(deleteFilesServer pfs.API_DeleteFilesServer) (retErr error) {
+    // TODO(grey): implement
+    return nil
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
