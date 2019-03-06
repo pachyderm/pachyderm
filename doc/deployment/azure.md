@@ -86,7 +86,7 @@ $ STORAGE_KEY="$(az storage account keys list \
 `pachctl` is a command-line utility used for interacting with a Pachyderm cluster.
 
 ```shell
-# For OSX:
+# For macOS:
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
 
 # For Linux (64 bit) or Window 10+ on WSL:

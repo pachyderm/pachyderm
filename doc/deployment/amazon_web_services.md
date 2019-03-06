@@ -53,7 +53,7 @@ To deploy and interact with Pachyderm, you will need `pachctl`, Pachyderm's comm
 
 
 ```shell
-# For OSX:
+# For macOS:
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
 
 # For Linux (64 bit) or Window 10+ on WSL:
