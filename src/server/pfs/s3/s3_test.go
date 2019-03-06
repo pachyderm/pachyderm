@@ -393,7 +393,7 @@ func TestMakeBucket(t *testing.T) {
 	srv, pc, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucket")
 	require.NoError(t, c.MakeBucket(repo, ""))
-	
+
 	repoInfo, err := pc.InspectRepo(repo)
 	require.NoError(t, err)
 	require.Equal(t, len(repoInfo.Branches), 1)
@@ -406,7 +406,7 @@ func TestMakeBucketWithBranch(t *testing.T) {
 	srv, pc, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucketwithbranch")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("%s-branch", repo), ""))
-	
+
 	repoInfo, err := pc.InspectRepo(repo)
 	require.NoError(t, err)
 	require.Equal(t, len(repoInfo.Branches), 1)
@@ -439,7 +439,7 @@ func TestMakeBucketDifferentBranches(t *testing.T) {
 	repo := tu.UniqueString("testmakebucketdifferentbranches")
 
 	require.NoError(t, c.MakeBucket(repo, ""))
-	
+
 	// this should error because the last bucket creation implicitly made the
 	// master branch
 	err := c.MakeBucket(fmt.Sprintf("%s-master", repo), "")
@@ -449,7 +449,7 @@ func TestMakeBucketDifferentBranches(t *testing.T) {
 	// this should not error because it's a separate branch
 	err = c.MakeBucket(fmt.Sprintf("%s-branch", repo), "")
 	require.NoError(t, err)
-	
+
 	require.NoError(t, srv.Close())
 }
 

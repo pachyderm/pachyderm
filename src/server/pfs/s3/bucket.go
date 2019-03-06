@@ -172,7 +172,7 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 	for _, fileInfo := range fileInfos {
 		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
 		if fileInfo == nil {
-			break
+			continue
 		}
 		if result.isFull() {
 			result.IsTruncated = true
