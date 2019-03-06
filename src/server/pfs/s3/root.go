@@ -55,12 +55,12 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					Name:         branch.Repo.Name,
 					CreationDate: t,
 				})
+			} else {
+				result.Buckets = append(result.Buckets, Bucket{
+					Name:         fmt.Sprintf("%s-%s", branch.Repo.Name, branch.Name),
+					CreationDate: t,
+				})
 			}
-
-			result.Buckets = append(result.Buckets, Bucket{
-				Name:         fmt.Sprintf("%s-%s", branch.Repo.Name, branch.Name),
-				CreationDate: t,
-			})
 		}
 	}
 
