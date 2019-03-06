@@ -35,71 +35,75 @@ func newError(r *http.Request, httpStatus int, code string, message string) *Err
 		httpStatus: httpStatus,
 		Code:       code,
 		Message:    message,
-		Resource:   r.URL.Path, // fmt.Sprintf("/%s", r.URL.Path),
+		Resource:   r.URL.Path,
 		RequestID:  uuid.NewWithoutDashes(),
 	}
 }
 
-func newBadDigestError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.")
+func badDigestError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.").write(w)
 }
 
-func newBucketAlreadyExistsError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "BucketAlreadyExists", "There is already a repo with that name.")
+func bucketAlreadyExistsError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "BucketAlreadyExists", "There is already a repo with that name.").write(w)
 }
 
-func newInternalError(r *http.Request, err error) *Error {
-	return newError(r, http.StatusInternalServerError, "InternalError", err.Error())
+func internalError(w http.ResponseWriter, r *http.Request, err error) {
+	newError(r, http.StatusInternalServerError, "InternalError", err.Error()).write(w)
 }
 
-func newInvalidBucketNameError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "InvalidBucketName", "The specified repo or branch either has an invalid name, or is not serviceable.")
+func invalidBucketNameError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "InvalidBucketName", "The specified repo or branch either has an invalid name, or is not serviceable.").write(w)
 }
 
 // note: this is not a standard s3 error
-func newInvalidDelimiterError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "InvalidDelimiter", "The delimiter you specified is invalid. It must be '' or '/'.")
+func invalidDelimiterError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "InvalidDelimiter", "The delimiter you specified is invalid. It must be '' or '/'.").write(w)
 }
 
-func newInvalidDigestError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "InvalidDigest", "The Content-MD5 you specified is not valid.")
+func invalidDigestError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "InvalidDigest", "The Content-MD5 you specified is not valid.").write(w)
 }
 
-func newInvalidPartError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "InvalidPart", "One or more of the specified parts could not be found. The part might not have been uploaded, or it may have been deleted.")
+func invalidPartError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "InvalidPart", "One or more of the specified parts could not be found. The part might not have been uploaded, or it may have been deleted.").write(w)
 }
 
-func newInvalidPartOrderError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "InvalidPartOrder", "The list of parts was not in ascending order. Parts list must be specified in order by part number.")
+func invalidPartOrderError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "InvalidPartOrder", "The list of parts was not in ascending order. Parts list must be specified in order by part number.").write(w)
 }
 
-func newMalformedXMLError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or would not validate against S3's published schema.")
+func malformedXMLError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or would not validate against S3's published schema.").write(w)
 }
 
-func newMethodNotAllowedError(r *http.Request) *Error {
-	return newError(r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.")
+func methodNotAllowedError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.").write(w)
 }
-func newNoSuchBucketError(r *http.Request) *Error {
-	return newError(r, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
-}
-
-func newNoSuchKeyError(r *http.Request) *Error {
-	return newError(r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.")
+func noSuchBucketError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.").write(w)
 }
 
-func newNoSuchUploadError(r *http.Request) *Error {
-	return newError(r, http.StatusNotFound, "NoSuchUpload", "The specified multipart upload does not exist. The upload ID might be invalid, or the multipart upload might have been aborted or completed, or it may have otherwise been deleted.")
+func noSuchKeyError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.").write(w)
 }
 
-func newNotFoundError(r *http.Request, err error) *Error {
+func noSuchUploadError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusNotFound, "NoSuchUpload", "The specified multipart upload does not exist. The upload ID might be invalid, or the multipart upload might have been aborted or completed, or it may have otherwise been deleted.").write(w)
+}
+
+func notFoundError(w http.ResponseWriter, r *http.Request, err error) {
 	s := err.Error()
 
 	if repoNotFoundMatcher.MatchString(s) || branchNotFoundMatcher.MatchString(s) {
-		return newNoSuchBucketError(r)
+		noSuchBucketError(w, r)
 	} else if fileNotFoundMatcher.MatchString(s) {
-		return newNoSuchKeyError(r)
+		noSuchKeyError(w, r)
 	} else {
-		return newInternalError(r, err)
+		internalError(w, r, err)
 	}
+}
+
+func permanentRedirectError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusPermanentRedirect, "PermanentRedirect", "The bucket you are attempting to access must be addressed using the specified endpoint. Send all future requests to this endpoint.").write(w)
 }

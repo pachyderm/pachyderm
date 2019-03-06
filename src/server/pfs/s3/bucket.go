@@ -82,10 +82,14 @@ func newBucketHandler(pc *client.APIClient) bucketHandler {
 }
 
 func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(r)
+	repo, branch, ok := bucketArgs(w, r)
+	if !ok {
+		return
+	}
+	
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 
@@ -95,12 +99,15 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(r)
+	repo, branch, ok := bucketArgs(w, r)
+	if !ok {
+		return
+	}
 
 	// ensure the branch exists and has a head
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 
@@ -114,7 +121,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	delimiter := r.FormValue("delimiter")
 	if delimiter != "" && delimiter != "/" {
-		newInvalidDelimiterError(r).write(w)
+		invalidDelimiterError(w, r)
 		return
 	}
 
@@ -154,7 +161,7 @@ func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, res
 	})
 
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
@@ -165,7 +172,7 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 	pattern := fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
 	fileInfos, err := h.pc.GlobFile(result.Name, branch, pattern)
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
@@ -181,7 +188,7 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 		if fileInfo.FileType == pfs.FileType_FILE {
 			contents, err := newContents(fileInfo)
 			if err != nil {
-				newInternalError(r, err).write(w)
+				internalError(w, r, err)
 				return
 			}
 			result.Contents = append(result.Contents, contents)
@@ -194,7 +201,10 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 }
 
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(r)
+	repo, branch, ok := bucketArgs(w, r)
+	if !ok {
+		return
+	}
 
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
@@ -205,22 +215,22 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 			_, err := h.pc.InspectBranch(repo, branch)
 			if err != nil {
 				if !branchNotFoundMatcher.MatchString(err.Error()) {
-					newInternalError(r, err).write(w)
+					internalError(w, r, err)
 					return
 				}
 			} else {
-				newBucketAlreadyExistsError(r).write(w)
+				bucketAlreadyExistsError(w, r)
 				return
 			}
 		} else {
-			newInternalError(r, err).write(w)
+			internalError(w, r, err)
 			return
 		}
 	}
 
 	err = h.pc.CreateBranch(repo, branch, "", nil)
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
@@ -228,11 +238,14 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(r)
+	repo, branch, ok := bucketArgs(w, r)
+	if !ok {
+		return
+	}
 
 	err := h.pc.DeleteBranch(repo, branch, false)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 

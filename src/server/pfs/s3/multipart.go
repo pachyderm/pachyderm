@@ -331,16 +331,20 @@ func newMultipartHandler(pc *client.APIClient, multipartDir string) *multipartHa
 }
 
 func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(r)
+	repo, branch, file, ok := objectArgs(w, r)
+	if !ok {
+		return
+	}
+
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 
 	uploadID, err := h.multipartManager.init(file)
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
@@ -354,15 +358,19 @@ func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(r)
+	repo, branch, file, ok := objectArgs(w, r)
+	if !ok {
+		return
+	}
+	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 	uploadID := r.FormValue("uploadId")
 	if err := h.multipartManager.checkExists(uploadID); err != nil {
-		newNoSuchUploadError(r).write(w)
+		noSuchUploadError(w, r)
 		return
 	}
 
@@ -371,7 +379,7 @@ func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
 
 	fileInfos, err := h.multipartManager.listChunks(uploadID)
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
@@ -413,28 +421,32 @@ func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch, _ := objectArgs(r)
+	repo, branch, _, ok := objectArgs(w, r)
+	if !ok {
+		return
+	}
+	
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 	uploadID := r.FormValue("uploadId")
 	if err := h.multipartManager.checkExists(uploadID); err != nil {
-		newNoSuchUploadError(r).write(w)
+		noSuchUploadError(w, r)
 		return
 	}
 
 	partNumber := intFormValue(r, "partNumber", 1, maxAllowedParts, -1)
 	if partNumber == -1 {
 		// TODO: it's not clear from s3 docs whether this is the right error
-		newInvalidPartError(r).write(w)
+		invalidPartError(w, r)
 		return
 	}
 
 	success := withBodyReader(w, r, func(reader io.Reader) bool {
 		if err := h.multipartManager.writeChunk(uploadID, partNumber, reader); err != nil {
-			newInternalError(r, err).write(w)
+			internalError(w, r, err)
 			return false
 		}
 		return true
@@ -450,35 +462,39 @@ func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
-	repo, branch, _ := objectArgs(r)
+	repo, branch, _, ok := objectArgs(w, r)
+	if !ok {
+		return
+	}
+	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 	uploadID := r.FormValue("uploadId")
 	if err := h.multipartManager.checkExists(uploadID); err != nil {
-		newNoSuchUploadError(r).write(w)
+		noSuchUploadError(w, r)
 		return
 	}
 
 	name, err := h.multipartManager.filepath(uploadID)
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		err = fmt.Errorf("could not read request body: %v", err)
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
 	payload := CompleteMultipartUpload{}
 	err = xml.Unmarshal(bodyBytes, &payload)
 	if err != nil {
-		newMalformedXMLError(r).write(w)
+		malformedXMLError(w, r)
 		return
 	}
 
@@ -487,14 +503,14 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 		return payload.Parts[i].PartNumber < payload.Parts[j].PartNumber
 	})
 	if len(payload.Parts) == 0 || !isSorted {
-		newInvalidPartOrderError(r).write(w)
+		invalidPartOrderError(w, r)
 		return
 	}
 
 	// ensure all the files exist
 	for _, part := range payload.Parts {
 		if err = h.multipartManager.checkChunkExists(uploadID, part.PartNumber); err != nil {
-			newInvalidPartError(r).write(w)
+			invalidPartError(w, r)
 			return
 		}
 	}
@@ -514,17 +530,17 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 		if closeErr := reader.Close(); closeErr != nil {
 			logrus.Errorf("could not close reader for uploadID=%s: %v", uploadID, closeErr)
 		}
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
 	if err = reader.Close(); err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
 	if err = h.multipartManager.remove(uploadID); err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
@@ -532,19 +548,23 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch, _ := objectArgs(r)
+	repo, branch, _, ok := objectArgs(w, r)
+	if !ok {
+		return
+	}
+	
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 	uploadID := r.FormValue("uploadId")
 	if err := h.multipartManager.checkExists(uploadID); err != nil {
-		newNoSuchUploadError(r).write(w)
+		noSuchUploadError(w, r)
 		return
 	}
 	if err := h.multipartManager.remove(uploadID); err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

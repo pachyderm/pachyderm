@@ -17,32 +17,36 @@ func newObjectHandler(pc *client.APIClient) *objectHandler {
 }
 
 func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(r)
+	repo, branch, file, ok := objectArgs(w, r)
+	if !ok {
+		return
+	}
+	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 	if branchInfo.Head == nil {
-		newNoSuchKeyError(r).write(w)
+		noSuchKeyError(w, r)
 		return
 	}
 
 	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 
 	timestamp, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
 	reader, err := h.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
@@ -50,10 +54,14 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(r)
+	repo, branch, file, ok := objectArgs(w, r)
+	if !ok {
+		return
+	}
+	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 
@@ -61,7 +69,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		_, err := h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 
 		if err != nil {
-			newInternalError(r, err).write(w)
+			internalError(w, r, err)
 			return false
 		}
 
@@ -70,19 +78,23 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(r)
+	repo, branch, file, ok := objectArgs(w, r)
+	if !ok {
+		return
+	}
+	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 	if branchInfo.Head == nil {
-		newNoSuchKeyError(r).write(w)
+		noSuchKeyError(w, r)
 		return
 	}
 
 	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-		newNotFoundError(r, err).write(w)
+		notFoundError(w, r, err)
 		return
 	}
 

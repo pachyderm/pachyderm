@@ -636,3 +636,16 @@ func TestListObjectsRecursive(t *testing.T) {
 
 	require.NoError(t, srv.Close())
 }
+
+func TestMasterBranchRedirects(t *testing.T) {
+	srv, pc, c := serve(t, "")
+	repo := tu.UniqueString("testmasterbranchredirects")
+
+	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
+	exists, err := c.BucketExists(fmt.Sprintf("%s-master", repo))
+	require.NoError(t, err)
+	require.True(t, exists)
+
+	require.NoError(t, srv.Close())
+}

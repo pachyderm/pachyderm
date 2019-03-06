@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/xml"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -67,7 +68,7 @@ func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bo
 	if expectedHash != "" {
 		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
 		if err != nil || len(expectedHashBytes) != 16 {
-			newInvalidDigestError(r).write(w)
+			invalidDigestError(w, r)
 			return false
 		}
 
@@ -81,7 +82,7 @@ func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bo
 
 		actualHash := hasher.Sum(nil)
 		if !bytes.Equal(expectedHashBytes, actualHash) {
-			newBadDigestError(r).write(w)
+			badDigestError(w, r)
 			return false
 		}
 
@@ -96,21 +97,32 @@ func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bo
 	return true
 }
 
-func bucketArgs(r *http.Request) (string, string) {
+func bucketArgs(w http.ResponseWriter, r *http.Request) (string, string, bool) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	lastDashIndex := strings.LastIndex(bucket, "-")
 
 	if lastDashIndex >= 0 {
-		return bucket[:lastDashIndex], bucket[lastDashIndex+1:]
-	} else {
-		return bucket, "master"
+		repo := bucket[:lastDashIndex]
+		branch := bucket[lastDashIndex+1:]
+
+		if branch == "master" {
+			 parts := strings.SplitN(r.URL.Path, "/", 3)
+			 filepath := parts[2]
+			 w.Header().Set("Location", fmt.Sprintf("/%s/%s", repo, filepath))
+			 permanentRedirectError(w, r)
+			 return repo, branch, false
+		}
+
+		return repo, branch, true
 	}
+		
+	return bucket, "master", true
 }
 
-func objectArgs(r *http.Request) (string, string, string) {
+func objectArgs(w http.ResponseWriter, r *http.Request) (string, string, string, bool) {
 	vars := mux.Vars(r)
-	repo, branch := bucketArgs(r)
 	file := vars["file"]
-	return repo, branch, file
+	repo, branch, ok := bucketArgs(w, r)
+	return repo, branch, file, ok
 }

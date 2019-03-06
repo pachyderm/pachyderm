@@ -32,7 +32,7 @@ func newRootHandler(pc *client.APIClient) rootHandler {
 func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	repos, err := h.pc.ListRepo()
 	if err != nil {
-		newInternalError(r, err).write(w)
+		internalError(w, r, err)
 		return
 	}
 
@@ -43,29 +43,19 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for _, repo := range repos {
 		t, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
-			newInternalError(r, err).write(w)
+			internalError(w, r, err)
 			return
 		}
 
-		// NOTE: if `repo` has a `master` branch, this will not include
-		// `repo-master` in the list of buckets, but rather just `repo`. This
-		// is to avoid issues with conformance tests, which would try to
-		// otherwise redundantly delete the `repo-master` bucket and fail.
-		// TODO: figure out a more resilient way to manage this
 		for _, branch := range repo.Branches {
-			if branch.Name == "master" {
-				// master branch can be addressed without it specified in the
-				// bucket
-				result.Buckets = append(result.Buckets, Bucket{
-					Name:         branch.Repo.Name,
-					CreationDate: t,
-				})
-			} else {
-				result.Buckets = append(result.Buckets, Bucket{
-					Name:         fmt.Sprintf("%s-%s", branch.Repo.Name, branch.Name),
-					CreationDate: t,
-				})
+			bucket := branch.Repo.Name
+			if branch.Name != "master" {
+				bucket = fmt.Sprintf("%s-%s", branch.Repo.Name, branch.Name)
 			}
+			result.Buckets = append(result.Buckets, Bucket{
+				Name:         bucket,
+				CreationDate: t,
+			})
 		}
 	}
 
