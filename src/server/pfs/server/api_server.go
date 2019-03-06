@@ -162,7 +162,7 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	ctx := tracing.TagAnySpan(respServer.Context(), "repo", req.Repo, "from", req.From.ID, "to", req.To.ID)
+	ctx := tracing.TagAnySpan(respServer.Context(), "repo", req.Repo)
 
 	return a.driver.listCommitF(a.env.GetPachClient(ctx), req.Repo, req.To, req.From, req.Number, func(ci *pfs.CommitInfo) error {
 		sent++
