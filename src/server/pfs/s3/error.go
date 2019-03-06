@@ -53,7 +53,7 @@ func newInternalError(r *http.Request, err error) *Error {
 }
 
 func newInvalidBucketNameError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "InvalidBucketName", "The specified repo has either an invalid name, or is not serviceable.")
+	return newError(r, http.StatusBadRequest, "InvalidBucketName", "The specified repo or branch either has an invalid name, or is not serviceable.")
 }
 
 // note: this is not a standard s3 error
@@ -80,12 +80,6 @@ func newMalformedXMLError(r *http.Request) *Error {
 func newMethodNotAllowedError(r *http.Request) *Error {
 	return newError(r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.")
 }
-
-// note: this is not a standard s3 error
-func newMissingBranchError(r *http.Request) *Error {
-	return newError(r, http.StatusBadRequest, "MissingBranch", "The key should include a branch.")
-}
-
 func newNoSuchBucketError(r *http.Request) *Error {
 	return newError(r, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
 }
@@ -101,10 +95,8 @@ func newNoSuchUploadError(r *http.Request) *Error {
 func newNotFoundError(r *http.Request, err error) *Error {
 	s := err.Error()
 
-	if repoNotFoundMatcher.MatchString(s) {
+	if repoNotFoundMatcher.MatchString(s) || branchNotFoundMatcher.MatchString(s) {
 		return newNoSuchBucketError(r)
-	} else if branchNotFoundMatcher.MatchString(s) {
-		return newNoSuchKeyError(r)
 	} else if fileNotFoundMatcher.MatchString(s) {
 		return newNoSuchKeyError(r)
 	} else {

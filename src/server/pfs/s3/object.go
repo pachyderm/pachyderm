@@ -24,7 +24,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if branchInfo.Head == nil {
-		newNoSuchKeyError(r).write(w)
+		newNoSuchBucketError(r).write(w)
 		return
 	}
 
@@ -46,7 +46,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	http.ServeContent(w, r, "", timestamp, reader)
+	http.ServeContent(w, r, file, timestamp, reader)
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +77,7 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if branchInfo.Head == nil {
-		newNoSuchKeyError(r).write(w)
+		newNoSuchBucketError(r).write(w)
 		return
 	}
 

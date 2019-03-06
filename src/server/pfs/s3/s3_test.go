@@ -63,7 +63,7 @@ func serve(t *testing.T, multipartDir string) (*http.Server, *client.APIClient, 
 func getObject(t *testing.T, c *minio.Client, repo, branch, file string) (string, error) {
 	t.Helper()
 
-	obj, err := c.GetObject(repo, fmt.Sprintf("%s/%s", branch, file))
+	obj, err := c.GetObject(fmt.Sprintf("%s-%s", repo, branch), file)
 	if err != nil {
 		return "", err
 	}
@@ -230,7 +230,7 @@ func TestStatObject(t *testing.T) {
 	require.NoError(t, err)
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	info, err := c.StatObject(repo, "master/file")
+	info, err := c.StatObject(repo, "file")
 	require.NoError(t, err)
 	require.True(t, startTime.Before(info.LastModified))
 	require.True(t, endTime.After(info.LastModified))
@@ -248,11 +248,11 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	_, err := c.PutObject(repo, "branch/file", strings.NewReader("content1"), "text/plain")
+	_, err := c.PutObject(fmt.Sprintf("%s-branch", repo), "file", strings.NewReader("content1"), "text/plain")
 	require.NoError(t, err)
 
 	// this should act as a PFS PutFileOverwrite
-	_, err = c.PutObject(repo, "branch/file", strings.NewReader("content2"), "text/plain")
+	_, err = c.PutObject(fmt.Sprintf("%s-branch", repo), "file", strings.NewReader("content2"), "text/plain")
 	require.NoError(t, err)
 
 	fetchedContent, err := getObject(t, c, repo, "branch", "file")
@@ -271,8 +271,8 @@ func TestRemoveObject(t *testing.T) {
 	require.NoError(t, err)
 
 	// as per PFS semantics, the second delete should be a no-op
-	require.NoError(t, c.RemoveObject(repo, "master/file"))
-	require.NoError(t, c.RemoveObject(repo, "master/file"))
+	require.NoError(t, c.RemoveObject(repo, "file"))
+	require.NoError(t, c.RemoveObject(repo, "file"))
 
 	// make sure the object no longer exists
 	_, err = getObject(t, c, repo, "master", "file")
@@ -305,23 +305,23 @@ func TestLargeObjects(t *testing.T) {
 
 	// first ensure that putting into a repo that doesn't exist triggers an
 	// error
-	_, err = c.FPutObject(repo2, "master/file", inputFile.Name(), "text/plain")
+	_, err = c.FPutObject(repo2, "file", inputFile.Name(), "text/plain")
 	bucketNotFoundError(t, err)
 
 	// now try putting into a legit repo
-	l, err := c.FPutObject(repo1, "master/file", inputFile.Name(), "text/plain")
+	l, err := c.FPutObject(repo1, "file", inputFile.Name(), "text/plain")
 	require.Equal(t, err, io.EOF)
 	require.Equal(t, int(l), 68157450)
 
 	// try getting an object that does not exist
-	err = c.FGetObject(repo2, "master/file", "foo")
+	err = c.FGetObject(repo2, "file", "foo")
 	bucketNotFoundError(t, err)
 
 	// get the file that does exist
 	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name())
-	err = c.FGetObject(repo1, "master/file", outputFile.Name())
+	err = c.FGetObject(repo1, "file", outputFile.Name())
 	require.NoError(t, err)
 
 	// compare the files and ensure they're the same
@@ -454,53 +454,31 @@ func TestListObjectsPaginated(t *testing.T) {
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	// Request that will list all files in master's root
-	ch := c.ListObjects(repo, "master/", false, make(chan struct{}))
+	ch := c.ListObjects(repo, "", false, make(chan struct{}))
 	expectedFiles := []string{}
 	for i := 0; i <= 1000; i++ {
-		expectedFiles = append(expectedFiles, fmt.Sprintf("master/%d", i))
+		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
 	}
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{"master/dir/"})
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{"dir/"})
 
 	// Request that will list all files in master starting with 1
-	ch = c.ListObjects(repo, "master/1", false, make(chan struct{}))
+	ch = c.ListObjects(repo, "1", false, make(chan struct{}))
 	expectedFiles = []string{}
 	for i := 0; i <= 1000; i++ {
-		file := fmt.Sprintf("master/%d", i)
-		if strings.HasPrefix(file, "master/1") {
+		file := fmt.Sprintf("%d", i)
+		if strings.HasPrefix(file, "1") {
 			expectedFiles = append(expectedFiles, file)
 		}
 	}
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
 	// Request that will list all files in a directory in master
-	ch = c.ListObjects(repo, "master/dir/", false, make(chan struct{}))
+	ch = c.ListObjects(repo, "dir/", false, make(chan struct{}))
 	expectedFiles = []string{}
 	for i := 0; i < 10; i++ {
-		expectedFiles = append(expectedFiles, fmt.Sprintf("master/dir/%d", i))
+		expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
 	}
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
-
-	require.NoError(t, srv.Close())
-}
-
-func TestListObjectsBranches(t *testing.T) {
-	srv, pc, c := serve(t, "")
-
-	repo := tu.UniqueString("testlistobjectsbranches")
-	require.NoError(t, pc.CreateRepo(repo))
-	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
-	require.NoError(t, pc.CreateBranch(repo, "emptybranch", "", nil))
-
-	// put files on `master` and `branch`, but not on `emptybranch`. As a
-	// result, `emptybranch` will have no head commit.
-	putListFileTestObject(t, pc, repo, "master", "", 1)
-	putListFileTestObject(t, pc, repo, "branch", "", 2)
-
-	// Request that will list branches as common prefixes
-	ch := c.ListObjects(repo, "", false, make(chan struct{}))
-	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{}, []string{"branch/", "master/"})
-	ch = c.ListObjects(repo, "master", false, make(chan struct{}))
-	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{}, []string{"master/"})
 
 	require.NoError(t, srv.Close())
 }
@@ -513,8 +491,13 @@ func TestListObjectsHeadlessBranch(t *testing.T) {
 	require.NoError(t, pc.CreateBranch(repo, "emptybranch", "", nil))
 
 	// Request into branch that has no head
-	ch := c.ListObjects(repo, "emptybranch/", false, make(chan struct{}))
-	checkListObjects(t, ch, time.Time{}, time.Time{}, []string{}, []string{})
+	ch := c.ListObjects(fmt.Sprintf("%s-emptybranch", repo), "", false, make(chan struct{}))
+	objs := []minio.ObjectInfo{}
+	for obj := range ch {
+		objs = append(objs, obj)
+	}
+	require.Equal(t, 1, len(objs))
+	bucketNotFoundError(t, objs[0].Err)
 
 	require.NoError(t, srv.Close())
 }
@@ -539,49 +522,36 @@ func TestListObjectsRecursive(t *testing.T) {
 	require.NoError(t, pc.FinishCommit(repo, commit.ID))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	// Request that will list all files across all branches
-	expectedFiles := []string{"master/0", "master/rootdir/1", "master/rootdir/subdir/2", "branch/3"}
-	expectedDirs := []string{"master/", "master/rootdir/", "master/rootdir/subdir/", "branch/"}
+	// Request that will list all files and dirs in master
+	expectedFiles := []string{"0", "rootdir/1", "rootdir/subdir/2"}
+	expectedDirs := []string{"rootdir/", "rootdir/subdir/"}
 	ch := c.ListObjects(repo, "", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
-	// Requests that will list all files and dirs in master, including master itself
-	expectedFiles = []string{"master/0", "master/rootdir/1", "master/rootdir/subdir/2"}
-	expectedDirs = []string{"master/", "master/rootdir/", "master/rootdir/subdir/"}
-	ch = c.ListObjects(repo, "mas", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-	ch = c.ListObjects(repo, "master", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-
-	// Request that will list all files and dirs in master, excluding master itself
-	expectedDirs = []string{"master/rootdir/", "master/rootdir/subdir/"}
-	ch = c.ListObjects(repo, "master/", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-
 	// Requests that will list all files in rootdir, including rootdir itself
-	expectedFiles = []string{"master/rootdir/1", "master/rootdir/subdir/2"}
-	ch = c.ListObjects(repo, "master/r", true, make(chan struct{}))
+	expectedFiles = []string{"rootdir/1", "rootdir/subdir/2"}
+	ch = c.ListObjects(repo, "r", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-	ch = c.ListObjects(repo, "master/rootdir", true, make(chan struct{}))
+	ch = c.ListObjects(repo, "rootdir", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	// Request that will list all files in rootdir, excluding rootdir itself
-	expectedDirs = []string{"master/rootdir/subdir/"}
-	ch = c.ListObjects(repo, "master/rootdir/", true, make(chan struct{}))
+	expectedDirs = []string{"rootdir/subdir/"}
+	ch = c.ListObjects(repo, "rootdir/", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	// Requests that will list all files in subdir, including subdir itself
-	expectedFiles = []string{"master/rootdir/subdir/2"}
-	ch = c.ListObjects(repo, "master/rootdir/s", true, make(chan struct{}))
+	expectedFiles = []string{"rootdir/subdir/2"}
+	ch = c.ListObjects(repo, "rootdir/s", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-	ch = c.ListObjects(repo, "master/rootdir/subdir", true, make(chan struct{}))
+	ch = c.ListObjects(repo, "rootdir/subdir", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	// Request that will list all files in subdir, excluding subdir itself
 	expectedDirs = []string{}
-	ch = c.ListObjects(repo, "master/rootdir/subdir/", true, make(chan struct{}))
+	ch = c.ListObjects(repo, "rootdir/subdir/", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-	ch = c.ListObjects(repo, "master/rootdir/subdir/2", true, make(chan struct{}))
+	ch = c.ListObjects(repo, "rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	require.NoError(t, srv.Close())

@@ -4,11 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
-
-	"github.com/gorilla/mux"
 
 	"github.com/gobwas/glob"
 	"github.com/gogo/protobuf/types"
@@ -84,40 +81,15 @@ func newBucketHandler(pc *client.APIClient) bucketHandler {
 	return bucketHandler{pc: pc}
 }
 
-// rootDirs determines the root directories (common prefixes in s3 parlance)
-// of a bucket by finding branches that have a given prefix
-func (h bucketHandler) rootDirs(repo string, prefix string) ([]string, error) {
-	dirs := []string{}
-	branchInfos, err := h.pc.ListBranch(repo)
-	if err != nil {
-		return nil, err
-	}
-
-	// `branchInfos` is not sorted by default, but we need to sort in order to
-	// match the s3 spec
-	sort.Slice(branchInfos, func(i, j int) bool {
-		return branchInfos[i].Branch.Name < branchInfos[j].Branch.Name
-	})
-
-	for _, branchInfo := range branchInfos {
-		if !strings.HasPrefix(branchInfo.Branch.Name, prefix) {
-			continue
-		}
-		if branchInfo.Head == nil {
-			continue
-		}
-		dirs = append(dirs, branchInfo.Branch.Name)
-	}
-
-	return dirs, nil
-}
-
 func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	repo := vars["repo"]
-	_, err := h.pc.InspectRepo(repo)
+	repo, branch := bucketArgs(r)
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		newNotFoundError(r, err).write(w)
+		return
+	}
+	if branchInfo.Head == nil {
+		newNoSuchBucketError(r).write(w)
 		return
 	}
 
@@ -127,146 +99,46 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	repo := vars["repo"]
-	_, err := h.pc.InspectRepo(repo)
+	repo, branch := bucketArgs(r)
+
+	// ensure the branch exists and has a head
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		newNotFoundError(r, err).write(w)
 		return
 	}
+	if branchInfo.Head == nil {
+		newNoSuchBucketError(r).write(w)
+		return
+	}
 
-	marker := r.FormValue("marker")
-	maxKeys := intFormValue(r, "max-keys", 1, defaultMaxKeys, defaultMaxKeys)
+	result := &ListBucketResult{
+		Name:        repo,
+		Prefix:      r.FormValue("prefix"),
+		Marker:      r.FormValue("marker"),
+		MaxKeys:     intFormValue(r, "max-keys", 1, defaultMaxKeys, defaultMaxKeys),
+		IsTruncated: false,
+	}
 
-	recursive := false
 	delimiter := r.FormValue("delimiter")
-	if delimiter == "" {
-		recursive = true
-	} else if delimiter != "/" {
+	if delimiter != "" && delimiter != "/" {
 		newInvalidDelimiterError(r).write(w)
 		return
 	}
 
-	prefix := r.FormValue("prefix")
-	prefixParts := strings.SplitN(prefix, "/", 2)
-
-	result := &ListBucketResult{
-		Name:        repo,
-		Prefix:      prefix,
-		Marker:      marker,
-		MaxKeys:     maxKeys,
-		IsTruncated: false,
-	}
-
-	if len(prefixParts) == 1 {
-		branchPrefix := prefixParts[0]
-
-		if recursive {
-			h.listRecursive(w, r, result, branchPrefix)
-		} else {
-			h.list(w, r, result, branchPrefix)
-		}
+	if delimiter == "" {
+		h.listRecursive(w, r, result, branch)
 	} else {
-		branch := prefixParts[0]
-		filePrefix := prefixParts[1]
-
-		// ensure the branch exists and has a head
-		branchInfo, err := h.pc.InspectBranch(repo, branch)
-		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
-				// render an empty list if this branch doesn't exist
-				writeXML(w, http.StatusOK, &result)
-			} else {
-				newInternalError(r, err).write(w)
-			}
-			return
-		}
-		if branchInfo.Head == nil {
-			// render an empty list if this branch has no head
-			writeXML(w, http.StatusOK, &result)
-			return
-		}
-
-		if recursive {
-			h.listBranchRecursive(w, r, result, branch, filePrefix)
-		} else {
-			h.listBranch(w, r, result, branch, filePrefix)
-		}
+		h.list(w, r, result, branch)
 	}
 }
 
-func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branchPrefix string) {
-	branches, err := h.rootDirs(result.Name, branchPrefix)
-	if err != nil {
-		newInternalError(r, err).write(w)
-		return
-	}
-
-	for _, branch := range branches {
-		result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(branch))
-
-		if result.isFull() {
-			result.IsTruncated = true
-			break
-		}
-
-		err = h.pc.Walk(result.Name, branch, "", func(fileInfo *pfs.FileInfo) error {
-			fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
-			if fileInfo == nil {
-				return nil
-			}
-			if result.isFull() {
-				result.IsTruncated = true
-				return errutil.ErrBreak
-			}
-			if fileInfo.FileType == pfs.FileType_FILE {
-				contents, err := newContents(fileInfo)
-				if err != nil {
-					return err
-				}
-				result.Contents = append(result.Contents, contents)
-			} else {
-				result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
-			}
-			return nil
-		})
-		if err != nil {
-			newInternalError(r, err).write(w)
-			return
-		}
-		if result.IsTruncated {
-			break
-		}
-	}
-
-	writeXML(w, http.StatusOK, result)
-}
-
-func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branchPrefix string) {
-	dirs, err := h.rootDirs(result.Name, branchPrefix)
-	if err != nil {
-		newInternalError(r, err).write(w)
-		return
-	}
-
-	if len(dirs) > result.MaxKeys {
-		dirs = dirs[:result.MaxKeys]
-		result.IsTruncated = true
-	}
-
-	for _, dir := range dirs {
-		result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(dir))
-	}
-
-	writeXML(w, http.StatusOK, result)
-}
-
-func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string, filePrefix string) {
-	err := h.pc.Walk(result.Name, branch, filepath.Dir(filePrefix), func(fileInfo *pfs.FileInfo) error {
-		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
-		if fileInfo == nil {
+func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
+	err := h.pc.Walk(result.Name, branch, filepath.Dir(result.Prefix), func(fileInfo *pfs.FileInfo) error {
+		if !shouldShowFileInfo(branch, result.Marker, fileInfo) {
 			return nil
 		}
+		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
 			return nil
 		}
@@ -294,8 +166,8 @@ func (h bucketHandler) listBranchRecursive(w http.ResponseWriter, r *http.Reques
 	writeXML(w, http.StatusOK, result)
 }
 
-func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string, filePrefix string) {
-	pattern := fmt.Sprintf("%s*", glob.QuoteMeta(filePrefix))
+func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
+	pattern := fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
 	fileInfos, err := h.pc.GlobFile(result.Name, branch, pattern)
 	if err != nil {
 		newInternalError(r, err).write(w)
@@ -303,10 +175,10 @@ func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, result
 	}
 
 	for _, fileInfo := range fileInfos {
-		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
-		if fileInfo == nil {
+		if !shouldShowFileInfo(branch, result.Marker, fileInfo) {
 			continue
 		}
+		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 		if result.isFull() {
 			result.IsTruncated = true
 			break
@@ -326,9 +198,9 @@ func (h bucketHandler) listBranch(w http.ResponseWriter, r *http.Request, result
 	writeXML(w, http.StatusOK, result)
 }
 
+// TODO: handling of branches on put/del bucket
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	repo := vars["repo"]
+	repo, _ := bucketArgs(r)
 
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
@@ -345,8 +217,7 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	repo := vars["repo"]
+	repo, _ := bucketArgs(r)
 
 	err := h.pc.DeleteRepo(repo, false)
 
@@ -358,27 +229,19 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// updateFileInfo takes in a `FileInfo`, and updates it to be used in s3
-// object listings:
-// 1) if nil is returned, the `FileInfo` should not be included in the list
-// 2) the path is updated to be prefixed by the branch name
-func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo {
+func shouldShowFileInfo(branch, marker string, fileInfo *pfs.FileInfo) bool {
 	if fileInfo.FileType != pfs.FileType_FILE && fileInfo.FileType != pfs.FileType_DIR {
 		// skip anything that isn't a file or dir
-		return nil
+		return false
 	}
 	if fileInfo.FileType == pfs.FileType_DIR && fileInfo.File.Path == "/" {
 		// skip the root directory
-		return nil
+		return false
 	}
-
-	// update the path to match s3
-	fileInfo.File.Path = fmt.Sprintf("%s%s", branch, fileInfo.File.Path)
-
 	if fileInfo.File.Path <= marker {
 		// skip file paths below the marker
-		return nil
+		return false
 	}
 
-	return fileInfo
+	return true
 }

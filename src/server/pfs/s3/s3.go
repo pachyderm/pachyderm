@@ -5,15 +5,12 @@ import (
 	"io"
 	stdlog "log"
 	"net/http"
-	"regexp"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
 )
-
-var repoMatcher = regexp.MustCompile(`^/[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]/.*`)
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
@@ -49,14 +46,14 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	// bucket-related routes
 	// repo validation regex is the same as minio
 	bucketHandler := newBucketHandler(pc)
-	bucketRouter := router.Path(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}`).Subrouter()
+	bucketRouter := router.Path(`/{bucket:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/`).Subrouter()
 	bucketRouter.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(bucketHandler.location)
 	bucketRouter.Methods("GET", "HEAD").HandlerFunc(bucketHandler.get)
 	bucketRouter.Methods("PUT").HandlerFunc(bucketHandler.put)
 	bucketRouter.Methods("DELETE").HandlerFunc(bucketHandler.del)
 
 	// object-related routes
-	objectRouter := router.Path(`/{repo:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{branch}/{file:.+}`).Subrouter()
+	objectRouter := router.Path(`/{bucket:[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]}/{file:.+}`).Subrouter()
 	if multipartDir != "" {
 		// Nultipart handlers are only registered if a root dir is specified.
 		// It's registered before the other object routers because will
@@ -74,11 +71,7 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.del)
 
 	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !repoMatcher.MatchString(r.URL.Path) {
-			newInvalidBucketNameError(r).write(w)
-		} else {
-			newMissingBranchError(r).write(w)
-		}
+		newInvalidBucketNameError(r).write(w)
 	})
 
 	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

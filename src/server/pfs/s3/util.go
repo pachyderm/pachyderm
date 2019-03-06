@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -95,10 +96,21 @@ func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bo
 	return true
 }
 
+func bucketArgs(r *http.Request) (string, string) {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+	lastDashIndex := strings.LastIndex(bucket, "-")
+
+	if lastDashIndex >= 0 {
+		return bucket[:lastDashIndex], bucket[lastDashIndex+1:]
+	} else {
+		return bucket, "master"
+	}
+}
+
 func objectArgs(r *http.Request) (string, string, string) {
 	vars := mux.Vars(r)
-	repo := vars["repo"]
-	branch := vars["branch"]
+	repo, branch := bucketArgs(r)
 	file := vars["file"]
 	return repo, branch, file
 }
