@@ -43,7 +43,7 @@ type ListPartsResult struct {
 	StorageClass         string `xml:"StorageClass"`
 	PartNumberMarker     int    `xml:"PartNumberMarker"`
 	NextPartNumberMarker int    `xml:"NextPartNumberMarker"`
-	MaxParts             int    `xml:"PartNumberMarker"`
+	MaxParts             int    `xml:"MaxParts"`
 	IsTruncated          bool   `xml:"IsTruncated"`
 	Part                 []Part `xml:"Part"`
 }
