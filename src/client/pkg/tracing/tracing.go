@@ -84,16 +84,17 @@ func FinishAnySpan(span opentracing.Span) {
 // global tracer, relying on environment variables to configure the client. It
 // returns the address used to initialize the global tracer, if any
 // initialization occurred
-func InstallJaegerTracerFromEnv() string {
-	var jaegerEndpoint string
+func InstallJaegerTracerFromEnv() {
 	jaegerOnce.Do(func() {
-		var onUserMachine bool
-		jaegerEndpoint, onUserMachine = os.LookupEnv(jaegerEndpointEnvVar)
+		jaegerEndpoint, onUserMachine := os.LookupEnv(jaegerEndpointEnvVar)
 		if !onUserMachine {
 			if host, ok := os.LookupEnv("JAEGER_COLLECTOR_SERVICE_HOST"); ok {
 				port := os.Getenv("JAEGER_COLLECTOR_SERVICE_PORT_JAEGER_COLLECTOR_HTTP")
 				jaegerEndpoint = fmt.Sprintf("%s:%s", host, port)
 			}
+		}
+		if jaegerEndpoint == "" {
+			return // break early -- not using Jaeger
 		}
 
 		// canonicalize jaegerEndpoint as http://<hostport>/api/traces
@@ -132,7 +133,6 @@ func InstallJaegerTracerFromEnv() string {
 		}
 		opentracing.SetGlobalTracer(tracer)
 	})
-	return jaegerEndpoint
 }
 
 // addTraceIfTracingEnabled is an otgrpc interceptor option that propagates

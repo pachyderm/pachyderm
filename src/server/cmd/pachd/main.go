@@ -97,9 +97,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 		}
 	}()
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	if jaegerEndpoint := tracing.InstallJaegerTracerFromEnv(); jaegerEndpoint != "" {
-		log.Printf("using Jaeger collector endpoint: %s\n", jaegerEndpoint)
-	}
+	tracing.InstallJaegerTracerFromEnv()
 	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))

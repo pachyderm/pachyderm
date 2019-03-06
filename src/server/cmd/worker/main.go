@@ -126,9 +126,7 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 
 func do(config interface{}) error {
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
-	if jaegerEndpoint := tracing.InstallJaegerTracerFromEnv(); jaegerEndpoint != "" {
-		log.Printf("using Jaeger collector endpoint: %s\n", jaegerEndpoint)
-	}
+	tracing.InstallJaegerTracerFromEnv()
 	// Expose PProf service
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
