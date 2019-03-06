@@ -170,15 +170,35 @@ func TestListBuckets(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo2))
 	endTime := time.Now()
 
+	// should be 4 because master branches are listed twice
+	require.NoError(t, pc.CreateBranch(repo1, "master", "", nil))
+	require.NoError(t, pc.CreateBranch(repo1, "branch", "", nil))
+	require.NoError(t, pc.CreateBranch(repo2, "branch", "", nil))
+	expectedBranches := []string{repo1, fmt.Sprintf("%s-master", repo1), fmt.Sprintf("%s-branch", repo1), fmt.Sprintf("%s-branch", repo2)}
 	buckets, err := c.ListBuckets()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(buckets))
-
+	require.Equal(t, 4, len(buckets))
 	for _, bucket := range buckets {
-		require.EqualOneOf(t, []string{repo1, repo2}, bucket.Name)
+		require.EqualOneOf(t, expectedBranches, bucket.Name)
 		require.True(t, startTime.Before(bucket.CreationDate))
 		require.True(t, endTime.After(bucket.CreationDate))
 	}
+
+	require.NoError(t, srv.Close())
+}
+
+func TestListBucketsBranchless(t *testing.T) {
+	srv, pc, c := serve(t, "")
+
+	repo1 := tu.UniqueString("testlistbucketsbranchless1")
+	require.NoError(t, pc.CreateRepo(repo1))
+	repo2 := tu.UniqueString("testlistbucketsbranchless2")
+	require.NoError(t, pc.CreateRepo(repo2))
+
+	// should be 0 since no branches have been made yet
+	buckets, err := c.ListBuckets()
+	require.NoError(t, err)
+	require.Equal(t, 0, len(buckets))
 
 	require.NoError(t, srv.Close())
 }
@@ -356,7 +376,7 @@ func TestGetObjectNoBranch(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 
 	_, err := getObject(t, c, repo, "branch", "file")
-	keyNotFoundError(t, err)
+	bucketNotFoundError(t, err)
 	require.NoError(t, srv.Close())
 }
 
@@ -373,8 +393,25 @@ func TestMakeBucket(t *testing.T) {
 	srv, pc, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucket")
 	require.NoError(t, c.MakeBucket(repo, ""))
-	_, err := pc.InspectRepo(repo)
+	
+	repoInfo, err := pc.InspectRepo(repo)
 	require.NoError(t, err)
+	require.Equal(t, len(repoInfo.Branches), 1)
+	require.Equal(t, repoInfo.Branches[0].Name, "master")
+
+	require.NoError(t, srv.Close())
+}
+
+func TestMakeBucketWithBranch(t *testing.T) {
+	srv, pc, c := serve(t, "")
+	repo := tu.UniqueString("testmakebucketwithbranch")
+	require.NoError(t, c.MakeBucket(fmt.Sprintf("%s-branch", repo), ""))
+	
+	repoInfo, err := pc.InspectRepo(repo)
+	require.NoError(t, err)
+	require.Equal(t, len(repoInfo.Branches), 1)
+	require.Equal(t, repoInfo.Branches[0].Name, "branch")
+
 	require.NoError(t, srv.Close())
 }
 
@@ -397,32 +434,81 @@ func TestMakeBucketRedundant(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
+func TestMakeBucketDifferentBranches(t *testing.T) {
+	srv, _, c := serve(t, "")
+	repo := tu.UniqueString("testmakebucketdifferentbranches")
+
+	require.NoError(t, c.MakeBucket(repo, ""))
+	
+	// this should error because the last bucket creation implicitly made the
+	// master branch
+	err := c.MakeBucket(fmt.Sprintf("%s-master", repo), "")
+	require.YesError(t, err)
+	require.Equal(t, err.Error(), "There is already a repo with that name.")
+
+	// this should not error because it's a separate branch
+	err = c.MakeBucket(fmt.Sprintf("%s-branch", repo), "")
+	require.NoError(t, err)
+	
+	require.NoError(t, srv.Close())
+}
+
 func TestBucketExists(t *testing.T) {
 	srv, pc, c := serve(t, "")
+	repo := tu.UniqueString("testbucketexists")
 
-	repo1 := tu.UniqueString("testbucketexists1")
-	require.NoError(t, pc.CreateRepo(repo1))
-	exists, err := c.BucketExists(repo1)
+	exists, err := c.BucketExists(repo)
+	require.NoError(t, err)
+	require.False(t, exists)
+
+	// repo exists, but branch doesn't: should be false
+	require.NoError(t, pc.CreateRepo(repo))
+	exists, err = c.BucketExists(repo)
+	require.NoError(t, err)
+	require.False(t, exists)
+
+	// repo and branch exists: should be true
+	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
+	exists, err = c.BucketExists(repo)
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	repo2 := tu.UniqueString("testbucketexists1")
-	exists, err = c.BucketExists(repo2)
+	// repo exists, but branch doesn't: should be false
+	exists, err = c.BucketExists(fmt.Sprintf("%s-branch", repo))
 	require.NoError(t, err)
 	require.False(t, exists)
+
+	// repo and branch exists: should be true
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
+	exists, err = c.BucketExists(fmt.Sprintf("%s-branch", repo))
+	require.NoError(t, err)
+	require.True(t, exists)
 
 	require.NoError(t, srv.Close())
 }
 
 func TestRemoveBucket(t *testing.T) {
 	srv, pc, c := serve(t, "")
+	repo := tu.UniqueString("testremovebucket")
 
-	repo1 := tu.UniqueString("testremovebucket1")
-	require.NoError(t, pc.CreateRepo(repo1))
-	require.NoError(t, c.RemoveBucket(repo1))
+	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	repo2 := tu.UniqueString("testremovebucket2")
-	bucketNotFoundError(t, c.RemoveBucket(repo2))
+	require.NoError(t, c.RemoveBucket(repo))
+	require.NoError(t, c.RemoveBucket(fmt.Sprintf("%s-branch", repo)))
+
+	require.NoError(t, srv.Close())
+}
+
+func TestRemoveBucketBranchless(t *testing.T) {
+	srv, pc, c := serve(t, "")
+	repo := tu.UniqueString("testremovebucketbranchless")
+
+	// should error out because the repo doesn't have a branch
+	require.NoError(t, pc.CreateRepo(repo))
+	bucketNotFoundError(t, c.RemoveBucket(repo))
+	bucketNotFoundError(t, c.RemoveBucket(fmt.Sprintf("%s-master", repo)))
 
 	require.NoError(t, srv.Close())
 }

@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -46,10 +47,21 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		result.Buckets = append(result.Buckets, Bucket{
-			Name:         repo.Repo.Name,
-			CreationDate: t,
-		})
+		for _, branch := range repo.Branches {
+			if branch.Name == "master" {
+				// master branch can be addressed without it specified in the
+				// bucket
+				result.Buckets = append(result.Buckets, Bucket{
+					Name:         branch.Repo.Name,
+					CreationDate: t,
+				})
+			}
+
+			result.Buckets = append(result.Buckets, Bucket{
+				Name:         fmt.Sprintf("%s-%s", branch.Repo.Name, branch.Name),
+				CreationDate: t,
+			})
+		}
 	}
 
 	writeXML(w, http.StatusOK, &result)

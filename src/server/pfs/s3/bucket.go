@@ -83,13 +83,9 @@ func newBucketHandler(pc *client.APIClient) bucketHandler {
 
 func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	repo, branch := bucketArgs(r)
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		newNotFoundError(r, err).write(w)
-		return
-	}
-	if branchInfo.Head == nil {
-		newNoSuchBucketError(r).write(w)
 		return
 	}
 
@@ -107,10 +103,6 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		newNotFoundError(r, err).write(w)
 		return
 	}
-	if branchInfo.Head == nil {
-		newNoSuchBucketError(r).write(w)
-		return
-	}
 
 	result := &ListBucketResult{
 		Name:        repo,
@@ -126,7 +118,10 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if delimiter == "" {
+	if branchInfo.Head == nil {
+		// if there's no head commit, just print an empty list of files
+		writeXML(w, http.StatusOK, result)
+	} else if delimiter == "" {
 		h.listRecursive(w, r, result, branch)
 	} else {
 		h.list(w, r, result, branch)
@@ -198,18 +193,34 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 	writeXML(w, http.StatusOK, result)
 }
 
-// TODO: handling of branches on put/del bucket
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, _ := bucketArgs(r)
+	repo, branch := bucketArgs(r)
 
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
 		if strings.Contains(err.Error(), "as it already exists") {
-			newBucketAlreadyExistsError(r).write(w)
+			// Bucket already exists - this is not an error so long as the
+			// branch being created is new. Verify if that is the case now,
+			// since PFS' `CreateBranch` won't error out.
+			_, err := h.pc.InspectBranch(repo, branch)
+			if err != nil {
+				if !branchNotFoundMatcher.MatchString(err.Error()) {
+					newInternalError(r, err).write(w)
+					return
+				}
+			} else {
+				newBucketAlreadyExistsError(r).write(w)
+				return
+			}
 		} else {
 			newInternalError(r, err).write(w)
+			return
 		}
+	}
 
+	err = h.pc.CreateBranch(repo, branch, "", nil)
+	if err != nil {
+		newInternalError(r, err).write(w)
 		return
 	}
 
@@ -217,15 +228,14 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, _ := bucketArgs(r)
-
-	err := h.pc.DeleteRepo(repo, false)
-
+	repo, branch := bucketArgs(r)
+	
+	err := h.pc.DeleteBranch(repo, branch, false)
 	if err != nil {
 		newNotFoundError(r, err).write(w)
 		return
 	}
-
+	
 	w.WriteHeader(http.StatusNoContent)
 }
 
