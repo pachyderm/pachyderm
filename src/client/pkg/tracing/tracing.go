@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-// JaegerServiceName is the service name used when the client reports traces
-// to Jaeger
+// JaegerServiceName is the name pachd (and the pachyderm client) uses to
+// describe itself when it reports traces to Jaeger
 const JaegerServiceName = "pachd"
 
 // If you have Jaeger deployed and the JAEGER_ENDPOINT environment variable set
