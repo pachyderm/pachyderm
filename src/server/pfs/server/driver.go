@@ -2315,7 +2315,7 @@ func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitIn
 }
 
 func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, prefix string) (r io.ReadCloser, retErr error) {
-	objClient, err := obj.NewClientFromEnv(pachClient.Ctx(), d.storageRoot)
+	objClient, err := obj.NewClientFromEnv(d.storageRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -2327,11 +2327,11 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	if err != nil {
 		return nil, err
 	}
-	offset, size, err := getTreeRange(objClient, path, prefix)
+	offset, size, err := getTreeRange(pachClient.Ctx(), objClient, path, prefix)
 	if err != nil {
 		return nil, err
 	}
-	objR, err := objClient.Reader(path, offset, size)
+	objR, err := objClient.Reader(pachClient.Ctx(), path, offset, size)
 	if err != nil {
 		return nil, err
 	}
@@ -2360,9 +2360,9 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	return f, nil
 }
 
-func getTreeRange(objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
+func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
 	p := path + hashtree.IndexPath
-	r, err := objClient.Reader(p, 0, 0)
+	r, err := objClient.Reader(ctx, p, 0, 0)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -3434,13 +3434,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 						err = fmt.Errorf("error parsing url %v: %v", req.Url, err)
 						return false, "", "", err
 					}
-					objClient, err := obj.NewClientFromURLAndSecret(server.Context(), url, false)
+					objClient, err := obj.NewClientFromURLAndSecret(url, false)
 					if err != nil {
 						return false, "", "", err
 					}
 					if req.Recursive {
 						path := strings.TrimPrefix(url.Object, "/")
-						if err := objClient.Walk(path, func(name string) error {
+						if err := objClient.Walk(server.Context(), path, func(name string) error {
 							if strings.HasSuffix(name, "/") {
 								// Creating a file with a "/" suffix breaks
 								// pfs' directory model, so we don't
@@ -3448,7 +3448,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							r, err := objClient.Reader(name, 0, 0)
+							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
@@ -3467,7 +3467,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
-						r, err := objClient.Reader(url.Object, 0, 0)
+						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}

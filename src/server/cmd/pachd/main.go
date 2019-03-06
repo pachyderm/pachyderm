@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
@@ -95,6 +96,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
+	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
 	go func() {
@@ -210,6 +212,7 @@ func doFullMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
+	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
 	debug.SetGCPercent(50)
 	go func() {
