@@ -62,7 +62,7 @@ type ServiceEnv struct {
 // until the client is ready.
 func InitPachOnlyEnv(config *Configuration) *ServiceEnv {
 	env := &ServiceEnv{Configuration: config}
-	env.pachAddress = net.JoinHostPort("localhost", fmt.Sprintf("%d", env.PeerPort))
+	env.pachAddress = net.JoinHostPort("127.0.0.1", fmt.Sprintf("%d", env.PeerPort))
 	env.pachEg.Go(env.initPachClient)
 	return env // env is not ready yet
 }
