@@ -55,7 +55,7 @@ def compute_stats(filename):
     else:
         return (0, 0)
 
-def test_pass(nose_args):
+def test_pass(no_persist, nose_args):
     proc = subprocess.run("yes | pachctl delete-all", shell=True)
     if proc.returncode != 0:
         raise Exception("bad exit code: {}".format(proc.returncode))
@@ -79,19 +79,25 @@ def test_pass(nose_args):
             print("s3gateway did not start", file=sys.stderr)
             sys.exit(1)
 
-        filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
+        args = [os.path.join("virtualenv", "bin", "nosetests"), nose_args]
+
         env = dict(os.environ)
         env["S3TEST_CONF"] = os.path.join("..", "s3gateway.conf")
         cwd = os.path.join(TEST_ROOT, "s3-tests")
 
-        with open(filepath, "w") as f:
-            args = [os.path.join("virtualenv", "bin", "nosetests"), nose_args]
-            proc = subprocess.run(args, stderr=f, env=env, cwd=cwd)
-            print("Test run exited with {}".format(proc.returncode))
+        if no_persist:
+            proc = subprocess.run(args, env=env, cwd=cwd)
+        else:
+            filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
+            with open(filepath, "w") as f:
+                proc = subprocess.run(args, stderr=f, env=env, cwd=cwd)
+
+        print("Test run exited with {}".format(proc.returncode))
 
 def main():
     parser = argparse.ArgumentParser(description="Runs conformance tests for the s3gateway.")
     parser.add_argument("--no-run", default=False, action="store_true", help="Disables test run.")
+    parser.add_argument("--no-persist", default=False, action="store_true", help="Disables persistence of test output.")
     parser.add_argument("--nose-args", default="", help="Arguments to be passed into `nosetest`")
     args = parser.parse_args()
 
@@ -102,40 +108,41 @@ def main():
         sys.exit(1)
 
     if not args.no_run:
-        test_pass(args.nose_args)
+        test_pass(args.no_persist, args.nose_args)
 
-    log_files = sorted(glob.glob(os.path.join(RUNS_ROOT, "*.txt")))
+    if not args.no_persist:
+        log_files = sorted(glob.glob(os.path.join(RUNS_ROOT, "*.txt")))
 
-    if len(log_files) == 0:
-        print("No log files found", file=sys.stderr)
-        sys.exit(1)
+        if len(log_files) == 0:
+            print("No log files found", file=sys.stderr)
+            sys.exit(1)
 
-    old_stats = None
-    if len(log_files) > 1:
-        old_stats = compute_stats(log_files[-2])
+        old_stats = None
+        if len(log_files) > 1:
+            old_stats = compute_stats(log_files[-2])
 
-    filepath = log_files[-1]
-    stats = compute_stats(filepath)
+        filepath = log_files[-1]
+        stats = compute_stats(filepath)
 
-    if old_stats:
-        print("Overall results: {}/{} (vs last run: {}/{})".format(*stats, *old_stats))
-    else:
-        print("Overall results: {}/{}".format(*stats))
+        if old_stats:
+            print("Overall results: {}/{} (vs last run: {}/{})".format(*stats, *old_stats))
+        else:
+            print("Overall results: {}/{}".format(*stats))
 
-    in_traceback = False
-    causes = collections.Counter()
-    with open(filepath, "r") as f:
-        for line in f:
-            if line == TRACEBACK_HEADER:
-                in_traceback = True
-            elif in_traceback:
-                if not line.startswith("  "):
-                    causes[line.rstrip()] += 1
-                    in_traceback = False
+        in_traceback = False
+        causes = collections.Counter()
+        with open(filepath, "r") as f:
+            for line in f:
+                if line == TRACEBACK_HEADER:
+                    in_traceback = True
+                elif in_traceback:
+                    if not line.startswith("  "):
+                        causes[line.rstrip()] += 1
+                        in_traceback = False
 
-    causes = sorted(causes.items(), key=lambda i: i[1], reverse=True)
-    for (cause_name, cause_count) in causes:
-        print("{}: {}".format(cause_name, cause_count))
+        causes = sorted(causes.items(), key=lambda i: i[1], reverse=True)
+        for (cause_name, cause_count) in causes:
+            print("{}: {}".format(cause_name, cause_count))
     
 if __name__ == "__main__":
     main()
