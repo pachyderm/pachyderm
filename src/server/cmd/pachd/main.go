@@ -96,8 +96,8 @@ func doSidecarMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
+	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	tracing.InstallJaegerTracerFromEnv()
 	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
@@ -212,8 +212,8 @@ func doFullMode(config interface{}) (retErr error) {
 			pprof.Lookup("goroutine").WriteTo(os.Stderr, 2)
 		}
 	}()
+	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
 	env := serviceenv.InitWithKube(serviceenv.NewConfiguration(config))
-	tracing.InstallJaegerTracerFromEnv()
 	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))

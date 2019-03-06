@@ -106,12 +106,13 @@ func InstallJaegerTracerFromEnv() {
 				CollectorEndpoint:   jaegerEndpoint,
 			},
 		}
-		// don't try to keep or use the closer, as this tracer will run for the
-		// duration of the pachd binary
+
+		// configure jaeger logger
 		logger := jaeger.Logger(jaeger.NullLogger)
 		if !onUserMachine {
 			logger = jaeger.StdLogger
 		}
+
 		// Hack: ignore second argument (io.Closer) because the Jaeger
 		// implementation of opentracing.Tracer also implements io.Closer (i.e. the
 		// first and second return values from cfg.New(), here, are two interfaces
@@ -145,9 +146,15 @@ var addTraceIfTracingEnabled otgrpc.SpanInclusionFunc = func(
 		return jaegerCtx.IsValid()
 	}
 	// Non-Jaeger context. This shouldn't happen, unless some Pachyderm user is
-	// propagating e.g.  Zipkin traces through the Pachyderm client. In that
+	// propagating e.g. Zipkin traces through the Pachyderm client. In that
 	// case, we wouldn't know where to report traces anyway
 	return false
+}
+
+// IsActive returns true if a connection to Jaeger has been established and a
+// global tracer has been installed
+func IsActive() bool {
+	return opentracing.IsGlobalTracerRegistered()
 }
 
 // UnaryClientInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs

@@ -125,8 +125,8 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 }
 
 func do(config interface{}) error {
+	tracing.InstallJaegerTracerFromEnv() // must run before InitWithKube
 	env := serviceenv.InitServiceEnv(serviceenv.NewConfiguration(config))
-	tracing.InstallJaegerTracerFromEnv()
 	// Expose PProf service
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", env.PProfPort), nil))
