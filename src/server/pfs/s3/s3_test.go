@@ -578,12 +578,7 @@ func TestListObjectsHeadlessBranch(t *testing.T) {
 
 	// Request into branch that has no head
 	ch := c.ListObjects(fmt.Sprintf("%s-emptybranch", repo), "", false, make(chan struct{}))
-	objs := []minio.ObjectInfo{}
-	for obj := range ch {
-		objs = append(objs, obj)
-	}
-	require.Equal(t, 1, len(objs))
-	bucketNotFoundError(t, objs[0].Err)
+	checkListObjects(t, ch, time.Now(), time.Now(), []string{}, []string{})
 
 	require.NoError(t, srv.Close())
 }
