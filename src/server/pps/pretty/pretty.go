@@ -45,10 +45,10 @@ func safeTrim(s string, l int) string {
 }
 
 // PrintJobInfo pretty-prints job info.
-func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamp bool) {
+func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	fmt.Fprintf(w, "%s\t", jobInfo.Pipeline.Name)
-	if fullTimestamp {
+	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
@@ -77,10 +77,10 @@ func PrintPipelineHeader(w io.Writer) {
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
-func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamp bool) {
+func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
-	if fullTimestamp {
+	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
@@ -94,14 +94,14 @@ func PrintWorkerStatusHeader(w io.Writer) {
 }
 
 // PrintWorkerStatus pretty prints a worker status.
-func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTimestamp bool) {
+func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", workerStatus.WorkerID)
 	fmt.Fprintf(w, "%s\t", workerStatus.JobID)
 	for _, datum := range workerStatus.Data {
 		fmt.Fprintf(w, datum.Path)
 	}
 	fmt.Fprintf(w, "\t")
-	if fullTimestamp {
+	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", workerStatus.Started.String())
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
@@ -113,7 +113,7 @@ func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTi
 // used within the template to conditionally print information.
 type PrintableJobInfo struct {
 	*ppsclient.JobInfo
-	FullTimestamp bool
+	FullTimestamps bool
 }
 
 // NewPrintableJobInfo constructs a PrintableJobInfo from just a JobInfo.
@@ -128,7 +128,7 @@ func PrintDetailedJobInfo(jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}} {{if .Pipeline}}
 Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
-Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamp}}
+Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
 Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
@@ -181,7 +181,7 @@ Egress: {{.Egress.URL}} {{end}}
 // used within the template to conditionally print information.
 type PrintablePipelineInfo struct {
 	*ppsclient.PipelineInfo
-	FullTimestamp bool
+	FullTimestamps bool
 }
 
 // NewPrintablePipelineInfo constructs a PrintablePipelineInfo from just a PipelineInfo.
@@ -195,7 +195,7 @@ func NewPrintablePipelineInfo(pi *ppsclient.PipelineInfo) *PrintablePipelineInfo
 func PrintDetailedPipelineInfo(pipelineInfo *PrintablePipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}{{if .Description}}
-Description: {{.Description}}{{end}}{{if .FullTimestamp }}
+Description: {{.Description}}{{end}}{{if .FullTimestamps }}
 Created: {{.CreatedAt}}{{ else }}
 Created: {{prettyAgo .CreatedAt}} {{end}}
 State: {{pipelineState .State}}
@@ -373,7 +373,7 @@ func workerStatus(jobInfo PrintableJobInfo) string {
 	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
 	PrintWorkerStatusHeader(writer)
 	for _, workerStatus := range jobInfo.WorkerStatus {
-		PrintWorkerStatus(writer, workerStatus, jobInfo.FullTimestamp)
+		PrintWorkerStatus(writer, workerStatus, jobInfo.FullTimestamps)
 	}
 	// can't error because buffer can't error on Write
 	writer.Flush()

@@ -43,9 +43,9 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) ([]*cobra.Command, error) {
 	rawFlag := func(cmd *cobra.Command) {
 		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
 	}
-	fullTimestamp := false
-	fullTimestampFlag := func(cmd *cobra.Command) {
-		cmd.Flags().BoolVar(&fullTimestamp, "full-timestamp", false, "Return absolute timestamp from when job was started (as opposed to the default, relative timestamp).")
+	fullTimestamps := false
+	fullTimestampsFlag := func(cmd *cobra.Command) {
+		cmd.Flags().BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
 	}
 	marshaller := &jsonpb.Marshaler{
 		Indent:   "  ",
@@ -95,15 +95,15 @@ The increase the throughput of a job increase the Shard paremeter.
 				return marshaller.Marshal(os.Stdout, jobInfo)
 			}
 			ji := &pretty.PrintableJobInfo{
-				JobInfo: jobInfo,
-				FullTimestamp:    fullTimestamp,
+				JobInfo:        jobInfo,
+				FullTimestamps: fullTimestamps,
 			}
 			return pretty.PrintDetailedJobInfo(ji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
 	rawFlag(inspectJob)
-	fullTimestampFlag(inspectJob)
+	fullTimestampsFlag(inspectJob)
 
 	var pipelineName string
 	var outputCommitStr string
@@ -160,7 +160,7 @@ $ pachctl list-job -p foo bar/YYY
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
-				pretty.PrintJobInfo(writer, ji, fullTimestamp)
+				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
 				return err
@@ -171,7 +171,7 @@ $ pachctl list-job -p foo bar/YYY
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit.")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits.")
-	fullTimestampFlag(listJob)
+	fullTimestampsFlag(listJob)
 	rawFlag(listJob)
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -215,7 +215,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			for _, jobInfo := range jobInfos {
-				pretty.PrintJobInfo(writer, jobInfo, fullTimestamp)
+				pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
 			}
 
 			return writer.Flush()
@@ -223,7 +223,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 	}
 	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
 	rawFlag(flushJob)
-	fullTimestampFlag(flushJob)
+	fullTimestampsFlag(flushJob)
 
 	deleteJob := &cobra.Command{
 		Use:   "delete-job job-id",
@@ -494,14 +494,14 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				return marshaller.Marshal(os.Stdout, pipelineInfo)
 			}
 			pi := &pretty.PrintablePipelineInfo{
-				PipelineInfo: pipelineInfo,
-				FullTimestamp:         fullTimestamp,
+				PipelineInfo:   pipelineInfo,
+				FullTimestamps: fullTimestamps,
 			}
 			return pretty.PrintDetailedPipelineInfo(pi)
 		}),
 	}
 	rawFlag(inspectPipeline)
-	fullTimestampFlag(inspectPipeline)
+	fullTimestampsFlag(inspectPipeline)
 
 	extractPipeline := &cobra.Command{
 		Use:   "extract-pipeline pipeline-name",
@@ -623,13 +623,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.PipelineHeader)
 			for _, pipelineInfo := range pipelineInfos {
-				pretty.PrintPipelineInfo(writer, pipelineInfo, fullTimestamp)
+				pretty.PrintPipelineInfo(writer, pipelineInfo, fullTimestamps)
 			}
 			return writer.Flush()
 		}),
 	}
 	rawFlag(listPipeline)
-	fullTimestampFlag(listPipeline)
+	fullTimestampsFlag(listPipeline)
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output create-pipeline compatibility specs.")
 
 	var all bool

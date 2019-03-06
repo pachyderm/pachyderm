@@ -34,9 +34,9 @@ func PrintRepoHeader(w io.Writer, printAuth bool) {
 }
 
 // PrintRepoInfo pretty-prints repo info.
-func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamp bool) {
+func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
-	if fullTimestamp {
+	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(repoInfo.Created))
@@ -52,7 +52,7 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamp bool) {
 // used within the template to conditionally print information.
 type PrintableRepoInfo struct {
 	*pfs.RepoInfo
-	FullTimestamp bool
+	FullTimestamps bool
 }
 
 // NewPrintableRepoInfo constructs a PrintableRepoInfo from just a RepoInfo.
@@ -66,7 +66,7 @@ func NewPrintableRepoInfo(ri *pfs.RepoInfo) *PrintableRepoInfo {
 func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}{{if .Description}}
-Description: {{.Description}}{{end}}{{if .FullTimestamp}}
+Description: {{.Description}}{{end}}{{if .FullTimestamps}}
 Created: {{.Created}}{{else}}
 Created: {{prettyAgo .Created}}{{end}}
 Size of HEAD on master: {{prettySize .SizeBytes}}{{if .AuthInfo}}
@@ -103,7 +103,7 @@ func PrintCommitInfoHeader(w io.Writer) {
 }
 
 // PrintCommitInfo pretty-prints commit info.
-func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamp bool) {
+func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
@@ -111,7 +111,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamp bool
 	} else {
 		fmt.Fprint(w, "<none>\t")
 	}
-	if fullTimestamp {
+	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", commitInfo.Started.String())
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Started))
@@ -130,7 +130,7 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamp bool
 // used within the template to conditionally print information.
 type PrintableCommitInfo struct {
 	*pfs.CommitInfo
-	FullTimestamp bool
+	FullTimestamps bool
 }
 
 // NewPrintableCommitInfo constructs a PrintableCommitInfo from just a CommitInfo.
@@ -145,9 +145,9 @@ func PrintDetailedCommitInfo(commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
 		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
-Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamp}}
+Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
-Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamp}}
+Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
@@ -171,7 +171,7 @@ func PrintFileInfoHeader(w io.Writer) {
 // PrintFileInfo pretty-prints file info.
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamp bool) {
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE {
@@ -179,7 +179,7 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamp bool) {
 	} else {
 		fmt.Fprint(w, "dir\t")
 	}
-	if fullTimestamp {
+	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
