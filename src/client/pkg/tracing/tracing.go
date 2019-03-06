@@ -51,15 +51,6 @@ func tagSpan(span opentracing.Span, kvs []interface{}) opentracing.Span {
 	return span
 }
 
-// TagAnySpan adds the tag "key=value" to any span in 'ctx'
-func TagAnySpan(ctx context.Context, kvs ...interface{}) context.Context {
-	if span := opentracing.SpanFromContext(ctx); span != nil {
-		span = tagSpan(span, kvs)
-		return opentracing.ContextWithSpan(ctx, span)
-	}
-	return ctx
-}
-
 // AddSpanToAnyExisting checks 'ctx' for Jaeger tracing information, and if
 // tracing metadata is present, it generates a new span for 'operation', marks
 // it as a child of the existing span, and returns it.

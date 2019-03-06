@@ -9,8 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -55,7 +53,6 @@ func newAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hash
 func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "repo", request.Repo.Name)
 
 	if err := a.driver.createRepo(a.env.GetPachClient(ctx), request.Repo, request.Description, request.Update); err != nil {
 		return nil, err
@@ -66,7 +63,6 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "repo", request.Repo.Name)
 
 	return a.driver.inspectRepo(a.env.GetPachClient(ctx), request.Repo, true)
 }
@@ -82,7 +78,6 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "repo", request.Repo.Name, "force", request.Force, "all", request.All)
 
 	if request.All {
 		if err := a.driver.deleteAll(a.env.GetPachClient(ctx)); err != nil {
@@ -100,7 +95,6 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "repo", request.Parent.Repo.Name, "branch", request.Branch)
 
 	commit, err := a.driver.startCommit(a.env.GetPachClient(ctx), request.Parent, request.Branch, request.Provenance, request.Description)
 	if err != nil {
@@ -123,8 +117,6 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "commit", pretty.CompactPrintCommit(request.Commit))
-
 	if request.Trees != nil {
 		if err := a.driver.finishOutputCommit(a.env.GetPachClient(ctx), request.Commit, request.Trees, request.Datums, request.SizeBytes); err != nil {
 			return nil, err
@@ -138,7 +130,6 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "commit", pretty.CompactPrintCommit(request.Commit))
 
 	return a.driver.inspectCommit(a.env.GetPachClient(ctx), request.Commit, request.BlockState)
 }
@@ -162,9 +153,7 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(req, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	ctx := tracing.TagAnySpan(respServer.Context(), "repo", req.Repo)
-
-	return a.driver.listCommitF(a.env.GetPachClient(ctx), req.Repo, req.To, req.From, req.Number, func(ci *pfs.CommitInfo) error {
+	return a.driver.listCommitF(a.env.GetPachClient(respServer.Context()), req.Repo, req.To, req.From, req.Number, func(ci *pfs.CommitInfo) error {
 		sent++
 		return respServer.Send(ci)
 	})
@@ -173,7 +162,6 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "branch", pretty.CompactPrintBranch(request.Branch))
 
 	if err := a.driver.createBranch(a.env.GetPachClient(ctx), request.Branch, request.Head, request.Provenance); err != nil {
 		return nil, err
@@ -184,8 +172,6 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "branch", pretty.CompactPrintBranch(request.Branch))
-
 	return a.driver.inspectBranch(a.env.GetPachClient(ctx), request.Branch)
 }
 
@@ -203,7 +189,6 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "branch", pretty.CompactPrintBranch(request.Branch), "force", request.Force)
 
 	if err := a.driver.deleteBranch(a.env.GetPachClient(ctx), request.Branch, request.Force); err != nil {
 		return nil, err
@@ -267,9 +252,8 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
-	ctx := tracing.TagAnySpan(apiGetFileServer.Context(), "file", pretty.CompactPrintFile(request.File))
 
-	file, err := a.driver.getFile(a.env.GetPachClient(ctx), request.File, request.OffsetBytes, request.SizeBytes)
+	file, err := a.driver.getFile(a.env.GetPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
 		return err
 	}
@@ -279,7 +263,6 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "file", pretty.CompactPrintFile(request.File))
 
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), request.File)
 }
@@ -294,7 +277,6 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "file", pretty.CompactPrintFile(request.File), "history", request.History)
 
 	var fileInfos []*pfs.FileInfo
 	if err := a.driver.listFile(a.env.GetPachClient(ctx), request.File, request.Full, request.History, func(fi *pfs.FileInfo) error {
@@ -326,9 +308,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	ctx := tracing.TagAnySpan(server.Context(), "file", pretty.CompactPrintFile(request.File))
-
-	return a.driver.walkFile(a.env.GetPachClient(ctx), request.File, func(fi *pfs.FileInfo) error {
+	return a.driver.walkFile(a.env.GetPachClient(server.Context()), request.File, func(fi *pfs.FileInfo) error {
 		sent++
 		return server.Send(fi)
 	})
@@ -344,7 +324,6 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 			a.Log(request, response, retErr, time.Since(start))
 		}
 	}(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "glob", fmt.Sprintf("%s/%s", pretty.CompactPrintCommit(request.Commit), request.Pattern))
 
 	var fileInfos []*pfs.FileInfo
 	if err := a.driver.globFile(a.env.GetPachClient(ctx), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
@@ -364,9 +343,7 @@ func (a *apiServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.
 	defer func(start time.Time) {
 		a.Log(request, fmt.Sprintf("response stream with %d objects", sent), retErr, time.Since(start))
 	}(time.Now())
-	ctx := tracing.TagAnySpan(respServer.Context(), "glob", fmt.Sprintf("%s/%s", pretty.CompactPrintCommit(request.Commit), request.Pattern))
-
-	return a.driver.globFile(a.env.GetPachClient(ctx), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
+	return a.driver.globFile(a.env.GetPachClient(respServer.Context()), request.Commit, request.Pattern, func(fi *pfs.FileInfo) error {
 		sent++
 		return respServer.Send(fi)
 	})
@@ -398,7 +375,6 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	ctx = tracing.TagAnySpan(ctx, "file", pretty.CompactPrintFile(request.File))
 
 	err := a.driver.deleteFile(a.env.GetPachClient(ctx), request.File)
 	if err != nil {
