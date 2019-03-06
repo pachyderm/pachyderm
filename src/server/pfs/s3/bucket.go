@@ -130,10 +130,10 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 
 func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
 	err := h.pc.Walk(result.Name, branch, filepath.Dir(result.Prefix), func(fileInfo *pfs.FileInfo) error {
-		if !shouldShowFileInfo(branch, result.Marker, fileInfo) {
+		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
+		if fileInfo == nil {
 			return nil
 		}
-		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
 			return nil
 		}
@@ -170,10 +170,10 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 	}
 
 	for _, fileInfo := range fileInfos {
-		if !shouldShowFileInfo(branch, result.Marker, fileInfo) {
-			continue
+		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
+		if fileInfo == nil {
+			break
 		}
-		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 		if result.isFull() {
 			result.IsTruncated = true
 			break
@@ -229,29 +229,34 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 
 func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	repo, branch := bucketArgs(r)
-	
+
 	err := h.pc.DeleteBranch(repo, branch, false)
 	if err != nil {
 		newNotFoundError(r, err).write(w)
 		return
 	}
-	
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func shouldShowFileInfo(branch, marker string, fileInfo *pfs.FileInfo) bool {
+// updateFileInfo takes in a `FileInfo`, and updates it to be used in s3
+// object listings:
+// 1) if nil is returned, the `FileInfo` should not be included in the list
+// 2) the path is updated to remove the leading slash
+func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo {
 	if fileInfo.FileType != pfs.FileType_FILE && fileInfo.FileType != pfs.FileType_DIR {
 		// skip anything that isn't a file or dir
-		return false
+		return nil
 	}
 	if fileInfo.FileType == pfs.FileType_DIR && fileInfo.File.Path == "/" {
 		// skip the root directory
-		return false
+		return nil
 	}
+	fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 	if fileInfo.File.Path <= marker {
 		// skip file paths below the marker
-		return false
+		return nil
 	}
 
-	return true
+	return fileInfo
 }
