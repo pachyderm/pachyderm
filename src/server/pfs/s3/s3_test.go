@@ -170,14 +170,13 @@ func TestListBuckets(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo2))
 	endTime := time.Now()
 
-	// should be 4 because master branches are listed twice
 	require.NoError(t, pc.CreateBranch(repo1, "master", "", nil))
 	require.NoError(t, pc.CreateBranch(repo1, "branch", "", nil))
 	require.NoError(t, pc.CreateBranch(repo2, "branch", "", nil))
-	expectedBranches := []string{repo1, fmt.Sprintf("%s-master", repo1), fmt.Sprintf("%s-branch", repo1), fmt.Sprintf("%s-branch", repo2)}
+	expectedBranches := []string{repo1, fmt.Sprintf("%s-branch", repo1), fmt.Sprintf("%s-branch", repo2)}
 	buckets, err := c.ListBuckets()
 	require.NoError(t, err)
-	require.Equal(t, 4, len(buckets))
+	require.Equal(t, 3, len(buckets))
 	for _, bucket := range buckets {
 		require.EqualOneOf(t, expectedBranches, bucket.Name)
 		require.True(t, startTime.Before(bucket.CreationDate))
