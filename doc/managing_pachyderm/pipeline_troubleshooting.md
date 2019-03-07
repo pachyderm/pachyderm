@@ -33,7 +33,7 @@ failed to process datum <UUID> with error: <user code error>
 
 This means pachyderm successfully got to the point where it was running user code, but that code exited with a non-zero error code. If any datum in a pipeline fails, the entire job will be marked as failed, but datums that did not fail will not need to be reprocessed on future jobs.   You can use `pachctl inspect-datum <job-id> <datum-id>` or `pachctl get-logs` with the `--pipeline`, `--job` or `--datum` flags to get more details.
 
-There are some cases where users may want mark a datum as successful even for a non-zero error code by setting the accept_return_code field in the pipeline config .
+There are some cases where users may want mark a datum as successful even for a non-zero error code by setting the `transform.accept_return_code` field in the pipeline config .
 
 #### Retries
 Pachyderm will automatically retry user code three (3) times before marking the datum as failed. This mitigates datums failing for transient connection reasons.
