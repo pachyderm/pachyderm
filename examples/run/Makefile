@@ -40,7 +40,7 @@ $(PIPE_CONFIG):
 	envsubst '$${PIPELINE_NAME} $${PIPELINE_DOCKER_IMAGE} \
 	$${PIPELINE_DOCKER_HOME} $${PIPELINE_DOCKER_SCRIPT} \
 	$${PIPELINE_DOCKER_SECRETS} $${PIPELINE_DOCKER_SECRETS_PATH} \
-	$${PIPELINE_DOCKER_REGISTRY_SECRETS}' \
+	$${PIPELINE_DOCKER_REGISTRY_SECRETS} $${PIPELINE_REPO}' \
 	< $(CONFIG)/$(PIPELINE_BUILD_CONFIG_TEMPLATE_FILE) \
 	> $(PIPE_CONFIG)
 # Just makes it easier to type and test
@@ -84,7 +84,7 @@ $(TARGET)/$(ENCODED_ENV):
 		close(foo); printf("export %s_ENCODED=%s\n", a[1], b);}' > $(TARGET)/$(ENCODED_ENV); \
 
 $(TARGET)/$(SECRETS_YAML):
-	source $(TARGET)/$(ENCODED_ENV); \
+	. $(TARGET)/$(ENCODED_ENV); \
 	envsubst < $(CONFIG)/$(SECRETS_YAML) > $(TARGET)/$(SECRETS_YAML); \
 	if kubectl get secret $(PIPELINE_DOCKER_SECRETS); then \
 		echo "$$PIPELINE_DOCKER_SECRETS already exists, skipping"; \

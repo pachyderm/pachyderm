@@ -405,7 +405,7 @@ func PushObj(pachClient *pachclient.APIClient, commit *pfs.Commit, objClient obj
 		eg.Go(func() (retErr error) {
 			sem <- struct{}{}
 			defer func() { <-sem }()
-			w, err := objClient.Writer(filepath.Join(root, fileInfo.File.Path))
+			w, err := objClient.Writer(pachClient.Ctx(), filepath.Join(root, fileInfo.File.Path))
 			if err != nil {
 				return err
 			}

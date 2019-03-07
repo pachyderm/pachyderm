@@ -4629,7 +4629,7 @@ func TestPutFilesURL(t *testing.T) {
 }
 
 func writeObj(t *testing.T, c obj.Client, path, content string) {
-	w, err := c.Writer(path)
+	w, err := c.Writer(context.Background(), path)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, w.Close())
@@ -4650,7 +4650,7 @@ func TestPutFilesObjURL(t *testing.T) {
 	defer func() {
 		for _, path := range paths {
 			// ignored error, this is just cleanup, not actually part of the test
-			objC.Delete(path)
+			objC.Delete(context.Background(), path)
 		}
 	}()
 

@@ -180,3 +180,21 @@ var funcMap = template.FuncMap{
 	"prettySize": pretty.Size,
 	"fileType":   fileType,
 }
+
+// CompactPrintBranch renders 'b' as a compact string, e.g.
+// "myrepo@master:/my/file"
+func CompactPrintBranch(b *pfs.Branch) string {
+	return fmt.Sprintf("%s@%s", b.Repo.Name, b.Name)
+}
+
+// CompactPrintCommit renders 'c' as a compact string, e.g.
+// "myrepo@123abc:/my/file"
+func CompactPrintCommit(c *pfs.Commit) string {
+	return fmt.Sprintf("%s@%s", c.Repo.Name, c.ID)
+}
+
+// CompactPrintFile renders 'f' as a compact string, e.g.
+// "myrepo@master:/my/file"
+func CompactPrintFile(f *pfs.File) string {
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Repo.Name, f.Commit.ID, f.Path)
+}
