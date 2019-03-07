@@ -3,7 +3,6 @@
 set -ex
 # Runs various examples ot ensure they don't break. Some examples were
 # designed for older versions of pachyderm and are not used here.
-# TODO(ys): add run example when this is fixed: https://github.com/pachyderm/pachyderm/issues/3428
 
 pushd examples/opencv
     pachctl --no-port-forwarding create-repo images

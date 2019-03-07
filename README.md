@@ -52,13 +52,13 @@ Keep up to date and get Pachyderm support via:
 
 To get started, sign the [Contributor License Agreement](https://pachyderm.wufoo.com/forms/pachyderm-contributor-license-agreement).
 
-You should also check out our [contributing guide](./contributing).
+You should also check out our [contributing guide](./doc/contributing).
 
 Send us PRs, we would love to see what you do! You can also check our GH issues for things labeled "help-wanted" as a good place to start. We're sometimes bad about keeping that label up-to-date, so if you don't see any, just let us know.
 
 ### Join Us
 
-WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our team](https://jobs.lever.co/pachyderm/) and email us at jobs@pachyderm.io.
+WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our open positions](https://jobs.lever.co/pachyderm/) or email us at jobs@pachyderm.io.
 
 ## Usage Metrics
 

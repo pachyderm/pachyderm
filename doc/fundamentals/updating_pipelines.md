@@ -44,8 +44,10 @@ For example, you could update the Python code used in the [OpenCV
 pipeline](../getting_started/beginner_tutorial.html) via:
 
 ```sh
-pachctl update-pipeline -f edges.json --push-images --password <registry password> -u <registry user>
+pachctl update-pipeline -f edges.json --push-images -u <registry user>
 ```
+
+You'll then be prompted for your docker registry password.
 
 ## Re-processing data
 

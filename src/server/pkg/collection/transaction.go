@@ -22,6 +22,7 @@ import (
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"golang.org/x/net/context"
 )
 
@@ -180,7 +181,9 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 	if ttl > 0 {
 		lease, ok := s.newLeases[ttl]
 		if !ok {
-			leaseResp, err := s.client.Grant(context.Background(), ttl)
+			span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Grant")
+			defer tracing.FinishAnySpan(span)
+			leaseResp, err := s.client.Grant(ctx, ttl)
 			if err != nil {
 				return fmt.Errorf("error granting lease: %v", err)
 			}
@@ -208,7 +211,9 @@ func (s *stm) Rev(key string) int64 {
 func (s *stm) commit() *v3.TxnResponse {
 	cmps := s.cmps()
 	puts := s.puts()
-	txnresp, err := s.client.Txn(s.ctx).If(cmps...).Then(puts...).Commit()
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Txn")
+	defer tracing.FinishAnySpan(span)
+	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(puts...).Commit()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
 			fmt.Errorf(
@@ -238,7 +243,9 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	if resp, ok := s.rset[key]; ok {
 		return resp
 	}
-	resp, err := s.client.Get(s.ctx, key, s.getOpts...)
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Get")
+	defer tracing.FinishAnySpan(span)
+	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
 		panic(stmError{err})
 	}
@@ -310,7 +317,9 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 	keys, getops := s.gets()
 	cmps := s.cmps()
 	puts := s.puts()
-	txn := s.client.Txn(s.ctx).If(cmps...).Then(puts...)
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Txn")
+	defer tracing.FinishAnySpan(span)
+	txn := s.client.Txn(ctx).If(cmps...).Then(puts...)
 	// use Else to prefetch keys in case of conflict to save a round trip
 	txnresp, err := txn.Else(getops...).Commit()
 	if err == rpctypes.ErrTooManyOps {
@@ -386,7 +395,9 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 		s.ttlset[key] = 0 // 0 is default value, but now 'ok' will be true on check
 		return 0, nil
 	}
-	leaseResp, err := s.client.TimeToLive(s.ctx, leaseID)
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.TimeToLive")
+	defer tracing.FinishAnySpan(span)
+	leaseResp, err := s.client.TimeToLive(ctx, leaseID)
 	if err != nil {
 		panic(stmError{err})
 	}

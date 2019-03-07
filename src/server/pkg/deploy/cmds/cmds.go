@@ -178,6 +178,7 @@ func DeployCmd(noMetrics *bool, noPortForwarding *bool) *cobra.Command {
 	var noExposeDockerSocket bool
 	var exposeObjectAPI bool
 	var tlsCertKey string
+	var newHashTree bool
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -555,6 +556,9 @@ particular backend, run "pachctl deploy storage <backend>"`,
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
 			opts = &assets.AssetOpts{
+				FeatureFlags: assets.FeatureFlags{
+					NewHashTree: newHashTree,
+				},
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
 				LogLevel:                logLevel,
@@ -613,6 +617,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
+	deploy.PersistentFlags().BoolVar(&newHashTree, "new-hash-tree-flag", false, "(feature flag) Do not set, used for testing")
 
 	deploy.AddCommand(
 		deployLocal,
@@ -673,42 +678,40 @@ flag), the underlying volumes will be removed, making metadata such repos,
 commits, pipelines, and jobs unrecoverable. If your persistent volume was
 manually provisioned (i.e. if you used the "--static-etcd-volume" flag), the
 underlying volume will not be removed.
-
-Are you sure you want to proceed? yN
 `)
-				r := bufio.NewReader(os.Stdin)
-				bytes, err := r.ReadBytes('\n')
-				if err != nil {
-					return err
+			}
+			fmt.Println("Are you sure you want to do this? (y/n):")
+			r := bufio.NewReader(os.Stdin)
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				return err
+			}
+			if bytes[0] == 'y' || bytes[0] == 'Y' {
+				io := cmdutil.IO{
+					Stdout: os.Stdout,
+					Stderr: os.Stderr,
 				}
-				if !(bytes[0] == 'y' || bytes[0] == 'Y') {
-					return nil
+				assets := []string{
+					"service",
+					"replicationcontroller",
+					"deployment",
+					"serviceaccount",
+					"secret",
+					"statefulset",
+					"clusterrole",
+					"clusterrolebinding",
 				}
-			}
-			io := cmdutil.IO{
-				Stdout: os.Stdout,
-				Stderr: os.Stderr,
-			}
-			assets := []string{
-				"service",
-				"replicationcontroller",
-				"deployment",
-				"serviceaccount",
-				"secret",
-				"statefulset",
-				"clusterrole",
-				"clusterrolebinding",
-			}
-			if all {
-				assets = append(assets, []string{
-					"storageclass",
-					"persistentvolumeclaim",
-					"persistentvolume",
-				}...)
-			}
-			for _, asset := range assets {
-				if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
-					return err
+				if all {
+					assets = append(assets, []string{
+						"storageclass",
+						"persistentvolumeclaim",
+						"persistentvolume",
+					}...)
+				}
+				for _, asset := range assets {
+					if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
+						return err
+					}
 				}
 			}
 			return nil
