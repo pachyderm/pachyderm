@@ -154,6 +154,7 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Ca
 
 // checkIsAuthorized returns an error if the current user (in 'pachClient') has
 // authorization scope 's' for repo 'r'
+// TODO: hoist this up a level into client-handling code - apiServer
 func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s auth.Scope) error {
 	ctx := pachClient.Ctx()
 	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
