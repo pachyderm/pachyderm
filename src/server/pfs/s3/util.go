@@ -5,11 +5,9 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -97,32 +95,16 @@ func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bo
 	return true
 }
 
-func bucketArgs(w http.ResponseWriter, r *http.Request) (string, string, bool) {
+func bucketArgs(w http.ResponseWriter, r *http.Request) (string, string) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	lastDashIndex := strings.LastIndex(bucket, "-")
-
-	if lastDashIndex >= 0 {
-		repo := bucket[:lastDashIndex]
-		branch := bucket[lastDashIndex+1:]
-
-		if branch == "master" {
-			 parts := strings.SplitN(r.URL.Path, "/", 3)
-			 filepath := parts[2]
-			 w.Header().Set("Location", fmt.Sprintf("/%s/%s", repo, filepath))
-			 permanentRedirectError(w, r)
-			 return repo, branch, false
-		}
-
-		return repo, branch, true
-	}
-		
-	return bucket, "master", true
+	repo := vars["repo"]
+	branch := vars["branch"]
+	return repo, branch
 }
 
-func objectArgs(w http.ResponseWriter, r *http.Request) (string, string, string, bool) {
+func objectArgs(w http.ResponseWriter, r *http.Request) (string, string, string) {
+	repo, branch := bucketArgs(w, r)
 	vars := mux.Vars(r)
 	file := vars["file"]
-	repo, branch, ok := bucketArgs(w, r)
-	return repo, branch, file, ok
+	return repo, branch, file
 }

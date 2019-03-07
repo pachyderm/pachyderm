@@ -82,10 +82,7 @@ func newBucketHandler(pc *client.APIClient) bucketHandler {
 }
 
 func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
-	repo, branch, ok := bucketArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch := bucketArgs(w, r)
 	
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -99,10 +96,7 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch, ok := bucketArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch := bucketArgs(w, r)
 
 	// ensure the branch exists and has a head
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
@@ -201,10 +195,7 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 }
 
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch, ok := bucketArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch := bucketArgs(w, r)
 
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
@@ -238,10 +229,7 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch, ok := bucketArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch := bucketArgs(w, r)
 
 	err := h.pc.DeleteBranch(repo, branch, false)
 	if err != nil {

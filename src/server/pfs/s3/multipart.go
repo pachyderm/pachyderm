@@ -331,10 +331,7 @@ func newMultipartHandler(pc *client.APIClient, multipartDir string) *multipartHa
 }
 
 func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file, ok := objectArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch, file := objectArgs(w, r)
 
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -358,10 +355,7 @@ func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file, ok := objectArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch, file := objectArgs(w, r)
 	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -421,10 +415,7 @@ func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch, _, ok := objectArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch, _ := objectArgs(w, r)
 	
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -462,10 +453,7 @@ func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
-	repo, branch, _, ok := objectArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch, _ := objectArgs(w, r)
 	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -548,10 +536,7 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch, _, ok := objectArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch, _ := objectArgs(w, r)
 	
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {

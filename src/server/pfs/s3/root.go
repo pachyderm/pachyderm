@@ -48,12 +48,8 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for _, branch := range repo.Branches {
-			bucket := branch.Repo.Name
-			if branch.Name != "master" {
-				bucket = fmt.Sprintf("%s-%s", branch.Repo.Name, branch.Name)
-			}
 			result.Buckets = append(result.Buckets, Bucket{
-				Name:         bucket,
+				Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
 				CreationDate: t,
 			})
 		}

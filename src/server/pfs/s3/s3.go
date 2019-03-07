@@ -56,17 +56,6 @@ func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 //
 // If `multipartDir` is an empty string, multipart uploads are disabled.
 //
-// Bucket names correspond to repo names, and files are accessible via the s3
-// key pattern "<branch>/<filepath>". For example, to get the file "a/b/c.txt"
-// on the "foo" repo's "master" branch, you'd making an s3 get request with
-// bucket = "foo", key = "master/a/b/c.txt".
-//
-// Note: in s3, bucket names are constrained by IETF RFC 1123, (and its
-// predecessor RFC 952) but pachyderm's repo naming constraints are slightly
-// more liberal. While the bucket name validation in this server is looser
-// than s3's, it still doesn't support all possible pachyderm repo names,
-// which means some pachyderm repos will not be serviceable by this.
-//
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
@@ -81,13 +70,13 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	// slash" functionality, because that uses redirects which doesn't always
 	// play nice with s3 clients.
 	bucketHandler := newBucketHandler(pc)
-	trailingSlashBucketRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}/`).Subrouter()
+	trailingSlashBucketRouter := router.Path(`/{branch:[a-zA-Z0-9\-_]{1,255}}.{repo:[a-zA-Z0-9\-_]{1,255}}/`).Subrouter()
 	attachBucketRoutes(trailingSlashBucketRouter, bucketHandler)
-	bucketRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}`).Subrouter()
+	bucketRouter := router.Path(`/{branch:[a-zA-Z0-9\-_]{1,255}}.{repo:[a-zA-Z0-9\-_]{1,255}}`).Subrouter()
 	attachBucketRoutes(bucketRouter, bucketHandler)
 
 	// object-related routes
-	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}/{file:.+}`).Subrouter()
+	objectRouter := router.Path(`/{branch:[a-zA-Z0-9\-_]{1,255}}.{repo:[a-zA-Z0-9\-_]{1,255}}/{file:.+}`).Subrouter()
 
 	if multipartDir != "" {
 		// Multipart handlers are only registered if a root dir is specified

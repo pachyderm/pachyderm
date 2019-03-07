@@ -63,7 +63,7 @@ func serve(t *testing.T, multipartDir string) (*http.Server, *client.APIClient, 
 func getObject(t *testing.T, c *minio.Client, repo, branch, file string) (string, error) {
 	t.Helper()
 
-	obj, err := c.GetObject(fmt.Sprintf("%s-%s", repo, branch), file)
+	obj, err := c.GetObject(fmt.Sprintf("%s.%s", branch, repo), file)
 	if err != nil {
 		return "", err
 	}
@@ -173,7 +173,7 @@ func TestListBuckets(t *testing.T) {
 	require.NoError(t, pc.CreateBranch(repo1, "master", "", nil))
 	require.NoError(t, pc.CreateBranch(repo1, "branch", "", nil))
 	require.NoError(t, pc.CreateBranch(repo2, "branch", "", nil))
-	expectedBranches := []string{repo1, fmt.Sprintf("%s-branch", repo1), fmt.Sprintf("%s-branch", repo2)}
+	expectedBranches := []string{fmt.Sprintf("master.%s", repo1), fmt.Sprintf("branch.%s", repo1), fmt.Sprintf("branch.%s", repo2)}
 	buckets, err := c.ListBuckets()
 	require.NoError(t, err)
 	require.Equal(t, 3, len(buckets))
@@ -249,7 +249,7 @@ func TestStatObject(t *testing.T) {
 	require.NoError(t, err)
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	info, err := c.StatObject(repo, "file")
+	info, err := c.StatObject(fmt.Sprintf("master.%s", repo), "file")
 	require.NoError(t, err)
 	require.True(t, startTime.Before(info.LastModified))
 	require.True(t, endTime.After(info.LastModified))
@@ -267,11 +267,11 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	_, err := c.PutObject(fmt.Sprintf("%s-branch", repo), "file", strings.NewReader("content1"), "text/plain")
+	_, err := c.PutObject(fmt.Sprintf("branch.%s", repo), "file", strings.NewReader("content1"), "text/plain")
 	require.NoError(t, err)
 
 	// this should act as a PFS PutFileOverwrite
-	_, err = c.PutObject(fmt.Sprintf("%s-branch", repo), "file", strings.NewReader("content2"), "text/plain")
+	_, err = c.PutObject(fmt.Sprintf("branch.%s", repo), "file", strings.NewReader("content2"), "text/plain")
 	require.NoError(t, err)
 
 	fetchedContent, err := getObject(t, c, repo, "branch", "file")
@@ -290,8 +290,8 @@ func TestRemoveObject(t *testing.T) {
 	require.NoError(t, err)
 
 	// as per PFS semantics, the second delete should be a no-op
-	require.NoError(t, c.RemoveObject(repo, "file"))
-	require.NoError(t, c.RemoveObject(repo, "file"))
+	require.NoError(t, c.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
+	require.NoError(t, c.RemoveObject(fmt.Sprintf("master.%s", repo), "file"))
 
 	// make sure the object no longer exists
 	_, err = getObject(t, c, repo, "master", "file")
@@ -324,23 +324,23 @@ func TestLargeObjects(t *testing.T) {
 
 	// first ensure that putting into a repo that doesn't exist triggers an
 	// error
-	_, err = c.FPutObject(repo2, "file", inputFile.Name(), "text/plain")
+	_, err = c.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), "text/plain")
 	bucketNotFoundError(t, err)
 
 	// now try putting into a legit repo
-	l, err := c.FPutObject(repo1, "file", inputFile.Name(), "text/plain")
+	l, err := c.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), "text/plain")
 	require.NoError(t, err)
 	require.Equal(t, int(l), 68157450)
 
 	// try getting an object that does not exist
-	err = c.FGetObject(repo2, "file", "foo")
+	err = c.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo")
 	bucketNotFoundError(t, err)
 
 	// get the file that does exist
 	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name())
-	err = c.FGetObject(repo1, "file", outputFile.Name())
+	err = c.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name())
 	require.NoError(t, err)
 
 	// compare the files and ensure they're the same
@@ -391,7 +391,7 @@ func TestGetObjectNoRepo(t *testing.T) {
 func TestMakeBucket(t *testing.T) {
 	srv, pc, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucket")
-	require.NoError(t, c.MakeBucket(repo, ""))
+	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 
 	repoInfo, err := pc.InspectRepo(repo)
 	require.NoError(t, err)
@@ -404,7 +404,7 @@ func TestMakeBucket(t *testing.T) {
 func TestMakeBucketWithBranch(t *testing.T) {
 	srv, pc, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucketwithbranch")
-	require.NoError(t, c.MakeBucket(fmt.Sprintf("%s-branch", repo), ""))
+	require.NoError(t, c.MakeBucket(fmt.Sprintf("branch.%s", repo), ""))
 
 	repoInfo, err := pc.InspectRepo(repo)
 	require.NoError(t, err)
@@ -417,7 +417,7 @@ func TestMakeBucketWithBranch(t *testing.T) {
 func TestMakeBucketWithRegion(t *testing.T) {
 	srv, pc, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucketwithregion")
-	require.NoError(t, c.MakeBucket(repo, "us-east-1"))
+	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), "us-east-1"))
 	_, err := pc.InspectRepo(repo)
 	require.NoError(t, err)
 	require.NoError(t, srv.Close())
@@ -426,8 +426,8 @@ func TestMakeBucketWithRegion(t *testing.T) {
 func TestMakeBucketRedundant(t *testing.T) {
 	srv, _, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucketredundant")
-	require.NoError(t, c.MakeBucket(repo, ""))
-	err := c.MakeBucket(repo, "")
+	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
+	err := c.MakeBucket(fmt.Sprintf("master.%s", repo), "")
 	require.YesError(t, err)
 	require.Equal(t, err.Error(), "There is already a repo with that name.")
 	require.NoError(t, srv.Close())
@@ -437,16 +437,16 @@ func TestMakeBucketDifferentBranches(t *testing.T) {
 	srv, _, c := serve(t, "")
 	repo := tu.UniqueString("testmakebucketdifferentbranches")
 
-	require.NoError(t, c.MakeBucket(repo, ""))
+	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 
 	// this should error because the last bucket creation implicitly made the
 	// master branch
-	err := c.MakeBucket(fmt.Sprintf("%s-master", repo), "")
+	err := c.MakeBucket(fmt.Sprintf("master.%s", repo), "")
 	require.YesError(t, err)
 	require.Equal(t, err.Error(), "There is already a repo with that name.")
 
 	// this should not error because it's a separate branch
-	err = c.MakeBucket(fmt.Sprintf("%s-branch", repo), "")
+	err = c.MakeBucket(fmt.Sprintf("branch.%s", repo), "")
 	require.NoError(t, err)
 
 	require.NoError(t, srv.Close())
@@ -456,30 +456,30 @@ func TestBucketExists(t *testing.T) {
 	srv, pc, c := serve(t, "")
 	repo := tu.UniqueString("testbucketexists")
 
-	exists, err := c.BucketExists(repo)
+	exists, err := c.BucketExists(fmt.Sprintf("master.%s", repo))
 	require.NoError(t, err)
 	require.False(t, exists)
 
 	// repo exists, but branch doesn't: should be false
 	require.NoError(t, pc.CreateRepo(repo))
-	exists, err = c.BucketExists(repo)
+	exists, err = c.BucketExists(fmt.Sprintf("master.%s", repo))
 	require.NoError(t, err)
 	require.False(t, exists)
 
 	// repo and branch exists: should be true
 	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
-	exists, err = c.BucketExists(repo)
+	exists, err = c.BucketExists(fmt.Sprintf("master.%s", repo))
 	require.NoError(t, err)
 	require.True(t, exists)
 
 	// repo exists, but branch doesn't: should be false
-	exists, err = c.BucketExists(fmt.Sprintf("%s-branch", repo))
+	exists, err = c.BucketExists(fmt.Sprintf("branch.%s", repo))
 	require.NoError(t, err)
 	require.False(t, exists)
 
 	// repo and branch exists: should be true
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
-	exists, err = c.BucketExists(fmt.Sprintf("%s-branch", repo))
+	exists, err = c.BucketExists(fmt.Sprintf("branch.%s", repo))
 	require.NoError(t, err)
 	require.True(t, exists)
 
@@ -494,8 +494,8 @@ func TestRemoveBucket(t *testing.T) {
 	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	require.NoError(t, c.RemoveBucket(repo))
-	require.NoError(t, c.RemoveBucket(fmt.Sprintf("%s-branch", repo)))
+	require.NoError(t, c.RemoveBucket(fmt.Sprintf("master.%s", repo)))
+	require.NoError(t, c.RemoveBucket(fmt.Sprintf("branch.%s", repo)))
 
 	require.NoError(t, srv.Close())
 }
@@ -506,8 +506,7 @@ func TestRemoveBucketBranchless(t *testing.T) {
 
 	// should error out because the repo doesn't have a branch
 	require.NoError(t, pc.CreateRepo(repo))
-	bucketNotFoundError(t, c.RemoveBucket(repo))
-	bucketNotFoundError(t, c.RemoveBucket(fmt.Sprintf("%s-master", repo)))
+	bucketNotFoundError(t, c.RemoveBucket(fmt.Sprintf("master.%s", repo)))
 
 	require.NoError(t, srv.Close())
 }
@@ -539,7 +538,7 @@ func TestListObjectsPaginated(t *testing.T) {
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
 	// Request that will list all files in master's root
-	ch := c.ListObjects(repo, "", false, make(chan struct{}))
+	ch := c.ListObjects(fmt.Sprintf("master.%s", repo), "", false, make(chan struct{}))
 	expectedFiles := []string{}
 	for i := 0; i <= 1000; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("%d", i))
@@ -547,7 +546,7 @@ func TestListObjectsPaginated(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{"dir/"})
 
 	// Request that will list all files in master starting with 1
-	ch = c.ListObjects(repo, "1", false, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "1", false, make(chan struct{}))
 	expectedFiles = []string{}
 	for i := 0; i <= 1000; i++ {
 		file := fmt.Sprintf("%d", i)
@@ -558,7 +557,7 @@ func TestListObjectsPaginated(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
 	// Request that will list all files in a directory in master
-	ch = c.ListObjects(repo, "dir/", false, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "dir/", false, make(chan struct{}))
 	expectedFiles = []string{}
 	for i := 0; i < 10; i++ {
 		expectedFiles = append(expectedFiles, fmt.Sprintf("dir/%d", i))
@@ -576,7 +575,7 @@ func TestListObjectsHeadlessBranch(t *testing.T) {
 	require.NoError(t, pc.CreateBranch(repo, "emptybranch", "", nil))
 
 	// Request into branch that has no head
-	ch := c.ListObjects(fmt.Sprintf("%s-emptybranch", repo), "", false, make(chan struct{}))
+	ch := c.ListObjects(fmt.Sprintf("emptybranch.%s", repo), "", false, make(chan struct{}))
 	checkListObjects(t, ch, time.Now(), time.Now(), []string{}, []string{})
 
 	require.NoError(t, srv.Close())
@@ -605,33 +604,33 @@ func TestListObjectsRecursive(t *testing.T) {
 	// Request that will list all files and dirs in master
 	expectedFiles := []string{"0", "rootdir/1", "rootdir/subdir/2"}
 	expectedDirs := []string{"rootdir/", "rootdir/subdir/"}
-	ch := c.ListObjects(repo, "", true, make(chan struct{}))
+	ch := c.ListObjects(fmt.Sprintf("master.%s", repo), "", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	// Requests that will list all files in rootdir, including rootdir itself
 	expectedFiles = []string{"rootdir/1", "rootdir/subdir/2"}
-	ch = c.ListObjects(repo, "r", true, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "r", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-	ch = c.ListObjects(repo, "rootdir", true, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	// Request that will list all files in rootdir, excluding rootdir itself
 	expectedDirs = []string{"rootdir/subdir/"}
-	ch = c.ListObjects(repo, "rootdir/", true, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	// Requests that will list all files in subdir, including subdir itself
 	expectedFiles = []string{"rootdir/subdir/2"}
-	ch = c.ListObjects(repo, "rootdir/s", true, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/s", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-	ch = c.ListObjects(repo, "rootdir/subdir", true, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	// Request that will list all files in subdir, excluding subdir itself
 	expectedDirs = []string{}
-	ch = c.ListObjects(repo, "rootdir/subdir/", true, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-	ch = c.ListObjects(repo, "rootdir/subdir/2", true, make(chan struct{}))
+	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 
 	require.NoError(t, srv.Close())
@@ -643,7 +642,7 @@ func TestMasterBranchRedirects(t *testing.T) {
 
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
-	exists, err := c.BucketExists(fmt.Sprintf("%s-master", repo))
+	exists, err := c.BucketExists(fmt.Sprintf("master.%s", repo))
 	require.NoError(t, err)
 	require.True(t, exists)
 

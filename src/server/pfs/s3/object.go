@@ -17,10 +17,7 @@ func newObjectHandler(pc *client.APIClient) *objectHandler {
 }
 
 func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file, ok := objectArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch, file := objectArgs(w, r)
 	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -54,10 +51,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file, ok := objectArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch, file := objectArgs(w, r)
 	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -78,10 +72,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file, ok := objectArgs(w, r)
-	if !ok {
-		return
-	}
+	repo, branch, file := objectArgs(w, r)
 	
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
