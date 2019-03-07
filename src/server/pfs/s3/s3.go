@@ -13,6 +13,28 @@ import (
 )
 
 func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
+	router.Methods("GET", "PUT").Queries("accelerate", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("analytics", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("cors", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("encryption", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("inventory", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("lifecycle", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT").Queries("logging", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("metrics", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT").Queries("notification", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT").Queries("object-lock", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("policy", "").HandlerFunc(notImplementedError)
+	router.Methods("GET").Queries("policyStatus", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("publicAccessBlock", "").HandlerFunc(notImplementedError)
+	router.Methods("PUT", "DELETE").Queries("replication", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT").Queries("requestPayment", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(notImplementedError)
+	router.Methods("GET").Queries("uploads", "").HandlerFunc(notImplementedError) // maybe worth implementing at some point
+	router.Methods("GET", "PUT").Queries("versioning", "").HandlerFunc(notImplementedError)
+	router.Methods("GET").Queries("versions", "").HandlerFunc(notImplementedError)
+	router.Methods("GET", "PUT", "DELETE").Queries("website", "").HandlerFunc(notImplementedError)
+
 	router.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(handler.location)
 	router.Methods("GET", "HEAD").HandlerFunc(handler.get)
 	router.Methods("PUT").HandlerFunc(handler.put)
