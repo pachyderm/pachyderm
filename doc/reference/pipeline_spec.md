@@ -148,7 +148,8 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
     "name": string,
     "spec": string,
     "repo": string,
-    "start": time
+    "start": time,
+    "overwrite": bool
 }
 
 ------------------------------------
@@ -475,9 +476,9 @@ Cron inputs allow you to trigger pipelines based on time. It's based on the
 unix utility `cron`. When you create a pipeline with one or more Cron Inputs
 pachd will create a repo for each of them. When a cron input triggers,
 that is when the present time satisfies its spec, pachd will commit
-a single file, called "time" to the repo which contains the time which
-satisfied the spec. The time is formatted according to [RFC
-3339](https://www.ietf.org/rfc/rfc3339.txt).
+a single file, named by the current [RFC
+3339 timestamp](https://www.ietf.org/rfc/rfc3339.txt) to the repo which contains the time which
+satisfied the spec.
 
 ```
 {
@@ -485,6 +486,7 @@ satisfied the spec. The time is formatted according to [RFC
     "spec": string,
     "repo": string,
     "start": time,
+    "overwrite": bool
 }
 ```
 
@@ -506,6 +508,12 @@ is created) will be used. Specifying a time allows you to run on matching
 times from the past or, skip times from the present and only start running
 on matching times in the future. Times should be formatted according to [RFC
 3339](https://www.ietf.org/rfc/rfc3339.txt).
+
+`input.cron.overwrite` is a flag to specify whether you want the timestamp file
+to be overwritten on each tick. It is optional, and if not specified it will
+default to simply writting new files each tick. What this means is that by
+default, pachd will process only the new data since the previous tick on each
+tick. If true, pachd will reprocess _all_ the data on each tick.
 
 #### Git Input (alpha feature)
 
