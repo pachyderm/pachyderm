@@ -32,3 +32,11 @@ func (c APIClient) Profile(profile string, duration time.Duration, w io.Writer) 
 	}
 	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(profileClient, w))
 }
+
+func (c APIClient) Binary(w io.Writer) error {
+	binaryClient, err := c.DebugClient.Binary(c.Ctx(), &debug.BinaryRequest{})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(binaryClient, w))
+}

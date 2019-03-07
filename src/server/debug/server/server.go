@@ -2,6 +2,8 @@ package server
 
 import (
 	"fmt"
+	"io"
+	"os"
 	"runtime/pprof"
 	"time"
 
@@ -98,4 +100,21 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 		return err
 	}
 	return nil
+}
+
+func (s *debugServer) Binary(request *debug.BinaryRequest, server debug.Debug_BinaryServer) (retErr error) {
+	w := grpcutil.NewStreamingBytesWriter(server)
+	f, err := os.Open(os.Args[0])
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := f.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	_, err = io.CopyBuffer(w, f, buf)
+	return err
 }
