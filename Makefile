@@ -184,12 +184,23 @@ docker-clean-test:
 	docker stop test_compile || true
 	docker rm test_compile || true
 
-docker-build-test: docker-clean-test
+docker-build-test: docker-clean-test docker-build-compile
+	@# build the pachyderm_test_buildenv container
+	etc/compile/compile_test.sh --make-env
+	mkdir ./_tmp || true
+	@# build pachyderm_test container (don't use COMPILE_RUN_ARGS b/c we don't
+	@# want to run this as a daemon container
 	docker run \
-		-v $$GOPATH/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
-		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name test_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) sh /etc/compile/compile_test.sh
-	etc/compile/wait.sh test_compile
+	  --attach stdout \
+	  --attach stderr \
+	  --rm \
+	  -w /go/src/github.com/pachyderm/pachyderm \
+	  -v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+	  -v $$HOME/.cache/go-build:/root/.cache/go-build \
+	  -v /var/run/docker.sock:/var/run/docker.sock \
+	  --privileged=true \
+	  --name test_compile \
+	  pachyderm_test_buildenv sh /go/src/github.com/pachyderm/pachyderm/etc/compile/compile_test.sh
 	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
 
 docker-push-test:
@@ -282,11 +293,12 @@ install-bench: install
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
 launch-dev-test: docker-build-test docker-push-test
-	sudo kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
-	    --restart=Never \
-	    --attach=true \
-	    -- \
-	    ./test -test.v
+	kubectl run pachyderm-test --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
+	  --rm \
+	  --restart=Never \
+	  --attach=true \
+	  -- \
+	  ./test -test.v
 
 aws-test: tag-images push-images
 	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create

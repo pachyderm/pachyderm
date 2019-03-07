@@ -26,8 +26,8 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
-	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
@@ -152,6 +152,10 @@ func PachctlCmd() (*cobra.Command, error) {
 
 Environment variables:
   PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
+  PACH_CONFIG=<path>, the path where pachctl will attempt to load your pach config.
+  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_ENABLE_TRACING is set
+  PACH_ENABLE_TRACING={true,false}, If true, and JAEGER_ENDPOINT is set, attach a
+    Jaeger trace to all outgoing RPCs
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			log.SetFormatter(new(prefixed.TextFormatter))
@@ -174,7 +178,6 @@ Environment variables:
 					ioutil.Discard,
 				))
 			}
-
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
@@ -335,13 +338,14 @@ This resets the cluster to its initial state.`,
 			for _, pi := range pipelineInfos {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
 			}
-			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs?\nyN\n")
+			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
 				fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
 			}
 			if len(pipelines) > 0 {
 				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			}
+			fmt.Println("Are you sure you want to do this? (y/n):")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {

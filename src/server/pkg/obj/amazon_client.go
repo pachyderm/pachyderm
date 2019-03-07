@@ -2,6 +2,7 @@ package obj
 
 import (
 	"bytes"
+	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/storagegateway"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	log "github.com/sirupsen/logrus"
 
@@ -50,7 +52,7 @@ type amazonClient struct {
 	// be written around the same time, and overloading S3. Reversing the
 	// order of keys gives an easy way to spread out S3 assets and
 	// substantially speed up block writing.
-	reversed               bool
+	reversed bool
 }
 
 type vaultCredentialsProvider struct {
@@ -128,7 +130,7 @@ func (v *vaultCredentialsProvider) Retrieve() (credentials.Value, error) {
 				v.updateLease(vaultSecret)
 				return nil
 			}, backoff.NewExponentialBackOff(), func(err error, _ time.Duration) error {
-				log.Errorf("couuld not renew vault lease: %v", err)
+				log.Errorf("could not renew vault lease: %v", err)
 				return nil
 			})
 		}
@@ -226,14 +228,14 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	return awsClient, nil
 }
 
-func (c *amazonClient) Writer(name string) (io.WriteCloser, error) {
+func (c *amazonClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
 	if c.reversed {
 		name = reverse(name)
 	}
-	return newBackoffWriteCloser(c, newWriter(c, name)), nil
+	return newBackoffWriteCloser(ctx, c, newWriter(ctx, c, name)), nil
 }
 
-func (c *amazonClient) Walk(name string, fn func(name string) error) error {
+func (c *amazonClient) Walk(_ context.Context, name string, fn func(name string) error) error {
 	var fnErr error
 	var prefix *string
 
@@ -269,7 +271,7 @@ func (c *amazonClient) Walk(name string, fn func(name string) error) error {
 	return fnErr
 }
 
-func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
+func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	if c.reversed {
 		name = reverse(name)
 	}
@@ -297,6 +299,8 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		req.Header.Add("Range", byteRange)
 
 		backoff.RetryNotify(func() error {
+			span, _ := tracing.AddSpanToAnyExisting(ctx, "aws/cloudfront.Get")
+			defer tracing.FinishAnySpan(span)
 			resp, connErr = http.DefaultClient.Do(req)
 			if connErr != nil && isNetRetryable(connErr) {
 				return connErr
@@ -325,10 +329,10 @@ func (c *amazonClient) Reader(name string, offset uint64, size uint64) (io.ReadC
 		}
 		reader = getObjectOutput.Body
 	}
-	return newBackoffReadCloser(c, reader), nil
+	return newBackoffReadCloser(ctx, c, reader), nil
 }
 
-func (c *amazonClient) Delete(name string) error {
+func (c *amazonClient) Delete(_ context.Context, name string) error {
 	if c.reversed {
 		name = reverse(name)
 	}
@@ -339,7 +343,7 @@ func (c *amazonClient) Delete(name string) error {
 	return err
 }
 
-func (c *amazonClient) Exists(name string) bool {
+func (c *amazonClient) Exists(_ context.Context, name string) bool {
 	if c.reversed {
 		name = reverse(name)
 	}
@@ -396,13 +400,15 @@ func (c *amazonClient) IsNotExist(err error) bool {
 }
 
 type amazonWriter struct {
+	ctx     context.Context
 	errChan chan error
 	pipe    *io.PipeWriter
 }
 
-func newWriter(client *amazonClient, name string) *amazonWriter {
+func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWriter {
 	reader, writer := io.Pipe()
 	w := &amazonWriter{
+		ctx:     ctx,
 		errChan: make(chan error),
 		pipe:    writer,
 	}
@@ -420,10 +426,14 @@ func newWriter(client *amazonClient, name string) *amazonWriter {
 }
 
 func (w *amazonWriter) Write(p []byte) (int, error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "amazonWriter.Write")
+	defer tracing.FinishAnySpan(span)
 	return w.pipe.Write(p)
 }
 
 func (w *amazonWriter) Close() error {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "amazonWriter.Close")
+	defer tracing.FinishAnySpan(span)
 	if err := w.pipe.Close(); err != nil {
 		return err
 	}
