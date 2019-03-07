@@ -624,10 +624,10 @@ message StopPipelineRequest {
   Pipeline pipeline = 1;
 }
 
-message RerunPipelineRequest {
+message RunPipelineRequest {
   Pipeline pipeline = 1;
-  repeated pfs.Commit exclude = 2;
-  repeated pfs.Commit include = 3;
+  repeated pfs.Commit provenance = 2;
+  repeated pfs.Branch branch_provenance = 3;
 }
 
 message GarbageCollectRequest {
@@ -666,7 +666,7 @@ service API {
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
   rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
-  rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
+  rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
