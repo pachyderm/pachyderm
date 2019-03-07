@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+    "io"
 	"sync"
 	"time"
 
@@ -188,7 +189,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
     err := a.driver.performOps(a.getPachClient(ctx), []Operation{
-        CreateBranchOp{
+        &CreateBranchOp{
             request.Branch,
             request.Head,
             request.Provenance,
@@ -202,7 +203,33 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 }
 
 func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesServer) (retErr error) {
-    // TODO(grey): implement
+    ops := []Operation{}
+	defer func(start time.Time) { a.Log(ops, nil, retErr, time.Since(start)) }(time.Now())
+
+    for {
+        request, err := createBranchesServer.Recv()
+        if err == io.EOF {
+            break
+        } else if err != nil {
+            return err
+        }
+
+        func() { a.Log(request, nil, nil, 0) }()
+        ops = append(ops, &CreateBranchOp{
+            request.Branch,
+            request.Head,
+            request.Provenance,
+        })
+    }
+
+    client := a.getPachClient(createBranchesServer.Context())
+    err := a.driver.performOps(client, ops)
+
+    if err != nil {
+        return err
+    }
+
+    createBranchesServer.SendAndClose(&types.Empty{})
     return nil
 }
 

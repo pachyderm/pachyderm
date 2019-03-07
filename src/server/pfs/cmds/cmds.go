@@ -510,9 +510,9 @@ $ pachctl subscribe-commit test master --new
 	var branchProvenance cmdutil.RepeatedStringArg
 	var head string
 	createBranch := &cobra.Command{
-		Use:   "create-branch <repo-name> <branch-name> [flags]",
+		Use:   "create-branch <repo-name> <branch-name>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
-		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
+		Long:  "Create a new branch, or update an existing branch, on a repo. Starting a commit on the branch will also create it, so there's often no need to call this.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -528,6 +528,28 @@ $ pachctl subscribe-commit test master --new
 	}
 	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
 	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
+
+	var branchesProvenance cmdutil.RepeatedStringArg
+	var heads string
+	createBranches := &cobra.Command{
+		Use:   "create-branches <repo-name>@<branch-name>",
+		Short: "Create or update multiple branches on multiple repos.",
+		Long:  "Create or update multiple branches on multiple repos. Starting a commit on the branch will also create it, so there's often no need to call this.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			provenance, err := cmdutil.ParseBranches(branchesProvenance)
+			if err != nil {
+				return err
+			}
+			return client.CreateBranch(args[0], args[1], heads, provenance)
+		}),
+	}
+	createBranches.Flags().VarP(&branchesProvenance, "provenance", "p", "The provenance for the branch.")
+	createBranches.Flags().StringVarP(&heads, "head", "", "", "The head of the newly created branch.")
 
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",
@@ -1161,6 +1183,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, subscribeCommit)
 	result = append(result, deleteCommit)
 	result = append(result, createBranch)
+	result = append(result, createBranches)
 	result = append(result, listBranch)
 	result = append(result, setBranch)
 	result = append(result, deleteBranch)

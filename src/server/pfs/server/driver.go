@@ -154,7 +154,7 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Ca
 
 func (d *driver) performOps(pachClient *client.APIClient, ops []Operation) error {
     for i, op := range ops {
-        if err := op.validate(pachClient); err != nil {
+        if err := op.validate(pachClient, d); err != nil {
             return fmt.Errorf("Error validating operation %d of %d: %v",
                 i + 1, len(ops), grpcutil.ScrubGRPC(err))
         }
@@ -162,7 +162,7 @@ func (d *driver) performOps(pachClient *client.APIClient, ops []Operation) error
 
     _, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
         for i, op := range ops {
-            if err := op.execute(pachClient, stm); err != nil {
+            if err := op.execute(pachClient, d, stm); err != nil {
                 return fmt.Errorf("Error executing operation %d of %d: %v",
                     i + 1, len(ops), grpcutil.ScrubGRPC(err))
             }
@@ -250,6 +250,8 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 			// auth is active, and user is logged in. Make user an owner of the new
 			// repo (and clear any existing ACL under this name that might have been
 			// created by accident)
+            // TODO: it looks like this isn't done transactionally through stm -
+            // possible race condition?
 			_, err := pachClient.AuthAPIClient.SetACL(ctx, &auth.SetACLRequest{
 				Repo: repo.Name,
 				Entries: []*auth.ACLEntry{{
