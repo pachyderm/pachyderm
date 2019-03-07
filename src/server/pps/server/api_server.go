@@ -671,7 +671,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	jobs := a.jobs.ReadOnly(pachClient.Ctx())
 	jobPtr := &pps.EtcdJobInfo{}
 	_f := func(key string) error {
-		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr, false)
+		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr, len(inputCommits) > 0)
 		if err != nil {
 			if isNotFoundErr(err) {
 				// This can happen if a user deletes an upstream commit and thereby
