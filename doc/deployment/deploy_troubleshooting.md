@@ -5,7 +5,7 @@ Here are some common issues by symptom related to certain deploys.
 - [General Pachyderm cluster deployment](#general-pachyderm-cluster-deployment)
 - Environment-specific
   - [AWS](#aws-deployment)
-    - [Can't connect to the Pachyderm cluster after a rolling update](#can-t-connect-to-the-pachyderm-cluster-after-a-rolling-update)
+    - [Can't connect to the Pachyderm cluster after a rolling update](#cant-connect-to-the-pachyderm-cluster-after-a-rolling-update)
     - [The one shot deploy script, `aws.sh`, never completes](#one-shot-script-never-completes)
     - [VPC limit exceeded](#vpc-limit-exceeded)
     - [GPU node never appears](#gpu-node-never-appears)
@@ -54,13 +54,13 @@ First describe the pod:
 $ kubectl describe po/pachd-1333950811-0sm1p
 ```
 
-If you see an error including `Error attaching EBS volume` or similar, see the recourse for that error here under the corresponding section below this one.  If you don't see that error, but do see something like:
+If you see an error including `Error attaching EBS volume` or similar, see the recourse for that error here under the corresponding section below. If you don't see that error, but do see something like:
 
 ```
   1m    3s    9    {kubelet ip-172-20-48-123.us-west-2.compute.internal}                Warning    FailedSync    Error syncing pod, skipping: failed to "StartContainer" for "pachd" with CrashLoopBackOff: "Back-off 2m40s restarting failed container=pachd pod=pachd-1333950811-0sm1p_default(a92b6665-506a-11e7-8e07-02e3d74c49ac)"
 ```
 
-That means Kubernetes tried running `pachd`, but `pachd` generated an internal error. To see the specifics of this internal error, check the logs for the `pachd` pod:
+it means Kubernetes tried running `pachd`, but `pachd` generated an internal error. To see the specifics of this internal error, check the logs for the `pachd` pod:
 
 ```
 $kubectl logs po/pachd-1333950811-0sm1p
@@ -68,9 +68,9 @@ $kubectl logs po/pachd-1333950811-0sm1p
 
 **Note**: If you're using a log aggregator service (e.g. the default in GKE), you won't see any logs when using `kubectl logs ...` in this way.  You will need to look at your logs UI (e.g. in GKE's case the stackdriver console).
 
-These logs will likely reveal a misconfiguration in your deploy.  For example, you might see, `BucketRegionError: incorrect region, the bucket is not in 'us-west-2' region`.  In that case, you've deployed your bucket in a different region than your cluster.
+These logs will most likely reveal the issue directly, or at the very least, a good indicator as to what's causing the problem. For example, you might see, `BucketRegionError: incorrect region, the bucket is not in 'us-west-2' region`. In that case, your object store bucket in a different region than your pachyderm cluster and the fix would be to recreate the bucket in the same region as your pachydermm cluster.
 
-If the error / recourse isn't obvious from the error message, you can now provide the content of the `pachd` logs when getting help in our Slack channel or by opening a [GitHub Issue](https://github.com/pachyderm/pachyderm/issues/new). Please provide these logs either way as it is extremely helpful in resolving the issue..
+If the error / recourse isn't obvious from the error message, post the error as well as the `pachd` logs in our [Slack channel](slack.pachyderm.io), or open a [GitHub Issue](https://github.com/pachyderm/pachyderm/issues/new) and provide the necessary details prompted by the issue template. Please do be sure provide these logs either way as it is extremely helpful in resolving the issue.
 
 ### Pod stuck in `CrashLoopBackoff` - with error attaching volume
 
@@ -82,11 +82,13 @@ A pod (could be the `pachd` pod or a worker pod) fails to startup, and is stuck 
   30s        30s        1    {attachdetach }                Warning        FailedMount    Failed to attach volume "etcd-volume" on node "ip-172-20-44-17.us-west-2.compute.internal" with: Error attaching EBS volume "vol-0c1d403ac05096dfe" to instance "i-0a12e00c0f3fb047d": VolumeInUse: vol-0c1d403ac05096dfe is already attached to an instance
 ```
 
+This would indicate that the [peristent volume claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) is failing to get attached to the node in your kubernetes cluster.  
+
 #### Recourse
 
 Your best bet is to manually detach the volume and restart the pod.  
 
-For example, to resolve this issue when Pachyderm is deployed to AWS, first find the node of which the pod is scheduled. In the output of the `kubectl describe po/pachd-xxx` command above, you should see the name of the node on which the pod is running.  In the AWS web console, find that node.. Once you have the right node, look in the bottom pane for the attached volume. Follow the link to the attached volume, and detach the volume. You may need to "Force Detach" it.
+For example, to resolve this issue when Pachyderm is deployed to AWS, pull up your AWS web console and look up the node mentioned in the error message (ip-172-20-44-17.us-west-2.compute.internal in our case). Then on the bottom pane for the attached volume. Follow the link to the attached volume, and detach the volume. You may need to "Force Detach" it.
 
 Once it's detached (and marked as available). Restart the pod by killing it, e.g:
 
@@ -104,11 +106,11 @@ It will take a moment for a new pod to get scheduled.
 
 #### Symptom
 
-After running `kops rolling-update`, `kubectl` (and/or `pachctl`) cannot connect to the cluster. All `kubectl` requests hang.
+After running `kops rolling-update`, `kubectl` (and/or `pachctl`) all requests hang and you can't connect to the cluster.
 
 #### Recourse
 
-First get your cluster name. This will be in the deploy logs you saved from running `aws.sh` (if you utilized the [one shot deployment](http://docs.pachyderm.io/en/latest/deployment/amazon_web_services.html#one-shot-script)), or can be retrieved via `kops get clusters`.
+First get your cluster name. You can easily locate that information by running `kops get clusters`. If you used the one shot deployment](http://docs.pachyderm.io/en/latest/deployment/amazon_web_services.html#one-shot-script), you can also get this info in the deploy logs you created by `aws.sh`.
 
 Then you'll need to grab the new public IP address of your master node. The master node will be named something like `master-us-west-2a.masters.somerandomstring.kubernetes.com`
 
@@ -132,14 +134,14 @@ If it's been more than 10 minutes, there's likely an error.
 
 #### Recourse
 
-Check the AWS web console / autoscale group / activity history. You have probably hit an instance limit.  To navigate there, open the AWS web console for EC2. Check to see if you have any instances with names like::
+Check the AWS web console / autoscale group / activity history. You have probably hit an instance limit. To confirm, open the AWS web console for EC2 and check to see if you have any instances with names like:
 
 ```
 master-us-west-2a.masters.tfgpu.kubernetes.com
 nodes.tfgpu.kubernetes.com
 ```
 
-If not, navigate to "Auto Scaling Groups" in the left hand menu. Then find the ASG with your cluster name:
+If you don't see instances similar to the ones above the next thing to do is to navigate to "Auto Scaling Groups" in the left hand menu. Then find the ASG with your cluster name:
 
 ```
 master-us-west-2a.masters.tfgpu.kubernetes.com
@@ -188,7 +190,7 @@ It's not uncommon (depending on how you tear down clusters) for the VPCs not to 
 
 #### Symptom
 
-After running `kops edit ig gpunodes` and `kops update` (as outlined [here](http://docs.pachyderm.io/en/latest/cookbook/gpus.html)) the GPU node never appears, which can be confirmed via the AWS web console..
+After running `kops edit ig gpunodes` and `kops update` (as outlined [here](http://docs.pachyderm.io/en/latest/cookbook/gpus.html)) the GPU node never appears, which can be confirmed via the AWS web console.
 
 #### Recourse
 
