@@ -34,6 +34,7 @@ func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 	router.Methods("GET", "PUT").Queries("versioning", "").HandlerFunc(notImplementedError)
 	router.Methods("GET").Queries("versions", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT", "DELETE").Queries("website", "").HandlerFunc(notImplementedError)
+	router.Methods("POST").HandlerFunc(notImplementedError)
 
 	router.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(handler.location)
 	router.Methods("GET", "HEAD").HandlerFunc(handler.get)
@@ -87,6 +88,7 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 
 	// object-related routes
 	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}/{file:.+}`).Subrouter()
+
 	if multipartDir != "" {
 		// Multipart handlers are only registered if a root dir is specified
 		multipartHandler := newMultipartHandler(pc, multipartDir)
@@ -96,6 +98,16 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 		objectRouter.Methods("PUT").Queries("uploadId", "").HandlerFunc(multipartHandler.put)
 		objectRouter.Methods("DELETE").Queries("uploadId", "").HandlerFunc(multipartHandler.del)
 	}
+
+	objectRouter.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("GET", "PUT").Queries("retention", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("GET").Queries("torrent", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("POST").Queries("restore", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("POST").Queries("select", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(notImplementedError) // maybe worth implementing at some point
+
 	objectHandler := newObjectHandler(pc)
 	objectRouter.Methods("GET", "HEAD").HandlerFunc(objectHandler.get)
 	objectRouter.Methods("PUT").HandlerFunc(objectHandler.put)
