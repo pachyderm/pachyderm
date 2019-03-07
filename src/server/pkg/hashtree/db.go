@@ -1149,16 +1149,14 @@ func (mq *mergePQ) peek() ([]*MergeNode, error) {
 	if len(mq.q) == 0 || mq.size == 0 || mq.q[1] == nil {
 		return nil, fmt.Errorf("empty merge priority queue")
 	}
-	ns := []*MergeNode{mq.q[1].node}
+	ns := []*MergeNode{}
 	i := 1
 	queue := []int{i}
 	for len(queue) > 0 {
 		cur := queue[0]
 		queue = queue[1:]
 		if bytes.Compare(mq.k(1), mq.k(cur)) == 0 {
-			if cur != 1 {
-				ns = append(ns, mq.q[cur].node)
-			}
+			ns = append(ns, mq.q[cur].node)
 			l, r := cur*2, cur*2+1
 			if l <= mq.size {
 				queue = append(queue, l)
