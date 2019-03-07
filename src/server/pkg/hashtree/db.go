@@ -1147,7 +1147,7 @@ func (mq *mergePQ) next() ([]*MergeNode, error) {
 
 func (mq *mergePQ) peek() ([]*MergeNode, error) {
 	if len(mq.q) == 0 || mq.size == 0 || mq.q[1] == nil {
-		return nil, errutil.ErrBreak
+		return nil, fmt.Errorf("empty merge priority queue")
 	}
 	ns := []*MergeNode{mq.q[1].node}
 	i := 1
@@ -1429,11 +1429,11 @@ func (m *MergeReader) nodes(f func(string, *NodeProto) error) error {
 // enables composing these operations together, in ways that would otherwise error out
 // if simply popping the head of the reader was used to call these operations.
 func (m *MergeReader) maybeProgressReader(before []*MergeNode) error {
+	if len(m.mq.q) == 0 || m.mq.size == 0 || m.mq.q[1] == nil {
+		return nil
+	}
 	after, err := m.mq.peek()
 	if err != nil {
-		if err == errutil.ErrBreak {
-			return nil
-		}
 		return err
 	}
 	if bytes.Compare(after[0].k, before[0].k) == 0 {

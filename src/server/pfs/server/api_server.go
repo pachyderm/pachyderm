@@ -274,7 +274,7 @@ func (a *apiServer) GetFiles(request *pfs.GetFileRequest, apiGetFilesServer pfs.
 	}
 
 	// Then we parse each file from the bytestream (breaking it up into messages of grpc max size) and send it to the apiGetFilesServer.
-	return a.driver.getFiles(a.env.GetPachClient(apiGetFilesServer.Context()), file, request.File, func(gfr *pfs.GetFileResponse) error {
+	return a.driver.getFiles(a.env.GetPachClient(apiGetFilesServer.Context()), file, request.File, true, func(gfr *pfs.GetFileResponse) error {
 		sent++
 		return apiGetFilesServer.Send(gfr)
 	})

@@ -2484,11 +2484,11 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil
 	}
 
-	// attachHeaderFooterToMetadata adds the appropriate header/footer
+	// maybeAttachHeaderFooter adds the appropriate header/footer
 	// block before/after the data blocks on the condition that a
 	// node's parent directory has a header/footer.
 	// Only applies to input repos.
-	attachHeaderFooterToMetadata := func(p string, node *hashtree.NodeProto) error {
+	maybeAttachHeaderFooter := func(p string, node *hashtree.NodeProto) error {
 		if node.FileNode == nil {
 			return nil
 		}
@@ -2531,7 +2531,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 				}
 			}
 		}
-		return collectReferences(p, node)
+		return nil
 	}
 
 	// Handle commits to input repos
@@ -2544,11 +2544,19 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			pathsFound++
 			if node.DirNode != nil {
 				if recursive {
-					return tree.Walk(node.GetName(), attachHeaderFooterToMetadata)
+					return tree.Walk(node.GetName(), func(pw string, nw *hashtree.NodeProto) error {
+						if err := maybeAttachHeaderFooter(pw, nw); err != nil {
+							return err
+						}
+						return collectReferences(pw, nw)
+					})
 				}
 				return nil
 			}
-			return attachHeaderFooterToMetadata(p, node)
+			if err := maybeAttachHeaderFooter(p, node); err != nil {
+				return err
+			}
+			return collectReferences(p, node)
 		}); err != nil {
 			return nil, err
 		}
@@ -2635,7 +2643,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 // getFiles takes the objReader byte stream of object storage references generated in
 // getFile and parses it into GetFileResponses that are then acted upon individually
 // by the callback function f.
-func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, file *pfs.File, f func(*pfs.GetFileResponse) error) (retErr error) {
+func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, file *pfs.File, recursive bool, f func(*pfs.GetFileResponse) error) (retErr error) {
 	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
@@ -2693,13 +2701,16 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 		}
 		err = tree.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
 			if node.DirNode != nil {
-				return tree.Walk(p, func(pf string, nf *hashtree.NodeProto) error {
-					fi, err := nodeToFileInfoHeaderFooter(commitInfo, pf, nf, tree, true)
-					if err != nil {
-						return err
-					}
-					return parseFiles(pf, nf, fi)
-				})
+				if recursive {
+					return tree.Walk(p, func(pf string, nf *hashtree.NodeProto) error {
+						fi, err := nodeToFileInfoHeaderFooter(commitInfo, pf, nf, tree, true)
+						if err != nil {
+							return err
+						}
+						return parseFiles(pf, nf, fi)
+					})
+				}
+				return nil
 			}
 			fileInfo, err := nodeToFileInfoHeaderFooter(commitInfo, p, node, tree, true)
 			if err != nil {
@@ -2737,9 +2748,12 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	mr, err := hashtree.NewMergeReader(rs)
 	if err := mr.Glob(file.Path, func(p string, node *hashtree.NodeProto) error {
 		if node.DirNode != nil {
-			return mr.Walk(p, func(pf string, nf *hashtree.NodeProto) error {
-				return parseFiles(pf, nf, nil)
-			})
+			if recursive {
+				return mr.Walk(p, func(pf string, nf *hashtree.NodeProto) error {
+					return parseFiles(pf, nf, nil)
+				})
+			}
+			return nil
 		}
 		return parseFiles(p, node, nil)
 	}); err != nil {
