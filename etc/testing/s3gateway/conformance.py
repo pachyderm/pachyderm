@@ -14,9 +14,20 @@ import collections
 
 TEST_ROOT = os.path.join("etc", "testing", "s3gateway")
 RUNS_ROOT = os.path.join(TEST_ROOT, "runs")
-TRACEBACK_HEADER = "Traceback (most recent call last):\n"
 RAN_PATTERN = re.compile(r"Ran (\d+) tests in [\d\.]+s")
 FAILED_PATTERN = re.compile(r"FAILED \(SKIP=(\d+), errors=(\d+), failures=(\d+)\)")
+
+ERROR_PATTERN = re.compile(r"ERROR: (s3tests\..+)")
+
+TRACEBACK_PREFIXES = [
+    "Traceback (most recent call last):",
+    "----------------------------------------------------------------------",
+    "  ",
+]
+
+EXCLUDE = [
+    # TODO
+]
 
 class Gateway:
     def target(self):
@@ -129,20 +140,26 @@ def main():
         else:
             print("Overall results: {}/{}".format(*stats))
 
-        in_traceback = False
-        causes = collections.Counter()
+        failing_test = None
+        causes = collections.defaultdict(lambda: [])
         with open(filepath, "r") as f:
             for line in f:
-                if line == TRACEBACK_HEADER:
-                    in_traceback = True
-                elif in_traceback:
-                    if not line.startswith("  "):
-                        causes[line.rstrip()] += 1
-                        in_traceback = False
+                line = line.rstrip()
 
-        causes = sorted(causes.items(), key=lambda i: i[1], reverse=True)
-        for (cause_name, cause_count) in causes:
-            print("{}: {}".format(cause_name, cause_count))
+                if failing_test is None:
+                    match = ERROR_PATTERN.match(line)
+                    if match is not None:
+                        failing_test = match.groups()[0]
+                else:
+                    if not any(line.startswith(p) for p in TRACEBACK_PREFIXES):
+                        causes[line].append(failing_test)
+                        failing_test = None
+
+        causes = sorted(causes.items(), key=lambda i: len(i[1]), reverse=True)
+        for (cause_name, failing_tests) in causes:
+            print("{}:".format(cause_name))
+            for failing_test in failing_tests:
+                print("- {}".format(failing_test))
     
 if __name__ == "__main__":
     main()
