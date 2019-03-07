@@ -12,8 +12,8 @@ import (
 // matching errors, we shouldn't be attempting to operate on buckets that
 // don't match the minio regexp anyways.
 var (
-	repoNotFoundMatcher   = regexp.MustCompile(`repos/ [a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9] not found`)
-	branchNotFoundMatcher = regexp.MustCompile(`branches/[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]/ [^ ]+ not found`)
+	repoNotFoundMatcher   = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
+	branchNotFoundMatcher = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
 	fileNotFoundMatcher   = regexp.MustCompile(`file .+ not found in repo`)
 )
 
