@@ -74,27 +74,88 @@ func (m *DumpRequest) GetRecursed() bool {
 	return false
 }
 
+type ProfileRequest struct {
+	Profile              string          `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	Duration             *types.Duration `protobuf:"bytes,2,opt,name=duration,proto3" json:"duration,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
+	XXX_unrecognized     []byte          `json:"-"`
+	XXX_sizecache        int32           `json:"-"`
+}
+
+func (m *ProfileRequest) Reset()         { *m = ProfileRequest{} }
+func (m *ProfileRequest) String() string { return proto.CompactTextString(m) }
+func (*ProfileRequest) ProtoMessage()    {}
+func (*ProfileRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_6d15a320d0127c22, []int{1}
+}
+func (m *ProfileRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ProfileRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ProfileRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ProfileRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProfileRequest.Merge(m, src)
+}
+func (m *ProfileRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *ProfileRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ProfileRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ProfileRequest proto.InternalMessageInfo
+
+func (m *ProfileRequest) GetProfile() string {
+	if m != nil {
+		return m.Profile
+	}
+	return ""
+}
+
+func (m *ProfileRequest) GetDuration() *types.Duration {
+	if m != nil {
+		return m.Duration
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*DumpRequest)(nil), "debug.DumpRequest")
+	proto.RegisterType((*ProfileRequest)(nil), "debug.ProfileRequest")
 }
 
 func init() { proto.RegisterFile("client/debug/debug.proto", fileDescriptor_6d15a320d0127c22) }
 
 var fileDescriptor_6d15a320d0127c22 = []byte{
-	// 207 bytes of a gzipped FileDescriptorProto
+	// 283 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x48, 0xce, 0xc9, 0x4c,
 	0xcd, 0x2b, 0xd1, 0x4f, 0x49, 0x4d, 0x2a, 0x4d, 0x87, 0x90, 0x7a, 0x05, 0x45, 0xf9, 0x25, 0xf9,
 	0x42, 0xac, 0x60, 0x8e, 0x94, 0x5c, 0x7a, 0x7e, 0x7e, 0x7a, 0x4e, 0xaa, 0x3e, 0x58, 0x30, 0xa9,
-	0x34, 0x4d, 0xbf, 0xbc, 0x28, 0xb1, 0xa0, 0x20, 0xb5, 0xa8, 0x18, 0xa2, 0x4c, 0x49, 0x93, 0x8b,
-	0xdb, 0xa5, 0x34, 0xb7, 0x20, 0x28, 0xb5, 0xb0, 0x34, 0xb5, 0xb8, 0x44, 0x48, 0x8a, 0x8b, 0xa3,
-	0x28, 0x35, 0xb9, 0xb4, 0xa8, 0x38, 0x35, 0x45, 0x82, 0x51, 0x81, 0x51, 0x83, 0x23, 0x08, 0xce,
-	0x37, 0x72, 0xe1, 0x62, 0x75, 0x01, 0x99, 0x29, 0x64, 0xcd, 0xc5, 0x02, 0xd2, 0x23, 0x24, 0xa4,
-	0x07, 0xb1, 0x10, 0xc9, 0x00, 0x29, 0x69, 0x3d, 0x88, 0x85, 0x7a, 0x30, 0x0b, 0xf5, 0x9c, 0x2a,
-	0x4b, 0x52, 0x8b, 0xc3, 0x12, 0x73, 0x4a, 0x53, 0x95, 0x18, 0x0c, 0x18, 0x9d, 0x1c, 0x4f, 0x3c,
-	0x92, 0x63, 0xbc, 0xf0, 0x48, 0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x19, 0x8f, 0xe5, 0x18, 0xa2,
-	0xf4, 0xd3, 0x33, 0x4b, 0x32, 0x4a, 0x93, 0xf4, 0x92, 0xf3, 0x73, 0xf5, 0x0b, 0x12, 0x93, 0x33,
-	0x2a, 0x53, 0x52, 0x8b, 0x90, 0x59, 0xc5, 0x45, 0xc9, 0xfa, 0xc8, 0xde, 0x4c, 0x62, 0x03, 0x9b,
-	0x6d, 0x0c, 0x08, 0x00, 0x00, 0xff, 0xff, 0x12, 0xce, 0xdc, 0x52, 0xfd, 0x00, 0x00, 0x00,
+	0x34, 0x4d, 0xbf, 0xbc, 0x28, 0xb1, 0xa0, 0x20, 0xb5, 0xa8, 0x18, 0xa2, 0x0c, 0x53, 0x3e, 0xa5,
+	0xb4, 0x28, 0xb1, 0x24, 0x33, 0x3f, 0x0f, 0x22, 0xaf, 0xa4, 0xc9, 0xc5, 0xed, 0x52, 0x9a, 0x5b,
+	0x10, 0x94, 0x5a, 0x58, 0x9a, 0x5a, 0x5c, 0x22, 0x24, 0xc5, 0xc5, 0x51, 0x94, 0x9a, 0x5c, 0x5a,
+	0x54, 0x9c, 0x9a, 0x22, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x11, 0x04, 0xe7, 0x2b, 0x25, 0x72, 0xf1,
+	0x05, 0x14, 0xe5, 0xa7, 0x65, 0xe6, 0xa4, 0xc2, 0x54, 0x4b, 0x70, 0xb1, 0x17, 0x40, 0x44, 0xc0,
+	0x8a, 0x39, 0x83, 0x60, 0x5c, 0x21, 0x53, 0x2e, 0x0e, 0x98, 0x45, 0x12, 0x4c, 0x0a, 0x8c, 0x1a,
+	0xdc, 0x46, 0x92, 0x7a, 0x10, 0x97, 0xe8, 0xc1, 0x5c, 0xa2, 0xe7, 0x02, 0x55, 0x10, 0x04, 0x57,
+	0x6a, 0xd4, 0xce, 0xc8, 0xc5, 0xea, 0x02, 0xf2, 0x97, 0x90, 0x35, 0x17, 0x0b, 0xc8, 0x5d, 0x42,
+	0x42, 0x7a, 0x10, 0x4f, 0x23, 0x39, 0x52, 0x4a, 0x1a, 0xc3, 0x28, 0xa7, 0xca, 0x92, 0xd4, 0xe2,
+	0xb0, 0xc4, 0x9c, 0xd2, 0x54, 0x25, 0x06, 0x03, 0x46, 0x21, 0x47, 0x2e, 0x76, 0xa8, 0x4b, 0x85,
+	0x44, 0xa1, 0xfa, 0x51, 0x5d, 0x4e, 0xd0, 0x08, 0x27, 0xc7, 0x13, 0x8f, 0xe4, 0x18, 0x2f, 0x3c,
+	0x92, 0x63, 0x7c, 0xf0, 0x48, 0x8e, 0x71, 0xc6, 0x63, 0x39, 0x86, 0x28, 0xfd, 0xf4, 0xcc, 0x92,
+	0x8c, 0xd2, 0x24, 0xbd, 0xe4, 0xfc, 0x5c, 0xfd, 0x82, 0xc4, 0xe4, 0x8c, 0xca, 0x94, 0xd4, 0x22,
+	0x64, 0x56, 0x71, 0x51, 0xb2, 0x3e, 0x72, 0x6c, 0x25, 0xb1, 0x81, 0xcd, 0x36, 0x06, 0x04, 0x00,
+	0x00, 0xff, 0xff, 0x22, 0x53, 0x2d, 0x7e, 0xc4, 0x01, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -110,6 +171,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type DebugClient interface {
 	Dump(ctx context.Context, in *DumpRequest, opts ...grpc.CallOption) (Debug_DumpClient, error)
+	Profile(ctx context.Context, in *ProfileRequest, opts ...grpc.CallOption) (Debug_ProfileClient, error)
 }
 
 type debugClient struct {
@@ -152,9 +214,42 @@ func (x *debugDumpClient) Recv() (*types.BytesValue, error) {
 	return m, nil
 }
 
+func (c *debugClient) Profile(ctx context.Context, in *ProfileRequest, opts ...grpc.CallOption) (Debug_ProfileClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Debug_serviceDesc.Streams[1], "/debug.Debug/Profile", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &debugProfileClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Debug_ProfileClient interface {
+	Recv() (*types.BytesValue, error)
+	grpc.ClientStream
+}
+
+type debugProfileClient struct {
+	grpc.ClientStream
+}
+
+func (x *debugProfileClient) Recv() (*types.BytesValue, error) {
+	m := new(types.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DebugServer is the server API for Debug service.
 type DebugServer interface {
 	Dump(*DumpRequest, Debug_DumpServer) error
+	Profile(*ProfileRequest, Debug_ProfileServer) error
 }
 
 func RegisterDebugServer(s *grpc.Server, srv DebugServer) {
@@ -182,6 +277,27 @@ func (x *debugDumpServer) Send(m *types.BytesValue) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _Debug_Profile_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ProfileRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DebugServer).Profile(m, &debugProfileServer{stream})
+}
+
+type Debug_ProfileServer interface {
+	Send(*types.BytesValue) error
+	grpc.ServerStream
+}
+
+type debugProfileServer struct {
+	grpc.ServerStream
+}
+
+func (x *debugProfileServer) Send(m *types.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _Debug_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "debug.Debug",
 	HandlerType: (*DebugServer)(nil),
@@ -190,6 +306,11 @@ var _Debug_serviceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Dump",
 			Handler:       _Debug_Dump_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Profile",
+			Handler:       _Debug_Profile_Handler,
 			ServerStreams: true,
 		},
 	},
@@ -227,6 +348,43 @@ func (m *DumpRequest) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ProfileRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ProfileRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Profile) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintDebug(dAtA, i, uint64(len(m.Profile)))
+		i += copy(dAtA[i:], m.Profile)
+	}
+	if m.Duration != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintDebug(dAtA, i, uint64(m.Duration.Size()))
+		n1, err := m.Duration.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n1
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintDebug(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -244,6 +402,26 @@ func (m *DumpRequest) Size() (n int) {
 	_ = l
 	if m.Recursed {
 		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ProfileRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Profile)
+	if l > 0 {
+		n += 1 + l + sovDebug(uint64(l))
+	}
+	if m.Duration != nil {
+		l = m.Duration.Size()
+		n += 1 + l + sovDebug(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -313,6 +491,128 @@ func (m *DumpRequest) Unmarshal(dAtA []byte) error {
 				}
 			}
 			m.Recursed = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipDebug(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ProfileRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowDebug
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ProfileRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ProfileRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Profile", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Profile = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Duration", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowDebug
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthDebug
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDebug
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Duration == nil {
+				m.Duration = &types.Duration{}
+			}
+			if err := m.Duration.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipDebug(dAtA[iNdEx:])
