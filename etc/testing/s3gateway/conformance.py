@@ -25,10 +25,6 @@ TRACEBACK_PREFIXES = [
     "  ",
 ]
 
-EXCLUDE = [
-    # TODO
-]
-
 class Gateway:
     def target(self):
         self.proc = subprocess.Popen(["pachctl", "s3gateway", "-v"])
