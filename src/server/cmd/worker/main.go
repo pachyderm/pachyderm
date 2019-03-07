@@ -120,7 +120,7 @@ func getPipelineInfo(pachClient *client.APIClient, env *serviceenv.ServiceEnv) (
 	// being created and we don't want to run the transform of one version of
 	// the pipeline in the image of a different verison.
 	pipelinePtr.SpecCommit.ID = env.PPSSpecCommitID
-	return ppsutil.GetPipelineInfo(pachClient, &pipelinePtr)
+	return ppsutil.GetPipelineInfo(pachClient, &pipelinePtr, true)
 }
 
 func do(config interface{}) error {
