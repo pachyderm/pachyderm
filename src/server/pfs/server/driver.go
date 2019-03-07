@@ -152,6 +152,28 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Ca
 	return d, nil
 }
 
+func (d *driver) performOps(pachClient *client.APIClient, ops []Operation) error {
+    for i, op := range ops {
+        if err := op.validate(pachClient); err != nil {
+            return fmt.Errorf("Error validating operation %d of %d: %v",
+                i + 1, len(ops), grpcutil.ScrubGRPC(err))
+        }
+    }
+
+    _, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+        for i, op := range ops {
+            if err := op.execute(pachClient, stm); err != nil {
+                return fmt.Errorf("Error executing operation %d of %d: %v",
+                    i + 1, len(ops), grpcutil.ScrubGRPC(err))
+            }
+        }
+
+        return nil
+    })
+
+    return err
+}
+
 // checkIsAuthorized returns an error if the current user (in 'pachClient') has
 // authorization scope 's' for repo 'r'
 // TODO: hoist this up a level into client-handling code - apiServer

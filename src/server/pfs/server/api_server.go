@@ -187,25 +187,15 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.checkIsAuthorized(a.getPachClient(ctx), request.Branch.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
-	// Validate request. The request must do exactly one of:
-	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
-	// 2) re-pointing 'branch' at a new commit
-	if request.Head != nil {
-		// Determine if this is a provenance update
-		sameTarget := branch.Repo.Name == request.Head.Repo.Name && branch.Name == request.Head.ID
-		if !sameTarget && provenance != nil {
-			return nil, fmt.Errorf("cannot point branch \"%s\" at target commit \"%s/%s\" without clearing its provenance",
-				request.Branch.Name, request.Head.Repo.Name, request.Head.ID)
-		}
-	}
-
-    a.driver.stmTransaction(pachClient, func(stm) {
+    err := a.driver.performOps(a.getPachClient(ctx), []Operation{
+        CreateBranchOp{
+            request.Branch,
+            request.Head,
+            request.Provenance,
+        },
     })
 
-	if err := a.driver.createBranch(a.getPachClient(ctx), request.Branch, request.Head, request.Provenance); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
