@@ -2,7 +2,9 @@ package client
 
 import (
 	"io"
+	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 )
@@ -14,4 +16,19 @@ func (c APIClient) Dump(w io.Writer) error {
 		return grpcutil.ScrubGRPC(err)
 	}
 	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(goroClient, w))
+}
+
+func (c APIClient) Profile(profile string, duration time.Duration, w io.Writer) error {
+	var d *types.Duration
+	if duration != 0 {
+		d = types.DurationProto(duration)
+	}
+	profileClient, err := c.DebugClient.Profile(c.Ctx(), &debug.ProfileRequest{
+		Profile:  profile,
+		Duration: d,
+	})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return grpcutil.ScrubGRPC(grpcutil.WriteFromStreamingBytesClient(profileClient, w))
 }
