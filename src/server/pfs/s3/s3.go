@@ -12,6 +12,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 )
 
+func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
+	router.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(handler.location)
+	router.Methods("GET", "HEAD").HandlerFunc(handler.get)
+	router.Methods("PUT").HandlerFunc(handler.put)
+	router.Methods("DELETE").HandlerFunc(handler.del)
+}
+
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
 //
@@ -44,26 +51,22 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	router := mux.NewRouter()
 	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
 
-	// bucket-related routes
-	// repo validation regex is the same that the aws cli seems to use
+	// Bucket-related routes. Repo validation regex is the same that the aws
+	// cli uses. There's two routers - one with a trailing a slash and one
+	// without. Both route to the same handlers, i.e. a request to `/foo` is
+	// the same as `/foo/`. This is used instead of mux's builtin "strict
+	// slash" functionality, because that uses redirects which doesn't always
+	// play nice with s3 clients.
 	bucketHandler := newBucketHandler(pc)
 	trailingSlashBucketRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}/`).Subrouter()
-	trailingSlashBucketRouter.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(bucketHandler.location)
-	trailingSlashBucketRouter.Methods("GET", "HEAD").HandlerFunc(bucketHandler.get)
-	trailingSlashBucketRouter.Methods("PUT").HandlerFunc(bucketHandler.put)
-	trailingSlashBucketRouter.Methods("DELETE").HandlerFunc(bucketHandler.del)
+	attachBucketRoutes(trailingSlashBucketRouter, bucketHandler)
 	bucketRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}`).Subrouter()
-	bucketRouter.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(bucketHandler.location)
-	bucketRouter.Methods("GET", "HEAD").HandlerFunc(bucketHandler.get)
-	bucketRouter.Methods("PUT").HandlerFunc(bucketHandler.put)
-	bucketRouter.Methods("DELETE").HandlerFunc(bucketHandler.del)
+	attachBucketRoutes(bucketRouter, bucketHandler)
 
 	// object-related routes
 	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9.\-_]{1,255}}/{file:.+}`).Subrouter()
 	if multipartDir != "" {
-		// Nultipart handlers are only registered if a root dir is specified.
-		// It's registered before the other object routers because will
-		// otherwise route multipart-related requests to `objectHandler`.
+		// Multipart handlers are only registered if a root dir is specified
 		multipartHandler := newMultipartHandler(pc, multipartDir)
 		objectRouter.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(multipartHandler.list)
 		objectRouter.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
@@ -76,15 +79,10 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	objectRouter.Methods("PUT").HandlerFunc(objectHandler.put)
 	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.del)
 
-	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: this will trigger for paths that are not valid utf-8 strings, giving the incorrect error message. See:
-		// ./etc/testing/s3gateway/conformance.py --nose-args 's3tests.functional.test_s3:test_object_create_unreadable' --no-persist
-		invalidBucketNameError(w, r)
-	})
-
-	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		methodNotAllowedError(w, r)
-	})
+	// TODO: this will trigger for paths that are not valid utf-8 strings, giving the incorrect error message. See:
+	// ./etc/testing/s3gateway/conformance.py --nose-args 's3tests.functional.test_s3:test_object_create_unreadable' --no-persist
+	router.NotFoundHandler = http.HandlerFunc(invalidBucketNameError)
+	router.MethodNotAllowedHandler = http.HandlerFunc(methodNotAllowedError)
 
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),

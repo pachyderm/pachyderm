@@ -104,6 +104,10 @@ func notFoundError(w http.ResponseWriter, r *http.Request, err error) {
 	}
 }
 
+func notImplementedError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusNotImplemented, "NotImplemented", "This functionality is not implemented in the pachyderm s3gateway.").write(w)
+}
+
 func permanentRedirectError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusPermanentRedirect, "PermanentRedirect", "The bucket you are attempting to access must be addressed using the specified endpoint. Send all future requests to this endpoint.").write(w)
 }
