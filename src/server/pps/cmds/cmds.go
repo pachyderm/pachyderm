@@ -49,7 +49,6 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) ([]*cobra.Command, error) {
 	}
 
 	job := &cobra.Command{
-        name: "job",
 		Use:   "job",
 		Short: "Docs for jobs.",
 		Long: `Jobs are the basic unit of computation in Pachyderm.
@@ -64,6 +63,7 @@ If the job fails the commit it creates will not be finished.
 The increase the throughput of a job increase the Shard paremeter.
 `,
 	}
+    job.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
 
@@ -422,6 +422,7 @@ Creating a pipeline will also create a repo of the same name.
 All jobs created by a pipeline will create commits in the pipeline's repo.
 `,
 	}
+    pipeline.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	var build bool
 	var pushImages bool
@@ -723,6 +724,26 @@ you can increase the amount of memory used for the bloom filters with the
 		}),
 	}
 	garbageCollect.Flags().StringVarP(&memory, "memory", "m", "0", "The amount of memory to use during garbage collection. Default is 10MB.")
+
+    job.AddCommand(
+        inspectJob,
+        listJob,
+        flushJob,
+        deleteJob,
+        stopJob,
+    )
+
+    pipeline.AddCommand(
+        createPipeline,
+        updatePipeline,
+        inspectPipeline,
+        extractPipeline,
+        editPipeline,
+        listPipeline,
+        deletePipeline,
+        startPipeline,
+        stopPipeline,
+    )
 
 	var result []*cobra.Command
 	result = append(result, job)

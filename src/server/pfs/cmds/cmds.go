@@ -53,11 +53,9 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Short: "Docs for repos.",
 		Long: `Repos, short for repository, are the top level data object in Pachyderm.
 
-	Repos are created with create-repo.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
+Repos are created with create-repo.`,
 	}
+    repo.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	var description string
 	createRepo := &cobra.Command{
@@ -218,10 +216,8 @@ Commits become reliable (and immutable) when they are finished.
 Commits can be created with another commit as a parent.
 This layers the data in the commit over the data in the parent.
 `,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
 	}
+    commit.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	var parent string
 	startCommit := &cobra.Command{
@@ -605,12 +601,10 @@ $ pachctl set-branch foo test master` + codeend,
 		Short: "Docs for files.",
 		Long: `Files are the lowest level data object in Pachyderm.
 
-	Files can be written to started (but not finished) commits with put-file.
-	Files can be read from finished commits with get-file.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
+Files can be written to started (but not finished) commits with put-file.
+Files can be read from finished commits with get-file.`,
 	}
+    file.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	var filePaths []string
 	var recursive bool
@@ -1144,6 +1138,35 @@ $ pachctl diff-file foo master path1 bar master path2
 		}),
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
+
+    repo.AddCommand(
+        createRepo,
+        updateRepo,
+        inspectRepo,
+        listRepo,
+        deleteRepo,
+    )
+
+    commit.AddCommand(
+        startCommit,
+        finishCommit,
+        inspectCommit,
+        listCommit,
+        flushCommit,
+        subscribeCommit,
+        deleteCommit,
+    )
+
+    file.AddCommand(
+        putFile,
+        copyFile,
+        getFile,
+        inspectFile,
+        listFile,
+        globFile,
+        diffFile,
+        deleteFile,
+    )
 
 	var result []*cobra.Command
 	result = append(result, repo)
