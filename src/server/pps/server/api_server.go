@@ -2405,11 +2405,28 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	pachClient := a.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+	pfsClient := pachClient.PfsAPIClient
+
+	_, err := pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Parent: &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: request.Pipeline.Name,
+			},
+		},
+		Branch:     "master",
+		Provenance: request.Provenance,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
