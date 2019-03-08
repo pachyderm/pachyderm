@@ -152,19 +152,28 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Ca
 	return d, nil
 }
 
-func (d *driver) performOps(pachClient *client.APIClient, ops []Operation) error {
-    for i, op := range ops {
-        if err := op.validate(pachClient, d); err != nil {
+type Operation interface {
+    validate(d *driver, pachClient *client.APIClient) error
+    execute(d *driver, pachClient *client.APIClient, stm col.STM) error
+}
+
+type CreateBranchOp struct {
+    *pfs.CreateBranchRequest
+}
+
+func (d *driver) performRequests(pachClient *client.APIClient, requests []Operation) error {
+    for i, req := range requests {
+        if err := req.validate(d, pachClient); err != nil {
             return fmt.Errorf("Error validating operation %d of %d: %v",
-                i + 1, len(ops), grpcutil.ScrubGRPC(err))
+                i + 1, len(requests), grpcutil.ScrubGRPC(err))
         }
     }
 
     _, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
-        for i, op := range ops {
-            if err := op.execute(pachClient, d, stm); err != nil {
+        for i, req := range requests {
+            if err := req.execute(d, pachClient, stm); err != nil {
                 return fmt.Errorf("Error executing operation %d of %d: %v",
-                    i + 1, len(ops), grpcutil.ScrubGRPC(err))
+                    i + 1, len(requests), grpcutil.ScrubGRPC(err))
             }
         }
 

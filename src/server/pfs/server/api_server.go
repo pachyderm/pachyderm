@@ -188,13 +188,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-    err := a.driver.performOps(a.getPachClient(ctx), []Operation{
-        &CreateBranchOp{
-            request.Branch,
-            request.Head,
-            request.Provenance,
-        },
-    })
+    err := a.driver.performRequests(a.getPachClient(ctx), []Operation{&CreateBranchOp{request}})
 
 	if err != nil {
 		return nil, err
@@ -203,8 +197,8 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 }
 
 func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesServer) (retErr error) {
-    ops := []Operation{}
-	defer func(start time.Time) { a.Log(ops, nil, retErr, time.Since(start)) }(time.Now())
+    requests := []Operation{}
+	defer func(start time.Time) { a.Log(requests, nil, retErr, time.Since(start)) }(time.Now())
 
     for {
         request, err := createBranchesServer.Recv()
@@ -215,15 +209,11 @@ func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesSe
         }
 
         func() { a.Log(request, nil, nil, 0) }()
-        ops = append(ops, &CreateBranchOp{
-            request.Branch,
-            request.Head,
-            request.Provenance,
-        })
+        requests = append(requests, &CreateBranchOp{request})
     }
 
     client := a.getPachClient(createBranchesServer.Context())
-    err := a.driver.performOps(client, ops)
+    err := a.driver.performRequests(client, requests)
 
     if err != nil {
         return err

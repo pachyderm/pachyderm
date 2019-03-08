@@ -10,62 +10,50 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
-type Operation interface {
-    // TODO: probably don't need to pass the full client here
-    validate(pachClient *client.APIClient, d *driver) error
-    execute(pachClient *client.APIClient, d *driver, stm col.STM) error
-}
-
-type CreateBranchOp struct {
-    branch *pfs.Branch
-    commit *pfs.Commit
-    provenance []*pfs.Branch
-}
-
-func (op *CreateBranchOp) validate(pachClient *client.APIClient, d *driver) error {
-	if err := d.checkIsAuthorized(pachClient, op.branch.Repo, auth.Scope_WRITER); err != nil {
+func (req *CreateBranchOp) validate(d *driver, pachClient *client.APIClient) error {
+	if err := d.checkIsAuthorized(pachClient, req.Branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 
 	// The request must do exactly one of:
 	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
 	// 2) re-pointing 'branch' at a new commit
-	if op.commit != nil {
+	if req.Head != nil {
 		// Determine if this is a provenance update
-		sameTarget := op.branch.Repo.Name == op.commit.Repo.Name && op.branch.Name == op.commit.ID
-		if !sameTarget && op.provenance != nil {
+		sameTarget := req.Branch.Repo.Name == req.Head.Repo.Name && req.Branch.Name == req.Head.ID
+		if !sameTarget && req.Provenance != nil {
 			return fmt.Errorf("cannot point branch \"%s\" at target commit \"%s/%s\" without clearing its provenance",
-				op.branch.Name, op.commit.Repo.Name, op.commit.ID)
+				req.Branch.Name, req.Head.Repo.Name, req.Head.ID)
 		}
 	}
 
     return nil
 }
 
-func (op CreateBranchOp) execute(pachClient *client.APIClient, d *driver, stm col.STM) error {
+func (req *CreateBranchOp) execute(d *driver, pachClient *client.APIClient, stm col.STM) error {
     // if 'commit' is a branch, resolve it
     var err error
-    if op.commit != nil {
-        _, err = d.resolveCommit(stm, op.commit) // if 'commit' is a branch, resolve it
+    if req.Head != nil {
+        _, err = d.resolveCommit(stm, req.Head) // if 'commit' is a branch, resolve it
         if err != nil {
             // possible that branch exists but has no head commit. This is fine, but
             // branchInfo.Head must also be nil
             if !isNoHeadErr(err) {
-                return fmt.Errorf("unable to inspect %s/%s: %v", err, op.commit.Repo.Name, op.commit.ID)
+                return fmt.Errorf("unable to inspect %s/%s: %v", err, req.Head.Repo.Name, req.Head.ID)
             }
-            op.commit = nil
+            req.Head = nil
         }
     }
 
     // Retrieve (and create, if necessary) the current version of this branch
-    branches := d.branches(op.branch.Repo.Name).ReadWrite(stm)
+    branches := d.branches(req.Branch.Repo.Name).ReadWrite(stm)
     branchInfo := &pfs.BranchInfo{}
-    if err := branches.Upsert(op.branch.Name, branchInfo, func() error {
-        branchInfo.Name = op.branch.Name // set in case 'branch' is new
-        branchInfo.Branch = op.branch
-        branchInfo.Head = op.commit
+    if err := branches.Upsert(req.Branch.Name, branchInfo, func() error {
+        branchInfo.Name = req.Branch.Name // set in case 'branch' is new
+        branchInfo.Branch = req.Branch
+        branchInfo.Head = req.Head
         branchInfo.DirectProvenance = nil
-        for _, provBranch := range op.provenance {
+        for _, provBranch := range req.Provenance {
             add(&branchInfo.DirectProvenance, provBranch)
         }
         return nil
@@ -74,8 +62,8 @@ func (op CreateBranchOp) execute(pachClient *client.APIClient, d *driver, stm co
     }
     repos := d.repos.ReadWrite(stm)
     repoInfo := &pfs.RepoInfo{}
-    if err := repos.Update(op.branch.Repo.Name, repoInfo, func() error {
-        add(&repoInfo.Branches, op.branch)
+    if err := repos.Update(req.Branch.Repo.Name, repoInfo, func() error {
+        add(&repoInfo.Branches, req.Branch)
         return nil
     }); err != nil {
         return err
@@ -137,5 +125,5 @@ func (op CreateBranchOp) execute(pachClient *client.APIClient, d *driver, stm co
     // propagate the head commit to 'branch'. This may also modify 'branch', by
     // creating a new HEAD commit if 'branch's provenance was changed and its
     // current HEAD commit has old provenance
-    return d.propagateCommit(stm, op.branch)
+    return d.propagateCommit(stm, req.Branch)
 }
