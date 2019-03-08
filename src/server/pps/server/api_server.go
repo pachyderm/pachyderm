@@ -2012,11 +2012,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) CreatePipelines(createPipelinesServer pps.API_CreatePipelinesServer) (retErr error) {
-    // TODO(grey): implement
-    return nil
-}
-
 // setPipelineDefaults sets the default values for a pipeline info
 func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	now := time.Now()
@@ -2371,11 +2366,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) StartPipelines(startPipelinesServer pps.API_StartPipelinesServer) (retErr error) {
-    // TODO(grey): implement
-    return nil
-}
-
 func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2413,11 +2403,6 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		return nil, err
 	}
 	return &types.Empty{}, nil
-}
-
-func (a *apiServer) StopPipelines(stopPipelinesServer pps.API_StopPipelinesServer) (retErr error) {
-    // TODO(grey): implement
-    return nil
 }
 
 func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *types.Empty, retErr error) {

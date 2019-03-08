@@ -648,17 +648,11 @@ service API {
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
-  // CreatePipelines atomically batches together several CreatePipeline calls.
-  rpc CreatePipelines(stream CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}
   rpc ListPipeline(ListPipelineRequest) returns (PipelineInfos) {}
   rpc DeletePipeline(DeletePipelineRequest) returns (google.protobuf.Empty) {}
   rpc StartPipeline(StartPipelineRequest) returns (google.protobuf.Empty) {}
-  // StartPipelines atomically batches together several CreatePipeline calls.
-  rpc StartPipelines(stream StartPipelineRequest) returns (google.protobuf.Empty) {}
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
-  // StopPipelines atomically batches together several CreatePipeline calls.
-  rpc StopPipelines(stream StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
