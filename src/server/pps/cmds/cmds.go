@@ -49,6 +49,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) ([]*cobra.Command, error) {
 	}
 
 	job := &cobra.Command{
+        name: "job",
 		Use:   "job",
 		Short: "Docs for jobs.",
 		Long: `Jobs are the basic unit of computation in Pachyderm.
@@ -62,9 +63,6 @@ parent.
 If the job fails the commit it creates will not be finished.
 The increase the throughput of a job increase the Shard paremeter.
 `,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
 	}
 
 	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
@@ -74,6 +72,7 @@ The increase the throughput of a job increase the Shard paremeter.
 		Use:   "inspect-job job-id",
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
+        SuggestFor: []string{"job"},
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -422,9 +421,6 @@ to process each incoming commit.
 Creating a pipeline will also create a repo of the same name.
 All jobs created by a pipeline will create commits in the pipeline's repo.
 `,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
 	}
 
 	var build bool
