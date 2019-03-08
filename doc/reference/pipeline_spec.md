@@ -511,9 +511,11 @@ on matching times in the future. Times should be formatted according to [RFC
 
 `input.cron.overwrite` is a flag to specify whether you want the timestamp file
 to be overwritten on each tick. It is optional, and if not specified it will
-default to simply writting new files each tick. What this means is that by
-default, pachd will process only the new data since the previous tick on each
-tick. If true, pachd will reprocess _all_ the data on each tick.
+default to simply writing new files each tick. What this means is that by
+default, pachd expects only the new information to be written out for each tick, 
+and will combine that data with the data from the previous ticks. If `"overwrite"`
+is set to `true`, it expects the full dataset to be written out for each tick and 
+will replace previous outputs with the new data written out.
 
 #### Git Input (alpha feature)
 
