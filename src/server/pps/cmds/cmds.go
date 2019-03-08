@@ -71,7 +71,6 @@ To increase the throughput of a job, increase the 'shard' parameter.
 		Use:   "inspect-job job-id",
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
-        SuggestFor: []string{"job"},
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
