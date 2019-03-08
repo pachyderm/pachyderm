@@ -172,7 +172,7 @@ func putStats(client *pachclient.APIClient, root, file string, fileInfo *pfs.Fil
 // treeRoot is the root the data is mirrored to within tree
 func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, file string,
 	pipes bool, emptyFiles bool, concurrency int, statsTree *hashtree.Ordered, statsRoot string) error {
-	// walk each node in the repo, in order to put stats for the node,
+	// Walk each node in the repo, in order to put stats for the node,
 	// create an empty file for the node (when emptyFiles is set to true),
 	// or to make a pipe for a file in object storage (when pipes is set to true).
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
@@ -204,7 +204,8 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 	}
 	if !pipes && !emptyFiles {
 		var oldFile *os.File
-		// for the common case, when neither pipes nor emptyFiles are set, we make a recursive
+		var numBytes int64
+		// For the common case, when neither pipes nor emptyFiles are set, we make a recursive
 		// GetFiles call in order to retrieve all the data for the repo from object storage in a single call.
 		if err := client.GetFiles(repo, commit, file, 0, 0, func(fileInfo *pfs.FileInfo, r io.Reader) error {
 			if fileInfo != nil && fileInfo.File != nil {
@@ -224,12 +225,15 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 				})
 				oldFile = newFile
 			}
-			_, err := io.Copy(oldFile, r)
+			n, err := io.Copy(oldFile, r)
+			numBytes += n
 			return err
 		}); err != nil {
 			return err
 		}
 		if oldFile != nil {
+			// Track the number of bytes pulled so that CleanUp() has an accurate total.
+			atomic.AddInt64(&p.size, numBytes)
 			return oldFile.Close()
 		}
 		return nil
