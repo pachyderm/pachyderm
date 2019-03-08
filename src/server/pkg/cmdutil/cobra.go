@@ -123,7 +123,13 @@ func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }
 
-func MakeBatchCommand(positionalCount int, cmd *cobra.Command, provision func(*cobra.Command), run func ([][]string) error) {
+func MakeBatchCommand(
+    positionalCount int,
+    cmd *cobra.Command,
+    provision func(*cobra.Command),
+    processFlags func (),
+    run func ([][]string) error,
+) {
     provision(cmd)
     cmd.Run = func(cmd *cobra.Command, _ []string) {
         // Remove non parameter args from the original args so we can reparse
@@ -167,6 +173,7 @@ func MakeBatchCommand(positionalCount int, cmd *cobra.Command, provision func(*c
 
         // Create an inner command for parsing individual commands
         innerCommand := &cobra.Command{}
+        provision(innerCommand)
 
         // Copy over inherited flags so we don't choke on them
         ancestor := cmd.Parent()
@@ -181,9 +188,9 @@ func MakeBatchCommand(positionalCount int, cmd *cobra.Command, provision func(*c
         }
 
         for _, argSet := range sets {
-            provision(innerCommand)
             innerCommand.SetArgs(argSet)
             innerCommand.Execute()
+            processFlags()
         }
 
         fmt.Printf("flags: %s\n", innerCommand.LocalFlags())

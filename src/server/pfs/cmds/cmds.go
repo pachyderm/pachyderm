@@ -541,14 +541,17 @@ $ pachctl subscribe-commit test master --new
         2, // New batch for every two positional args
         createBranches,
         func (cmd *cobra.Command) {
-            var branchProvenance cmdutil.RepeatedStringArg
-            var head string
-            branchProvenances = append(branchProvenances, &branchProvenance)
-            heads = append(heads, &head)
             cmd.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
             cmd.Flags().StringVar(&head, "head", "", "The head of the newly created branch.")
         },
+        func () {
+            branchProvenances = append(branchProvenances, &branchProvenance)
+            heads = append(heads, &head)
+        },
         func (argSets [][]string) error {
+            fmt.Printf("argSets: %s\n", argSets)
+            fmt.Printf("branchProvenances: %s\n", branchProvenances)
+            fmt.Printf("heads: %s\n", heads)
             requests := []*pfsclient.CreateBranchRequest{}
 
             for i, args := range argSets {
