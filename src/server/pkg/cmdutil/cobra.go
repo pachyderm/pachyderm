@@ -123,6 +123,12 @@ func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }
 
+// Sets the usage string for a 'docs' command.  Docs commands have no
+// functionality except to output some docs and related commands, and
+// should not specify a 'Run' attribute.
+func SetDocsCommandUsage(command *cobra.Command, subcommands ...*cobra.Command) {
+}
+
 func DocsCommandTemplate() string {
     return `Usage:
   pachctl [command]{{if gt .Aliases 0}}
