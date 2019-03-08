@@ -1,16 +1,20 @@
-## ./pachctl repo
+## ./pachctl debug-profile
 
-Docs for repos.
+Return a profile from the server.
 
 ### Synopsis
 
 
-Repos, short for repository, are the top level data object in Pachyderm.
-
-	Repos are created with create-repo.
+Return a profile from the server.
 
 ```
-./pachctl repo
+./pachctl debug-profile profile
+```
+
+### Options
+
+```
+  -d, --duration duration   Duration to run a CPU profile for. (default 1m0s)
 ```
 
 ### Options inherited from parent commands
