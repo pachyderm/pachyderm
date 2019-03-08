@@ -1,9 +1,11 @@
 package worker
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -72,7 +74,7 @@ func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
 	return result
 }
 
-func (a *APIServer) master() {
+func (a *APIServer) master(masterType string, spawner func(*client.APIClient) error) {
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
 	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
@@ -86,28 +88,6 @@ func (a *APIServer) master() {
 	// to restart.
 	b.InitialInterval = 10 * time.Second
 	backoff.RetryNotify(func() error {
-		// We use a.pachClient.Ctx here because it contains auth information.
-		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
-		defer cancel() // make sure that everything this loop might spawn gets cleaned up
-		ctx, err := masterLock.Lock(ctx)
-		pachClient := a.pachClient.WithCtx(ctx)
-		if err != nil {
-			return err
-		}
-		defer masterLock.Unlock(ctx)
-		logger.Logf("Launching worker master process")
-		return a.jobSpawner(pachClient)
-	}, b, func(err error, d time.Duration) error {
-		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
-		return nil
-	})
-}
-
-func (a *APIServer) serviceMaster() {
-	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
-	logger := a.getMasterLogger()
-	b := backoff.NewInfiniteBackOff()
-	backoff.RetryNotify(func() error {
 		// We use pachClient.Ctx here because it contains auth information.
 		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
 		defer cancel() // make sure that everything this loop might spawn gets cleaned up
@@ -117,33 +97,10 @@ func (a *APIServer) serviceMaster() {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
-
-		logger.Logf("Launching master process")
-
-		paused := false
-		// Set pipeline state to running
-		if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
-			pipelineName := a.pipelineInfo.Pipeline.Name
-			pipelines := a.pipelines.ReadWrite(stm)
-			pipelinePtr := &pps.EtcdPipelineInfo{}
-			if err := pipelines.Get(pipelineName, pipelinePtr); err != nil {
-				return err
-			}
-			if a.pipelineInfo.Stopped {
-				paused = true
-				return nil
-			}
-			pipelinePtr.State = pps.PipelineState_PIPELINE_RUNNING
-			return pipelines.Put(pipelineName, pipelinePtr)
-		}); err != nil {
-			return err
-		}
-		if paused {
-			return fmt.Errorf("can't run master for a paused pipeline")
-		}
-		return a.serviceSpawner(pachClient)
+		logger.Logf("Launching %v master process", masterType)
+		return spawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
-		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
+		logger.Logf("master: error running the %v master process: %v; retrying in %v", masterType, err, d)
 		return nil
 	})
 }
@@ -183,7 +140,10 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			if len(jobInfos) > 1 {
 				return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 			}
-			jobInfo = jobInfos[0]
+			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
+			if err != nil {
+				return err
+			}
 		} else {
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
@@ -206,6 +166,38 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			return err
 		}
 	}
+}
+
+func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
+	ctx := pachClient.Ctx()
+
+	var dir string
+
+	logger, err := a.getTaggedLogger(pachClient, "spout", nil, false)
+	puller := filesync.NewPuller()
+
+	// If this is our second time through the loop cleanup the old data.
+	if dir != "" {
+		if err := a.unlinkData(nil); err != nil {
+			return fmt.Errorf("unlinkData: %v", err)
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			return fmt.Errorf("os.RemoveAll: %v", err)
+		}
+	}
+	dir, err = a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
+	if err != nil {
+		return err
+	}
+	if err := a.linkData(nil, dir); err != nil {
+		return fmt.Errorf("linkData: %v", err)
+	}
+
+	err = a.runService(ctx, logger)
+	if err != nil {
+		logger.Logf("error from runService: %+v", err)
+	}
+	return nil
 }
 
 func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
@@ -803,7 +795,7 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 			if err != nil {
 				return err
 			}
-			objClient, err := obj.NewClientFromURLAndSecret(pachClient.Ctx(), url, false)
+			objClient, err := obj.NewClientFromURLAndSecret(url, false)
 			if err != nil {
 				return err
 			}
@@ -823,8 +815,88 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 	})
 }
 
+func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) error {
+	return backoff.RetryNotify(func() error {
+		repo := a.pipelineInfo.Pipeline.Name
+		for {
+			// this extra closure is so that we can scope the defer
+			if err := func() (retErr error) {
+				// open connection to the pfs/out named pipe
+				out, err := os.Open("/pfs/out")
+				if err != nil {
+					return err
+				}
+				// and close it at the end of each loop
+				defer func() {
+					if err := out.Close(); err != nil && retErr == nil {
+						// this lets us pass the error through if Close fails
+						retErr = err
+					}
+				}()
+
+				outTar := tar.NewReader(out)
+
+				// start commit
+				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
+					Parent: &pfs.Commit{
+						Repo: &pfs.Repo{
+							Name: repo,
+						},
+					},
+					Branch:     "master",
+					Provenance: []*pfs.Commit{a.pipelineInfo.SpecCommit},
+				})
+				if err != nil {
+					return err
+				}
+				for {
+					fileHeader, err := outTar.Next()
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return err
+					}
+					// put files
+					if a.pipelineInfo.Spout.Overwrite {
+						_, err = a.pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
+						if err != nil {
+							return err
+						}
+					} else {
+						_, err = a.pachClient.PutFile(repo, commit.ID, fileHeader.Name, outTar)
+						if err != nil {
+							return err
+						}
+					}
+				}
+				// close commit
+				err = a.pachClient.FinishCommit(repo, commit.ID)
+				if err != nil {
+					return err
+				}
+				return nil
+			}(); err != nil {
+				return err
+			}
+		}
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		select {
+		case <-ctx.Done():
+			return err
+		default:
+			logger.Logf("error running spout: %+v, retrying in: %+v", err, d)
+			return nil
+		}
+	})
+}
+
 func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
+		// if we have a spout, then asynchronously receive spout data
+		if a.pipelineInfo.Spout != nil {
+			go a.receiveSpout(ctx, logger)
+		}
 		return a.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {

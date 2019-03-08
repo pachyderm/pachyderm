@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ type localClient struct {
 	root string
 }
 
-func (c *localClient) Writer(path string) (io.WriteCloser, error) {
+func (c *localClient) Writer(_ context.Context, path string) (io.WriteCloser, error) {
 	fullPath := filepath.Join(c.root, path)
 
 	// Create the directory since it may not exist
@@ -35,7 +36,7 @@ func (c *localClient) Writer(path string) (io.WriteCloser, error) {
 	return file, nil
 }
 
-func (c *localClient) Reader(path string, offset uint64, size uint64) (io.ReadCloser, error) {
+func (c *localClient) Reader(_ context.Context, path string, offset uint64, size uint64) (io.ReadCloser, error) {
 	file, err := os.Open(filepath.Join(c.root, path))
 	if err != nil {
 		return nil, err
@@ -53,11 +54,11 @@ func (c *localClient) Reader(path string, offset uint64, size uint64) (io.ReadCl
 	return newSectionReadCloser(file, offset, size), nil
 }
 
-func (c *localClient) Delete(path string) error {
+func (c *localClient) Delete(_ context.Context, path string) error {
 	return os.Remove(filepath.Join(c.root, path))
 }
 
-func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
+func (c *localClient) Walk(_ context.Context, dir string, walkFn func(name string) error) error {
 	dir = filepath.Join(c.root, dir)
 	fi, _ := os.Stat(dir)
 	prefix := ""
@@ -82,7 +83,7 @@ func (c *localClient) Walk(dir string, walkFn func(name string) error) error {
 	})
 }
 
-func (c *localClient) Exists(path string) bool {
+func (c *localClient) Exists(_ context.Context, path string) bool {
 	_, err := os.Stat(filepath.Join(c.root, path))
 	return err == nil
 }

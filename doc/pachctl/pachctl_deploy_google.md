@@ -33,6 +33,7 @@ Arguments are:
       --local-roles                   Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.
       --log-level string              The level of log messages to print options are, from least to most verbose: "error", "info", "debug". (default "info")
       --namespace string              Kubernetes namespace to deploy Pachyderm to. (default "default")
+      --new-hash-tree-flag            (feature flag) Do not set, used for testing
       --no-dashboard                  Don't deploy the Pachyderm UI alongside Pachyderm (experimental).
       --no-expose-docker-socket       Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.
       --no-guaranteed                 Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.

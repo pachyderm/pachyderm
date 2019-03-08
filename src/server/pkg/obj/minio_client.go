@@ -1,7 +1,10 @@
 package obj
 
 import (
+	"context"
 	"io"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 
 	minio "github.com/minio/minio-go"
 )
@@ -38,14 +41,16 @@ func newMinioClientV2(endpoint, bucket, id, secret string, secure bool) (*minioC
 
 // Represents minio writer structure with pipe and the error channel
 type minioWriter struct {
+	ctx     context.Context
 	errChan chan error
 	pipe    *io.PipeWriter
 }
 
 // Creates a new minio writer and a go routine to upload objects to minio server
-func newMinioWriter(client *minioClient, name string) *minioWriter {
+func newMinioWriter(ctx context.Context, client *minioClient, name string) *minioWriter {
 	reader, writer := io.Pipe()
 	w := &minioWriter{
+		ctx:     ctx,
 		errChan: make(chan error),
 		pipe:    writer,
 	}
@@ -60,22 +65,26 @@ func newMinioWriter(client *minioClient, name string) *minioWriter {
 }
 
 func (w *minioWriter) Write(p []byte) (int, error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "minioWriter.Write")
+	defer tracing.FinishAnySpan(span)
 	return w.pipe.Write(p)
 }
 
 // This will block till upload is done
 func (w *minioWriter) Close() error {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "minioWriter.Close")
+	defer tracing.FinishAnySpan(span)
 	if err := w.pipe.Close(); err != nil {
 		return err
 	}
 	return <-w.errChan
 }
 
-func (c *minioClient) Writer(name string) (io.WriteCloser, error) {
-	return newMinioWriter(c, name), nil
+func (c *minioClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
+	return newMinioWriter(ctx, c, name), nil
 }
 
-func (c *minioClient) Walk(name string, fn func(name string) error) error {
+func (c *minioClient) Walk(_ context.Context, name string, fn func(name string) error) error {
 	recursive := true // Recursively walk by default.
 
 	doneCh := make(chan struct{})
@@ -95,6 +104,7 @@ func (c *minioClient) Walk(name string, fn func(name string) error) error {
 // for a size limited reader.
 type limitReadCloser struct {
 	io.Reader
+	ctx  context.Context
 	mObj *minio.Object
 }
 
@@ -102,7 +112,13 @@ func (l *limitReadCloser) Close() (err error) {
 	return l.mObj.Close()
 }
 
-func (c *minioClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
+func (l *limitReadCloser) Read(p []byte) (int, error) {
+	span, _ := tracing.AddSpanToAnyExisting(l.ctx, "minioReader.Read")
+	defer tracing.FinishAnySpan(span)
+	return l.Reader.Read(p)
+}
+
+func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	obj, err := c.GetObject(c.bucket, name)
 	if err != nil {
 		return nil, err
@@ -113,17 +129,21 @@ func (c *minioClient) Reader(name string, offset uint64, size uint64) (io.ReadCl
 		return nil, err
 	}
 	if size > 0 {
-		return &limitReadCloser{io.LimitReader(obj, int64(size)), obj}, nil
+		return &limitReadCloser{
+			Reader: io.LimitReader(obj, int64(size)),
+			ctx:    ctx,
+			mObj:   obj,
+		}, nil
 	}
 	return obj, nil
 
 }
 
-func (c *minioClient) Delete(name string) error {
+func (c *minioClient) Delete(_ context.Context, name string) error {
 	return c.RemoveObject(c.bucket, name)
 }
 
-func (c *minioClient) Exists(name string) bool {
+func (c *minioClient) Exists(_ context.Context, name string) bool {
 	_, err := c.StatObject(c.bucket, name)
 	return err == nil
 }

@@ -178,6 +178,7 @@ func DeployCmd(noMetrics *bool, noPortForwarding *bool) *cobra.Command {
 	var noExposeDockerSocket bool
 	var exposeObjectAPI bool
 	var tlsCertKey string
+	var newHashTree bool
 
 	deployLocal := &cobra.Command{
 		Use:   "local",
@@ -555,6 +556,9 @@ particular backend, run "pachctl deploy storage <backend>"`,
 		PersistentPreRun: cmdutil.Run(func([]string) error {
 			dashImage = getDefaultOrLatestDashImage(dashImage, dryRun)
 			opts = &assets.AssetOpts{
+				FeatureFlags: assets.FeatureFlags{
+					NewHashTree: newHashTree,
+				},
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
 				LogLevel:                logLevel,
@@ -613,6 +617,7 @@ particular backend, run "pachctl deploy storage <backend>"`,
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
+	deploy.PersistentFlags().BoolVar(&newHashTree, "new-hash-tree-flag", false, "(feature flag) Do not set, used for testing")
 
 	deploy.AddCommand(
 		deployLocal,
