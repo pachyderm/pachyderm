@@ -7,7 +7,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
 )
 
 // RunFixedArgs wraps a function in a function
@@ -124,7 +123,8 @@ func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }
 
-func MakeBatchCommand(cmd *cobra.Command, run func ([][]string) error) {
+func MakeBatchCommand(positionalCount int, cmd *cobra.Command, provision func(*cobra.Command), run func ([][]string) error) {
+    provision(cmd)
     cmd.Run = func(cmd *cobra.Command, _ []string) {
         // Remove non parameter args from the original args so we can reparse
         // them iteratively with cobra.
@@ -141,7 +141,7 @@ func MakeBatchCommand(cmd *cobra.Command, run func ([][]string) error) {
         }
         args := os.Args[startArg:]
 
-        // Partition by sets of two positional args, flags apply to the previous positional args
+        // Partition by sets of positional args, flags apply to the previous positional args
         sets := [][]string{{}}
         index := 0
         count := 0
@@ -153,7 +153,7 @@ func MakeBatchCommand(cmd *cobra.Command, run func ([][]string) error) {
                 if !strings.Contains(x, "=") {
                     count -= 1
                 }
-            } else if count < 2 {
+            } else if count < positionalCount {
                 count += 1
                 sets[index] = append(sets[index], x)
             } else {
@@ -163,12 +163,10 @@ func MakeBatchCommand(cmd *cobra.Command, run func ([][]string) error) {
             }
         }
 
-        parsedSets := []*BatchArgs{}
+        parsedSets := [][]string{}
 
         // Create an inner command for parsing individual commands
         innerCommand := &cobra.Command{}
-        innerCommand.Flags().StringArrayP("provenance", "p", []string{}, "")
-        innerCommand.Flags().String("head", "", "")
 
         // Copy over inherited flags so we don't choke on them
         ancestor := cmd.Parent()
@@ -179,14 +177,16 @@ func MakeBatchCommand(cmd *cobra.Command, run func ([][]string) error) {
 
         // Set a run function that appends to our set of parsed args
         innerCommand.Run = func (runCmd *cobra.Command, runArgs []string) {
-            fmt.Printf("Running innerCommand\n");
-            parsedSets = append(parsedSets, &BatchArgs{runArgs, *runCmd.Flags()})
+            parsedSets = append(parsedSets, runArgs)
         }
 
         for _, argSet := range sets {
+            provision(innerCommand)
             innerCommand.SetArgs(argSet)
             innerCommand.Execute()
         }
+
+        fmt.Printf("flags: %s\n", innerCommand.LocalFlags())
 
         run(parsedSets)
     }
