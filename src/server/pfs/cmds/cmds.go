@@ -527,48 +527,60 @@ $ pachctl subscribe-commit test master --new
 		}),
 	}
 	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
-	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
+	createBranch.Flags().StringVar(&head, "head", "", "The head of the newly created branch.")
 
 	createBranches := &cobra.Command{
 		Use:   "create-branches (<repo-name> <branch-name> [flags]) ...",
 		Short: "Create or update multiple branches on multiple repos.",
 		Long:  "Create or update multiple branches on multiple repos. Starting a commit on the branch will also create it, so there's often no need to call this.",
-        DisableFlagParsing: true,
-		Run: func(cmd *cobra.Command, args []string) {
-            // Partition by sets of two positional args, flags apply to the previous positional args
-            sets := [][]string{{}}
-            index := 0
-            count := 0
+	}
 
-            for _, x := range args {
-                if strings.HasPrefix(x, "-") {
-                    sets[index] = append(sets[index], x)
-                    // TODO: this only works because all flags require a value, otherwise we'll need to check individual flags
-                    if !strings.Contains(x, "=") {
-                        count -= 1
-                    }
-                } else if count < 2 {
-                    count += 1
-                    sets[index] = append(sets[index], x)
-                } else {
-                    sets = append(sets, []string{x})
-                    index += 1
-                    count = 0
+    var branchProvenances []*cmdutil.RepeatedStringArg
+    var heads []*string
+    cmdutil.MakeBatchCommand(
+        createBranches,
+        func(cmd *cobra.Command) {
+            var branchProvenance cmdutil.RepeatedStringArg
+            var head string
+            branchProvenances = append(branchProvenances, &branchProvenance)
+            heads = append(heads, &head)
+            cmd.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
+            cmd.Flags().StringVar(&head, "head", "", "The head of the newly created branch.")
+        }
+        func(argSets [][]string) error {
+            requests := []*pfsclient.CreateBranchRequest{}
+
+            for _, args := range argSets {
+                provenance, err := cmdutil.ParseBranches([]string{args.Flags.Lookup("provenance").Value.String()})
+                if err != nil {
+                    return err
                 }
+
+                requests = append(
+                    requests,
+                    client.MakeCreateBranchRequest(
+                        args.Positionals[0],
+                        args.Positionals[1],
+                        args.Flags.Lookup("head").Value.String(),
+                        provenance,
+                    ),
+                )
             }
 
-            // TODO: hoist global flags
+			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
 
-            // Create an inner command for parsing individual commands
-
-            fmt.Printf("%s\n", sets)
-
-            // TODO: output the things we're going to do
+            fmt.Printf("Would have run %d request(s):\n", len(requests))
+            for _, request := range requests {
+                fmt.Printf("  %s\n", request)
+            }
+            // return client.CreateBranches(requests)
+            return nil
         },
-	}
-    var dummyProvenance cmdutil.RepeatedStringArg
-	createBranches.Flags().VarP(&dummyProvenance, "provenance", "p", "The provenance for the branch.")
-	createBranches.Flags().String("head", "", "The head of the newly created branch.")
+    )
 
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",

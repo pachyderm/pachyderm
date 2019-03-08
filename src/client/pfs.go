@@ -305,21 +305,45 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 	return c.ListCommit(repoName, "", "", 0)
 }
 
-// CreateBranch creates a new branch
-func (c APIClient) CreateBranch(repoName string, branch string, commit string, provenance []*pfs.Branch) error {
+func MakeCreateBranchRequest(repoName string, branch string, commit string, provenance []*pfs.Branch) *pfs.CreateBranchRequest {
 	var head *pfs.Commit
 	if commit != "" {
 		head = NewCommit(repoName, commit)
 	}
+    return &pfs.CreateBranchRequest{
+        Branch:     NewBranch(repoName, branch),
+        Head:       head,
+        Provenance: provenance,
+    }
+}
+
+// CreateBranch creates a new branch
+func (c APIClient) CreateBranch(repoName string, branch string, commit string, provenance []*pfs.Branch) error {
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
-		&pfs.CreateBranchRequest{
-			Branch:     NewBranch(repoName, branch),
-			Head:       head,
-			Provenance: provenance,
-		},
+        MakeCreateBranchRequest(repoName, branch, commit, provenance),
 	)
 	return grpcutil.ScrubGRPC(err)
+}
+
+// CreateBranch multiple branches across any number of repos
+func (c APIClient) CreateBranches(requests []*pfs.CreateBranchRequest) error {
+	batchClient, err := c.PfsAPIClient.CreateBranches(
+		c.Ctx(),
+	)
+    if err != nil {
+        return grpcutil.ScrubGRPC(err)
+    }
+
+    for _, request := range requests {
+        err = batchClient.Send(request)
+        if err != nil {
+            return grpcutil.ScrubGRPC(err)
+        }
+    }
+
+    _, err = batchClient.CloseAndRecv()
+    return grpcutil.ScrubGRPC(err)
 }
 
 // InspectBranch returns information on a specific PFS branch
