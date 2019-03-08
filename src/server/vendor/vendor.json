@@ -1133,6 +1133,12 @@
 			"revisionTime": "2017-02-06T15:57:36Z"
 		},
 		{
+			"checksumSHA1": "I/O3LCoP+yGdn3jvhlx7ZGshyNI=",
+			"path": "github.com/mholt/archiver/cmd/arc",
+			"revision": "2bd00e47f6e10b3199ae839ca3ccaea9c9f3aa32",
+			"revisionTime": "2019-03-07T19:40:51Z"
+		},
+		{
 			"checksumSHA1": "q8VfSvQ6fZY+QwtlMPtQsJrNews=",
 			"path": "github.com/minio/go-homedir",
 			"revision": "a7ee80e4c344cab722502d3f074c5b7245d0bbe7",

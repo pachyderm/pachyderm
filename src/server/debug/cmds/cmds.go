@@ -2,13 +2,16 @@ package cmds
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
 	units "github.com/docker/go-units"
+	"github.com/mholt/archiver"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/spf13/cobra"
@@ -44,7 +47,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			return client.Profile(args[0], duration, os.Stdout)
 		}),
 	}
-	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration to run a CPU profile for.")
+	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration of the CPU profile.")
 
 	binary := &cobra.Command{
 		Use:   "debug-binary",
@@ -114,12 +117,77 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	}
 	pprof.Flags().StringVar(&profileFile, "profile-file", "profile", "File to write the profile to.")
 	pprof.Flags().StringVar(&binaryFile, "binary-file", "binary", "File to write the binary to.")
-	pprof.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration to run a CPU profile for.")
+	pprof.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration of the CPU profile.")
+
+	var outputFileName string
+	sos := &cobra.Command{
+		Use:   "debug-sos",
+		Short: "Collect the full set of debug information, and write it to a file.",
+		Long:  "Collect the full set of debug information, and write it to a file.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "debug-sos")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			// Setup debug files to collect.
+			debugFiles := []struct {
+				name    string
+				collect func(io.Writer) error
+			}{
+				{
+					name: "goroutine-dump",
+					collect: func(w io.Writer) error {
+						return client.Dump(w)
+					},
+				},
+				{
+					name: "profile-cpu",
+					collect: func(w io.Writer) error {
+						return client.Profile("cpu", duration, w)
+					},
+				},
+				{
+					name: "binary",
+					collect: func(w io.Writer) error {
+						return client.Binary(w)
+					},
+				},
+			}
+			// Collect debug files.
+			debugDir := filepath.Join(os.TempDir(), "pachyderm-debug")
+			if err := os.MkdirAll(debugDir, 0700); err != nil {
+				return err
+			}
+			defer os.RemoveAll(debugDir)
+			var filesCollected []string
+			for _, debugFile := range debugFiles {
+				file, err := os.Create(filepath.Join(debugDir, debugFile.name))
+				if err != nil {
+					return err
+				}
+				fmt.Println("Collecting", debugFile.name)
+				if err := debugFile.collect(file); err != nil {
+					fmt.Printf("Failed to collect %v: %v\n", debugFile.name, err)
+					continue
+				}
+				filesCollected = append(filesCollected, file.Name())
+			}
+			// Tar and gzip debug files.
+			outputFileName = outputFileName + ".tar.gz"
+			os.Remove(outputFileName)
+			a := archiver.NewTarGz()
+			return a.Archive(filesCollected, outputFileName)
+		}),
+	}
+	sos.Flags().StringVar(&outputFileName, "output-file-name", "pachyderm-debug", "Name of the output file.")
+	sos.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration of the CPU profile.")
 
 	return []*cobra.Command{
 		debug,
 		profile,
 		binary,
 		pprof,
+		sos,
 	}
 }
