@@ -126,11 +126,8 @@ func (r *RepeatedStringArg) Type() string {
 // Sets the usage string for a 'docs' command.  Docs commands have no
 // functionality except to output some docs and related commands, and
 // should not specify a 'Run' attribute.
-func SetDocsCommandUsage(command *cobra.Command, subcommands ...*cobra.Command) {
-}
-
-func DocsCommandTemplate() string {
-    return `Usage:
+func SetDocsUsage(command *cobra.Command, subcommands []*cobra.Command) {
+    command.SetUsageTemplate(`Usage:
   pachctl [command]{{if gt .Aliases 0}}
 
 Aliases:
@@ -148,5 +145,17 @@ Flags:
 
 Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
   {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}
-`
+`)
+
+    command.SetHelpTemplate(`{{or .Long .Short}}
+{{.UsageString}}`)
+
+    command.AddCommand(subcommands...)
+
+    usageString := command.UsageString()
+    command.RemoveCommand(subcommands...)
+    command.SetUsageFunc(func (c *cobra.Command) error {
+        fmt.Print(usageString)
+        return nil
+    })
 }

@@ -53,9 +53,9 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Short: "Docs for repos.",
 		Long: `Repos, short for repository, are the top level data object in Pachyderm.
 
-Repos are created with create-repo.`,
+Repos are created with create-repo.
+`,
 	}
-    repo.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	var description string
 	createRepo := &cobra.Command{
@@ -217,7 +217,6 @@ Commits can be created with another commit as a parent.
 This layers the data in the commit over the data in the parent.
 `,
 	}
-    commit.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	var parent string
 	startCommit := &cobra.Command{
@@ -602,9 +601,9 @@ $ pachctl set-branch foo test master` + codeend,
 		Long: `Files are the lowest level data object in Pachyderm.
 
 Files can be written to started (but not finished) commits with put-file.
-Files can be read from finished commits with get-file.`,
+Files can be read from finished commits with get-file.
+`,
 	}
-    file.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	var filePaths []string
 	var recursive bool
@@ -1139,15 +1138,15 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
 
-    repo.AddCommand(
+    repoCommands := []*cobra.Command{
         createRepo,
         updateRepo,
         inspectRepo,
         listRepo,
         deleteRepo,
-    )
+    }
 
-    commit.AddCommand(
+    commitCommands := []*cobra.Command{
         startCommit,
         finishCommit,
         inspectCommit,
@@ -1155,9 +1154,9 @@ $ pachctl diff-file foo master path1 bar master path2
         flushCommit,
         subscribeCommit,
         deleteCommit,
-    )
+    }
 
-    file.AddCommand(
+    fileCommands := []*cobra.Command{
         putFile,
         copyFile,
         getFile,
@@ -1166,36 +1165,23 @@ $ pachctl diff-file foo master path1 bar master path2
         globFile,
         diffFile,
         deleteFile,
-    )
+    }
+
+    cmdutil.SetDocsUsage(repo, repoCommands)
+    cmdutil.SetDocsUsage(commit, commitCommands)
+    cmdutil.SetDocsUsage(file, fileCommands)
 
 	var result []*cobra.Command
 	result = append(result, repo)
-	result = append(result, createRepo)
-	result = append(result, updateRepo)
-	result = append(result, inspectRepo)
-	result = append(result, listRepo)
-	result = append(result, deleteRepo)
+	result = append(result, repoCommands...)
 	result = append(result, commit)
-	result = append(result, startCommit)
-	result = append(result, finishCommit)
-	result = append(result, inspectCommit)
-	result = append(result, listCommit)
-	result = append(result, flushCommit)
-	result = append(result, subscribeCommit)
-	result = append(result, deleteCommit)
+	result = append(result, commitCommands...)
 	result = append(result, createBranch)
 	result = append(result, listBranch)
 	result = append(result, setBranch)
 	result = append(result, deleteBranch)
 	result = append(result, file)
-	result = append(result, putFile)
-	result = append(result, copyFile)
-	result = append(result, getFile)
-	result = append(result, inspectFile)
-	result = append(result, listFile)
-	result = append(result, globFile)
-	result = append(result, diffFile)
-	result = append(result, deleteFile)
+	result = append(result, fileCommands...)
 	result = append(result, getObject)
 	result = append(result, getTag)
 	result = append(result, mount)

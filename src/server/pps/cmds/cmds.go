@@ -63,7 +63,6 @@ If the job fails, the commit it creates will not be finished.
 To increase the throughput of a job, increase the 'shard' parameter.
 `,
 	}
-    job.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
 
@@ -422,7 +421,6 @@ Creating a pipeline will also create a repo of the same name.
 All jobs created by a pipeline will create commits in the pipeline's repo.
 `,
 	}
-    pipeline.SetUsageTemplate(cmdutil.DocsCommandTemplate())
 
 	var build bool
 	var pushImages bool
@@ -725,15 +723,15 @@ you can increase the amount of memory used for the bloom filters with the
 	}
 	garbageCollect.Flags().StringVarP(&memory, "memory", "m", "0", "The amount of memory to use during garbage collection. Default is 10MB.")
 
-    job.AddCommand(
+    jobCommands := []*cobra.Command{
         inspectJob,
         listJob,
         flushJob,
         deleteJob,
         stopJob,
-    )
+    }
 
-    pipeline.AddCommand(
+    pipelineCommands := []*cobra.Command{
         createPipeline,
         updatePipeline,
         inspectPipeline,
@@ -743,29 +741,20 @@ you can increase the amount of memory used for the bloom filters with the
         deletePipeline,
         startPipeline,
         stopPipeline,
-    )
+    }
+
+    cmdutil.SetDocsUsage(job, jobCommands)
+    cmdutil.SetDocsUsage(pipeline, pipelineCommands)
 
 	var result []*cobra.Command
 	result = append(result, job)
-	result = append(result, inspectJob)
-	result = append(result, listJob)
-	result = append(result, flushJob)
-	result = append(result, deleteJob)
-	result = append(result, stopJob)
+	result = append(result, jobCommands...)
 	result = append(result, restartDatum)
 	result = append(result, listDatum)
 	result = append(result, inspectDatum)
 	result = append(result, getLogs)
 	result = append(result, pipeline)
-	result = append(result, createPipeline)
-	result = append(result, updatePipeline)
-	result = append(result, inspectPipeline)
-	result = append(result, extractPipeline)
-	result = append(result, editPipeline)
-	result = append(result, listPipeline)
-	result = append(result, deletePipeline)
-	result = append(result, startPipeline)
-	result = append(result, stopPipeline)
+	result = append(result, pipelineCommands...)
 	result = append(result, garbageCollect)
 	return result, nil
 }
