@@ -106,7 +106,7 @@ func (a *apiServer) master() {
 					var pipelineInfo, prevPipelineInfo *pps.PipelineInfo
 					if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 						var err error
-						pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &pipelinePtr)
+						pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &pipelinePtr, true)
 						if err != nil {
 							return err
 						}
@@ -115,7 +115,7 @@ func (a *apiServer) master() {
 							if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
 								return err
 							}
-							prevPipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &prevPipelinePtr)
+							prevPipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &prevPipelinePtr, true)
 							if err != nil {
 								return err
 							}

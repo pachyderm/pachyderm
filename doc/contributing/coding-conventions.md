@@ -51,7 +51,7 @@ commit).
 ### Third-party Code
 
 - Go dependencies are managed with govendor. See
-[src/server/readme.md](https://github.com/pachyderm/pachyderm/blob/master/src/server/readme.md)
+[src/server/README.md](/src/server/README.md)
 for more info.
 
 ### Docs
