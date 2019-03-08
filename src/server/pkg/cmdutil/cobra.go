@@ -150,12 +150,21 @@ Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
     command.SetHelpTemplate(`{{or .Long .Short}}
 {{.UsageString}}`)
 
-    command.AddCommand(subcommands...)
-
-    usageString := command.UsageString()
-    command.RemoveCommand(subcommands...)
+    // This song-and-dance is so that we can render the related commands without
+    // actually having them usable as subcommands of the docs command.
+    // That is, we don't want `pachctl job list-job` to work, it should just
+    // be `pachctl list-job`.  Therefore, we lazily add/remove the subcommands
+    // only when we try to render usage for the docs command.
+    originalUsage := command.UsageFunc()
     command.SetUsageFunc(func (c *cobra.Command) error {
-        fmt.Print(usageString)
+        newUsage := command.UsageFunc()
+        command.SetUsageFunc(originalUsage)
+        defer command.SetUsageFunc(newUsage)
+
+        command.AddCommand(subcommands...)
+        defer command.RemoveCommand(subcommands...)
+
+        command.Usage()
         return nil
     })
 }
