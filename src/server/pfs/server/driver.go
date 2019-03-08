@@ -2658,12 +2658,19 @@ func (d *driver) getFiles(pachClient *client.APIClient, objReader io.Reader, fil
 	// The fileInfo argument, if provided (i.e.input repo that could potentially have header/footer),
 	// is used as the GetFileResponse for the first block.
 	parseFiles := func(p string, node *hashtree.NodeProto, fileInfo *pfs.FileInfo) error {
-		if node.FileNode == nil {
-			return nil
-		}
+		// if node.FileNode == nil {
+		// 	return nil
+		// }
 
 		if fileInfo == nil {
 			fileInfo = nodeToFileInfo(commitInfo, p, node, true)
+		}
+
+		if node.DirNode != nil {
+			gfr := &pfs.GetFileResponse{
+				FileInfo: fileInfo,
+			}
+			return f(gfr)
 		}
 
 		remainingData := int64(fileInfo.SizeBytes)

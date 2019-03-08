@@ -2019,10 +2019,12 @@ func TestGetFilesRecursive(t *testing.T) {
 	i := 0
 	// Confirm when we glob for all the files we put, that it finds each of them individually.
 	require.NoError(t, c.GetFiles("repo", "master", "/*/", 0, 0, func(fileInfo *pfs.FileInfo, r io.Reader) error {
-		data, err := ioutil.ReadAll(r)
-		require.NoError(t, err)
-		require.Equal(t, paths[i], string(data))
-		i++
+		if fileInfo.FileType != pfs.FileType_DIR {
+			data, err := ioutil.ReadAll(r)
+			require.NoError(t, err)
+			require.Equal(t, paths[i], string(data))
+			i++
+		}
 		return nil
 	}))
 	require.Equal(t, i, len(paths))

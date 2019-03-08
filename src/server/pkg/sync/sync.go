@@ -176,9 +176,8 @@ func (p *Puller) Pull(client *pachclient.APIClient, root string, repo, commit, f
 	// create an empty file for the node (when emptyFiles is set to true),
 	// or to make a pipe for a file in object storage (when pipes is set to true).
 	if err := client.Walk(repo, commit, file, func(fileInfo *pfs.FileInfo) error {
-		// We must collect stats here instead of in the GetFiles callback because walk
-		// triggers a callback for every node (dir and files) under the root, whereas
-		// GetFiles only triggers a callback for every file.
+		// We collect stats here instead of in the GetFiles callback because we still must
+		// walk in the cases of pipes and empty files.
 		if err := putStats(client, root, file, fileInfo, statsTree, statsRoot); err != nil {
 			return err
 		}

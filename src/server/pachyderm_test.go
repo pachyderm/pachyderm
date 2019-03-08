@@ -6868,10 +6868,12 @@ func TestGetFilesRecursiveOutputRepo(t *testing.T) {
 	sort.Strings(paths)
 	i := 0
 	require.NoError(t, c.GetFiles(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "/*/", 0, 0, func(fileInfo *pfs.FileInfo, r io.Reader) error {
-		data, err := ioutil.ReadAll(r)
-		require.NoError(t, err)
-		require.Equal(t, paths[i], string(data))
-		i++
+		if fileInfo.FileType != pfs.FileType_DIR {
+			data, err := ioutil.ReadAll(r)
+			require.NoError(t, err)
+			require.Equal(t, paths[i], string(data))
+			i++
+		}
 		return nil
 	}))
 	require.Equal(t, i, len(paths))
