@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-    "io"
+	"io"
 	"sync"
 	"time"
 
@@ -183,7 +183,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-    err := a.driver.performRequests(a.getPachClient(ctx), []Operation{&CreateBranchOp{request}})
+	err := a.driver.performRequests(a.getPachClient(ctx), []Operation{&CreateBranchOp{request}})
 
 	if err != nil {
 		return nil, err
@@ -192,30 +192,30 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 }
 
 func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesServer) (retErr error) {
-    requests := []Operation{}
+	requests := []Operation{}
 	defer func(start time.Time) { a.Log(requests, nil, retErr, time.Since(start)) }(time.Now())
 
-    for {
-        request, err := createBranchesServer.Recv()
-        if err == io.EOF {
-            break
-        } else if err != nil {
-            return err
-        }
+	for {
+		request, err := createBranchesServer.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
 
-        func() { a.Log(request, nil, nil, 0) }()
-        requests = append(requests, &CreateBranchOp{request})
-    }
+		func() { a.Log(request, nil, nil, 0) }()
+		requests = append(requests, &CreateBranchOp{request})
+	}
 
-    client := a.getPachClient(createBranchesServer.Context())
-    err := a.driver.performRequests(client, requests)
+	client := a.getPachClient(createBranchesServer.Context())
+	err := a.driver.performRequests(client, requests)
 
-    if err != nil {
-        return err
-    }
+	if err != nil {
+		return err
+	}
 
-    createBranchesServer.SendAndClose(&types.Empty{})
-    return nil
+	createBranchesServer.SendAndClose(&types.Empty{})
+	return nil
 }
 
 func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {

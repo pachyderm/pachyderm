@@ -535,36 +535,36 @@ $ pachctl subscribe-commit test master --new
 		Long:  "Create or update multiple branches on multiple repos. Starting a commit on the branch will also create it, so there's often no need to call this.",
 	}
 
-    var branchProvenances []*cmdutil.RepeatedStringArg
-    var heads []*string
-    cmdutil.MakeBatchCommand(
-        2, // New batch for every two positional args
-        createBranches,
-        func (cmd *cobra.Command) {
-            cmd.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
-            cmd.Flags().StringVar(&head, "head", "", "The head of the newly created branch.")
-        },
-        func () {
-            branchProvenances = append(branchProvenances, &branchProvenance)
-            heads = append(heads, &head)
-        },
-        func (argSets [][]string) error {
-            fmt.Printf("argSets: %s\n", argSets)
-            fmt.Printf("branchProvenances: %s\n", branchProvenances)
-            fmt.Printf("heads: %s\n", heads)
-            requests := []*pfsclient.CreateBranchRequest{}
+	var branchProvenances []*cmdutil.RepeatedStringArg
+	var heads []*string
+	cmdutil.MakeBatchCommand(
+		2, // New batch for every two positional args
+		createBranches,
+		func (cmd *cobra.Command) {
+			cmd.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
+			cmd.Flags().StringVar(&head, "head", "", "The head of the newly created branch.")
+		},
+		func () {
+			branchProvenances = append(branchProvenances, &branchProvenance)
+			heads = append(heads, &head)
+		},
+		func (argSets [][]string) error {
+			fmt.Printf("argSets: %s\n", argSets)
+			fmt.Printf("branchProvenances: %s\n", branchProvenances)
+			fmt.Printf("heads: %s\n", heads)
+			requests := []*pfsclient.CreateBranchRequest{}
 
-            for i, args := range argSets {
-                provenance, err := cmdutil.ParseBranches(*branchProvenances[i])
-                if err != nil {
-                    return err
-                }
+			for i, args := range argSets {
+				provenance, err := cmdutil.ParseBranches(*branchProvenances[i])
+				if err != nil {
+					return err
+				}
 
-                requests = append(
-                    requests,
-                    client.MakeCreateBranchRequest(args[0], args[1], *heads[i], provenance),
-                )
-            }
+				requests = append(
+					requests,
+					client.MakeCreateBranchRequest(args[0], args[1], *heads[i], provenance),
+				)
+			}
 
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -572,14 +572,14 @@ $ pachctl subscribe-commit test master --new
 			}
 			defer client.Close()
 
-            fmt.Printf("Would have run %d request(s):\n", len(requests))
-            for _, request := range requests {
-                fmt.Printf("  %s\n", request)
-            }
-            // return client.CreateBranches(requests)
-            return nil
-        },
-    )
+			fmt.Printf("Would have run %d request(s):\n", len(requests))
+			for _, request := range requests {
+				fmt.Printf("  %s\n", request)
+			}
+			// return client.CreateBranches(requests)
+			return nil
+		},
+	)
 
 	listBranch := &cobra.Command{
 		Use:   "list-branch repo-name",

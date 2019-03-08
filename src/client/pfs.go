@@ -321,7 +321,7 @@ func MakeCreateBranchRequest(repoName string, branch string, commit string, prov
 func (c APIClient) CreateBranch(repoName string, branch string, commit string, provenance []*pfs.Branch) error {
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
-        MakeCreateBranchRequest(repoName, branch, commit, provenance),
+		MakeCreateBranchRequest(repoName, branch, commit, provenance),
 	)
 	return grpcutil.ScrubGRPC(err)
 }
@@ -331,19 +331,19 @@ func (c APIClient) CreateBranches(requests []*pfs.CreateBranchRequest) error {
 	batchClient, err := c.PfsAPIClient.CreateBranches(
 		c.Ctx(),
 	)
-    if err != nil {
-        return grpcutil.ScrubGRPC(err)
-    }
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
 
-    for _, request := range requests {
-        err = batchClient.Send(request)
-        if err != nil {
-            return grpcutil.ScrubGRPC(err)
-        }
-    }
+	for _, request := range requests {
+		err = batchClient.Send(request)
+		if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
 
-    _, err = batchClient.CloseAndRecv()
-    return grpcutil.ScrubGRPC(err)
+	_, err = batchClient.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
 }
 
 // InspectBranch returns information on a specific PFS branch

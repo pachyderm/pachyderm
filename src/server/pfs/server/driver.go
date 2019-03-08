@@ -153,34 +153,34 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Ca
 }
 
 type Operation interface {
-    validate(d *driver, pachClient *client.APIClient) error
-    execute(d *driver, pachClient *client.APIClient, stm col.STM) error
+	validate(d *driver, pachClient *client.APIClient) error
+	execute(d *driver, pachClient *client.APIClient, stm col.STM) error
 }
 
 type CreateBranchOp struct {
-    *pfs.CreateBranchRequest
+	*pfs.CreateBranchRequest
 }
 
 func (d *driver) performRequests(pachClient *client.APIClient, requests []Operation) error {
-    for i, req := range requests {
-        if err := req.validate(d, pachClient); err != nil {
-            return fmt.Errorf("Error validating operation %d of %d: %v",
-                i + 1, len(requests), grpcutil.ScrubGRPC(err))
-        }
-    }
+	for i, req := range requests {
+		if err := req.validate(d, pachClient); err != nil {
+			return fmt.Errorf("Error validating operation %d of %d: %v",
+			i + 1, len(requests), grpcutil.ScrubGRPC(err))
+		}
+	}
 
-    _, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
-        for i, req := range requests {
-            if err := req.execute(d, pachClient, stm); err != nil {
-                return fmt.Errorf("Error executing operation %d of %d: %v",
-                    i + 1, len(requests), grpcutil.ScrubGRPC(err))
-            }
-        }
+	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+		for i, req := range requests {
+			if err := req.execute(d, pachClient, stm); err != nil {
+				return fmt.Errorf("Error executing operation %d of %d: %v",
+				i + 1, len(requests), grpcutil.ScrubGRPC(err))
+			}
+		}
 
-        return nil
-    })
+		return nil
+	})
 
-    return err
+	return err
 }
 
 // checkIsAuthorized returns an error if the current user (in 'pachClient') has
@@ -259,8 +259,8 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 			// auth is active, and user is logged in. Make user an owner of the new
 			// repo (and clear any existing ACL under this name that might have been
 			// created by accident)
-            // TODO: it looks like this isn't done transactionally through stm -
-            // possible race condition?
+			// TODO: it looks like this isn't done transactionally through stm -
+			// possible race condition?
 			_, err := pachClient.AuthAPIClient.SetACL(ctx, &auth.SetACLRequest{
 				Repo: repo.Name,
 				Entries: []*auth.ACLEntry{{
@@ -1737,6 +1737,124 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 		return d.propagateCommit(stm, branch)
 	})
 	return err
+}
+
+func (req *CreateBranchOp) validate(d *driver, pachClient *client.APIClient) error {
+	if err := d.checkIsAuthorized(pachClient, req.Branch.Repo, auth.Scope_WRITER); err != nil {
+		return err
+	}
+
+	// The request must do exactly one of:
+	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
+	// 2) re-pointing 'branch' at a new commit
+	if req.Head != nil {
+		// Determine if this is a provenance update
+		sameTarget := req.Branch.Repo.Name == req.Head.Repo.Name && req.Branch.Name == req.Head.ID
+		if !sameTarget && req.Provenance != nil {
+			return fmt.Errorf("cannot point branch \"%s\" at target commit \"%s/%s\" without clearing its provenance",
+				req.Branch.Name, req.Head.Repo.Name, req.Head.ID)
+		}
+	}
+
+    return nil
+}
+
+func (req *CreateBranchOp) execute(d *driver, pachClient *client.APIClient, stm col.STM) error {
+    // if 'commit' is a branch, resolve it
+    var err error
+    if req.Head != nil {
+        _, err = d.resolveCommit(stm, req.Head) // if 'commit' is a branch, resolve it
+        if err != nil {
+            // possible that branch exists but has no head commit. This is fine, but
+            // branchInfo.Head must also be nil
+            if !isNoHeadErr(err) {
+                return fmt.Errorf("unable to inspect %s/%s: %v", err, req.Head.Repo.Name, req.Head.ID)
+            }
+            req.Head = nil
+        }
+    }
+
+    // Retrieve (and create, if necessary) the current version of this branch
+    branches := d.branches(req.Branch.Repo.Name).ReadWrite(stm)
+    branchInfo := &pfs.BranchInfo{}
+    if err := branches.Upsert(req.Branch.Name, branchInfo, func() error {
+        branchInfo.Name = req.Branch.Name // set in case 'branch' is new
+        branchInfo.Branch = req.Branch
+        branchInfo.Head = req.Head
+        branchInfo.DirectProvenance = nil
+        for _, provBranch := range req.Provenance {
+            add(&branchInfo.DirectProvenance, provBranch)
+        }
+        return nil
+    }); err != nil {
+        return err
+    }
+    repos := d.repos.ReadWrite(stm)
+    repoInfo := &pfs.RepoInfo{}
+    if err := repos.Update(req.Branch.Repo.Name, repoInfo, func() error {
+        add(&repoInfo.Branches, req.Branch)
+        return nil
+    }); err != nil {
+        return err
+    }
+
+    // Update (or create)
+    // 1) 'branch's Provenance
+    // 2) the Provenance of all branches in 'branch's Subvenance (in the case of an update), and
+    // 3) the Subvenance of all branches in the *old* provenance of 'branch's Subvenance
+    toUpdate := []*pfs.BranchInfo{branchInfo}
+    for _, subvBranch := range branchInfo.Subvenance {
+        subvBranchInfo := &pfs.BranchInfo{}
+        if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvBranchInfo); err != nil {
+            return err
+        }
+        toUpdate = append(toUpdate, subvBranchInfo)
+    }
+    // Sorting is important here because it sorts topologically. This means
+    // that when evaluating element i of `toUpdate` all elements < i will
+    // have already been evaluated and thus we can safely use their
+    // Provenance field.
+    sort.Slice(toUpdate, func(i, j int) bool { return len(toUpdate[i].Provenance) < len(toUpdate[j].Provenance) })
+    for _, branchInfo := range toUpdate {
+        oldProvenance := branchInfo.Provenance
+        branchInfo.Provenance = nil
+        // Re-compute Provenance
+        for _, provBranch := range branchInfo.DirectProvenance {
+            if err := d.addBranchProvenance(branchInfo, provBranch, stm); err != nil {
+                return err
+            }
+            provBranchInfo := &pfs.BranchInfo{}
+            if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil {
+                return err
+            }
+            for _, provBranch := range provBranchInfo.Provenance {
+                if err := d.addBranchProvenance(branchInfo, provBranch, stm); err != nil {
+                    return err
+                }
+            }
+        }
+        if err := d.branches(branchInfo.Branch.Repo.Name).ReadWrite(stm).Put(branchInfo.Branch.Name, branchInfo); err != nil {
+            return err
+        }
+        // Update Subvenance of 'branchInfo's Provenance (incl. all Subvenance)
+        for _, oldProvBranch := range oldProvenance {
+            if !has(&branchInfo.Provenance, oldProvBranch) {
+                // Provenance was deleted, so we delete ourselves from their subvenance
+                oldProvBranchInfo := &pfs.BranchInfo{}
+                if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(stm).Update(oldProvBranch.Name, oldProvBranchInfo, func() error {
+                    del(&oldProvBranchInfo.Subvenance, branchInfo.Branch)
+                    return nil
+                }); err != nil {
+                    return err
+                }
+            }
+        }
+    }
+
+    // propagate the head commit to 'branch'. This may also modify 'branch', by
+    // creating a new HEAD commit if 'branch's provenance was changed and its
+    // current HEAD commit has old provenance
+    return d.propagateCommit(stm, req.Branch)
 }
 
 func (d *driver) inspectBranch(pachClient *client.APIClient, branch *pfs.Branch) (*pfs.BranchInfo, error) {
