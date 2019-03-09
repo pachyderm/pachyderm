@@ -167,7 +167,6 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 			// Iterate through shorthand flags until we find one that requires a value
 			for i, shorthand := range x[1:] {
 				flag := cmd.Flags().ShorthandLookup(string(shorthand))
-				fmt.Printf("looking up shorthand (%s): %t, i(%d), len(%d)\n", string(shorthand), flag != nil, i, len(x))
 				if flag.NoOptDefVal == "" {
 					if len(x) == i + 2 {
 						// The following arg is the value for this flag, make sure to include it
@@ -193,7 +192,6 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 		ErrorAndExit("")
 	}
 
-	fmt.Printf("%s\n", sets)
 	return sets
 }
 
