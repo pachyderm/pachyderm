@@ -176,8 +176,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			// Tar and gzip debug files.
 			outputFileName = outputFileName + ".tar.gz"
 			os.Remove(outputFileName)
-			a := archiver.NewTarGz()
-			return a.Archive(filesCollected, outputFileName)
+			return archiver.NewTarGz().Archive(filesCollected, outputFileName)
 		}),
 	}
 	sos.Flags().StringVar(&outputFileName, "output-file-name", "pachyderm-debug", "Name of the output file.")
