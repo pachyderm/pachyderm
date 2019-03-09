@@ -529,35 +529,32 @@ $ pachctl subscribe-commit test master --new
 		Short: "Create or update multiple branches on multiple repos.",
 		Long:  "Create or update multiple branches on multiple repos. Starting a commit on the branch will also create it, so there's often no need to call this.",
 	}
+	createBranches.Flags().StringArrayP("provenance", "p", []string{}, "The provenance for the branch.")
+	createBranches.Flags().String("head", "", "The head of the newly created branch.")
 
-	var branchProvenances []*cmdutil.RepeatedStringArg
-	var heads []*string
-	cmdutil.MakeBatchCommand(
+	createBranches.Run = cmdutil.RunBatchCommand(
 		2, // New batch for every two positional args
-		createBranches,
-		func (cmd *cobra.Command) {
-			cmd.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch.")
-			cmd.Flags().StringVar(&head, "head", "", "The head of the newly created branch.")
-		},
-		func () {
-			branchProvenances = append(branchProvenances, &branchProvenance)
-			heads = append(heads, &head)
-		},
-		func (argSets [][]string) error {
-			fmt.Printf("argSets: %s\n", argSets)
-			fmt.Printf("branchProvenances: %s\n", branchProvenances)
-			fmt.Printf("heads: %s\n", heads)
+		func (argSets []cmdutil.BatchArgs) error {
 			requests := []*pfsclient.CreateBranchRequest{}
 
-			for i, args := range argSets {
-				provenance, err := cmdutil.ParseBranches(*branchProvenances[i])
+			for _, args := range argSets {
+				fmt.Printf("args: %s\n", args.Positionals)
+				fmt.Printf("provenance: %s\n", args.Flags["provenance"])
+				fmt.Printf("head: %s\n", args.Flags["head"])
+
+				provenance, err := cmdutil.ParseBranches(args.Flags["provenance"])
 				if err != nil {
 					return err
 				}
 
 				requests = append(
 					requests,
-					client.MakeCreateBranchRequest(args[0], args[1], *heads[i], provenance),
+					client.MakeCreateBranchRequest(
+						args.Positionals[0],
+						args.Positionals[1],
+						args.GetStringFlag("head"),
+						provenance,
+					),
 				)
 			}
 

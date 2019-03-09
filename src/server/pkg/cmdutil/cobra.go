@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // RunFixedArgs wraps a function in a function
@@ -123,15 +124,65 @@ func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }
 
-func MakeBatchCommand(
+type BatchArgs struct {
+	Positionals []string
+	Flags map[string][]string
+}
+
+func (args *BatchArgs) GetStringFlag(name string) string {
+	if len(args.Flags[name]) > 0 {
+		return args.Flags[name][0]
+	}
+	return ""
+}
+
+func partitionBatchArgs(args []string, positionalCount int) [][]string {
+	// Partition by sets of positional args, flags apply to the previous positional args
+	sets := [][]string{{}}
+	index := 0
+	count := 0
+
+	for _, x := range args {
+		if strings.HasPrefix(x, "-") {
+			sets[index] = append(sets[index], x)
+			// TODO: this only works because all existing batch flags require a
+			// value, otherwise we'll need to check individual flags
+			if !strings.Contains(x, "=") {
+				count -= 1
+			}
+		} else if count < positionalCount {
+			count += 1
+			sets[index] = append(sets[index], x)
+		} else {
+			sets = append(sets, []string{x})
+			index += 1
+			count = 0
+		}
+	}
+
+	return sets
+}
+
+func newBatchParserCommand(originalCommand *cobra.Command) *cobra.Command {
+	// Create an inner command for parsing individual commands
+	result := &cobra.Command{}
+	result.Flags().AddFlagSet(originalCommand.LocalFlags())
+
+	// Copy over inherited flags so we don't choke on them
+	ancestor := originalCommand.Parent()
+	for ancestor != nil {
+		result.Flags().AddFlagSet(ancestor.Flags())
+		ancestor = ancestor.Parent()
+	}
+
+	return result
+}
+
+func RunBatchCommand(
 	positionalCount int,
-	cmd *cobra.Command,
-	provision func(*cobra.Command),
-	processFlags func (),
-	run func ([][]string) error,
-) {
-	provision(cmd)
-	cmd.Run = func(cmd *cobra.Command, _ []string) {
+	run func ([]BatchArgs) error,
+) func(cmd *cobra.Command, _ []string) {
+	return func(cmd *cobra.Command, _ []string) {
 		// Remove non parameter args from the original args so we can reparse
 		// them iteratively with cobra.
 		names := []string{cmd.Name()}
@@ -145,57 +196,34 @@ func MakeBatchCommand(
 				}
 			}
 		}
-		args := os.Args[startArg:]
 
-		// Partition by sets of positional args, flags apply to the previous positional args
-		sets := [][]string{{}}
-		index := 0
-		count := 0
-
-		for _, x := range args {
-			if strings.HasPrefix(x, "-") {
-				sets[index] = append(sets[index], x)
-				// TODO: this only works because all flags require a value, otherwise we'll need to check individual flags
-				if !strings.Contains(x, "=") {
-					count -= 1
-				}
-			} else if count < positionalCount {
-				count += 1
-				sets[index] = append(sets[index], x)
-			} else {
-				sets = append(sets, []string{x})
-				index += 1
-				count = 0
-			}
-		}
-
-		parsedSets := [][]string{}
-
-		// Create an inner command for parsing individual commands
-		innerCommand := &cobra.Command{}
-		provision(innerCommand)
-
-		// Copy over inherited flags so we don't choke on them
-		ancestor := cmd.Parent()
-		for ancestor != nil {
-			innerCommand.Flags().AddFlagSet(ancestor.Flags())
-			ancestor = ancestor.Parent()
-		}
+		// Partition the args based on the number of positional arguments
+		args := partitionBatchArgs(os.Args[startArg:], positionalCount)
+		parsedArgs := []BatchArgs{}
 
 		// Set a run function that appends to our set of parsed args
+		innerCommand := newBatchParserCommand(cmd)
 		innerCommand.Run = func (runCmd *cobra.Command, runArgs []string) {
-			parsedSets = append(parsedSets, runArgs)
+			parsedArgs = append(parsedArgs, BatchArgs{runArgs, map[string][]string{}})
 		}
 
-		for _, argSet := range sets {
+		for _, argSet := range args {
+			flags := map[string][]string{}
 			innerCommand.SetArgs(argSet)
 			innerCommand.Execute()
-			processFlags()
+			innerCommand.Flags().ParseAll(
+				argSet,
+				func (flag *pflag.Flag, value string) error {
+					flags[flag.Name] = append(flags[flag.Name], value)
+					return nil
+				},
+			)
+			parsedArgs[len(parsedArgs) - 1].Flags = flags
 		}
 
-		fmt.Printf("flags: %s\n", innerCommand.LocalFlags())
-
-		run(parsedSets)
+		if err := run(parsedArgs); err != nil {
+			ErrorAndExit("%v", err)
+		}
 	}
 }
 
