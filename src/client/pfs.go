@@ -305,7 +305,7 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 	return c.ListCommit(repoName, "", "", 0)
 }
 
-func MakeCreateBranchRequest(repoName string, branch string, commit string, provenance []*pfs.Branch) *pfs.CreateBranchRequest {
+func NewCreateBranchRequest(repoName string, branch string, commit string, provenance []*pfs.Branch) *pfs.CreateBranchRequest {
 	var head *pfs.Commit
 	if commit != "" {
 		head = NewCommit(repoName, commit)
@@ -321,7 +321,7 @@ func MakeCreateBranchRequest(repoName string, branch string, commit string, prov
 func (c APIClient) CreateBranch(repoName string, branch string, commit string, provenance []*pfs.Branch) error {
 	_, err := c.PfsAPIClient.CreateBranch(
 		c.Ctx(),
-		MakeCreateBranchRequest(repoName, branch, commit, provenance),
+		NewCreateBranchRequest(repoName, branch, commit, provenance),
 	)
 	return grpcutil.ScrubGRPC(err)
 }

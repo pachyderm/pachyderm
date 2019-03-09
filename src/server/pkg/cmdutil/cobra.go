@@ -136,30 +136,64 @@ func (args *BatchArgs) GetStringFlag(name string) string {
 	return ""
 }
 
-func partitionBatchArgs(args []string, positionalCount int) [][]string {
-	// Partition by sets of positional args, flags apply to the previous positional args
+// partitionBatchArgs splits up command-line arguments into groups of equal size
+// determined by positionalCount.  Flags are grouped with their preceeding
+// positional arguments.  This function mimics the parsing behavior of cobra,
+// so it may be a bit sensitive to cobra's behavior changing.  We rely on cobra
+// having already done a pass over the arguments, so we can assume they are a
+// valid format recognized by cobra.
+func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) [][]string {
 	sets := [][]string{{}}
 	index := 0
 	count := 0
+	value := false
 
 	for _, x := range args {
-		if strings.HasPrefix(x, "-") {
+		if value {
 			sets[index] = append(sets[index], x)
-			// TODO: this only works because all existing batch flags require a
-			// value, otherwise we'll need to check individual flags
-			if !strings.Contains(x, "=") {
-				count -= 1
+			value = false
+		} else if strings.HasPrefix(x, "--") {
+			sets[index] = append(sets[index], x)
+			split := strings.SplitN(x[2:], "=", 2)
+			flag := cmd.Flags().Lookup(split[0])
+
+			if len(split) == 1 && flag.NoOptDefVal == "" {
+				// The following arg is the value for this flag, make sure to include it
+				value = true
+			}
+		} else if strings.HasPrefix(x, "-") && len(x) > 1 {
+			sets[index] = append(sets[index], x)
+
+			// Iterate through shorthand flags until we find one that requires a value
+			for i, shorthand := range x[1:] {
+				flag := cmd.Flags().ShorthandLookup(string(shorthand))
+				fmt.Printf("looking up shorthand (%s): %t, i(%d), len(%d)\n", string(shorthand), flag != nil, i, len(x))
+				if flag.NoOptDefVal == "" {
+					if len(x) == i + 2 {
+						// The following arg is the value for this flag, make sure to include it
+						value = true
+					}
+					break
+				}
 			}
 		} else if count < positionalCount {
-			count += 1
 			sets[index] = append(sets[index], x)
+			count += 1
 		} else {
 			sets = append(sets, []string{x})
 			index += 1
-			count = 0
+			count = 1
 		}
 	}
 
+	if count != positionalCount {
+		lastSetString := strings.Join(sets[len(sets) - 1], " ")
+		fmt.Printf("each request must have %d arugments, but found %d in:\n  %s\n\n", positionalCount, count, lastSetString)
+		cmd.Usage()
+		ErrorAndExit("")
+	}
+
+	fmt.Printf("%s\n", sets)
 	return sets
 }
 
@@ -198,19 +232,22 @@ func RunBatchCommand(
 		}
 
 		// Partition the args based on the number of positional arguments
-		args := partitionBatchArgs(originalArgs, positionalCount)
+		args := partitionBatchArgs(originalArgs, positionalCount, cmd)
 
 		// Set a run function that appends to our set of parsed args
 		parsedArgs := []BatchArgs{}
 		innerCommand := newBatchParserCommand(cmd)
-		innerCommand.Run = func (runCmd *cobra.Command, runArgs []string) {
-			parsedArgs = append(parsedArgs, BatchArgs{runArgs, map[string][]string{}})
-		}
 
 		for _, argSet := range args {
-			flags := map[string][]string{}
+			positionals := []string{}
+			innerCommand.Run = func (runCmd *cobra.Command, runArgs []string) {
+				positionals = append(positionals, runArgs...)
+			}
+
 			innerCommand.SetArgs(argSet)
 			innerCommand.Execute()
+
+			flags := map[string][]string{}
 			innerCommand.Flags().ParseAll(
 				argSet,
 				func (flag *pflag.Flag, value string) error {
@@ -218,7 +255,8 @@ func RunBatchCommand(
 					return nil
 				},
 			)
-			parsedArgs[len(parsedArgs) - 1].Flags = flags
+
+			parsedArgs = append(parsedArgs, BatchArgs{positionals, flags})
 		}
 
 		if err := run(parsedArgs); err != nil {

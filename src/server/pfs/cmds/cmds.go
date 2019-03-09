@@ -536,16 +536,9 @@ $ pachctl subscribe-commit test master --new
 	createBranches.Run = cmdutil.RunBatchCommand(
 		2, // New batch for every two positional args
 		func (argSets []cmdutil.BatchArgs) error {
-			fmt.Printf("noPortForwarding: %t\n", *noPortForwarding)
-			fmt.Printf("noMetrics: %t\n", *noMetrics)
-
 			requests := []*pfsclient.CreateBranchRequest{}
 
 			for _, args := range argSets {
-				fmt.Printf("args: %s\n", args.Positionals)
-				fmt.Printf("provenance: %s\n", args.Flags["provenance"])
-				fmt.Printf("head: %s\n", args.Flags["head"])
-
 				provenance, err := cmdutil.ParseBranches(args.Flags["provenance"])
 				if err != nil {
 					return err
@@ -553,7 +546,7 @@ $ pachctl subscribe-commit test master --new
 
 				requests = append(
 					requests,
-					client.MakeCreateBranchRequest(
+					client.NewCreateBranchRequest(
 						args.Positionals[0],
 						args.Positionals[1],
 						args.GetStringFlag("head"),
