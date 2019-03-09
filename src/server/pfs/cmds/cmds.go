@@ -528,6 +528,7 @@ $ pachctl subscribe-commit test master --new
 		Use:   "create-branches (<repo-name> <branch-name> [flags]) ...",
 		Short: "Create or update multiple branches on multiple repos.",
 		Long:  "Create or update multiple branches on multiple repos. Starting a commit on the branch will also create it, so there's often no need to call this.",
+		DisableFlagParsing: true,
 	}
 	createBranches.Flags().StringArrayP("provenance", "p", []string{}, "The provenance for the branch.")
 	createBranches.Flags().String("head", "", "The head of the newly created branch.")
@@ -535,6 +536,9 @@ $ pachctl subscribe-commit test master --new
 	createBranches.Run = cmdutil.RunBatchCommand(
 		2, // New batch for every two positional args
 		func (argSets []cmdutil.BatchArgs) error {
+			fmt.Printf("noPortForwarding: %t\n", *noPortForwarding)
+			fmt.Printf("noMetrics: %t\n", *noMetrics)
+
 			requests := []*pfsclient.CreateBranchRequest{}
 
 			for _, args := range argSets {

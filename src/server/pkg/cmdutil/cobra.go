@@ -163,12 +163,16 @@ func partitionBatchArgs(args []string, positionalCount int) [][]string {
 	return sets
 }
 
+// newBatchParserCommand creates a dummy command parser that inherits flags from
+// the originalCommand, but is not attached to the main command tree.  This
+// gives us a bit more freedom to iteratively parse a batch of commands without
+// jumping through as many hoops.
 func newBatchParserCommand(originalCommand *cobra.Command) *cobra.Command {
 	// Create an inner command for parsing individual commands
 	result := &cobra.Command{}
 	result.Flags().AddFlagSet(originalCommand.LocalFlags())
 
-	// Copy over inherited flags so we don't choke on them
+	// Copy over inherited flags
 	ancestor := originalCommand.Parent()
 	for ancestor != nil {
 		result.Flags().AddFlagSet(ancestor.Flags())
@@ -178,30 +182,26 @@ func newBatchParserCommand(originalCommand *cobra.Command) *cobra.Command {
 	return result
 }
 
+// RunBatchCommand generates a run function for a batch CLI command.  This works
+// the same as a normal command except that we parse any number of sets of
+// arguments from the command-line args, each set corresponding to a request.
+// These parsed sets will be passed to the specified 'run' callback, which
+// can then be validated and handled.
 func RunBatchCommand(
 	positionalCount int,
-	run func ([]BatchArgs) error,
-) func(cmd *cobra.Command, _ []string) {
-	return func(cmd *cobra.Command, _ []string) {
-		// Remove non parameter args from the original args so we can reparse
-		// them iteratively with cobra.
-		names := []string{cmd.Name()}
-		names = append(names, cmd.Aliases...)
-		var startArg int
-		for i, x := range os.Args {
-			for _, y := range names {
-				if x == y {
-					startArg = i + 1
-					break
-				}
-			}
+	run func([]BatchArgs) error,
+) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, originalArgs []string) {
+		// As long as there's any test coverage, hopefully this will save some time
+		if !cmd.DisableFlagParsing {
+			panic("Batch commands must disable flag parsing")
 		}
 
 		// Partition the args based on the number of positional arguments
-		args := partitionBatchArgs(os.Args[startArg:], positionalCount)
-		parsedArgs := []BatchArgs{}
+		args := partitionBatchArgs(originalArgs, positionalCount)
 
 		// Set a run function that appends to our set of parsed args
+		parsedArgs := []BatchArgs{}
 		innerCommand := newBatchParserCommand(cmd)
 		innerCommand.Run = func (runCmd *cobra.Command, runArgs []string) {
 			parsedArgs = append(parsedArgs, BatchArgs{runArgs, map[string][]string{}})
