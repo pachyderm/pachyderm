@@ -636,7 +636,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		// We propagate the branch last so propagateCommit can write to the
 		// now-existing commit's subvenance
 		if branch != "" {
-			return d.propagateCommit(stm, client.NewBranch(newCommit.Repo.Name, branch))
+			return d.propagateCommit(stm, client.NewBranch(newCommit.Repo.Name, branch), provenance)
 		}
 		return nil
 	}); err != nil {
@@ -795,7 +795,7 @@ func (d *driver) writeFinishedCommit(ctx context.Context, commit *pfs.Commit, co
 // starts downstream output commits (which trigger PPS jobs) when new input
 // commits arrive on 'branch', when 'branch's HEAD is deleted, or when 'branch'
 // is newly created (i.e. in CreatePipeline).
-func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
+func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch, provenance []*branchCommit) error {
 	if branch == nil {
 		return fmt.Errorf("cannot propagate nil branch")
 	}
@@ -834,10 +834,12 @@ nextSubvBranch:
 		// if we need it
 		commitProvMap := make(map[string]*pfs.CommitProvenance)
 		for _, provBranch := range branchInfo.Provenance {
+			// get the branch info from the provenance branch
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil && !col.IsErrNotFound(err) {
 				return fmt.Errorf("could not read branch %s/%s: %v", provBranch.Repo.Name, provBranch.Name, err)
 			}
+			// if the branch doesn't have a head commit, then we don't need to do anything
 			if provBranchInfo.Head == nil {
 				continue
 			}
@@ -849,6 +851,10 @@ nextSubvBranch:
 			// provBranchInfo.HEAD's provenance. Every commit in there will be the
 			// HEAD of some other provBranchInfo.
 		}
+		// Fill it with the passed in provenance
+		for _, prov := range provenance {
+			commitProvMap[prov.commit.ID] = prov
+		}
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
 			continue nextSubvBranch
@@ -859,6 +865,7 @@ nextSubvBranch:
 		// commit. If so, a new output commit would be a duplicate, so don't create
 		// it.
 		if branchInfo.Head != nil {
+			// get the info for the branch's HEAD commit
 			branchHeadInfo := &pfs.CommitInfo{}
 			if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
@@ -1585,7 +1592,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		// processed yet
 		// TODO(msteffen) propagate all changed branches? Use heap to topologically
 		// sort them?
-		return d.propagateCommit(stm, shortestBranch)
+		return d.propagateCommit(stm, shortestBranch, nil)
 	}); err != nil {
 		return fmt.Errorf("error rewriting commit graph: %v", err)
 	}
@@ -1719,7 +1726,7 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 		// propagate the head commit to 'branch'. This may also modify 'branch', by
 		// creating a new HEAD commit if 'branch's provenance was changed and its
 		// current HEAD commit has old provenance
-		return d.propagateCommit(stm, branch)
+		return d.propagateCommit(stm, branch, nil)
 	})
 	return err
 }
