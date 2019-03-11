@@ -35,7 +35,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 )
@@ -379,45 +378,42 @@ This resets the cluster to its initial state.`,
 				return err
 			}
 
-			var eg errgroup.Group
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-				return fw.RunForDaemon(port, remotePort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the SAML ACS port...")
-				return fw.RunForSAMLACS(samlPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v ...\n", uiPort)
-				return fw.RunForDashUI(uiPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-				return fw.RunForDashWebSocket(uiWebsocketPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the PFS port...")
-				return fw.RunForPFS(pfsPort)
-			})
-
 			defer fw.Close()
 
-			if err = eg.Wait(); err != nil {
-				return err
+			failCount := 0
+			printResult := func(err error) {
+				if err != nil {
+					fmt.Errorf("failed: %v\n", err)
+					failCount += 1
+				} else {
+					fmt.Println("success")
+				}
 			}
 
-			fmt.Println("CTRL-C to exit")
-			fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
+			fmt.Print("Forwarding the pachd (Pachyderm daemon) port... ")
+			printResult(fw.RunForDaemon(port, remotePort))
 
-			ch := make(chan os.Signal, 1)
-			signal.Notify(ch, os.Interrupt)
-			<-ch
+			fmt.Print("Forwarding the SAML ACS port... ")
+			printResult(fw.RunForSAMLACS(samlPort))
+
+			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v... ", uiPort)
+			printResult(fw.RunForDashUI(uiPort))
+
+			fmt.Print("Forwarding the dash (Pachyderm dashboard) websocket port... ")
+			printResult(fw.RunForDashWebSocket(uiWebsocketPort))
+
+			fmt.Print("Forwarding the PFS port... ")
+			printResult(fw.RunForPFS(pfsPort))
+
+			if failCount < 5 {
+				fmt.Println("CTRL-C to exit")
+				fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
+
+				ch := make(chan os.Signal, 1)
+				signal.Notify(ch, os.Interrupt)
+				<-ch
+			}
+
 			return nil
 		}),
 	}
