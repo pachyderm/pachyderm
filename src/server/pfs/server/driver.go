@@ -520,6 +520,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 			// Add branch to repo (see "Update repoInfo" below)
 			add(&repoInfo.Branches, branchInfo.Branch)
+			// and add the branch to the commit info
+			newCommitInfo.OriginalBranch = branchInfo.Branch
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
@@ -538,6 +540,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 			if err := commits.Update(parent.ID, parentCommitInfo, func() error {
 				newCommitInfo.ParentCommit = parent
+				newCommitInfo.OriginalBranch = parentCommitInfo.OriginalBranch
 				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
 				return nil
 			}); err != nil {
@@ -826,7 +829,7 @@ nextSubvBranch:
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
-		commitProvMap := make(map[string]*branchCommit)
+		commitProvMap := make(map[string]*pfs.Commit)
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil && !col.IsErrNotFound(err) {
@@ -835,10 +838,7 @@ nextSubvBranch:
 			if provBranchInfo.Head == nil {
 				continue
 			}
-			commitProvMap[provBranchInfo.Head.ID] = &branchCommit{
-				commit: provBranchInfo.Head,
-				branch: provBranchInfo.Branch,
-			}
+			commitProvMap[provBranchInfo.Head.ID] = provBranchInfo.Head
 			// Because of the 'propagateCommit' invariant, we don't need to inspect
 			// provBranchInfo.HEAD's provenance. Every commit in there will be the
 			// HEAD of some other provBranchInfo.
@@ -882,8 +882,8 @@ nextSubvBranch:
 		// "dummy" job with no non-spec input data. If this is the case, don't
 		// create a new output commit
 		allSpec := true
-		for _, b := range commitProvMap {
-			if b.branch.Repo.Name != ppsconsts.SpecRepo {
+		for _, c := range commitProvMap {
+			if c.Repo.Name != ppsconsts.SpecRepo {
 				allSpec = false
 				break
 			}
@@ -925,12 +925,11 @@ nextSubvBranch:
 		// newCommitInfo.ParentCommit to extend the correct subvenance range)
 		for _, prov := range commitProvMap {
 			// set provenance of 'newCommit'
-			newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov.commit)
-			newCommitInfo.BranchProvenance = append(newCommitInfo.BranchProvenance, prov.branch)
+			newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 
-			// update subvenance of 'prov.commit'
+			// update subvenance of 'prov'
 			provCommitInfo := &pfs.CommitInfo{}
-			if err := d.commits(prov.commit.Repo.Name).ReadWrite(stm).Update(prov.commit.ID, provCommitInfo, func() error {
+			if err := d.commits(prov.Repo.Name).ReadWrite(stm).Update(prov.ID, provCommitInfo, func() error {
 				appendSubvenance(provCommitInfo, newCommitInfo)
 				return nil
 			}); err != nil {
@@ -1030,6 +1029,8 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	var ancestryLength int
 	commit.ID, ancestryLength = ancestry.Parse(commit.ID)
 
+	// Keep track of the original branch, in case it isn't set in the commitInfo already
+	var originalBranch *pfs.Branch
 	// Check if commit.ID is already a commit ID (i.e. a UUID).
 	if !uuid.IsUUIDWithoutDashes(commit.ID) {
 		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
@@ -1041,6 +1042,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		if branchInfo.Head == nil {
 			return nil, pfsserver.ErrNoHead{branchInfo.Branch}
 		}
+		originalBranch = branchInfo.Branch
 		commit.ID = branchInfo.Head.ID
 	}
 
@@ -1063,6 +1065,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		}
 		commit = commitInfo.ParentCommit
 	}
+	commitInfo.OriginalBranch = originalBranch
 	userCommit.ID = commitInfo.Commit.ID
 	return commitInfo, nil
 }
