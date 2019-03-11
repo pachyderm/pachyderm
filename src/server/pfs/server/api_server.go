@@ -164,7 +164,8 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err := a.driver.performRequests(a.env.GetPachClient(ctx), []Operation{&CreateBranchOp{request}})
+	alias := CreateBranchRequest(*request)
+	err := a.driver.performRequests(a.env.GetPachClient(ctx), []Operation{&alias})
 
 	if err != nil {
 		return nil, err
@@ -185,7 +186,8 @@ func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesSe
 		}
 
 		func() { a.Log(request, nil, nil, 0) }()
-		requests = append(requests, &CreateBranchOp{request})
+		alias := CreateBranchRequest(*request)
+		requests = append(requests, &alias)
 	}
 
 	client := a.env.GetPachClient(createBranchesServer.Context())

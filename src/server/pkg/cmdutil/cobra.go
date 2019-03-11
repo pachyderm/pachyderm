@@ -129,9 +129,15 @@ type BatchArgs struct {
 	Flags map[string][]string
 }
 
+// GetStringFlag is a helper function for accessing BatchArgs.Flags.  In order
+// to avoid type problems, BatchArgs assumes all flags may be repeated strings.
+// This helper function should be used when a flag should only have one value,
+// it will return the last-specified value for that flag, or the zero-value if
+// the flag is not specified.
 func (args *BatchArgs) GetStringFlag(name string) string {
-	if len(args.Flags[name]) > 0 {
-		return args.Flags[name][0]
+	length := len(args.Flags[name])
+	if length > 0 {
+		return args.Flags[name][length - 1]
 	}
 	return ""
 }
@@ -196,7 +202,7 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 }
 
 // newBatchParserCommand creates a dummy command parser that inherits flags from
-// the originalCommand, but is not attached to the main command tree.  This
+// the 'originalCommand', but is not attached to the main command tree.  This
 // gives us a bit more freedom to iteratively parse a batch of commands without
 // jumping through as many hoops.
 func newBatchParserCommand(originalCommand *cobra.Command) *cobra.Command {
@@ -214,11 +220,13 @@ func newBatchParserCommand(originalCommand *cobra.Command) *cobra.Command {
 	return result
 }
 
-// RunBatchCommand generates a run function for a batch CLI command.  This works
-// the same as a normal command except that we parse any number of sets of
+// RunBatchCommand generates a Run function for a batch CLI command.  This works
+// the same as a normal command except that it parses any number of sets of
 // arguments from the command-line args, each set corresponding to a request.
 // These parsed sets will be passed to the specified 'run' callback, which
-// can then be validated and handled.
+// can then be validated and handled.  The number of positional arguments to
+// each request must be fixed (as set by 'positionalCount'), and any flags
+// passed to the command will bind to their preceeding positional arguments.
 func RunBatchCommand(
 	positionalCount int,
 	run func([]BatchArgs) error,
@@ -232,7 +240,6 @@ func RunBatchCommand(
 		// Partition the args based on the number of positional arguments
 		args := partitionBatchArgs(originalArgs, positionalCount, cmd)
 
-		// Set a run function that appends to our set of parsed args
 		parsedArgs := []BatchArgs{}
 		innerCommand := newBatchParserCommand(cmd)
 
@@ -242,9 +249,11 @@ func RunBatchCommand(
 				positionals = append(positionals, runArgs...)
 			}
 
+			// This will collect the positionals - we discard parsed flags
 			innerCommand.SetArgs(argSet)
 			innerCommand.Execute()
 
+			// We then reprocess flag parsing using a lower-level interface
 			flags := map[string][]string{}
 			innerCommand.Flags().ParseAll(
 				argSet,

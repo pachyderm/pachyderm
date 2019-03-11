@@ -561,12 +561,7 @@ $ pachctl subscribe-commit test master --new
 			}
 			defer client.Close()
 
-			fmt.Printf("Would have run %d request(s):\n", len(requests))
-			for _, request := range requests {
-				fmt.Printf("  %s\n", request)
-			}
-			// return client.CreateBranches(requests)
-			return nil
+			return client.CreateBranches(requests)
 		},
 	)
 

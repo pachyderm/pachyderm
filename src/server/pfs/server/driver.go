@@ -162,9 +162,7 @@ type Operation interface {
 	execute(d *driver, pachClient *client.APIClient, stm col.STM) error
 }
 
-type CreateBranchOp struct {
-	*pfs.CreateBranchRequest
-}
+type CreateBranchRequest pfs.CreateBranchRequest
 
 func (d *driver) performRequests(pachClient *client.APIClient, requests []Operation) error {
 	for i, req := range requests {
@@ -1752,7 +1750,7 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 	return err
 }
 
-func (req *CreateBranchOp) validate(d *driver, pachClient *client.APIClient) error {
+func (req *CreateBranchRequest) validate(d *driver, pachClient *client.APIClient) error {
 	if err := d.checkIsAuthorized(pachClient, req.Branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1772,7 +1770,7 @@ func (req *CreateBranchOp) validate(d *driver, pachClient *client.APIClient) err
     return nil
 }
 
-func (req *CreateBranchOp) execute(d *driver, pachClient *client.APIClient, stm col.STM) error {
+func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient, stm col.STM) error {
     // if 'commit' is a branch, resolve it
     var err error
     if req.Head != nil {
