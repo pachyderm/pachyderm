@@ -5,42 +5,42 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
-	"sync"
-	"path"
 	"os"
+	"path"
+	"sync"
 
 	"github.com/facebookgo/pidfile"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/portforward"
-	"k8s.io/client-go/transport/spdy"
+	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	_ "k8s.io/client-go/plugin/pkg/client/auth" // enables support for configs with auth
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	_ "k8s.io/client-go/plugin/pkg/client/auth" // enables support for configs with auth
-	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/portforward"
+	"k8s.io/client-go/transport/spdy"
 )
 
 const (
-	pachdLocalPort = 30650
-	pachdRemotePort = 650
-	samlAcsLocalPort = 30654
-	dashUILocalPort = 30080
+	pachdLocalPort         = 30650
+	pachdRemotePort        = 650
+	samlAcsLocalPort       = 30654
+	dashUILocalPort        = 30080
 	dashWebSocketLocalPort = 30081
-	pfsLocalPort = 30652
+	pfsLocalPort           = 30652
 )
 
 // PortForwarder handles proxying local traffic to a kubernetes pod
 type PortForwarder struct {
-	core corev1.CoreV1Interface
-	client rest.Interface
-	config *rest.Config
-	namespace string
-	stdout io.Writer
-	stderr io.Writer
+	core          corev1.CoreV1Interface
+	client        rest.Interface
+	config        *rest.Config
+	namespace     string
+	stdout        io.Writer
+	stderr        io.Writer
 	stopChansLock *sync.Mutex
-	stopChans []chan struct{}
-	shutdown bool
+	stopChans     []chan struct{}
+	shutdown      bool
 }
 
 // NewPortForwarder creates a new port forwarder
@@ -64,25 +64,25 @@ func NewPortForwarder(namespace string, stdout, stderr io.Writer) (*PortForwarde
 
 	core := client.CoreV1()
 
-	return &PortForwarder {
-		core: core,
-		client: core.RESTClient(),
-		config: config,
-		namespace: namespace,
-		stdout: stdout,
-		stderr: stderr,
+	return &PortForwarder{
+		core:          core,
+		client:        core.RESTClient(),
+		config:        config,
+		namespace:     namespace,
+		stdout:        stdout,
+		stderr:        stderr,
 		stopChansLock: &sync.Mutex{},
-		stopChans: []chan struct{}{},
-		shutdown: false,
+		stopChans:     []chan struct{}{},
+		shutdown:      false,
 	}, nil
 }
 
 // Run starts the port forwarder. Returns after initialization is begun,
 // returning any initialization errors.
 func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) error {
-	podNameSelector := map[string]string {
+	podNameSelector := map[string]string{
 		"suite": "pachyderm",
-		"app": appName,
+		"app":   appName,
 	}
 
 	podList, err := f.core.Pods(f.namespace).List(metav1.ListOptions{
@@ -138,9 +138,9 @@ func (f *PortForwarder) Run(appName string, localPort, remotePort uint16) error 
 	go func() { errChan <- fw.ForwardPorts() }()
 
 	select {
-	case err = <- errChan:
+	case err = <-errChan:
 		return fmt.Errorf("port forwarding failed: %v", err)
-	case <- fw.Ready:
+	case <-fw.Ready:
 		return nil
 	}
 }
