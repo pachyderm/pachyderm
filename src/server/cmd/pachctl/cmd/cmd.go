@@ -381,29 +381,36 @@ This resets the cluster to its initial state.`,
 			defer fw.Close()
 
 			failCount := 0
-			printResult := func(err error) {
-				if err != nil {
-					fmt.Printf("%v\n", err)
-					failCount += 1
-				} else {
-					fmt.Println("success")
-				}
+
+			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
+			if err = fw.RunForDaemon(port, remotePort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount += 1
 			}
 
-			fmt.Print("Forwarding the pachd (Pachyderm daemon) port... ")
-			printResult(fw.RunForDaemon(port, remotePort))
+			fmt.Println("Forwarding the SAML ACS port...")
+			if err = fw.RunForSAMLACS(samlPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount += 1
+			}
 
-			fmt.Print("Forwarding the SAML ACS port... ")
-			printResult(fw.RunForSAMLACS(samlPort))
+			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
+			if err = fw.RunForDashUI(uiPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount += 1
+			}
 
-			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v... ", uiPort)
-			printResult(fw.RunForDashUI(uiPort))
+			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
+			if err = fw.RunForDashWebSocket(uiWebsocketPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount += 1
+			}
 
-			fmt.Print("Forwarding the dash (Pachyderm dashboard) websocket port... ")
-			printResult(fw.RunForDashWebSocket(uiWebsocketPort))
-
-			fmt.Print("Forwarding the PFS port... ")
-			printResult(fw.RunForPFS(pfsPort))
+			fmt.Println("Forwarding the PFS port...")
+			if err = fw.RunForPFS(pfsPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount += 1
+			}
 
 			if failCount < 5 {
 				fmt.Println("CTRL-C to exit")
