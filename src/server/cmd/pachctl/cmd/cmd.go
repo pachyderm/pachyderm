@@ -385,31 +385,31 @@ This resets the cluster to its initial state.`,
 			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
 			if err = fw.RunForDaemon(port, remotePort); err != nil {
 				fmt.Printf("%v\n", err)
-				failCount += 1
+				failCount++
 			}
 
 			fmt.Println("Forwarding the SAML ACS port...")
 			if err = fw.RunForSAMLACS(samlPort); err != nil {
 				fmt.Printf("%v\n", err)
-				failCount += 1
+				failCount++
 			}
 
 			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
 			if err = fw.RunForDashUI(uiPort); err != nil {
 				fmt.Printf("%v\n", err)
-				failCount += 1
+				failCount++
 			}
 
 			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
 			if err = fw.RunForDashWebSocket(uiWebsocketPort); err != nil {
 				fmt.Printf("%v\n", err)
-				failCount += 1
+				failCount++
 			}
 
 			fmt.Println("Forwarding the PFS port...")
 			if err = fw.RunForPFS(pfsPort); err != nil {
 				fmt.Printf("%v\n", err)
-				failCount += 1
+				failCount++
 			}
 
 			if failCount < 5 {
