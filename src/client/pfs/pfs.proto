@@ -96,7 +96,9 @@ message CommitRange {
 
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
+  reserved 10;
   Commit commit = 1;
+  Branch original_branch = 15;
   // description is a user-provided script describing this commit
   string description = 8;
   Commit parent_commit = 2;
@@ -105,11 +107,8 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 4;
   uint64 size_bytes = 5;
 
-  // Commits on which this commit is provenant. provenance[i] is a commit in
-  // branch_provenance[i] (a branch name, and one of the branches on which this
-  // commit's branch is provenant)
+  // Commits on which this commit is provenant
   repeated Commit provenance = 6;
-  repeated Branch branch_provenance = 10;
 
   // ReadyProvenance is the number of provenant commits which have been
   // finished, if ReadyProvenance == len(Provenance) then the commit is ready
