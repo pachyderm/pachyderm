@@ -64,14 +64,13 @@ func NewPortForwarder(namespace string) (*PortForwarder, error) {
 	}
 
 	core := client.CoreV1()
-	logger := log.StandardLogger()
 
 	return &PortForwarder{
 		core:          core,
 		client:        core.RESTClient(),
 		config:        config,
 		namespace:     namespace,
-		logger:        logger.Writer(),
+		logger:        log.StandardLogger().Writer(),
 		stopChansLock: &sync.Mutex{},
 		stopChans:     []chan struct{}{},
 		shutdown:      false,
