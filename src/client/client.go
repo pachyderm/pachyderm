@@ -13,7 +13,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
@@ -337,20 +336,11 @@ func portForwarder() *PortForwarder {
 		return nil
 	}
 
-	var eg errgroup.Group
-
-	eg.Go(func() error {
-		return fw.RunForDaemon(0, 0)
-	})
-
-	eg.Go(func() error {
-		return fw.RunForSAMLACS(0)
-	})
-
-	if err = eg.Wait(); err != nil {
-		fw.Close()
-		log.Debugf("Implicit port forwarding was not enabled because of an error: %v", err)
-		return nil
+	if err = fw.RunForDaemon(0, 0); err != nil {
+		log.Debugf("Implicit port forwarding for the daemon failed: %v", err)
+	}
+	if err = fw.RunForSAMLACS(0); err != nil {
+		log.Debugf("Implicit port forwarding for SAML ACS failed: %v", err)
 	}
 
 	return fw
