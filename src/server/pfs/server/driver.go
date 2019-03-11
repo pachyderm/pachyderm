@@ -157,11 +157,14 @@ func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtre
 	return d, nil
 }
 
+// Operation is an interface for specifying multiple requests to be performed
+// transactionally through 'performRequests'
 type Operation interface {
 	validate(d *driver, pachClient *client.APIClient) error
 	execute(d *driver, pachClient *client.APIClient, stm col.STM) error
 }
 
+// CreateBranchRequest is a type alias for the protobuf pfs.CreateBranchRequest
 type CreateBranchRequest pfs.CreateBranchRequest
 
 func (d *driver) performRequests(pachClient *client.APIClient, requests []Operation) error {

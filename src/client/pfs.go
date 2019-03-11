@@ -305,6 +305,8 @@ func (c APIClient) ListCommitByRepo(repoName string) ([]*pfs.CommitInfo, error) 
 	return c.ListCommit(repoName, "", "", 0)
 }
 
+// NewCreateBranchRequest is a helper function to convert 'create-branch'
+// arguments to the protobuf representation for the request.
 func NewCreateBranchRequest(repoName string, branch string, commit string, provenance []*pfs.Branch) *pfs.CreateBranchRequest {
 	var head *pfs.Commit
 	if commit != "" {
@@ -326,7 +328,7 @@ func (c APIClient) CreateBranch(repoName string, branch string, commit string, p
 	return grpcutil.ScrubGRPC(err)
 }
 
-// CreateBranch multiple branches across any number of repos
+// CreateBranches creates multiple branches across any number of repos
 func (c APIClient) CreateBranches(requests []*pfs.CreateBranchRequest) error {
 	batchClient, err := c.PfsAPIClient.CreateBranches(
 		c.Ctx(),

@@ -49,12 +49,17 @@ func Run(run func(args []string) error) func(*cobra.Command, []string) {
 	}
 }
 
-// ErrorAndExit errors with the given format and args, and then exits.
-func ErrorAndExit(format string, args ...interface{}) {
-	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
-		fmt.Fprintf(os.Stderr, "%s\n", errString)
+// This layer of indirection is so we can capture calls to ErrorAndExit in tests
+var internalErrorAndExit = func(message string) {
+	if message != "" {
+		fmt.Fprintf(os.Stderr, "%s\n", message)
 	}
 	os.Exit(1)
+}
+
+// ErrorAndExit errors with the given format and args, and then exits.
+func ErrorAndExit(format string, args ...interface{}) {
+	internalErrorAndExit(strings.TrimSpace(fmt.Sprintf(format, args...)))
 }
 
 // ParseCommits takes a slice of arguments of the form "repo/commit-id" or
@@ -124,6 +129,8 @@ func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }
 
+// BatchArgs is a struct used to pass arguments for one of many calls to a
+// batch command registered using 'RunBatchCommand'.
 type BatchArgs struct {
 	Positionals []string
 	Flags map[string][]string
@@ -163,7 +170,9 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 			split := strings.SplitN(x[2:], "=", 2)
 			flag := cmd.Flags().Lookup(split[0])
 
-			if len(split) == 1 && flag.NoOptDefVal == "" {
+			if flag == nil {
+				return nil, fmt.Errorf("unrecognized flag '%s'", x)
+			} else if len(split) == 1 && flag.NoOptDefVal == "" {
 				// The following arg is the value for this flag, make sure to include it
 				value = true
 			}
@@ -173,7 +182,9 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 			// Iterate through shorthand flags until we find one that requires a value
 			for i, shorthand := range x[1:] {
 				flag := cmd.Flags().ShorthandLookup(string(shorthand))
-				if flag.NoOptDefVal == "" {
+				if flag == nil {
+					return nil, fmt.Errorf("unrecognized flag '-%c'", shorthand)
+				} else if flag.NoOptDefVal == "" {
 					if len(x) == i + 2 {
 						// The following arg is the value for this flag, make sure to include it
 						value = true
@@ -183,17 +194,17 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 			}
 		} else if count < positionalCount {
 			sets[index] = append(sets[index], x)
-			count += 1
+			count++
 		} else {
 			sets = append(sets, []string{x})
-			index += 1
+			index++
 			count = 1
 		}
 	}
 
 	if count != positionalCount {
 		lastSetString := strings.Join(sets[len(sets) - 1], " ")
-		return nil, fmt.Errorf("each request must have %d arguments, but found %d in:\n  %s\n\n", positionalCount, count, lastSetString)
+		return nil, fmt.Errorf("each request must have %d arguments, but found %d in:\n  %s", positionalCount, count, lastSetString)
 	}
 
 	return sets, nil
@@ -204,15 +215,51 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 // gives us a bit more freedom to iteratively parse a batch of commands without
 // jumping through as many hoops.
 func newBatchParserCommand(originalCommand *cobra.Command) *cobra.Command {
-	// Create an inner command for parsing individual commands
-	result := &cobra.Command{}
-	result.Flags().AddFlagSet(originalCommand.LocalFlags())
+	// Make a list of commands in the hierarchy from this command up to the root
+	var hierarchy []*cobra.Command
+	for cmd := originalCommand; cmd != nil; cmd = cmd.Parent() {
+		hierarchy = append(hierarchy, cmd)
+	}
 
-	// Copy over inherited flags
-	ancestor := originalCommand.Parent()
-	for ancestor != nil {
-		result.Flags().AddFlagSet(ancestor.Flags())
-		ancestor = ancestor.Parent()
+	// Apparently cobra only runs one each of PersistentPreRun and
+	// PersistentPostRun, so we don't have to wrap them.  Just pull out the
+	// first one that cobra would run and copy it over.
+	var preRun func(*cobra.Command, []string)
+	var preRunE func(*cobra.Command, []string) error
+	for _, cmd := range hierarchy {
+		if cmd.PersistentPreRunE != nil {
+			preRunE = cmd.PersistentPreRunE
+			break
+		} else if cmd.PersistentPreRun != nil {
+			preRun = cmd.PersistentPreRun
+			break
+		}
+	}
+
+	var postRun func(*cobra.Command, []string)
+	var postRunE func(*cobra.Command, []string) error
+	for _, cmd := range hierarchy {
+		if cmd.PersistentPostRunE != nil {
+			postRunE = cmd.PersistentPostRunE
+			break
+		} else if cmd.PersistentPostRun != nil {
+			postRun = cmd.PersistentPostRun
+			break
+		}
+	}
+
+	// Create an inner command for parsing individual commands
+	result := &cobra.Command{
+		PersistentPreRunE: preRunE,
+		PersistentPreRun: preRun,
+		PersistentPostRunE: postRunE,
+		PersistentPostRun: postRun,
+	}
+
+	// Copy over flags from the hierarchy
+	result.Flags().AddFlagSet(originalCommand.LocalFlags())
+	for _, cmd := range hierarchy {
+		result.Flags().AddFlagSet(cmd.PersistentFlags())
 	}
 
 	return result
@@ -232,13 +279,13 @@ func RunBatchCommand(
 	return func(cmd *cobra.Command, originalArgs []string) {
 		// As long as there's any test coverage, hopefully this will save some time
 		if !cmd.DisableFlagParsing {
-			panic("Batch commands must disable flag parsing")
+			ErrorAndExit("ERROR: batch commands must disable flag parsing")
 		}
 
 		// Partition the args based on the number of positional arguments
 		args, err := partitionBatchArgs(originalArgs, positionalCount, cmd)
 		if err != nil {
-			ErrorAndExit("%v", err)
+			ErrorAndExit("%v\n\n%s", err, cmd.UsageString())
 		}
 
 		parsedArgs := []BatchArgs{}
