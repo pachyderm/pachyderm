@@ -1247,7 +1247,7 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 // starts downstream output commits (which trigger PPS jobs) when new input
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
-func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch) error {
+func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch, provenance []*pfs.CommitProvenance) error {
 	type BranchData struct {
 		branchInfo *pfs.BranchInfo
 		heads      []*pfs.CommitInfo // List of head commits being propagated that this branch is provenant on
@@ -1320,10 +1320,12 @@ nextSubvBranch:
 		// if we need it
 		commitProvMap := make(map[string]*pfs.CommitProvenance)
 		for _, provBranch := range branchInfo.Provenance {
+			// get the branch info from the provenance branch
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil && !col.IsErrNotFound(err) {
 				return fmt.Errorf("could not read branch %s/%s: %v", provBranch.Repo.Name, provBranch.Name, err)
 			}
+			// if the branch doesn't have a head commit, then we don't need to do anything
 			if provBranchInfo.Head == nil {
 				continue
 			}
@@ -1360,6 +1362,10 @@ nextSubvBranch:
 				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
 			}
 		}
+		// Fill it with the passed in provenance
+		for _, prov := range provenance {
+			commitProvMap[prov.commit.ID] = prov
+		}
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
 			continue nextSubvBranch
@@ -1370,6 +1376,7 @@ nextSubvBranch:
 		// commit. If so, a new output commit would be a duplicate, so don't create
 		// it.
 		if branchInfo.Head != nil {
+			// get the info for the branch's HEAD commit
 			branchHeadInfo := &pfs.CommitInfo{}
 			if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
@@ -2252,7 +2259,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	if err := txnCtx.PropagateCommit(branch); err != nil {
+	if err := txnCtx.PropagateCommit(branch, nil); err != nil {
 		return err
 	}
 	return nil
