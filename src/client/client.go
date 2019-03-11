@@ -13,11 +13,11 @@ import (
 
 	"golang.org/x/net/context"
 
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
-	"golang.org/x/sync/errgroup"
 
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
@@ -337,7 +338,7 @@ func portForwarder() *PortForwarder {
 	}
 
 	var eg errgroup.Group
-	
+
 	eg.Go(func() error {
 		return fw.RunForDaemon(0, 0)
 	})
@@ -368,7 +369,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
-		log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
+		log.Warningf("error loading user config from ~/.pachyderm/config: %v", err)
 	}
 
 	// create new pachctl client
@@ -381,7 +382,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
 
 		if portForward {
-			fw = portForwarder()	
+			fw = portForwarder()
 		}
 	}
 
@@ -423,7 +424,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 	if cfg != nil && cfg.V1 != nil && cfg.V1.SessionToken != "" {
 		client.authenticationToken = cfg.V1.SessionToken
 	}
-	
+
 	// Add port forwarding. This will set it to nil if port forwarding is
 	// disabled, or an address is explicitly set.
 	client.portForwarder = fw
@@ -454,7 +455,7 @@ func (c *APIClient) Close() error {
 	}
 
 	if c.portForwarder != nil {
-		c.portForwarder.Close()	
+		c.portForwarder.Close()
 	}
 
 	return nil
@@ -522,8 +523,16 @@ func (c *APIClient) connect(timeout time.Duration) error {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
-	dialOptions = append(dialOptions, grpc.WithTimeout(timeout))
-	// TODO(msteffen) switch to grpc.DialContext instead
+	dialOptions = append(dialOptions,
+		// TODO(msteffen) switch to grpc.DialContext instead
+		grpc.WithTimeout(timeout),
+	)
+	if tracing.IsActive() {
+		dialOptions = append(dialOptions,
+			grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
+			grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
+		)
+	}
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
 		return err

@@ -1140,7 +1140,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 				}
 			}
 			ctx, _ := joincontext.Join(jobCtx, a.shardCtx)
-			objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
+			objClient, err := obj.NewClientFromEnv(a.hashtreeStorage)
 			if err != nil {
 				return err
 			}
@@ -1441,7 +1441,7 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 				return err
 			}
 			// Read the full datum hashtree in memory
-			objR, err := objClient.Reader(path, 0, 0)
+			objR, err := objClient.Reader(ctx, path, 0, 0)
 			if err != nil {
 				return err
 			}
@@ -1511,7 +1511,7 @@ func (a *APIServer) getParentHashTree(ctx context.Context, pachClient *client.AP
 	if err != nil {
 		return nil, err
 	}
-	return objClient.Reader(path, 0, 0)
+	return objClient.Reader(ctx, path, 0, 0)
 }
 
 func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Object, idx []byte) (retErr error) {
@@ -1523,7 +1523,7 @@ func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Ob
 	if err != nil {
 		return err
 	}
-	idxW, err := objClient.Writer(path + hashtree.IndexPath)
+	idxW, err := objClient.Writer(pachClient.Ctx(), path+hashtree.IndexPath)
 	if err != nil {
 		return err
 	}
@@ -1804,7 +1804,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		}
 	}()
 	ctx := pachClient.Ctx()
-	objClient, err := obj.NewClientFromEnv(ctx, a.hashtreeStorage)
+	objClient, err := obj.NewClientFromEnv(a.hashtreeStorage)
 	if err != nil {
 		return nil, err
 	}

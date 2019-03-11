@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -117,21 +118,13 @@ type driver struct {
 }
 
 // newDriver is used to create a new Driver instance
-func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*driver, error) {
+func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*driver, error) {
 	// Validate arguments
 	if treeCache == nil {
 		return nil, fmt.Errorf("cannot initialize driver with nil treeCache")
 	}
-
-	// Initialize etcd client
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   etcdAddresses,
-		DialOptions: client.DefaultDialOptions(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to etcd: %v", err)
-	}
 	// Initialize driver
+	etcdClient := env.GetEtcdClient()
 	d := &driver{
 		etcdClient:     etcdClient,
 		prefix:         etcdPrefix,
@@ -148,6 +141,18 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Ca
 		storageRoot: storageRoot,
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
+	}
+	// Create spec repo (default repo)
+	repo := client.NewRepo(ppsconsts.SpecRepo)
+	repoInfo := &pfs.RepoInfo{
+		Repo:    repo,
+		Created: now(),
+	}
+	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		return repos.Create(repo.Name, repoInfo)
+	}); err != nil && !col.IsErrExists(err) {
+		return nil, err
 	}
 	return d, nil
 }
@@ -2310,7 +2315,7 @@ func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitIn
 }
 
 func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, prefix string) (r io.ReadCloser, retErr error) {
-	objClient, err := obj.NewClientFromEnv(pachClient.Ctx(), d.storageRoot)
+	objClient, err := obj.NewClientFromEnv(d.storageRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -2322,11 +2327,11 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	if err != nil {
 		return nil, err
 	}
-	offset, size, err := getTreeRange(objClient, path, prefix)
+	offset, size, err := getTreeRange(pachClient.Ctx(), objClient, path, prefix)
 	if err != nil {
 		return nil, err
 	}
-	objR, err := objClient.Reader(path, offset, size)
+	objR, err := objClient.Reader(pachClient.Ctx(), path, offset, size)
 	if err != nil {
 		return nil, err
 	}
@@ -2355,9 +2360,9 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	return f, nil
 }
 
-func getTreeRange(objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
+func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
 	p := path + hashtree.IndexPath
-	r, err := objClient.Reader(p, 0, 0)
+	r, err := objClient.Reader(ctx, p, 0, 0)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -3429,13 +3434,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 						err = fmt.Errorf("error parsing url %v: %v", req.Url, err)
 						return false, "", "", err
 					}
-					objClient, err := obj.NewClientFromURLAndSecret(server.Context(), url, false)
+					objClient, err := obj.NewClientFromURLAndSecret(url, false)
 					if err != nil {
 						return false, "", "", err
 					}
 					if req.Recursive {
 						path := strings.TrimPrefix(url.Object, "/")
-						if err := objClient.Walk(path, func(name string) error {
+						if err := objClient.Walk(server.Context(), path, func(name string) error {
 							if strings.HasSuffix(name, "/") {
 								// Creating a file with a "/" suffix breaks
 								// pfs' directory model, so we don't
@@ -3443,7 +3448,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							r, err := objClient.Reader(name, 0, 0)
+							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
@@ -3462,7 +3467,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
-						r, err := objClient.Reader(url.Object, 0, 0)
+						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}

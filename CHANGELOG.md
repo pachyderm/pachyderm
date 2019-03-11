@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.8.6
+
+- The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#cron-input) for more info. (#3509)
+- 1.8.6 contains alpha support for a new kind of pipeline, spouts, which take no inputs and run continuously outputting (or spouting) data. Documentation and an example of spout usage will be in a future release. (#3531)
+- New debug commands have been added to `pachctl` to easily profile running pachyderm clusters. They are `debug-profile` `debug-binary` and `debug-pprof`.  See the docs for these commands for more information. (#3559)
+- The performance of `list-job` has been greatly improved. (#3557)
+- `pachctl undeploy` now asks for confirmation in all cases. (#3535)
+- Logging has been unified and made less verbose. (#3532)
+- Bogus output in with `--raw` flags has been removed. (#3523, thanks to @mdaniel)
+- Fixes a bug in `list-file --history` that would cause it to fail with too many files. (#3516)
+- `pachctl deploy` is more liberal in what it accepts for bucket names. (#3506)
+- `pachctl` now respects Kubernetes auth when port-forwarding. (#3504)
+- Output repos now report non-zero sizes, the size reported is that of the HEAD commit of the master branch. (#3475)
+- Pachyderm will no longer mutate custom image names when there's no registry. (#3487, thanks to @mdaniel)
+- Fixes a bug that caused `pod_patch` and `pod_spec` to be reapplied over themselves. (#3484, thanks to @mdaniel)
+
 ## 1.8.5
 - New shuffle step which should improve the merge performance on certain workloads.
 

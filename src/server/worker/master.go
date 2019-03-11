@@ -140,7 +140,10 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			if len(jobInfos) > 1 {
 				return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 			}
-			jobInfo = jobInfos[0]
+			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
+			if err != nil {
+				return err
+			}
 		} else {
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
@@ -792,7 +795,7 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 			if err != nil {
 				return err
 			}
-			objClient, err := obj.NewClientFromURLAndSecret(pachClient.Ctx(), url, false)
+			objClient, err := obj.NewClientFromURLAndSecret(url, false)
 			if err != nil {
 				return err
 			}

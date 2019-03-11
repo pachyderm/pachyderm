@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -77,6 +78,8 @@ func Serve(
 				MinTime:             5 * time.Second,
 				PermitWithoutStream: true,
 			}),
+			grpc.UnaryInterceptor(tracing.UnaryServerInterceptor()),
+			grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
 		}
 		if server.PublicPortTLSAllowed {
 			// Validate environment
