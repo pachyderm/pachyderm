@@ -370,7 +370,7 @@ This resets the cluster to its initial state.`,
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			fw, err := client.NewPortForwarder(namespace, ioutil.Discard, os.Stderr)
+			fw, err := client.NewPortForwarder(namespace)
 			if err != nil {
 				return err
 			}

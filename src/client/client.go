@@ -327,13 +327,13 @@ func portForwarder() *PortForwarder {
 	// NOTE: this will always use the default namespace; if a custom
 	// namespace is required with port forwarding,
 	// `pachctl port-forward` should be explicitly called.
-	fw, err := NewPortForwarder("", ioutil.Discard, os.Stderr)
+	fw, err := NewPortForwarder("")
 	if err != nil {
-		log.Debugf("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
+		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
 		return nil
 	}
 	if err = fw.Lock(); err != nil {
-		log.Debugf("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
+		log.Infof("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
 		return nil
 	}
 
