@@ -69,8 +69,8 @@ than welcome to use any other public or private Docker registry.
 Note, it is best practice to uniquely tag your Docker images with something
 other than `:latest`.  This allows you to track which Docker images were used
 to process which data, and will help you as you update your pipelines.  You can
-also utilize the `--push-images` flag on `update-pipeline` to help you tag your
-images as they are updated.  See the [updating pipelines
+also utilize the `--build` or `--push-images` flags on `update-pipeline` to
+help you tag your images as they are updated.  See the [updating pipelines
 docs](updating_pipelines.html) for more information.
 
 ## 3. Creating a Pipeline
