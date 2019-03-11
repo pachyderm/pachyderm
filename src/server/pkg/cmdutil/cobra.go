@@ -147,8 +147,8 @@ func (args *BatchArgs) GetStringFlag(name string) string {
 // positional arguments.  This function mimics the parsing behavior of cobra,
 // so it may be a bit sensitive to cobra's behavior changing.  We rely on cobra
 // having already done a pass over the arguments, so we can assume they are a
-// valid format recognized by cobra.
-func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) [][]string {
+// valid format recognized by cobra, and that all flags are recognized.
+func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) ([][]string, error) {
 	sets := [][]string{{}}
 	index := 0
 	count := 0
@@ -193,12 +193,10 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 
 	if count != positionalCount {
 		lastSetString := strings.Join(sets[len(sets) - 1], " ")
-		fmt.Printf("each request must have %d arugments, but found %d in:\n  %s\n\n", positionalCount, count, lastSetString)
-		cmd.Usage()
-		ErrorAndExit("")
+		return nil, fmt.Errorf("each request must have %d arguments, but found %d in:\n  %s\n\n", positionalCount, count, lastSetString)
 	}
 
-	return sets
+	return sets, nil
 }
 
 // newBatchParserCommand creates a dummy command parser that inherits flags from
@@ -238,7 +236,10 @@ func RunBatchCommand(
 		}
 
 		// Partition the args based on the number of positional arguments
-		args := partitionBatchArgs(originalArgs, positionalCount, cmd)
+		args, err := partitionBatchArgs(originalArgs, positionalCount, cmd)
+		if err != nil {
+			ErrorAndExit("%v", err)
+		}
 
 		parsedArgs := []BatchArgs{}
 		innerCommand := newBatchParserCommand(cmd)
@@ -266,7 +267,7 @@ func RunBatchCommand(
 			parsedArgs = append(parsedArgs, BatchArgs{positionals, flags})
 		}
 
-		if err := run(parsedArgs); err != nil {
+		if err = run(parsedArgs); err != nil {
 			ErrorAndExit("%v", err)
 		}
 	}
