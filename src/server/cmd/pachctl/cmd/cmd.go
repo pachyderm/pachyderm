@@ -383,7 +383,7 @@ This resets the cluster to its initial state.`,
 			failCount := 0
 			printResult := func(err error) {
 				if err != nil {
-					fmt.Errorf("failed: %v\n", err)
+					fmt.Printf("%v\n", err)
 					failCount += 1
 				} else {
 					fmt.Println("success")
