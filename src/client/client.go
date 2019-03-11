@@ -369,7 +369,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
-		log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
+		log.Warningf("error loading user config from ~/.pachyderm/config: %v", err)
 	}
 
 	// create new pachctl client

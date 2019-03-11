@@ -746,13 +746,17 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	jobInfos, err := c.ListJob(pipelineA, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.NotNil(t, jobInfos[0].Input.Pfs)
-	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, false)
+	require.NoError(t, err)
+	require.NotNil(t, jobInfo.Input.Pfs)
+	require.Equal(t, true, jobInfo.Input.Pfs.Lazy)
 	jobInfos, err = c.ListJob(pipelineB, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobInfos))
-	require.NotNil(t, jobInfos[0].Input.Pfs)
-	require.Equal(t, true, jobInfos[0].Input.Pfs.Lazy)
+	jobInfo, err = c.InspectJob(jobInfos[0].Job.ID, false)
+	require.NoError(t, err)
+	require.NotNil(t, jobInfo.Input.Pfs)
+	require.Equal(t, true, jobInfo.Input.Pfs.Lazy)
 }
 
 func TestLazyPipeline(t *testing.T) {
@@ -1856,7 +1860,9 @@ func TestPrettyPrinting(t *testing.T) {
 	jobInfos, err := c.ListJob("", nil, nil)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
-	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfos[0]))
+	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, false)
+	require.NoError(t, err)
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfo))
 }
 
 func TestDeleteAll(t *testing.T) {
@@ -2056,9 +2062,15 @@ func TestUpdatePipeline(t *testing.T) {
 	// Inspect the first job to make sure it hasn't changed
 	jis, err := c.ListJob(pipelineName, nil, nil)
 	require.Equal(t, 3, len(jis))
-	require.Equal(t, "echo bar >/pfs/out/file", jis[0].Transform.Stdin[0])
-	require.Equal(t, "echo bar >/pfs/out/file", jis[1].Transform.Stdin[0])
-	require.Equal(t, "echo foo >/pfs/out/file", jis[2].Transform.Stdin[0])
+	ji, err := c.InspectJob(jis[0].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, "echo bar >/pfs/out/file", ji.Transform.Stdin[0])
+	ji, err = c.InspectJob(jis[1].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, "echo bar >/pfs/out/file", ji.Transform.Stdin[0])
+	ji, err = c.InspectJob(jis[2].Job.ID, false)
+	require.NoError(t, err)
+	require.Equal(t, "echo foo >/pfs/out/file", ji.Transform.Stdin[0])
 
 	// Update the pipeline again, this time with Reprocess: true set. Now we
 	// should see a different output file

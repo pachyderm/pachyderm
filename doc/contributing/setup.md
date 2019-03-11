@@ -27,14 +27,6 @@ Then update your `~/.bash_profile` by adding the line:
 
 And you'll stay up to date!
 
-## Protocol buffers
-
-Install protoc 3+. On macOS, this can be done via `brew install protobuf`. Then installed protoc-gen-go by doing:
-
-    go get -u -v github.com/golang/protobuf/proto
-    go get -u -v github.com/golang/protobuf/protoc-gen-go
-    go get -u -v github.com/gengo/grpc-gateway/protoc-gen-grpc-gateway
-
 ## Special macOS configuration
 
 ### File Descriptor Limit

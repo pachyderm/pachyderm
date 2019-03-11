@@ -11,7 +11,7 @@ You can schedule pipelines like these to run regularly with Pachyderm's built-in
 
 ## Cron Example
 
-Let's say that we want to query a database every 10 seconds and update our dataset every time the pipeline is triggered. We could do this with `cron` input as follows:
+Let's say that we want to query a database every 10 seconds and update our dataset with the new data every time the pipeline is triggered. We could do this with `cron` input as follows:
 
 ```
   "input": {
@@ -22,10 +22,25 @@ Let's say that we want to query a database every 10 seconds and update our datas
   }
 ```
 
-When we create this pipeline, Pachyderm will create a new input data repository corresponding to the `cron` input. It will then automatically commit an updated timestamp file every 10 seconds to the `cron` input repository, which will automatically trigger our pipeline.
+When we create this pipeline, Pachyderm will create a new input data repository corresponding to the `cron` input. It will then automatically commit a timestamp file every 10 seconds to the `cron` input repository, which will automatically trigger our pipeline.
 
 ![alt tag](cron1.png)
 
 The pipeline will run every 10 seconds, querying our database and updating its output.
 
 We have used the `@every 10s` cron spec here, but you can use any cron spec formatted according to [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt). For example, `*/10 * * * *` would indicate that the pipeline should run every 10 minutes (these time formats should be familiar to those who have used cron in the past, and you can find more examples [here](https://en.wikipedia.org/wiki/Cron))
+
+By default, Pachyderm will run the pipeline on input data that has come in since the last tick. If instead we would like the pipeline to reprocess all the data, we can set the `overwrite` flag to true:
+
+
+```
+  "input": {
+    "cron": {
+      "name": "tick",
+      "spec": "@every 10s",
+      "overwrite": true
+    }
+  }
+```
+
+Now, it will overwrite the timestamp file each tick. Since the processed data is associated with the old file, its absence will indicate to Pachyderm that it needs to be reprocessed.
