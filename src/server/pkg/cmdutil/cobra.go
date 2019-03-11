@@ -122,3 +122,49 @@ func (r *RepeatedStringArg) Set(s string) error {
 func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }
+
+// SetDocsUsage sets the usage string for a docs-style command.  Docs commands
+// have no functionality except to output some docs and related commands, and
+// should not specify a 'Run' attribute.
+func SetDocsUsage(command *cobra.Command, subcommands []*cobra.Command) {
+    command.SetUsageTemplate(`Usage:
+  pachctl [command]{{if gt .Aliases 0}}
+
+Aliases:
+  {{.NameAndAliases}}
+{{end}}{{if .HasExample}}
+
+Examples:
+{{ .Example }}{{end}}{{ if .HasAvailableSubCommands}}
+
+Available Commands:{{range .Commands}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasAvailableLocalFlags}}
+
+Flags:
+{{.LocalFlags.FlagUsages | trimRightSpace}}{{end}}{{if .HasHelpSubCommands}}
+
+Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}
+`)
+
+    command.SetHelpTemplate(`{{or .Long .Short}}
+{{.UsageString}}`)
+
+    // This song-and-dance is so that we can render the related commands without
+    // actually having them usable as subcommands of the docs command.
+    // That is, we don't want `pachctl job list-job` to work, it should just
+    // be `pachctl list-job`.  Therefore, we lazily add/remove the subcommands
+    // only when we try to render usage for the docs command.
+    originalUsage := command.UsageFunc()
+    command.SetUsageFunc(func (c *cobra.Command) error {
+        newUsage := command.UsageFunc()
+        command.SetUsageFunc(originalUsage)
+        defer command.SetUsageFunc(newUsage)
+
+        command.AddCommand(subcommands...)
+        defer command.RemoveCommand(subcommands...)
+
+        command.Usage()
+        return nil
+    })
+}

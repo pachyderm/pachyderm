@@ -1,17 +1,14 @@
-## ./pachctl file
+## ./pachctl debug-binary
 
-Docs for files.
+Return the binary the server is running.
 
 ### Synopsis
 
 
-Files are the lowest level data object in Pachyderm.
-
-	Files can be written to started (but not finished) commits with put-file.
-	Files can be read from finished commits with get-file.
+Return the binary the server is running.
 
 ```
-./pachctl file
+./pachctl debug-binary
 ```
 
 ### Options inherited from parent commands

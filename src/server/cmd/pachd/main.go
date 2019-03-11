@@ -43,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
+	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
@@ -243,7 +244,11 @@ func doFullMode(config interface{}) (retErr error) {
 	// (bryce) Do we have to use etcd client v2 here for sharder? Might want to re-visit this later.
 	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
 	etcdClientV2 := getEtcdClient(etcdAddress)
-	address := net.JoinHostPort("localhost", fmt.Sprintf("%d", env.PeerPort))
+	ip, err := netutil.ExternalIP()
+	if err != nil {
+		return fmt.Errorf("error getting pachd external ip: %v", err)
+	}
+	address := net.JoinHostPort(ip, fmt.Sprintf("%d", env.PeerPort))
 	sharder := shard.NewSharder(
 		etcdClientV2,
 		env.NumShards,

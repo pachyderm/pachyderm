@@ -19,7 +19,7 @@ Once your code is ready to commit to your git repo, here are the steps that can 
 ### 1. Git commit hook
 
 A [commit hook in git](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) for your kicks off the
-Continous Integration/Continuous Deployment process.  It should  use the information present in a template for your Pachyderm pipelines for subsequent
+Continous Integration/Continuous Deployment process.  It should  use the information present in a template for your Pachyderm pipelines for subsequent steps.
 
 ### 2. Build image
 
