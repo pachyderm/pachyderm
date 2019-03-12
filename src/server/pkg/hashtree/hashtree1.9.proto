@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package hashtree;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/hashtree";
+
+import "client/pfs/pfs1.9.proto";
+import "server/pkg/hashtree/hashtree.proto";
+
+// NodeProto is a node in the hash tree (either a file or a directory)
+message NodeProto1_9 {
+  // Name is the name (not path) of the file/directory (e.g. /lib).
+  string name = 1;
+
+  // Hash is a hash of the node's name and contents. This can be used to
+  // detect if the name or contents have changed between versions.
+  bytes hash = 2;
+
+  // Subtree_size is the size of the subtree under node; i.e. if this is a directory,
+  // subtree_size includes all children.
+  int64 subtree_size = 3;
+
+  // Exactly one of the following fields must be set. The type of this node will
+  // be determined by which field is set.
+  FileNodeProto1_9 file_node = 4;
+  DirectoryNodeProto dir_node = 5;
+}
+
+// FileNodeProto is a node corresponding to a file (which is also a leaf node).
+message FileNodeProto1_9 {
+  reserved 1, 2, 3;
+
+  // has_header_footer indicates whether the File corresponding to this node
+  // inherits header or footer data from the parent directory. Typically this
+  // is false, and when it's true, determining this file's contents requires
+  // reading the parent directory's metadata in addition to this file's
+  // block_refs/objects. Without this signal, all calls to pfs.GetFile() would
+  // need to check the parent directory's metadata before beginning to return
+  // the file's contents, which would be slow.)
+  bool has_header_footer = 6;
+
+  repeated pfs.DataOp dataOps = 7;
+}
+

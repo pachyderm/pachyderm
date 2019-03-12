@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package pfs;
+option go_package = "github.com/pachyderm/pachyderm/src/client/pfs";
+
+import "client/pfs/pfs.proto";
+
+// DataRef is a reference to a chunk of data in an Object.
+message DataRef {
+  Object object = 1;
+  ByteRange range = 2;
+}
+
+message DataRefs {
+  repeated DataRef dataRefs = 1;
+}
+
+// Op is the set of operations that can be associated with a chunk of data.
+enum Op {
+  APPEND = 0;
+  OVERWRITE = 1;
+  DELETE = 2;
+}
+
+// DataOp is a chunk of data and an operation associated with that chunk.
+// A sequence of DataOps is used in FileNodeProto to represent the state of a file. 
+message DataOp {
+  DataRefs dataRefs = 1;
+  Op op = 2;
+}
+
+
