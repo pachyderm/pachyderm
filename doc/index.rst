@@ -30,6 +30,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     fundamentals/creating_analysis_pipelines
     fundamentals/getting_data_out_of_pachyderm
     fundamentals/removing_data_from_pachyderm
+    fundamentals/append_overwrite
     fundamentals/updating_pipelines
     fundamentals/distributed_computing
     fundamentals/incrementality
