@@ -219,8 +219,18 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			continue
 		}
 
+		// Get the repo/branch to commit mapping for the commit's provenance
+		branchToCommit := make(map[string]*pfs.Commit)
+		for _, prov := range commitInfo.Provenance {
+			provCommitInfo, err := pachClient.InspectCommit(prov.Repo.Name, prov.ID)
+			if err != nil {
+				return err
+			}
+			branchToCommit[path.Join(prov.Repo.Name, provCommitInfo.OriginalBranch.Name)] = prov
+		}
+
 		// Create a job document matching the service's output commit
-		jobInput := ppsutil.JobInput(a.pipelineInfo, commitInfo)
+		jobInput := ppsutil.JobInput(a.pipelineInfo, branchToCommit)
 		job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 		if err != nil {
 			return err
