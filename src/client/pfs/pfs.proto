@@ -204,19 +204,21 @@ enum CommitState {
 }
 
 message StartCommitRequest {
+  reserved 2;
   // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
   // If branch is empty, or if branch does not exist, the commit will have no parent.
   Commit parent = 1;
   // description is a user-provided string describing this commit
   string description = 4;
   string branch = 3;
-  repeated Commit provenance = 2;
+  repeated CommitOrigin provenance = 5;
 }
 
 message BuildCommitRequest {
+  reserved 2;
   Commit parent = 1;
   string branch = 4;
-  repeated Commit provenance = 2;
+  repeated CommitOrigin provenance = 6;
   Object tree = 3;
   // ID sets the ID of the created commit.
   string ID = 5;
