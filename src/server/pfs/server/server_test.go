@@ -4389,7 +4389,7 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 	outputCommitInfo, err := c.InspectCommit("pipeline", "master")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(outputCommitInfo.Provenance))
-	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].ID)
+	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].Commit.ID)
 }
 
 func TestCommitState(t *testing.T) {
