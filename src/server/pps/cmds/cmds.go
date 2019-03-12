@@ -810,7 +810,7 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 				if dockerfile == "" {
 					dockerfile = "./Dockerfile"
 				}
-				err = buildImage(dockerClient, registry, repo, contextDir, dockerfile, destTag)
+				err = buildImage(dockerClient, repo, contextDir, dockerfile, destTag)
 				if err != nil {
 					return err
 				}
@@ -819,7 +819,7 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 				// the right image
 				sourceTag = destTag
 			}
-			image, err := pushImage(dockerClient, authConfig, registry, repo, sourceTag, destTag)
+			image, err := pushImage(dockerClient, authConfig, repo, sourceTag, destTag)
 			if err != nil {
 				return err
 			}
@@ -899,9 +899,9 @@ func dockerConfig(registry string, username string) (*docker.Client, docker.Auth
 	return client, authConfig, nil
 }
 
-// buildImage builds a new docker image as registry/user/repo.
-func buildImage(client *docker.Client, registry string, repo string, contextDir string, dockerfile string, destTag string) error {
-	destImage := fmt.Sprintf("%s/%s:%s", registry, repo, destTag)
+// buildImage builds a new docker image.
+func buildImage(client *docker.Client, repo string, contextDir string, dockerfile string, destTag string) error {
+	destImage := fmt.Sprintf("%s:%s", repo, destTag)
 
 	fmt.Printf("Building %s, this may take a while.\n", destImage)
 
@@ -919,16 +919,15 @@ func buildImage(client *docker.Client, registry string, repo string, contextDir 
 	return nil
 }
 
-// pushImage pushes an image as registry/user/repo.
-func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, registry string, repo string, sourceTag string, destTag string) (string, error) {
-	fullRepo := fmt.Sprintf("%s/%s", registry, repo)
-	sourceImage := fmt.Sprintf("%s:%s", fullRepo, sourceTag)
-	destImage := fmt.Sprintf("%s:%s", fullRepo, destTag)
+// pushImage pushes a docker image.
+func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo string, sourceTag string, destTag string) (string, error) {
+	sourceImage := fmt.Sprintf("%s:%s", repo, sourceTag)
+	destImage := fmt.Sprintf("%s:%s", repo, destTag)
 
 	fmt.Printf("Tagging/pushing %s, this may take a while.\n", destImage)
 
 	if err := client.TagImage(sourceImage, docker.TagImageOptions{
-		Repo:    fullRepo,
+		Repo:    repo,
 		Tag:     destTag,
 		Context: context.Background(),
 	}); err != nil {
@@ -938,7 +937,7 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, regis
 
 	if err := client.PushImage(
 		docker.PushImageOptions{
-			Name: fullRepo,
+			Name: repo,
 			Tag:  destTag,
 		},
 		authConfig,
