@@ -165,7 +165,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	alias := CreateBranchRequest(*request)
-	err := a.driver.performRequests(a.env.GetPachClient(ctx), []Operation{&alias})
+	err := a.driver.performRequest(a.env.GetPachClient(ctx), &alias)
 
 	if err != nil {
 		return nil, err

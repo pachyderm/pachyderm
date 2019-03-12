@@ -167,10 +167,26 @@ type Operation interface {
 // CreateBranchRequest is a type alias for the protobuf pfs.CreateBranchRequest
 type CreateBranchRequest pfs.CreateBranchRequest
 
+func (d *driver) performRequest(pachClient *client.APIClient, request Operation) error {
+	if err := request.validate(d, pachClient); err != nil {
+		return err
+	}
+
+	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+		if err := request.execute(d, pachClient, stm); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	return err
+}
+
 func (d *driver) performRequests(pachClient *client.APIClient, requests []Operation) error {
 	for i, req := range requests {
 		if err := req.validate(d, pachClient); err != nil {
-			return fmt.Errorf("Error validating operation %d of %d: %v",
+			return fmt.Errorf("Error validating request %d of %d: %v",
 			i + 1, len(requests), grpcutil.ScrubGRPC(err))
 		}
 	}
@@ -178,7 +194,7 @@ func (d *driver) performRequests(pachClient *client.APIClient, requests []Operat
 	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
 		for i, req := range requests {
 			if err := req.execute(d, pachClient, stm); err != nil {
-				return fmt.Errorf("Error executing operation %d of %d: %v",
+				return fmt.Errorf("Error executing request %d of %d: %v",
 				i + 1, len(requests), grpcutil.ScrubGRPC(err))
 			}
 		}

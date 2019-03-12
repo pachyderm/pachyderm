@@ -181,6 +181,61 @@ func TestBranch(t *testing.T) {
 	require.NotNil(t, commitInfo.ParentCommit)
 }
 
+func TestCreateBranches(t *testing.T) {
+	client := GetPachClient(t)
+
+	require.NoError(t, client.CreateRepo("a"))
+	require.NoError(t, client.CreateRepo("b"))
+	commit, err := client.StartCommit("b", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("b", "master"))
+
+	require.NoError(t, client.CreateBranches(
+		[]*pfs.CreateBranchRequest{
+			pclient.NewCreateBranchRequest("a", "master", "", []*pfs.Branch{}),
+			pclient.NewCreateBranchRequest("a", "foo", "master", []*pfs.Branch{}),
+			pclient.NewCreateBranchRequest("b", "bar", "", []*pfs.Branch{}),
+			pclient.NewCreateBranchRequest("b", "baz", "master", []*pfs.Branch{}),
+		},
+	))
+
+	branch, err := client.InspectBranch("a", "master")
+	require.NoError(t, err)
+	require.Nil(t, branch.Head)
+	branch, err = client.InspectBranch("a", "foo")
+	require.NoError(t, err)
+	require.Nil(t, branch.Head)
+	branch, err = client.InspectBranch("b", "bar")
+	require.NoError(t, err)
+	require.Nil(t, branch.Head)
+	branch, err = client.InspectBranch("b", "baz")
+	require.NoError(t, err)
+	require.Equal(t, commit, branch.Head)
+}
+
+func TestFailedCreateBranches(t *testing.T) {
+	client := GetPachClient(t)
+
+	require.NoError(t, client.CreateRepo("a"))
+
+	err := client.CreateBranches(
+		[]*pfs.CreateBranchRequest{
+			pclient.NewCreateBranchRequest("a", "foo", "", []*pfs.Branch{}),
+			pclient.NewCreateBranchRequest("b", "bar", "", []*pfs.Branch{}),
+			pclient.NewCreateBranchRequest("a", "baz", "", []*pfs.Branch{}),
+		},
+	)
+
+	require.Matches(t, "executing request 2 of 3", err.Error())
+	require.Matches(t, "repos/b not found", err.Error())
+
+	// The batch request should be transactional - none of the branches
+	// should have been created since one failed
+	branches, err := client.ListBranch("a")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(branches))
+}
+
 func TestCreateAndInspectRepo(t *testing.T) {
 	client := GetPachClient(t)
 
