@@ -158,51 +158,42 @@ func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtre
 }
 
 // Operation is an interface for specifying multiple requests to be performed
-// transactionally through 'performRequests'
+// transactionally through 'executeRequests'
 type Operation interface {
-	validate(d *driver, pachClient *client.APIClient) error
-	execute(d *driver, pachClient *client.APIClient, stm col.STM) error
+	executeInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error)
 }
 
 // CreateBranchRequest is a type alias for the protobuf pfs.CreateBranchRequest
 type CreateBranchRequest pfs.CreateBranchRequest
+// StartCommitRequest is a type alias for the protobuf pfs.StartCommitRequest
+type StartCommitRequest pfs.StartCommitRequest
 
-func (d *driver) performRequest(pachClient *client.APIClient, request Operation) error {
-	if err := request.validate(d, pachClient); err != nil {
-		return err
-	}
-
+func (d *driver) executeRequests(pachClient *client.APIClient, requests []Operation) ([][]byte, error) {
+	var results [][]byte
 	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
-		if err := request.execute(d, pachClient, stm); err != nil {
-			return err
-		}
+		// This function may be called multiple times for transaction reattempts,
+		// re-initialize the results array every time
+		results = [][]byte{}
 
-		return nil
-	})
-
-	return err
-}
-
-func (d *driver) performRequests(pachClient *client.APIClient, requests []Operation) error {
-	for i, req := range requests {
-		if err := req.validate(d, pachClient); err != nil {
-			return fmt.Errorf("Error validating request %d of %d: %v",
-			i + 1, len(requests), grpcutil.ScrubGRPC(err))
-		}
-	}
-
-	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
 		for i, req := range requests {
-			if err := req.execute(d, pachClient, stm); err != nil {
-				return fmt.Errorf("Error executing request %d of %d: %v",
-				i + 1, len(requests), grpcutil.ScrubGRPC(err))
+			result, err := req.executeInTransaction(d, pachClient, stm);
+			if err != nil {
+				err = fmt.Errorf(
+					"Error executing request %d of %d: %v",
+					i + 1, len(requests), grpcutil.ScrubGRPC(err),
+				)
+				return err
 			}
+			results = append(results, result)
 		}
 
 		return nil
 	})
 
-	return err
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
 }
 
 // checkIsAuthorized returns an error if the current user (in 'pachClient') has
@@ -471,12 +462,32 @@ func (d *driver) deleteRepo(pachClient *client.APIClient, repo *pfs.Repo, force 
 	return nil
 }
 
-func (d *driver) startCommit(pachClient *client.APIClient, parent *pfs.Commit, branch string, provenance []*pfs.Commit, description string) (*pfs.Commit, error) {
-	return d.makeCommit(pachClient, "", parent, branch, provenance, nil, nil, nil, description)
+func (req *StartCommitRequest) execute(d *driver, pachClient *client.APIClient) (*pfs.Commit, error) {
+	var result *pfs.Commit
+	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+		commit, err := d.makeCommit(pachClient, stm, "", req.Parent, req.Branch, req.Provenance, nil, nil, nil, req.Description)
+		result = commit
+		return err
+	})
+	return result, err
+}
+
+func (req *StartCommitRequest) executeInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error) {
+	commit, err := d.makeCommit(pachClient, stm, "", req.Parent, req.Branch, req.Provenance, nil, nil, nil, req.Description)
+	if err != nil {
+		return nil, err
+	}
+	return proto.Marshal(commit)
 }
 
 func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, tree *pfs.Object) (*pfs.Commit, error) {
-	return d.makeCommit(pachClient, ID, parent, branch, provenance, tree, nil, nil, "")
+	var result *pfs.Commit
+	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+		commit, err := d.makeCommit(pachClient, stm, ID, parent, branch, provenance, tree, nil, nil, "")
+		result = commit
+		return err
+	})
+	return result, err
 }
 
 // make commit makes a new commit in 'branch', with the parent 'parent' and the
@@ -491,7 +502,18 @@ func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pf
 //   parent
 // - If only 'parent.ID' is set, and it contains a branch, then the new commit's
 //   parent will be the HEAD of that branch, but the branch will not be moved
-func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
+func (d *driver) makeCommit(
+	pachClient *client.APIClient,
+	stm col.STM,
+	ID string,
+	parent *pfs.Commit,
+	branch string,
+	provenance []*pfs.Commit,
+	treeRef *pfs.Object,
+	recordFiles []string,
+	records []*pfs.PutFileRecords,
+	description string,
+) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
@@ -537,168 +559,167 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		}
 	}
 
-	// Txn: create the actual commit in etcd and update the branch + parent/child
-	if _, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
-		// Clone the parent, as this stm modifies it and might wind up getting
-		// run more than once (if there's a conflict.)
-		parent := proto.Clone(parent).(*pfs.Commit)
-		repos := d.repos.ReadWrite(stm)
-		commits := d.commits(parent.Repo.Name).ReadWrite(stm)
-		branches := d.branches(parent.Repo.Name).ReadWrite(stm)
+	// Create the actual commit in etcd and update the branch + parent/child
 
-		// Check if repo exists
-		repoInfo := new(pfs.RepoInfo)
-		if err := repos.Get(parent.Repo.Name, repoInfo); err != nil {
-			return err
-		}
+	// Clone the parent, as this stm modifies it and might wind up getting
+	// run more than once (if there's a conflict.)
+	parent = proto.Clone(parent).(*pfs.Commit)
+	repos := d.repos.ReadWrite(stm)
+	commits := d.commits(parent.Repo.Name).ReadWrite(stm)
+	branches := d.branches(parent.Repo.Name).ReadWrite(stm)
 
-		// create/update 'branch' (if it was set) and set parent.ID (if, in
-		// addition, 'parent.ID' was not set)
-		if branch != "" {
-			branchInfo := &pfs.BranchInfo{}
-			if err := branches.Upsert(branch, branchInfo, func() error {
-				// validate branch
-				if parent.ID == "" && branchInfo.Head != nil {
-					parent.ID = branchInfo.Head.ID
-				}
-				// Don't count the __spec__ repo towards the provenance count
-				// since spouts will have __spec__ as provenance, but need to accept commits
-				provenanceCount := len(branchInfo.Provenance)
-				for _, p := range branchInfo.Provenance {
-					if p.Repo.Name == ppsconsts.SpecRepo {
-						provenanceCount--
-						break
-					}
-				}
-				if provenanceCount > 0 && treeRef == nil {
-					return fmt.Errorf("cannot start a commit on an output branch")
-				}
-				// Point 'branch' at the new commit
-				branchInfo.Name = branch // set in case 'branch' is new
-				branchInfo.Head = newCommit
-				branchInfo.Branch = client.NewBranch(newCommit.Repo.Name, branch)
-				return nil
-			}); err != nil {
-				return err
-			}
-			// Add branch to repo (see "Update repoInfo" below)
-			add(&repoInfo.Branches, branchInfo.Branch)
-		}
-
-		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
-		// newCommit to parent's ChildCommits
-		if parent.ID != "" {
-			// Resolve parent.ID if it's a branch that isn't 'branch' (which can
-			// happen if 'branch' is new and diverges from the existing branch in
-			// 'parent.ID')
-			parentCommitInfo, err := d.resolveCommit(stm, parent)
-			if err != nil {
-				return fmt.Errorf("parent commit not found: %v", err)
-			}
-			// fail if the parent commit has not been finished
-			if parentCommitInfo.Finished == nil {
-				return fmt.Errorf("parent commit %s has not been finished", parent.ID)
-			}
-			if err := commits.Update(parent.ID, parentCommitInfo, func() error {
-				newCommitInfo.ParentCommit = parent
-				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
-				return nil
-			}); err != nil {
-				// Note: error is emitted if parent.ID is a missing/invalid branch OR a
-				// missing/invalid commit ID
-				return fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
-			}
-		}
-
-		// 1. Write 'newCommit' to 'openCommits' collection OR
-		// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
-		//    "FinishCommit case" above)
-		if treeRef != nil || records != nil {
-			if records != nil {
-				parentTree, err := d.getTreeForCommit(pachClient, parent)
-				if err != nil {
-					return err
-				}
-				tree, err = parentTree.Copy()
-				if err != nil {
-					return err
-				}
-				for i, record := range records {
-					if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
-						return err
-					}
-				}
-				if err := tree.Hash(); err != nil {
-					return err
-				}
-				treeRef, err = hashtree.PutHashTree(pachClient, tree)
-				if err != nil {
-					return err
-				}
-			}
-
-			// now 'treeRef' is guaranteed to be set
-			newCommitInfo.Tree = treeRef
-			newCommitInfo.SizeBytes = uint64(tree.FSSize())
-			newCommitInfo.Finished = now()
-
-			// If we're updating the master branch, also update the repo size (see
-			// "Update repoInfo" below)
-			if branch == "master" {
-				repoInfo.SizeBytes = newCommitInfo.SizeBytes
-			}
-		} else {
-			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
-				return err
-			}
-		}
-
-		// Update repoInfo (potentially with new branch and new size)
-		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
-			return err
-		}
-
-		// Build newCommit's full provenance. B/c commitInfo.Provenance is a
-		// transitive closure, there's no need to search the full provenance graph,
-		// just take the union of the immediate parents' (in the 'provenance' arg)
-		// commitInfo.Provenance
-		newCommitProv := make(map[string]*pfs.Commit)
-		for _, provCommit := range provenance {
-			newCommitProv[provCommit.ID] = provCommit
-			provCommitInfo := &pfs.CommitInfo{}
-			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Get(provCommit.ID, provCommitInfo); err != nil {
-				return err
-			}
-			for _, c := range provCommitInfo.Provenance {
-				newCommitProv[c.ID] = c
-			}
-		}
-
-		// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
-		for _, provCommit := range newCommitProv {
-			newCommitInfo.Provenance = append(newCommitInfo.Provenance, provCommit)
-			provCommitInfo := &pfs.CommitInfo{}
-			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
-				appendSubvenance(provCommitInfo, newCommitInfo)
-				return nil
-			}); err != nil {
-				return err
-			}
-		}
-
-		// Finally, create the commit
-		if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
-			return err
-		}
-		// We propagate the branch last so propagateCommit can write to the
-		// now-existing commit's subvenance
-		if branch != "" {
-			return d.propagateCommit(stm, client.NewBranch(newCommit.Repo.Name, branch))
-		}
-		return nil
-	}); err != nil {
+	// Check if repo exists
+	repoInfo := new(pfs.RepoInfo)
+	if err := repos.Get(parent.Repo.Name, repoInfo); err != nil {
 		return nil, err
 	}
+
+	// create/update 'branch' (if it was set) and set parent.ID (if, in
+	// addition, 'parent.ID' was not set)
+	if branch != "" {
+		branchInfo := &pfs.BranchInfo{}
+		if err := branches.Upsert(branch, branchInfo, func() error {
+			// validate branch
+			if parent.ID == "" && branchInfo.Head != nil {
+				parent.ID = branchInfo.Head.ID
+			}
+			// Don't count the __spec__ repo towards the provenance count
+			// since spouts will have __spec__ as provenance, but need to accept commits
+			provenanceCount := len(branchInfo.Provenance)
+			for _, p := range branchInfo.Provenance {
+				if p.Repo.Name == ppsconsts.SpecRepo {
+					provenanceCount--
+					break
+				}
+			}
+			if provenanceCount > 0 && treeRef == nil {
+				return fmt.Errorf("cannot start a commit on an output branch")
+			}
+			// Point 'branch' at the new commit
+			branchInfo.Name = branch // set in case 'branch' is new
+			branchInfo.Head = newCommit
+			branchInfo.Branch = client.NewBranch(newCommit.Repo.Name, branch)
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+		// Add branch to repo (see "Update repoInfo" below)
+		add(&repoInfo.Branches, branchInfo.Branch)
+	}
+
+	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
+	// newCommit to parent's ChildCommits
+	if parent.ID != "" {
+		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
+		// happen if 'branch' is new and diverges from the existing branch in
+		// 'parent.ID')
+		parentCommitInfo, err := d.resolveCommit(stm, parent)
+		if err != nil {
+			return nil, fmt.Errorf("parent commit not found: %v", err)
+		}
+		// fail if the parent commit has not been finished
+		if parentCommitInfo.Finished == nil {
+			return nil, fmt.Errorf("parent commit %s has not been finished", parent.ID)
+		}
+		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
+			newCommitInfo.ParentCommit = parent
+			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
+			return nil
+		}); err != nil {
+			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
+			// missing/invalid commit ID
+			return nil, fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
+		}
+	}
+
+	// 1. Write 'newCommit' to 'openCommits' collection OR
+	// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
+	//    "FinishCommit case" above)
+	if treeRef != nil || records != nil {
+		if records != nil {
+			parentTree, err := d.getTreeForCommit(pachClient, parent)
+			if err != nil {
+				return nil, err
+			}
+			tree, err = parentTree.Copy()
+			if err != nil {
+				return nil, err
+			}
+			for i, record := range records {
+				if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
+					return nil, err
+				}
+			}
+			if err := tree.Hash(); err != nil {
+				return nil, err
+			}
+			treeRef, err = hashtree.PutHashTree(pachClient, tree)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// now 'treeRef' is guaranteed to be set
+		newCommitInfo.Tree = treeRef
+		newCommitInfo.SizeBytes = uint64(tree.FSSize())
+		newCommitInfo.Finished = now()
+
+		// If we're updating the master branch, also update the repo size (see
+		// "Update repoInfo" below)
+		if branch == "master" {
+			repoInfo.SizeBytes = newCommitInfo.SizeBytes
+		}
+	} else {
+		if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
+			return nil, err
+		}
+	}
+
+	// Update repoInfo (potentially with new branch and new size)
+	if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
+		return nil, err
+	}
+
+	// Build newCommit's full provenance. B/c commitInfo.Provenance is a
+	// transitive closure, there's no need to search the full provenance graph,
+	// just take the union of the immediate parents' (in the 'provenance' arg)
+	// commitInfo.Provenance
+	newCommitProv := make(map[string]*pfs.Commit)
+	for _, provCommit := range provenance {
+		newCommitProv[provCommit.ID] = provCommit
+		provCommitInfo := &pfs.CommitInfo{}
+		if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Get(provCommit.ID, provCommitInfo); err != nil {
+			return nil, err
+		}
+		for _, c := range provCommitInfo.Provenance {
+			newCommitProv[c.ID] = c
+		}
+	}
+
+	// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
+	for _, provCommit := range newCommitProv {
+		newCommitInfo.Provenance = append(newCommitInfo.Provenance, provCommit)
+		provCommitInfo := &pfs.CommitInfo{}
+		if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
+			appendSubvenance(provCommitInfo, newCommitInfo)
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+
+	// Finally, create the commit
+	if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
+		return nil, err
+	}
+	// We propagate the branch last so propagateCommit can write to the
+	// now-existing commit's subvenance
+	if branch != "" {
+		if err := d.propagateCommit(stm, client.NewBranch(newCommit.Repo.Name, branch)); err != nil {
+			return nil, err
+		}
+	}
+
 	return newCommit, nil
 }
 
@@ -1645,13 +1666,6 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 	return nil
 }
 
-// createBranch creates a new branch or updates an existing branch (must be one
-// or the other). Most importantly, it sets 'branch.DirectProvenance' to
-// 'provenance' and then for all (downstream) branches, restores the invariant:
-//   ∀ b . b.Provenance = ∪ b'.Provenance (where b' ∈ b.DirectProvenance)
-//
-// This invariant is assumed to hold for all branches upstream of 'branch', but not
-// for 'branch' itself once 'b.Provenance' has been set.
 func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, branch.Repo, auth.Scope_WRITER); err != nil {
@@ -1769,9 +1783,25 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 	return err
 }
 
-func (req *CreateBranchRequest) validate(d *driver, pachClient *client.APIClient) error {
-	if err := d.checkIsAuthorized(pachClient, req.Branch.Repo, auth.Scope_WRITER); err != nil {
+func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient) error {
+	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+		_, err := req.executeInTransaction(d, pachClient, stm)
 		return err
+	})
+	return err
+}
+
+// createBranchRequest.execute creates a new branch or updates an existing
+// branch (must be one or the other). Most importantly, it sets
+// 'branch.DirectProvenance' to 'provenance' and then for all (downstream)
+// branches, restores the invariant:
+//   ∀ b . b.Provenance = ∪ b'.Provenance (where b' ∈ b.DirectProvenance)
+//
+// This invariant is assumed to hold for all branches upstream of 'branch', but
+// not for 'branch' itself once 'b.Provenance' has been set.
+func (req *CreateBranchRequest) executeInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error) {
+	if err := d.checkIsAuthorized(pachClient, req.Branch.Repo, auth.Scope_WRITER); err != nil {
+		return nil, err
 	}
 
 	// The request must do exactly one of:
@@ -1781,15 +1811,13 @@ func (req *CreateBranchRequest) validate(d *driver, pachClient *client.APIClient
 		// Determine if this is a provenance update
 		sameTarget := req.Branch.Repo.Name == req.Head.Repo.Name && req.Branch.Name == req.Head.ID
 		if !sameTarget && req.Provenance != nil {
-			return fmt.Errorf("cannot point branch \"%s\" at target commit \"%s/%s\" without clearing its provenance",
-				req.Branch.Name, req.Head.Repo.Name, req.Head.ID)
+			return nil, fmt.Errorf(
+				"cannot point branch \"%s\" at target commit \"%s/%s\" without clearing its provenance",
+				req.Branch.Name, req.Head.Repo.Name, req.Head.ID,
+			)
 		}
 	}
 
-    return nil
-}
-
-func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient, stm col.STM) error {
     // if 'commit' is a branch, resolve it
     var err error
     if req.Head != nil {
@@ -1798,7 +1826,7 @@ func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient,
             // possible that branch exists but has no head commit. This is fine, but
             // branchInfo.Head must also be nil
             if !isNoHeadErr(err) {
-                return fmt.Errorf("unable to inspect %s/%s: %v", err, req.Head.Repo.Name, req.Head.ID)
+                return nil, fmt.Errorf("unable to inspect %s/%s: %v", err, req.Head.Repo.Name, req.Head.ID)
             }
             req.Head = nil
         }
@@ -1817,7 +1845,7 @@ func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient,
         }
         return nil
     }); err != nil {
-        return err
+        return nil, err
     }
     repos := d.repos.ReadWrite(stm)
     repoInfo := &pfs.RepoInfo{}
@@ -1825,7 +1853,7 @@ func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient,
         add(&repoInfo.Branches, req.Branch)
         return nil
     }); err != nil {
-        return err
+        return nil, err
     }
 
     // Update (or create)
@@ -1836,7 +1864,7 @@ func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient,
     for _, subvBranch := range branchInfo.Subvenance {
         subvBranchInfo := &pfs.BranchInfo{}
         if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvBranchInfo); err != nil {
-            return err
+            return nil, err
         }
         toUpdate = append(toUpdate, subvBranchInfo)
     }
@@ -1851,20 +1879,20 @@ func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient,
         // Re-compute Provenance
         for _, provBranch := range branchInfo.DirectProvenance {
             if err := d.addBranchProvenance(branchInfo, provBranch, stm); err != nil {
-                return err
+                return nil, err
             }
             provBranchInfo := &pfs.BranchInfo{}
             if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil {
-                return err
+                return nil, err
             }
             for _, provBranch := range provBranchInfo.Provenance {
                 if err := d.addBranchProvenance(branchInfo, provBranch, stm); err != nil {
-                    return err
+                    return nil, err
                 }
             }
         }
         if err := d.branches(branchInfo.Branch.Repo.Name).ReadWrite(stm).Put(branchInfo.Branch.Name, branchInfo); err != nil {
-            return err
+            return nil, err
         }
         // Update Subvenance of 'branchInfo's Provenance (incl. all Subvenance)
         for _, oldProvBranch := range oldProvenance {
@@ -1875,7 +1903,7 @@ func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient,
                     del(&oldProvBranchInfo.Subvenance, branchInfo.Branch)
                     return nil
                 }); err != nil {
-                    return err
+                    return nil, err
                 }
             }
         }
@@ -1884,7 +1912,7 @@ func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient,
     // propagate the head commit to 'branch'. This may also modify 'branch', by
     // creating a new HEAD commit if 'branch's provenance was changed and its
     // current HEAD commit has old provenance
-    return d.propagateCommit(stm, req.Branch)
+    return nil, d.propagateCommit(stm, req.Branch)
 }
 
 func (d *driver) inspectBranch(pachClient *client.APIClient, branch *pfs.Branch) (*pfs.BranchInfo, error) {
@@ -2015,7 +2043,10 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// oneOff puts only work on branches, so we know branch != "". We pass
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
-		_, err := d.makeCommit(pachClient, "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
+		_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+			_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
+			return err
+		})
 		return err
 	}
 	for i, file := range files {
@@ -2389,7 +2420,10 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	}
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
-		_, err = d.makeCommit(pachClient, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
+		_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+			_, err = d.makeCommit(pachClient, stm, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
+			return err
+		})
 		return err
 	}
 	return nil
@@ -3179,7 +3213,10 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 		if branch == "" {
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
-		_, err := d.makeCommit(pachClient, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
+		_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+			_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
+			return err
+		})
 		return err
 	}
 	return d.upsertPutFileRecords(pachClient, file, &pfs.PutFileRecords{Tombstone: true})

@@ -220,7 +220,7 @@ This layers the data in the commit over the data in the parent.
 
 	var parent string
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name [branch]",
+		Use:   "start-commit repo-name branch",
 		Short: "Start a new commit.",
 		Long: `Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
 
@@ -238,22 +238,16 @@ $ pachctl start-commit test patch -p master
 # Start a commit with XXX as the parent in repo "test", not on any branch
 $ pachctl start-commit test -p XXX
 ` + codeend,
-		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			cli, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
 			defer cli.Close()
-			var branch string
-			if len(args) == 2 {
-				branch = args[1]
-			}
-			commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
-				&pfsclient.StartCommitRequest{
-					Branch:      branch,
-					Parent:      client.NewCommit(args[0], parent),
-					Description: description,
-				})
+			commit, err := cli.PfsAPIClient.StartCommit(
+				cli.Ctx(),
+				client.NewStartCommitRequest(args[0], args[1], parent, description),
+			)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -264,6 +258,59 @@ $ pachctl start-commit test -p XXX
 	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
 	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
 	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
+
+	startCommits := &cobra.Command{
+		Use:   "start-commits (<repo-name> <branch-name> [flags]) ...",
+		Short: "Start multiple commits on multiple repos.",
+		Long:  "Start multiple commits on multiple repos.  Each commit will be started on the specified branch; if the branch does not exist, it will be created.  A parent commit may be specified to fork from an existing commit.",
+		DisableFlagParsing: true,
+	}
+	startCommits.Flags().StringP("parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
+	startCommits.Flags().StringP("message", "m", "", "A description of this commit's contents")
+	startCommits.Flags().String("description", "", "A description of this commit's contents (synonym for --message)")
+
+	startCommits.Run = cmdutil.RunBatchCommand(
+		2, // New batch for every two positional args
+		func (argSets []cmdutil.BatchArgs) error {
+			requests := []*pfsclient.StartCommitRequest{}
+
+			for _, args := range argSets {
+				// TODO: if multiple of these are specified, we won't know which one was the latest
+				// There are no aliases for flags, but we may be able to override annotations to link the two
+				description := args.GetStringFlag("description")
+				if description == "" {
+					description = args.GetStringFlag("message")
+				}
+
+				requests = append(
+					requests,
+					client.NewStartCommitRequest(
+						args.Positionals[0],
+						args.Positionals[1],
+						args.GetStringFlag("parent"),
+						description,
+					),
+				)
+			}
+
+			cli, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer cli.Close()
+
+			commits, err := cli.StartCommits(requests)
+			if err != nil {
+				return err
+			}
+
+			// TODO: output something like REPO@BRANCH COMMIT for each request
+			for _, commit := range commits {
+				fmt.Println(commit.ID)
+			}
+			return nil
+		},
+	)
 
 	finishCommit := &cobra.Command{
 		Use:   "finish-commit repo-name commit-id",

@@ -446,6 +446,8 @@ service API {
   // Commit rpcs
   // StartCommit creates a new write commit from a parent commit.
   rpc StartCommit(StartCommitRequest) returns (Commit) {}
+  // StartCommits atomically batches together several StartCommit calls.
+  rpc StartCommits(stream StartCommitRequest) returns (stream Commit) {}
   // FinishCommit turns a write commit into a read commit.
   rpc FinishCommit(FinishCommitRequest) returns (google.protobuf.Empty) {}
   // InspectCommit returns the info about a commit.

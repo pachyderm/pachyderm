@@ -125,6 +125,14 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+func NewStartCommitRequest(repoName string, branch string, parent string, description string) *pfs.StartCommitRequest {
+	return &pfs.StartCommitRequest{
+		Branch:      branch,
+		Parent:      NewCommit(repoName, parent),
+		Description: description,
+	}
+}
+
 // StartCommit begins the process of committing data to a Repo. Once started
 // you can write to the Commit with PutFile and when all the data has been
 // written you must finish the Commit with FinishCommit. NOTE, data is not
@@ -150,6 +158,33 @@ func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, err
 		return nil, grpcutil.ScrubGRPC(err)
 	}
 	return commit, nil
+}
+
+func (c APIClient) StartCommits(requests []*pfs.StartCommitRequest) ([]*pfs.Commit, error) {
+	batchClient, err := c.PfsAPIClient.StartCommits(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+
+	for _, request := range requests {
+		err = batchClient.Send(request)
+		if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+	}
+
+	commits := []*pfs.Commit{}
+	for {
+		commit, err := batchClient.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return nil, grpcutil.ScrubGRPC(err)
+		}
+		commits = append(commits, commit)
+	}
+
+	return commits, nil
 }
 
 // BuildCommit builds a commit in a single call from an existing HashTree that

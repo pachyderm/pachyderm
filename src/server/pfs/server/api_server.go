@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -97,11 +98,48 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.startCommit(a.env.GetPachClient(ctx), request.Parent, request.Branch, request.Provenance, request.Description)
+	alias := StartCommitRequest(*request)
+	commit, err := alias.execute(a.driver, a.env.GetPachClient(ctx))
 	if err != nil {
 		return nil, err
 	}
 	return commit, nil
+}
+
+func (a *apiServer) StartCommits(startCommitsServer pfs.API_StartCommitsServer) (retErr error) {
+	requests := []Operation{}
+	defer func(start time.Time) { a.Log(requests, nil, retErr, time.Since(start)) }(time.Now())
+
+	for {
+		request, err := startCommitsServer.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		func() { a.Log(request, nil, nil, 0) }()
+		alias := StartCommitRequest(*request)
+		requests = append(requests, &alias)
+	}
+
+	client := a.env.GetPachClient(startCommitsServer.Context())
+	results, err := a.driver.executeRequests(client, requests)
+
+	if err != nil {
+		return err
+	}
+
+	// Parse results as commits and send to the client
+	for _, data := range results {
+		commit := &pfs.Commit{}
+		err = proto.Unmarshal(data, commit)
+		if err != nil {
+			return err
+		}
+		startCommitsServer.Send(commit)
+	}
+	return nil
 }
 
 func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
@@ -165,7 +203,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	alias := CreateBranchRequest(*request)
-	err := a.driver.performRequest(a.env.GetPachClient(ctx), &alias)
+	err := alias.execute(a.driver, a.env.GetPachClient(ctx))
 
 	if err != nil {
 		return nil, err
@@ -191,7 +229,8 @@ func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesSe
 	}
 
 	client := a.env.GetPachClient(createBranchesServer.Context())
-	err := a.driver.performRequests(client, requests)
+	_, err := a.driver.executeRequests(client, requests)
+	// TODO: check that results are nil
 
 	if err != nil {
 		return err
