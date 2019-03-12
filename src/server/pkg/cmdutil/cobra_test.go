@@ -2,7 +2,6 @@ package cmdutil
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -126,12 +125,21 @@ func catchExecuteErrors(cmd *cobra.Command) (err error) {
 }
 
 func TestRunBatchCommand(t *testing.T) {
-	var persistentBool bool
-	var persistentString string
-	var nonpersistent string
+	persistentBool := false
+	persistentString := ""
+	nonpersistent := ""
+	preRunCalled := false
+	postRunCalled := false
 	parentCmd := &cobra.Command{
 	    Run: func(*cobra.Command, []string) {
 			t.Fatal("parent command Run should never be called")
+		},
+		PersistentPreRun: func(*cobra.Command, []string) {
+			preRunCalled = true
+		},
+		PersistentPostRunE: func(*cobra.Command, []string) error {
+			postRunCalled = true
+			return nil
 		},
 	}
 	parentCmd.PersistentFlags().BoolVarP(&persistentBool, "bool", "b", false, "Parent persistent bool flag.")
@@ -143,14 +151,11 @@ func TestRunBatchCommand(t *testing.T) {
 		Use: "subcmd [flags]",
 		DisableFlagParsing: true,
 	    Run: RunBatchCommand(2, func(_args []BatchArgs) error {
-			fmt.Printf("bool: %t\n", persistentBool)
-			fmt.Printf("string: %s\n", persistentString)
 			args = _args
 			return nil
 		}),
 	}
 	cmd.Flags().StringP("value", "v", "", "A value.")
-	cmd.Flags().BoolP("bool", "b", false, "A boolean.")
 	parentCmd.AddCommand(cmd)
 
 	// This command does not disable flag parsing and will fail
@@ -168,21 +173,26 @@ func TestRunBatchCommand(t *testing.T) {
 	reset := func () {
 		persistentBool = false
 		persistentString = ""
+		preRunCalled = false
+		postRunCalled = false
 		args = []BatchArgs{}
 	}
 
-	// Should recognize parents' persistent flags
-	parentCmd.SetArgs([]string {"subcmd", "foo", "bar", "--bool", "--string", "str"})
+	parentCmd.SetArgs([]string {"subcmd", "foo", "-v5", "bar", "--bool", "--string", "str"})
 	expected = []BatchArgs{
 		BatchArgs{
 			Positionals: []string{"foo", "bar"},
-			Flags: map[string][]string{"bool": {"true"}, "string": {"str"}},
+			Flags: map[string][]string{"bool": {"true"}, "string": {"str"}, "value": {"5"}},
 		},
 	}
 	err = parentCmd.Execute()
 	require.NoError(t, err)
 	require.Equal(t, expected, args)
-	// require.Equal(t, true, persistentBool)
+	// Should call parents' persistent hook functions
+	require.Equal(t, true, preRunCalled)
+	require.Equal(t, true, postRunCalled)
+	// Should parse parents' persistent flags
+	require.Equal(t, true, persistentBool)
 	require.Equal(t, "str", persistentString)
 	reset()
 
@@ -201,15 +211,24 @@ func TestRunBatchCommand(t *testing.T) {
 	reset()
 
 	// Should partition flags and positionals into BatchArgs
-	parentCmd.SetArgs([]string {"subcmd", "foo", "bar", "--bool", "floop", "-b", "bloop", "--string", "str", "--string", "str2"})
+	parentCmd.SetArgs([]string {
+		"subcmd",
+		"foo", "bar", "--value=4", "--bool",
+		"floop", "-bv6", "bloop", "--string", "str", "--string", "str2",
+		"baz", "boz", "--value", "abc", "--value", "def",
+	})
 	expected = []BatchArgs{
 		BatchArgs{
 			Positionals: []string{"foo", "bar"},
-			Flags: map[string][]string{"bool": {"true"}},
+			Flags: map[string][]string{"bool": {"true"}, "value": {"4"}},
 		},
 		BatchArgs{
 			Positionals: []string{"floop", "bloop"},
-			Flags: map[string][]string{"bool": {"true"}, "string": {"str", "str2"}},
+			Flags: map[string][]string{"bool": {"true"}, "string": {"str", "str2"}, "value": {"6"}},
+		},
+		BatchArgs{
+			Positionals: []string{"baz", "boz"},
+			Flags: map[string][]string{"value": {"abc", "def"}},
 		},
 	}
 	err = parentCmd.Execute()
@@ -218,6 +237,4 @@ func TestRunBatchCommand(t *testing.T) {
 	require.Equal(t, true, persistentBool)
 	require.Equal(t, "str2", persistentString)
 	reset()
-
-	// Should inherit parents' persistent hook functions
 }
