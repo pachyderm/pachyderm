@@ -94,9 +94,17 @@ message CommitRange {
   Commit upper = 2;
 }
 
+// CommitOrigin keeps track of where (i.e. which branch) a certain commit
+// originated from. A commits provenance consists of the commits of
+// the commits which are in its causal history.
+message CommitOrigin {
+  Commit commit = 1;
+  Branch branch = 2;
+}
+
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
-  reserved 10;
+  reserved 6, 10;
   Commit commit = 1;
   Branch original_branch = 15;
   // description is a user-provided script describing this commit
@@ -107,8 +115,8 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 4;
   uint64 size_bytes = 5;
 
-  // Commits on which this commit is provenant
-  repeated Commit provenance = 6;
+  // the commits and their origins on which this commit is provenant
+  repeated CommitOrigin provenance = 16;
 
   // ReadyProvenance is the number of provenant commits which have been
   // finished, if ReadyProvenance == len(Provenance) then the commit is ready
