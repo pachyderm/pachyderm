@@ -284,7 +284,7 @@ Let's start with one of the simplest pipelines.  The pipeline has a single input
   },
   "input": {
     "pfs": {
-      "glob": "/\*",
+      "glob": "/*",
       "repo": "my-data"
     }
   },
