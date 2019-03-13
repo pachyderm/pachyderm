@@ -32,7 +32,7 @@ working with data in Pachyderm.
 
 ### Overwriting files
 
-When putting files into a pfs repo via Pachyderm's `pachctl` utility,
+When putting files into a pfs repo via Pachyderm's `pachctl` utility or via the Pachyderm APIs,
 it's vital to know about the default behaviors of the `put-file`
 command. The following commands create the repo "voterData" and place
 a local file called "OHVoterData.csv" into it.
