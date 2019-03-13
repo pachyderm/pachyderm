@@ -30,7 +30,8 @@ func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 	router.Methods("PUT", "DELETE").Queries("replication", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT").Queries("requestPayment", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(notImplementedError)
-	router.Methods("GET").Queries("uploads", "").HandlerFunc(notImplementedError) // maybe worth implementing at some point
+	// TODO: implement this endpoint
+	// router.Methods("GET").Queries("uploads", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT").Queries("versioning", "").HandlerFunc(notImplementedError)
 	router.Methods("GET").Queries("versions", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT", "DELETE").Queries("website", "").HandlerFunc(notImplementedError)
