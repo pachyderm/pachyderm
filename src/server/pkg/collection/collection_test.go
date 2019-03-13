@@ -195,18 +195,18 @@ func TestMultiIndex(t *testing.T) {
 
 	c1 := &pfs.CommitInfo{
 		Commit: client.NewCommit("repo", "c1"),
-		Provenance: []*pfs.Commit{
-			client.NewCommit("in", "c1"),
-			client.NewCommit("in", "c2"),
-			client.NewCommit("in", "c3"),
+		Provenance: []*pfs.CommitOrigin{
+			client.NewCommitOrigin("in", "master", "c1"),
+			client.NewCommitOrigin("in", "master", "c2"),
+			client.NewCommitOrigin("in", "master", "c3"),
 		},
 	}
 	c2 := &pfs.CommitInfo{
 		Commit: client.NewCommit("repo", "c2"),
-		Provenance: []*pfs.Commit{
-			client.NewCommit("in", "c1"),
-			client.NewCommit("in", "c2"),
-			client.NewCommit("in", "c3"),
+		Provenance: []*pfs.CommitOrigin{
+			client.NewCommitOrigin("in", "master", "c1"),
+			client.NewCommitOrigin("in", "master", "c2"),
+			client.NewCommitOrigin("in", "master", "c3"),
 		},
 	}
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
@@ -249,7 +249,7 @@ func TestMultiIndex(t *testing.T) {
 	}))
 
 	// replace "c3" in the provenance of c1 with "c4"
-	c1.Provenance[2].ID = "c4"
+	c1.Provenance[2].Commit.ID = "c4"
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		cis := cis.ReadWrite(stm)
 		cis.Put(c1.Commit.ID, c1)

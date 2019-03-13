@@ -152,7 +152,7 @@ Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
 Finished: {{.Finished}}{{else}}
 Finished: {{prettyAgo .Finished}}{{end}}{{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
-Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
+Provenance: {{range .Provenance}} {{.Commit.Repo.Name}}/{{.Branch.Name}}/{{.Commit.ID}} {{end}} {{end}}
 `)
 	if err != nil {
 		return err

@@ -34,6 +34,14 @@ func NewCommit(repoName string, commitID string) *pfs.Commit {
 	}
 }
 
+// NewCommitOrigin creates a pfs.CommitOrigin.
+func NewCommitOrigin(repoName string, branchName string, commitID string) *pfs.CommitOrigin {
+	return &pfs.CommitOrigin{
+		Commit: NewCommit(repoName, commitID),
+		Branch: NewBranch(repoName, branchName),
+	}
+}
+
 // NewFile creates a pfs.File.
 func NewFile(repoName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
