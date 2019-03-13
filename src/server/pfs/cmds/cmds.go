@@ -220,9 +220,9 @@ This layers the data in the commit over the data in the parent.
 
 	var parent string
 	startCommit := &cobra.Command{
-		Use:   "start-commit repo-name branch",
+		Use:   "start-commit repo-name branch-name",
 		Short: "Start a new commit.",
-		Long: `Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.
+		Long:  `Start a new commit on the specified branch; if the branch does not exist, it will be created.  A parent commit may be specified to fork from an existing commit.
 
 Examples:
 
@@ -261,8 +261,8 @@ $ pachctl start-commit test -p XXX
 
 	startCommits := &cobra.Command{
 		Use:   "start-commits (<repo-name> <branch-name> [flags]) ...",
-		Short: "Start multiple commits on multiple repos.",
-		Long:  "Start multiple commits on multiple repos.  Each commit will be started on the specified branch; if the branch does not exist, it will be created.  A parent commit may be specified to fork from an existing commit.",
+		Short: "Start multiple new commits on multiple repos.",
+		Long:  "Start multiple new commits on multiple repos.  Each commit will be started on the specified branch; if the branch does not exist, it will be created.  A parent commit may be specified to fork from an existing commit.",
 		DisableFlagParsing: true,
 	}
 	startCommits.Flags().StringP("parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
