@@ -886,7 +886,7 @@ nextSubvBranch:
 		// create a new output commit
 		allSpec := true
 		for _, p := range commitProvMap {
-			if p.Commit.Repo.Name != ppsconsts.SpecRepo {
+			if p.Branch.Repo.Name != ppsconsts.SpecRepo {
 				allSpec = false
 				break
 			}

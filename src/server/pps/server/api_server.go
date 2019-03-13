@@ -748,15 +748,9 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		return nil, err
 	}
 	var specCommit *pfs.Commit
-	branchToCommit := make(map[string]*pfs.Commit)
 	for _, prov := range commitInfo.Provenance {
-		provCommitInfo, err := pachClient.InspectCommit(prov.Repo.Name, prov.ID)
-		if err != nil {
-			return nil, err
-		}
-		branchToCommit[path.Join(prov.Repo.Name, provCommitInfo.OriginalBranch.Name)] = prov
-		if prov.Repo.Name == ppsconsts.SpecRepo && provCommitInfo.OriginalBranch.Name == jobPtr.Pipeline.Name {
-			specCommit = prov
+		if prov.Commit.Repo.Name == ppsconsts.SpecRepo && prov.Branch.Name == jobPtr.Pipeline.Name {
+			specCommit = prov.Commit
 		}
 	}
 	if specCommit == nil {
@@ -784,7 +778,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		result.OutputBranch = pipelineInfo.OutputBranch
 		result.ResourceRequests = pipelineInfo.ResourceRequests
 		result.ResourceLimits = pipelineInfo.ResourceLimits
-		result.Input = ppsutil.JobInput(pipelineInfo, branchToCommit)
+		result.Input = ppsutil.JobInput(pipelineInfo, commitInfo)
 		result.EnableStats = pipelineInfo.EnableStats
 		result.Salt = pipelineInfo.Salt
 		result.Batch = pipelineInfo.Batch

@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -219,18 +220,8 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			continue
 		}
 
-		// Get the repo/branch to commit mapping for the commit's provenance
-		branchToCommit := make(map[string]*pfs.Commit)
-		for _, prov := range commitInfo.Provenance {
-			provCommitInfo, err := pachClient.InspectCommit(prov.Repo.Name, prov.ID)
-			if err != nil {
-				return err
-			}
-			branchToCommit[path.Join(prov.Repo.Name, provCommitInfo.OriginalBranch.Name)] = prov
-		}
-
 		// Create a job document matching the service's output commit
-		jobInput := ppsutil.JobInput(a.pipelineInfo, branchToCommit)
+		jobInput := ppsutil.JobInput(a.pipelineInfo, commitInfo)
 		job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 		if err != nil {
 			return err
@@ -853,8 +844,11 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 							Name: repo,
 						},
 					},
-					Branch:     "master",
-					Provenance: []*pfs.Commit{a.pipelineInfo.SpecCommit},
+					Branch: "master",
+					Provenance: []*pfs.CommitOrigin{&pfs.CommitOrigin{
+						Commit: a.pipelineInfo.SpecCommit,
+						Branch: client.NewBranch(ppsconsts.SpecRepo, "master")},
+					},
 				})
 				if err != nil {
 					return err

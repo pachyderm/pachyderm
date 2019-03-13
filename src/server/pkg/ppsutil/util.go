@@ -204,9 +204,14 @@ func FailPipeline(ctx context.Context, etcdClient *etcd.Client, pipelinesCollect
 	return err
 }
 
-// JobInput fills in the commits for a JobInfo. branchToCommit should map strings of the form "<repo>/<branch>" to PFS commits
-func JobInput(pipelineInfo *pps.PipelineInfo, branchToCommit map[string]*pfs.Commit) *pps.Input {
+// JobInput fills in the commits for a JobInfo
+func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) *pps.Input {
+	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
+	branchToCommit := make(map[string]*pfs.Commit)
 	key := path.Join
+	for _, prov := range outputCommitInfo.Provenance {
+		branchToCommit[key(prov.Commit.Repo.Name, prov.Branch.Name)] = prov.Commit
+	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {
 		if input.Atom != nil {
