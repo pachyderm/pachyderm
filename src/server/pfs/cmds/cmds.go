@@ -304,7 +304,7 @@ $ pachctl start-commit test -p XXX
 				return err
 			}
 
-			// TODO: output something like REPO@BRANCH COMMIT for each request
+			// Print each of the resulting commit-ids in order
 			for _, commit := range commits {
 				fmt.Println(commit.ID)
 			}

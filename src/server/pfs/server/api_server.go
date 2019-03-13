@@ -226,7 +226,6 @@ func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesSe
 
 	client := a.env.GetPachClient(createBranchesServer.Context())
 	_, err := a.driver.runTransaction(client, requests)
-	// TODO: check that results are nil
 
 	if err != nil {
 		return err

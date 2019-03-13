@@ -4669,8 +4669,6 @@ func TestFailedStartCommits(t *testing.T) {
 	require.Matches(t, "running request 2 of 3", err.Error())
 	require.Matches(t, "repos/b not found", err.Error())
 
-	// TODO: check the right things here to make sure the transaction aborted
-
 	branches, err := c.ListBranch("a")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(branches))
