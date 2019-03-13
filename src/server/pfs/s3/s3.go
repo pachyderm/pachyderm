@@ -30,7 +30,7 @@ func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 	router.Methods("PUT", "DELETE").Queries("replication", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT").Queries("requestPayment", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(notImplementedError)
-	router.Methods("GET").Queries("uploads", "").HandlerFunc(notImplementedError) // maybe worth implementing at some point
+	router.Methods("GET").Queries("uploads", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT").Queries("versioning", "").HandlerFunc(notImplementedError)
 	router.Methods("GET").Queries("versions", "").HandlerFunc(notImplementedError)
 	router.Methods("GET", "PUT", "DELETE").Queries("website", "").HandlerFunc(notImplementedError)
@@ -46,20 +46,14 @@ func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 // use s3 clients to acccess PFS contents.
 //
 // This returns an `http.Server` instance. It is the responsibility of the
-// caller to:
-// 1) start the returned server
-// 2) close `errLogWriter`
-// 3) remove `multipartDir`, unless you want to persist in-flight multipart
-//    contents between server runs
-// Furthermore, it's possible for the caller to gracefully shutdown the server
-// if desired; see the `http` package for details.
-//
-// If `multipartDir` is an empty string, multipart uploads are disabled.
+// caller to start the returned server, and close `errLogWriter` once the
+// server has shutdown. It's possible for the caller to gracefully shutdown
+// the server if desired; see the `http` package for details.
 //
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipartDir string) *http.Server {
+func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer) *http.Server {
 	router := mux.NewRouter()
 	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
 
@@ -78,16 +72,6 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	// object-related routes
 	objectRouter := router.Path(`/{branch:[a-zA-Z0-9\-_]{1,255}}.{repo:[a-zA-Z0-9\-_]{1,255}}/{file:.+}`).Subrouter()
 
-	if multipartDir != "" {
-		// Multipart handlers are only registered if a root dir is specified
-		multipartHandler := newMultipartHandler(pc, multipartDir)
-		objectRouter.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(multipartHandler.list)
-		objectRouter.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
-		objectRouter.Methods("POST").Queries("uploadId", "").HandlerFunc(multipartHandler.complete)
-		objectRouter.Methods("PUT").Queries("uploadId", "").HandlerFunc(multipartHandler.put)
-		objectRouter.Methods("DELETE").Queries("uploadId", "").HandlerFunc(multipartHandler.del)
-	}
-
 	objectRouter.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(notImplementedError)
 	objectRouter.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(notImplementedError)
 	objectRouter.Methods("GET", "PUT").Queries("retention", "").HandlerFunc(notImplementedError)
@@ -96,6 +80,11 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer, multipart
 	objectRouter.Methods("POST").Queries("restore", "").HandlerFunc(notImplementedError)
 	objectRouter.Methods("POST").Queries("select", "").HandlerFunc(notImplementedError)
 	objectRouter.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(notImplementedError) // maybe worth implementing at some point
+	objectRouter.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("POST").Queries("uploads", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("POST").Queries("uploadId", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("PUT").Queries("uploadId", "").HandlerFunc(notImplementedError)
+	objectRouter.Methods("DELETE").Queries("uploadId", "").HandlerFunc(notImplementedError)
 
 	objectHandler := newObjectHandler(pc)
 	objectRouter.Methods("GET", "HEAD").HandlerFunc(objectHandler.get)

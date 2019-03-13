@@ -27,7 +27,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func serve(t *testing.T, multipartDir string) (*http.Server, *client.APIClient, *minio.Client) {
+func serve(t *testing.T) (*http.Server, *client.APIClient, *minio.Client) {
 	t.Helper()
 
 	port := tu.UniquePort()
@@ -35,7 +35,7 @@ func serve(t *testing.T, multipartDir string) (*http.Server, *client.APIClient, 
 
 	// note: this logrus writer is not closed. This shouldn't be a problem for
 	// tests.
-	srv := Server(pc, port, logrus.StandardLogger().Writer(), multipartDir)
+	srv := Server(pc, port, logrus.StandardLogger().Writer())
 
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
@@ -161,7 +161,7 @@ func fileHash(t *testing.T, name string) (int64, []byte) {
 }
 
 func TestListBuckets(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	startTime := time.Now()
 	repo1 := tu.UniqueString("testlistbuckets1")
@@ -187,7 +187,7 @@ func TestListBuckets(t *testing.T) {
 }
 
 func TestListBucketsBranchless(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo1 := tu.UniqueString("testlistbucketsbranchless1")
 	require.NoError(t, pc.CreateRepo(repo1))
@@ -203,7 +203,7 @@ func TestListBucketsBranchless(t *testing.T) {
 }
 
 func TestGetObject(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo := tu.UniqueString("testgetobject")
 	require.NoError(t, pc.CreateRepo(repo))
@@ -218,7 +218,7 @@ func TestGetObject(t *testing.T) {
 }
 
 func TestGetObjectInBranch(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo := tu.UniqueString("testgetobjectinbranch")
 	require.NoError(t, pc.CreateRepo(repo))
@@ -234,7 +234,7 @@ func TestGetObjectInBranch(t *testing.T) {
 }
 
 func TestStatObject(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo := tu.UniqueString("teststatobject")
 	require.NoError(t, pc.CreateRepo(repo))
@@ -261,7 +261,7 @@ func TestStatObject(t *testing.T) {
 }
 
 func TestPutObject(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo := tu.UniqueString("testputobject")
 	require.NoError(t, pc.CreateRepo(repo))
@@ -282,7 +282,7 @@ func TestPutObject(t *testing.T) {
 }
 
 func TestRemoveObject(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo := tu.UniqueString("testremoveobject")
 	require.NoError(t, pc.CreateRepo(repo))
@@ -302,10 +302,7 @@ func TestRemoveObject(t *testing.T) {
 
 // Tests inserting and getting files over 64mb in size
 func TestLargeObjects(t *testing.T) {
-	multipartDir, err := ioutil.TempDir("", "pachyderm-test-s3gateway-multipart")
-	require.NoError(t, err)
-	defer os.RemoveAll(multipartDir)
-	srv, pc, c := serve(t, multipartDir)
+	srv, pc, c := serve(t)
 
 	// test repos: repo1 exists, repo2 does not
 	repo1 := tu.UniqueString("testlargeobject1")
@@ -356,7 +353,7 @@ func TestLargeObjects(t *testing.T) {
 }
 
 func TestGetObjectNoHead(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo := tu.UniqueString("testgetobjectnohead")
 	require.NoError(t, pc.CreateRepo(repo))
@@ -369,7 +366,7 @@ func TestGetObjectNoHead(t *testing.T) {
 }
 
 func TestGetObjectNoBranch(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo := tu.UniqueString("testgetobjectnobranch")
 	require.NoError(t, pc.CreateRepo(repo))
@@ -380,7 +377,7 @@ func TestGetObjectNoBranch(t *testing.T) {
 }
 
 func TestGetObjectNoRepo(t *testing.T) {
-	srv, _, c := serve(t, "")
+	srv, _, c := serve(t)
 
 	repo := tu.UniqueString("testgetobjectnorepo")
 	_, err := getObject(t, c, repo, "master", "file")
@@ -389,7 +386,7 @@ func TestGetObjectNoRepo(t *testing.T) {
 }
 
 func TestMakeBucket(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 	repo := tu.UniqueString("testmakebucket")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 
@@ -402,7 +399,7 @@ func TestMakeBucket(t *testing.T) {
 }
 
 func TestMakeBucketWithBranch(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 	repo := tu.UniqueString("testmakebucketwithbranch")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("branch.%s", repo), ""))
 
@@ -415,7 +412,7 @@ func TestMakeBucketWithBranch(t *testing.T) {
 }
 
 func TestMakeBucketWithRegion(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 	repo := tu.UniqueString("testmakebucketwithregion")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), "us-east-1"))
 	_, err := pc.InspectRepo(repo)
@@ -424,7 +421,7 @@ func TestMakeBucketWithRegion(t *testing.T) {
 }
 
 func TestMakeBucketRedundant(t *testing.T) {
-	srv, _, c := serve(t, "")
+	srv, _, c := serve(t)
 	repo := tu.UniqueString("testmakebucketredundant")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 	err := c.MakeBucket(fmt.Sprintf("master.%s", repo), "")
@@ -434,7 +431,7 @@ func TestMakeBucketRedundant(t *testing.T) {
 }
 
 func TestMakeBucketDifferentBranches(t *testing.T) {
-	srv, _, c := serve(t, "")
+	srv, _, c := serve(t)
 	repo := tu.UniqueString("testmakebucketdifferentbranches")
 
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
@@ -453,7 +450,7 @@ func TestMakeBucketDifferentBranches(t *testing.T) {
 }
 
 func TestBucketExists(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 	repo := tu.UniqueString("testbucketexists")
 
 	exists, err := c.BucketExists(fmt.Sprintf("master.%s", repo))
@@ -487,7 +484,7 @@ func TestBucketExists(t *testing.T) {
 }
 
 func TestRemoveBucket(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 	repo := tu.UniqueString("testremovebucket")
 
 	require.NoError(t, pc.CreateRepo(repo))
@@ -501,7 +498,7 @@ func TestRemoveBucket(t *testing.T) {
 }
 
 func TestRemoveBucketBranchless(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 	repo := tu.UniqueString("testremovebucketbranchless")
 
 	// should error out because the repo doesn't have a branch
@@ -512,7 +509,7 @@ func TestRemoveBucketBranchless(t *testing.T) {
 }
 
 func TestListObjectsPaginated(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	// create a bunch of files - enough to require the use of paginated
 	// requests when browsing all files. One file will be included on a
@@ -568,7 +565,7 @@ func TestListObjectsPaginated(t *testing.T) {
 }
 
 func TestListObjectsHeadlessBranch(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	repo := tu.UniqueString("testlistobjectsheadlessbranch")
 	require.NoError(t, pc.CreateRepo(repo))
@@ -582,7 +579,7 @@ func TestListObjectsHeadlessBranch(t *testing.T) {
 }
 
 func TestListObjectsRecursive(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 
 	// `startTime` and `endTime` will be used to ensure that an object's
 	// `LastModified` date is correct. A few minutes are subtracted/added to
@@ -637,7 +634,7 @@ func TestListObjectsRecursive(t *testing.T) {
 }
 
 func TestMasterBranchRedirects(t *testing.T) {
-	srv, pc, c := serve(t, "")
+	srv, pc, c := serve(t)
 	repo := tu.UniqueString("testmasterbranchredirects")
 
 	require.NoError(t, pc.CreateRepo(repo))

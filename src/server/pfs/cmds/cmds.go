@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -1155,13 +1154,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			logWriter := log.StandardLogger().Writer()
 			defer logWriter.Close()
 
-			multipartDir, err := ioutil.TempDir("", "pachyderm-s3gateway-multipart")
-			if err != nil {
-				return err
-			}
-			defer os.RemoveAll(multipartDir)
-
-			server := s3.Server(client, port, logWriter, multipartDir)
+			server := s3.Server(client, port, logWriter)
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				return err
 			}
@@ -1170,38 +1163,38 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	s3gateway.Flags().Uint16VarP(&port, "port", "p", 30600, "The local port to bind the S3 gateway to.")
 
-    repoCommands := []*cobra.Command{
-        createRepo,
-        updateRepo,
-        inspectRepo,
-        listRepo,
-        deleteRepo,
-    }
+	repoCommands := []*cobra.Command{
+		createRepo,
+		updateRepo,
+		inspectRepo,
+		listRepo,
+		deleteRepo,
+	}
 
-    commitCommands := []*cobra.Command{
-        startCommit,
-        finishCommit,
-        inspectCommit,
-        listCommit,
-        flushCommit,
-        subscribeCommit,
-        deleteCommit,
-    }
+	commitCommands := []*cobra.Command{
+		startCommit,
+		finishCommit,
+		inspectCommit,
+		listCommit,
+		flushCommit,
+		subscribeCommit,
+		deleteCommit,
+	}
 
-    fileCommands := []*cobra.Command{
-        putFile,
-        copyFile,
-        getFile,
-        inspectFile,
-        listFile,
-        globFile,
-        diffFile,
-        deleteFile,
-    }
+	fileCommands := []*cobra.Command{
+		putFile,
+		copyFile,
+		getFile,
+		inspectFile,
+		listFile,
+		globFile,
+		diffFile,
+		deleteFile,
+	}
 
-    cmdutil.SetDocsUsage(repo, repoCommands)
-    cmdutil.SetDocsUsage(commit, commitCommands)
-    cmdutil.SetDocsUsage(file, fileCommands)
+	cmdutil.SetDocsUsage(repo, repoCommands)
+	cmdutil.SetDocsUsage(commit, commitCommands)
+	cmdutil.SetDocsUsage(file, fileCommands)
 
 	var result []*cobra.Command
 	result = append(result, repo)
