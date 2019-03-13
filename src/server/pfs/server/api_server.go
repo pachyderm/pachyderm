@@ -98,7 +98,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := (*StartCommitRequest)(request).execute(a.driver, a.env.GetPachClient(ctx))
+	commit, err := (*StartCommitRequest)(request).run(a.driver, a.env.GetPachClient(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (a *apiServer) StartCommits(startCommitsServer pfs.API_StartCommitsServer) 
 	}
 
 	client := a.env.GetPachClient(startCommitsServer.Context())
-	results, err := a.driver.executeTransaction(client, requests)
+	results, err := a.driver.runTransaction(client, requests)
 
 	if err != nil {
 		return err
@@ -200,7 +200,7 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err := (*CreateBranchRequest)(request).execute(a.driver, a.env.GetPachClient(ctx))
+	err := (*CreateBranchRequest)(request).run(a.driver, a.env.GetPachClient(ctx))
 
 	if err != nil {
 		return nil, err
@@ -225,7 +225,7 @@ func (a *apiServer) CreateBranches(createBranchesServer pfs.API_CreateBranchesSe
 	}
 
 	client := a.env.GetPachClient(createBranchesServer.Context())
-	_, err := a.driver.executeTransaction(client, requests)
+	_, err := a.driver.runTransaction(client, requests)
 	// TODO: check that results are nil
 
 	if err != nil {

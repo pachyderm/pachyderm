@@ -158,9 +158,9 @@ func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtre
 }
 
 // Operation is an interface for specifying multiple requests to be performed
-// transactionally through 'executeRequests'
+// transactionally through 'runTransaction'
 type Operation interface {
-	executeInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error)
+	runInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error)
 }
 
 // CreateBranchRequest is a type alias for the protobuf pfs.CreateBranchRequest
@@ -168,7 +168,7 @@ type CreateBranchRequest pfs.CreateBranchRequest
 // StartCommitRequest is a type alias for the protobuf pfs.StartCommitRequest
 type StartCommitRequest pfs.StartCommitRequest
 
-func (d *driver) executeTransaction(pachClient *client.APIClient, requests []Operation) ([][]byte, error) {
+func (d *driver) runTransaction(pachClient *client.APIClient, requests []Operation) ([][]byte, error) {
 	var results [][]byte
 	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
 		// This function may be called multiple times for transaction reattempts,
@@ -176,10 +176,10 @@ func (d *driver) executeTransaction(pachClient *client.APIClient, requests []Ope
 		results = [][]byte{}
 
 		for i, req := range requests {
-			result, err := req.executeInTransaction(d, pachClient, stm);
+			result, err := req.runInTransaction(d, pachClient, stm);
 			if err != nil {
 				err = fmt.Errorf(
-					"Error executing operation %d of %d: %v",
+					"Error running request %d of %d: %v",
 					i + 1, len(requests), grpcutil.ScrubGRPC(err),
 				)
 				return err
@@ -462,7 +462,7 @@ func (d *driver) deleteRepo(pachClient *client.APIClient, repo *pfs.Repo, force 
 	return nil
 }
 
-func (req *StartCommitRequest) execute(d *driver, pachClient *client.APIClient) (*pfs.Commit, error) {
+func (req *StartCommitRequest) run(d *driver, pachClient *client.APIClient) (*pfs.Commit, error) {
 	var result *pfs.Commit
 	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
 		commit, err := d.makeCommit(pachClient, stm, "", req.Parent, req.Branch, req.Provenance, nil, nil, nil, req.Description)
@@ -472,7 +472,7 @@ func (req *StartCommitRequest) execute(d *driver, pachClient *client.APIClient) 
 	return result, err
 }
 
-func (req *StartCommitRequest) executeInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error) {
+func (req *StartCommitRequest) runInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error) {
 	commit, err := d.makeCommit(pachClient, stm, "", req.Parent, req.Branch, req.Provenance, nil, nil, nil, req.Description)
 	if err != nil {
 		return nil, err
@@ -1783,15 +1783,15 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 	return err
 }
 
-func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient) error {
+func (req *CreateBranchRequest) run(d *driver, pachClient *client.APIClient) error {
 	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
-		_, err := req.executeInTransaction(d, pachClient, stm)
+		_, err := req.runInTransaction(d, pachClient, stm)
 		return err
 	})
 	return err
 }
 
-// createBranchRequest.execute creates a new branch or updates an existing
+// createBranchRequest.run creates a new branch or updates an existing
 // branch (must be one or the other). Most importantly, it sets
 // 'branch.DirectProvenance' to 'provenance' and then for all (downstream)
 // branches, restores the invariant:
@@ -1799,7 +1799,7 @@ func (req *CreateBranchRequest) execute(d *driver, pachClient *client.APIClient)
 //
 // This invariant is assumed to hold for all branches upstream of 'branch', but
 // not for 'branch' itself once 'b.Provenance' has been set.
-func (req *CreateBranchRequest) executeInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error) {
+func (req *CreateBranchRequest) runInTransaction(d *driver, pachClient *client.APIClient, stm col.STM) ([]byte, error) {
 	if err := d.checkIsAuthorized(pachClient, req.Branch.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}

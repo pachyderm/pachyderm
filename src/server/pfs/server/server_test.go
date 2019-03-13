@@ -226,7 +226,7 @@ func TestFailedCreateBranches(t *testing.T) {
 		},
 	)
 
-	require.Matches(t, "executing request 2 of 3", err.Error())
+	require.Matches(t, "running request 2 of 3", err.Error())
 	require.Matches(t, "repos/b not found", err.Error())
 
 	// The batch request should be transactional - none of the branches
@@ -4595,6 +4595,85 @@ func TestStartCommitOutputBranch(t *testing.T) {
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
 	_, err := c.StartCommit("out", "master")
 	require.YesError(t, err)
+}
+
+func TestStartCommits(t *testing.T) {
+	c := GetPachClient(t)
+
+	require.NoError(t, c.CreateRepo("a"))
+	require.NoError(t, c.CreateRepo("b"))
+	masterCommit, err := c.StartCommit("a", "master")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("a", "master"))
+	bronchCommit, err := c.StartCommit("b", "bronch")
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit("b", "bronch"))
+
+	commits, err := c.StartCommits(
+		[]*pfs.StartCommitRequest{
+			pclient.NewStartCommitRequest("a", "master", "", "desc"),
+			pclient.NewStartCommitRequest("a", "foo", "", ""),
+			pclient.NewStartCommitRequest("b", "bar", "", ""),
+			pclient.NewStartCommitRequest("b", "baz", "bronch", ""),
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(commits))
+	require.Equal(t, "a", commits[0].Repo.Name)
+	require.Equal(t, "a", commits[1].Repo.Name)
+	require.Equal(t, "b", commits[2].Repo.Name)
+	require.Equal(t, "b", commits[3].Repo.Name)
+
+	info, err := c.InspectBranch("a", "master")
+	require.NoError(t, err)
+	require.Equal(t, commits[0].ID, info.Head.ID)
+	commit, err := c.InspectCommit("a", commits[0].ID)
+	require.NoError(t, err)
+	require.Equal(t, masterCommit.ID, commit.ParentCommit.ID)
+
+	info, err = c.InspectBranch("a", "foo")
+	require.NoError(t, err)
+	require.Equal(t, commits[1].ID, info.Head.ID)
+	commit, err = c.InspectCommit("a", commits[1].ID)
+	require.NoError(t, err)
+	require.Nil(t, commit.ParentCommit)
+
+	info, err = c.InspectBranch("b", "bar")
+	require.NoError(t, err)
+	require.Equal(t, commits[2].ID, info.Head.ID)
+	commit, err = c.InspectCommit("b", commits[2].ID)
+	require.NoError(t, err)
+	require.Nil(t, commit.ParentCommit)
+
+	info, err = c.InspectBranch("b", "baz")
+	require.NoError(t, err)
+	require.Equal(t, commits[3].ID, info.Head.ID)
+	commit, err = c.InspectCommit("b", commits[3].ID)
+	require.NoError(t, err)
+	require.Equal(t, bronchCommit.ID, commit.ParentCommit.ID)
+}
+
+func TestFailedStartCommits(t *testing.T) {
+	c := GetPachClient(t)
+
+	require.NoError(t, c.CreateRepo("a"))
+
+	_, err := c.StartCommits(
+		[]*pfs.StartCommitRequest{
+			pclient.NewStartCommitRequest("a", "foo", "", ""),
+			pclient.NewStartCommitRequest("b", "bar", "", ""),
+			pclient.NewStartCommitRequest("a", "baz", "", ""),
+		},
+	)
+
+	require.Matches(t, "running request 2 of 3", err.Error())
+	require.Matches(t, "repos/b not found", err.Error())
+
+	// TODO: check the right things here to make sure the transaction aborted
+
+	branches, err := c.ListBranch("a")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(branches))
 }
 
 func TestWalk(t *testing.T) {

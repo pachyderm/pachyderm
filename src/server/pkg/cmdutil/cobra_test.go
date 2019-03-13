@@ -27,91 +27,109 @@ func TestPartitionBatchArgs(t *testing.T) {
 	var actual, expected [][]string
 	var err error
 
-	cmd := &cobra.Command{}
+	cmd := &cobra.Command{Use: "cmd do stuff", Short: "do stuff", Run: func(*cobra.Command, []string){}}
 	cmd.Flags().StringP("value", "v", "", "A value.")
 	cmd.Flags().BoolP("bool", "b", false, "A boolean.")
+
+	// cobra lazily creates this flag when execute is called, but this test
+	// doesn't use execute
+	cmd.Flags().BoolP("help", "h", false, "")
 
 	// Partitions a simple array of positionals
 	args = []string{"foo", "bar", "baz"}
 	expected = [][]string{{"foo"}, {"bar"}, {"baz"}}
-    actual, err = partitionBatchArgs(args, 1, cmd)
+	actual, err = partitionBatchArgs(args, 1, cmd)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
 	// Partitions with value flags
 	args = []string{"--value", "val", "foo", "--value", "val2", "bar", "-v", "val3"}
 	expected = [][]string{{"--value", "val", "foo", "--value", "val2"}, {"bar", "-v", "val3"}}
-    actual, err = partitionBatchArgs(args, 1, cmd)
+	actual, err = partitionBatchArgs(args, 1, cmd)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
 	// Handles it ok if there is a trailing value flag with no value
 	args = []string{"foo", "--value"}
 	expected = [][]string{{"foo", "--value"}}
-    actual, err = partitionBatchArgs(args, 1, cmd)
+	actual, err = partitionBatchArgs(args, 1, cmd)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
 	args = []string{"foo", "-v"}
 	expected = [][]string{{"foo", "-v"}}
-    actual, err = partitionBatchArgs(args, 1, cmd)
+	actual, err = partitionBatchArgs(args, 1, cmd)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
 	// Partitions with boolean flags
 	args = []string{"--bool", "foo", "-b", "bar", "--bool"}
 	expected = [][]string{{"--bool", "foo", "-b"}, {"bar", "--bool"}}
-    actual, err = partitionBatchArgs(args, 1, cmd)
+	actual, err = partitionBatchArgs(args, 1, cmd)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
 	// Partitions larger sets of positionals
 	args = []string{"foo", "bar", "baz", "floop", "bloop", "hunter2"}
 	expected = [][]string{{"foo", "bar", "baz"}, {"floop", "bloop", "hunter2"}}
-    actual, err = partitionBatchArgs(args, 3, cmd)
+	actual, err = partitionBatchArgs(args, 3, cmd)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
 
 	// Errors if the wrong number of positionals was passed in
 	args = []string{"foo", "bar", "baz", "floop", "bloop"}
-    actual, err = partitionBatchArgs(args, 3, cmd)
+	_, err = partitionBatchArgs(args, 3, cmd)
 	require.YesError(t, err)
 	require.Matches(t, "must have 3 arguments, but found 2", err.Error())
 
 	args = []string{"foo", "bar", "baz", "floop"}
-    actual, err = partitionBatchArgs(args, 3, cmd)
+	_, err = partitionBatchArgs(args, 3, cmd)
 	require.YesError(t, err)
 	require.Matches(t, "must have 3 arguments, but found 1", err.Error())
 
 	// Errors for an unrecognized long flag
 	args = []string{"foo", "bar", "--unknown"}
-    actual, err = partitionBatchArgs(args, 2, cmd)
+	_, err = partitionBatchArgs(args, 2, cmd)
 	require.YesError(t, err)
-	require.Matches(t, "unrecognized flag '--unknown'", err.Error())
+	require.Matches(t, "Error: unknown flag: --unknown", err.Error())
 
 	// Errors for an unrecognized shorthand flag
 	args = []string{"foo", "bar", "-l"}
-    actual, err = partitionBatchArgs(args, 2, cmd)
+	_, err = partitionBatchArgs(args, 2, cmd)
 	require.YesError(t, err)
-	require.Matches(t, "unrecognized flag '-l'", err.Error())
+	require.Matches(t, "Error: unknown shorthand flag: 'l' in -l", err.Error())
 
 	// Errors for an unrecognized shorthand flag in a compound argument
 	args = []string{"foo", "bar", "-bl5"}
-    actual, err = partitionBatchArgs(args, 2, cmd)
+	_, err = partitionBatchArgs(args, 2, cmd)
 	require.YesError(t, err)
-	require.Matches(t, "unrecognized flag '-l'", err.Error())
+	require.Matches(t, "Error: unknown shorthand flag: 'l' in -bl5", err.Error())
 
 	// Partitions with mixed flags
 	args = []string{"-v=", "foo", "-bv500", "bar", "--bool", "baz", "-bbv", "val", "boz"}
 	expected = [][]string{{"-v=", "foo", "-bv500", "bar", "--bool"}, {"baz", "-bbv", "val", "boz"}}
-    actual, err = partitionBatchArgs(args, 2, cmd)
+	actual, err = partitionBatchArgs(args, 2, cmd)
 	require.NoError(t, err)
 	require.Equal(t, expected, actual)
+
+	// Returns an empty error on a help flag
+	args = []string{"foo", "--help", "bar"}
+	_, err = partitionBatchArgs(args, 2, cmd)
+	require.YesError(t, err)
+	require.Equal(t, 0, len(err.Error()))
+
+	args = []string{"foo", "bar", "-h"}
+	_, err = partitionBatchArgs(args, 2, cmd)
+	require.YesError(t, err)
+	require.Equal(t, 0, len(err.Error()))
 }
 
+// catchExecuteErrors changes a command's behavior to panic instead of `os.Exit`
+// when the command fails.  This lets us test error cases without ending the
+// test case, using a defer block to recover from the panic.
 func catchExecuteErrors(cmd *cobra.Command) (err error) {
 	original := internalErrorAndExit
-    internalErrorAndExit = func(message string) { panic(message) }
+	internalErrorAndExit = func(message string) { panic(message) }
 	defer func () {
 		internalErrorAndExit = original
 	}()
@@ -131,7 +149,7 @@ func TestRunBatchCommand(t *testing.T) {
 	preRunCalled := false
 	postRunCalled := false
 	parentCmd := &cobra.Command{
-	    Run: func(*cobra.Command, []string) {
+		Run: func(*cobra.Command, []string) {
 			t.Fatal("parent command Run should never be called")
 		},
 		PersistentPreRun: func(*cobra.Command, []string) {
@@ -150,7 +168,7 @@ func TestRunBatchCommand(t *testing.T) {
 	cmd := &cobra.Command{
 		Use: "subcmd [flags]",
 		DisableFlagParsing: true,
-	    Run: RunBatchCommand(2, func(_args []BatchArgs) error {
+		Run: RunBatchCommand(2, func(_args []BatchArgs) error {
 			args = _args
 			return nil
 		}),
@@ -200,7 +218,7 @@ func TestRunBatchCommand(t *testing.T) {
 	parentCmd.SetArgs([]string {"subcmd", "foo", "bar", "--np", "str"})
 	err = catchExecuteErrors(parentCmd)
 	require.YesError(t, err)
-	require.Matches(t, "unrecognized flag '--np'", err.Error())
+	require.Matches(t, "Error: unknown flag: --np", err.Error())
 	reset()
 
 	// Should guarantee that batch commands disable flag parsing
