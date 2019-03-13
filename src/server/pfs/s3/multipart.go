@@ -110,7 +110,9 @@ func (m *multipartFileManager) checkChunkExists(uploadID string, partNumber int)
 
 // init starts a new multipart upload, returning its uploadID
 func (m *multipartFileManager) init(file string) (string, error) {
-	uploadID := uuid.NewWithoutDashes()
+	// don't use the full UUID because UUIDs are specifically not allowed as
+	// branch names
+	uploadID := uuid.NewWithoutDashes()[:16]
 
 	err := m.pc.CreateBranch(m.repo, uploadID, "", nil)
 	if err != nil {

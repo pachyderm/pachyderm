@@ -326,7 +326,7 @@ func TestLargeObjects(t *testing.T) {
 
 	// now try putting into a legit repo
 	l, err := c.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), "text/plain")
-	require.NoError(t, err)
+	require.Equal(t, err, io.EOF)
 	require.Equal(t, int(l), 68157450)
 
 	// try getting an object that does not exist
