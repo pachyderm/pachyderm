@@ -1236,6 +1236,7 @@ $ pachctl diff-file foo master path1 bar master path2
 
     commitCommands := []*cobra.Command{
         startCommit,
+        startCommits,
         finishCommit,
         inspectCommit,
         listCommit,

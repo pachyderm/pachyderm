@@ -168,7 +168,7 @@ type CreateBranchRequest pfs.CreateBranchRequest
 // StartCommitRequest is a type alias for the protobuf pfs.StartCommitRequest
 type StartCommitRequest pfs.StartCommitRequest
 
-func (d *driver) executeRequests(pachClient *client.APIClient, requests []Operation) ([][]byte, error) {
+func (d *driver) executeTransaction(pachClient *client.APIClient, requests []Operation) ([][]byte, error) {
 	var results [][]byte
 	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
 		// This function may be called multiple times for transaction reattempts,
@@ -179,7 +179,7 @@ func (d *driver) executeRequests(pachClient *client.APIClient, requests []Operat
 			result, err := req.executeInTransaction(d, pachClient, stm);
 			if err != nil {
 				err = fmt.Errorf(
-					"Error executing request %d of %d: %v",
+					"Error executing operation %d of %d: %v",
 					i + 1, len(requests), grpcutil.ScrubGRPC(err),
 				)
 				return err

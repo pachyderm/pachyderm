@@ -173,6 +173,11 @@ func (c APIClient) StartCommits(requests []*pfs.StartCommitRequest) ([]*pfs.Comm
 		}
 	}
 
+	err = batchClient.CloseSend()
+	if err != nil {
+		return nil, err
+	}
+
 	commits := []*pfs.Commit{}
 	for {
 		commit, err := batchClient.Recv()

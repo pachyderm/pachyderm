@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -152,9 +153,7 @@ func (args *BatchArgs) GetStringFlag(name string) string {
 // partitionBatchArgs splits up command-line arguments into groups of equal size
 // determined by positionalCount.  Flags are grouped with their preceeding
 // positional arguments.  This function mimics the parsing behavior of cobra,
-// so it may be a bit sensitive to cobra's behavior changing.  We rely on cobra
-// having already done a pass over the arguments, so we can assume they are a
-// valid format recognized by cobra, and that all flags are recognized.
+// so it may be a bit sensitive to cobra's behavior changing.
 func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) ([][]string, error) {
 	sets := [][]string{{}}
 	index := 0
@@ -171,7 +170,9 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 			flag := cmd.Flags().Lookup(split[0])
 
 			if flag == nil {
-				return nil, fmt.Errorf("unrecognized flag '%s'", x)
+				return nil, fmt.Errorf("Error: unknown flag: %s", x)
+			} else if flag.Name == "help" {
+				return nil, errors.New("")
 			} else if len(split) == 1 && flag.NoOptDefVal == "" {
 				// The following arg is the value for this flag, make sure to include it
 				value = true
@@ -183,7 +184,9 @@ func partitionBatchArgs(args []string, positionalCount int, cmd *cobra.Command) 
 			for i, shorthand := range x[1:] {
 				flag := cmd.Flags().ShorthandLookup(string(shorthand))
 				if flag == nil {
-					return nil, fmt.Errorf("unrecognized flag '-%c'", shorthand)
+					return nil, fmt.Errorf("Error: unknown shorthand flag: '%c' in %s", shorthand, x)
+				} else if flag.Name == "help" {
+					return nil, errors.New("")
 				} else if flag.NoOptDefVal == "" {
 					if len(x) == i + 2 {
 						// The following arg is the value for this flag, make sure to include it
@@ -285,7 +288,7 @@ func RunBatchCommand(
 		// Partition the args based on the number of positional arguments
 		args, err := partitionBatchArgs(originalArgs, positionalCount, cmd)
 		if err != nil {
-			ErrorAndExit("%v\n\n%s", err, cmd.UsageString())
+			ErrorAndExit("%v\n%s", err, cmd.UsageString())
 		}
 
 		parsedArgs := []BatchArgs{}
