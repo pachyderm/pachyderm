@@ -890,7 +890,7 @@ nextSubvBranch:
 		// commit. If so, a new output commit would be a duplicate, so don't create
 		// it.
 		// if branchInfo.Head != nil {
-		// 	fmt.Println("branchInfo head not nil", branchInfo.Head.ID)
+		// 	// fmt.Println("branchInfo head not nil", branchInfo.Head.ID)
 		// 	branchHeadInfo := &pfs.CommitInfo{}
 		// 	if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
 		// 		fmt.Println("head not found")
@@ -900,10 +900,10 @@ nextSubvBranch:
 		// 	fmt.Println("commit prov map", commitProvMap)
 		// 	fmt.Println("branch head info prov", branchHeadInfo.Provenance)
 		// 	for _, c := range branchHeadInfo.Provenance {
-		// 		fmt.Println("c.ID", c.ID)
+		// 		//fmt.Println("c.ID", c.ID)
 		// 		if _, ok := commitProvMap[c.ID]; !ok {
 		// 			headIsSubset = false
-		// 			fmt.Println("Head is subset break")
+		// 			//fmt.Println("Head is subset break")
 		// 			break
 		// 		}
 		// 	}
@@ -924,8 +924,8 @@ nextSubvBranch:
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
 			}
 			headIsSubset := false
-			// fmt.Println("commit prov map", commitProvMap)
-			// fmt.Println("branch head info prov", branchHeadInfo.Provenance)
+			fmt.Println("commit prov map", commitProvMap)
+			fmt.Println("branch head info prov", branchHeadInfo.Provenance)
 			for k := range commitProvMap {
 				matched := false
 				for _, c := range branchHeadInfo.Provenance {
