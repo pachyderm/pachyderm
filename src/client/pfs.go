@@ -356,11 +356,11 @@ func NewCreateBranchRequest(repoName string, branch string, commit string, prove
 	if commit != "" {
 		head = NewCommit(repoName, commit)
 	}
-    return &pfs.CreateBranchRequest{
-        Branch:     NewBranch(repoName, branch),
-        Head:       head,
-        Provenance: provenance,
-    }
+	return &pfs.CreateBranchRequest{
+		Branch:     NewBranch(repoName, branch),
+		Head:       head,
+		Provenance: provenance,
+	}
 }
 
 // CreateBranch creates a new branch
