@@ -7,7 +7,7 @@ containerized environment.  The Pachyderm File System (pfs) is a
 file-based system that is distributed and supports data of all types
 of files (binary, csv, json, images, etc) from many sources and
 users. That data is processed in parallel across many different jobs
-and pipeline using the Pachyderm Pipeline System (pps). The Pachyderm
+and pipelines using the Pachyderm Pipeline System (pps). The Pachyderm
 File System (pfs) and Pachyderm Pipeline System (pps) are designed to
 work together to get the right version of the right data to the right
 container at the right time.
