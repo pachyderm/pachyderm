@@ -105,52 +105,6 @@ func TestSimplePipeline(t *testing.T) {
 }
 
 func TestStopPipelineWithoutGeneratingCommits(t *testing.T) {
-	// c := getPachClient(t)
-	// require.NoError(c.DeleteAll())
-
-	// imagesRepo :=tu.UniqueString("images")
-	// require.NoError(t, c.CreateRepo(imagesRepo))
-
-	// commit1, err := c.StartCommit(imagesRepo, "master")
-	// require.NoError(t, err)
-	// _, err = c.PutFile(imagesRepo, commit1.ID, "file", strings.NewReader("foo"))
-	// require.NoError(t, err)
-	// require.NoError(t, c.FinishCommit(imagesRepo, commit1.ID))
-
-	// edgesPipeline := tu.UniqueString("edges")
-	// require.NoError(t, c.CreatePipeline(
-	// 	edgesPipeline,
-	// 	"",
-	// 	[]string{"bash"},
-	// 	[]string{
-	// 		fmt.Sprintf("cp /pfs/%s/* /pfs/out/", imagesRepo),
-	// 	},
-	// 	&pps.ParallelismSpec{
-	// 		Constant: 1,
-	// 	},
-	// 	client.NewPFSInput(imageRepo, "/*"),
-	// 	"",
-	// 	false,
-	// ))
-
-	// montagePipeline := tu.UniqueString("montage")
-	// require.NoError(t, c.CreatePipeline(
-	// 	montagePipeline,
-	// 	"",
-	// 	[]string{"bash"},
-	// 	[]string{
-	// 		fmt.Sprintf("cp /pfs/%s/* /pfs/out/", imagesRepo),
-	// 	},
-	// 	&pps.ParallelismSpec{
-	// 		Constant: 1,
-	// 	},
-	// 	client.NewCronInput(
-	// 		client.NewPFSInput(imageRepo, "/*"),
-	// 		client.NewPFSInput(edgesRepo, "/*"),
-	// 	),
-	// 	"",
-	// 	false,
-	// ))
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -230,8 +184,9 @@ func TestStopPipelineWithoutGeneratingCommits(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
 
+	// Stop the Pipeline, if propagateCommit is working correctly,
+	// cPipeline will not have a new commit.
 	require.NoError(t, c.StopPipeline(bPipeline))
-
 	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
