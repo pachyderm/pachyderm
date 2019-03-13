@@ -814,29 +814,12 @@ func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
 		return err
 	}
 	subvBranchInfos = append(subvBranchInfos, branchInfo) // add 'branch' itself
-	// fmt.Println("Subv length", len(branchInfo.Subvenance))
 	for _, subvBranch := range branchInfo.Subvenance {
 		subvBranchInfo := &pfs.BranchInfo{}
 		if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvBranchInfo); err != nil {
 			return err
 		}
-		// fmt.Println("Current subv repo", subvBranch.Repo, "name", subvBranch.Name, "prov", subvBranchInfo.Provenance)
 		subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
-
-		// // Direct subv means branchInfo exists in subvBranchInfo.DirectProvenance
-		// directSubv := true
-		// fmt.Println("Bout to iterate through direct prov branch rep", branch.Repo, "branch name", branch.Name)
-		// fmt.Println("Current subv repo", subvBranch.Repo, "name", subvBranch.Name)
-		// for _, b := range subvBranchInfo.DirectProvenance {
-		// 	fmt.Println("b repo", b.Repo, "b name", b.Name)
-		// 	if branch.Repo.Name == b.Repo.Name && branch.Name == b.Name {
-		// 		fmt.Println("direct subv", b.Name, b.Repo)
-		// 		directSubv = true
-		// 	}
-		// }
-		// if directSubv {
-		// 	subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
-		// }
 	}
 
 	// Sort subvBranchInfos so that upstream branches are processed before their
@@ -846,28 +829,21 @@ func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
 	sort.Slice(subvBranchInfos, func(i, j int) bool { return len(subvBranchInfos[i].Provenance) < len(subvBranchInfos[j].Provenance) })
 
 	// Iterate through downstream branches and determine which need a new commit.
-	// for _, sbi := range subvBranchInfos {
-	// 	// fmt.Println("subv", sbi.Branch)
-	// }
-	// fmt.Println("subv branch infos", subvBranchInfos)
 nextSubvBranch:
 	for _, branchInfo := range subvBranchInfos {
 		branch := branchInfo.Branch
 		repo := branch.Repo
 		commits := d.commits(repo.Name).ReadWrite(stm)
 		branches := d.branches(repo.Name).ReadWrite(stm)
-		// fmt.Println("branchInfo branch", branchInfo.Branch) //, "head", branchInfo.Head.ID)
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
 		commitProvMap := make(map[string]*branchCommit)
-		// fmt.Println("branchInfo provenance", branchInfo.Provenance)
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil && !col.IsErrNotFound(err) {
 				return fmt.Errorf("could not read branch %s/%s: %v", provBranch.Repo.Name, provBranch.Name, err)
 			}
-			// fmt.Println("prove branch info", provBranchInfo)
 			if provBranchInfo.Head == nil {
 				continue
 			}
@@ -881,7 +857,6 @@ nextSubvBranch:
 		}
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
-			// fmt.Println("nil map")
 			continue nextSubvBranch
 		}
 
@@ -919,18 +894,14 @@ nextSubvBranch:
 		// "dummy" job with no non-spec input data. If this is the case, don't
 		// create a new output commit
 		allSpec := true
-		fmt.Println("iterating on commitProvMap")
 		for _, b := range commitProvMap {
-			fmt.Println("branch is", b.branch, "commit is", b.commit)
 			if b.branch.Repo.Name != ppsconsts.SpecRepo {
-				fmt.Println("not all spec")
 				allSpec = false
 				break
 			}
 		}
 		if allSpec {
 			// Only input data is PipelineInfo; don't create new output commit
-			fmt.Println("ALL SPEC")
 			continue nextSubvBranch
 		}
 
@@ -980,7 +951,6 @@ nextSubvBranch:
 		}
 
 		// finally create open 'commit'
-		fmt.Println("Creating new commit", newCommitInfo)
 		if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
 			return err
 		}
@@ -1615,7 +1585,6 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		// processed yet
 		// TODO(msteffen) propagate all changed branches? Use heap to topologically
 		// sort them?
-		// fmt.Println("Calling propagate from 1607")
 		return d.propagateCommit(stm, shortestBranch)
 	}); err != nil {
 		return fmt.Errorf("error rewriting commit graph: %v", err)

@@ -104,95 +104,6 @@ func TestSimplePipeline(t *testing.T) {
 	require.Equal(t, "foo", buf.String())
 }
 
-func TestStopPipelineWithoutGeneratingCommits(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-
-	c := getPachClient(t)
-	require.NoError(t, c.DeleteAll())
-	aRepo := tu.UniqueString("A")
-	require.NoError(t, c.CreateRepo(aRepo))
-	bPipeline := tu.UniqueString("B")
-	require.NoError(t, c.CreatePipeline(
-		bPipeline,
-		"",
-		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(aRepo, "/*"),
-		"",
-		false,
-	))
-	cPipeline := tu.UniqueString("C")
-	require.NoError(t, c.CreatePipeline(
-		cPipeline,
-		"",
-		[]string{"sh"},
-		[]string{fmt.Sprintf("diff %s %s >/pfs/out/file",
-			path.Join("/pfs", aRepo, "file"), path.Join("/pfs", bPipeline, "file"))},
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewCrossInput(
-			client.NewPFSInput(aRepo, "/*"),
-			client.NewPFSInput(bPipeline, "/*"),
-		),
-		"",
-		false,
-	))
-	// commit to aRepo
-	commit1, err := c.StartCommit(aRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(aRepo, commit1.ID, "file", strings.NewReader("foo\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
-
-	commit2, err := c.StartCommit(aRepo, "master")
-	require.NoError(t, err)
-	_, err = c.PutFile(aRepo, commit2.ID, "file", strings.NewReader("bar\n"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
-
-	aCommit := commit2
-	commitIter, err := c.FlushCommit([]*pfs.Commit{aCommit}, []*pfs.Repo{client.NewRepo(bPipeline)})
-	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-	bCommit := commitInfos[0].Commit
-	commitIter, err = c.FlushCommit([]*pfs.Commit{aCommit, bCommit}, nil)
-	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
-	require.Equal(t, 1, len(commitInfos))
-	cCommitInfo := commitInfos[0]
-	require.Equal(t, uint64(0), cCommitInfo.SizeBytes)
-
-	// We should only see two commits in aRepo
-	commitInfos, err = c.ListCommit(aRepo, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
-
-	// There are three commits in the pipeline repos (two from input commits, and
-	// one from the CreatePipeline call that created each repo)
-	commitInfos, err = c.ListCommit(bPipeline, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
-
-	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
-
-	// Stop the Pipeline, if propagateCommit is working correctly,
-	// cPipeline will not have a new commit.
-	require.NoError(t, c.StopPipeline(bPipeline))
-	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
-	require.NoError(t, err)
-	require.Equal(t, 2, len(commitInfos))
-
-}
-
 // TestRepoSize ensures that a repo's size is equal to it's master branch's
 // HEAD's size. This test should prevent a regression where output repos would
 // incorrectly report their size to be 0B. See here for more details:
@@ -1109,6 +1020,14 @@ func TestProvenance(t *testing.T) {
 	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
+
+	// Stop bPipeline, confirm no new commits on cPipeline.
+	t.Run("NoCommitOnStopPipeline", func(t *testing.T) {
+		require.NoError(t, c.StopPipeline(bPipeline))
+		commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
+		require.NoError(t, err)
+		require.Equal(t, 2, len(commitInfos))
+	})
 }
 
 // TestProvenance2 tests the following DAG:
