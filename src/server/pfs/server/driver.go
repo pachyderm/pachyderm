@@ -540,7 +540,10 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 			if err := commits.Update(parent.ID, parentCommitInfo, func() error {
 				newCommitInfo.ParentCommit = parent
-				newCommitInfo.OriginalBranch = parentCommitInfo.OriginalBranch
+				// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
+				if newCommitInfo.OriginalBranch == nil {
+					newCommitInfo.OriginalBranch = parentCommitInfo.OriginalBranch
+				}
 				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
 				return nil
 			}); err != nil {
