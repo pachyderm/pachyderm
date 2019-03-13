@@ -26,25 +26,21 @@ You can also use `update-pipeline` to update the code you are using in one or
 more of your pipelines.  To update the code in your pipeline:
 
 1. Make the code changes.
-2. Re-build your Docker image.
-3. Call `update-pipeline` with the `--push-images` flag.
+2. Call `update-pipeline` with the `--build` flag.
 
-You need to call `update-pipeline` with the `--push-images` flag because, if
-you have already run your pipeline, Pachyderm has already pulled the specified
-images.  It won't re-pull new versions of the images, unless we tell it to
-(which ensures that we don't waste time pulling images when we don't need to).
-When `--push-images` is specified, Pachyderm will do the following:
+When `--build` is specified, Pachyderm will do the following:
 
-1. Tag your image with a new unique tag.
-2. Push that tagged image to your registry (e.g., DockerHub).
-3. Update the pipeline specification that you previously gave to Pachyderm with
-   the new unique tag.
+1. Rebuild the docker image.
+2. Tag your image with a new unique name.
+3. Push that tagged image to your registry (e.g., DockerHub).
+4. Update the pipeline specification that you previously gave to Pachyderm to
+   use the new unique tag.
 
 For example, you could update the Python code used in the [OpenCV
 pipeline](../getting_started/beginner_tutorial.html) via:
 
 ```sh
-pachctl update-pipeline -f edges.json --push-images -u <registry user>
+pachctl update-pipeline -f edges.json --build -u <registry user>
 ```
 
 You'll then be prompted for your docker registry password.
