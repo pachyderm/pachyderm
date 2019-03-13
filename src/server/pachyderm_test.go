@@ -1847,22 +1847,22 @@ func TestPrettyPrinting(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 	repoInfo, err := c.InspectRepo(dataRepo)
 	require.NoError(t, err)
-	require.NoError(t, pfspretty.PrintDetailedRepoInfo(repoInfo))
+	require.NoError(t, pfspretty.PrintDetailedRepoInfo(pfspretty.NewPrintableRepoInfo(repoInfo)))
 	for _, commitInfo := range commitInfos {
-		require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+		require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 	}
 	fileInfo, err := c.InspectFile(dataRepo, commit.ID, "file")
 	require.NoError(t, err)
 	require.NoError(t, pfspretty.PrintDetailedFileInfo(fileInfo))
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
-	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(pipelineInfo))
+	require.NoError(t, ppspretty.PrintDetailedPipelineInfo(ppspretty.NewPrintablePipelineInfo(pipelineInfo)))
 	jobInfos, err := c.ListJob("", nil, nil)
 	require.NoError(t, err)
 	require.True(t, len(jobInfos) > 0)
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
-	require.NoError(t, ppspretty.PrintDetailedJobInfo(jobInfo))
+  require.NoError(t, ppspretty.PrintDetailedJobInfo(ppspretty.NewPrintableJobInfo(jobInfo)))
 }
 
 func TestDeleteAll(t *testing.T) {
@@ -6770,7 +6770,7 @@ func TestCommitDescription(t *testing.T) {
 	commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in start-commit", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 
 	// Test putting a message in FinishCommit
 	commit, err = c.StartCommit(dataRepo, "master")
@@ -6782,7 +6782,7 @@ func TestCommitDescription(t *testing.T) {
 	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in finish-commit", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 
 	// Test overwriting a commit message
 	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
@@ -6798,7 +6798,7 @@ func TestCommitDescription(t *testing.T) {
 	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in finish-commit that overwrites", commitInfo.Description)
-	require.NoError(t, pfspretty.PrintDetailedCommitInfo(commitInfo))
+	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 }
 
 func TestGetFileWithEmptyCommits(t *testing.T) {
