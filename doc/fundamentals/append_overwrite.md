@@ -30,7 +30,7 @@ working with data in Pachyderm.
 
 ## Loading data into Pachyderm
 
-### Overwriting files
+### Appending to files
 
 When putting files into a pfs repo via Pachyderm's `pachctl` utility or via the Pachyderm APIs,
 it's vital to know about the default behaviors of the `put-file`
@@ -59,8 +59,10 @@ COMMIT                           NAME             TYPE COMMITTED     SIZE
 ```
 
 In this case, any pipelines that use this repo for input will see an updated file that has double the data in it.
+This is Pachyderm's default behavior.
+What if you want to overwrite the files?
 
-### Appending to files
+### Overwriting files
 
 This is where the `-o` (or `--overwrite`) flag comes in handy.  It will, as you've probably guessed, overwrite the file, rather than append it.
 ```
