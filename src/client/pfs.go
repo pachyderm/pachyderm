@@ -125,6 +125,8 @@ func (c APIClient) DeleteRepo(repoName string, force bool) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// NewStartCommitRequest is a helper function to convert 'start-commit'
+// arguments to the protobuf representation for the request.
 func NewStartCommitRequest(repoName string, branch string, parent string, description string) *pfs.StartCommitRequest {
 	return &pfs.StartCommitRequest{
 		Branch:      branch,
@@ -160,6 +162,8 @@ func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, err
 	return commit, nil
 }
 
+// StartCommits batches together multiple StartCommit requests across multiple
+// repos into a single transaction - see StartCommit for details.
 func (c APIClient) StartCommits(requests []*pfs.StartCommitRequest) ([]*pfs.Commit, error) {
 	batchClient, err := c.PfsAPIClient.StartCommits(c.Ctx())
 	if err != nil {
