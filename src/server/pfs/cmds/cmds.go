@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -1155,13 +1154,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			logWriter := log.StandardLogger().Writer()
 			defer logWriter.Close()
 
-			multipartDir, err := ioutil.TempDir("", "pachyderm-s3gateway-multipart")
-			if err != nil {
-				return err
-			}
-			defer os.RemoveAll(multipartDir)
-
-			server := s3.Server(client, port, logWriter, multipartDir)
+			server := s3.Server(client, port, logWriter)
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				return err
 			}

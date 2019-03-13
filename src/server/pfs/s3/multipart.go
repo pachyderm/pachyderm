@@ -8,19 +8,20 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 	"strconv"
-	"sync"
+	"strings"
 	"time"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/sirupsen/logrus"
 )
 
-const defaultMaxParts int = 1000
+const multipartRepo = "_s3gateway_multipart_"
+
+const defaultMaxParts = 1000
 
 const maxAllowedParts = 10000
 
@@ -64,62 +65,46 @@ type Part struct {
 	PartNumber   int       `xml:"PartNumber"`
 	LastModified time.Time `xml:"LastModified,omitempty"`
 	ETag         string    `xml:"ETag"`
-	Size         int64     `xml"Size,omitempty"`
+	Size         uint64    `xml"Size,omitempty"`
 }
 
 // multipartFileManager manages the underlying files associated with multipart
-// content
-//
-// multipart content is stored in the local filesystem until it's complete,
-// then all of the content is flushed to PFS and the content in the local
-// filesystem is removed. This means that ingressing data via multipart upload
-// is constrained by local filesystem limitations.
+// content.
 type multipartFileManager struct {
-	// the parent directory for all of the multipart contnet
-	root string
+	// Name of the PFS repo holding multipart content
+	repo string
 
 	// the maximum number of allowed parts that can be associated with any
 	// given file
 	maxAllowedParts int
+
+	pc *client.APIClient
 }
 
-func newMultipartFileManager(root string, maxAllowedParts int) *multipartFileManager {
-	return &multipartFileManager{
-		root:            root,
+func newMultipartFileManager(repo string, maxAllowedParts int, pc *client.APIClient) (*multipartFileManager, error) {
+	err := pc.CreateRepo(repo)
+	if err != nil && !strings.Contains(err.Error(), "as it already exists") {
+		return nil, err
+	}
+
+	m := multipartFileManager{
+		repo:            repo,
 		maxAllowedParts: maxAllowedParts,
+		pc:              pc,
 	}
+
+	return &m, nil
 }
 
-// namePath returns the path to the file storing the filename that will be
-// placed in PFS
-func (m *multipartFileManager) namePath(uploadID string) string {
-	return filepath.Join(m.root, fmt.Sprintf("%s.txt", uploadID))
-}
-
-// chunksPath returns the path to the directory storing the chunks/parts
-func (m *multipartFileManager) chunksPath(uploadID string) string {
-	return filepath.Join(m.root, uploadID)
-}
-
-// chunkPath returns the path to the file storing an individual chunk/part
-func (m *multipartFileManager) chunkPath(uploadID string, partNumber int) string {
-	return filepath.Join(m.chunksPath(uploadID), strconv.Itoa(partNumber))
-}
-
-// checkExists checks if an uploadID exists (both the name file and the chunks
-// directory)
+// checkExists checks if an uploadID exists
 func (m *multipartFileManager) checkExists(uploadID string) error {
-	if _, err := os.Stat(m.namePath(uploadID)); err != nil {
-		return err
-	}
-
-	_, err := os.Stat(m.chunksPath(uploadID))
+	_, err := m.pc.InspectFile(m.repo, uploadID, "filepath.txt")
 	return err
 }
 
 // checkChunkExists checks if a chunk exists
 func (m *multipartFileManager) checkChunkExists(uploadID string, partNumber int) error {
-	_, err := os.Stat(m.chunkPath(uploadID, partNumber))
+	_, err := m.pc.InspectFile(m.repo, uploadID, fmt.Sprintf("%d.chunk", partNumber))
 	return err
 }
 
@@ -127,11 +112,15 @@ func (m *multipartFileManager) checkChunkExists(uploadID string, partNumber int)
 func (m *multipartFileManager) init(file string) (string, error) {
 	uploadID := uuid.NewWithoutDashes()
 
-	if err := ioutil.WriteFile(m.namePath(uploadID), []byte(file), os.ModePerm); err != nil {
+	err := m.pc.CreateBranch(m.repo, uploadID, "", nil)
+	if err != nil {
 		return "", err
 	}
 
-	if err := os.Mkdir(m.chunksPath(uploadID), os.ModePerm); err != nil {
+	// NOTE: if something goes wrong here, the branch isn't deleted and will
+	// need to be manually deleted
+	_, err = m.pc.PutFileOverwrite(m.repo, uploadID, "filepath.txt", strings.NewReader(file), 0)
+	if err != nil {
 		return "", err
 	}
 
@@ -140,123 +129,85 @@ func (m *multipartFileManager) init(file string) (string, error) {
 
 // filepath returns the PFS filepath
 func (m *multipartFileManager) filepath(uploadID string) (string, error) {
-	name, err := ioutil.ReadFile(m.namePath(uploadID))
+	reader, err := m.pc.GetFileReader(m.repo, uploadID, "filepath.txt", 0, 0)
 	if err != nil {
 		return "", err
 	}
-	return string(name), nil
+	contents, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+	return string(contents), nil
 }
 
-// writeChunk writes a chunk/part to the local filesystem from a reader
+// writeChunk writes a chunk/part from a reader
 func (m *multipartFileManager) writeChunk(uploadID string, partNumber int, reader io.Reader) error {
-	chunkPath := m.chunkPath(uploadID, partNumber)
-	f, err := os.Create(chunkPath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if _, err = io.Copy(f, reader); err != nil {
-		return err
-	}
-	return f.Sync()
+	_, err := m.pc.PutFileOverwrite(m.repo, uploadID, fmt.Sprintf("%d.chunk", partNumber), reader, 0)
+	return err
 }
 
 // removeChunk removes a chunk/part
 func (m *multipartFileManager) removeChunk(uploadID string, partNumber int) error {
-	return os.Remove(m.chunkPath(uploadID, partNumber))
+	return m.pc.DeleteFile(m.repo, uploadID, fmt.Sprintf("%d.chunk", partNumber))
 }
 
-// listChunks lists chunks/parts that have been stored in the local filesystem.
-// Returned file infos are sorted by the part number they're associated with.
-func (m *multipartFileManager) listChunks(uploadID string) ([]os.FileInfo, error) {
-	fileInfos, err := ioutil.ReadDir(m.chunksPath(uploadID))
+// listChunks lists chunks/parts that have been stored. Returned file infos
+// are sorted by the part number they're associated with.
+func (m *multipartFileManager) listChunks(uploadID string) ([]Part, error) {
+	parts := []Part{}
+	fileInfos, err := m.pc.GlobFile(m.repo, uploadID, "*.chunk")
 	if err != nil {
 		return nil, err
 	}
 
-	// ensure no invalid files exist
 	for _, fileInfo := range fileInfos {
-		i, err := strconv.Atoi(fileInfo.Name())
-
+		path := fileInfo.File.Path[1:]
+		i, err := strconv.Atoi(path[:len(path)-6])
 		if err != nil || i < 1 || i > m.maxAllowedParts {
-			return nil, fmt.Errorf("invalid file exists for %s: %s", uploadID, fileInfo.Name())
+			return nil, fmt.Errorf("invalid file exists for %s: %s", uploadID, path)
 		}
+
+		timestamp, err := types.TimestampFromProto(fileInfo.Committed)
+		if err != nil {
+			return nil, err
+		}
+
+		parts = append(parts, Part{
+			PartNumber:   i,
+			LastModified: timestamp,
+			Size:         fileInfo.SizeBytes,
+		})
 	}
 
-	// sort the files
-	sort.Slice(fileInfos, func(i, j int) bool {
-		// ignore errors since we already verified them
-		first, _ := strconv.Atoi(fileInfos[i].Name())
-		second, _ := strconv.Atoi(fileInfos[j].Name())
-		return first < second
+	// sort the parts
+	sort.Slice(parts, func(i, j int) bool {
+		return parts[i].PartNumber < parts[j].PartNumber
 	})
 
-	return fileInfos, nil
+	return parts, nil
 }
 
-// remove removes an uploadID and all of its content stored in the local filesystem
-func (m *multipartFileManager) remove(uploadID string) error {
-	err := os.Remove(m.namePath(uploadID))
+// listChunks lists chunks/parts that have been stored, sorted by part number
+func (m *multipartFileManager) complete(uploadID string, partNumbers []int, destRepo string, destBranch string) error {
+	destPath, err := m.filepath(uploadID)
 	if err != nil {
 		return err
 	}
-	err = os.RemoveAll(m.chunksPath(uploadID))
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
-// multipartReader is a reader for multiparted content
-type multipartReader struct {
-	manager     *multipartFileManager
-	uploadID    string
-	partNumbers []int
-
-	// the current chunk/part being read
-	cur *os.File
-}
-
-func newMultipartReader(manager *multipartFileManager, uploadID string, partNumbers []int) *multipartReader {
-	return &multipartReader{
-		manager:     manager,
-		uploadID:    uploadID,
-		partNumbers: partNumbers,
-		cur:         nil,
-	}
-}
-
-func (r *multipartReader) Read(p []byte) (n int, err error) {
-	if r.cur == nil {
-		if len(r.partNumbers) == 0 {
-			return 0, io.EOF
-		}
-		f, err := os.Open(r.manager.chunkPath(r.uploadID, r.partNumbers[0]))
+	for _, partNumber := range partNumbers {
+		srcPath := fmt.Sprintf("%d.chunk", partNumber)
+		err = m.pc.CopyFile(m.repo, uploadID, srcPath, destRepo, destBranch, destPath, false)
 		if err != nil {
-			return 0, err
+			return err
 		}
-		r.partNumbers = r.partNumbers[1:]
-		r.cur = f
 	}
 
-	n, err = r.cur.Read(p)
-	if err == io.EOF {
-		if closeErr := r.cur.Close(); closeErr != nil {
-			r.cur = nil
-			return n, closeErr
-		}
-		// do not return an EOF, as there may be another chunk to read
-		r.cur = nil
-		return n, nil
-	}
-	return n, err
+	return nil
 }
 
-func (r *multipartReader) Close() error {
-	if r.cur != nil {
-		return r.cur.Close()
-	}
-	return nil
+// remove removes an uploadID and all of its contents
+func (m *multipartFileManager) remove(uploadID string) error {
+	return m.pc.DeleteBranch(m.repo, uploadID, false)
 }
 
 type multipartHandler struct {
@@ -264,11 +215,18 @@ type multipartHandler struct {
 	multipartManager *multipartFileManager
 }
 
-func newMultipartHandler(pc *client.APIClient, multipartDir string) *multipartHandler {
-	return &multipartHandler{
-		pc:               pc,
-		multipartManager: newMultipartFileManager(multipartDir, maxAllowedParts),
+func newMultipartHandler(pc *client.APIClient) (*multipartHandler, error) {
+	multipartManager, err := newMultipartFileManager(multipartRepo, maxAllowedParts, pc)
+	if err != nil {
+		return nil, err
 	}
+
+	h := multipartHandler{
+		pc:               pc,
+		multipartManager: multipartManager,
+	}
+
+	return &h, nil
 }
 
 func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
@@ -287,8 +245,8 @@ func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result := InitiateMultipartUploadResult{
-		Bucket:   branchInfo.Branch.Repo.Name,
-		Key:      fmt.Sprintf("%s/%s", branchInfo.Branch.Name, file),
+		Bucket:   fmt.Sprintf("%s.%s", branchInfo.Branch.Name, branchInfo.Branch.Repo.Name),
+		Key:      file,
 		UploadID: uploadID,
 	}
 
@@ -312,7 +270,7 @@ func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
 	marker := intFormValue(r, "part-number-marker", 1, defaultMaxParts, 0)
 	maxParts := intFormValue(r, "max-parts", 1, defaultMaxParts, defaultMaxParts)
 
-	fileInfos, err := h.multipartManager.listChunks(uploadID)
+	parts, err := h.multipartManager.listChunks(uploadID)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -329,23 +287,16 @@ func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
 		MaxParts:         maxParts,
 		IsTruncated:      false,
 	}
-
-	for _, fileInfo := range fileInfos {
-		// ignore errors converting the name since it's already been verified
-		name, _ := strconv.Atoi(fileInfo.Name())
-
-		if name < marker {
+	
+	for _, part := range parts {
+		if part.PartNumber < marker {
 			continue
 		}
 		if result.isFull() {
 			result.IsTruncated = true
 			break
 		}
-		result.Part = append(result.Part, Part{
-			PartNumber:   name,
-			LastModified: fileInfo.ModTime(),
-			Size:         fileInfo.Size(),
-		})
+		result.Part = append(result.Part, part)
 	}
 
 	if len(result.Part) > 0 {
@@ -407,19 +358,12 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	name, err := h.multipartManager.filepath(uploadID)
-	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		err = fmt.Errorf("could not read request body: %v", err)
 		internalError(w, r, err)
 		return
 	}
-
 	payload := CompleteMultipartUpload{}
 	err = xml.Unmarshal(bodyBytes, &payload)
 	if err != nil {
@@ -450,18 +394,9 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 		partNumbers = append(partNumbers, part.PartNumber)
 	}
 
-	reader := newMultipartReader(h.multipartManager, uploadID, partNumbers)
-
-	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, name, reader, 0)
+	err = h.multipartManager.complete(uploadID, partNumbers, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)
 	if err != nil {
-		if closeErr := reader.Close(); closeErr != nil {
-			logrus.Errorf("could not close reader for uploadID=%s: %v", uploadID, closeErr)
-		}
-		internalError(w, r, err)
-		return
-	}
-
-	if err = reader.Close(); err != nil {
+		// TODO: handle missing repo/branch
 		internalError(w, r, err)
 		return
 	}
