@@ -926,7 +926,7 @@ nextSubvBranch:
 			headIsSubset := false
 			// fmt.Println("commit prov map", commitProvMap)
 			// fmt.Println("branch head info prov", branchHeadInfo.Provenance)
-			for k, _ := range commitProvMap {
+			for k, := range commitProvMap {
 				matched := false
 				for _, c := range branchHeadInfo.Provenance {
 					if c.ID == k {
