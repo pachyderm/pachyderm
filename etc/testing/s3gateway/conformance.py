@@ -279,7 +279,7 @@ BLACKLISTED_TESTS = [
     "s3tests.functional.test_s3.test_sse_kms_no_key",
     "s3tests.functional.test_s3.test_sse_kms_not_declared",
     "s3tests.functional.test_s3.test_sse_kms_read_declare",
-    
+
     "s3tests.functional.test_s3.test_sse_kms_method_head",
     "s3tests.functional.test_s3.test_encryption_sse_c_method_head",
     "s3tests.functional.test_s3.test_100_continue",
@@ -290,6 +290,7 @@ BLACKLISTED_TESTS = [
     "test_bucket_concurrent_set_canned_acl",
     "s3tests.functional.test_s3.test_object_set_get_metadata_overwrite_to_good",
     "s3tests.functional.test_s3.test_object_set_get_metadata_overwrite_to_empty",
+    "s3tests.functional.test_s3.test_bucket_list_delimiter_prefix_ends_with_delimiter",
 ]
 
 class Gateway:
@@ -421,15 +422,17 @@ def main():
             sys.exit(1)
 
         if args.test:
-            print("Running test {}".format(test))
+            print("Running test {}".format(args.test))
 
             # In some places, nose and its plugins expect tests to be
             # specified as testmodule.testname, but here, it's expected to be
             # testmodule:testname. This replaces the last . with a : so that
             # the testmodule.testname format can be used everywhere, including
             # here.
-            if "." in test and not ":" in test:
-                test = ":".join(test.rsplit(".", 1))
+            if "." in args.test and not ":" in args.test:
+                test = ":".join(args.test.rsplit(".", 1))
+            else:
+                test = args.test
 
             run_nosetests(test)
         else:
