@@ -7,6 +7,8 @@ import (
 	"strings"
 	"encoding/json"
 	"fmt"
+	"crypto/md5"
+	"encoding/base64"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -92,51 +94,68 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	expectedHash, ok := r.Header["Content-Md5"]
+	var expectedHashBytes []uint8
+	if ok && len(expectedHash) == 1 {
+		expectedHashBytes, err = base64.StdEncoding.DecodeString(expectedHash[0])
+		if err != nil || len(expectedHashBytes) != 16 {
+			invalidDigestError(w, r)
+			return
+		}
+	}
+
+	hasher := md5.New()
+	reader := io.TeeReader(r.Body, hasher)
+
 	commit, err := h.pc.StartCommit(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
 
-	finished := withBodyReader(w, r, func(reader io.Reader, hash []uint8) bool {
-		_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, commit.ID, file, reader, 0)
-		if err != nil {
-			internalError(w, r, err)
-			return false
-		}
-
-		if hash != nil {
-			meta := ObjectMeta { 
-				md5: fmt.Sprintf("%x", hash),
-			}
-			metaBytes, err := json.Marshal(meta)
-			if err != nil {
-				panic(err)
-			}
-			metaReader := bytes.NewReader(metaBytes)
-			metaFile := fmt.Sprintf("%s.s3g.json", file)
-			_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, commit.ID, metaFile, metaReader, 0)
-			if err != nil {
-				internalError(w, r, err)
-				return false
+	isFinished := false
+	defer func() {
+		if !isFinished {
+			if err := h.pc.DeleteCommit(branchInfo.Branch.Repo.Name, commit.ID); err != nil {
+				logrus.Errorf("s3gateway: could not delete commit: %v", err)
 			}
 		}
+	}()
 
-		return true
-	})
-
-	if finished {
-		err = h.pc.FinishCommit(branchInfo.Branch.Repo.Name, commit.ID)
-		if err != nil {
-			logrus.Errorf("s3gateway: could not finish commit: %v", err)
-		}
-	} else {
-		// TODO: is this right?
-		err = h.pc.DeleteCommit(branchInfo.Branch.Repo.Name, commit.ID)
-		if err != nil {
-			logrus.Errorf("s3gateway: could not delete commit: %v", err)
-		}
+	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, commit.ID, file, reader, 0)
+	if err != nil {
+		internalError(w, r, err)
+		return
 	}
+
+	actualHashBytes := hasher.Sum(nil)
+	actualHash := fmt.Sprintf("%x", actualHashBytes)
+	if expectedHashBytes != nil && !bytes.Equal(expectedHashBytes, actualHashBytes) {
+		badDigestError(w, r)
+		return
+	}
+
+	metaBytes, err := json.Marshal(ObjectMeta { md5: actualHash })
+	if err != nil {
+		panic(err)
+	}
+	metaReader := bytes.NewReader(metaBytes)
+	metaFile := fmt.Sprintf("%s.s3g.json", file)
+	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, commit.ID, metaFile, metaReader, 0)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	err = h.pc.FinishCommit(branchInfo.Branch.Repo.Name, commit.ID)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	isFinished = true
+	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash)) // s3 wraps its etag in quotes
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
@@ -185,11 +204,11 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	isFinished = true
 	if err := h.pc.FinishCommit(branchInfo.Branch.Repo.Name, commit.ID); err != nil {
 		internalError(w, r, err)
 		return
 	}
 
+	isFinished = true
 	w.WriteHeader(http.StatusNoContent)
 }

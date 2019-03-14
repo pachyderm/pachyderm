@@ -1,11 +1,7 @@
 package s3
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/base64"
 	"encoding/xml"
-	"io"
 	"net/http"
 	"strconv"
 
@@ -50,49 +46,6 @@ func intFormValue(r *http.Request, name string, min int, max int, def int) int {
 		return def
 	}
 	return i
-}
-
-// withBodyReader calls the provided callback with a reader for the HTTP
-// request body. This also verifies the body against the `Content-MD5` header.
-//
-// The callback should return whether or not it succeeded. If it does not
-// succeed, it is assumed that the callback wrote an appropriate failure
-// response to the client.
-//
-// This function will return whether it succeeded.
-func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader, []uint8) bool) bool {
-	expectedHash := r.Header.Get("Content-MD5")
-
-	if expectedHash != "" {
-		expectedHashBytes, err := base64.StdEncoding.DecodeString(expectedHash)
-		if err != nil || len(expectedHashBytes) != 16 {
-			invalidDigestError(w, r)
-			return false
-		}
-
-		hasher := md5.New()
-		reader := io.TeeReader(r.Body, hasher)
-
-		succeeded := f(reader, expectedHashBytes)
-		if !succeeded {
-			return false
-		}
-
-		actualHash := hasher.Sum(nil)
-		if !bytes.Equal(expectedHashBytes, actualHash) {
-			badDigestError(w, r)
-			return false
-		}
-
-		w.WriteHeader(http.StatusOK)
-		return true
-	}
-
-	succeeded := f(r.Body, nil)
-	if succeeded {
-		w.WriteHeader(http.StatusOK)
-	}
-	return true
 }
 
 func bucketArgs(w http.ResponseWriter, r *http.Request) (string, string) {
