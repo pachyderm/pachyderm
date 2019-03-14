@@ -67,7 +67,7 @@ func invalidDigestError(w http.ResponseWriter, r *http.Request) {
 
 // note: this is not a standard s3 error
 func invalidFilePathError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "InvalidFilePath", "You cannot operate on s3gateway metadata files (files with the extension '.s3g.json')").write(w)
+	newError(r, http.StatusBadRequest, "InvalidFilePath", "Invalid file path").write(w)
 }
 
 func invalidPartError(w http.ResponseWriter, r *http.Request) {

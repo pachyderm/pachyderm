@@ -38,7 +38,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 		noSuchKeyError(w, r)
 		return
 	}
-	if strings.HasSuffix(file, ".s3g.json") {
+	if strings.HasSuffix(file, ".s3g.json") || strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
@@ -89,7 +89,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		notFoundError(w, r, err)
 		return
 	}
-	if strings.HasSuffix(file, ".s3g.json") {
+	if strings.HasSuffix(file, ".s3g.json") || strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
@@ -169,7 +169,7 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 		noSuchKeyError(w, r)
 		return
 	}
-	if strings.HasSuffix(file, ".s3g.json") {
+	if strings.HasSuffix(file, ".s3g.json") || strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
