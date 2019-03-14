@@ -43,6 +43,7 @@ import (
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
+	kafka "github.com/segmentio/kafka-go"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
@@ -8565,4 +8566,276 @@ func getEtcdClient(t testing.TB) *etcd.Client {
 		require.NoError(t, err)
 	})
 	return etcdClient
+}
+
+func TestSpout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	t.Run("SpoutBasic", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutBasic_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// create a spout pipeline
+		pipeline := tu.UniqueString("pipelinespoutbasic")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 2",
+						"date > date",
+						"tar -cvf /pfs/out ./date*",
+						"done"},
+				},
+				Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+			})
+		require.NoError(t, err)
+
+		// get 5 succesive commits, and ensure that the file size increases each time
+		// since the spout should be appending to that file on each commit
+		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		var prevLength uint64
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+
+			fileLength := files[0].SizeBytes
+			if fileLength <= prevLength {
+				t.Errorf("File length was expected to increase. Prev: %v, Cur: %v", prevLength, fileLength)
+			}
+			prevLength = fileLength
+		}
+		// make sure we can delete commits
+		err = c.DeleteCommit(pipeline, "master")
+		require.NoError(t, err)
+
+		// and make sure we can attatch a downstream pipeline
+		downstreamPipeline := tu.UniqueString("pipelinespoutdownstream")
+		require.NoError(t, c.CreatePipeline(
+			downstreamPipeline,
+			"",
+			[]string{"/bin/bash"},
+			[]string{"cp " + fmt.Sprintf("/pfs/%s/*", pipeline) + " /pfs/out/"},
+			nil,
+			client.NewPFSInput(pipeline, "/*"),
+			"",
+			false,
+		))
+
+		// we should have one job between pipeline and downstreamPipeline
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(pipeline, "master")}, []string{downstreamPipeline})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfos))
+	})
+
+	t.Run("SpoutOverwrite", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutOverwrite_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		pipeline := tu.UniqueString("pipelinespoutoverwrite")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 2",
+						"date > date",
+						"tar -cvf /pfs/out ./date*",
+						"done"},
+				},
+				Spout: &pps.Spout{
+					Overwrite: true,
+				},
+			})
+		require.NoError(t, err)
+
+		// if the overwrite flag is enabled, then the spout will overwrite the file on each commit
+		// so the commits should have files that stay the same size
+		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		var prevLength uint64
+		for i := 0; i < 5; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(files))
+
+			fileLength := files[0].SizeBytes
+			if i > 0 && fileLength != prevLength {
+				t.Errorf("File length was expected to stay the same. Prev: %v, Cur: %v", prevLength, fileLength)
+			}
+			prevLength = fileLength
+		}
+	})
+	t.Run("SpoutProvenance", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestSpoutProvenance_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// create a pipeline
+		pipeline := tu.UniqueString("pipelinespoutprovenance")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 2",
+						"date > date",
+						"tar -cvf /pfs/out ./date*",
+						"done"},
+				},
+				Spout: &pps.Spout{
+					Overwrite: true,
+				},
+			})
+		require.NoError(t, err)
+
+		// get some commits
+		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+		// and we want to make sure that these commits all have the same provenance
+		provenanceID := ""
+		for i := 0; i < 3; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			require.Equal(t, 1, len(commitInfo.Provenance))
+			provenance := commitInfo.Provenance[0]
+			if i == 0 {
+				// set first one
+				provenanceID = provenance.ID
+			} else {
+				require.Equal(t, provenanceID, provenance.ID)
+			}
+		}
+
+		// now we'll update the pipeline
+		_, err = c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"/bin/sh"},
+					Stdin: []string{
+						"while [ : ]",
+						"do",
+						"sleep 3",
+						"date > date",
+						"tar -cvf /pfs/out ./date*",
+						"done"},
+				},
+				Spout:     &pps.Spout{},
+				Update:    true,
+				Reprocess: true,
+			})
+		require.NoError(t, err)
+
+		iter, err = c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			commitInfo, err := iter.Next()
+			require.NoError(t, err)
+			require.Equal(t, 1, len(commitInfo.Provenance))
+			provenance := commitInfo.Provenance[0]
+			if i == 0 {
+				// this time, we expect our commits to have different provenance from the commits earlier
+				require.NotEqual(t, provenanceID, provenance.ID)
+				provenanceID = provenance.ID
+			} else {
+				// but they should still have the same provenance as each other
+				require.Equal(t, provenanceID, provenance.ID)
+			}
+		}
+	})
+}
+
+func TestKafka(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	conn, err := kafka.Dial("tcp", "localhost:32402")
+	if err != nil {
+		t.Error(err)
+	}
+	defer conn.Close()
+
+	// create the topic
+	topic := "test-kafka"
+	err = conn.CreateTopics(kafka.TopicConfig{
+		Topic:             topic,
+		NumPartitions:     1,
+		ReplicationFactor: 3,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// try connecting to each of the brokers until we find the controller
+	part, err := kafka.LookupPartition(context.Background(), "tcp", "localhost:32402", topic, 0)
+	if err != nil {
+		t.Error(err)
+	}
+	part.Leader.Host = "localhost"
+	conn, err = kafka.DialPartition(context.Background(), "tcp", "localhost:32402", part)
+	if err != nil {
+		t.Error(err)
+	}
+	// now write to the kafka topic
+	go func() {
+		i := 1
+		for {
+			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			_, err = conn.WriteMessages(
+				kafka.Message{Value: []byte(fmt.Sprintf("Now at %v\n", i))},
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+			time.Sleep(time.Second)
+			i++
+		}
+	}()
+
+	// create a spout pipeline
+	dataRepo := tu.UniqueString("kafka_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(tu.UniqueString(topic)),
+			Transform: &pps.Transform{
+				Image: "kafka-demo:latest",
+				Cmd:   []string{"go", "run", "./main.go"},
+			},
+			Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+		})
+	require.NoError(t, err)
+
+	// and verify that the spout is consuming it
+	time.Sleep(time.Minute)
 }

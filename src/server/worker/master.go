@@ -176,11 +176,11 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 	logger, err := a.getTaggedLogger(pachClient, "spout", nil, false)
 	puller := filesync.NewPuller()
 
+	if err := a.unlinkData(nil); err != nil {
+		return fmt.Errorf("unlinkData: %v", err)
+	}
 	// If this is our second time through the loop cleanup the old data.
 	if dir != "" {
-		if err := a.unlinkData(nil); err != nil {
-			return fmt.Errorf("unlinkData: %v", err)
-		}
 		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("os.RemoveAll: %v", err)
 		}
