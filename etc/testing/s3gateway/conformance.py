@@ -233,13 +233,14 @@ def compute_stats(filename):
     else:
         return (0, 0)
 
-def run_nosetests(extra_env, *proc_args, **proc_kwargs):
-    args = [os.path.join("virtualenv", "bin", "nosetests"), *proc_args]
+def run_nosetests(*args, **kwargs):
+    args = [os.path.join("virtualenv", "bin", "nosetests"), *args]
     env = dict(os.environ)
     env["S3TEST_CONF"] = os.path.join("..", "s3gateway.conf")
-    env.update(extra_env)
+    if "env" in kwargs:
+        env.update(kwargs.pop("env"))
     cwd = os.path.join(TEST_ROOT, "s3-tests")
-    proc = subprocess.run(args, env=env, cwd=cwd, **proc_kwargs)
+    proc = subprocess.run(args, env=env, cwd=cwd, **kwargs)
     print("Test run exited with {}".format(proc.returncode))
 
 def print_failures():
@@ -328,7 +329,7 @@ def main():
                 # including here.
                 tests = [t if ":" in t else ":".join(t.rsplit(".", 1)) for t in tests]
 
-                run_nosetests({}, *tests)
+                run_nosetests(*tests)
             else:
                 print("Running all tests")
 
@@ -342,7 +343,7 @@ def main():
 
                 filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
                 with open(filepath, "w") as f:
-                    run_nosetests(extra_env, stderr=f)
+                    run_nosetests("-a" "!fails_on_aws", env=extra_env, stderr=f)
 
                 sys.exit(print_failures())
                 
