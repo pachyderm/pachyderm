@@ -280,7 +280,7 @@ def print_failures():
             if failing_test is None:
                 match = ERROR_PATTERN.match(line)
                 if match is not None:
-                    failing_test = match.groups()[0]
+                    failing_test = match.groups()[1]
             else:
                 if not any(line.startswith(p) for p in TRACEBACK_PREFIXES):
                     causes[line].append(failing_test)
