@@ -292,7 +292,7 @@ func TestPutObjectMeta(t *testing.T) {
 	// and inaccessible via the gateway
 	_, err := c.PutObject(fmt.Sprintf("master.%s", repo), "file.s3g.json", strings.NewReader("content1"), "text/plain")
 	require.YesError(t, err)
-	require.Equal(t, err.Error(), "You cannot operate on s3gateway metadata files (files with the extension '.s3g.json')")
+	require.Equal(t, err.Error(), "Invalid file path")
 
 	_, err = getObject(t, c, repo, "master", "file.s3g.json")
 	require.YesError(t, err)
