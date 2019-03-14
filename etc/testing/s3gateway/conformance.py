@@ -321,6 +321,7 @@ def main():
                 conn.request("GET", "/")
                 response = conn.getresponse()
                 if response.status == 200:
+                    conn.close()
                     break
             except ConnectionRefusedError:
                 pass
