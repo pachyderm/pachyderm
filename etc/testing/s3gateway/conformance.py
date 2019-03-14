@@ -5,7 +5,6 @@ import re
 import sys
 import glob
 import time
-import argparse
 import datetime
 import threading
 import subprocess
@@ -234,7 +233,83 @@ def compute_stats(filename):
     else:
         return (0, 0)
 
-def test_pass(no_persist, nose_args):
+def run_nosetests(extra_env, *proc_args, **proc_kwargs):
+    args = [os.path.join("virtualenv", "bin", "nosetests"), *proc_args]
+    env = dict(os.environ)
+    env["S3TEST_CONF"] = os.path.join("..", "s3gateway.conf")
+    env.update(extra_env)
+    cwd = os.path.join(TEST_ROOT, "s3-tests")
+    proc = subprocess.run(args, env=env, cwd=cwd, **proc_kwargs)
+    print("Test run exited with {}".format(proc.returncode))
+
+def run_tests(tests):
+    print("Running tests: {}".format(", ".join(tests)))
+    run_nosetests({}, *tests)
+
+def run_all_tests():
+    print("Running all tests")
+
+    # This uses the `nose-exclude` plugin to exclude tests for unsupported
+    # features. Note that `nosetest` does have a built-in way of excluding
+    # tests, but it only seems to match on top-level modules, rather than
+    # on specific tests.
+    extra_env = {
+        "NOSE_EXCLUDE_TESTS": ";".join(BLACKLISTED_TESTS)
+    }
+
+    filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
+    with open(filepath, "w") as f:
+        run_nosetests(extra_env, stderr=f)
+
+    log_files = sorted(glob.glob(os.path.join(RUNS_ROOT, "*.txt")))
+
+    if len(log_files) == 0:
+        print("No log files found", file=sys.stderr)
+        return 1
+
+    old_stats = None
+    if len(log_files) > 1:
+        old_stats = compute_stats(log_files[-2])
+
+    filepath = log_files[-1]
+    stats = compute_stats(filepath)
+
+    if old_stats:
+        print("Overall results: {}/{} (vs last run: {}/{})".format(*stats, *old_stats))
+    else:
+        print("Overall results: {}/{}".format(*stats))
+
+    failing_test = None
+    causes = collections.defaultdict(lambda: [])
+    with open(filepath, "r") as f:
+        for line in f:
+            line = line.rstrip()
+
+            if failing_test is None:
+                match = ERROR_PATTERN.match(line)
+                if match is not None:
+                    failing_test = match.groups()[0]
+            else:
+                if not any(line.startswith(p) for p in TRACEBACK_PREFIXES):
+                    causes[line].append(failing_test)
+                    failing_test = None
+
+    causes = sorted(causes.items(), key=lambda i: len(i[1]), reverse=True)
+    for (cause_name, failing_tests) in causes:
+        print("{}:".format(cause_name))
+        for failing_test in failing_tests:
+            print("- {}".format(failing_test))
+
+    return 0
+
+def main():
+    tests = sys.argv[1:]
+    output = subprocess.run("ps -ef | grep pachctl | grep -v grep", shell=True, stdout=subprocess.PIPE).stdout
+
+    if len(output.strip()) > 0:
+        print("It looks like `pachctl` is already running. Please kill it before running conformance tests.", file=sys.stderr)
+        sys.exit(1)
+
     proc = subprocess.run("yes | pachctl delete-all", shell=True)
     if proc.returncode != 0:
         raise Exception("bad exit code: {}".format(proc.returncode))
@@ -258,80 +333,10 @@ def test_pass(no_persist, nose_args):
             print("s3gateway did not start", file=sys.stderr)
             sys.exit(1)
 
-        args = [os.path.join("virtualenv", "bin", "nosetests"), nose_args]
-        env = dict(os.environ)
-        env["S3TEST_CONF"] = os.path.join("..", "s3gateway.conf")
-        # This uses the `nose-exclude` plugin to exclude tests for unsupported
-        # features. Note that `nosetest` does have a built-in way of excluding
-        # tests, but it only seems to match on top-level modules, rather than
-        # on specific tests.
-        env["NOSE_EXCLUDE_TESTS"] = ";".join(BLACKLISTED_TESTS)
-        cwd = os.path.join(TEST_ROOT, "s3-tests")
-
-        if no_persist:
-            proc = subprocess.run(args, env=env, cwd=cwd)
+        if tests:
+            run_tests(tests)
         else:
-            filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
-            with open(filepath, "w") as f:
-                proc = subprocess.run(args, stderr=f, env=env, cwd=cwd)
-
-        print("Test run exited with {}".format(proc.returncode))
-
-def main():
-    parser = argparse.ArgumentParser(description="Runs conformance tests for the s3gateway.")
-    parser.add_argument("--no-run", default=False, action="store_true", help="Disables test run.")
-    parser.add_argument("--no-persist", default=False, action="store_true", help="Disables persistence of test output.")
-    parser.add_argument("--nose-args", default="", help="Arguments to be passed into `nosetest`")
-    args = parser.parse_args()
-
-    output = subprocess.run("ps -ef | grep pachctl | grep -v grep", shell=True, stdout=subprocess.PIPE).stdout
-
-    if len(output.strip()) > 0:
-        print("It looks like `pachctl` is already running. Please kill it before running conformance tests.", file=sys.stderr)
-        sys.exit(1)
-
-    if not args.no_run:
-        test_pass(args.no_persist, args.nose_args)
-
-    if not args.no_persist:
-        log_files = sorted(glob.glob(os.path.join(RUNS_ROOT, "*.txt")))
-
-        if len(log_files) == 0:
-            print("No log files found", file=sys.stderr)
-            sys.exit(1)
-
-        old_stats = None
-        if len(log_files) > 1:
-            old_stats = compute_stats(log_files[-2])
-
-        filepath = log_files[-1]
-        stats = compute_stats(filepath)
-
-        if old_stats:
-            print("Overall results: {}/{} (vs last run: {}/{})".format(*stats, *old_stats))
-        else:
-            print("Overall results: {}/{}".format(*stats))
-
-        failing_test = None
-        causes = collections.defaultdict(lambda: [])
-        with open(filepath, "r") as f:
-            for line in f:
-                line = line.rstrip()
-
-                if failing_test is None:
-                    match = ERROR_PATTERN.match(line)
-                    if match is not None:
-                        failing_test = match.groups()[0]
-                else:
-                    if not any(line.startswith(p) for p in TRACEBACK_PREFIXES):
-                        causes[line].append(failing_test)
-                        failing_test = None
-
-        causes = sorted(causes.items(), key=lambda i: len(i[1]), reverse=True)
-        for (cause_name, failing_tests) in causes:
-            print("{}:".format(cause_name))
-            for failing_test in failing_tests:
-                print("- {}".format(failing_test))
-    
+            sys.exit(run_all_tests())
+        
 if __name__ == "__main__":
     main()
