@@ -74,14 +74,6 @@ func invalidFilePathError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusBadRequest, "InvalidFilePath", "Invalid file path").write(w)
 }
 
-func invalidPartError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "InvalidPart", "One or more of the specified parts could not be found. The part might not have been uploaded, or it may have been deleted.").write(w)
-}
-
-func invalidPartOrderError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "InvalidPartOrder", "The list of parts was not in ascending order. Parts list must be specified in order by part number.").write(w)
-}
-
 func malformedXMLError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or would not validate against S3's published schema.").write(w)
 }
@@ -89,16 +81,13 @@ func malformedXMLError(w http.ResponseWriter, r *http.Request) {
 func methodNotAllowedError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.").write(w)
 }
+
 func noSuchBucketError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.").write(w)
 }
 
 func noSuchKeyError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.").write(w)
-}
-
-func noSuchUploadError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusNotFound, "NoSuchUpload", "The specified multipart upload does not exist. The upload ID might be invalid, or the multipart upload might have been aborted or completed, or it may have otherwise been deleted.").write(w)
 }
 
 func notFoundError(w http.ResponseWriter, r *http.Request, err error) {
