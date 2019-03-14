@@ -5,6 +5,7 @@ import re
 import sys
 import glob
 import time
+import argparse
 import datetime
 import threading
 import subprocess
@@ -16,7 +17,7 @@ RUNS_ROOT = os.path.join(TEST_ROOT, "runs")
 RAN_PATTERN = re.compile(r"Ran (\d+) tests in [\d\.]+s")
 FAILED_PATTERN = re.compile(r"FAILED \(SKIP=(\d+), errors=(\d+), failures=(\d+)\)")
 
-ERROR_PATTERN = re.compile(r"ERROR: (s3tests\..+)")
+ERROR_PATTERN = re.compile(r"(FAIL|ERROR): (s3tests\..+)")
 
 TRACEBACK_PREFIXES = [
     "Traceback (most recent call last):",
@@ -294,66 +295,71 @@ def print_failures():
     return 0
 
 def main():
-    if len(sys.argv) == 2 and sys.argv[1] == "--no-run":
-        sys.exit(print_failures())
-    else:
-        tests = sys.argv[1:]
-        output = subprocess.run("ps -ef | grep pachctl | grep -v grep", shell=True, stdout=subprocess.PIPE).stdout
+    parser = argparse.ArgumentParser(description="Runs a conformance test suite for PFS' s3gateway.")
+    parser.add_argument("--no-run", default=False, action="store_true", help="Disables a test run, and just prints failure data from the last test run")
+    parser.add_argument("--test", default="", help="Run a specific test")
+    args = parser.parse_args()
 
-        if len(output.strip()) > 0:
-            print("It looks like `pachctl` is already running. Please kill it before running conformance tests.", file=sys.stderr)
+    if args.no_run:
+        sys.exit(print_failures())
+
+    proc = subprocess.run("yes | pachctl delete-all", shell=True)
+    if proc.returncode != 0:
+        raise Exception("bad exit code: {}".format(proc.returncode))
+
+    output = subprocess.run("ps -ef | grep pachctl | grep -v grep", shell=True, stdout=subprocess.PIPE).stdout
+
+    if len(output.strip()) > 0:
+        print("It looks like `pachctl` is already running. Please kill it before running conformance tests.", file=sys.stderr)
+        sys.exit(1)
+
+    with Gateway():
+        for _ in range(10):
+            conn = http.client.HTTPConnection("localhost:30600")
+
+            try:
+                conn.request("GET", "/")
+                response = conn.getresponse()
+                if response.status == 200:
+                    break
+            except ConnectionRefusedError:
+                pass
+
+            conn.close()
+            print("Waiting for s3gateway...")
+            time.sleep(1)
+        else:
+            print("s3gateway did not start", file=sys.stderr)
             sys.exit(1)
 
-        proc = subprocess.run("yes | pachctl delete-all", shell=True)
-        if proc.returncode != 0:
-            raise Exception("bad exit code: {}".format(proc.returncode))
+        if test:
+            print("Running test {}".format(test))
 
-        with Gateway():
-            for _ in range(10):
-                conn = http.client.HTTPConnection("localhost:30600")
+            # In some places, nose and its plugins expect tests to be
+            # specified as testmodule.testname, but here, it's expected to be
+            # testmodule:testname. This replaces the last . with a : so that
+            # the testmodule.testname format can be used everywhere, including
+            # here.
+            if "." in test and not ":" in test:
+                test = ":".join(test.rsplit(".", 1))
 
-                try:
-                    conn.request("GET", "/")
-                    response = conn.getresponse()
-                    if response.status == 200:
-                        break
-                except ConnectionRefusedError:
-                    pass
+            run_nosetests(test)
+        else:
+            print("Running all tests")
 
-                conn.close()
-                print("Waiting for s3gateway...")
-                time.sleep(1)
-            else:
-                print("s3gateway did not start", file=sys.stderr)
-                sys.exit(1)
+            # This uses the `nose-exclude` plugin to exclude tests for
+            # unsupported features. Note that `nosetest` does have a built-in
+            # way of excluding tests, but it only seems to match on top-level
+            # modules, rather than on specific tests.
+            extra_env = {
+                "NOSE_EXCLUDE_TESTS": ";".join(BLACKLISTED_TESTS)
+            }
 
-            if tests:
-                print("Running tests: {}".format(", ".join(tests)))
+            filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
+            with open(filepath, "w") as f:
+                run_nosetests("-a" "!fails_on_aws", env=extra_env, stderr=f)
 
-                # In some places, nose and its plugins expect tests to
-                # specified as testmodule.testname, but here, it's expected to
-                # be testmodule:testname. This replaces the last . with a : so
-                # that the testmodule.testname format can be used everywhere,
-                # including here.
-                tests = [t if ":" in t else ":".join(t.rsplit(".", 1)) for t in tests]
-
-                run_nosetests(*tests)
-            else:
-                print("Running all tests")
-
-                # This uses the `nose-exclude` plugin to exclude tests for
-                # unsupported features. Note that `nosetest` does have a
-                # built-in way of excluding tests, but it only seems to match
-                # on top-level modules, rather than on specific tests.
-                extra_env = {
-                    "NOSE_EXCLUDE_TESTS": ";".join(BLACKLISTED_TESTS)
-                }
-
-                filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
-                with open(filepath, "w") as f:
-                    run_nosetests("-a" "!fails_on_aws", env=extra_env, stderr=f)
-
-                sys.exit(print_failures())
+            sys.exit(print_failures())
                 
 if __name__ == "__main__":
     main()
