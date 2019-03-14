@@ -56,6 +56,10 @@ func invalidBucketNameError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusBadRequest, "InvalidBucketName", "The specified repo or branch either has an invalid name, or is not serviceable.").write(w)
 }
 
+func invalidArgument(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "InvalidArgument", "Invalid Argument").write(w)
+}
+
 // note: this is not a standard s3 error
 func invalidDelimiterError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusBadRequest, "InvalidDelimiter", "The delimiter you specified is invalid. It must be '' or '/'.").write(w)

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"strconv"
 
 	"github.com/gobwas/glob"
 	"github.com/gogo/protobuf/types"
@@ -105,11 +106,22 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	maxKeys := defaultMaxKeys
+	maxKeysStr := r.FormValue("max-keys")
+	if maxKeysStr != "" {
+		i, err := strconv.Atoi(maxKeysStr)
+		if err != nil || i <= 0 || i > defaultMaxKeys {
+			invalidArgument(w, r)
+			return
+		}
+		maxKeys = i	
+	}
+
 	result := &ListBucketResult{
 		Name:        repo,
 		Prefix:      r.FormValue("prefix"),
 		Marker:      r.FormValue("marker"),
-		MaxKeys:     intFormValue(r, "max-keys", 1, defaultMaxKeys, defaultMaxKeys),
+		MaxKeys:     maxKeys,
 		IsTruncated: false,
 	}
 

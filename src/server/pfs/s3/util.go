@@ -3,7 +3,6 @@ package s3
 import (
 	"encoding/xml"
 	"net/http"
-	"strconv"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -30,22 +29,6 @@ func writeXML(w http.ResponseWriter, code int, v interface{}) {
 		// just log a message since a status code - and maybe part of
 		logrus.Errorf("s3gateway: could not encode xml response: %v", err)
 	}
-}
-
-// intFormValue extracts an int value from a request's form values, ensuring
-// it's within specified bounds. If the value is not specified, is not an int,
-// or is not within the specified bounds, it defaults to `def`.
-func intFormValue(r *http.Request, name string, min int, max int, def int) int {
-	s := r.FormValue(name)
-	if s == "" {
-		return def
-	}
-
-	i, err := strconv.Atoi(s)
-	if err != nil || i < min || i > max {
-		return def
-	}
-	return i
 }
 
 func bucketArgs(w http.ResponseWriter, r *http.Request) (string, string) {

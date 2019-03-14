@@ -279,7 +279,6 @@ BLACKLISTED_TESTS = [
     "s3tests.functional.test_s3.test_sse_kms_no_key",
     "s3tests.functional.test_s3.test_sse_kms_not_declared",
     "s3tests.functional.test_s3.test_sse_kms_read_declare",
-
     "s3tests.functional.test_s3.test_sse_kms_method_head",
     "s3tests.functional.test_s3.test_encryption_sse_c_method_head",
     "s3tests.functional.test_s3.test_100_continue",
