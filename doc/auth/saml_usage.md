@@ -31,10 +31,10 @@ You are an administrator of this Pachyderm cluster
 (admin)$ pachctl put-file images master -i examples/opencv/images2.txt
 
 (admin)$ pachctl list-repo
-NAME    CREATED       SIZE     ACCESS LEVEL
-montage 2 minutes ago 1.653MiB OWNER
-edges   2 minutes ago 133.6KiB OWNER
-images  2 minutes ago 238.3KiB OWNER
+NAME    CREATED       SIZE (MASTER) ACCESS LEVEL
+montage 2 minutes ago 1.653MiB      OWNER
+edges   2 minutes ago 133.6KiB      OWNER
+images  2 minutes ago 238.3KiB      OWNER
 
 (admin)$ pachctl list-job
 ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
