@@ -194,6 +194,14 @@ BLACKLISTED_TESTS = [
     "s3tests.functional.test_s3.test_bucket_policy_put_obj_copy_source",
     "s3tests.functional.test_s3.test_bucket_policy_put_obj_copy_source_meta",
     "s3tests.functional.test_s3.test_bucket_policy_get_obj_acl_existing_tag",
+    "s3tests.functional.test_s3.test_bucket_list_delimiter_alt",
+    "s3tests.functional.test_s3.test_bucket_list_delimiter_percentage",
+    "s3tests.functional.test_s3.test_bucket_list_delimiter_whitespace",
+    "s3tests.functional.test_s3.test_bucket_list_delimiter_dot",
+    "s3tests.functional.test_s3.test_bucket_list_delimiter_unreadable",
+    "s3tests.functional.test_s3.test_bucket_list_prefix_delimiter_alt",
+    "s3tests.functional.test_s3.test_bucket_list_prefix_delimiter_delimiter_not_exist",
+    "s3tests.functional.test_s3.test_bucket_list_prefix_delimiter_prefix_delimiter_not_exist",
 ]
 
 class Gateway:
