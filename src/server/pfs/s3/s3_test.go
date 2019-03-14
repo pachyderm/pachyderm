@@ -281,6 +281,26 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, srv.Close())
 }
 
+func TestPutObjectMeta(t *testing.T) {
+	srv, pc, c := serve(t)
+
+	repo := tu.UniqueString("testputmeta")
+	require.NoError(t, pc.CreateRepo(repo))
+	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
+
+	// this should not work because `.s3g.json` are special metadata files,
+	// and inaccessible via the gateway
+	_, err := c.PutObject(fmt.Sprintf("master.%s", repo), "file.s3g.json", strings.NewReader("content1"), "text/plain")
+	require.YesError(t, err)
+	require.Equal(t, err.Error(), "You cannot operate on s3gateway metadata files (files with the extension '.s3g.json')")
+
+	_, err = getObject(t, c, repo, "master", "file.s3g.json")
+	require.YesError(t, err)
+
+	require.NoError(t, srv.Close())
+}
+
+
 func TestRemoveObject(t *testing.T) {
 	srv, pc, c := serve(t)
 
@@ -637,19 +657,6 @@ func TestListObjectsRecursive(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-
-	require.NoError(t, srv.Close())
-}
-
-func TestMasterBranchRedirects(t *testing.T) {
-	srv, pc, c := serve(t)
-	repo := tu.UniqueString("testmasterbranchredirects")
-
-	require.NoError(t, pc.CreateRepo(repo))
-	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
-	exists, err := c.BucketExists(fmt.Sprintf("master.%s", repo))
-	require.NoError(t, err)
-	require.True(t, exists)
 
 	require.NoError(t, srv.Close())
 }

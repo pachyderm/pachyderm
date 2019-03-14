@@ -14,7 +14,7 @@ import (
 var (
 	repoNotFoundMatcher   = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
 	branchNotFoundMatcher = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
-	fileNotFoundMatcher   = regexp.MustCompile(`file .+ not found in repo`)
+	fileNotFoundMatcher   = regexp.MustCompile(`file .+ not found`)
 )
 
 // Error is an XML-encodable error response
@@ -63,6 +63,11 @@ func invalidDelimiterError(w http.ResponseWriter, r *http.Request) {
 
 func invalidDigestError(w http.ResponseWriter, r *http.Request) {
 	newError(r, http.StatusBadRequest, "InvalidDigest", "The Content-MD5 you specified is not valid.").write(w)
+}
+
+// note: this is not a standard s3 error
+func invalidFilePathError(w http.ResponseWriter, r *http.Request) {
+	newError(r, http.StatusBadRequest, "InvalidFilePath", "You cannot operate on s3gateway metadata files (files with the extension '.s3g.json')").write(w)
 }
 
 func invalidPartError(w http.ResponseWriter, r *http.Request) {

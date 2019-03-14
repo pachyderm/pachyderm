@@ -245,12 +245,18 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 // 1) if nil is returned, the `FileInfo` should not be included in the list
 // 2) the path is updated to remove the leading slash
 func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo {
-	if fileInfo.FileType != pfs.FileType_FILE && fileInfo.FileType != pfs.FileType_DIR {
+	if fileInfo.FileType == pfs.FileType_DIR {
+		if fileInfo.File.Path == "/" {
+			// skip the root directory
+			return nil
+		}
+	} else if fileInfo.FileType == pfs.FileType_FILE {
+		if strings.HasSuffix(fileInfo.File.Path, ".s3g.json") {
+			// skip metadata files
+			return nil
+		}
+	} else {
 		// skip anything that isn't a file or dir
-		return nil
-	}
-	if fileInfo.FileType == pfs.FileType_DIR && fileInfo.File.Path == "/" {
-		// skip the root directory
 		return nil
 	}
 	fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash

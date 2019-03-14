@@ -32,7 +32,7 @@ func writeXML(w http.ResponseWriter, code int, v interface{}) {
 	encoder := xml.NewEncoder(w)
 	if err := encoder.Encode(v); err != nil {
 		// just log a message since a status code - and maybe part of
-		logrus.Errorf("s3gateway: could not enocde xml response: %v", err)
+		logrus.Errorf("s3gateway: could not encode xml response: %v", err)
 	}
 }
 
@@ -60,7 +60,7 @@ func intFormValue(r *http.Request, name string, min int, max int, def int) int {
 // response to the client.
 //
 // This function will return whether it succeeded.
-func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bool) bool {
+func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader, []uint8) bool) bool {
 	expectedHash := r.Header.Get("Content-MD5")
 
 	if expectedHash != "" {
@@ -73,7 +73,7 @@ func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bo
 		hasher := md5.New()
 		reader := io.TeeReader(r.Body, hasher)
 
-		succeeded := f(reader)
+		succeeded := f(reader, expectedHashBytes)
 		if !succeeded {
 			return false
 		}
@@ -88,7 +88,7 @@ func withBodyReader(w http.ResponseWriter, r *http.Request, f func(io.Reader) bo
 		return true
 	}
 
-	succeeded := f(r.Body)
+	succeeded := f(r.Body, nil)
 	if succeeded {
 		w.WriteHeader(http.StatusOK)
 	}
