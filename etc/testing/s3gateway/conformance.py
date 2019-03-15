@@ -17,7 +17,7 @@ RUNS_ROOT = os.path.join(TEST_ROOT, "runs")
 RAN_PATTERN = re.compile(r"Ran (\d+) tests in [\d\.]+s")
 FAILED_PATTERN = re.compile(r"FAILED \(SKIP=(\d+), errors=(\d+), failures=(\d+)\)")
 
-ERROR_PATTERN = re.compile(r"(FAIL|ERROR): (s3tests\..+)")
+ERROR_PATTERN = re.compile(r"(FAIL|ERROR): (s3tests.+)")
 
 TRACEBACK_PREFIXES = [
     "Traceback (most recent call last):",
@@ -291,6 +291,37 @@ BLACKLISTED_TESTS = [
     "s3tests.functional.test_s3.test_object_set_get_metadata_overwrite_to_empty",
     "s3tests.functional.test_s3.test_bucket_list_delimiter_prefix_ends_with_delimiter",
     "s3tests.functional.test_s3.test_bucket_list_objects_anonymous_fail",
+    "s3tests.functional.test_headers.test_object_create_bad_date_invalid_aws2",
+    "s3tests.functional.test_headers.test_object_create_bad_date_empty_aws2",
+    "s3tests.functional.test_headers.test_object_create_bad_date_none_aws2",
+    "s3tests.functional.test_headers.test_object_create_bad_date_before_today_aws2",
+    "s3tests.functional.test_headers.test_object_create_bad_date_after_today_aws2",
+    "s3tests.functional.test_headers.test_object_create_bad_date_before_epoch_aws2",
+    "s3tests.functional.test_headers.test_object_create_bad_date_after_end_aws2",
+    "s3tests.functional.test_headers.test_bucket_create_bad_authorization_invalid_aws2",
+    "s3tests.functional.test_headers.test_bucket_create_bad_date_invalid_aws2",
+    "s3tests.functional.test_headers.test_bucket_create_bad_date_empty_aws2",
+    "s3tests.functional.test_headers.test_bucket_create_bad_date_none_aws2",
+    "s3tests.functional.test_headers.test_bucket_create_bad_date_before_today_aws2",
+    "s3tests.functional.test_headers.test_bucket_create_bad_date_after_today_aws2",
+    "s3tests.functional.test_headers.test_bucket_create_bad_date_before_epoch_aws2",
+    "s3tests.functional.test_s3.test_object_set_get_non_utf8_metadata",
+    "s3tests.functional.test_s3.test_object_set_get_metadata_empty_to_unreadable_prefix",
+    "s3tests.functional.test_s3.test_object_set_get_metadata_empty_to_unreadable_suffix",
+    "s3tests.functional.test_s3.test_object_set_get_metadata_empty_to_unreadable_infix",
+    "s3tests.functional.test_s3.test_object_set_get_metadata_overwrite_to_unreadable_prefix",
+    "s3tests.functional.test_s3.test_object_set_get_metadata_overwrite_to_unreadable_suffix",
+    "s3tests.functional.test_s3.test_object_set_get_metadata_overwrite_to_unreadable_infix",
+    "s3tests.functional.test_s3.test_bucket_create_exists_nonowner",
+    "s3tests.functional.test_headers.test_object_create_bad_authorization_unreadable",
+    "s3tests.functional.test_headers.test_bucket_create_bad_authorization_unreadable",
+    "s3tests.functional.test_headers.test_object_create_bad_date_unreadable_aws2",
+    "s3tests.functional.test_headers.test_bucket_create_bad_date_unreadable_aws2",
+    "s3tests.functional.test_s3.test_object_raw_put",
+    "s3tests.functional.test_s3.test_object_raw_put_authenticated_expired",
+    "s3tests.functional.test_s3.test_post_object_upload_larger_than_chunk",
+    "s3tests.functional.test_s3.test_bucket_concurrent_set_canned_acl",
+    "s3tests_boto3.functional.test_s3.test_bucket_list_delimiter_prefix_ends_with_delimiter",
 ]
 
 class Gateway:
