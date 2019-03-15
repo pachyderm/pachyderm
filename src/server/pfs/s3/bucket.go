@@ -243,9 +243,18 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	repo, branch := bucketArgs(w, r)
 
-	err := h.pc.DeleteBranch(repo, branch, false)
+	// `DeleteBranch` does not return an error if a non-existing branch is
+	// deleting. So first, we verify that the branch exists so we can
+	// otherwise return a 404.
+	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		notFoundError(w, r, err)
+		return
+	}
+
+	err = h.pc.DeleteBranch(repo, branch, false)
+	if err != nil {
+		internalError(w, r, err)
 		return
 	}
 

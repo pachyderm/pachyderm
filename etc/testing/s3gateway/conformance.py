@@ -290,6 +290,7 @@ BLACKLISTED_TESTS = [
     "s3tests.functional.test_s3.test_object_set_get_metadata_overwrite_to_good",
     "s3tests.functional.test_s3.test_object_set_get_metadata_overwrite_to_empty",
     "s3tests.functional.test_s3.test_bucket_list_delimiter_prefix_ends_with_delimiter",
+    "s3tests.functional.test_s3.test_bucket_list_objects_anonymous_fail",
 ]
 
 class Gateway:
