@@ -60,6 +60,8 @@ COMMIT                           NAME             TYPE COMMITTED     SIZE
 ```
 
 In this case, any pipelines that use this repo for input will see an updated file that has double the data in it.
+It may also have an intermediate header row. 
+(See [Specifying Header/Footer](../cookbook/splitting.html?highlight=header#specifying-header-footer) for details on headers and footers in files.)
 This is Pachyderm's default behavior.
 What if you want to overwrite the files?
 
