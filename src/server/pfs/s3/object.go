@@ -108,22 +108,18 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	hasher := md5.New()
 	reader := io.TeeReader(r.Body, hasher)
 
-	commit, err := h.pc.StartCommit(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)
+	client, err := h.pc.NewPutFileClient()
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
-
-	isFinished := false
 	defer func() {
-		if !isFinished {
-			if err := h.pc.DeleteCommit(branchInfo.Branch.Repo.Name, commit.ID); err != nil {
-				logrus.Errorf("s3gateway: could not delete commit: %v", err)
-			}
+		if err := client.Close(); err != nil {
+			logrus.Errorf("s3gateway: could not close put file client: %v", err)
 		}
 	}()
 
-	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, commit.ID, file, reader, 0)
+	_, err = client.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -142,19 +138,12 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	}
 	metaReader := bytes.NewReader(metaBytes)
 	metaFile := fmt.Sprintf("%s.s3g.json", file)
-	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, commit.ID, metaFile, metaReader, 0)
+	_, err = client.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, metaFile, metaReader, 0)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
 
-	err = h.pc.FinishCommit(branchInfo.Branch.Repo.Name, commit.ID)
-	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-
-	isFinished = true
 	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash))
 	w.WriteHeader(http.StatusOK)
 }
@@ -175,28 +164,7 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commit, err := h.pc.StartCommit(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)
-	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-
-	isFinished := false
-	defer func() {
-		if !isFinished {
-			if err := h.pc.FinishCommit(branchInfo.Branch.Repo.Name, commit.ID); err != nil {
-				logrus.Errorf("s3gateway: could not finish commit: %v", err)
-			}
-		}
-		
-	}()
-
-	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, commit.ID, file); err != nil {
-		notFoundError(w, r, err)
-		return
-	}
-
-	if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, commit.ID, fmt.Sprintf("%s.s3g.json", file)); err != nil {
+	if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, fmt.Sprintf("%s.s3g.json", file)); err != nil {
 		// ignore errors related to the metadata file not being found, since
 		// it may validly not exist
 		if !fileNotFoundMatcher.MatchString(err.Error()) {
@@ -205,11 +173,10 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := h.pc.FinishCommit(branchInfo.Branch.Repo.Name, commit.ID); err != nil {
-		internalError(w, r, err)
+	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+		notFoundError(w, r, err)
 		return
 	}
 
-	isFinished = true
 	w.WriteHeader(http.StatusNoContent)
 }
