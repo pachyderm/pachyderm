@@ -16,7 +16,7 @@ import (
 )
 
 type ObjectMeta struct {
-	md5 string `json:"md5"`
+	MD5 string `json:"md5"`
 }
 
 type objectHandler struct {
@@ -63,13 +63,13 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		meta := new(ObjectMeta)
-		if err = json.NewDecoder(metaReader).Decode(meta); err != nil {
+		if err = json.NewDecoder(metaReader).Decode(&meta); err != nil {
 			if !fileNotFoundMatcher.MatchString(err.Error()) {
 				internalError(w, r, err)
 				return
 			}
 		} else {
-			w.Header().Set("ETag", meta.md5)
+			w.Header().Set("ETag", fmt.Sprintf("\"%s\"", meta.MD5))
 		}
 	}
 
@@ -135,7 +135,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metaBytes, err := json.Marshal(ObjectMeta { md5: actualHash })
+	metaBytes, err := json.Marshal(ObjectMeta { MD5: actualHash })
 	if err != nil {
 		panic(err)
 	}
@@ -154,7 +154,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	}
 
 	isFinished = true
-	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash)) // s3 wraps its etag in quotes
+	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash))
 	w.WriteHeader(http.StatusOK)
 }
 
