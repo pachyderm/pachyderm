@@ -7,7 +7,7 @@ containerized environment.  The Pachyderm File System (pfs) is a
 file-based system that is distributed and supports data of all types
 of files (binary, csv, json, images, etc) from many sources and
 users. That data is processed in parallel across many different jobs
-and pipeline using the Pachyderm Pipeline System (pps). The Pachyderm
+and pipelines using the Pachyderm Pipeline System (pps). The Pachyderm
 File System (pfs) and Pachyderm Pipeline System (pps) are designed to
 work together to get the right version of the right data to the right
 container at the right time.
@@ -30,9 +30,9 @@ If you're unfamiliar with the topic, each link below will take you to the basics
 
 ## Loading data into Pachyderm
 
-### Overwriting files
+### Appending to files
 
-When putting files into a pfs repo via Pachyderm's `pachctl` utility,
+When putting files into a pfs repo via Pachyderm's `pachctl` utility or via the Pachyderm APIs,
 it's vital to know about the default behaviors of the `put-file` command. 
 The following commands create the repo "voterData" and place a local file called "OHVoterData.csv" into it.
 ```
@@ -60,8 +60,10 @@ COMMIT                           NAME             TYPE COMMITTED     SIZE
 ```
 
 In this case, any pipelines that use this repo for input will see an updated file that has double the data in it.
+This is Pachyderm's default behavior.
+What if you want to overwrite the files?
 
-### Appending to files
+### Overwriting files
 
 This is where the `-o` (or `--overwrite`) flag comes in handy.  It will, as you've probably guessed, overwrite the file, rather than append it.
 ```
