@@ -24,13 +24,15 @@ const locationSource = `<?xml version="1.0" encoding="UTF-8"?>
 // ListBucketResult is an XML-encodable listing of files/objects in a
 // repo/bucket
 type ListBucketResult struct {
-	Name           string           `xml:"Name"`
-	Prefix         string           `xml:"Prefix"`
-	Marker         string           `xml:"Marker"`
-	MaxKeys        int              `xml:"MaxKeys"`
-	IsTruncated    bool             `xml:"IsTruncated"`
 	Contents       []Contents       `xml:"Contents"`
 	CommonPrefixes []CommonPrefixes `xml:"CommonPrefixes"`
+	Delimiter      string           `xml:"Delimiter`
+	IsTruncated    bool             `xml:"IsTruncated"`
+	Marker         string           `xml:"Marker"`
+	MaxKeys        int              `xml:"MaxKeys"`
+	Name           string           `xml:"Name"`
+	NextMarker     string           `xml:"NextMarker,omitempty"`
+	Prefix         string           `xml:"Prefix"`
 }
 
 func (r *ListBucketResult) isFull() bool {
@@ -47,7 +49,7 @@ type Contents struct {
 	Owner        User      `xml:"Owner"`
 }
 
-func newContents(fileInfo *pfs.FileInfo) (Contents, error) {
+func newContents(fileInfo *pfs.FileInfo, etag string) (Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
 		return Contents{}, err
@@ -56,7 +58,7 @@ func newContents(fileInfo *pfs.FileInfo) (Contents, error) {
 	return Contents{
 		Key:          fileInfo.File.Path,
 		LastModified: t,
-		ETag:         "",
+		ETag:         etag,
 		Size:         fileInfo.SizeBytes,
 		StorageClass: storageClass,
 		Owner:        defaultUser,
@@ -66,11 +68,13 @@ func newContents(fileInfo *pfs.FileInfo) (Contents, error) {
 // CommonPrefixes is an individual PFS directory
 type CommonPrefixes struct {
 	Prefix string `xml:"Prefix"`
+	Owner  User   `xml:"Owner"`
 }
 
 func newCommonPrefixes(dir string) CommonPrefixes {
 	return CommonPrefixes{
 		Prefix: fmt.Sprintf("%s/", dir),
+		Owner:  defaultUser,
 	}
 }
 
@@ -117,18 +121,19 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		maxKeys = i	
 	}
 
-	result := &ListBucketResult{
-		Name:        repo,
-		Prefix:      r.FormValue("prefix"),
-		Marker:      r.FormValue("marker"),
-		MaxKeys:     maxKeys,
-		IsTruncated: false,
-	}
-
 	delimiter := r.FormValue("delimiter")
 	if delimiter != "" && delimiter != "/" {
 		invalidDelimiterError(w, r)
 		return
+	}
+
+	result := &ListBucketResult{
+		Name:        repo,
+		Prefix:      r.FormValue("prefix"),
+		Marker:      r.FormValue("marker"),
+		Delimiter:   delimiter,
+		MaxKeys:     maxKeys,
+		IsTruncated: false,
 	}
 
 	if branchInfo.Head == nil {
@@ -143,6 +148,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 
 func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
 	err := h.pc.Walk(result.Name, branch, filepath.Dir(result.Prefix), func(fileInfo *pfs.FileInfo) error {
+		origFilePath := fileInfo.File.Path
 		fileInfo = updateFileInfo(branch, result.Marker, result.Prefix, fileInfo)
 		if fileInfo == nil || fileInfo.FileType == pfs.FileType_DIR {
 			return nil
@@ -151,11 +157,22 @@ func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, res
 			result.IsTruncated = true
 			return errutil.ErrBreak
 		}
-		contents, err := newContents(fileInfo)
+
+		meta, err := getMeta(h.pc, result.Name, branch, origFilePath)
+		if err != nil {
+			return err
+		}
+		etag := ""
+		if meta != nil {
+			etag = meta.MD5
+		}
+		
+		contents, err := newContents(fileInfo, etag)
 		if err != nil {
 			return err
 		}
 		result.Contents = append(result.Contents, contents)
+		
 		return nil
 	})
 	if err != nil {
@@ -163,6 +180,7 @@ func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, res
 		return
 	}
 
+	setNextMarker(result)
 	writeXML(w, http.StatusOK, result)
 }
 
@@ -175,6 +193,7 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 	}
 
 	for _, fileInfo := range fileInfos {
+		origFilePath := fileInfo.File.Path
 		fileInfo = updateFileInfo(branch, result.Marker, result.Prefix, fileInfo)
 		if fileInfo == nil {
 			continue
@@ -184,17 +203,29 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 			break
 		}
 		if fileInfo.FileType == pfs.FileType_FILE {
-			contents, err := newContents(fileInfo)
+			meta, err := getMeta(h.pc, result.Name, branch, origFilePath)
 			if err != nil {
 				internalError(w, r, err)
 				return
 			}
+			etag := ""
+			if meta != nil {
+				etag = meta.MD5
+			}
+
+			contents, err := newContents(fileInfo, etag)
+			if err != nil {
+				internalError(w, r, err)
+				return
+			}
+
 			result.Contents = append(result.Contents, contents)
 		} else {
 			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 		}
 	}
 
+	setNextMarker(result)
 	writeXML(w, http.StatusOK, result)
 }
 
@@ -282,4 +313,23 @@ func updateFileInfo(branch, marker, prefix string, fileInfo *pfs.FileInfo) *pfs.
 	}
 
 	return fileInfo
+}
+
+func setNextMarker(result *ListBucketResult) {
+	if result.IsTruncated {
+		if len(result.Contents) > 0 && len(result.CommonPrefixes) == 0 {
+			result.NextMarker = result.Contents[len(result.Contents)-1].Key
+		} else if len(result.Contents) == 0 && len(result.CommonPrefixes) > 0 {
+			result.NextMarker = result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
+		} else if len(result.Contents) > 0 && len(result.CommonPrefixes) > 0 {
+			lastContents := result.Contents[len(result.Contents)-1].Key
+			lastCommonPrefixes := result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
+
+			if lastContents > lastCommonPrefixes {
+				result.NextMarker = lastContents
+			} else {
+				result.NextMarker = lastCommonPrefixes
+			}
+		}
+	}
 }

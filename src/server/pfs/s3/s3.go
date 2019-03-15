@@ -92,7 +92,7 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer) *http.Ser
 	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.del)
 
 	// TODO: this will trigger for paths that are not valid utf-8 strings, giving the incorrect error message. See:
-	// ./etc/testing/s3gateway/conformance.py --nose-args 's3tests.functional.test_s3:test_object_create_unreadable' --no-persist
+	// ./etc/testing/s3gateway/conformance.py --test s3tests.functional.test_s3.test_object_create_unreadable
 	router.NotFoundHandler = http.HandlerFunc(invalidBucketNameError)
 	router.MethodNotAllowedHandler = http.HandlerFunc(methodNotAllowedError)
 

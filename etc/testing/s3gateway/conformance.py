@@ -331,6 +331,9 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     "test_s3.test_object_raw_get_x_amz_expires_out_max_range",
     "test_s3.test_object_raw_get_x_amz_expires_out_positive_range",
     "test_s3.test_object_anon_put",
+    "test_s3.test_lifecycle_expiration_days0",
+    "test_headers.test_object_create_bad_md5_unreadable",
+    "test_headers.test_object_create_bad_contenttype_unreadable",
 ]
 
 class Gateway:

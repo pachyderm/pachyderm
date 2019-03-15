@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"encoding/json"
 	"fmt"
 	"crypto/md5"
 	"encoding/base64"
@@ -14,11 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/sirupsen/logrus"
 )
-
-// ObjectMeta is JSON-serializable metadata about an object
-type ObjectMeta struct {
-	MD5 string `json:"md5"`
-}
 
 type objectHandler struct {
 	pc *client.APIClient
@@ -39,12 +33,12 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 		noSuchKeyError(w, r)
 		return
 	}
-	if strings.HasSuffix(file, ".s3g.json") || strings.HasSuffix(file, "/") {
+	if isMeta(file) || strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
 
-	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
 		notFoundError(w, r, err)
 		return
@@ -56,22 +50,13 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metaReader, err := h.pc.GetFileReader(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, fmt.Sprintf("%s.s3g.json", file), 0, 0)
+	meta, err := getMeta(h.pc, branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
-		if !fileNotFoundMatcher.MatchString(err.Error()) {
-			internalError(w, r, err)
-			return
-		}
-	} else {
-		meta := new(ObjectMeta)
-		if err = json.NewDecoder(metaReader).Decode(&meta); err != nil {
-			if !fileNotFoundMatcher.MatchString(err.Error()) {
-				internalError(w, r, err)
-				return
-			}
-		} else {
-			w.Header().Set("ETag", fmt.Sprintf("\"%s\"", meta.MD5))
-		}
+		internalError(w, r, err)
+		return
+	}
+	if meta != nil {
+		w.Header().Set("ETag", fmt.Sprintf("\"%s\"", meta.MD5))
 	}
 
 	reader, err := h.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
@@ -90,7 +75,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		notFoundError(w, r, err)
 		return
 	}
-	if strings.HasSuffix(file, ".s3g.json") || strings.HasSuffix(file, "/") {
+	if isMeta(file) || strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
@@ -132,14 +117,8 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	metaBytes, err := json.Marshal(ObjectMeta { MD5: actualHash })
-	if err != nil {
-		panic(err)
-	}
-	metaReader := bytes.NewReader(metaBytes)
-	metaFile := fmt.Sprintf("%s.s3g.json", file)
-	_, err = client.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, metaFile, metaReader, 0)
-	if err != nil {
+	meta := ObjectMeta { MD5: actualHash }
+	if err = putMeta(client, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, &meta); err != nil {
 		internalError(w, r, err)
 		return
 	}
@@ -159,20 +138,15 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 		noSuchKeyError(w, r)
 		return
 	}
-	if strings.HasSuffix(file, ".s3g.json") || strings.HasSuffix(file, "/") {
+	if isMeta(file) || strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
 
-	if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, fmt.Sprintf("%s.s3g.json", file)); err != nil {
-		// ignore errors related to the metadata file not being found, since
-		// it may validly not exist
-		if !fileNotFoundMatcher.MatchString(err.Error()) {
-			internalError(w, r, err)
-			return
-		}
+	if err = delMeta(h.pc, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+		internalError(w, r, err)
+		return
 	}
-
 	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
 		notFoundError(w, r, err)
 		return
