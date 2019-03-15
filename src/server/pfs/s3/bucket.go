@@ -110,7 +110,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	maxKeysStr := r.FormValue("max-keys")
 	if maxKeysStr != "" {
 		i, err := strconv.Atoi(maxKeysStr)
-		if err != nil || i <= 0 || i > defaultMaxKeys {
+		if err != nil || i < 0 || i > defaultMaxKeys {
 			invalidArgument(w, r)
 			return
 		}
