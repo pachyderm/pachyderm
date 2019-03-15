@@ -94,10 +94,10 @@ message CommitRange {
   Commit upper = 2;
 }
 
-// CommitOrigin keeps track of where (i.e. which branch) a certain commit
-// originated from. A commits provenance consists of the commits of
+// CommitProvenance keeps track of where (i.e. which branch) a certain commit
+// originated from. A commit's provenance consists of the commits of
 // the commits which are in its causal history.
-message CommitOrigin {
+message CommitProvenance {
   Commit commit = 1;
   Branch branch = 2;
 }
@@ -106,7 +106,7 @@ message CommitOrigin {
 message CommitInfo {
   reserved 6, 10;
   Commit commit = 1;
-  Branch original_branch = 15;
+  Branch branch = 15;
   // description is a user-provided script describing this commit
   string description = 8;
   Commit parent_commit = 2;
@@ -115,8 +115,8 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 4;
   uint64 size_bytes = 5;
 
-  // the commits and their origins on which this commit is provenant
-  repeated CommitOrigin provenance = 16;
+  // the commits and their original branches on which this commit is provenant
+  repeated CommitProvenance provenance = 16;
 
   // ReadyProvenance is the number of provenant commits which have been
   // finished, if ReadyProvenance == len(Provenance) then the commit is ready
@@ -211,14 +211,14 @@ message StartCommitRequest {
   // description is a user-provided string describing this commit
   string description = 4;
   string branch = 3;
-  repeated CommitOrigin provenance = 5;
+  repeated CommitProvenance provenance = 5;
 }
 
 message BuildCommitRequest {
   reserved 2;
   Commit parent = 1;
   string branch = 4;
-  repeated CommitOrigin provenance = 6;
+  repeated CommitProvenance provenance = 6;
   Object tree = 3;
   // ID sets the ID of the created commit.
   string ID = 5;
