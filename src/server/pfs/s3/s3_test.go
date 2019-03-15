@@ -626,37 +626,30 @@ func TestListObjectsRecursive(t *testing.T) {
 	require.NoError(t, pc.FinishCommit(repo, commit.ID))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	// Request that will list all files and dirs in master
+	// Request that will list all files in master
 	expectedFiles := []string{"0", "rootdir/1", "rootdir/subdir/2"}
-	expectedDirs := []string{"rootdir/", "rootdir/subdir/"}
 	ch := c.ListObjects(fmt.Sprintf("master.%s", repo), "", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
-	// Requests that will list all files in rootdir, including rootdir itself
+	// Requests that will list all files in rootdir
 	expectedFiles = []string{"rootdir/1", "rootdir/subdir/2"}
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "r", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-
-	// Request that will list all files in rootdir, excluding rootdir itself
-	expectedDirs = []string{"rootdir/subdir/"}
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
-	// Requests that will list all files in subdir, including subdir itself
+	// Requests that will list all files in subdir
 	expectedFiles = []string{"rootdir/subdir/2"}
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/s", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
-
-	// Request that will list all files in subdir, excluding subdir itself
-	expectedDirs = []string{}
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
-	checkListObjects(t, ch, startTime, endTime, expectedFiles, expectedDirs)
+	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 
 	require.NoError(t, srv.Close())
 }

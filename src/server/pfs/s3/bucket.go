@@ -144,25 +144,20 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
 	err := h.pc.Walk(result.Name, branch, filepath.Dir(result.Prefix), func(fileInfo *pfs.FileInfo) error {
 		fileInfo = updateFileInfo(branch, result.Marker, result.Prefix, fileInfo)
-		if fileInfo == nil {
+		if fileInfo == nil || fileInfo.FileType == pfs.FileType_DIR {
 			return nil
 		}
 		if result.isFull() {
 			result.IsTruncated = true
 			return errutil.ErrBreak
 		}
-		if fileInfo.FileType == pfs.FileType_FILE {
-			contents, err := newContents(fileInfo)
-			if err != nil {
-				return err
-			}
-			result.Contents = append(result.Contents, contents)
-		} else {
-			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
+		contents, err := newContents(fileInfo)
+		if err != nil {
+			return err
 		}
+		result.Contents = append(result.Contents, contents)
 		return nil
 	})
-
 	if err != nil {
 		internalError(w, r, err)
 		return
