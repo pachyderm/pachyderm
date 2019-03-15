@@ -69,7 +69,7 @@ Error from server (Forbidden): error when creating "STDIN": clusterroles.rbac.au
 Run the following and redeploy Pachyderm:
 
 ```
-kubectl create clusterrolebinding cluster-admin-binding \ --clusterrole cluster-admin --user $(gcloud config get-value account)
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 
 ```
 
