@@ -143,11 +143,8 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 
 func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
 	err := h.pc.Walk(result.Name, branch, filepath.Dir(result.Prefix), func(fileInfo *pfs.FileInfo) error {
-		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
+		fileInfo = updateFileInfo(branch, result.Marker, result.Prefix, fileInfo)
 		if fileInfo == nil {
-			return nil
-		}
-		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
 			return nil
 		}
 		if result.isFull() {
@@ -183,7 +180,7 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 	}
 
 	for _, fileInfo := range fileInfos {
-		fileInfo = updateFileInfo(branch, result.Marker, fileInfo)
+		fileInfo = updateFileInfo(branch, result.Marker, result.Prefix, fileInfo)
 		if fileInfo == nil {
 			continue
 		}
@@ -265,7 +262,7 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 // object listings:
 // 1) if nil is returned, the `FileInfo` should not be included in the list
 // 2) the path is updated to remove the leading slash
-func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo {
+func updateFileInfo(branch, marker, prefix string, fileInfo *pfs.FileInfo) *pfs.FileInfo {
 	if fileInfo.FileType == pfs.FileType_DIR {
 		if fileInfo.File.Path == "/" {
 			// skip the root directory
@@ -281,6 +278,9 @@ func updateFileInfo(branch, marker string, fileInfo *pfs.FileInfo) *pfs.FileInfo
 		return nil
 	}
 	fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
+	if !strings.HasPrefix(fileInfo.File.Path, prefix) {
+		return nil
+	}
 	if fileInfo.File.Path <= marker {
 		// skip file paths below the marker
 		return nil
