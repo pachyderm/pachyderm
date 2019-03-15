@@ -334,6 +334,17 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     "test_s3.test_lifecycle_expiration_days0",
     "test_headers.test_object_create_bad_md5_unreadable",
     "test_headers.test_object_create_bad_contenttype_unreadable",
+
+    # These tests are disabled because go's http server doesn't support custom
+    # error responses for those triggered by these tests. If go adds support
+    # for this, or if we put a reverse proxy in front of the s3gateway, these
+    # tests could be run.
+    "test_headers.test_object_create_bad_expect_unreadable",
+    "test_headers.test_bucket_create_bad_expect_unreadable",
+    "test_headers.test_object_create_bad_ua_unreadable_aws2",
+    "test_headers.test_bucket_create_bad_ua_unreadable_aws2",
+    "test_headers.test_bucket_create_bad_expect_mismatch",
+    "test_headers.test_object_create_bad_expect_mismatch",
 ]
 
 class Gateway:
