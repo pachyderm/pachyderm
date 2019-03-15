@@ -1124,6 +1124,75 @@ func TestProvenance2(t *testing.T) {
 	}
 }
 
+// TestStopPipelineExtraCommit generates the following DAG:
+// A -> B -> C
+// and ensures that calling StopPipeline on B does not create an commit in C.
+func TestStopPipelineExtraCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	aRepo := tu.UniqueString("A")
+	require.NoError(t, c.CreateRepo(aRepo))
+	bPipeline := tu.UniqueString("B")
+	require.NoError(t, c.CreatePipeline(
+		bPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(aRepo, "/*"),
+		"",
+		false,
+	))
+	cPipeline := tu.UniqueString("C")
+	require.NoError(t, c.CreatePipeline(
+		cPipeline,
+		"",
+		[]string{"cp", path.Join("/pfs", aRepo, "file"), "/pfs/out/file"},
+		nil,
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(bPipeline, "/*"),
+		"",
+		false,
+	))
+	// commit to aRepo
+	commit1, err := c.StartCommit(aRepo, "master")
+	require.NoError(t, err)
+	_, err = c.PutFile(aRepo, commit1.ID, "file", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(aRepo, commit1.ID))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit1}, []*pfs.Repo{client.NewRepo(bPipeline), client.NewRepo(cPipeline)})
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+
+	// We should only see one commit in aRepo, bPipeline, and cPipeline
+	commitInfos, err = c.ListCommit(aRepo, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(bPipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+
+	require.NoError(t, c.StopPipeline(bPipeline))
+	commitInfos, err = c.ListCommit(cPipeline, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+}
+
 // TestFlushCommit
 func TestFlushCommit(t *testing.T) {
 	if testing.Short() {
@@ -1862,7 +1931,7 @@ func TestPrettyPrinting(t *testing.T) {
 	require.True(t, len(jobInfos) > 0)
 	jobInfo, err := c.InspectJob(jobInfos[0].Job.ID, false)
 	require.NoError(t, err)
-  require.NoError(t, ppspretty.PrintDetailedJobInfo(ppspretty.NewPrintableJobInfo(jobInfo)))
+	require.NoError(t, ppspretty.PrintDetailedJobInfo(ppspretty.NewPrintableJobInfo(jobInfo)))
 }
 
 func TestDeleteAll(t *testing.T) {
