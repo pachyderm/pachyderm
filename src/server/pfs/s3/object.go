@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// ObjectMeta is JSON-serializable metadata about an object
 type ObjectMeta struct {
 	MD5 string `json:"md5"`
 }
