@@ -195,18 +195,18 @@ func TestMultiIndex(t *testing.T) {
 
 	c1 := &pfs.CommitInfo{
 		Commit: client.NewCommit("repo", "c1"),
-		Provenance: []*pfs.CommitOrigin{
-			client.NewCommitOrigin("in", "master", "c1"),
-			client.NewCommitOrigin("in", "master", "c2"),
-			client.NewCommitOrigin("in", "master", "c3"),
+		Provenance: []*pfs.CommitProvenance{
+			client.NewCommitProvenance("in", "master", "c1"),
+			client.NewCommitProvenance("in", "master", "c2"),
+			client.NewCommitProvenance("in", "master", "c3"),
 		},
 	}
 	c2 := &pfs.CommitInfo{
 		Commit: client.NewCommit("repo", "c2"),
-		Provenance: []*pfs.CommitOrigin{
-			client.NewCommitOrigin("in", "master", "c1"),
-			client.NewCommitOrigin("in", "master", "c2"),
-			client.NewCommitOrigin("in", "master", "c3"),
+		Provenance: []*pfs.CommitProvenance{
+			client.NewCommitProvenance("in", "master", "c1"),
+			client.NewCommitProvenance("in", "master", "c2"),
+			client.NewCommitProvenance("in", "master", "c3"),
 		},
 	}
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {

@@ -34,9 +34,9 @@ func NewCommit(repoName string, commitID string) *pfs.Commit {
 	}
 }
 
-// NewCommitOrigin creates a pfs.CommitOrigin.
-func NewCommitOrigin(repoName string, branchName string, commitID string) *pfs.CommitOrigin {
-	return &pfs.CommitOrigin{
+// NewCommitProvenance creates a pfs.CommitProvenance.
+func NewCommitProvenance(repoName string, branchName string, commitID string) *pfs.CommitProvenance {
+	return &pfs.CommitProvenance{
 		Commit: NewCommit(repoName, commitID),
 		Branch: NewBranch(repoName, branchName),
 	}

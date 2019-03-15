@@ -408,11 +408,11 @@ func (d *driver) deleteRepo(pachClient *client.APIClient, repo *pfs.Repo, force 
 	return nil
 }
 
-func (d *driver) startCommit(pachClient *client.APIClient, parent *pfs.Commit, branch string, provenance []*pfs.CommitOrigin, description string) (*pfs.Commit, error) {
+func (d *driver) startCommit(pachClient *client.APIClient, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
 	return d.makeCommit(pachClient, "", parent, branch, provenance, nil, nil, nil, description)
 }
 
-func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitOrigin, tree *pfs.Object) (*pfs.Commit, error) {
+func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, tree *pfs.Object) (*pfs.Commit, error) {
 	return d.makeCommit(pachClient, ID, parent, branch, provenance, tree, nil, nil, "")
 }
 
@@ -428,7 +428,7 @@ func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pf
 //   parent
 // - If only 'parent.ID' is set, and it contains a branch, then the new commit's
 //   parent will be the HEAD of that branch, but the branch will not be moved
-func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitOrigin, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
+func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
@@ -521,7 +521,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			// Add branch to repo (see "Update repoInfo" below)
 			add(&repoInfo.Branches, branchInfo.Branch)
 			// and add the branch to the commit info
-			newCommitInfo.OriginalBranch = branchInfo.Branch
+			newCommitInfo.Branch = branchInfo.Branch
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
@@ -541,8 +541,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			if err := commits.Update(parent.ID, parentCommitInfo, func() error {
 				newCommitInfo.ParentCommit = parent
 				// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
-				if newCommitInfo.OriginalBranch == nil {
-					newCommitInfo.OriginalBranch = parentCommitInfo.OriginalBranch
+				if newCommitInfo.Branch == nil {
+					newCommitInfo.Branch = parentCommitInfo.Branch
 				}
 				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
 				return nil
@@ -605,7 +605,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		// transitive closure, there's no need to search the full provenance graph,
 		// just take the union of the immediate parents' (in the 'provenance' arg)
 		// commitInfo.Provenance
-		newCommitProv := make(map[string]*pfs.CommitOrigin)
+		newCommitProv := make(map[string]*pfs.CommitProvenance)
 		for _, prov := range provenance {
 			newCommitProv[prov.Commit.ID] = prov
 			provCommitInfo := &pfs.CommitInfo{}
@@ -832,7 +832,7 @@ nextSubvBranch:
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
-		commitProvMap := make(map[string]*pfs.CommitOrigin)
+		commitProvMap := make(map[string]*pfs.CommitProvenance)
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil && !col.IsErrNotFound(err) {
@@ -841,7 +841,7 @@ nextSubvBranch:
 			if provBranchInfo.Head == nil {
 				continue
 			}
-			commitProvMap[provBranchInfo.Head.ID] = &pfs.CommitOrigin{
+			commitProvMap[provBranchInfo.Head.ID] = &pfs.CommitProvenance{
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
@@ -923,7 +923,7 @@ nextSubvBranch:
 		branchInfo.Head = newCommit
 		branchInfo.Name = branch.Name // set in case 'branch' is new
 		branchInfo.Branch = branch    // set in case 'branch' is new
-		newCommitInfo.OriginalBranch = branch
+		newCommitInfo.Branch = branch
 		if err := branches.Put(branch.Name, branchInfo); err != nil {
 			return err
 		}
@@ -1036,8 +1036,8 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	var ancestryLength int
 	commit.ID, ancestryLength = ancestry.Parse(commit.ID)
 
-	// Keep track of the original branch, in case it isn't set in the commitInfo already
-	var originalBranch *pfs.Branch
+	// Keep track of the commit branch, in case it isn't set in the commitInfo already
+	var commitBranch *pfs.Branch
 	// Check if commit.ID is already a commit ID (i.e. a UUID).
 	if !uuid.IsUUIDWithoutDashes(commit.ID) {
 		branches := d.branches(commit.Repo.Name).ReadWrite(stm)
@@ -1049,7 +1049,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		if branchInfo.Head == nil {
 			return nil, pfsserver.ErrNoHead{branchInfo.Branch}
 		}
-		originalBranch = branchInfo.Branch
+		commitBranch = branchInfo.Branch
 		commit.ID = branchInfo.Head.ID
 	}
 
@@ -1072,8 +1072,8 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		}
 		commit = commitInfo.ParentCommit
 	}
-	if commitInfo.OriginalBranch == nil {
-		commitInfo.OriginalBranch = originalBranch
+	if commitInfo.Branch == nil {
+		commitInfo.Branch = commitBranch
 	}
 	userCommit.ID = commitInfo.Commit.ID
 	return commitInfo, nil
@@ -2436,7 +2436,7 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 }
 
 // this is a helper function to check if the given provenance has provenance on an input branch
-func provenantOnInput(provenance []*pfs.CommitOrigin) bool {
+func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 	provenanceCount := len(provenance)
 	for _, p := range provenance {
 		// in particular, we want to exclude provenance on the spec repo (used e.g. for spouts)

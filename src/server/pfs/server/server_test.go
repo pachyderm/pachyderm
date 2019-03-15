@@ -804,7 +804,7 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, 4, len(commitInfo.Provenance))
 }
 
-func TestCommitOriginalBranch(t *testing.T) {
+func TestCommitBranch(t *testing.T) {
 	client := GetPachClient(t)
 
 	require.NoError(t, client.CreateRepo("repo"))
@@ -820,14 +820,14 @@ func TestCommitOriginalBranch(t *testing.T) {
 	// Check that the commit in branch A has the information and provenance we expect
 	commitInfo, err := client.InspectCommit("repo", "A")
 	require.NoError(t, err)
-	require.Equal(t, "A", commitInfo.OriginalBranch.Name)
+	require.Equal(t, "A", commitInfo.Branch.Name)
 	require.Equal(t, 1, len(commitInfo.Provenance))
 	require.Equal(t, "master", commitInfo.Provenance[0].Branch.Name)
 
 	// Check that the commit in branch B has the information and provenance we expect
 	commitInfo, err = client.InspectCommit("repo", "B")
 	require.NoError(t, err)
-	require.Equal(t, "B", commitInfo.OriginalBranch.Name)
+	require.Equal(t, "B", commitInfo.Branch.Name)
 	require.Equal(t, 1, len(commitInfo.Provenance))
 	require.Equal(t, "master", commitInfo.Provenance[0].Branch.Name)
 }
