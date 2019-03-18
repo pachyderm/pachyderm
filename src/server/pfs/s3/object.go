@@ -98,55 +98,49 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shouldDelete := false
-	shouldClose := true
-	defer func() {
-		if shouldClose {
-			if err := client.Close(); err != nil {
-				requestLogger(r).Errorf("could not close put file client: %v", err)
-			}
-		}
-	}()
-
 	_, err = client.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
 		internalError(w, r, err)
+		if err = client.Close(); err != nil {
+			requestLogger(r).Errorf("could not close put file client: %v", err)
+		}
 		return
 	}
-
-	defer func() {
-		if shouldDelete {
-			// try to clean up the file if an error occurred
-			if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-				requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
-			}
-		}
-	}()
 
 	actualHashBytes := hasher.Sum(nil)
 	actualHash := fmt.Sprintf("%x", actualHashBytes)
+	failed := false
 	if expectedHashBytes != nil && !bytes.Equal(expectedHashBytes, actualHashBytes) {
-		shouldDelete = true
 		badDigestError(w, r)
-		return
+		failed = true
 	}
 
-	meta := ObjectMeta { MD5: actualHash }
-	if err = putMeta(client, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, &meta); err != nil {
-		shouldDelete = true
-		internalError(w, r, err)
-		return
+	if !failed {
+		meta := ObjectMeta { MD5: actualHash }
+		if err = putMeta(client, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, &meta); err != nil {
+			internalError(w, r, err)
+			failed = true
+		}
 	}
 
-	shouldClose = false
 	if err = client.Close(); err != nil {
-		shouldDelete = true
-		internalError(w, r, err)
-		return
+		if !failed {
+			internalError(w, r, err)
+			failed = true
+		} else {
+			requestLogger(r).Errorf("could not close put file client: %v", err)
+		}
 	}
 
-	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash))
-	w.WriteHeader(http.StatusOK)
+	if failed {
+		// try to clean up the file if an error occurred
+        if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+            requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
+        }
+	} else {
+		w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash))
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
