@@ -2,7 +2,7 @@
 
 Pachyderm currently supports GPUs through Kubernetes device plugins. If you already have a GPU enabled Kubernetes cluster through device plugins, then skip to [Using GPUs in Pipelines](gpus.html#using-gpus-in-pipelines).
 
-# Setting up a GPU Enabled Kubernetes Cluster
+## Setting up a GPU Enabled Kubernetes Cluster
 
 For guidance on how to set up a GPU enabled Kubernetes cluster through device plugins, refer to the Kubernetes [docs](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/).  
 
@@ -12,7 +12,7 @@ Setting up a GPU enabled Kubernetes cluster can be a difficult process depending
 2. Kubernetes is exposing the GPU resources. This can be checked by describing the GPU nodes with `kubectl describe node`. You should see the GPU resources marked as allocatable/scheduleable if they are setup properly.
 3. Your application/framework can access and use the GPUs. This may be as simple as making shared libraries accesible by the application/framework running in your container. Which can be done by baking environment variables into the Docker image or passing in environment variables through the pipeline spec.
 
-# Using GPUs in Pipelines
+## Using GPUs in Pipelines
 
  If you already have a GPU enabled Kubernetes cluster through device plugins, then using GPUs in your pipelines is as simple as setting up a GPU resource limit with the type and number of GPUs. An example pipeline spec for a GPU enabled pipeline is as follows:
 
