@@ -2018,12 +2018,73 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	return path.Join(split[4:]...)
 }
 
+// If not one-off (i.e. and open commit), we need file & record
+type FileRecordResult struct {
+	file *pfs.File
+	records *pfs.PutFileRecords
+}
+
+func (d *driver) groupPutFileResult(
+	pachClient *client.APIClient,
+	result *FileRecordResult,
+	openRecords []*FileRecordResult,
+	oneOffRecords map[string]map[string][]*FileRecordResult,
+) ([]*FileRecordResult, map[string]map[string][]*FileRecordResult, error) {
+	commit := result.file.Commit
+	repo := commit.Repo.Name
+	branch := ""
+	oneOff := false
+
+	// inspectCommit will replace file.Commit.ID with an actual
+	// commit ID if it's a branch. So we want to save it first.
+	if !uuid.IsUUIDWithoutDashes(commit.ID) {
+		branch = commit.ID
+	}
+
+	// inspect the commit where we're adding files and figure out
+	// if this is a one-off put-file.
+	// - if 'commit' refers to an open commit                -> not oneOff
+	// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
+	// Note that if commit is a specific commit ID, it must be
+	// open for this call to succeed
+	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	if err != nil {
+		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
+			return openRecords, oneOffRecords, err
+		}
+		oneOff = true
+	}
+	if commitInfo != nil && commitInfo.Finished != nil {
+		if branch == "" {
+			return openRecords, oneOffRecords, pfsserver.ErrCommitFinished{commit}
+		}
+		oneOff = true
+	}
+
+	// Store the records in the appropriate structure and return the updated structures
+	if oneOff {
+		submap := oneOffRecords[repo]
+		if submap == nil {
+			submap = map[string][]*FileRecordResult{}
+			oneOffRecords[repo] = submap
+		}
+		if submap[branch] == nil {
+			submap[branch] = []*FileRecordResult{}
+		}
+		submap[branch] = append(submap[branch], result)
+	} else {
+		openRecords = append(openRecords, result)
+	}
+
+	return openRecords, oneOffRecords, nil
+}
+
 func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error {
-	var files []*pfs.File
-	var putFilePaths []string
-	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
+	openRecords := []*FileRecordResult{}
+	oneOffRecords := map[string]map[string][]*FileRecordResult{}
+
+	err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
 		if err != nil {
@@ -2031,29 +2092,51 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		}
 		mu.Lock()
 		defer mu.Unlock()
-		files = append(files, req.File)
-		putFilePaths = append(putFilePaths, req.File.Path)
-		putFileRecords = append(putFileRecords, records)
-		return nil
+
+		// Group the result into one of openRecords or oneOffRecords, based on
+		// if the files are being written to an open commit or not.
+		result := &FileRecordResult{req.File, records}
+		openRecords, oneOffRecords, err = d.groupPutFileResult(pachClient, result, openRecords, oneOffRecords)
+		return err
 	})
 	if err != nil {
 		return err
 	}
-	if oneOff {
-		// oneOff puts only work on branches, so we know branch != "". We pass
-		// a commit with no ID, that ID will be filled in with the head of
-		// branch (if it exists).
-		_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
-			_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
-			return err
-		})
-		return err
-	}
-	for i, file := range files {
-		if err := d.upsertPutFileRecords(pachClient, file, putFileRecords[i]); err != nil {
+
+	// For any files written to open commits, update the blob store and continue
+	for _, result := range openRecords {
+		if err := d.upsertPutFileRecords(pachClient, result.file, result.records); err != nil {
 			return err
 		}
 	}
+
+	// If we have any one-off commits to make, open a new STM transaction and
+	// issue all the new commits atomically.
+	if len(oneOffRecords) > 0 {
+		_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+			for repo, resultsByBranch := range oneOffRecords {
+				for branch, results := range resultsByBranch {
+					paths := []string{}
+					records := []*pfs.PutFileRecords{}
+					for _, result := range results {
+						paths = append(paths, result.file.Path)
+						records = append(records, result.records)
+					}
+
+					_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(repo, ""), branch, nil, nil, paths, records, "")
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -3554,67 +3637,20 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 	return req, nil
 }
 
-func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (oneOff bool, repo string, branch string, err error) {
+func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (err error) {
 	limiter := limit.New(client.DefaultMaxConcurrentStreams)
 	var pr *io.PipeReader
 	var pw *io.PipeWriter
 	var req *pfs.PutFileRequest
 	var eg errgroup.Group
-	var rawCommitID string
-	var commitID string
 
 	for req, err = server.Recv(); err == nil; req, err = server.Recv() {
 		req := req
 		if req.File != nil {
-			// For the first file, dereference the commit ID if needed. For
-			// subsequent files, ensure that they're all referencing the same
-			// commit ID, and replace their commit objects to all refer to the
-			// same thing.
-			if rawCommitID == "" {
-				commit := req.File.Commit
-				repo = commit.Repo.Name
-				// The non-dereferenced commit ID. Used to ensure that all
-				// subsequent requests use the same value.
-				rawCommitID = commit.ID
-				// inspectCommit will replace file.Commit.ID with an actual
-				// commit ID if it's a branch. So we want to save it first.
-				if !uuid.IsUUIDWithoutDashes(commit.ID) {
-					branch = commit.ID
-				}
-				// inspect the commit where we're adding files and figure out
-				// if this is a one-off put-file.
-				// - if 'commit' refers to an open commit                -> not oneOff
-				// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
-				// Note that if commit is a specific commit ID, it must be
-				// open for this call to succeed
-				commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
-				if err != nil {
-					if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
-						return false, "", "", err
-					}
-					oneOff = true
-				}
-				if commitInfo != nil && commitInfo.Finished != nil {
-					if branch == "" {
-						return false, "", "", pfsserver.ErrCommitFinished{commit}
-					}
-					oneOff = true
-				}
-				commitID = commit.ID
-			} else if req.File.Commit.ID != rawCommitID {
-				err = fmt.Errorf("All requests in a put files call must have the same commit ID; expected '%s', got '%s'", rawCommitID, req.File.Commit.ID)
-				return false, "", "", err
-			} else if req.File.Commit.Repo.Name != repo {
-				err = fmt.Errorf("All requests in a put files call must have the same repo name; expected '%s', got '%s'", repo, req.File.Commit.Repo.Name)
-				return false, "", "", err
-			} else {
-				req.File.Commit.ID = commitID
-			}
-
 			if req.Url != "" {
 				url, err := url.Parse(req.Url)
 				if err != nil {
-					return false, "", "", err
+					return err
 				}
 				switch url.Scheme {
 				case "http":
@@ -3622,7 +3658,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				case "https":
 					resp, err := http.Get(req.Url)
 					if err != nil {
-						return false, "", "", err
+						return err
 					}
 					limiter.Acquire()
 					eg.Go(func() (retErr error) {
@@ -3638,11 +3674,11 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					url, err := obj.ParseURL(req.Url)
 					if err != nil {
 						err = fmt.Errorf("error parsing url %v: %v", req.Url, err)
-						return false, "", "", err
+						return err
 					}
 					objClient, err := obj.NewClientFromURLAndSecret(url, false)
 					if err != nil {
-						return false, "", "", err
+						return err
 					}
 					if req.Recursive {
 						path := strings.TrimPrefix(url.Object, "/")
@@ -3670,12 +3706,12 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							})
 							return nil
 						}); err != nil {
-							return false, "", "", err
+							return err
 						}
 					} else {
 						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
-							return false, "", "", err
+							return err
 						}
 						limiter.Acquire()
 						eg.Go(func() (retErr error) {
@@ -3709,7 +3745,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 			})
 		}
 		if _, err := pw.Write(req.Value); err != nil {
-			return false, "", "", err
+			return err
 		}
 	}
 	if pw != nil {
@@ -3718,8 +3754,8 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 		pw.CloseWithError(err) // can't error
 	}
 	if err != io.EOF {
-		return false, "", "", err
+		return err
 	}
 	err = eg.Wait()
-	return oneOff, repo, branch, err
+	return err
 }

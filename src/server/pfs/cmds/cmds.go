@@ -775,6 +775,7 @@ $ pachctl put-file repo branch -i http://host/path
 			}
 
 			limiter := limit.New(int(parallelism))
+			// TODO: this silently ignores -f flags if -i is used
 			var sources []string
 			if inputFile != "" {
 				// User has provided a file listing sources, one per line. Read sources
@@ -817,6 +818,7 @@ $ pachctl put-file repo branch -i http://host/path
 			}
 
 			// Arguments parsed; create putFileHelper and begin copying data
+			// TODO: path is silently ignored if more than one source is passed
 			var eg errgroup.Group
 			filesPut := &gosync.Map{}
 			for _, source := range sources {
