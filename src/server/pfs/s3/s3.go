@@ -4,6 +4,7 @@ import (
 	"fmt"
 	stdlog "log"
 	"net/http"
+	"regexp"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
@@ -11,6 +12,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
+
+var bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_]{1,255}\.[a-zA-Z0-9\-_]{1,255}/`)
 
 func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 	router.Methods("GET", "PUT").Queries("accelerate", "").HandlerFunc(notImplementedError)
@@ -96,10 +99,15 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	objectRouter.Methods("PUT").HandlerFunc(objectHandler.put)
 	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.del)
 
-	// TODO: this will trigger for paths that are not valid utf-8 strings, giving the incorrect error message. See:
-	// ./etc/testing/s3gateway/conformance.py --test s3tests.functional.test_s3.test_object_create_unreadable
-	router.NotFoundHandler = http.HandlerFunc(invalidBucketNameError)
 	router.MethodNotAllowedHandler = http.HandlerFunc(methodNotAllowedError)
+	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestLogger(r).Infof("not found: %+v", r.URL.Path)
+		if bucketNameValidator.MatchString(r.URL.Path) {
+			noSuchKeyError(w, r)
+		} else {
+			invalidBucketNameError(w, r)
+		}
+	})
 
 	// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed
 	serverErrorLog := logrus.WithFields(logrus.Fields{

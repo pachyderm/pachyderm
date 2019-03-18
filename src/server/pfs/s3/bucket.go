@@ -249,7 +249,7 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			} else {
-				bucketAlreadyExistsError(w, r)
+				bucketAlreadyOwnedByYouError(w, r)
 				return
 			}
 		} else {

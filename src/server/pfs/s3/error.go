@@ -42,8 +42,8 @@ func bucketNotEmptyError(w http.ResponseWriter, r *http.Request) {
 	writeError(w, r, http.StatusConflict, "BucketNotEmpty", "The bucket you tried to delete is not empty.")
 }
 
-func bucketAlreadyExistsError(w http.ResponseWriter, r *http.Request) {
-	writeError(w, r, http.StatusBadRequest, "BucketAlreadyExists", "There is already a repo with that name.")
+func bucketAlreadyOwnedByYouError(w http.ResponseWriter, r *http.Request) {
+	writeError(w, r, http.StatusConflict, "BucketAlreadyOwnedByYou", "The bucket you tried to create already exists, and you own it.")
 }
 
 func internalError(w http.ResponseWriter, r *http.Request, err error) {
