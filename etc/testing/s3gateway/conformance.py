@@ -376,11 +376,22 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     # the test itself
     "test_s3.test_get_object_ifmodifiedsince_failed",
 
+    # This test is disabled because it treats `/foo/bar` as both a file and a
+    # directory, which works in s3, but is not expected to in the s3gateway
+    "test_s3.test_bucket_list_delimiter_basic",
+
     # These tests are disabled because the tests themselves have bugs:
-    # 1) Seems to rely on an old boto bug
-    "functional.test_s3.test_object_create_unreadable",
-    # 2) Doesn't preprend the test bucket name
+    # - Seems to rely on an old boto bug
+    "test_s3.test_object_create_unreadable",
+    # - Doesn't preprend the test bucket name
     "test_s3.test_object_write_to_nonexist_bucket",
+    # - Seems to be recreating the same bucket twice. Maybe it's expecting
+    # that this bucket is being made in US-east-1, which has a special case in
+    # AWS where recreating is a no-op.
+    "test_s3.test_bucket_recreate_not_overriding",
+    # - The correct error object is returned, but this test tries to use
+    # attributes on the error object that don't exist
+    "test_s3.test_bucket_create_exists",
 ]
 
 class Gateway:
