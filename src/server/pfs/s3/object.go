@@ -97,9 +97,14 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		internalError(w, r, err)
 		return
 	}
+
+	shouldDelete := true
+	shouldClose := true
 	defer func() {
-		if err := client.Close(); err != nil {
-			requestLogger(r).Errorf("could not close put file client: %v", err)
+		if shouldClose {
+			if err := client.Close(); err != nil {
+				requestLogger(r).Errorf("could not close put file client: %v", err)
+			}
 		}
 	}()
 
@@ -109,9 +114,8 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errored := true
 	defer func() {
-		if errored {
+		if shouldDelete {
 			// try to clean up the file if an error occurred
 			if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
 				requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
@@ -132,9 +136,15 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	shouldClose = false
+	if err = client.Close(); err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	shouldDelete = false
 	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash))
 	w.WriteHeader(http.StatusOK)
-	errored = false
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
