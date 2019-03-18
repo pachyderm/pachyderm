@@ -815,24 +815,27 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 	})
 }
 
-func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) (retErr error) {
 	return backoff.RetryNotify(func() error {
 		repo := a.pipelineInfo.Pipeline.Name
 		for {
+			// open connection to the pfs/out named pipe
+			out, err := os.Open("/pfs/out")
+			if err != nil {
+				fmt.Println("can't open out")
+				return err // continue
+				// return err
+			}
+			// and close it at the end of each loop
+			defer func() {
+				fmt.Println("closing pipe")
+				if err := out.Close(); err != nil && retErr == nil {
+					// this lets us pass the error through if Close fails
+					retErr = err
+				}
+			}()
 			// this extra closure is so that we can scope the defer
 			if err := func() (retErr error) {
-				// open connection to the pfs/out named pipe
-				out, err := os.Open("/pfs/out")
-				if err != nil {
-					return err
-				}
-				// and close it at the end of each loop
-				defer func() {
-					if err := out.Close(); err != nil && retErr == nil {
-						// this lets us pass the error through if Close fails
-						retErr = err
-					}
-				}()
 
 				outTar := tar.NewReader(out)
 
@@ -847,14 +850,30 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					Provenance: []*pfs.Commit{a.pipelineInfo.SpecCommit},
 				})
 				if err != nil {
+					fmt.Println("could not start commit", err)
 					return err
 				}
+
+				defer func() {
+					fmt.Println("close commit")
+					// close commit
+
+					if err := a.pachClient.FinishCommit(repo, commit.ID); err != nil && retErr == nil {
+						// this lets us pass the error through if Close fails
+						retErr = err
+					}
+				}()
 				for {
 					fileHeader, err := outTar.Next()
 					if err == io.EOF {
+						fmt.Println("tar EOF")
 						break
 					}
+					fmt.Println("next file is", fileHeader.Name)
+					fmt.Println("file size is", fileHeader.Size)
+
 					if err != nil {
+						fmt.Println("outTar next error", err)
 						return err
 					}
 					// put files
@@ -866,17 +885,15 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					} else {
 						_, err = a.pachClient.PutFile(repo, commit.ID, fileHeader.Name, outTar)
 						if err != nil {
+							fmt.Println("put file error", err)
 							return err
 						}
 					}
 				}
-				// close commit
-				err = a.pachClient.FinishCommit(repo, commit.ID)
-				if err != nil {
-					return err
-				}
+
 				return nil
 			}(); err != nil {
+				fmt.Println("big loop error", err)
 				return err
 			}
 		}
