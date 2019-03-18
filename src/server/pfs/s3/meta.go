@@ -23,18 +23,16 @@ func getMeta(client *client.APIClient, repo, branch, file string) (*ObjectMeta, 
 	if err != nil {
 		if !fileNotFoundMatcher.MatchString(err.Error()) {
 			return nil, err
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	}
 
 	meta := new(ObjectMeta)
 	if err = json.NewDecoder(metaReader).Decode(&meta); err != nil {
 		if !fileNotFoundMatcher.MatchString(err.Error()) {
 			return nil, err
-		} else {
-			return nil, nil
 		}
+		return nil, nil
 	}
 
 	return meta, nil
