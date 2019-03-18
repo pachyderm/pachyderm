@@ -335,6 +335,8 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     "test_headers.test_object_create_bad_md5_unreadable",
     "test_headers.test_object_create_bad_contenttype_unreadable",
     "test_s3.test_bucket_list_prefix_delimiter_prefix_not_exist",
+    "test_s3.test_lifecycle_expiration_header_put",
+    "test_s3.test_lifecycle_expiration_header_head",
 
     # These tests are disabled due to our tighter restrictions on bucket
     # naming
@@ -392,6 +394,9 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     # - The correct error object is returned, but this test tries to use
     # attributes on the error object that don't exist
     "test_s3.test_bucket_create_exists",
+    # - nosetests picks this up as a test function, even though it's intended
+    # purpose is a utility function
+    "test_s3.setup_lifecycle_expiration_test",
 ]
 
 class Gateway:
