@@ -273,10 +273,30 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	// `DeleteBranch` does not return an error if a non-existing branch is
 	// deleting. So first, we verify that the branch exists so we can
 	// otherwise return a 404.
-	_, err := h.pc.InspectBranch(repo, branch)
+	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		notFoundError(w, r, err)
 		return
+	}
+
+	if branchInfo.Head != nil {
+		hasFiles := false
+		err = h.pc.Walk(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfs.FileInfo) error {
+			if fileInfo.FileType == pfs.FileType_FILE {
+				hasFiles = true
+				return errutil.ErrBreak
+			}
+			return nil
+		})
+		if err != nil {
+			internalError(w, r, err)
+			return
+		}
+
+		if hasFiles {
+			bucketNotEmptyError(w, r)
+			return
+		}
 	}
 
 	err = h.pc.DeleteBranch(repo, branch, false)

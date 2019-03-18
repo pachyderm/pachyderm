@@ -38,6 +38,10 @@ func badDigestError(w http.ResponseWriter, r *http.Request) {
 	writeError(w, r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.")
 }
 
+func bucketNotEmptyError(w http.ResponseWriter, r *http.Request) {
+	writeError(w, r, http.StatusConflict, "BucketNotEmpty", "The bucket you tried to delete is not empty.")
+}
+
 func bucketAlreadyExistsError(w http.ResponseWriter, r *http.Request) {
 	writeError(w, r, http.StatusBadRequest, "BucketAlreadyExists", "There is already a repo with that name.")
 }
