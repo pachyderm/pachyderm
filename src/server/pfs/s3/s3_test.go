@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	"github.com/sirupsen/logrus"
 )
 
 func serve(t *testing.T) (*http.Server, *client.APIClient, *minio.Client) {
@@ -32,10 +31,7 @@ func serve(t *testing.T) (*http.Server, *client.APIClient, *minio.Client) {
 
 	port := tu.UniquePort()
 	pc := server.GetPachClient(t)
-
-	// note: this logrus writer is not closed. This shouldn't be a problem for
-	// tests.
-	srv := Server(pc, port, logrus.StandardLogger().Writer())
+	srv := Server(pc, port)
 
 	go func() {
 		if err := srv.ListenAndServe(); err != http.ErrServerClosed {

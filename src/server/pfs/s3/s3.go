@@ -2,7 +2,6 @@ package s3
 
 import (
 	"fmt"
-	"io"
 	stdlog "log"
 	"net/http"
 
@@ -47,14 +46,19 @@ func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 // use s3 clients to acccess PFS contents.
 //
 // This returns an `http.Server` instance. It is the responsibility of the
-// caller to start the returned server, and close `errLogWriter` once the
-// server has shutdown. It's possible for the caller to gracefully shutdown
-// the server if desired; see the `http` package for details.
+// caller to start the returned server. It's possible for the caller to
+// gracefully shutdown the server if desired; see the `http` package for details.
+//
+// Note: server errors are redirected to logrus' standard log writer. The log
+// writer is never closed. This should not be a problem with logrus' default
+// configuration, which just writes to stdio. But if the standard logger is
+// overwritten (e.g. to write to a socket), it's possible for this to cause
+// problems.
 //
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer) *http.Server {
+func Server(pc *client.APIClient, port uint16) *http.Server {
 	router := mux.NewRouter()
 	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
 
@@ -100,9 +104,6 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer) *http.Ser
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// TODO: reduce log level
-			logrus.Infof("s3gateway: http request: %s %s", r.Method, r.RequestURI)
-
 			// Set a request ID, if it hasn't been set by the client already.
 			// This can be used for tracing, and is included in error
 			// responses.
@@ -112,9 +113,12 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer) *http.Ser
 				r.Header.Set("X-Request-ID", requestID)
 			}
 
+			// TODO: reduce log level
+			requestLogger(r).Infof("s3gateway: http request: %s %s", r.Method, r.RequestURI)
+
 			w.Header().Set("x-amz-request-id", requestID)
 			router.ServeHTTP(w, r)
 		}),
-		ErrorLog: stdlog.New(errLogWriter, "s3gateway: ", 0),
+		ErrorLog: stdlog.New(logrus.StandardLogger().Writer(), "s3gateway: ", 0),
 	}
 }

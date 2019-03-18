@@ -26,9 +26,7 @@ func writeXML(w http.ResponseWriter, code int, v interface{}) {
 	w.WriteHeader(code)
 	encoder := xml.NewEncoder(w)
 	if err := encoder.Encode(v); err != nil {
-		// just log a message since a response has already been partially
-		// written
-		logrus.Errorf("s3gateway: could not encode xml response: %v", err)
+		panic(err)
 	}
 }
 
@@ -44,4 +42,10 @@ func objectArgs(w http.ResponseWriter, r *http.Request) (string, string, string)
 	vars := mux.Vars(r)
 	file := vars["file"]
 	return repo, branch, file
+}
+
+func requestLogger(r *http.Request) *logrus.Entry {
+	return logrus.WithFields(logrus.Fields{
+		"request-id": r.Header.Get("X-Request-ID"),
+	})
 }

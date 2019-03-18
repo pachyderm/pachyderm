@@ -28,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -1172,10 +1171,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			}
 			defer client.Close()
 
-			logWriter := log.StandardLogger().Writer()
-			defer logWriter.Close()
-
-			server := s3.Server(client, port, logWriter)
+			server := s3.Server(client, port)
 			if err := server.ListenAndServe(); err != http.ErrServerClosed {
 				return err
 			}
