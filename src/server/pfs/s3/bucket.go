@@ -26,7 +26,7 @@ const locationSource = `<?xml version="1.0" encoding="UTF-8"?>
 type ListBucketResult struct {
 	Contents       []Contents       `xml:"Contents"`
 	CommonPrefixes []CommonPrefixes `xml:"CommonPrefixes"`
-	Delimiter      string           `xml:"Delimiter`
+	Delimiter      string           `xml:"Delimiter,omitempty"`
 	IsTruncated    bool             `xml:"IsTruncated"`
 	Marker         string           `xml:"Marker"`
 	MaxKeys        int              `xml:"MaxKeys"`
