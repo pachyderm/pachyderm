@@ -450,7 +450,7 @@ func TestMakeBucketRedundant(t *testing.T) {
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
 	err := c.MakeBucket(fmt.Sprintf("master.%s", repo), "")
 	require.YesError(t, err)
-	require.Equal(t, err.Error(), "There is already a repo with that name.")
+	require.Equal(t, err.Error(), "The bucket you tried to create already exists, and you own it.")
 	require.NoError(t, srv.Close())
 }
 
@@ -459,16 +459,7 @@ func TestMakeBucketDifferentBranches(t *testing.T) {
 	repo := tu.UniqueString("testmakebucketdifferentbranches")
 
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
-
-	// this should error because the last bucket creation implicitly made the
-	// master branch
-	err := c.MakeBucket(fmt.Sprintf("master.%s", repo), "")
-	require.YesError(t, err)
-	require.Equal(t, err.Error(), "There is already a repo with that name.")
-
-	// this should not error because it's a separate branch
-	err = c.MakeBucket(fmt.Sprintf("branch.%s", repo), "")
-	require.NoError(t, err)
+	require.NoError(t, c.MakeBucket(fmt.Sprintf("branch.%s", repo), ""))
 
 	require.NoError(t, srv.Close())
 }
