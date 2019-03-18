@@ -21,12 +21,14 @@ type User struct {
 }
 
 // writeXML serializes a struct to a response as XML
-func writeXML(w http.ResponseWriter, code int, v interface{}) {
+func writeXML(w http.ResponseWriter, r *http.Request, code int, v interface{}) {
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(code)
 	encoder := xml.NewEncoder(w)
 	if err := encoder.Encode(v); err != nil {
-		panic(err)
+		// just log a message since a response has already been partially
+		// written
+		requestLogger(r).Errorf("could not encode xml response: %v", err)
 	}
 }
 
@@ -47,5 +49,6 @@ func objectArgs(w http.ResponseWriter, r *http.Request) (string, string, string)
 func requestLogger(r *http.Request) *logrus.Entry {
 	return logrus.WithFields(logrus.Fields{
 		"request-id": r.Header.Get("X-Request-ID"),
+		"source": "s3gateway",
 	})
 }

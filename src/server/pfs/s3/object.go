@@ -99,7 +99,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		if err := client.Close(); err != nil {
-			requestLogger(r).Errorf("s3gateway: could not close put file client: %v", err)
+			requestLogger(r).Errorf("could not close put file client: %v", err)
 		}
 	}()
 
@@ -114,7 +114,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		if errored {
 			// try to clean up the file if an error occurred
 			if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-				requestLogger(r).Errorf("s3gateway: could not cleanup file after an error: %v", err)
+				requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
 			}
 		}
 	}()

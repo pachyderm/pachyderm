@@ -55,5 +55,5 @@ func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeXML(w, http.StatusOK, &result)
+	writeXML(w, r, http.StatusOK, &result)
 }

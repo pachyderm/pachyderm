@@ -24,68 +24,64 @@ type Error struct {
 	RequestID  string `xml:"RequestId"`
 }
 
-func (e *Error) write(w http.ResponseWriter) {
-	writeXML(w, e.httpStatus, e)
-}
-
-func newError(r *http.Request, httpStatus int, code string, message string) *Error {
-	return &Error{
+func writeError(w http.ResponseWriter, r *http.Request, httpStatus int, code string, message string) {
+	writeXML(w, r, httpStatus, &Error{
 		httpStatus: httpStatus,
 		Code:       code,
 		Message:    message,
 		Resource:   r.URL.Path,
 		RequestID:  r.Header.Get("X-Request-ID"),
-	}
+	})
 }
 
 func badDigestError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.").write(w)
+	writeError(w, r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.")
 }
 
 func bucketAlreadyExistsError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "BucketAlreadyExists", "There is already a repo with that name.").write(w)
+	writeError(w, r, http.StatusBadRequest, "BucketAlreadyExists", "There is already a repo with that name.")
 }
 
 func internalError(w http.ResponseWriter, r *http.Request, err error) {
-	newError(r, http.StatusInternalServerError, "InternalError", err.Error()).write(w)
+	writeError(w, r, http.StatusInternalServerError, "InternalError", err.Error())
 }
 
 func invalidBucketNameError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "InvalidBucketName", "The specified repo or branch either has an invalid name, or is not serviceable.").write(w)
+	writeError(w, r, http.StatusBadRequest, "InvalidBucketName", "The specified repo or branch either has an invalid name, or is not serviceable.")
 }
 
 func invalidArgument(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "InvalidArgument", "Invalid Argument").write(w)
+	writeError(w, r, http.StatusBadRequest, "InvalidArgument", "Invalid Argument")
 }
 
 // note: this is not a standard s3 error
 func invalidDelimiterError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "InvalidDelimiter", "The delimiter you specified is invalid. It must be '' or '/'.").write(w)
+	writeError(w, r, http.StatusBadRequest, "InvalidDelimiter", "The delimiter you specified is invalid. It must be '' or '/'.")
 }
 
 func invalidDigestError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "InvalidDigest", "The Content-MD5 you specified is not valid.").write(w)
+	writeError(w, r, http.StatusBadRequest, "InvalidDigest", "The Content-MD5 you specified is not valid.")
 }
 
 // note: this is not a standard s3 error
 func invalidFilePathError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "InvalidFilePath", "Invalid file path").write(w)
+	writeError(w, r, http.StatusBadRequest, "InvalidFilePath", "Invalid file path")
 }
 
 func malformedXMLError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or would not validate against S3's published schema.").write(w)
+	writeError(w, r, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or would not validate against S3's published schema.")
 }
 
 func methodNotAllowedError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.").write(w)
+	writeError(w, r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.")
 }
 
 func noSuchBucketError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.").write(w)
+	writeError(w, r, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
 }
 
 func noSuchKeyError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.").write(w)
+	writeError(w, r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.")
 }
 
 func notFoundError(w http.ResponseWriter, r *http.Request, err error) {
@@ -101,5 +97,5 @@ func notFoundError(w http.ResponseWriter, r *http.Request, err error) {
 }
 
 func notImplementedError(w http.ResponseWriter, r *http.Request) {
-	newError(r, http.StatusNotImplemented, "NotImplemented", "This functionality is not implemented in the pachyderm s3gateway.").write(w)
+	writeError(w, r, http.StatusNotImplemented, "NotImplemented", "This functionality is not implemented in the pachyderm s3gateway.")
 }

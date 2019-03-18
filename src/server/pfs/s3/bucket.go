@@ -138,7 +138,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	if branchInfo.Head == nil {
 		// if there's no head commit, just print an empty list of files
-		writeXML(w, http.StatusOK, result)
+		writeXML(w, r, http.StatusOK, result)
 	} else if delimiter == "" {
 		h.listRecursive(w, r, result, branch)
 	} else {
@@ -183,7 +183,7 @@ func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, res
 	}
 
 	setNextMarker(result)
-	writeXML(w, http.StatusOK, result)
+	writeXML(w, r, http.StatusOK, result)
 }
 
 func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
@@ -230,7 +230,7 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 	}
 
 	setNextMarker(result)
-	writeXML(w, http.StatusOK, result)
+	writeXML(w, r, http.StatusOK, result)
 }
 
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {

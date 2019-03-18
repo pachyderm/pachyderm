@@ -101,6 +101,11 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	router.NotFoundHandler = http.HandlerFunc(invalidBucketNameError)
 	router.MethodNotAllowedHandler = http.HandlerFunc(methodNotAllowedError)
 
+	// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed
+	serverErrorLog := logrus.WithFields(logrus.Fields{
+		"source": "s3gateway",
+	}).Writer()
+
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -114,11 +119,11 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 			}
 
 			// TODO: reduce log level
-			requestLogger(r).Infof("s3gateway: http request: %s %s", r.Method, r.RequestURI)
+			requestLogger(r).Infof("http request: %s %s", r.Method, r.RequestURI)
 
 			w.Header().Set("x-amz-request-id", requestID)
 			router.ServeHTTP(w, r)
 		}),
-		ErrorLog: stdlog.New(logrus.StandardLogger().Writer(), "s3gateway: ", 0),
+		ErrorLog: stdlog.New(serverErrorLog, "", 0),
 	}
 }
