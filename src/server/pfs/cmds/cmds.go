@@ -719,17 +719,16 @@ Files can be read from finished commits with get-file.
 	var targetFileDatums uint
 	var targetFileBytes uint
 	var headerRecords uint
-	var putFileCommit bool
 	var overwrite bool
 	putFile := &cobra.Command{
-		Use:   "put-file repo-name branch [path/to/file/in/pfs]",
+		Use:   "put-file repo-name@branch[:path/to/file/in/pfs]",
 		Short: "Put a file into the filesystem.",
 		Long: `Put-file supports a number of ways to insert data into pfs:
 ` + codestart + `# Put data from stdin as repo/branch/path:
 $ echo "data" | pachctl put-file repo branch path
 
 # Put data from stdin as repo/branch/path and start / finish a new commit on the branch.
-$ echo "data" | pachctl put-file -c repo branch path
+$ echo "data" | pachctl put-file repo branch path
 
 # Put a file from the local filesystem as repo/branch/path:
 $ pachctl put-file repo branch path -f file
@@ -764,7 +763,35 @@ $ pachctl put-file repo branch -i file
 # files into your Pachyderm cluster.
 $ pachctl put-file repo branch -i http://host/path
 ` + codeend,
-		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(1, func(args []string) (retErr error) {
+			repo, branch, path := parseRepoBranchPath(args[0])
+
+			limiter := limit.New(int(parallelism))
+
+			var sources, inputUsesStdin, err := getPutFileSources(inputFile, false)
+			if err != nil {
+				return err
+			}
+			sources = append(sources, filePaths...)
+
+			var sourceUsesStdin bool
+			for _, source := range sources {
+				if source == '-' {
+					if inputUsesStdin || sourceUsesStdin {
+						return fmt.Errorf("Cannot use stdin for multiple inputs.")
+					}
+					sourceUsesStdin = true
+				}
+			}
+
+			if sourceUsesStdin {
+				if path == "" {
+					return fmt.Errorf("Must specify path in repo when reading data from stdin.")
+				} else if recursive {
+					return fmt.Errorf("Cannot set -r and read from stdin (must also set -f or -i)")
+				}
+			}
+
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
@@ -779,64 +806,82 @@ $ pachctl put-file repo branch -i http://host/path
 					retErr = err
 				}
 			}()
-			repoName := args[0]
-			branch := args[1]
-			var path string
-			if len(args) == 3 {
-				path = args[2]
-				if url, err := url.Parse(path); err == nil && url.Scheme != "" {
-					fmt.Fprintf(os.Stderr, "warning: PFS destination \"%s\" looks like a URL; did you mean -f %s?\n", path, path)
-				}
-			}
-			if putFileCommit {
-				fmt.Fprintf(os.Stderr, "flag --commit / -c is deprecated; as of 1.7.2, you will get the same behavior without it\n")
-			}
 
-			limiter := limit.New(int(parallelism))
-			// TODO: this silently ignores -f flags if -i is used
-			var sources []string
-			if inputFile != "" {
-				// User has provided a file listing sources, one per line. Read sources
-				var r io.Reader
-				if inputFile == "-" {
-					r = os.Stdin
-				} else if url, err := url.Parse(inputFile); err == nil && url.Scheme != "" {
-					resp, err := http.Get(url.String())
-					if err != nil {
-						return err
-					}
-					defer func() {
-						if err := resp.Body.Close(); err != nil && retErr == nil {
-							retErr = err
-						}
-					}()
-					r = resp.Body
-				} else {
-					inputFile, err := os.Open(inputFile)
-					if err != nil {
-						return err
-					}
-					defer func() {
-						if err := inputFile.Close(); err != nil && retErr == nil {
-							retErr = err
-						}
-					}()
-					r = inputFile
-				}
-				// scan line by line
-				scanner := bufio.NewScanner(r)
-				for scanner.Scan() {
-					if filePath := scanner.Text(); filePath != "" {
-						sources = append(sources, filePath)
-					}
-				}
+			var eg errgroup.Group
+			filesPut := &gosync.Map{}
+			if len(sources) == 1 {
+				eg.Go(func() error {
+					return putFileHelper(c, pfc, repoName, branch, path, sources[0], recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
+				})
 			} else {
-				// User has provided a single source
-				sources = filePaths
+				for _, source := range sources {
+					source := source
+					eg.Go(func() error {
+						return putFileHelper(c, pfc, repoName, branch, joinPaths(path, source), source, recursive, overwrite, limiter, split, targetFileDatums, targetFileBytes, headerRecords, filesPut)
+					})
+				}
 			}
 
+			return eg.Wait()
+		}),
+	}
+	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
+	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
+	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
+	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
+	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
+	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
+	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
+	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
+	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+
+	putFiles := &cobra.Command{
+		Use:   "put-files (repo-name@branch[:path/to/file/in/pfs] [flags])...",
+		Short: "Put multiple files into multiple repos in the pachyderm filesystem.",
+		Long: "Put multiple files into multiple repos in the pachyderm filesystem.  See 'put-file' for flag details.",
+		DisableFlagParsing: true,
+	}
+
+	putFiles.Flags().StringSliceP("file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
+	putFiles.Flags().StringP("input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
+	putFiles.Flags().BoolP("recursive", "r", false, "Recursively put the files in a directory.")
+	putFiles.Flags().IntP("parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
+	putFiles.Flags().String("split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
+	putFiles.Flags().Uint("target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
+	putFiles.Flags().Uint("target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
+	putFiles.Flags().Uint("header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
+	putFiles.Flags().BoolP("overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+
+	putFiles.Run = cmdutil.RunBatchCommand(
+		2, // New batch for every positional arg
+		func (argSets []cmdutil.BatchArgs) error {
+			limiter := limit.New(int(parallelism))
+
+			repo, branch, path := parseRepoBranchPath(args[0])
+
+			var sources, stdinUsed, err = getPutFileSources(inputFile, false)
+			if err != nil {
+				return err
+			}
+			sources = append(sources, filePaths...)
+
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user", client.WithMaxConcurrentStreams(parallelism))
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			pfc, err := c.NewPutFileClient()
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err := pfc.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+
+			requests := []*pfsclient.StartCommitRequest{}
 			// Arguments parsed; create putFileHelper and begin copying data
-			// TODO: path is silently ignored if more than one source is passed
 			var eg errgroup.Group
 			filesPut := &gosync.Map{}
 			for _, source := range sources {
@@ -866,16 +911,6 @@ $ pachctl put-file repo branch -i http://host/path
 			return eg.Wait()
 		}),
 	}
-	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "The file to be put, it can be a local file or a URL.")
-	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
-	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
-	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
-	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
-	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
-	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
-	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
-	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
 
 	copyFile := &cobra.Command{
 		Use:   "copy-file src-repo src-commit src-path dst-repo dst-commit dst-path",
@@ -1324,6 +1359,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 			"some files may already have been put and should be cleaned up with "+
 			"delete-file or delete-commit", path)
 	}
+
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
 			if overwrite {
@@ -1344,7 +1380,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 		case "csv":
 			delimiter = pfsclient.Delimiter_CSV
 		default:
-			return fmt.Errorf("unrecognized delimiter '%s'; only accepts one of "+
+			return fmt.Errorf("unrecognized delimiter '%s'; only accepts one of " +
 				"{json,line,sql,csv}", split)
 		}
 		_, err := pfc.PutFileSplit(repo, commit, path, delimiter, int64(targetFileDatums), int64(targetFileBytes), int64(headerRecords), overwrite, reader)
@@ -1352,21 +1388,16 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 
 	if source == "-" {
-		if recursive {
-			return errors.New("cannot set -r and read from stdin (must also set -f or -i)")
-		}
 		limiter.Acquire()
 		defer limiter.Release()
 		fmt.Fprintln(os.Stderr, "Reading from stdin.")
 		return putFile(os.Stdin)
-	}
-	// try parsing the filename as a url, if it is one do a PutFileURL
-	if url, err := url.Parse(source); err == nil && url.Scheme != "" {
+	} else if url, err := url.Parse(source); err == nil && url.Scheme != "" {
+		// The filename is a url
 		limiter.Acquire()
 		defer limiter.Release()
 		return pfc.PutFileURL(repo, commit, path, url.String(), recursive, overwrite)
-	}
-	if recursive {
+	} else if recursive {
 		var eg errgroup.Group
 		if err := filepath.Walk(source, func(filePath string, info os.FileInfo, err error) error {
 			// file doesn't exist
@@ -1390,19 +1421,65 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 			return err
 		}
 		return eg.Wait()
-	}
-	limiter.Acquire()
-	defer limiter.Release()
-	f, err := os.Open(source)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err := f.Close(); err != nil && retErr == nil {
-			retErr = err
+	} else {
+		limiter.Acquire()
+		defer limiter.Release()
+		f, err := os.Open(source)
+		if err != nil {
+			return err
 		}
-	}()
-	return putFile(f)
+		defer func() {
+			if err := f.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		return putFile(f)
+	}
+}
+
+func getPutFileSources(inputFile string, stdinUsed bool) (sources []string, stdinUsed bool, retErr error) {
+	if inputFile != "" {
+		// User has provided a file listing sources, one per line. Read sources
+		var r io.Reader
+		if inputFile == "-" {
+			if stdinTaken {
+				return nil, fmt.Errorf("Cannot use stdin for multiple sources of data.")
+			}
+			r = os.Stdin
+		} else if url, err := url.Parse(inputFile); err == nil && url.Scheme != "" {
+			resp, err := http.Get(url.String())
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if err := resp.Body.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r = resp.Body
+		} else {
+			inputFile, err := os.Open(inputFile)
+			if err != nil {
+				return nil, err
+			}
+			defer func() {
+				if err := inputFile.Close(); err != nil && retErr == nil {
+					retErr = err
+				}
+			}()
+			r = inputFile
+		}
+
+		// scan line by line
+		scanner := bufio.NewScanner(r)
+		for scanner.Scan() {
+			if filePath := scanner.Text(); filePath != "" {
+				sources = append(sources, filePath)
+			}
+		}
+	}
+
+	return sources, nil
 }
 
 func joinPaths(prefix, filePath string) string {
@@ -1419,4 +1496,10 @@ func joinPaths(prefix, filePath string) string {
 		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)
+}
+
+func parseRepoBranchPath(str) (repo string, branch string, path string) {
+	repo, rest := strings.SplitN(str, "@", 2)
+	branch, path := strings.SplitN(rest, ":", 2)
+	return repo, branch, path
 }
