@@ -26,7 +26,8 @@ func writeXML(w http.ResponseWriter, code int, v interface{}) {
 	w.WriteHeader(code)
 	encoder := xml.NewEncoder(w)
 	if err := encoder.Encode(v); err != nil {
-		// just log a message since a status code - and maybe part of
+		// just log a message since a response has already been partially
+		// written
 		logrus.Errorf("s3gateway: could not encode xml response: %v", err)
 	}
 }
