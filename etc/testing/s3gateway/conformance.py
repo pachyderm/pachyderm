@@ -15,7 +15,7 @@ import collections
 TEST_ROOT = os.path.join("etc", "testing", "s3gateway")
 RUNS_ROOT = os.path.join(TEST_ROOT, "runs")
 RAN_PATTERN = re.compile(r"^Ran (\d+) tests in [\d\.]+s")
-FAILED_PATTERN = re.compile(r"^FAILED \(SKIP=(\d+), errors=(\d+), failures=(\d+)\)")
+FAILED_PATTERN = re.compile(r"^FAILED \((SKIP=(\d+))?(, errors=(\d+))?(, failures=(\d+))?\)")
 
 ERROR_PATTERN = re.compile(r"^(FAIL|ERROR): (.+)")
 
@@ -411,11 +411,12 @@ def compute_stats(filename):
 
             match = FAILED_PATTERN.match(line)
             if match:
-                skipped = int(match.groups()[0])
-                errored = int(match.groups()[1])
-                failed = int(match.groups()[2])
+                _, skipped_str, _, errored_str, _, failed_str = match.groups()
+                skipped = int(skipped_str) if skipped_str is not None else 0
+                errored = int(errored_str) if errored_str is not None else 0
+                failed = int(failed_str) if failed_str is not None else 0
 
-    if ran != 0 and skipped != 0 and errored != 0 and failed != 0:
+    if ran != 0:
         return (ran - skipped - errored - failed, ran - skipped)
     else:
         return (0, 0)
