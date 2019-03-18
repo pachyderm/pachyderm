@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
@@ -101,6 +102,17 @@ func Server(pc *client.APIClient, port uint16, errLogWriter io.Writer) *http.Ser
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// TODO: reduce log level
 			logrus.Infof("s3gateway: http request: %s %s", r.Method, r.RequestURI)
+
+			// Set a request ID, if it hasn't been set by the client already.
+			// This can be used for tracing, and is included in error
+			// responses.
+			requestID := r.Header.Get("X-Request-ID")
+			if requestID == "" {
+				requestID = uuid.NewWithoutDashes()
+				r.Header.Set("X-Request-ID", requestID)
+			}
+
+			w.Header().Set("x-amz-request-id", requestID)
 			router.ServeHTTP(w, r)
 		}),
 		ErrorLog: stdlog.New(errLogWriter, "s3gateway: ", 0),

@@ -3,8 +3,6 @@ package s3
 import (
 	"net/http"
 	"regexp"
-
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 // note: the repo matcher is stricter than what PFS enforces, because this is
@@ -36,7 +34,7 @@ func newError(r *http.Request, httpStatus int, code string, message string) *Err
 		Code:       code,
 		Message:    message,
 		Resource:   r.URL.Path,
-		RequestID:  uuid.NewWithoutDashes(),
+		RequestID:  r.Header.Get("X-Request-ID"),
 	}
 }
 

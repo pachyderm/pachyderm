@@ -110,6 +110,16 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	errored := true
+	defer func() {
+		if errored {
+			// try to clean up the file if an error occurred
+			if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+				logrus.Errorf("s3gateway: could not cleanup file after an error: %v", err)
+			}
+		}
+	}()
+
 	actualHashBytes := hasher.Sum(nil)
 	actualHash := fmt.Sprintf("%x", actualHashBytes)
 	if expectedHashBytes != nil && !bytes.Equal(expectedHashBytes, actualHashBytes) {
@@ -125,6 +135,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash))
 	w.WriteHeader(http.StatusOK)
+	errored = false
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
