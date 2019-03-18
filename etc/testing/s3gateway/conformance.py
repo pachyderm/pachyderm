@@ -362,6 +362,9 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     # the error
     "test_headers.test_object_create_bad_contentlength_none",
     "test_headers.test_object_create_bad_contentlength_mismatch_above",
+    "test_headers.test_object_create_bad_contentlength_empty",
+    "test_headers.test_object_create_bad_contentlength_none",
+    "test_headers.test_object_create_bad_contentlength_mismatch_below_aws2",
 
     # This test is disabled because the test's datetime validator does not
     # expect as much precision as what we return, which is arguably a bug in
