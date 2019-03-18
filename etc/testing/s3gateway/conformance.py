@@ -336,6 +336,10 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     "test_headers.test_object_create_bad_contenttype_unreadable",
     "test_s3.test_bucket_list_prefix_delimiter_prefix_not_exist",
 
+    # These tests are disabled due to our tighter restrictions on bucket
+    # naming
+    "test_s3.test_bucket_create_naming_good_contains_period",
+
     # These tests are disabled because go's http server doesn't support custom
     # error responses for those triggered by these tests. If go adds support
     # for this, or if we put a reverse proxy in front of the s3gateway, these
@@ -357,6 +361,7 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     "test_s3.test_get_object_ifunmodifiedsince_good",
     "test_s3.test_ranged_request_invalid_range",
     "test_s3.test_ranged_request_empty_object",
+    "test_s3.test_put_object_ifmatch_failed",
 
     # These tests are disabled because go's http server automatically fixes
     # the error
@@ -370,6 +375,12 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     # expect as much precision as what we return, which is arguably a bug in
     # the test itself
     "test_s3.test_get_object_ifmodifiedsince_failed",
+
+    # These tests are disabled because the tests themselves have bugs:
+    # 1) Seems to rely on an old boto bug
+    "functional.test_s3.test_object_create_unreadable",
+    # 2) Doesn't preprend the test bucket name
+    "test_s3.test_object_write_to_nonexist_bucket",
 ]
 
 class Gateway:
