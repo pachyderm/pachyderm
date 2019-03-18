@@ -98,7 +98,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shouldDelete := true
+	shouldDelete := false
 	shouldClose := true
 	defer func() {
 		if shouldClose {
@@ -126,23 +126,25 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	actualHashBytes := hasher.Sum(nil)
 	actualHash := fmt.Sprintf("%x", actualHashBytes)
 	if expectedHashBytes != nil && !bytes.Equal(expectedHashBytes, actualHashBytes) {
+		shouldDelete = true
 		badDigestError(w, r)
 		return
 	}
 
 	meta := ObjectMeta { MD5: actualHash }
 	if err = putMeta(client, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, &meta); err != nil {
+		shouldDelete = true
 		internalError(w, r, err)
 		return
 	}
 
 	shouldClose = false
 	if err = client.Close(); err != nil {
+		shouldDelete = true
 		internalError(w, r, err)
 		return
 	}
 
-	shouldDelete = false
 	w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash))
 	w.WriteHeader(http.StatusOK)
 }
