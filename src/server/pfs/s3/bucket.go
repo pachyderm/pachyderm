@@ -154,7 +154,9 @@ func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, res
 			return nil
 		}
 		if result.isFull() {
-			result.IsTruncated = true
+			if result.MaxKeys > 0 {
+				result.IsTruncated = true
+			}
 			return errutil.ErrBreak
 		}
 
@@ -199,7 +201,9 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 			continue
 		}
 		if result.isFull() {
-			result.IsTruncated = true
+			if result.MaxKeys > 0 {
+				result.IsTruncated = true
+			}
 			break
 		}
 		if fileInfo.FileType == pfs.FileType_FILE {
