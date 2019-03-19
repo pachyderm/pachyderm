@@ -25,6 +25,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -8777,46 +8778,64 @@ func TestKafka(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	conn, err := kafka.Dial("tcp", "localhost:32402")
+	conn, err := kafka.Dial("tcp", "localhost:32400")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer conn.Close()
+	controller, _ := conn.Controller()
+
+	conn, err = kafka.Dial("tcp", fmt.Sprintf("%v:%v", "localhost", controller.Port))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// create the topic
-	topic := "test-kafka"
+	topic := tu.UniqueString("demo")
+
+	// err = conn.DeleteTopics(topic)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+
 	err = conn.CreateTopics(kafka.TopicConfig{
 		Topic:             topic,
 		NumPartitions:     1,
 		ReplicationFactor: 3,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("can't create topic", err)
 	}
 
 	// try connecting to each of the brokers until we find the controller
-	part, err := kafka.LookupPartition(context.Background(), "tcp", "localhost:32402", topic, 0)
+	// b, err := kafka.DefaultDialer.LookupLeader(context.Background(), "tcp", "localhost:32402", topic, 0)
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// spew.Dump(b)
+	part, err := kafka.LookupPartition(context.Background(), "tcp", "localhost:32400", topic, 0)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
+	spew.Dump(part)
+	host := part.Leader.Host
+	port := fmt.Sprint(part.Leader.Port)
 	part.Leader.Host = "localhost"
-	conn, err = kafka.DialPartition(context.Background(), "tcp", "localhost:32402", part)
+	conn, err = kafka.DialPartition(context.Background(), "tcp", "localhost:"+port, part)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	// now write to the kafka topic
 	go func() {
-		i := 1
 		for {
-			conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			// conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 			_, err = conn.WriteMessages(
-				kafka.Message{Value: []byte(fmt.Sprintf("Now at %v\n", i))},
+				kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", time.Now()))},
 			)
 			if err != nil {
 				t.Fatal(err)
 			}
 			time.Sleep(time.Second)
-			i++
 		}
 	}()
 
@@ -8827,10 +8846,15 @@ func TestKafka(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(tu.UniqueString(topic)),
+			Pipeline: client.NewPipeline("kafka" + topic),
 			Transform: &pps.Transform{
 				Image: "kafka-demo:latest",
 				Cmd:   []string{"go", "run", "./main.go"},
+				Env: map[string]string{
+					"HOST":  host,
+					"TOPIC": topic,
+					"PORT":  port,
+				},
 			},
 			Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
 		})
