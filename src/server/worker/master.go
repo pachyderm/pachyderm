@@ -14,11 +14,13 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
+	opentracing "github.com/opentracing/opentracing-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -157,10 +159,25 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		return err
 	}
 	defer commitIter.Close()
+	var (
+		span    opentracing.Span
+		spanCtx context.Context
+		oldCtx  = pachClient.Ctx()
+	)
+	defer func() {
+		// Finish any dangling span
+		// Note: cannot do 'defer tracing.FinishAnySpan(span)' b/c that would
+		// evaluate 'span' before the "for" loop below runs
+		tracing.FinishAnySpan(span) // finish any dangling span
+	}()
 	for {
+		tracing.FinishAnySpan(span) // finish span from previous job
 		commitInfo, err := commitIter.Next()
 		if err != nil {
 			return err
+		}
+		if span, spanCtx = addJobSpanToAnyCommitTrace(oldCtx, a.etcdClient, commitInfo); spanCtx != nil {
+			pachClient = pachClient.WithCtx(spanCtx)
 		}
 		if commitInfo.Finished != nil {
 			continue
@@ -459,6 +476,9 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
 	logger.Logf("waitJob: %s", jobInfo.Job.ID)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
+	var span opentracing.Span
+	span, ctx = tracing.AddSpanToAnyExisting(ctx, "worker.waitJob")
+	defer tracing.FinishAnySpan(span)
 	pachClient = pachClient.WithCtx(ctx)
 
 	// Watch the output commit to see if it's terminated (KILLED, FAILED, or
@@ -616,7 +636,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}()
 
 		// Watch the chunk locks in order, and merge chunk outputs into commit tree
-		locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
 		tree := hashtree.NewHashTree()
 		var statsTree hashtree.OpenHashTree
 		if jobInfo.EnableStats {
@@ -626,7 +645,12 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		limiter := limit.New(100)
 		var failedDatumID string
 		var eg errgroup.Group
+		var oldCtx = ctx
+		var span opentracing.Span
 		for i, high := range chunks.Chunks {
+			tracing.FinishAnySpan(span)
+			span, ctx = tracing.AddSpanToAnyExisting(oldCtx, "worker.watchChunk", "high", high)
+			locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
 			// Watch this chunk's lock and when it's finished, handle the result
 			// (merge chunk output into commit trees, fail if chunk failed, etc)
 			if err := func() error {
@@ -655,6 +679,11 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 							high := high // chunk upper bound
 							// merge results into output tree
 							eg.Go(func() error {
+								span, ctx := tracing.AddSpanToAnyExisting(ctx, "worker.merge", "low", low, "high", high)
+								defer tracing.FinishAnySpan(span)
+								if span != nil {
+									pachClient = pachClient.WithCtx(ctx)
+								}
 								for i := low; i < high; i++ {
 									i := i
 									limiter.Acquire()
@@ -677,6 +706,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
+		tracing.FinishAnySpan(span)
 		if err := eg.Wait(); err != nil { // all results have been merged
 			return err
 		}
