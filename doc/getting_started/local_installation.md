@@ -1,5 +1,5 @@
 # Local Installation
-This guide will walk you through the recommended path to get Pachyderm running locally on OSX or Linux.
+This guide will walk you through the recommended path to get Pachyderm running locally on macOS or Linux.
 
 If you hit any errors not covered in this guide, check our [general troubleshooting](../managing_pachyderm/general_troubleshooting.html) docs for common errors, submit an issue on [GitHub](https://github.com/pachyderm/pachyderm), join our [users channel on Slack](http://slack.pachyderm.io/), or email us at [support@pachyderm.io](mailto:support@pachyderm.io) and we can help you right away.
 
@@ -9,7 +9,7 @@ If you hit any errors not covered in this guide, check our [general troubleshoot
 
 ### Minikube
 
-Kubernetes offers a fantastic guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikube, and Kubectl. Then come back here to start Minikube:
+Kubernetes offers an excellent guide to [install minikube](http://kubernetes.io/docs/getting-started-guides/minikube). Follow the Kubernetes installation guide to install Virtual Box, Minikube, and Kubectl. Then come back here to start Minikube:
 ```shell
 minikube start
 ```
@@ -39,14 +39,14 @@ To reset your kubernetes cluster on Docker For Desktop just click the reset butt
 
 
 ```shell
-# For OSX:
+# For macOS:
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
 
 # For Debian based linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.3/pachctl_1.8.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.6/pachctl_1.8.6_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 
 # For all other linux flavors
-$ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.3/pachctl_1.8.3_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.8.3_linux_amd64/pachctl /usr/local/bin
+$ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.6/pachctl_1.8.6_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.8.6_linux_amd64/pachctl /usr/local/bin
 ```
 
 

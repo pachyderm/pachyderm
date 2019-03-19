@@ -57,6 +57,10 @@ message Service {
   string ip = 3 [(gogoproto.customname) = "IP"];
 }
 
+message Spout {
+  bool overwrite = 1;
+}
+
 // Note: this is deprecated and replaced by `PfsInput`
 message AtomInput {
   reserved 7;
@@ -90,6 +94,9 @@ message CronInput {
   string repo = 2;
   string commit = 3;
   string spec = 4;
+  // Overwrite, if true, will expose a single datum that gets overwritten each
+  // tick. If false, it will create a new datum for each tick.
+  bool overwrite = 6;
   google.protobuf.Timestamp start = 5;
 }
 
@@ -275,6 +282,7 @@ message JobInfo {
   JobState state = 10;
   string reason = 35;  // reason explains why the job is in the current state
   Service service = 14;
+  Spout spout = 45;
   pfs.Repo output_repo = 18;
   string output_branch = 17;
   uint64 restart = 20;
@@ -403,6 +411,7 @@ message PipelineInfo {
   string reason = 28;
   int64 max_queue_size = 29;
   Service service = 30;
+  Spout spout = 45;
   ChunkSpec chunk_spec = 32;
   google.protobuf.Duration datum_timeout = 33;
   google.protobuf.Duration job_timeout = 34;
@@ -575,6 +584,7 @@ message CreatePipelineRequest {
   bool batch = 19;
   int64 max_queue_size = 20;
   Service service = 21;
+  Spout spout = 33;
   ChunkSpec chunk_spec = 23;
   google.protobuf.Duration datum_timeout = 24;
   google.protobuf.Duration job_timeout = 25;

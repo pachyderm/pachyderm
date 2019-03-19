@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"math/rand"
+	"net"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -19,13 +20,17 @@ import (
 	authtesting "github.com/pachyderm/pachyderm/src/server/auth/testing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"google.golang.org/grpc"
+
+	"golang.org/x/net/context"
 )
 
 const (
 	testingTreeCacheSize       = 8
-	etcdAddress                = "localhost:32379" // etcd must already be serving at this address
+	etcdHost                   = "localhost"
+	etcdPort                   = "32379"
 	localBlockServerCacheBytes = 256 * 1024 * 1024
 )
 
@@ -79,7 +84,7 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	checkEtcdOnce.Do(func() {
 		require.NoError(t, backoff.Retry(func() error {
 			_, err := etcd.New(etcd.Config{
-				Endpoints:   []string{etcdAddress},
+				Endpoints:   []string{net.JoinHostPort(etcdHost, etcdPort)},
 				DialOptions: client.DefaultDialOptions(),
 			})
 			if err != nil {
@@ -91,21 +96,23 @@ func GetPachClient(t testing.TB) *client.APIClient {
 
 	root := tu.UniqueString("/tmp/pach_test/run")
 	t.Logf("root %s", root)
-	servePort := atomic.AddInt32(&port, 1)
-	serveAddress := fmt.Sprintf("localhost:%d", port)
+	pfsPort := atomic.AddInt32(&port, 1)
 
 	// initialize new BlockAPIServier
-	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, etcdAddress)
+	config := serviceenv.NewConfiguration(&serviceenv.GlobalConfiguration{})
+	config.EtcdHost = etcdHost
+	config.EtcdPort = etcdPort
+	config.PeerPort = uint16(pfsPort)
+	env := serviceenv.InitServiceEnv(config)
+	blockAPIServer, err := newLocalBlockAPIServer(root, localBlockServerCacheBytes, net.JoinHostPort(etcdHost, etcdPort))
 	require.NoError(t, err)
 	etcdPrefix := generateRandomString(32)
 	treeCache, err := hashtree.NewCache(testingTreeCacheSize)
 	if err != nil {
 		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
 	}
-	apiServer, err := newAPIServer(serveAddress, []string{"localhost:32379"}, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
+	apiServer, err := newAPIServer(env, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
-	runServers(t, servePort, apiServer, blockAPIServer)
-	c, err := client.NewFromAddress(serveAddress)
-	require.NoError(t, err)
-	return c
+	runServers(t, pfsPort, apiServer, blockAPIServer)
+	return env.GetPachClient(context.Background())
 }

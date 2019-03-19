@@ -46,6 +46,10 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	rawFlag := func(cmd *cobra.Command) {
 		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
 	}
+	fullTimestamps := false
+	fullTimestampsFlag := func(cmd *cobra.Command) {
+		cmd.Flags().BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
+	}
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	repo := &cobra.Command{
@@ -53,10 +57,8 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Short: "Docs for repos.",
 		Long: `Repos, short for repository, are the top level data object in Pachyderm.
 
-	Repos are created with create-repo.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
+Repos are created with create-repo.
+`,
 	}
 
 	var description string
@@ -125,10 +127,15 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			if raw {
 				return marshaller.Marshal(os.Stdout, repoInfo)
 			}
-			return pretty.PrintDetailedRepoInfo(repoInfo)
+			ri := &pretty.PrintableRepoInfo{
+				RepoInfo:       repoInfo,
+				FullTimestamps: fullTimestamps,
+			}
+			return pretty.PrintDetailedRepoInfo(ri)
 		}),
 	}
 	rawFlag(inspectRepo)
+	fullTimestampsFlag(inspectRepo)
 
 	listRepo := &cobra.Command{
 		Use:   "list-repo",
@@ -159,12 +166,13 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			}
 			writer := tabwriter.NewWriter(os.Stdout, header)
 			for _, repoInfo := range repoInfos {
-				pretty.PrintRepoInfo(writer, repoInfo)
+				pretty.PrintRepoInfo(writer, repoInfo, fullTimestamps)
 			}
 			return writer.Flush()
 		}),
 	}
 	rawFlag(listRepo)
+	fullTimestampsFlag(listRepo)
 
 	var force bool
 	var all bool
@@ -218,9 +226,6 @@ Commits become reliable (and immutable) when they are finished.
 Commits can be created with another commit as a parent.
 This layers the data in the commit over the data in the parent.
 `,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
 	}
 
 	var parent string
@@ -314,10 +319,15 @@ $ pachctl start-commit test -p XXX
 			if raw {
 				return marshaller.Marshal(os.Stdout, commitInfo)
 			}
-			return pretty.PrintDetailedCommitInfo(commitInfo)
+			ci := &pretty.PrintableCommitInfo{
+				CommitInfo:     commitInfo,
+				FullTimestamps: fullTimestamps,
+			}
+			return pretty.PrintDetailedCommitInfo(ci)
 		}),
 	}
 	rawFlag(inspectCommit)
+	fullTimestampsFlag(inspectCommit)
 
 	var from string
 	var number int
@@ -361,7 +371,7 @@ $ pachctl list-commit foo master --from XXX
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
 			if err := c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
-				pretty.PrintCommitInfo(writer, ci)
+				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
 				return err
@@ -372,6 +382,7 @@ $ pachctl list-commit foo master --from XXX
 	listCommit.Flags().StringVarP(&from, "from", "f", "", "list all commits since this commit")
 	listCommit.Flags().IntVarP(&number, "number", "n", 0, "list only this many commits; if set to zero, list all commits")
 	rawFlag(listCommit)
+	fullTimestampsFlag(listCommit)
 
 	printCommitIter := func(commitIter client.CommitInfoIterator) error {
 		if raw {
@@ -397,7 +408,7 @@ $ pachctl list-commit foo master --from XXX
 			if err != nil {
 				return err
 			}
-			pretty.PrintCommitInfo(writer, commitInfo)
+			pretty.PrintCommitInfo(writer, commitInfo, fullTimestamps)
 		}
 		return writer.Flush()
 	}
@@ -443,6 +454,7 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 	}
 	flushCommit.Flags().VarP(&repos, "repos", "r", "Wait only for commits leading to a specific set of repos")
 	rawFlag(flushCommit)
+	fullTimestampsFlag(flushCommit)
 
 	var new bool
 	subscribeCommit := &cobra.Command{
@@ -492,6 +504,7 @@ $ pachctl subscribe-commit test master --new
 	subscribeCommit.Flags().StringVar(&from, "from", "", "subscribe to all commits since this commit")
 	subscribeCommit.Flags().BoolVar(&new, "new", false, "subscribe to only new commits created from now on")
 	rawFlag(subscribeCommit)
+	fullTimestampsFlag(subscribeCommit)
 
 	deleteCommit := &cobra.Command{
 		Use:   "delete-commit repo-name commit-id",
@@ -605,11 +618,9 @@ $ pachctl set-branch foo test master` + codeend,
 		Short: "Docs for files.",
 		Long: `Files are the lowest level data object in Pachyderm.
 
-	Files can be written to started (but not finished) commits with put-file.
-	Files can be read from finished commits with get-file.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			return nil
-		}),
+Files can be written to started (but not finished) commits with put-file.
+Files can be read from finished commits with get-file.
+`,
 	}
 
 	var filePaths []string
@@ -769,7 +780,7 @@ $ pachctl put-file repo branch -i http://host/path
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Read filepaths or URLs from a file.  If - is used, paths are read from the standard input.")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively put the files in a directory.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be uploaded in parallel.")
-	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `json` and `line`.")
+	putFile.Flags().StringVar(&split, "split", "", "Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `line`, `json`, `sql` and `csv`.")
 	putFile.Flags().UintVar(&targetFileDatums, "target-file-datums", 0, "The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.")
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
@@ -909,7 +920,7 @@ $ pachctl list-file foo master --history -1
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			if err := client.ListFileF(args[0], args[1], path, history, func(fi *pfsclient.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi)
+				pretty.PrintFileInfo(writer, fi, fullTimestamps)
 				return nil
 			}); err != nil {
 				return nil
@@ -918,6 +929,7 @@ $ pachctl list-file foo master --history -1
 		}),
 	}
 	rawFlag(listFile)
+	fullTimestampsFlag(listFile)
 	listFile.Flags().Int64Var(&history, "history", 0, "Return revision history for files.")
 
 	globFile := &cobra.Command{
@@ -953,15 +965,17 @@ $ pachctl glob-file foo master "data/*"
 						return err
 					}
 				}
+				return nil
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo)
+				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
 			}
 			return writer.Flush()
 		}),
 	}
 	rawFlag(globFile)
+	fullTimestampsFlag(globFile)
 
 	var shallow bool
 	diffFile := &cobra.Command{
@@ -1000,7 +1014,7 @@ $ pachctl diff-file foo master path1 bar master path2
 				fmt.Println("New Files:")
 				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range newFiles {
-					pretty.PrintFileInfo(writer, fileInfo)
+					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
 				}
 				if err := writer.Flush(); err != nil {
 					return err
@@ -1010,7 +1024,7 @@ $ pachctl diff-file foo master path1 bar master path2
 				fmt.Println("Old Files:")
 				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range oldFiles {
-					pretty.PrintFileInfo(writer, fileInfo)
+					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
 				}
 				if err := writer.Flush(); err != nil {
 					return err
@@ -1019,6 +1033,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			return nil
 		}),
 	}
+	fullTimestampsFlag(diffFile)
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
 
 	deleteFile := &cobra.Command{
@@ -1144,34 +1159,50 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
 
+    repoCommands := []*cobra.Command{
+        createRepo,
+        updateRepo,
+        inspectRepo,
+        listRepo,
+        deleteRepo,
+    }
+
+    commitCommands := []*cobra.Command{
+        startCommit,
+        finishCommit,
+        inspectCommit,
+        listCommit,
+        flushCommit,
+        subscribeCommit,
+        deleteCommit,
+    }
+
+    fileCommands := []*cobra.Command{
+        putFile,
+        copyFile,
+        getFile,
+        inspectFile,
+        listFile,
+        globFile,
+        diffFile,
+        deleteFile,
+    }
+
+    cmdutil.SetDocsUsage(repo, repoCommands)
+    cmdutil.SetDocsUsage(commit, commitCommands)
+    cmdutil.SetDocsUsage(file, fileCommands)
+
 	var result []*cobra.Command
 	result = append(result, repo)
-	result = append(result, createRepo)
-	result = append(result, updateRepo)
-	result = append(result, inspectRepo)
-	result = append(result, listRepo)
-	result = append(result, deleteRepo)
+	result = append(result, repoCommands...)
 	result = append(result, commit)
-	result = append(result, startCommit)
-	result = append(result, finishCommit)
-	result = append(result, inspectCommit)
-	result = append(result, listCommit)
-	result = append(result, flushCommit)
-	result = append(result, subscribeCommit)
-	result = append(result, deleteCommit)
+	result = append(result, commitCommands...)
 	result = append(result, createBranch)
 	result = append(result, listBranch)
 	result = append(result, setBranch)
 	result = append(result, deleteBranch)
 	result = append(result, file)
-	result = append(result, putFile)
-	result = append(result, copyFile)
-	result = append(result, getFile)
-	result = append(result, inspectFile)
-	result = append(result, listFile)
-	result = append(result, globFile)
-	result = append(result, diffFile)
-	result = append(result, deleteFile)
+	result = append(result, fileCommands...)
 	result = append(result, getObject)
 	result = append(result, getTag)
 	result = append(result, mount)

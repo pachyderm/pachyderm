@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,10 +15,10 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
 )
 
 // Environment variables for determining storage backend and pathing
@@ -135,20 +136,20 @@ type Client interface {
 	// Writer returns a writer which writes to an object.
 	// It should error if the object already exists or we don't have sufficient
 	// permissions to write it.
-	Writer(name string) (io.WriteCloser, error)
+	Writer(ctx context.Context, name string) (io.WriteCloser, error)
 	// Reader returns a reader which reads from an object.
 	// If `size == 0`, the reader should read from the offset till the end of the object.
 	// It should error if the object doesn't exist or we don't have sufficient
 	// permission to read it.
-	Reader(name string, offset uint64, size uint64) (io.ReadCloser, error)
+	Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error)
 	// Delete deletes an object.
 	// It should error if the object doesn't exist or we don't have sufficient
 	// permission to delete it.
-	Delete(name string) error
+	Delete(ctx context.Context, name string) error
 	// Walk calls `fn` with the names of objects which can be found under `prefix`.
-	Walk(prefix string, fn func(name string) error) error
+	Walk(ctx context.Context, prefix string, fn func(name string) error) error
 	// Exsits checks if a given object already exists
-	Exists(name string) bool
+	Exists(ctx context.Context, name string) bool
 	// IsRetryable determines if an operation should be retried given an error
 	IsRetryable(err error) bool
 	// IsNotExist returns true if err is a non existence error
@@ -158,8 +159,8 @@ type Client interface {
 }
 
 // NewGoogleClient creates a google client with the given bucket name.
-func NewGoogleClient(ctx context.Context, bucket string, credFile string) (Client, error) {
-	return newGoogleClient(ctx, bucket, credFile)
+func NewGoogleClient(bucket string, credFile string) (Client, error) {
+	return newGoogleClient(bucket, credFile)
 }
 
 func secretFile(name string) string {
@@ -177,7 +178,7 @@ func readSecretFile(name string) (string, error) {
 // NewGoogleClientFromSecret creates a google client by reading credentials
 // from a mounted GoogleSecret. You may pass "" for bucket in which case it
 // will read the bucket from the secret.
-func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, error) {
+func NewGoogleClientFromSecret(bucket string) (Client, error) {
 	var err error
 	if bucket == "" {
 		bucket, err = readSecretFile("/google-bucket")
@@ -193,11 +194,11 @@ func NewGoogleClientFromSecret(ctx context.Context, bucket string) (Client, erro
 	if cred != "" {
 		credFile = secretFile("/google-cred")
 	}
-	return NewGoogleClient(ctx, bucket, credFile)
+	return NewGoogleClient(bucket, credFile)
 }
 
 // NewGoogleClientFromEnv creates a Google client based on environment variables.
-func NewGoogleClientFromEnv(ctx context.Context) (Client, error) {
+func NewGoogleClientFromEnv() (Client, error) {
 	bucket, ok := os.LookupEnv(GoogleBucketEnvVar)
 	if !ok {
 		return nil, fmt.Errorf("%s not found", GoogleBucketEnvVar)
@@ -211,7 +212,7 @@ func NewGoogleClientFromEnv(ctx context.Context) (Client, error) {
 	//if cred != "" {
 	//	credFile = secretFile("/google-cred")
 	//}
-	return NewGoogleClient(ctx, bucket, "")
+	return NewGoogleClient(bucket, "")
 }
 
 // NewMicrosoftClient creates a microsoft client:
@@ -425,23 +426,30 @@ func NewAmazonClientFromEnv() (Client, error) {
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
 // constructing the correct client for that URL using secrets.
-func NewClientFromURLAndSecret(ctx context.Context, url *ObjectStoreURL, reversed ...bool) (Client, error) {
+func NewClientFromURLAndSecret(url *ObjectStoreURL, reversed ...bool) (c Client, err error) {
 	switch url.Store {
 	case "s3":
-		return NewAmazonClientFromSecret(url.Bucket, reversed...)
+		c, err = NewAmazonClientFromSecret(url.Bucket, reversed...)
 	case "gcs":
 		fallthrough
 	case "gs":
-		return NewGoogleClientFromSecret(ctx, url.Bucket)
+		c, err = NewGoogleClientFromSecret(url.Bucket)
 	case "as":
 		fallthrough
 	case "wasb":
 		// In Azure, the first part of the path is the container name.
-		return NewMicrosoftClientFromSecret(url.Bucket)
+		c, err = NewMicrosoftClientFromSecret(url.Bucket)
 	case "local":
-		return NewLocalClient("/" + url.Bucket)
+		c, err = NewLocalClient("/" + url.Bucket)
 	}
-	return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
+	switch {
+	case err != nil:
+		return nil, err
+	case c != nil:
+		return TracingObjClient(url.Store, c), nil
+	default:
+		return nil, fmt.Errorf("unrecognized object store: %s", url.Bucket)
+	}
 }
 
 // ObjectStoreURL represents a parsed URL to an object in an object store.
@@ -483,24 +491,31 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 }
 
 // NewClientFromEnv creates a client based on environment variables.
-func NewClientFromEnv(ctx context.Context, storageRoot string) (Client, error) {
+func NewClientFromEnv(storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
 		return nil, fmt.Errorf("storage backend environment variable not found")
 	}
 	switch storageBackend {
 	case Amazon:
-		return NewAmazonClientFromEnv()
+		c, err = NewAmazonClientFromEnv()
 	case Google:
-		return NewGoogleClientFromEnv(ctx)
+		c, err = NewGoogleClientFromEnv()
 	case Microsoft:
-		return NewMicrosoftClientFromEnv()
+		c, err = NewMicrosoftClientFromEnv()
 	case Minio:
-		return NewMinioClientFromEnv()
+		c, err = NewMinioClientFromEnv()
 	case Local:
-		return NewLocalClient(storageRoot)
+		c, err = NewLocalClient(storageRoot)
 	}
-	return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+	switch {
+	case err != nil:
+		return nil, err
+	case c != nil:
+		return TracingObjClient(storageBackend, c), nil
+	default:
+		return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+	}
 }
 
 // NewExponentialBackOffConfig creates an exponential back-off config with
@@ -523,13 +538,15 @@ type RetryError struct {
 
 // BackoffReadCloser retries with exponential backoff in the case of failures
 type BackoffReadCloser struct {
+	ctx           context.Context
 	client        Client
 	reader        io.ReadCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
-func newBackoffReadCloser(client Client, reader io.ReadCloser) io.ReadCloser {
+func newBackoffReadCloser(ctx context.Context, client Client, reader io.ReadCloser) io.ReadCloser {
 	return &BackoffReadCloser{
+		ctx:           ctx,
 		client:        client,
 		reader:        reader,
 		backoffConfig: NewExponentialBackOffConfig(),
@@ -537,6 +554,8 @@ func newBackoffReadCloser(client Client, reader io.ReadCloser) io.ReadCloser {
 }
 
 func (b *BackoffReadCloser) Read(data []byte) (int, error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffReadCloser.Read")
+	defer tracing.FinishAnySpan(span)
 	bytesRead := 0
 	var n int
 	var err error
@@ -560,18 +579,22 @@ func (b *BackoffReadCloser) Read(data []byte) (int, error) {
 
 // Close closes the ReaderCloser contained in b.
 func (b *BackoffReadCloser) Close() error {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffReadCloser.Close")
+	defer tracing.FinishAnySpan(span)
 	return b.reader.Close()
 }
 
 // BackoffWriteCloser retries with exponential backoff in the case of failures
 type BackoffWriteCloser struct {
+	ctx           context.Context
 	client        Client
 	writer        io.WriteCloser
 	backoffConfig *backoff.ExponentialBackOff
 }
 
-func newBackoffWriteCloser(client Client, writer io.WriteCloser) io.WriteCloser {
+func newBackoffWriteCloser(ctx context.Context, client Client, writer io.WriteCloser) io.WriteCloser {
 	return &BackoffWriteCloser{
+		ctx:           ctx,
 		client:        client,
 		writer:        writer,
 		backoffConfig: NewExponentialBackOffConfig(),
@@ -579,6 +602,8 @@ func newBackoffWriteCloser(client Client, writer io.WriteCloser) io.WriteCloser 
 }
 
 func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffWriteCloser.Write")
+	defer tracing.FinishAnySpan(span)
 	bytesWritten := 0
 	var n int
 	var err error
@@ -602,6 +627,8 @@ func (b *BackoffWriteCloser) Write(data []byte) (int, error) {
 
 // Close closes the WriteCloser contained in b.
 func (b *BackoffWriteCloser) Close() error {
+	span, _ := tracing.AddSpanToAnyExisting(b.ctx, "obj/BackoffWriteCloser.Close")
+	defer tracing.FinishAnySpan(span)
 	err := b.writer.Close()
 	if b.client.IsIgnorable(err) {
 		return nil
@@ -628,10 +655,46 @@ func isNetRetryable(err error) bool {
 	return ok && netErr.Temporary()
 }
 
-// TestIsNotExist is a defensive method for checking to make sure IsNotExist is
-// satisfying its semantics.
-func TestIsNotExist(c Client) error {
-	_, err := c.Reader(uuid.NewWithoutDashes(), 0, 0)
+// TestStorage is a defensive method for checking to make sure that storage is
+// properly configured.
+func TestStorage(ctx context.Context, c Client) error {
+	testObj := uuid.NewWithoutDashes()
+	if err := func() (retErr error) {
+		w, err := c.Writer(ctx, testObj)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = w.Write([]byte("test"))
+		return err
+	}(); err != nil {
+		return fmt.Errorf("unable to write to object storage: %v", err)
+	}
+	if err := func() (retErr error) {
+		r, err := c.Reader(ctx, testObj, 0, 0)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = ioutil.ReadAll(r)
+		return err
+	}(); err != nil {
+		return fmt.Errorf("unable to read from object storage: %v", err)
+	}
+	if err := c.Delete(ctx, testObj); err != nil {
+		return fmt.Errorf("unable to delete from object storage: %v", err)
+	}
+	// Try reading a non-existant object to make sure our IsNotExist function
+	// works.
+	_, err := c.Reader(ctx, uuid.NewWithoutDashes(), 0, 0)
 	if !c.IsNotExist(err) {
 		return fmt.Errorf("storage is unable to discern NotExist errors, \"%s\" should count as NotExist", err.Error())
 	}

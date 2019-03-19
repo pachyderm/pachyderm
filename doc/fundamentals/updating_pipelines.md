@@ -26,25 +26,47 @@ You can also use `update-pipeline` to update the code you are using in one or
 more of your pipelines.  To update the code in your pipeline:
 
 1. Make the code changes.
-2. Re-build your Docker image.
-3. Call `update-pipeline` with the `--push-images` flag.
+2. Build, tag, and push the image in docker to the place specified in the pipeline spec.
+3. Call `pachctl update-pipeline` again.
 
-You need to call `update-pipeline` with the `--push-images` flag because, if
-you have already run your pipeline, Pachyderm has already pulled the specified
-images.  It won't re-pull new versions of the images, unless we tell it to
-(which ensures that we don't waste time pulling images when we don't need to).
-When `--push-images` is specified, Pachyderm will do the following:
+## Building pipeline images within pachyderm
 
-1. Tag your image with a new unique tag.
-2. Push that tagged image to your registry (e.g., DockerHub).
-3. Update the pipeline specification that you previously gave to Pachyderm with
-   the new unique tag.
+Building, tagging and pushing the image in docker requires a bit of ceremony,
+so there's a shortcut: the `--build` flag for `pachctl update-pipeline`. When
+used, Pachyderm will do the following:
+
+1. Rebuild the docker image.
+2. Tag your image with a new unique name.
+3. Push that tagged image to your registry (e.g., DockerHub).
+4. Update the pipeline specification that you previously gave to Pachyderm to
+   use the new unique tag.
 
 For example, you could update the Python code used in the [OpenCV
 pipeline](../getting_started/beginner_tutorial.html) via:
 
 ```sh
-pachctl update-pipeline -f edges.json --push-images --password <registry password> -u <registry user>
+pachctl update-pipeline -f edges.json --build --username <registry user>
+```
+
+You'll then be prompted for the password associated with the registry user.
+
+### Private registries
+
+`--build` supports private registries as well. Make sure the private registry
+is specified as part of the pipeline spec, and use the `--registry` flag when
+calling `pachctl update-pipeline --build`.
+
+For example, if you wanted to push the image `pachyderm/opencv` to a registry
+located at `localhost:5000`, you'd have this in your pipeline spec:
+
+```
+"image": "localhost:5000/pachyderm/opencv"
+```
+
+And would run this to update the pipeline:
+
+```sh
+pachctl update-pipeline -f edges.json --build --registry localhost:5000 --username <registry user>
 ```
 
 ## Re-processing data

@@ -14,7 +14,7 @@ NOTE! At the moment, we require the release script to be run on an ubuntu machin
 
 This is because of a dependency on CGO via [this bug](https://github.com/opencontainers/runc/issues/841)
 
-(We don't want to enable CGO in part because it doesn't play nice w OSX for us)
+(We don't want to enable CGO in part because it doesn't play nice with macOS for us)
 
 You'll need the following credentials / tools:
 
@@ -134,7 +134,7 @@ Which will create a release like `v1.2.3-2342345aefda9879e87ad`
 Which can be installed like:
 
 ```
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.3/pachctl_1.8.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.6/pachctl_1.8.6_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 Or for mac/brew:

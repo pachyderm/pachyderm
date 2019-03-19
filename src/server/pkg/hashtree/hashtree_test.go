@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 )
 
 // obj parses a string as an Object
@@ -620,17 +621,108 @@ func TestChildIterator(t *testing.T) {
 }
 
 func TestCache(t *testing.T) {
+	// Cache with size 2
 	c, err := NewCache(2)
 	require.NoError(t, err)
 
 	h := newHashTree(t)
 	require.NoError(t, h.PutFile("foo", obj(`hash:"1d4a7"`), 1))
 	require.NoError(t, h.Hash())
+
+	// Put a hashtree into the cache
 	c.Add(1, h)
+
+	// After adding a second hashtree, the first hashtree should still be in the cache
 	c.Add(2, newHashTree(t))
 	_, err = h.Get("foo")
 	require.NoError(t, err)
+
+	// But after adding a third, the first one should be evicted
 	c.Add(3, newHashTree(t))
-	_, err = h.Get("foo")
-	require.YesError(t, err)
+
+	// since it's done concurrently, we might need to wait a bit for the eviction to finish
+	require.NoError(t, backoff.Retry(func() error {
+		_, err = h.Get("foo")
+		if err == nil {
+			return fmt.Errorf("foo should be evicted, and so the Get should have failed")
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+}
+
+func blocks(ss ...string) []*pfs.BlockRef {
+	var blockRefs []*pfs.BlockRef
+	for i, s := range ss {
+		blockRefs = append(blockRefs, &pfs.BlockRef{})
+		err := proto.UnmarshalText(s, blockRefs[i])
+		if err != nil {
+			panic(err)
+		}
+	}
+	return blockRefs
+}
+
+func writeMergeNode(w *Writer, path, hash string, size int64, blockRefs ...*pfs.BlockRef) {
+	path = clean(path)
+	n := mergeNode(path, hash, size)
+	if len(blockRefs) == 0 {
+		n.nodeProto.DirNode = &DirectoryNodeProto{}
+	} else {
+		n.nodeProto.FileNode = &FileNodeProto{BlockRefs: blockRefs}
+	}
+	w.Write(n)
+}
+
+func mergeNode(path, hash string, size int64) *MergeNode {
+	h, err := pfs.DecodeHash(hash)
+	if err != nil {
+		panic(err)
+	}
+	return &MergeNode{
+		k: b(path),
+		nodeProto: &NodeProto{
+			Name:        base(path),
+			Hash:        h,
+			SubtreeSize: size,
+		},
+	}
+}
+
+func TestMergeFiles(t *testing.T) {
+	c := NewMergeCache("")
+	defer func() {
+		require.NoError(t, c.Clear())
+	}()
+
+	l, r := NewUnordered(""), NewUnordered("")
+	l.PutFile("/foo-left", []byte("l0"), 1, blocks(``)...)
+	l.PutFile("/dir-left/bar-left", []byte("l1"), 1, blocks(``)...)
+	l.PutFile("/dir-shared/buzz-left", []byte("l2"), 1, blocks(``)...)
+	l.PutFile("/dir-shared/file-shared", []byte("l3"), 1, blocks(``)...)
+	r.PutFile("/foo-right", []byte("r0"), 1, blocks(``)...)
+	r.PutFile("/dir-right/bar-right", []byte("r1"), 1, blocks(``)...)
+	r.PutFile("/dir-shared/buzz-right", []byte("r2"), 1, blocks(``)...)
+	r.PutFile("/dir-shared/file-shared", []byte("r3"), 1, blocks(``)...)
+	lBuf, rBuf, resultBuf := &bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{}
+	require.NoError(t, l.Ordered().Serialize(lBuf))
+	require.NoError(t, r.Ordered().Serialize(rBuf))
+	require.NoError(t, c.Put(0, lBuf))
+	require.NoError(t, c.Put(1, rBuf))
+	require.NoError(t, c.Merge(NewWriter(resultBuf), nil, nil))
+
+	expectedBuf := &bytes.Buffer{}
+	w := NewWriter(expectedBuf)
+	writeMergeNode(w, "/", "5d5e6bf6978265596cc1302f0bc368be893a4c14ce742b76dc20e983eac3446c7b022672c53ed6d80314b0c743fd22f50c07a09a79775165ce063ce984a91946", 8)
+	writeMergeNode(w, "/dir-left", "9cf1225943e6797220168992de346051cdc762b9c1ba99bd6bdcc12ec3f1fea7", 1)
+	writeMergeNode(w, "/dir-left/bar-left", "6c31", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-right", "7dfa4a4878ffe3acb6574123fb775c7758c97270742e3801a093c0b1ea3cb9fc", 1)
+	writeMergeNode(w, "/dir-right/bar-right", "7231", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared", "4302fc8eaa65188e71b5d298cc4c40f95bb91cad8dd1fc9db29529514daad51dacfff5ae58d0b8ac4c65beb4926236261b3eff994e2a3b22b0caed3434e17060", 4)
+	writeMergeNode(w, "/dir-shared/buzz-left", "6c32", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared/buzz-right", "7232", 1, blocks(``)...)
+	writeMergeNode(w, "/dir-shared/file-shared", "ddc7def93be72db4ed4467edb815395d2bd191c231d0c5f8705dbedb465787202f377e58eb3ff7cd3d63e6c6bfd6ab079328937ed3dc12795f69810d25ed1afa", 2, blocks(``, ``)...)
+	writeMergeNode(w, "/foo-left", "6c30", 1, blocks(``)...)
+	writeMergeNode(w, "/foo-right", "7230", 1, blocks(``)...)
+
+	require.Equal(t, expectedBuf, resultBuf)
 }

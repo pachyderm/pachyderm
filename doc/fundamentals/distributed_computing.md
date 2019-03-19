@@ -103,7 +103,7 @@ But Pachyderm can do anything in between too. If you have a directory structure 
 
 and you need to process all the data for a given state together, `/*` would also be the desired glob pattern. You'd have one datum per state, meaning all the cities for a given state would be processed together by a single worker, but each state can be processed independently.
 
-If we instead used the glob pattern `/*/*` for the states example above, each `<city>.json` would be it's own datum.
+If we instead used the glob pattern `/*/*` for the states example above, each `<city>.json` would be its own datum.
 
 Glob patterns also let you take only a particular directory (or subset of directories) as a PFS input instead of the whole input repo. If we create a pipeline that is specifically only for California, we can use a glob pattern of `/California/*` to only use the data in that directory as input to our pipeline.
 
@@ -129,7 +129,7 @@ Let's look at our states example with a few different glob patterns to demonstra
 
 If our glob pattern is `/`, then the entire PFS input is a single datum, which means anytime any file or directory is changed in our input, all the the data will be processed from scratch. There are plenty of usecases where this is exactly what we need (e.g. some machine learning training algorithms).
 
-If our glob pattern is `/*`, then each state directory is it's own datum and we'll only process the ones that have changed. So if we add a  new city file, `Sacramento.json` to the `/California` directory, _only_ the California datum, will be reprocessed.
+If our glob pattern is `/*`, then each state directory is its own datum and we'll only process the ones that have changed. So if we add a  new city file, `Sacramento.json` to the `/California` directory, _only_ the California datum, will be reprocessed.
 
-If our glob pattern was `/*/*` then each `<city>.json` file would be it's own datum. That means if we added a `Sacramento.json` file, only that specific file would be processed by Pachyderm.
+If our glob pattern was `/*/*` then each `<city>.json` file would be its own datum. That means if we added a `Sacramento.json` file, only that specific file would be processed by Pachyderm.
 

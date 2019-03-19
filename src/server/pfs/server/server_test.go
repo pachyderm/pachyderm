@@ -203,45 +203,6 @@ func TestCreateAndInspectRepo(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestRepoSize(t *testing.T) {
-	client := GetPachClient(t)
-
-	repo := "repo"
-	require.NoError(t, client.CreateRepo(repo))
-
-	repoInfo, err := client.InspectRepo(repo)
-	require.NoError(t, err)
-	require.Equal(t, 0, int(repoInfo.SizeBytes))
-
-	fileContent1 := "foo"
-	fileContent2 := "bar"
-	fileContent3 := "buzz"
-	commit, err := client.StartCommit(repo, "")
-	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit.ID, "foo", strings.NewReader(fileContent1))
-	require.NoError(t, err)
-	_, err = client.PutFile(repo, commit.ID, "bar", strings.NewReader(fileContent2))
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, commit.ID))
-
-	repoInfo, err = client.InspectRepo(repo)
-	require.NoError(t, err)
-	require.Equal(t, len(fileContent1)+len(fileContent2), int(repoInfo.SizeBytes))
-
-	commit, err = client.StartCommit(repo, "")
-	require.NoError(t, err)
-	// Deleting a file shouldn't affect the repo size, since the actual
-	// data has not been removed from the storage system.
-	require.NoError(t, client.DeleteFile(repo, commit.ID, "foo"))
-	_, err = client.PutFile(repo, commit.ID, "buzz", strings.NewReader(fileContent3))
-	require.NoError(t, err)
-	require.NoError(t, client.FinishCommit(repo, commit.ID))
-
-	repoInfo, err = client.InspectRepo(repo)
-	require.NoError(t, err)
-	require.Equal(t, len(fileContent1)+len(fileContent2)+len(fileContent3), int(repoInfo.SizeBytes))
-}
-
 func TestListRepo(t *testing.T) {
 	client := GetPachClient(t)
 
@@ -1919,7 +1880,8 @@ func TestInspectRepoSimple(t *testing.T) {
 	info, err := client.InspectRepo(repo)
 	require.NoError(t, err)
 
-	require.Equal(t, int(info.SizeBytes), len(file1Content)+len(file2Content))
+	// Size should be 0 because the files were not added to master
+	require.Equal(t, int(info.SizeBytes), 0)
 }
 
 func TestInspectRepoComplex(t *testing.T) {
@@ -1928,7 +1890,7 @@ func TestInspectRepoComplex(t *testing.T) {
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
 
-	commit, err := client.StartCommit(repo, "")
+	commit, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
 
 	numFiles := 100
@@ -2414,6 +2376,19 @@ func TestFlush3(t *testing.T) {
 	require.Equal(t, 1, len(commitInfos))
 
 	require.Equal(t, commitInfos[0].Commit.Repo.Name, "C")
+}
+
+func TestFlushRedundant(t *testing.T) {
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("A"))
+	ACommit, err := client.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", "master"))
+	commitInfoIter, err := client.FlushCommit([]*pfs.Commit{pclient.NewCommit("A", ACommit.ID), pclient.NewCommit("A", ACommit.ID)}, nil)
+	require.NoError(t, err)
+	commitInfos, err := collectCommitInfos(commitInfoIter)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commitInfos))
 }
 
 func TestFlushCommitWithNoDownstreamRepos(t *testing.T) {
@@ -4654,7 +4629,7 @@ func TestPutFilesURL(t *testing.T) {
 }
 
 func writeObj(t *testing.T, c obj.Client, path, content string) {
-	w, err := c.Writer(path)
+	w, err := c.Writer(context.Background(), path)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, w.Close())
@@ -4675,7 +4650,7 @@ func TestPutFilesObjURL(t *testing.T) {
 	defer func() {
 		for _, path := range paths {
 			// ignored error, this is just cleanup, not actually part of the test
-			objC.Delete(path)
+			objC.Delete(context.Background(), path)
 		}
 	}()
 
@@ -4716,7 +4691,7 @@ func TestFileHistory(t *testing.T) {
 
 	repo := "test"
 	require.NoError(t, client.CreateRepo(repo))
-	numCommits := 5
+	numCommits := 10
 	for i := 0; i < numCommits; i++ {
 		_, err = client.PutFile(repo, "master", "file", strings.NewReader("foo\n"))
 		require.NoError(t, err)

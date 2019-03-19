@@ -242,7 +242,7 @@ func newCronDatumFactory(pachClient *client.APIClient, input *pps.CronInput) (Da
 		Repo:   input.Repo,
 		Branch: "master",
 		Commit: input.Commit,
-		Glob:   "time",
+		Glob:   "/*",
 	})
 }
 

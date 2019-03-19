@@ -13,9 +13,9 @@ import (
 
 const (
 	// RepoHeader is the header for repos.
-	RepoHeader = "NAME\tCREATED\tSIZE\t\n"
+	RepoHeader = "NAME\tCREATED\tSIZE (MASTER)\t\n"
 	// RepoAuthHeader is the header for repos with auth information attached.
-	RepoAuthHeader = "NAME\tCREATED\tSIZE\tACCESS LEVEL\t\n"
+	RepoAuthHeader = "NAME\tCREATED\tSIZE (MASTER)\tACCESS LEVEL\t\n"
 	// CommitHeader is the header for commits.
 	CommitHeader = "REPO\tCOMMIT\tPARENT\tSTARTED\tDURATION\tSIZE\t\n"
 	// BranchHeader is the header for branches.
@@ -34,13 +34,13 @@ func PrintRepoHeader(w io.Writer, printAuth bool) {
 }
 
 // PrintRepoInfo pretty-prints repo info.
-func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
+func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
-	fmt.Fprintf(
-		w,
-		"%s\t",
-		pretty.Ago(repoInfo.Created),
-	)
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", repoInfo.Created.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(repoInfo.Created))
+	}
 	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(repoInfo.SizeBytes)))
 	if repoInfo.AuthInfo != nil {
 		fmt.Fprintf(w, "%s\t", repoInfo.AuthInfo.AccessLevel.String())
@@ -48,13 +48,28 @@ func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo) {
 	fmt.Fprintln(w)
 }
 
+// PrintableRepoInfo is a wrapper around RepoInfo containing any formatting options
+// used within the template to conditionally print information.
+type PrintableRepoInfo struct {
+	*pfs.RepoInfo
+	FullTimestamps bool
+}
+
+// NewPrintableRepoInfo constructs a PrintableRepoInfo from just a RepoInfo.
+func NewPrintableRepoInfo(ri *pfs.RepoInfo) *PrintableRepoInfo {
+	return &PrintableRepoInfo{
+		RepoInfo: ri,
+	}
+}
+
 // PrintDetailedRepoInfo pretty-prints detailed repo info.
-func PrintDetailedRepoInfo(repoInfo *pfs.RepoInfo) error {
+func PrintDetailedRepoInfo(repoInfo *PrintableRepoInfo) error {
 	template, err := template.New("RepoInfo").Funcs(funcMap).Parse(
 		`Name: {{.Repo.Name}}{{if .Description}}
-Description: {{.Description}}{{end}}
-Created: {{prettyAgo .Created}}
-Size: {{prettySize .SizeBytes}}{{if .AuthInfo}}
+Description: {{.Description}}{{end}}{{if .FullTimestamps}}
+Created: {{.Created}}{{else}}
+Created: {{prettyAgo .Created}}{{end}}
+Size of HEAD on master: {{prettySize .SizeBytes}}{{if .AuthInfo}}
 Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 `)
 	if err != nil {
@@ -88,7 +103,7 @@ func PrintCommitInfoHeader(w io.Writer) {
 }
 
 // PrintCommitInfo pretty-prints commit info.
-func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
+func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
@@ -96,7 +111,11 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	} else {
 		fmt.Fprint(w, "<none>\t")
 	}
-	fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Started))
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", commitInfo.Started.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(commitInfo.Started))
+	}
 	if commitInfo.Finished != nil {
 		fmt.Fprintf(w, fmt.Sprintf("%s\t", pretty.TimeDifference(commitInfo.Started, commitInfo.Finished)))
 		fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(commitInfo.SizeBytes)))
@@ -107,14 +126,30 @@ func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo) {
 	}
 }
 
+// PrintableCommitInfo is a wrapper around CommitInfo containing any formatting options
+// used within the template to conditionally print information.
+type PrintableCommitInfo struct {
+	*pfs.CommitInfo
+	FullTimestamps bool
+}
+
+// NewPrintableCommitInfo constructs a PrintableCommitInfo from just a CommitInfo.
+func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
+	return &PrintableCommitInfo{
+		CommitInfo: ci,
+	}
+}
+
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
-func PrintDetailedCommitInfo(commitInfo *pfs.CommitInfo) error {
+func PrintDetailedCommitInfo(commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
 		`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
-Parent: {{.ParentCommit.ID}}{{end}}
-Started: {{prettyAgo .Started}}{{if .Finished}}
-Finished: {{prettyAgo .Finished}} {{end}}
+Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
+Started: {{.Started}}{{else}}
+Started: {{prettyAgo .Started}}{{end}}{{if .Finished}}{{if .FullTimestamps}}
+Finished: {{.Finished}}{{else}}
+Finished: {{prettyAgo .Finished}}{{end}}{{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
 Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}} {{end}} {{end}}
 `)
@@ -136,7 +171,7 @@ func PrintFileInfoHeader(w io.Writer) {
 // PrintFileInfo pretty-prints file info.
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE {
@@ -144,7 +179,11 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	} else {
 		fmt.Fprint(w, "dir\t")
 	}
-	fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
+	}
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
@@ -179,4 +218,22 @@ var funcMap = template.FuncMap{
 	"prettyAgo":  pretty.Ago,
 	"prettySize": pretty.Size,
 	"fileType":   fileType,
+}
+
+// CompactPrintBranch renders 'b' as a compact string, e.g.
+// "myrepo@master:/my/file"
+func CompactPrintBranch(b *pfs.Branch) string {
+	return fmt.Sprintf("%s@%s", b.Repo.Name, b.Name)
+}
+
+// CompactPrintCommit renders 'c' as a compact string, e.g.
+// "myrepo@123abc:/my/file"
+func CompactPrintCommit(c *pfs.Commit) string {
+	return fmt.Sprintf("%s@%s", c.Repo.Name, c.ID)
+}
+
+// CompactPrintFile renders 'f' as a compact string, e.g.
+// "myrepo@master:/my/file"
+func CompactPrintFile(f *pfs.File) string {
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Repo.Name, f.Commit.ID, f.Path)
 }

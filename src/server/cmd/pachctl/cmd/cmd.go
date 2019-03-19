@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	golog "log"
 	"os"
 	"os/signal"
 	"strings"
@@ -28,13 +27,14 @@ import (
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	deploycmds "github.com/pachyderm/pachyderm/src/server/pkg/deploy/cmds"
+	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
+	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/net/context"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 )
@@ -133,16 +133,6 @@ __custom_func() {
 }`
 )
 
-type logWriter golog.Logger
-
-func (l *logWriter) Write(p []byte) (int, error) {
-	err := (*golog.Logger)(l).Output(2, string(p))
-	if err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() (*cobra.Command, error) {
@@ -161,23 +151,32 @@ func PachctlCmd() (*cobra.Command, error) {
 
 Environment variables:
   PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
+  PACH_CONFIG=<path>, the path where pachctl will attempt to load your pach config.
+  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_ENABLE_TRACING is set
+  PACH_ENABLE_TRACING={true,false}, If true, and JAEGER_ENDPOINT is set, attach a
+    Jaeger trace to all outgoing RPCs
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			log.SetFormatter(new(prefixed.TextFormatter))
+
 			if !verbose {
+				log.SetLevel(log.ErrorLevel)
 				// Silence grpc logs
-				l := log.New()
-				l.Level = log.FatalLevel
 				grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, ioutil.Discard, ioutil.Discard))
 			} else {
+				log.SetLevel(log.DebugLevel)
 				// etcd overrides grpc's logs--there's no way to enable one without
-				// enabling both
+				// enabling both.
+				// Error and warning logs are discarded because they will be
+				// redundantly sent to the info logger. See:
+				// https://godoc.org/google.golang.org/grpc/grpclog#NewLoggerV2
+				logger := log.StandardLogger()
 				etcd.SetLogger(grpclog.NewLoggerV2(
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] INFO  ", golog.LstdFlags|golog.Lshortfile)),
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] WARN  ", golog.LstdFlags|golog.Lshortfile)),
-					(*logWriter)(golog.New(os.Stderr, "[etcd/grpc] ERROR ", golog.LstdFlags|golog.Lshortfile)),
+					logutil.NewGRPCLogWriter(logger, "etcd/grpc"),
+					ioutil.Discard,
+					ioutil.Discard,
 				))
 			}
-
 		},
 		BashCompletionFunction: bashCompletionFunc,
 	}
@@ -200,11 +199,11 @@ Environment variables:
 	for _, cmd := range deployCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	authCmds := authcmds.Cmds(&noPortForwarding)
+	authCmds := authcmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range authCmds {
 		rootCmd.AddCommand(cmd)
 	}
-	enterpriseCmds := enterprisecmds.Cmds(&noPortForwarding)
+	enterpriseCmds := enterprisecmds.Cmds(&noMetrics, &noPortForwarding)
 	for _, cmd := range enterpriseCmds {
 		rootCmd.AddCommand(cmd)
 	}
@@ -267,9 +266,9 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, true, "user", client.WithDialTimeout(timeout))
+				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, true, "user")
+				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user")
 			}
 			if err != nil {
 				return err
@@ -338,13 +337,14 @@ This resets the cluster to its initial state.`,
 			for _, pi := range pipelineInfos {
 				pipelines = append(pipelines, red(pi.Pipeline.Name))
 			}
-			fmt.Printf("Are you sure you want to delete all ACLs, repos, commits, files, pipelines and jobs?\nyN\n")
+			fmt.Println("All ACLs, repos, commits, files, pipelines and jobs will be deleted.")
 			if len(repos) > 0 {
 				fmt.Printf("Repos to delete: %s\n", strings.Join(repos, ", "))
 			}
 			if len(pipelines) > 0 {
 				fmt.Printf("Pipelines to delete: %s\n", strings.Join(pipelines, ", "))
 			}
+			fmt.Println("Are you sure you want to do this? (y/n):")
 			r := bufio.NewReader(os.Stdin)
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
@@ -369,7 +369,7 @@ This resets the cluster to its initial state.`,
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			fw, err := client.NewPortForwarder(namespace, ioutil.Discard, os.Stderr)
+			fw, err := client.NewPortForwarder(namespace)
 			if err != nil {
 				return err
 			}
@@ -378,45 +378,49 @@ This resets the cluster to its initial state.`,
 				return err
 			}
 
-			var eg errgroup.Group
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-				return fw.RunForDaemon(port, remotePort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the SAML ACS port...")
-				return fw.RunForSAMLACS(samlPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v ...\n", uiPort)
-				return fw.RunForDashUI(uiPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
-				return fw.RunForDashWebSocket(uiWebsocketPort)
-			})
-
-			eg.Go(func() error {
-				fmt.Println("Forwarding the PFS port...")
-				return fw.RunForPFS(pfsPort)
-			})
-
 			defer fw.Close()
 
-			if err = eg.Wait(); err != nil {
-				return err
+			failCount := 0
+
+			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
+			if err = fw.RunForDaemon(port, remotePort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount++
 			}
 
-			fmt.Println("CTRL-C to exit")
-			fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
+			fmt.Println("Forwarding the SAML ACS port...")
+			if err = fw.RunForSAMLACS(samlPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount++
+			}
 
-			ch := make(chan os.Signal, 1)
-			signal.Notify(ch, os.Interrupt)
-			<- ch
+			fmt.Printf("Forwarding the dash (Pachyderm dashboard) UI port to http://localhost:%v...\n", uiPort)
+			if err = fw.RunForDashUI(uiPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount++
+			}
+
+			fmt.Println("Forwarding the dash (Pachyderm dashboard) websocket port...")
+			if err = fw.RunForDashWebSocket(uiWebsocketPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount++
+			}
+
+			fmt.Println("Forwarding the PFS port...")
+			if err = fw.RunForPFS(pfsPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount++
+			}
+
+			if failCount < 5 {
+				fmt.Println("CTRL-C to exit")
+				fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
+
+				ch := make(chan os.Signal, 1)
+				signal.Notify(ch, os.Interrupt)
+				<-ch
+			}
+
 			return nil
 		}),
 	}
@@ -446,7 +450,7 @@ This resets the cluster to its initial state.`,
 					}
 					return err
 				}
-				
+
 				defer func() {
 					if err := f.Close(); err != nil && retErr == nil {
 						retErr = err

@@ -3,6 +3,7 @@ package server
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -38,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pfsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -116,21 +118,13 @@ type driver struct {
 }
 
 // newDriver is used to create a new Driver instance
-func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*driver, error) {
+func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*driver, error) {
 	// Validate arguments
 	if treeCache == nil {
 		return nil, fmt.Errorf("cannot initialize driver with nil treeCache")
 	}
-
-	// Initialize etcd client
-	etcdClient, err := etcd.New(etcd.Config{
-		Endpoints:   etcdAddresses,
-		DialOptions: client.DefaultDialOptions(),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not connect to etcd: %v", err)
-	}
 	// Initialize driver
+	etcdClient := env.GetEtcdClient()
 	d := &driver{
 		etcdClient:     etcdClient,
 		prefix:         etcdPrefix,
@@ -147,6 +141,18 @@ func newDriver(etcdAddresses []string, etcdPrefix string, treeCache *hashtree.Ca
 		storageRoot: storageRoot,
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
+	}
+	// Create spec repo (default repo)
+	repo := client.NewRepo(ppsconsts.SpecRepo)
+	repoInfo := &pfs.RepoInfo{
+		Repo:    repo,
+		Created: now(),
+	}
+	if _, err := col.NewSTM(context.Background(), etcdClient, func(stm col.STM) error {
+		repos := d.repos.ReadWrite(stm)
+		return repos.Create(repo.Name, repoInfo)
+	}); err != nil && !col.IsErrExists(err) {
+		return nil, err
 	}
 	return d, nil
 }
@@ -420,6 +426,8 @@ func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pf
 //   to the new commit
 // - If neither 'parent.ID' nor 'branch' are set, the new commit will have no
 //   parent
+// - If only 'parent.ID' is set, and it contains a branch, then the new commit's
+//   parent will be the HEAD of that branch, but the branch will not be moved
 func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.Commit, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
@@ -445,8 +453,18 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		Description: description,
 	}
 
-	//  BuildCommit case: if the caller passed a tree reference with the commit
-	// contents then retrieve the full tree so we can compute its size
+	// FinishCommit case. We need to create AND finish 'newCommit' in two cases:
+	// 1. PutFile has been called on a finished commit (records != nil), and
+	//    we want to apply 'records' to the parentCommit's HashTree, use that new
+	//    HashTree for this commit's filesystem, and then finish this commit
+	// 2. BuildCommit has been called by migration (treeRef != nil) and we
+	//    want a new, finished commit with the given treeRef
+	// - In either case, store this commit's HashTree in 'tree', so we have its
+	//   size, and store a pointer to the tree (in object store) in 'treeRef', to
+	//   put in newCommitInfo.Tree.
+	// - We also don't want to resolve 'branch' or 'parent.ID' (if it's a branch)
+	//   outside the txn below, so the 'PutFile' case is handled (by computing
+	//   'tree' and 'treeRef') below as well
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
@@ -471,13 +489,26 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			return err
 		}
 
-		// create/update 'branch' (if it was set) and set parent.ID (if, in addition,
-		// 'parent.ID' was not set)
+		// create/update 'branch' (if it was set) and set parent.ID (if, in
+		// addition, 'parent.ID' was not set)
 		if branch != "" {
 			branchInfo := &pfs.BranchInfo{}
 			if err := branches.Upsert(branch, branchInfo, func() error {
+				// validate branch
 				if parent.ID == "" && branchInfo.Head != nil {
 					parent.ID = branchInfo.Head.ID
+				}
+				// Don't count the __spec__ repo towards the provenance count
+				// since spouts will have __spec__ as provenance, but need to accept commits
+				provenanceCount := len(branchInfo.Provenance)
+				for _, p := range branchInfo.Provenance {
+					if p.Repo.Name == ppsconsts.SpecRepo {
+						provenanceCount--
+						break
+					}
+				}
+				if provenanceCount > 0 && treeRef == nil {
+					return fmt.Errorf("cannot start a commit on an output branch")
 				}
 				// Point 'branch' at the new commit
 				branchInfo.Name = branch // set in case 'branch' is new
@@ -487,10 +518,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}); err != nil {
 				return err
 			}
+			// Add branch to repo (see "Update repoInfo" below)
 			add(&repoInfo.Branches, branchInfo.Branch)
-			if len(branchInfo.Provenance) > 0 && treeRef == nil {
-				return fmt.Errorf("cannot start a commit on an output branch")
-			}
 		}
 
 		// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
@@ -518,15 +547,15 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 			}
 		}
 
-		// BuildCommit case: Now that 'parent' is resolved, read the parent commit's
-		// tree (inside txn) and update the repo size
+		// 1. Write 'newCommit' to 'openCommits' collection OR
+		// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
+		//    "FinishCommit case" above)
 		if treeRef != nil || records != nil {
-			parentTree, err := d.getTreeForCommit(pachClient, parent)
-			if err != nil {
-				return err
-			}
 			if records != nil {
-				var err error
+				parentTree, err := d.getTreeForCommit(pachClient, parent)
+				if err != nil {
+					return err
+				}
 				tree, err = parentTree.Copy()
 				if err != nil {
 					return err
@@ -544,28 +573,33 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 					return err
 				}
 			}
-			repoInfo.SizeBytes += sizeChange(tree, parentTree)
+
+			// now 'treeRef' is guaranteed to be set
+			newCommitInfo.Tree = treeRef
+			newCommitInfo.SizeBytes = uint64(tree.FSSize())
+			newCommitInfo.Finished = now()
+
+			// If we're updating the master branch, also update the repo size (see
+			// "Update repoInfo" below)
+			if branch == "master" {
+				repoInfo.SizeBytes = newCommitInfo.SizeBytes
+			}
 		} else {
 			if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
 				return err
 			}
 		}
-		if treeRef != nil {
-			newCommitInfo.Tree = treeRef
-			newCommitInfo.SizeBytes = uint64(tree.FSSize())
-			newCommitInfo.Finished = now()
-		}
 
+		// Update repoInfo (potentially with new branch and new size)
 		if err := repos.Put(parent.Repo.Name, repoInfo); err != nil {
 			return err
 		}
 
-		// 'newCommitProv' holds newCommit's provenance (use map for deduping).
+		// Build newCommit's full provenance. B/c commitInfo.Provenance is a
+		// transitive closure, there's no need to search the full provenance graph,
+		// just take the union of the immediate parents' (in the 'provenance' arg)
+		// commitInfo.Provenance
 		newCommitProv := make(map[string]*pfs.Commit)
-
-		// Build newCommit's full provenance; my provenance's provenance is my
-		// provenance (b/c provenance' is a transitive closure, there's no need to
-		// explore full graph)
 		for _, provCommit := range provenance {
 			newCommitProv[provCommit.ID] = provCommit
 			provCommitInfo := &pfs.CommitInfo{}
@@ -678,33 +712,7 @@ func (d *driver) finishCommit(pachClient *client.APIClient, commit *pfs.Commit, 
 	}
 
 	commitInfo.Finished = now()
-	sizeChange := sizeChange(finishedTree, parentTree)
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
-		repos := d.repos.ReadWrite(stm)
-		if err := commits.Put(commit.ID, commitInfo); err != nil {
-			return err
-		}
-		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
-			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
-		}
-		if sizeChange > 0 {
-			// update repo size
-			repoInfo := new(pfs.RepoInfo)
-			if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
-				return err
-			}
-
-			// Increment the repo sizes by the sizes of the files that have
-			// been added in this commit.
-			repoInfo.SizeBytes += sizeChange
-			if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	return err
+	return d.writeFinishedCommit(ctx, commit, commitInfo)
 }
 
 func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
@@ -723,13 +731,41 @@ func (d *driver) finishOutputCommit(pachClient *client.APIClient, commit *pfs.Co
 	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
 	commitInfo.Finished = now()
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	return d.writeFinishedCommit(ctx, commit, commitInfo)
+}
+
+// writeFinishedCommit writes these changes to etcd:
+// 1) it closes the input commit (i.e., it writes any changes made to it and
+//    removes it from the open commits)
+// 2) if the commit is the new HEAD of master, it updates the repo size
+func (d *driver) writeFinishedCommit(ctx context.Context, commit *pfs.Commit, commitInfo *pfs.CommitInfo) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 		if err := commits.Put(commit.ID, commitInfo); err != nil {
 			return err
 		}
 		if err := d.openCommits.ReadWrite(stm).Delete(commit.ID); err != nil {
 			return fmt.Errorf("could not confirm that commit %s is open; this is likely a bug. err: %v", commit.ID, err)
+		}
+		// update the repo size if this is the head of master
+		repos := d.repos.ReadWrite(stm)
+		repoInfo := new(pfs.RepoInfo)
+		if err := repos.Get(commit.Repo.Name, repoInfo); err != nil {
+			return err
+		}
+		for _, branch := range repoInfo.Branches {
+			if branch.Name == "master" {
+				branchInfo := &pfs.BranchInfo{}
+				if err := d.branches(commit.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
+					return err
+				}
+				if branchInfo.Head.ID == commit.ID {
+					repoInfo.SizeBytes = commitInfo.SizeBytes
+					if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
+						return err
+					}
+				}
+			}
 		}
 		return nil
 	})
@@ -821,14 +857,20 @@ nextSubvBranch:
 			if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
 			}
-			headIsSubset := true
-			for _, c := range branchHeadInfo.Provenance {
-				if _, ok := commitProvMap[c.ID]; !ok {
-					headIsSubset = false
+			headIsSubset := false
+			for k := range commitProvMap {
+				matched := false
+				for _, c := range branchHeadInfo.Provenance {
+					if c.ID == k {
+						matched = true
+					}
+				}
+				headIsSubset = matched
+				if !headIsSubset {
 					break
 				}
 			}
-			if len(branchHeadInfo.Provenance) == len(commitProvMap) && headIsSubset {
+			if len(branchHeadInfo.Provenance) >= len(commitProvMap) && headIsSubset {
 				// existing HEAD commit is the same new output commit would be; don't
 				// create new commit
 				continue nextSubvBranch
@@ -905,23 +947,6 @@ nextSubvBranch:
 		}
 	}
 	return nil
-}
-
-func sizeChange(tree hashtree.HashTree, parentTree hashtree.HashTree) uint64 {
-	if tree == nil {
-		return 0 // output commit from a failed job -- will be ignored
-	}
-	if parentTree == nil {
-		return uint64(tree.FSSize())
-	}
-	var result uint64
-	tree.Diff(parentTree, "", "", -1, func(path string, node *hashtree.NodeProto, new bool) error {
-		if node.FileNode != nil && new {
-			result += uint64(node.SubtreeSize)
-		}
-		return nil
-	})
-	return result
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.
@@ -1241,6 +1266,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	for _, toRepo := range toRepos {
 		toRepoMap[toRepo.Name] = toRepo
 	}
+
 	// Wait for each of the commitsToWatch to be finished.
 	for _, commitToWatch := range commitsToWatch {
 		if len(toRepoMap) > 0 {
@@ -1259,6 +1285,18 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 			return err
 		}
 	}
+	// Now wait for the root commits to finish. These are not passed to `f`
+	// because it's expecting to just get downstream commits.
+	for _, commit := range fromCommits {
+		_, err := d.inspectCommit(pachClient, commit, pfs.CommitState_FINISHED)
+		if err != nil {
+			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
+				continue // just skip this
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -1306,20 +1344,6 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 				if err := commits.Delete(commit.ID); err != nil {
 					return err
 				}
-
-				// Update repo size
-				// TODO this is basically wrong. Other commits could share data with the
-				// commit being removed, in which case we're subtracting too much.
-				// We could also modify makeCommit and FinishCommit so that
-				// commitInfo.SizeBytes stores incremental size (which could cause
-				// commits to have negative sizes)
-				repoInfo := &pfs.RepoInfo{}
-				if err := d.repos.ReadWrite(stm).Update(commit.Repo.Name, repoInfo, func() error {
-					repoInfo.SizeBytes -= commitInfo.SizeBytes
-					return nil
-				}); err != nil {
-					return err
-				}
 				if commit.ID == lower.ID {
 					break // check after deletion so we delete 'lower' (inclusive range)
 				}
@@ -1329,7 +1353,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		}
 
 		// 3) Validate the commit (check that it has no provenance) and delete it
-		if len(userCommitInfo.Provenance) > 0 {
+		if provenantOnInput(userCommitInfo.Provenance) {
 			return fmt.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
 		}
 		deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
@@ -1493,9 +1517,10 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		// points to a deleted commit
 		var shortestBranch *pfs.Branch
 		var shortestBranchLen = maxInt
+		repos := d.repos.ReadWrite(stm)
 		for repo := range affectedRepos {
 			repoInfo := &pfs.RepoInfo{}
-			if err := d.repos.ReadWrite(stm).Get(repo, repoInfo); err != nil {
+			if err := repos.Get(repo, repoInfo); err != nil {
 				return err
 			}
 			for _, brokenBranch := range repoInfo.Branches {
@@ -1523,12 +1548,31 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 					// doesn't exist yet--nothing to update
 					return fmt.Errorf("error updating branch %v/%v: %v", brokenBranch.Repo.Name, brokenBranch.Name, err)
 				}
+				// Update repo size if this is the master branch
+				if branchInfo.Name == "master" {
+					if branchInfo.Head != nil {
+						headCommitInfo, err := d.inspectCommit(pachClient, branchInfo.Head, pfs.CommitState_STARTED)
+						if err != nil {
+							return err
+						}
+						repoInfo.SizeBytes = headCommitInfo.SizeBytes
+					} else {
+						// No HEAD commit, set the repo size to 0
+						repoInfo.SizeBytes = 0
+					}
+
+					if err := repos.Put(repo, repoInfo); err != nil {
+						return err
+					}
+				}
 			}
 		}
 
 		// 8) propagate the changes to 'branch' and its subvenance. This may start
 		// new HEAD commits downstream, if the new branch heads haven't been
 		// processed yet
+		// TODO(msteffen) propagate all changed branches? Use heap to topologically
+		// sort them?
 		return d.propagateCommit(stm, shortestBranch)
 	}); err != nil {
 		return fmt.Errorf("error rewriting commit graph: %v", err)
@@ -1776,7 +1820,6 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	var putFilePaths []string
 	var putFileRecords []*pfs.PutFileRecords
 	var mu sync.Mutex
-
 	oneOff, repo, branch, err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
 			req.TargetFileBytes, req.HeaderRecords, req.OverwriteIndex, r)
@@ -2266,7 +2309,7 @@ func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitIn
 }
 
 func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, prefix string) (r io.ReadCloser, retErr error) {
-	objClient, err := obj.NewClientFromEnv(pachClient.Ctx(), d.storageRoot)
+	objClient, err := obj.NewClientFromEnv(d.storageRoot)
 	if err != nil {
 		return nil, err
 	}
@@ -2278,11 +2321,11 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	if err != nil {
 		return nil, err
 	}
-	offset, size, err := getTreeRange(objClient, path, prefix)
+	offset, size, err := getTreeRange(pachClient.Ctx(), objClient, path, prefix)
 	if err != nil {
 		return nil, err
 	}
-	objR, err := objClient.Reader(path, offset, size)
+	objR, err := objClient.Reader(pachClient.Ctx(), path, offset, size)
 	if err != nil {
 		return nil, err
 	}
@@ -2311,9 +2354,9 @@ func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, 
 	return f, nil
 }
 
-func getTreeRange(objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
+func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix string) (uint64, uint64, error) {
 	p := path + hashtree.IndexPath
-	r, err := objClient.Reader(p, 0, 0)
+	r, err := objClient.Reader(ctx, p, 0, 0)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -2380,6 +2423,19 @@ func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.Fi
 	return tree, nil
 }
 
+// this is a helper function to check if the given provenance has provenance on an input branch
+func provenantOnInput(provenance []*pfs.Commit) bool {
+	provenanceCount := len(provenance)
+	for _, p := range provenance {
+		// in particular, we want to exclude provenance on the spec repo (used e.g. for spouts)
+		if p.Repo.Name == ppsconsts.SpecRepo {
+			provenanceCount--
+			break
+		}
+	}
+	return provenanceCount > 0
+}
+
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64) (r io.Reader, retErr error) {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
@@ -2390,7 +2446,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, err
 	}
 	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return nil, err
@@ -2616,7 +2672,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		return nil, err
 	}
 	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, file)
 		if err != nil {
 			return nil, err
@@ -2665,8 +2721,9 @@ func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full boo
 		// TODO this should be a MalformedGlob error like the hashtree returns
 		return err
 	}
-	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+
+	// Handle commits to input repos and spouts
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, ""))
 		if err != nil {
 			return err
@@ -2769,7 +2826,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 		return err
 	}
 	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(file.Commit.Repo.Name, file.Commit.ID, file.Path))
 		if err != nil {
 			return err
@@ -2814,7 +2871,7 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 		return err
 	}
 	// Handle commits to input repos
-	if commitInfo.Provenance == nil {
+	if !provenantOnInput(commitInfo.Provenance) {
 		tree, err := d.getTreeForFile(pachClient, client.NewFile(commit.Repo.Name, commit.ID, ""))
 		if err != nil {
 			return err
@@ -3371,13 +3428,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 						err = fmt.Errorf("error parsing url %v: %v", req.Url, err)
 						return false, "", "", err
 					}
-					objClient, err := obj.NewClientFromURLAndSecret(server.Context(), url, false)
+					objClient, err := obj.NewClientFromURLAndSecret(url, false)
 					if err != nil {
 						return false, "", "", err
 					}
 					if req.Recursive {
 						path := strings.TrimPrefix(url.Object, "/")
-						if err := objClient.Walk(path, func(name string) error {
+						if err := objClient.Walk(server.Context(), path, func(name string) error {
 							if strings.HasSuffix(name, "/") {
 								// Creating a file with a "/" suffix breaks
 								// pfs' directory model, so we don't
@@ -3385,7 +3442,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							r, err := objClient.Reader(name, 0, 0)
+							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
@@ -3404,7 +3461,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
-						r, err := objClient.Reader(url.Object, 0, 0)
+						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}

@@ -1043,7 +1043,7 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1071,7 +1071,7 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1081,6 +1081,9 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthEnterprise
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1100,7 +1103,7 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1109,6 +1112,9 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthEnterprise
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1126,6 +1132,9 @@ func (m *EnterpriseRecord) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if (iNdEx + skippy) > l {
@@ -1156,7 +1165,7 @@ func (m *TokenInfo) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1184,7 +1193,7 @@ func (m *TokenInfo) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1193,6 +1202,9 @@ func (m *TokenInfo) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthEnterprise
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1210,6 +1222,9 @@ func (m *TokenInfo) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if (iNdEx + skippy) > l {
@@ -1240,7 +1255,7 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1268,7 +1283,7 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1278,6 +1293,9 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthEnterprise
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1297,7 +1315,7 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1306,6 +1324,9 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthEnterprise
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1323,6 +1344,9 @@ func (m *ActivateRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if (iNdEx + skippy) > l {
@@ -1353,7 +1377,7 @@ func (m *ActivateResponse) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1381,7 +1405,7 @@ func (m *ActivateResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1390,6 +1414,9 @@ func (m *ActivateResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthEnterprise
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1407,6 +1434,9 @@ func (m *ActivateResponse) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if (iNdEx + skippy) > l {
@@ -1437,7 +1467,7 @@ func (m *GetStateRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1458,6 +1488,9 @@ func (m *GetStateRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if (iNdEx + skippy) > l {
@@ -1488,7 +1521,7 @@ func (m *GetStateResponse) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1516,7 +1549,7 @@ func (m *GetStateResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.State |= (State(b) & 0x7F) << shift
+				m.State |= State(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1535,7 +1568,7 @@ func (m *GetStateResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1544,6 +1577,9 @@ func (m *GetStateResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthEnterprise
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthEnterprise
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1561,6 +1597,9 @@ func (m *GetStateResponse) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if (iNdEx + skippy) > l {
@@ -1591,7 +1630,7 @@ func (m *DeactivateRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1612,6 +1651,9 @@ func (m *DeactivateRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if (iNdEx + skippy) > l {
@@ -1642,7 +1684,7 @@ func (m *DeactivateResponse) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1663,6 +1705,9 @@ func (m *DeactivateResponse) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthEnterprise
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthEnterprise
 			}
 			if (iNdEx + skippy) > l {
@@ -1732,8 +1777,11 @@ func skipEnterprise(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthEnterprise
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthEnterprise
 			}
 			return iNdEx, nil
@@ -1764,6 +1812,9 @@ func skipEnterprise(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthEnterprise
+				}
 			}
 			return iNdEx, nil
 		case 4:

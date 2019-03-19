@@ -17,7 +17,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
-	"golang.org/x/sync/errgroup"
 
 	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
@@ -32,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
@@ -276,6 +276,9 @@ func getCertOptionsFromEnv() ([]Option, error) {
 func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
+		if !strings.Contains(envAddr, ":") {
+			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
+		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
 			return "", nil, err
@@ -286,6 +289,9 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	// TODO(ys): remove this eventually
 	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
 		log.Warnf("the `ADDRESS` environment variable is deprecated; please use `PACHD_ADDRESS`")
+		if !strings.Contains(envAddr, ":") {
+			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
+		}
 		options, err := getCertOptionsFromEnv()
 		if err != nil {
 			return "", nil, err
@@ -320,30 +326,21 @@ func portForwarder() *PortForwarder {
 	// NOTE: this will always use the default namespace; if a custom
 	// namespace is required with port forwarding,
 	// `pachctl port-forward` should be explicitly called.
-	fw, err := NewPortForwarder("", ioutil.Discard, os.Stderr)
+	fw, err := NewPortForwarder("")
 	if err != nil {
-		log.Errorf("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
+		log.Infof("Implicit port forwarding was not enabled because the kubernetes config could not be read: %v", err)
 		return nil
 	}
 	if err = fw.Lock(); err != nil {
-		log.Warningf("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
+		log.Infof("Implicit port forwarding was not enabled because the pidfile could not be written to. Most likely this means that port forwarding is running in another instance of `pachctl`: %v", err)
 		return nil
 	}
 
-	var eg errgroup.Group
-	
-	eg.Go(func() error {
-		return fw.RunForDaemon(0, 0)
-	})
-
-	eg.Go(func() error {
-		return fw.RunForSAMLACS(0)
-	})
-
-	if err = eg.Wait(); err != nil {
-		fw.Close()
-		log.Errorf("Implicit port forwarding was not enabled because of an error: %v", err)
-		return nil
+	if err = fw.RunForDaemon(0, 0); err != nil {
+		log.Debugf("Implicit port forwarding for the daemon failed: %v", err)
+	}
+	if err = fw.RunForSAMLACS(0); err != nil {
+		log.Debugf("Implicit port forwarding for SAML ACS failed: %v", err)
 	}
 
 	return fw
@@ -362,7 +359,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
-		log.Warningf("error loading user config from ~/.pachderm/config: %v", err)
+		log.Warningf("error loading user config from ~/.pachyderm/config: %v", err)
 	}
 
 	// create new pachctl client
@@ -375,7 +372,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
 
 		if portForward {
-			fw = portForwarder()	
+			fw = portForwarder()
 		}
 	}
 
@@ -417,7 +414,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 	if cfg != nil && cfg.V1 != nil && cfg.V1.SessionToken != "" {
 		client.authenticationToken = cfg.V1.SessionToken
 	}
-	
+
 	// Add port forwarding. This will set it to nil if port forwarding is
 	// disabled, or an address is explicitly set.
 	client.portForwarder = fw
@@ -448,7 +445,7 @@ func (c *APIClient) Close() error {
 	}
 
 	if c.portForwarder != nil {
-		c.portForwarder.Close()	
+		c.portForwarder.Close()
 	}
 
 	return nil
@@ -516,8 +513,16 @@ func (c *APIClient) connect(timeout time.Duration) error {
 		tlsCreds := credentials.NewClientTLSFromCert(c.caCerts, "")
 		dialOptions = append(dialOptions, grpc.WithTransportCredentials(tlsCreds))
 	}
-	dialOptions = append(dialOptions, grpc.WithTimeout(timeout))
-	// TODO(msteffen) switch to grpc.DialContext instead
+	dialOptions = append(dialOptions,
+		// TODO(msteffen) switch to grpc.DialContext instead
+		grpc.WithTimeout(timeout),
+	)
+	if tracing.IsActive() {
+		dialOptions = append(dialOptions,
+			grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
+			grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
+		)
+	}
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
 		return err

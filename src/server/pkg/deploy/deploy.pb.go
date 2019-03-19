@@ -1178,7 +1178,7 @@ func (m *KubeEndpoint) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1206,7 +1206,7 @@ func (m *KubeEndpoint) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1216,6 +1216,9 @@ func (m *KubeEndpoint) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthDeploy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDeploy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1228,6 +1231,9 @@ func (m *KubeEndpoint) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1258,7 +1264,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1286,7 +1292,7 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1296,6 +1302,9 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthDeploy
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthDeploy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1308,6 +1317,9 @@ func (m *Cluster) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1338,7 +1350,7 @@ func (m *ClusterInfo) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1366,7 +1378,7 @@ func (m *ClusterInfo) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1375,6 +1387,9 @@ func (m *ClusterInfo) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthDeploy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDeploy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1399,7 +1414,7 @@ func (m *ClusterInfo) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Shards |= (uint64(b) & 0x7F) << shift
+				m.Shards |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1411,6 +1426,9 @@ func (m *ClusterInfo) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1441,7 +1459,7 @@ func (m *ClusterInfos) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1469,7 +1487,7 @@ func (m *ClusterInfos) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1478,6 +1496,9 @@ func (m *ClusterInfos) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthDeploy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDeploy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1493,6 +1514,9 @@ func (m *ClusterInfos) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1523,7 +1547,7 @@ func (m *CreateClusterRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1551,7 +1575,7 @@ func (m *CreateClusterRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1560,6 +1584,9 @@ func (m *CreateClusterRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthDeploy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDeploy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1584,7 +1611,7 @@ func (m *CreateClusterRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Shards |= (uint64(b) & 0x7F) << shift
+				m.Shards |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1596,6 +1623,9 @@ func (m *CreateClusterRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1626,7 +1656,7 @@ func (m *UpdateClusterRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1654,7 +1684,7 @@ func (m *UpdateClusterRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1663,6 +1693,9 @@ func (m *UpdateClusterRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthDeploy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDeploy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1687,7 +1720,7 @@ func (m *UpdateClusterRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Nodes |= (uint64(b) & 0x7F) << shift
+				m.Nodes |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1699,6 +1732,9 @@ func (m *UpdateClusterRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1729,7 +1765,7 @@ func (m *InspectClusterRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1757,7 +1793,7 @@ func (m *InspectClusterRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1766,6 +1802,9 @@ func (m *InspectClusterRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthDeploy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDeploy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1783,6 +1822,9 @@ func (m *InspectClusterRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1813,7 +1855,7 @@ func (m *ListClusterRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1834,6 +1876,9 @@ func (m *ListClusterRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1864,7 +1909,7 @@ func (m *DeleteClusterRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1892,7 +1937,7 @@ func (m *DeleteClusterRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1901,6 +1946,9 @@ func (m *DeleteClusterRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthDeploy
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthDeploy
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1918,6 +1966,9 @@ func (m *DeleteClusterRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthDeploy
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthDeploy
 			}
 			if (iNdEx + skippy) > l {
@@ -1987,8 +2038,11 @@ func skipDeploy(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthDeploy
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthDeploy
 			}
 			return iNdEx, nil
@@ -2019,6 +2073,9 @@ func skipDeploy(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthDeploy
+				}
 			}
 			return iNdEx, nil
 		case 4:

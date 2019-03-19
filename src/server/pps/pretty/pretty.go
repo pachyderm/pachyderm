@@ -45,10 +45,14 @@ func safeTrim(s string, l int) string {
 }
 
 // PrintJobInfo pretty-prints job info.
-func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo) {
+func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", jobInfo.Job.ID)
 	fmt.Fprintf(w, "%s\t", jobInfo.Pipeline.Name)
-	fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", jobInfo.Started.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(jobInfo.Started))
+	}
 	if jobInfo.Finished != nil {
 		fmt.Fprintf(w, "%s\t", pretty.TimeDifference(jobInfo.Started, jobInfo.Finished))
 	} else {
@@ -73,10 +77,14 @@ func PrintPipelineHeader(w io.Writer) {
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
-func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo) {
+func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
-	fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.CreatedAt))
+	}
 	fmt.Fprintf(w, "%s / %s\t\n", pipelineState(pipelineInfo.State), jobState(pipelineInfo.LastJobState))
 }
 
@@ -86,24 +94,43 @@ func PrintWorkerStatusHeader(w io.Writer) {
 }
 
 // PrintWorkerStatus pretty prints a worker status.
-func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus) {
+func PrintWorkerStatus(w io.Writer, workerStatus *ppsclient.WorkerStatus, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", workerStatus.WorkerID)
 	fmt.Fprintf(w, "%s\t", workerStatus.JobID)
 	for _, datum := range workerStatus.Data {
 		fmt.Fprintf(w, datum.Path)
 	}
 	fmt.Fprintf(w, "\t")
-	fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", workerStatus.Started.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(workerStatus.Started))
+	}
 	fmt.Fprintf(w, "%d\t\n", workerStatus.QueueSize)
 }
 
+// PrintableJobInfo is a wrapper around JobInfo containing any formatting options
+// used within the template to conditionally print information.
+type PrintableJobInfo struct {
+	*ppsclient.JobInfo
+	FullTimestamps bool
+}
+
+// NewPrintableJobInfo constructs a PrintableJobInfo from just a JobInfo.
+func NewPrintableJobInfo(ji *ppsclient.JobInfo) *PrintableJobInfo {
+	return &PrintableJobInfo{
+		JobInfo: ji,
+	}
+}
+
 // PrintDetailedJobInfo pretty-prints detailed job info.
-func PrintDetailedJobInfo(jobInfo *ppsclient.JobInfo) error {
+func PrintDetailedJobInfo(jobInfo *PrintableJobInfo) error {
 	template, err := template.New("JobInfo").Funcs(funcMap).Parse(
 		`ID: {{.Job.ID}} {{if .Pipeline}}
 Pipeline: {{.Pipeline.Name}} {{end}} {{if .ParentJob}}
-Parent: {{.ParentJob.ID}} {{end}}
-Started: {{prettyAgo .Started}} {{if .Finished}}
+Parent: {{.ParentJob.ID}} {{end}}{{if .FullTimestamps}}
+Started: {{.Started}}{{else}}
+Started: {{prettyAgo .Started}} {{end}}{{if .Finished}}
 Duration: {{prettyTimeDifference .Started .Finished}} {{end}}
 State: {{jobState .State}}
 Reason: {{.Reason}}
@@ -150,12 +177,27 @@ Egress: {{.Egress.URL}} {{end}}
 	return nil
 }
 
+// PrintablePipelineInfo is a wrapper around PipelinInfo containing any formatting options
+// used within the template to conditionally print information.
+type PrintablePipelineInfo struct {
+	*ppsclient.PipelineInfo
+	FullTimestamps bool
+}
+
+// NewPrintablePipelineInfo constructs a PrintablePipelineInfo from just a PipelineInfo.
+func NewPrintablePipelineInfo(pi *ppsclient.PipelineInfo) *PrintablePipelineInfo {
+	return &PrintablePipelineInfo{
+		PipelineInfo: pi,
+	}
+}
+
 // PrintDetailedPipelineInfo pretty-prints detailed pipeline info.
-func PrintDetailedPipelineInfo(pipelineInfo *ppsclient.PipelineInfo) error {
+func PrintDetailedPipelineInfo(pipelineInfo *PrintablePipelineInfo) error {
 	template, err := template.New("PipelineInfo").Funcs(funcMap).Parse(
 		`Name: {{.Pipeline.Name}}{{if .Description}}
-Description: {{.Description}}{{end}}
-Created: {{prettyAgo .CreatedAt}}
+Description: {{.Description}}{{end}}{{if .FullTimestamps }}
+Created: {{.CreatedAt}}{{ else }}
+Created: {{prettyAgo .CreatedAt}} {{end}}
 State: {{pipelineState .State}}
 Stopped: {{ .Stopped }}
 Reason: {{.Reason}}
@@ -172,7 +214,7 @@ Parallelism Spec: {{.ParallelismSpec}}
 Datum Timeout: {{.DatumTimeout}}
 Job Timeout: {{.JobTimeout}}
 Input:
-{{pipelineInput .}}
+{{pipelineInput .PipelineInfo}}
 {{ if .GithookURL }}Githook URL: {{.GithookURL}} {{end}}
 Output Branch: {{.OutputBranch}}
 Transform:
@@ -315,7 +357,7 @@ func pipelineState(pipelineState ppsclient.PipelineState) string {
 	return "-"
 }
 
-func jobInput(jobInfo *ppsclient.JobInfo) string {
+func jobInput(jobInfo PrintableJobInfo) string {
 	if jobInfo.Input == nil {
 		return ""
 	}
@@ -326,12 +368,12 @@ func jobInput(jobInfo *ppsclient.JobInfo) string {
 	return string(input) + "\n"
 }
 
-func workerStatus(jobInfo *ppsclient.JobInfo) string {
+func workerStatus(jobInfo PrintableJobInfo) string {
 	var buffer bytes.Buffer
 	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
 	PrintWorkerStatusHeader(writer)
 	for _, workerStatus := range jobInfo.WorkerStatus {
-		PrintWorkerStatus(writer, workerStatus)
+		PrintWorkerStatus(writer, workerStatus, jobInfo.FullTimestamps)
 	}
 	// can't error because buffer can't error on Write
 	writer.Flush()
@@ -368,6 +410,8 @@ func prettyTransform(transform *ppsclient.Transform) (string, error) {
 // ShorthandInput renders a pps.Input as a short, readable string
 func ShorthandInput(input *ppsclient.Input) string {
 	switch {
+	case input == nil:
+		return "none"
 	case input.Atom != nil:
 		return fmt.Sprintf("%s:%s", input.Atom.Repo, input.Atom.Glob)
 	case input.Pfs != nil:

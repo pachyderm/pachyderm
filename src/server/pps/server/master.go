@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"path"
@@ -10,7 +9,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/robfig/cron"
 	log "github.com/sirupsen/logrus"
@@ -45,23 +43,24 @@ var (
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
 func (a *apiServer) master() {
-	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath))
+	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		// Use the PPS token to authenticate requests. Note that all requests
 		// performed in this function are performed as a cluster admin, so do not
 		// pass any unvalidated user input to any requests
-		pachClient := a.getPachClient().WithCtx(ctx)
+		pachClient := a.env.GetPachClient(ctx)
 		ctx, err := masterLock.Lock(ctx)
 		if err != nil {
 			return err
 		}
 		defer masterLock.Unlock(ctx)
+		kubeClient := a.env.GetKubeClient()
 
 		log.Infof("Launching PPS master process")
 
-		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
+		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch(watch.WithPrevKV())
 		if err != nil {
 			return fmt.Errorf("error creating watch: %+v", err)
 		}
@@ -73,7 +72,7 @@ func (a *apiServer) master() {
 		// prevents pachyderm from creating pipelines when there's an issue
 		// talking to k8s.
 		var watchChan <-chan kube_watch.Event
-		kubePipelineWatch, err := a.kubeClient.CoreV1().Pods(a.namespace).Watch(
+		kubePipelineWatch, err := kubeClient.CoreV1().Pods(a.namespace).Watch(
 			metav1.ListOptions{
 				LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 					map[string]string{
@@ -107,7 +106,7 @@ func (a *apiServer) master() {
 					var pipelineInfo, prevPipelineInfo *pps.PipelineInfo
 					if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 						var err error
-						pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &pipelinePtr)
+						pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &pipelinePtr, true)
 						if err != nil {
 							return err
 						}
@@ -116,7 +115,7 @@ func (a *apiServer) master() {
 							if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
 								return err
 							}
-							prevPipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &prevPipelinePtr)
+							prevPipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &prevPipelinePtr, true)
 							if err != nil {
 								return err
 							}
@@ -205,7 +204,7 @@ func (a *apiServer) master() {
 					if kubePipelineWatch != nil {
 						kubePipelineWatch.Stop()
 					}
-					kubePipelineWatch, err = a.kubeClient.CoreV1().Pods(a.namespace).Watch(
+					kubePipelineWatch, err = kubeClient.CoreV1().Pods(a.namespace).Watch(
 						metav1.ListOptions{
 							LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
 								map[string]string{
@@ -248,15 +247,16 @@ func (a *apiServer) master() {
 }
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
-	return ppsutil.FailPipeline(ctx, a.etcdClient, a.pipelines, pipelineName, reason)
+	return ppsutil.FailPipeline(ctx, a.env.GetEtcdClient(), a.pipelines, pipelineName, reason)
 }
 
 func (a *apiServer) checkOrDeployGithookService() error {
-	_, err := getGithookService(a.kubeClient, a.namespace)
+	kubeClient := a.env.GetKubeClient()
+	_, err := getGithookService(kubeClient, a.namespace)
 	if err != nil {
 		if _, ok := err.(*errGithookServiceNotFound); ok {
 			svc := assets.GithookService(a.namespace)
-			_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
+			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
 			return err
 		}
 		return err
@@ -310,7 +310,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 
 		// Retrieve the current state of the RC.  If the RC is scaled down,
 		// we want to ensure that it remains scaled down.
-		rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+		rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
 		workerRc, err := rc.Get(
 			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 			metav1.GetOptions{})
@@ -355,9 +355,9 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 		return err
 	}
 	if _, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]; !ok {
-		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
+		ctx, cancel := context.WithCancel(context.Background())
 		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
-		pachClient := a.pachClient.WithCtx(ctx)
+		pachClient := a.env.GetPachClient(ctx)
 
 		go a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 			a.monitorPipeline(superUserClient, pipelineInfo)
@@ -373,28 +373,29 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
 		cancel()
 		delete(a.monitorCancels, pipelineName)
 	}
+	kubeClient := a.env.GetKubeClient()
 	selector := fmt.Sprintf("pipelineName=%s", pipelineName)
 	falseVal := false
 	opts := &metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
-	services, err := a.kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	services, err := kubeClient.CoreV1().Services(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return err
 	}
 	for _, service := range services.Items {
-		if err := a.kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().Services(a.namespace).Delete(service.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return err
 			}
 		}
 	}
-	rcs, err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
+	rcs, err := kubeClient.CoreV1().ReplicationControllers(a.namespace).List(metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
 		return err
 	}
 	for _, rc := range rcs.Items {
-		if err := a.kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
+		if err := kubeClient.CoreV1().ReplicationControllers(a.namespace).Delete(rc.Name, opts); err != nil {
 			if !isNotFoundErr(err) {
 				return err
 			}
@@ -404,7 +405,7 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
 }
 
 func (a *apiServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		metav1.GetOptions{})
@@ -417,14 +418,14 @@ func (a *apiServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) 
 }
 
 func (a *apiServer) scaleUpWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
-	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+	rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	parallelism, err := ppsutil.GetExpectedNumWorkers(a.kubeClient, pipelineInfo.ParallelismSpec)
+	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
 	if err != nil {
 		log.Errorf("error getting number of workers, default to 1 worker: %v", err)
 		parallelism = 1
@@ -448,7 +449,7 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 
 func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState, reason string) error {
 	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
-	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
 		pipelinePtr := &pps.EtcdPipelineInfo{}
 		return pipelines.Update(pipelineInfo.Pipeline.Name, pipelinePtr, func() error {
@@ -562,37 +563,72 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 	if err != nil {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline
 	}
-	var tstamp *types.Timestamp
-	var buffer bytes.Buffer
-	if err := pachClient.GetFile(in.Cron.Repo, "master", "time", 0, 0, &buffer); err != nil && !isNilBranchErr(err) {
+	// make sure there isn't an unfinished commit on the branch
+	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master")
+	if err != nil && !isNilBranchErr(err) {
 		return err
-	} else if err != nil {
+	} else if commitInfo != nil && commitInfo.Finished == nil {
+		// and if there is, delete it
+		if err = pachClient.DeleteCommit(in.Cron.Repo, "master"); err != nil {
+			return err
+		}
+	}
+
+	var latestTime time.Time
+	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
+	if err != nil && !isNilBranchErr(err) {
+		return err
+	} else if err != nil || len(files) == 0 {
 		// File not found, this happens the first time the pipeline is run
-		tstamp = in.Cron.Start
+		latestTime, err = types.TimestampFromProto(in.Cron.Start)
+		if err != nil {
+			return err
+		}
 	} else {
-		tstamp = &types.Timestamp{}
-		if err := jsonpb.UnmarshalString(buffer.String(), tstamp); err != nil {
+		// Take the name of the most recent file as the latest timestamp
+		// ListFile returns the files in lexicographical order, and the RFC3339 format goes
+		// from largest unit of time to smallest, so the most recent file will be the last one
+		latestTime, err = time.Parse(time.RFC3339, path.Base(files[len(files)-1].File.Path))
+		if err != nil {
 			return err
 		}
 	}
-	t, err := types.TimestampFromProto(tstamp)
-	if err != nil {
-		return err
-	}
+
 	for {
-		t = schedule.Next(t)
-		time.Sleep(time.Until(t))
-		timestamp, err := types.TimestampProto(t)
+		// get the time of the next time from the latest time using the cron schedule
+		next := schedule.Next(latestTime)
+		// and wait until then to make the next commit
+		time.Sleep(time.Until(next))
 		if err != nil {
 			return err
 		}
-		timeString, err := (&jsonpb.Marshaler{}).MarshalToString(timestamp)
+
+		// We need the DeleteFile and the PutFile to happen in the same commit
+		_, err = pachClient.StartCommit(in.Cron.Repo, "master")
 		if err != nil {
 			return err
 		}
-		if _, err := pachClient.PutFileOverwrite(in.Cron.Repo, "master", "time", strings.NewReader(timeString), 0); err != nil {
+		if in.Cron.Overwrite {
+			// If we want to "overwrite" the file, we need to delete the file with the previous time
+			err := pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
+			if err != nil && !isNotFoundErr(err) && !isNilBranchErr(err) {
+				return fmt.Errorf("delete error %v", err)
+			}
+		}
+
+		// Put in an empty file named by the timestamp
+		_, err = pachClient.PutFile(in.Cron.Repo, "master", next.Format(time.RFC3339), strings.NewReader(""))
+		if err != nil {
+			return fmt.Errorf("put error %v", err)
+		}
+
+		err = pachClient.FinishCommit(in.Cron.Repo, "master")
+		if err != nil {
 			return err
 		}
+
+		// set latestTime to the next time
+		latestTime = next
 	}
 }
 

@@ -32,7 +32,16 @@ $ gcloud config set container/cluster ${CLUSTER_NAME}
 $ MACHINE_TYPE=<machine type for the k8s nodes, we recommend "n1-standard-4" or larger>
 
 # By default the following command spins up a 3-node cluster. You can change the default with `--num-nodes VAL`.
-$ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE} 
+$ gcloud container clusters create ${CLUSTER_NAME} --scopes storage-rw --machine-type ${MACHINE_TYPE}
+
+# By default, GKE clusters have RBAC enabled. To allow 'pachctl deploy' to give the 'pachyderm' service account
+# the requisite privileges via clusterrolebindings, you will need to grant *your user account* the privileges
+# needed to create those clusterrolebindings.
+#
+# Note that this command is simple and concise, but gives your user account more privileges than necessary. See
+# https://docs.pachyderm.io/en/latest/deployment/rbac.html for the complete list of privileges that the
+# pachyderm serviceaccount needs.
+$ kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$(gcloud config get-value account)
 ```
 **Important Note: You must create the Kubernetes cluster via the gcloud command-line tool rather than the Google Cloud Console, as it's currently only possible to grant the `storage-rw` scope via the command-line tool**. Also note, you should deploy a 1.8.x cluster if possible to take full advantage of Pachyderm's latest features.
 
@@ -101,11 +110,11 @@ $ gsutil ls
 `pachctl` is a command-line utility for interacting with a Pachyderm cluster. You can install it locally as follows:
 
 ```sh
-# For OSX:
+# For macOS:
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.3/pachctl_1.8.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.6/pachctl_1.8.6_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can then run `pachctl version --client-only` to check that the installation was successful.

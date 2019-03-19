@@ -1079,7 +1079,7 @@ func (m *FileNodeProto) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1107,7 +1107,7 @@ func (m *FileNodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1116,6 +1116,9 @@ func (m *FileNodeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1138,7 +1141,7 @@ func (m *FileNodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1147,6 +1150,9 @@ func (m *FileNodeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1169,7 +1175,7 @@ func (m *FileNodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1182,6 +1188,9 @@ func (m *FileNodeProto) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthHashtree
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -1212,7 +1221,7 @@ func (m *Shared) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1240,7 +1249,7 @@ func (m *Shared) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1249,6 +1258,9 @@ func (m *Shared) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1273,7 +1285,7 @@ func (m *Shared) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1282,6 +1294,9 @@ func (m *Shared) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1306,7 +1321,7 @@ func (m *Shared) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.HeaderSize |= (int64(b) & 0x7F) << shift
+				m.HeaderSize |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1325,7 +1340,7 @@ func (m *Shared) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.FooterSize |= (int64(b) & 0x7F) << shift
+				m.FooterSize |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1337,6 +1352,9 @@ func (m *Shared) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthHashtree
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -1367,7 +1385,7 @@ func (m *DirectoryNodeProto) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1395,7 +1413,7 @@ func (m *DirectoryNodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1405,6 +1423,9 @@ func (m *DirectoryNodeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1424,7 +1445,7 @@ func (m *DirectoryNodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1433,6 +1454,9 @@ func (m *DirectoryNodeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1450,6 +1474,9 @@ func (m *DirectoryNodeProto) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthHashtree
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -1480,7 +1507,7 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1508,7 +1535,7 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1518,6 +1545,9 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1537,7 +1567,7 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= (int(b) & 0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1546,6 +1576,9 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1568,7 +1601,7 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.SubtreeSize |= (int64(b) & 0x7F) << shift
+				m.SubtreeSize |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1587,7 +1620,7 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1596,6 +1629,9 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1620,7 +1656,7 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1629,6 +1665,9 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1646,6 +1685,9 @@ func (m *NodeProto) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthHashtree
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -1676,7 +1718,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1704,7 +1746,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Version |= (int32(b) & 0x7F) << shift
+				m.Version |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1723,7 +1765,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1732,6 +1774,9 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1752,7 +1797,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
+					wire |= uint64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1769,7 +1814,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
+						stringLenmapkey |= uint64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1779,6 +1824,9 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthHashtree
 					}
 					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthHashtree
+					}
 					if postStringIndexmapkey > l {
 						return io.ErrUnexpectedEOF
 					}
@@ -1795,7 +1843,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						mapmsglen |= (int(b) & 0x7F) << shift
+						mapmsglen |= int(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1804,7 +1852,7 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 						return ErrInvalidLengthHashtree
 					}
 					postmsgIndex := iNdEx + mapmsglen
-					if mapmsglen < 0 {
+					if postmsgIndex < 0 {
 						return ErrInvalidLengthHashtree
 					}
 					if postmsgIndex > l {
@@ -1841,6 +1889,9 @@ func (m *HashTreeProto) Unmarshal(dAtA []byte) error {
 			if skippy < 0 {
 				return ErrInvalidLengthHashtree
 			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if (iNdEx + skippy) > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1869,7 +1920,7 @@ func (m *BucketHeader) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1897,7 +1948,7 @@ func (m *BucketHeader) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1907,6 +1958,9 @@ func (m *BucketHeader) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1919,6 +1973,9 @@ func (m *BucketHeader) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthHashtree
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -1949,7 +2006,7 @@ func (m *Index) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1977,7 +2034,7 @@ func (m *Index) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= (int(b) & 0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1986,6 +2043,9 @@ func (m *Index) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthHashtree
 			}
 			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthHashtree
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -2008,7 +2068,7 @@ func (m *Index) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Offset |= (uint64(b) & 0x7F) << shift
+				m.Offset |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -2020,6 +2080,9 @@ func (m *Index) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthHashtree
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthHashtree
 			}
 			if (iNdEx + skippy) > l {
@@ -2089,8 +2152,11 @@ func skipHashtree(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthHashtree
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthHashtree
 			}
 			return iNdEx, nil
@@ -2121,6 +2187,9 @@ func skipHashtree(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthHashtree
+				}
 			}
 			return iNdEx, nil
 		case 4:

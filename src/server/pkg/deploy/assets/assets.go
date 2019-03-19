@@ -115,8 +115,15 @@ type TLSOpts struct {
 	ServerKey  string
 }
 
+// FeatureFlags are flags for experimental features.
+type FeatureFlags struct {
+	// NewHashTree, if true, will make Pachyderm use 1.9 hash trees.
+	NewHashTree bool
+}
+
 // AssetOpts are options that are applicable to all the asset types.
 type AssetOpts struct {
+	FeatureFlags
 	PachdShards uint64
 	Version     string
 	LogLevel    string
@@ -1306,7 +1313,9 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 	}
 	fillDefaultResourceRequests(opts, persistentDiskBackend)
 	if opts.DashOnly {
-		WriteDashboardAssets(encoder, opts)
+		if dashErr := WriteDashboardAssets(encoder, opts); dashErr != nil {
+			return dashErr
+		}
 		return nil
 	}
 
@@ -1450,7 +1459,9 @@ func WriteLocalAssets(encoder Encoder, opts *AssetOpts, hostPath string) error {
 	if err := WriteAssets(encoder, opts, localBackend, localBackend, 1 /* = volume size (gb) */, hostPath); err != nil {
 		return err
 	}
-	WriteSecret(encoder, LocalSecret(), opts)
+	if secretErr := WriteSecret(encoder, LocalSecret(), opts); secretErr != nil {
+		return secretErr
+	}
 	return nil
 }
 
@@ -1563,14 +1574,14 @@ func objectMeta(name string, labels, annotations map[string]string, namespace st
 	}
 }
 
-// AddRegistry switchs the registry that an image is targetting.
+// AddRegistry switches the registry that an image is targeting, unless registry is blank
 func AddRegistry(registry string, imageName string) string {
+	if registry == "" {
+		return imageName
+	}
 	parts := strings.Split(imageName, "/")
 	if len(parts) == 3 {
 		parts = parts[1:]
 	}
-	if registry != "" {
-		return path.Join(registry, parts[0], parts[1])
-	}
-	return path.Join(parts[0], parts[1])
+	return path.Join(registry, parts[0], parts[1])
 }

@@ -361,7 +361,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -389,7 +389,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -399,6 +399,9 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMetrics
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMetrics
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -418,7 +421,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -428,6 +431,9 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMetrics
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMetrics
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -447,7 +453,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Nodes |= (int64(b) & 0x7F) << shift
+				m.Nodes |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -466,7 +472,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -476,6 +482,9 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthMetrics
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthMetrics
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -495,7 +504,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Repos |= (int64(b) & 0x7F) << shift
+				m.Repos |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -514,7 +523,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Commits |= (int64(b) & 0x7F) << shift
+				m.Commits |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -533,7 +542,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Files |= (int64(b) & 0x7F) << shift
+				m.Files |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -552,7 +561,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Bytes |= (int64(b) & 0x7F) << shift
+				m.Bytes |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -571,7 +580,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Jobs |= (int64(b) & 0x7F) << shift
+				m.Jobs |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -590,7 +599,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Pipelines |= (int64(b) & 0x7F) << shift
+				m.Pipelines |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -609,7 +618,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.ArchivedCommits |= (int64(b) & 0x7F) << shift
+				m.ArchivedCommits |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -628,7 +637,7 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.CancelledCommits |= (int64(b) & 0x7F) << shift
+				m.CancelledCommits |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -640,6 +649,9 @@ func (m *Metrics) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthMetrics
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthMetrics
 			}
 			if (iNdEx + skippy) > l {
@@ -709,8 +721,11 @@ func skipMetrics(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthMetrics
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthMetrics
 			}
 			return iNdEx, nil
@@ -741,6 +756,9 @@ func skipMetrics(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthMetrics
+				}
 			}
 			return iNdEx, nil
 		case 4:

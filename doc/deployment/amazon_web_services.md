@@ -53,18 +53,18 @@ To deploy and interact with Pachyderm, you will need `pachctl`, Pachyderm's comm
 
 
 ```shell
-# For OSX:
+# For macOS:
 $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
 
 # For Linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.3/pachctl_1.8.3_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.6/pachctl_1.8.6_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 ```
 
 You can try running `pachctl version --client-only` to verify that `pachctl` has been successfully installed.
 
 ```sh
 $ pachctl version --client-only
-1.7.0
+1.8.x
 ```
 
 #### Set up the Storage Resources

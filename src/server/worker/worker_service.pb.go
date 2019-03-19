@@ -252,9 +252,74 @@ func (m *CancelResponse) GetSuccess() bool {
 	return false
 }
 
+type GetChunkRequest struct {
+	Id                   int64    `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Shard                int64    `protobuf:"varint,2,opt,name=shard,proto3" json:"shard,omitempty"`
+	Stats                bool     `protobuf:"varint,3,opt,name=stats,proto3" json:"stats,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetChunkRequest) Reset()         { *m = GetChunkRequest{} }
+func (m *GetChunkRequest) String() string { return proto.CompactTextString(m) }
+func (*GetChunkRequest) ProtoMessage()    {}
+func (*GetChunkRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_23ff4b5163b7daa7, []int{3}
+}
+func (m *GetChunkRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetChunkRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetChunkRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetChunkRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetChunkRequest.Merge(m, src)
+}
+func (m *GetChunkRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetChunkRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetChunkRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetChunkRequest proto.InternalMessageInfo
+
+func (m *GetChunkRequest) GetId() int64 {
+	if m != nil {
+		return m.Id
+	}
+	return 0
+}
+
+func (m *GetChunkRequest) GetShard() int64 {
+	if m != nil {
+		return m.Shard
+	}
+	return 0
+}
+
+func (m *GetChunkRequest) GetStats() bool {
+	if m != nil {
+		return m.Stats
+	}
+	return false
+}
+
 type ChunkState struct {
-	State                State    `protobuf:"varint,1,opt,name=state,proto3,enum=worker.State" json:"state,omitempty"`
-	DatumID              string   `protobuf:"bytes,2,opt,name=datum_id,json=datumId,proto3" json:"datum_id,omitempty"`
+	State   State  `protobuf:"varint,1,opt,name=state,proto3,enum=worker.State" json:"state,omitempty"`
+	DatumID string `protobuf:"bytes,2,opt,name=datum_id,json=datumId,proto3" json:"datum_id,omitempty"`
+	// The IP address of the worker who processed this chunk
+	Address              string   `protobuf:"bytes,3,opt,name=address,proto3" json:"address,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -264,7 +329,7 @@ func (m *ChunkState) Reset()         { *m = ChunkState{} }
 func (m *ChunkState) String() string { return proto.CompactTextString(m) }
 func (*ChunkState) ProtoMessage()    {}
 func (*ChunkState) Descriptor() ([]byte, []int) {
-	return fileDescriptor_23ff4b5163b7daa7, []int{3}
+	return fileDescriptor_23ff4b5163b7daa7, []int{4}
 }
 func (m *ChunkState) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -307,6 +372,13 @@ func (m *ChunkState) GetDatumID() string {
 	return ""
 }
 
+func (m *ChunkState) GetAddress() string {
+	if m != nil {
+		return m.Address
+	}
+	return ""
+}
+
 type MergeState struct {
 	State                State       `protobuf:"varint,1,opt,name=state,proto3,enum=worker.State" json:"state,omitempty"`
 	Tree                 *pfs.Object `protobuf:"bytes,2,opt,name=tree,proto3" json:"tree,omitempty"`
@@ -322,7 +394,7 @@ func (m *MergeState) Reset()         { *m = MergeState{} }
 func (m *MergeState) String() string { return proto.CompactTextString(m) }
 func (*MergeState) ProtoMessage()    {}
 func (*MergeState) Descriptor() ([]byte, []int) {
-	return fileDescriptor_23ff4b5163b7daa7, []int{4}
+	return fileDescriptor_23ff4b5163b7daa7, []int{5}
 }
 func (m *MergeState) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -386,6 +458,45 @@ func (m *MergeState) GetStatsSizeBytes() uint64 {
 	return 0
 }
 
+type ShardInfo struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ShardInfo) Reset()         { *m = ShardInfo{} }
+func (m *ShardInfo) String() string { return proto.CompactTextString(m) }
+func (*ShardInfo) ProtoMessage()    {}
+func (*ShardInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_23ff4b5163b7daa7, []int{6}
+}
+func (m *ShardInfo) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ShardInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ShardInfo.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ShardInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ShardInfo.Merge(m, src)
+}
+func (m *ShardInfo) XXX_Size() int {
+	return m.Size()
+}
+func (m *ShardInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_ShardInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ShardInfo proto.InternalMessageInfo
+
 type Plan struct {
 	Chunks               []int64  `protobuf:"varint,1,rep,packed,name=chunks,proto3" json:"chunks,omitempty"`
 	Merges               int64    `protobuf:"varint,2,opt,name=merges,proto3" json:"merges,omitempty"`
@@ -398,7 +509,7 @@ func (m *Plan) Reset()         { *m = Plan{} }
 func (m *Plan) String() string { return proto.CompactTextString(m) }
 func (*Plan) ProtoMessage()    {}
 func (*Plan) Descriptor() ([]byte, []int) {
-	return fileDescriptor_23ff4b5163b7daa7, []int{5}
+	return fileDescriptor_23ff4b5163b7daa7, []int{7}
 }
 func (m *Plan) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -446,57 +557,65 @@ func init() {
 	proto.RegisterType((*Input)(nil), "worker.Input")
 	proto.RegisterType((*CancelRequest)(nil), "worker.CancelRequest")
 	proto.RegisterType((*CancelResponse)(nil), "worker.CancelResponse")
+	proto.RegisterType((*GetChunkRequest)(nil), "worker.GetChunkRequest")
 	proto.RegisterType((*ChunkState)(nil), "worker.ChunkState")
 	proto.RegisterType((*MergeState)(nil), "worker.MergeState")
+	proto.RegisterType((*ShardInfo)(nil), "worker.ShardInfo")
 	proto.RegisterType((*Plan)(nil), "worker.Plan")
 }
 
 func init() { proto.RegisterFile("server/worker/worker_service.proto", fileDescriptor_23ff4b5163b7daa7) }
 
 var fileDescriptor_23ff4b5163b7daa7 = []byte{
-	// 669 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x94, 0xcd, 0x6e, 0xd3, 0x40,
-	0x10, 0xc7, 0x63, 0x92, 0x38, 0xc9, 0xa4, 0xa9, 0xc2, 0x0a, 0x2a, 0xab, 0x88, 0x24, 0xb8, 0x12,
-	0x8a, 0x72, 0x70, 0xaa, 0x22, 0x90, 0x38, 0x92, 0x8f, 0x56, 0x46, 0xfd, 0xd2, 0xb6, 0x15, 0x82,
-	0x8b, 0x65, 0x3b, 0x1b, 0xc7, 0xad, 0xed, 0x35, 0xde, 0x35, 0x28, 0x7d, 0x12, 0xde, 0x08, 0x8e,
-	0x3c, 0x41, 0x85, 0xc2, 0x91, 0x97, 0x40, 0xbb, 0x1b, 0xd3, 0x16, 0x4e, 0x1c, 0x56, 0x99, 0xf9,
-	0xcd, 0xe4, 0x9f, 0xd9, 0x99, 0xd9, 0x80, 0xc9, 0x48, 0xf6, 0x89, 0x64, 0xc3, 0xcf, 0x34, 0xbb,
-	0xfa, 0xf3, 0xe1, 0x08, 0x18, 0xfa, 0xc4, 0x4a, 0x33, 0xca, 0x29, 0xd2, 0x15, 0xdd, 0x7e, 0xe4,
-	0x47, 0x21, 0x49, 0xf8, 0x30, 0x9d, 0x33, 0x71, 0x54, 0xf4, 0x96, 0xa6, 0x4c, 0x9c, 0x82, 0x06,
-	0x34, 0xa0, 0xd2, 0x1c, 0x0a, 0x6b, 0x4d, 0x9f, 0x04, 0x94, 0x06, 0x11, 0x19, 0x4a, 0xcf, 0xcb,
-	0xe7, 0x43, 0x12, 0xa7, 0x7c, 0xa9, 0x82, 0xe6, 0x2f, 0x0d, 0xaa, 0x76, 0x92, 0xe6, 0x1c, 0x0d,
-	0xa0, 0x31, 0x0f, 0x23, 0xe2, 0x84, 0xc9, 0x9c, 0x1a, 0x5a, 0x4f, 0xeb, 0x37, 0xf7, 0x5a, 0x96,
-	0xf8, 0xc5, 0xfd, 0x30, 0x22, 0x76, 0x32, 0xa7, 0xb8, 0x3e, 0x5f, 0x5b, 0x68, 0x17, 0x5a, 0xa9,
-	0x9b, 0x91, 0x84, 0x3b, 0x3e, 0x8d, 0xe3, 0x90, 0x1b, 0x55, 0x99, 0xdf, 0x94, 0xf9, 0x63, 0x89,
-	0xf0, 0x86, 0xca, 0x50, 0x1e, 0x42, 0x50, 0x49, 0xdc, 0x98, 0x18, 0x0f, 0x7a, 0x5a, 0xbf, 0x81,
-	0xa5, 0x2d, 0x58, 0xe4, 0x5e, 0x2f, 0x8d, 0x72, 0x4f, 0xeb, 0xd7, 0xb1, 0xb4, 0xd1, 0x16, 0xe8,
-	0x5e, 0xe6, 0x26, 0xfe, 0xc2, 0xa8, 0xc8, 0xcc, 0xb5, 0x87, 0x76, 0xa0, 0x16, 0x84, 0xdc, 0xc9,
-	0xb3, 0xc8, 0xd0, 0x45, 0x60, 0x04, 0xab, 0x9b, 0xae, 0x7e, 0x10, 0xf2, 0x0b, 0x7c, 0x88, 0xf5,
-	0x20, 0xe4, 0x17, 0x59, 0x84, 0xba, 0xd0, 0x94, 0x77, 0x73, 0x44, 0xa1, 0xcc, 0xa8, 0x49, 0x5d,
-	0x90, 0x48, 0x5c, 0x82, 0x99, 0xe7, 0xd0, 0x1a, 0xbb, 0x89, 0x4f, 0x22, 0x4c, 0x3e, 0xe6, 0x84,
-	0x71, 0xd4, 0x03, 0xfd, 0x92, 0x7a, 0x4e, 0x38, 0x53, 0x85, 0x8d, 0x1a, 0xab, 0x9b, 0x6e, 0xf5,
-	0x2d, 0xf5, 0xec, 0x09, 0xae, 0x5e, 0x52, 0xcf, 0x9e, 0xa1, 0x67, 0xb0, 0x31, 0x73, 0xb9, 0x2b,
-	0x24, 0x39, 0xc9, 0x98, 0xa1, 0xf5, 0xca, 0xfd, 0x06, 0x6e, 0x0a, 0xb6, 0xaf, 0x90, 0x39, 0x80,
-	0xcd, 0x42, 0x95, 0xa5, 0x34, 0x61, 0x04, 0x19, 0x50, 0x63, 0xb9, 0xef, 0x13, 0xc6, 0x64, 0x27,
-	0xeb, 0xb8, 0x70, 0xcd, 0xf7, 0x00, 0xe3, 0x45, 0x9e, 0x5c, 0x9d, 0x71, 0x97, 0x13, 0xb4, 0x03,
-	0x55, 0x26, 0x0c, 0x99, 0xb5, 0xb9, 0xd7, 0xb2, 0xd4, 0xd0, 0x2d, 0x19, 0xc5, 0x2a, 0x86, 0x9e,
-	0x43, 0x7d, 0xe6, 0xf2, 0x3c, 0xbe, 0xad, 0xb2, 0xb9, 0xba, 0xe9, 0xd6, 0x26, 0x82, 0xd9, 0x13,
-	0x5c, 0x93, 0x41, 0x7b, 0x66, 0x7e, 0xd5, 0x00, 0x8e, 0x48, 0x16, 0x90, 0xff, 0xd0, 0xee, 0x42,
-	0x85, 0x67, 0x44, 0x8d, 0xa5, 0x98, 0xdf, 0x89, 0x77, 0x49, 0x7c, 0x8e, 0x65, 0x00, 0x3d, 0x05,
-	0x60, 0xe1, 0x35, 0x71, 0xbc, 0x25, 0x27, 0x4c, 0x4e, 0xaa, 0x82, 0x1b, 0x82, 0x8c, 0x04, 0x40,
-	0x03, 0x00, 0x21, 0xc4, 0x1c, 0xa9, 0x52, 0xf9, 0x57, 0xa5, 0x21, 0xc3, 0xe7, 0x42, 0xaa, 0x0f,
-	0x6d, 0x95, 0x7b, 0x47, 0xb0, 0x2a, 0x05, 0x37, 0x25, 0x3f, 0x2b, 0x54, 0xcd, 0x57, 0x50, 0x39,
-	0x8d, 0xdc, 0x44, 0x2c, 0x83, 0x2f, 0x9a, 0xa5, 0xba, 0x5e, 0xc6, 0x6b, 0x4f, 0xf0, 0x58, 0x5c,
-	0x94, 0xc9, 0xba, 0xcb, 0x78, 0xed, 0x0d, 0x2c, 0xa8, 0xaa, 0xbb, 0x37, 0xa1, 0x86, 0x2f, 0x8e,
-	0x8f, 0xed, 0xe3, 0x83, 0x76, 0x09, 0x6d, 0x40, 0x7d, 0x7c, 0x72, 0x74, 0x7a, 0x38, 0x3d, 0x9f,
-	0xb6, 0x35, 0x04, 0xa0, 0xef, 0xbf, 0xb1, 0x0f, 0xa7, 0x93, 0x76, 0x79, 0xef, 0x1a, 0xf4, 0x77,
-	0xb2, 0x29, 0xe8, 0x25, 0xe8, 0xe2, 0x9b, 0x39, 0x43, 0x5b, 0x96, 0x7a, 0x2e, 0x56, 0xf1, 0x5c,
-	0xac, 0xa9, 0xd8, 0x9f, 0xed, 0x87, 0x96, 0x78, 0x67, 0x2a, 0x5d, 0xa5, 0x9a, 0x25, 0xf4, 0x1a,
-	0x74, 0x35, 0x79, 0xf4, 0xb8, 0x68, 0xef, 0xbd, 0xfd, 0xda, 0xde, 0xfa, 0x1b, 0xab, 0x05, 0x31,
-	0x4b, 0xa3, 0xd1, 0xb7, 0x55, 0x47, 0xfb, 0xbe, 0xea, 0x68, 0x3f, 0x56, 0x1d, 0xed, 0xcb, 0xcf,
-	0x4e, 0xe9, 0xc3, 0x6e, 0x10, 0xf2, 0x45, 0xee, 0x59, 0x3e, 0x8d, 0x87, 0xa9, 0xeb, 0x2f, 0x96,
-	0x33, 0x92, 0xdd, 0xb5, 0x58, 0xe6, 0x0f, 0xef, 0xfd, 0x71, 0x78, 0xba, 0xac, 0xf1, 0xc5, 0xef,
-	0x00, 0x00, 0x00, 0xff, 0xff, 0x3e, 0x22, 0x89, 0xbc, 0x50, 0x04, 0x00, 0x00,
+	// 764 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x54, 0xdd, 0x6e, 0xe3, 0x44,
+	0x14, 0x8e, 0x9b, 0xc4, 0x49, 0x4e, 0x9a, 0x10, 0x46, 0x4b, 0xb1, 0xb2, 0x22, 0x09, 0x5e, 0x09,
+	0x45, 0xb9, 0x70, 0xaa, 0x22, 0x90, 0xb8, 0x24, 0x3f, 0xad, 0x8c, 0xda, 0xee, 0x6a, 0xda, 0x82,
+	0xc4, 0x8d, 0x35, 0xb6, 0x27, 0x8e, 0xbb, 0x8e, 0x6d, 0x66, 0xc6, 0xac, 0xb2, 0x4f, 0xc2, 0xe3,
+	0x70, 0x07, 0x97, 0x3c, 0x41, 0x85, 0xc2, 0x25, 0x2f, 0x81, 0x66, 0xc6, 0x66, 0x77, 0xdb, 0xab,
+	0xbd, 0xb0, 0x72, 0xce, 0x77, 0x3e, 0x7f, 0x3e, 0xe7, 0xcc, 0x37, 0x01, 0x9b, 0x53, 0xf6, 0x2b,
+	0x65, 0xf3, 0x37, 0x19, 0x7b, 0xfd, 0xff, 0x8f, 0x27, 0xc1, 0x38, 0xa0, 0x4e, 0xce, 0x32, 0x91,
+	0x21, 0x53, 0xa3, 0xc3, 0x67, 0x41, 0x12, 0xd3, 0x54, 0xcc, 0xf3, 0x0d, 0x97, 0x8f, 0xae, 0xbe,
+	0x43, 0x73, 0x2e, 0x9f, 0x0a, 0x8d, 0xb2, 0x28, 0x53, 0xe1, 0x5c, 0x46, 0x25, 0xfa, 0x3c, 0xca,
+	0xb2, 0x28, 0xa1, 0x73, 0x95, 0xf9, 0xc5, 0x66, 0x4e, 0x77, 0xb9, 0xd8, 0x97, 0xc5, 0xd1, 0xe3,
+	0xe2, 0x1b, 0x46, 0xf2, 0x9c, 0xb2, 0x52, 0xd2, 0xfe, 0xd7, 0x80, 0xa6, 0x9b, 0xe6, 0x85, 0x40,
+	0x33, 0xe8, 0x6c, 0xe2, 0x84, 0x7a, 0x71, 0xba, 0xc9, 0x2c, 0x63, 0x62, 0x4c, 0xbb, 0x67, 0x3d,
+	0x47, 0x76, 0x74, 0x1e, 0x27, 0xd4, 0x4d, 0x37, 0x19, 0x6e, 0x6f, 0xca, 0x08, 0x9d, 0x42, 0x2f,
+	0x27, 0x8c, 0xa6, 0xc2, 0x0b, 0xb2, 0xdd, 0x2e, 0x16, 0x56, 0x53, 0xf1, 0xbb, 0x8a, 0xbf, 0x54,
+	0x10, 0x3e, 0xd6, 0x0c, 0x9d, 0x21, 0x04, 0x8d, 0x94, 0xec, 0xa8, 0x75, 0x34, 0x31, 0xa6, 0x1d,
+	0xac, 0x62, 0x89, 0x25, 0xe4, 0xed, 0xde, 0xaa, 0x4f, 0x8c, 0x69, 0x1b, 0xab, 0x18, 0x9d, 0x80,
+	0xe9, 0x33, 0x92, 0x06, 0x5b, 0xab, 0xa1, 0x98, 0x65, 0x86, 0x5e, 0x40, 0x2b, 0x8a, 0x85, 0x57,
+	0xb0, 0xc4, 0x32, 0x65, 0x61, 0x01, 0x87, 0x87, 0xb1, 0x79, 0x11, 0x8b, 0x3b, 0x7c, 0x89, 0xcd,
+	0x28, 0x16, 0x77, 0x2c, 0x41, 0x63, 0xe8, 0xaa, 0xd9, 0x3d, 0xd9, 0x28, 0xb7, 0x5a, 0x4a, 0x17,
+	0x14, 0x24, 0x87, 0xe0, 0xf6, 0x2d, 0xf4, 0x96, 0x24, 0x0d, 0x68, 0x82, 0xe9, 0x2f, 0x05, 0xe5,
+	0x02, 0x4d, 0xc0, 0xbc, 0xcf, 0x7c, 0x2f, 0x0e, 0x75, 0x63, 0x8b, 0xce, 0xe1, 0x61, 0xdc, 0xfc,
+	0x21, 0xf3, 0xdd, 0x15, 0x6e, 0xde, 0x67, 0xbe, 0x1b, 0xa2, 0x2f, 0xe1, 0x38, 0x24, 0x82, 0x48,
+	0x49, 0x41, 0x19, 0xb7, 0x8c, 0x49, 0x7d, 0xda, 0xc1, 0x5d, 0x89, 0x9d, 0x6b, 0xc8, 0x9e, 0x41,
+	0xbf, 0x52, 0xe5, 0x79, 0x96, 0x72, 0x8a, 0x2c, 0x68, 0xf1, 0x22, 0x08, 0x28, 0xe7, 0x6a, 0x93,
+	0x6d, 0x5c, 0xa5, 0xf6, 0x15, 0x7c, 0x72, 0x41, 0xc5, 0x72, 0x5b, 0xa4, 0xaf, 0xab, 0x1e, 0xfa,
+	0x70, 0x14, 0x87, 0x8a, 0x57, 0xc7, 0x47, 0x71, 0x88, 0x9e, 0x41, 0x93, 0x6f, 0x09, 0xd3, 0x2d,
+	0xd5, 0xb1, 0x4e, 0x14, 0x2a, 0x88, 0xe0, 0xe5, 0xb6, 0x74, 0x62, 0x73, 0x00, 0xa5, 0x75, 0x23,
+	0x88, 0xa0, 0xe8, 0x85, 0xe6, 0x50, 0x25, 0xd6, 0x3f, 0xeb, 0x39, 0xda, 0x63, 0x8e, 0xaa, 0xea,
+	0x57, 0x28, 0xfa, 0x0a, 0xda, 0x21, 0x11, 0xc5, 0xee, 0xdd, 0xd0, 0xdd, 0xc3, 0xc3, 0xb8, 0xb5,
+	0x92, 0x98, 0xbb, 0xc2, 0x2d, 0x55, 0x74, 0x43, 0x39, 0x03, 0x09, 0x43, 0x26, 0x67, 0xa8, 0xab,
+	0xa3, 0xa8, 0x52, 0xfb, 0x0f, 0x03, 0xe0, 0x8a, 0xb2, 0x88, 0x7e, 0xc4, 0x57, 0xc7, 0xd0, 0x10,
+	0x8c, 0xea, 0xf3, 0xaf, 0x8c, 0xf2, 0xd2, 0xbf, 0xa7, 0x81, 0xc0, 0xaa, 0x80, 0xbe, 0x00, 0xe0,
+	0xf1, 0x5b, 0xea, 0xf9, 0x7b, 0x41, 0xf5, 0x17, 0x1b, 0xb8, 0x23, 0x91, 0x85, 0x04, 0xd0, 0x0c,
+	0x40, 0x4d, 0xec, 0x29, 0x95, 0xc6, 0x53, 0x95, 0x8e, 0x2a, 0xdf, 0x4a, 0xa9, 0x29, 0x0c, 0x34,
+	0xf7, 0x3d, 0xc1, 0xa6, 0x12, 0xec, 0x2b, 0xfc, 0xa6, 0x52, 0xb5, 0xbb, 0xd0, 0xb9, 0x91, 0xdb,
+	0x95, 0xa6, 0xb6, 0xbf, 0x85, 0xc6, 0xab, 0x84, 0xa4, 0xd2, 0x82, 0x81, 0xdc, 0xa9, 0x3e, 0xeb,
+	0x3a, 0x2e, 0x33, 0x89, 0xef, 0xe4, 0xd4, 0xbc, 0x3c, 0x98, 0x32, 0x9b, 0x39, 0xd0, 0xd4, 0x8b,
+	0xe8, 0x42, 0x0b, 0xdf, 0x5d, 0x5f, 0xbb, 0xd7, 0x17, 0x83, 0x1a, 0x3a, 0x86, 0xf6, 0xf2, 0xe5,
+	0xd5, 0xab, 0xcb, 0xf5, 0xed, 0x7a, 0x60, 0x20, 0x00, 0xf3, 0xfc, 0x7b, 0xf7, 0x72, 0xbd, 0x1a,
+	0xd4, 0xcf, 0x7e, 0x37, 0xc0, 0xfc, 0x49, 0xad, 0x08, 0x7d, 0x03, 0xa6, 0x7c, 0xb5, 0xe0, 0xe8,
+	0xc4, 0xd1, 0x17, 0xd5, 0xa9, 0x2e, 0xaa, 0xb3, 0x96, 0xb6, 0x1d, 0x7e, 0xea, 0xc8, 0xeb, 0xaf,
+	0xe9, 0x9a, 0x6a, 0xd7, 0xd0, 0x77, 0x60, 0x6a, 0xc3, 0xa1, 0xcf, 0xaa, 0x65, 0x7f, 0x60, 0xeb,
+	0xe1, 0xc9, 0x63, 0x58, 0xfb, 0xd2, 0xae, 0xa1, 0x15, 0xb4, 0x2b, 0xff, 0xa1, 0xcf, 0x2b, 0xd6,
+	0x23, 0x47, 0x0e, 0x9f, 0x3f, 0x69, 0x46, 0xad, 0xeb, 0x47, 0x92, 0x14, 0xd4, 0xae, 0x9d, 0x1a,
+	0x8b, 0xc5, 0x9f, 0x87, 0x91, 0xf1, 0xd7, 0x61, 0x64, 0xfc, 0x7d, 0x18, 0x19, 0xbf, 0xfd, 0x33,
+	0xaa, 0xfd, 0x7c, 0x1a, 0xc5, 0x62, 0x5b, 0xf8, 0x4e, 0x90, 0xed, 0xe6, 0x39, 0x09, 0xb6, 0xfb,
+	0x90, 0xb2, 0xf7, 0x23, 0xce, 0x82, 0xf9, 0x07, 0xff, 0x8a, 0xbe, 0xa9, 0xc4, 0xbf, 0xfe, 0x2f,
+	0x00, 0x00, 0xff, 0xff, 0x7e, 0x82, 0x9b, 0xc9, 0x2d, 0x05, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -513,6 +632,7 @@ const _ = grpc.SupportPackageIsVersion4
 type WorkerClient interface {
 	Status(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*pps.WorkerStatus, error)
 	Cancel(ctx context.Context, in *CancelRequest, opts ...grpc.CallOption) (*CancelResponse, error)
+	GetChunk(ctx context.Context, in *GetChunkRequest, opts ...grpc.CallOption) (Worker_GetChunkClient, error)
 }
 
 type workerClient struct {
@@ -541,10 +661,43 @@ func (c *workerClient) Cancel(ctx context.Context, in *CancelRequest, opts ...gr
 	return out, nil
 }
 
+func (c *workerClient) GetChunk(ctx context.Context, in *GetChunkRequest, opts ...grpc.CallOption) (Worker_GetChunkClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Worker_serviceDesc.Streams[0], "/worker.Worker/GetChunk", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &workerGetChunkClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Worker_GetChunkClient interface {
+	Recv() (*types.BytesValue, error)
+	grpc.ClientStream
+}
+
+type workerGetChunkClient struct {
+	grpc.ClientStream
+}
+
+func (x *workerGetChunkClient) Recv() (*types.BytesValue, error) {
+	m := new(types.BytesValue)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // WorkerServer is the server API for Worker service.
 type WorkerServer interface {
 	Status(context.Context, *types.Empty) (*pps.WorkerStatus, error)
 	Cancel(context.Context, *CancelRequest) (*CancelResponse, error)
+	GetChunk(*GetChunkRequest, Worker_GetChunkServer) error
 }
 
 func RegisterWorkerServer(s *grpc.Server, srv WorkerServer) {
@@ -587,6 +740,27 @@ func _Worker_Cancel_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Worker_GetChunk_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetChunkRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(WorkerServer).GetChunk(m, &workerGetChunkServer{stream})
+}
+
+type Worker_GetChunkServer interface {
+	Send(*types.BytesValue) error
+	grpc.ServerStream
+}
+
+type workerGetChunkServer struct {
+	grpc.ServerStream
+}
+
+func (x *workerGetChunkServer) Send(m *types.BytesValue) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _Worker_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "worker.Worker",
 	HandlerType: (*WorkerServer)(nil),
@@ -600,7 +774,13 @@ var _Worker_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Worker_Cancel_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetChunk",
+			Handler:       _Worker_GetChunk_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "server/worker/worker_service.proto",
 }
 
@@ -756,6 +936,47 @@ func (m *CancelResponse) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *GetChunkRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetChunkRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Id != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.Id))
+	}
+	if m.Shard != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.Shard))
+	}
+	if m.Stats {
+		dAtA[i] = 0x18
+		i++
+		if m.Stats {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func (m *ChunkState) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -781,6 +1002,12 @@ func (m *ChunkState) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.DatumID)))
 		i += copy(dAtA[i:], m.DatumID)
+	}
+	if len(m.Address) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.Address)))
+		i += copy(dAtA[i:], m.Address)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -838,6 +1065,27 @@ func (m *MergeState) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintWorkerService(dAtA, i, uint64(m.StatsSizeBytes))
 	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ShardInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ShardInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -972,6 +1220,27 @@ func (m *CancelResponse) Size() (n int) {
 	return n
 }
 
+func (m *GetChunkRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Id != 0 {
+		n += 1 + sovWorkerService(uint64(m.Id))
+	}
+	if m.Shard != 0 {
+		n += 1 + sovWorkerService(uint64(m.Shard))
+	}
+	if m.Stats {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *ChunkState) Size() (n int) {
 	if m == nil {
 		return 0
@@ -982,6 +1251,10 @@ func (m *ChunkState) Size() (n int) {
 		n += 1 + sovWorkerService(uint64(m.State))
 	}
 	l = len(m.DatumID)
+	if l > 0 {
+		n += 1 + l + sovWorkerService(uint64(l))
+	}
+	l = len(m.Address)
 	if l > 0 {
 		n += 1 + l + sovWorkerService(uint64(l))
 	}
@@ -1014,6 +1287,18 @@ func (m *MergeState) Size() (n int) {
 	if m.StatsSizeBytes != 0 {
 		n += 1 + sovWorkerService(uint64(m.StatsSizeBytes))
 	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ShardInfo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -1070,7 +1355,7 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1098,7 +1383,7 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1107,6 +1392,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1131,7 +1419,7 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1141,6 +1429,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1160,7 +1451,7 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1180,7 +1471,7 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1190,6 +1481,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1209,7 +1503,7 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1218,6 +1512,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1242,7 +1539,7 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1252,6 +1549,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1271,7 +1571,7 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1284,6 +1584,9 @@ func (m *Input) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthWorkerService
 			}
 			if (iNdEx + skippy) > l {
@@ -1314,7 +1617,7 @@ func (m *CancelRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1342,7 +1645,7 @@ func (m *CancelRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1352,6 +1655,9 @@ func (m *CancelRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1371,7 +1677,7 @@ func (m *CancelRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1381,6 +1687,9 @@ func (m *CancelRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1393,6 +1702,9 @@ func (m *CancelRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthWorkerService
 			}
 			if (iNdEx + skippy) > l {
@@ -1423,7 +1735,7 @@ func (m *CancelResponse) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1451,7 +1763,7 @@ func (m *CancelResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				v |= (int(b) & 0x7F) << shift
+				v |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1464,6 +1776,121 @@ func (m *CancelResponse) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetChunkRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWorkerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetChunkRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetChunkRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			m.Id = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Id |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Shard", wireType)
+			}
+			m.Shard = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Shard |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Stats = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWorkerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthWorkerService
 			}
 			if (iNdEx + skippy) > l {
@@ -1494,7 +1921,7 @@ func (m *ChunkState) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1522,7 +1949,7 @@ func (m *ChunkState) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.State |= (State(b) & 0x7F) << shift
+				m.State |= State(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1541,7 +1968,7 @@ func (m *ChunkState) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1551,10 +1978,45 @@ func (m *ChunkState) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
 			m.DatumID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWorkerService
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Address = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -1563,6 +2025,9 @@ func (m *ChunkState) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthWorkerService
 			}
 			if (iNdEx + skippy) > l {
@@ -1593,7 +2058,7 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1621,7 +2086,7 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.State |= (State(b) & 0x7F) << shift
+				m.State |= State(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1640,7 +2105,7 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1649,6 +2114,9 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1673,7 +2141,7 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.SizeBytes |= (uint64(b) & 0x7F) << shift
+				m.SizeBytes |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1692,7 +2160,7 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1701,6 +2169,9 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthWorkerService
 			}
 			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthWorkerService
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -1725,7 +2196,7 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.StatsSizeBytes |= (uint64(b) & 0x7F) << shift
+				m.StatsSizeBytes |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1737,6 +2208,63 @@ func (m *MergeState) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ShardInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWorkerService
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ShardInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ShardInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWorkerService(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthWorkerService
 			}
 			if (iNdEx + skippy) > l {
@@ -1767,7 +2295,7 @@ func (m *Plan) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -1793,7 +2321,7 @@ func (m *Plan) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					v |= (int64(b) & 0x7F) << shift
+					v |= int64(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1810,7 +2338,7 @@ func (m *Plan) Unmarshal(dAtA []byte) error {
 					}
 					b := dAtA[iNdEx]
 					iNdEx++
-					packedLen |= (int(b) & 0x7F) << shift
+					packedLen |= int(b&0x7F) << shift
 					if b < 0x80 {
 						break
 					}
@@ -1819,12 +2347,15 @@ func (m *Plan) Unmarshal(dAtA []byte) error {
 					return ErrInvalidLengthWorkerService
 				}
 				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthWorkerService
+				}
 				if postIndex > l {
 					return io.ErrUnexpectedEOF
 				}
 				var elementCount int
 				var count int
-				for _, integer := range dAtA {
+				for _, integer := range dAtA[iNdEx:postIndex] {
 					if integer < 128 {
 						count++
 					}
@@ -1844,7 +2375,7 @@ func (m *Plan) Unmarshal(dAtA []byte) error {
 						}
 						b := dAtA[iNdEx]
 						iNdEx++
-						v |= (int64(b) & 0x7F) << shift
+						v |= int64(b&0x7F) << shift
 						if b < 0x80 {
 							break
 						}
@@ -1868,7 +2399,7 @@ func (m *Plan) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Merges |= (int64(b) & 0x7F) << shift
+				m.Merges |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -1880,6 +2411,9 @@ func (m *Plan) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthWorkerService
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthWorkerService
 			}
 			if (iNdEx + skippy) > l {
@@ -1949,8 +2483,11 @@ func skipWorkerService(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthWorkerService
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthWorkerService
 			}
 			return iNdEx, nil
@@ -1981,6 +2518,9 @@ func skipWorkerService(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthWorkerService
+				}
 			}
 			return iNdEx, nil
 		case 4:

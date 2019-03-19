@@ -184,12 +184,23 @@ docker-clean-test:
 	docker stop test_compile || true
 	docker rm test_compile || true
 
-docker-build-test: docker-clean-test
+docker-build-test: docker-clean-test docker-build-compile
+	@# build the pachyderm_test_buildenv container
+	etc/compile/compile_test.sh --make-env
+	mkdir ./_tmp || true
+	@# build pachyderm_test container (don't use COMPILE_RUN_ARGS b/c we don't
+	@# want to run this as a daemon container
 	docker run \
-		-v $$GOPATH/go/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
-		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-		--name test_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) sh /etc/compile/compile_test.sh
-	etc/compile/wait.sh test_compile
+	  --attach stdout \
+	  --attach stderr \
+	  --rm \
+	  -w /go/src/github.com/pachyderm/pachyderm \
+	  -v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+	  -v $$HOME/.cache/go-build:/root/.cache/go-build \
+	  -v /var/run/docker.sock:/var/run/docker.sock \
+	  --privileged=true \
+	  --name test_compile \
+	  pachyderm_test_buildenv sh /go/src/github.com/pachyderm/pachyderm/etc/compile/compile_test.sh
 	docker tag pachyderm_test:latest pachyderm/test:`git rev-list HEAD --max-count=1`
 
 docker-push-test:
@@ -198,7 +209,10 @@ docker-push-test:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build-helper: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+docker-build-helper: enterprise-code-checkin-test
+	@# run these in separate make process so that if
+	@# 'enterprise-code-checkin-test' fails, the rest of the build process aborts
+	@make docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
 docker-build:
 	docker pull $(COMPILE_IMAGE)
@@ -279,11 +293,12 @@ install-bench: install
 	[ -f /usr/local/bin/pachctl ] || sudo ln -s $(GOPATH)/bin/pachctl /usr/local/bin/pachctl
 
 launch-dev-test: docker-build-test docker-push-test
-	sudo kubectl run bench --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
-	    --restart=Never \
-	    --attach=true \
-	    -- \
-	    ./test -test.v
+	kubectl run pachyderm-test --image=pachyderm/test:`git rev-list HEAD --max-count=1` \
+	  --rm \
+	  --restart=Never \
+	  --attach=true \
+	  -- \
+	  ./test -test.v
 
 aws-test: tag-images push-images
 	ZONE=sa-east-1a etc/testing/deploy/aws.sh --create
@@ -436,9 +451,10 @@ local-test: docker-build launch-dev test-pfs clean-launch-dev
 test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
+	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
 	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
-	if grep --files-with-matches --exclude=Makefile --exclude-from=.gitignore -r -e 'RM2o1Qit6YlZhS1RGdXVac' . ; \
+	if ag --ignore=Makefile -p .gitignore 'RM2o1Qit6YlZhS1RGdXVac'; \
 	then \
 	  $$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
 	  false; \
@@ -477,6 +493,7 @@ test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
+	go test ./src/server/pkg/localcache -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true

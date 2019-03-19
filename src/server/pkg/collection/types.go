@@ -27,6 +27,9 @@ type Collection interface {
 	ReadWriteInt(stm STM) ReadWriteIntCollection
 	// For read-only operatons, use the ReadOnly for better performance
 	ReadOnly(ctx context.Context) ReadonlyCollection
+	// Claim attempts to claim a key and run the passed in callback with
+	// the context for the claim.
+	Claim(ctx context.Context, key string, val proto.Message, f func(context.Context) error) error
 }
 
 // Index specifies a secondary index on a collection.
@@ -105,10 +108,8 @@ type ReadonlyCollection interface {
 	List(val proto.Message, opts *Options, f func(key string) error) error
 	ListPrefix(prefix string, val proto.Message, opts *Options, f func(string) error) error
 	Count() (int64, error)
-	Watch() (watch.Watcher, error)
-	// WatchWithPrev is like Watch, but the events will include the previous
-	// versions of the key/value.
-	WatchWithPrev() (watch.Watcher, error)
+	Watch(opts ...watch.OpOption) (watch.Watcher, error)
 	WatchOne(key string) (watch.Watcher, error)
+	WatchOneF(key string, f func(*watch.Event) error) error
 	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }

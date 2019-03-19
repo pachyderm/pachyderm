@@ -383,7 +383,7 @@ func (m *GetRequest) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -411,7 +411,7 @@ func (m *GetRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -421,6 +421,9 @@ func (m *GetRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGroupcache
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGroupcache
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -442,7 +445,7 @@ func (m *GetRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
+				stringLen |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -452,6 +455,9 @@ func (m *GetRequest) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGroupcache
 			}
 			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGroupcache
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -466,6 +472,9 @@ func (m *GetRequest) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthGroupcache
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthGroupcache
 			}
 			if (iNdEx + skippy) > l {
@@ -502,7 +511,7 @@ func (m *GetResponse) Unmarshal(dAtA []byte) error {
 			}
 			b := dAtA[iNdEx]
 			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
+			wire |= uint64(b&0x7F) << shift
 			if b < 0x80 {
 				break
 			}
@@ -530,7 +539,7 @@ func (m *GetResponse) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				byteLen |= (int(b) & 0x7F) << shift
+				byteLen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
@@ -539,6 +548,9 @@ func (m *GetResponse) Unmarshal(dAtA []byte) error {
 				return ErrInvalidLengthGroupcache
 			}
 			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthGroupcache
+			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
@@ -566,6 +578,9 @@ func (m *GetResponse) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			if skippy < 0 {
+				return ErrInvalidLengthGroupcache
+			}
+			if (iNdEx + skippy) < 0 {
 				return ErrInvalidLengthGroupcache
 			}
 			if (iNdEx + skippy) > l {
@@ -635,8 +650,11 @@ func skipGroupcache(dAtA []byte) (n int, err error) {
 					break
 				}
 			}
-			iNdEx += length
 			if length < 0 {
+				return 0, ErrInvalidLengthGroupcache
+			}
+			iNdEx += length
+			if iNdEx < 0 {
 				return 0, ErrInvalidLengthGroupcache
 			}
 			return iNdEx, nil
@@ -667,6 +685,9 @@ func skipGroupcache(dAtA []byte) (n int, err error) {
 					return 0, err
 				}
 				iNdEx = start + next
+				if iNdEx < 0 {
+					return 0, ErrInvalidLengthGroupcache
+				}
 			}
 			return iNdEx, nil
 		case 4:
