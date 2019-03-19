@@ -169,14 +169,6 @@ func NewCronInput(name string, spec string) *pps.Input {
 	}
 }
 
-// NewJobInput creates a pps.JobInput.
-func NewJobInput(repoName string, commitID string, glob string) *pps.JobInput {
-	return &pps.JobInput{
-		Commit: NewCommit(repoName, commitID),
-		Glob:   glob,
-	}
-}
-
 // NewPipeline creates a pps.Pipeline.
 func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}

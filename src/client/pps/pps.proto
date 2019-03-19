@@ -117,13 +117,6 @@ message Input {
   GitInput git = 5;
 }
 
-message JobInput {
-  string name = 4;
-  pfs.Commit commit = 1;
-  string glob = 2;
-  bool lazy = 3;
-}
-
 message ParallelismSpec {
   reserved 1;
 
