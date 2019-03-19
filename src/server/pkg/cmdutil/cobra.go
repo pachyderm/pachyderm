@@ -138,7 +138,7 @@ type BatchArgs struct {
 	Flags map[string][]string
 }
 
-// GetStringFlag is a helper functions for accessing BatchArgs.Flags.  In order
+// GetStringFlag is a helper function for accessing BatchArgs.Flags.  In order
 // to avoid type problems, BatchArgs assumes all flags may be repeated strings.
 // This helper function should be used when a flag should only have one value,
 // it will return the last-specified value for that flag, or the zero-value if
@@ -151,7 +151,7 @@ func (args *BatchArgs) GetStringFlag(name string) string {
 	return ""
 }
 
-// GetBoolFlag is a helper functions for accessing BatchArgs.Flags.  In order
+// GetBoolFlag is a helper function for accessing BatchArgs.Flags.  In order
 // to avoid type problems, BatchArgs assumes all flags may be repeated strings.
 // This helper function should be used when a flag should only have one value,
 // it will return the last-specified value for that flag, or the zero-value if
@@ -164,7 +164,7 @@ func (args *BatchArgs) GetBoolFlag(name string) (bool, error) {
 	return false, nil
 }
 
-// GetUintFlag is a helper functions for accessing BatchArgs.Flags.  In order
+// GetUintFlag is a helper function for accessing BatchArgs.Flags.  In order
 // to avoid type problems, BatchArgs assumes all flags may be repeated strings.
 // This helper function should be used when a flag should only have one value,
 // it will return the last-specified value for that flag, or the zero-value if

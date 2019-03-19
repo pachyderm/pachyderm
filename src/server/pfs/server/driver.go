@@ -2150,7 +2150,6 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 			return err
 		}
 	}
-
 	return nil
 }
 

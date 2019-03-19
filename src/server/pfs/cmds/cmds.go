@@ -1404,9 +1404,9 @@ func putFileHelper(
 	options *putFileOptions,
 ) (retErr error) {
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
-		return fmt.Errorf("Multiple files put with the path %s, aborting. "+
-			"Some files may already have been put and should be cleaned up with "+
-			"delete-file or delete-commit.", path)
+		return fmt.Errorf("multiple files put with the path %s, aborting - "+
+			"some files may already have been put and should be cleaned up with "+
+			"delete-file or delete-commit", path)
 	}
 
 	putFile := func(reader io.ReadSeeker) error {

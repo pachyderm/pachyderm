@@ -439,8 +439,6 @@ func PushFile(c *pachclient.APIClient, pfc pachclient.PutFileClient, pfsFile *pf
 	if fileInfo != nil {
 		for i, object = range fileInfo.Objects {
 			hash := pfs.NewHash()
-			// TODO: are files guaranteed to be smaller than pfs.ChunkSize?  Otherwise
-			// this hash looks susceptible to false positives
 			if _, err := io.CopyN(hash, osFile, pfs.ChunkSize); err != nil {
 				if err == io.EOF {
 					break
