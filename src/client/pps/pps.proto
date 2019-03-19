@@ -23,6 +23,7 @@ message Secret {
 message Transform {
   string image = 1;
   repeated string cmd = 2;
+  repeated string err_cmd = 13;
   map<string, string> env = 3;
   repeated Secret secrets = 4;
   repeated string image_pull_secrets = 9;
