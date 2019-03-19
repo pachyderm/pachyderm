@@ -843,7 +843,7 @@ nextSubvBranch:
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
 		key := path.Join
-		commitProvMap := make(map[string]*pfs.CommitProvenance)
+		newCommitProvMap := make(map[string]*pfs.CommitProvenance)
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil && !col.IsErrNotFound(err) {
@@ -852,12 +852,13 @@ nextSubvBranch:
 			if provBranchInfo.Head == nil {
 				continue
 			}
-			// We need to key on both the commit id and the branch name, so that branches with a shared commit are both represented in the provenance
-			commitProvMap[key(provBranchInfo.Head.ID, provBranch.Name)] = &pfs.CommitProvenance{
+			// We need to key on both the commit id and the branch name, so that
+			// branches with a shared commit are both represented in the provenance
+			newCommitProvMap[key(provBranchInfo.Head.ID, provBranch.Name)] = &pfs.CommitProvenance{
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
-			// Because provenace is stored as a transitive closure, we don't
+			// Because provenance is stored as a transitive closure, we don't
 			// need to inspect provBranchInfo.HEAD's provenance. Every commit
 			// in there will be the HEAD of some other provBranchInfo.
 		}
@@ -866,36 +867,30 @@ nextSubvBranch:
 				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
 			}
 		}
-		if len(commitProvMap) == 0 {
+		if len(newCommitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
 			continue nextSubvBranch
 		}
 
 		// 'branch' may already have a HEAD commit, so compute whether the new
-		// output commit would have the same provenance as the existing HEAD
-		// commit. If so, a new output commit would be a duplicate, so don't create
-		// it.
+		// output commit's provenance would be a subset of the existing HEAD
+		// commit's provenance. If so, a new output commit would be a duplicate, so
+		// don't create it.
 		if branchInfo.Head != nil {
 			branchHeadInfo := &pfs.CommitInfo{}
 			if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
 			}
-			headIsSubset := false
-			for _, v := range commitProvMap {
-				matched := false
-				for _, c := range branchHeadInfo.Provenance {
-					if c.Commit.ID == v.Commit.ID {
-						matched = true
-					}
-				}
-				headIsSubset = matched
-				if !headIsSubset {
-					break
+			provIntersection := make(map[string]struct{})
+			for i := range branchHeadInfo.Provenance {
+				c := branchHeadInfo.Provenance[i]
+				b := branchHeadInfo.BranchProvenance[i]
+				if _, ok := newCommitProvMap[key(c.ID, b.Name)]; ok {
+					provIntersection[key(c.ID, b.Name)] = struct{}{}
 				}
 			}
-			if len(branchHeadInfo.Provenance) >= len(commitProvMap) && headIsSubset {
-				// existing HEAD commit is the same new output commit would be; don't
-				// create new commit
+			if len(newCommitProvMap) == len(provIntersection) {
+				// newCommit's provenance is subset of existing HEAD's provenance
 				continue nextSubvBranch
 			}
 		}
@@ -905,7 +900,7 @@ nextSubvBranch:
 		// "dummy" job with no non-spec input data. If this is the case, don't
 		// create a new output commit
 		allSpec := true
-		for _, p := range commitProvMap {
+		for _, p := range newCommitProvMap {
 			if p.Branch.Repo.Name != ppsconsts.SpecRepo {
 				allSpec = false
 				break
@@ -947,7 +942,7 @@ nextSubvBranch:
 
 		// Set provenance and upstream subvenance (appendSubvenance needs
 		// newCommitInfo.ParentCommit to extend the correct subvenance range)
-		for _, prov := range commitProvMap {
+		for _, prov := range newCommitProvMap {
 			// set provenance of 'newCommit'
 			newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 
