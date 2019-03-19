@@ -362,6 +362,7 @@ This resets the cluster to its initial state.`,
 	var uiPort uint16
 	var uiWebsocketPort uint16
 	var pfsPort uint16
+	var s3gatewayPort uint16
 	var namespace string
 
 	portForward := &cobra.Command{
@@ -412,7 +413,13 @@ This resets the cluster to its initial state.`,
 				failCount++
 			}
 
-			if failCount < 5 {
+			fmt.Println("Forwarding the s3gateway port...")
+			if err = fw.RunForS3Gateway(s3gatewayPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount++
+			}
+
+			if failCount < 6 {
 				fmt.Println("CTRL-C to exit")
 				fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
 
@@ -430,6 +437,7 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
+	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
 
 	var install bool
