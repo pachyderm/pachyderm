@@ -37,7 +37,7 @@ Icon  ref.dict  ref.fasta  ref.fasta.fai  refSDF
 Next, we want to create our pachyderm repo and then instruct pachyderm to import those into our repo
 ```sh
 $ pachctl create-repo reference
-$ pachctl put-file reference master -r -f .
+$ pachctl put-file reference@master -r -f .
 ```
 First milestone reached! Lets just check and make sure everything looks good
 ```sh
@@ -69,7 +69,7 @@ Add a `*.bam` file (along with it's index file) corresponding to a first sample,
 ```sh
 $ cd data/bams/
 $ pachctl start-commit samples master
-$ for f in $(ls mother.*); do pachctl put-file samples master mother/$f -f $f; done
+$ for f in $(ls mother.*); do pachctl put-file samples@master:mother/$f -f $f; done
 $ pachctl finish-commit samples master
 $ cd ../../
 ```
@@ -144,11 +144,11 @@ Now that we have our pipelines running, out final results will be automatically 
 $ cd data/bams/
 $ pachctl start-commit samples master
 dc963cc9bdc2486798b92d20eead5058
-$ for f in $(ls father.*); do pachctl put-file samples master father/$f -f $f; done
+$ for f in $(ls father.*); do pachctl put-file samples@master:father/$f -f $f; done
 $ pachctl finish-commit samples master
 $ pachctl start-commit samples master
 84e6615de64f43d8815909fa978bd4bc
-$ for f in $(ls son.*); do pachctl put-file samples master son/$f -f $f; done
+$ for f in $(ls son.*); do pachctl put-file samples@master:son/$f -f $f; done
 $ pachctl finish-commit samples master
 $ pachctl list-file samples master
 NAME                TYPE                SIZE

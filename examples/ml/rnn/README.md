@@ -37,7 +37,7 @@ This task does 2 things:
 1. It grabs the data set in the form of a tarball from a URL, and extracts the data
 2. It inputs this data into Pachyderm by:
     - creating a new repo `GoT_scripts`
-    - executing a `put-file` recursively via `pachctl put-file GoT_scripts master -f ./data/ -r`
+    - executing a `put-file` recursively via `pachctl put-file GoT_scripts@master -f ./data/ -r`
 
 The result is a new repo with all the data we need stored inside. To confirm the setup, you can do:
 

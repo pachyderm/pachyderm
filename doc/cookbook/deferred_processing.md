@@ -50,7 +50,7 @@ a staging area to then process later.
 Commit a file to the staging branch:
 
 ```sh
-$ pachctl put-file data staging -f <file>
+$ pachctl put-file data@staging -f <file>
 ```
 
 Your repo now has 2 branches, `staging` and `master` (`put-file`

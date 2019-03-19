@@ -12,7 +12,7 @@ import (
 func TestScraper(t *testing.T) {
 	require.NoError(t, exec.Command("pachctl", "create-repo", "urls").Run())
 	require.NoError(t, exec.Command("pachctl", "start-commit", "urls", "master").Run())
-	putFileCmd := exec.Command("pachctl", "put-file", "urls", "master", "urls")
+	putFileCmd := exec.Command("pachctl", "put-file", "urls@master:urls")
 	urls, err := os.Open("urls")
 	require.NoError(t, err)
 	putFileCmd.Stdin = urls

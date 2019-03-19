@@ -31,7 +31,7 @@ clean-input-data:
 
 load-input-data:
 	pachctl create-repo GoT_scripts
-	pachctl put-file GoT_scripts master -f ./data/ -r
+	pachctl put-file GoT_scripts@master -f ./data/ -r
 
 gather-input-data: get-input-data extract-input-data clean-input-data
 

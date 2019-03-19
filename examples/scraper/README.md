@@ -44,7 +44,7 @@ This returns a brand new commit id. Yours should be different from mine.
 Now if we take a look inside our repo, we’ve created a directory for the new commit:
 ```shell
 $ pachctl list-commit urls
-master/0
+1b03455426f94879bf8f9028d2993b88
 ```
 
 A new directory has been created for our commit and now we can start adding
@@ -53,7 +53,7 @@ We're going to write that data as a file called “urls” in pfs.
 
 ```shell
 # Write sample data into pfs
-$ cat examples/scraper/urls | pachctl put-file urls master/0 urls
+$ cat examples/scraper/urls | pachctl put-file urls@1b03455426f94879bf8f9028d2993b88:urls
 ```
 
 ## Finish a Commit
@@ -225,12 +225,12 @@ Let's create a new commit with our previous commit as the parent:
 
 ```shell
 $ pachctl start-commit urls master
-master/1
+a7cffccfe9034bd9a72cad8f79b151fc
 ```
 
 Append more data to our urls file in the new commit:
 ```shell
-$ cat examples/scraper/urls2 | pachctl put-file urls master/1 urls
+$ cat examples/scraper/urls2 | pachctl put-file urls@a7cffccfe9034bd9a72cad8f79b151fc:urls
 ```
 Finally, we'll want to finish our second commit. After it's finished, we can
 read “scraper” from the latest commit to see all the scrapes.

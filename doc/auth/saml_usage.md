@@ -27,8 +27,8 @@ You are an administrator of this Pachyderm cluster
 (admin)$ pachctl create-repo images
 (admin)$ pachctl create-pipeline -f examples/opencv/edges.json
 (admin)$ pachctl create-pipeline -f examples/opencv/montage.json
-(admin)$ pachctl put-file images master -i examples/opencv/images.txt
-(admin)$ pachctl put-file images master -i examples/opencv/images2.txt
+(admin)$ pachctl put-file images@master -i examples/opencv/images.txt
+(admin)$ pachctl put-file images@master -i examples/opencv/images2.txt
 
 (admin)$ pachctl list-repo
 NAME    CREATED       SIZE (MASTER) ACCESS LEVEL

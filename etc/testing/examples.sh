@@ -8,8 +8,8 @@ pushd examples/opencv
     pachctl --no-port-forwarding create-repo images
     pachctl --no-port-forwarding create-pipeline -f edges.json
     pachctl --no-port-forwarding create-pipeline -f montage.json
-    pachctl --no-port-forwarding put-file images master -i images.txt
-    pachctl --no-port-forwarding put-file images master -i images2.txt
+    pachctl --no-port-forwarding put-file images@master -i images.txt
+    pachctl --no-port-forwarding put-file images@master -i images2.txt
 
     # wait for everything to finish
     commit_id=`pachctl --no-port-forwarding list-commit images -n 1 --raw | jq .commit.id -r`
@@ -25,10 +25,10 @@ pushd examples/shuffle
     pachctl --no-port-forwarding create-repo fruits
     pachctl --no-port-forwarding create-repo pricing
     pachctl --no-port-forwarding create-pipeline -f shuffle.json
-    pachctl --no-port-forwarding put-file fruits master -f mango.jpeg
-    pachctl --no-port-forwarding put-file fruits master -f apple.jpeg
-    pachctl --no-port-forwarding put-file pricing master -f mango.json
-    pachctl --no-port-forwarding put-file pricing master -f apple.json
+    pachctl --no-port-forwarding put-file fruits@master -f mango.jpeg
+    pachctl --no-port-forwarding put-file fruits@master -f apple.jpeg
+    pachctl --no-port-forwarding put-file pricing@master -f mango.json
+    pachctl --no-port-forwarding put-file pricing@master -f apple.json
 
     # wait for everything to finish
     commit_id=`pachctl --no-port-forwarding list-commit fruits -n 1 --raw | jq .commit.id -r`
@@ -62,7 +62,7 @@ yes | pachctl --no-port-forwarding delete-all
 pushd examples/word_count
     # note: we do not test reducing because it's slower
     pachctl --no-port-forwarding create-repo urls
-    pachctl --no-port-forwarding put-file urls master -f Wikipedia
+    pachctl --no-port-forwarding put-file urls@master -f Wikipedia
     pachctl --no-port-forwarding create-pipeline -f scraper.json
     pachctl --no-port-forwarding create-pipeline -f map.json
 
@@ -87,11 +87,11 @@ pushd examples/ml/hyperparameter
     pachctl --no-port-forwarding list-repo
 
     pushd data
-        pachctl --no-port-forwarding put-file raw_data master iris.csv -f noisy_iris.csv
+        pachctl --no-port-forwarding put-file raw_data@master:iris.csv -f noisy_iris.csv
 
         pushd parameters
-            pachctl --no-port-forwarding put-file parameters master -f c_parameters.txt --split line --target-file-datums 1 
-            pachctl --no-port-forwarding put-file parameters master -f gamma_parameters.txt --split line --target-file-datums 1
+            pachctl --no-port-forwarding put-file parameters@master -f c_parameters.txt --split line --target-file-datums 1 
+            pachctl --no-port-forwarding put-file parameters@master -f gamma_parameters.txt --split line --target-file-datums 1
         popd
     popd
 
@@ -118,13 +118,13 @@ pushd examples/ml/iris
     pachctl --no-port-forwarding create-repo attributes
 
     pushd data
-        pachctl --no-port-forwarding put-file training master -f iris.csv
+        pachctl --no-port-forwarding put-file training@master -f iris.csv
     popd
 
     pachctl --no-port-forwarding create-pipeline -f julia_train.json
 
     pushd data/test
-        pachctl --no-port-forwarding put-file attributes master -r -f .
+        pachctl --no-port-forwarding put-file attributes@master -r -f .
     popd
 
     pachctl --no-port-forwarding list-file attributes master

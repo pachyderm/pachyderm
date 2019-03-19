@@ -25,7 +25,7 @@ Let's create the input repo and add one URL, Wikipedia:
 $ pachctl create-repo urls
 
 # We assume you're running this from the root of this example (pachyderm/examples/word_count/):
-$ pachctl put-file urls master -f Wikipedia
+$ pachctl put-file urls@master -f Wikipedia
 ```
 
 Then to actually scrape this site and save the data, we create the first pipeline based on the [scraper.json](scraper.json) pipeline specification:
@@ -155,9 +155,9 @@ Now that we've got a full end-to-end scraper and wordcount use case set up, lets
 $ pachctl start-commit urls master
 
 # Reminder: files added should be named for the website and have the URL as the content. You'll have to create these files.
-$ pachctl put-file urls master -f HackerNews
-$ pachctl put-file urls master -f Reddit
-$ pachctl put-file urls master -f GitHub
+$ pachctl put-file urls@master -f HackerNews
+$ pachctl put-file urls@master -f Reddit
+$ pachctl put-file urls@master -f GitHub
 
 $ pachctl finish-commit urls master
 ```

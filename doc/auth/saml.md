@@ -131,7 +131,7 @@ EOF
 Then, try:
 ```
 pachctl create-repo group-test
-pachctl put-file group-test master -f some-data.txt
+pachctl put-file group-test@master -f some-data.txt
 pachctl auth set group/saml:"Test Group" reader group-test
 ```
 Elsewhere:

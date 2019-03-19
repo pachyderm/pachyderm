@@ -47,7 +47,7 @@ $ cd ssd_mobilenet_v1_coco_11_06_2017
 ```
 Add in inference graph  
 ```sh
-$ pachctl put-file training master -f frozen_inference_graph.pb
+$ pachctl put-file training@master -f frozen_inference_graph.pb
 ```
 
 ## 5. Build The Pachyderm Pipelines
@@ -97,7 +97,7 @@ $ cd images
 Add the `airplane.jpg` into your `images` repo
 
 ```sh
-$ pachctl put-file images master -f airplane.jpg
+$ pachctl put-file images@master -f airplane.jpg
 ```
 Once the image has been evaluated by Object Detection API you'll be able to see the detection result in the `detect` repo. We can take a look at the result by running the following
 

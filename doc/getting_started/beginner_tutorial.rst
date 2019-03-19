@@ -46,7 +46,7 @@ Here's an example atomic commit of the file `liberty.png` to the `images` repo's
 
 .. code-block:: shell
 
-	$ pachctl put-file images master liberty.png -f http://imgur.com/46Q8nDz.png
+	$ pachctl put-file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
 
 We can check to make sure the data we just added is in Pachyderm.
 
@@ -199,9 +199,9 @@ Let's create two new commits in a parental structure. To do this we will simply 
 
 .. code-block:: shell
 
-  $ pachctl put-file images master AT-AT.png -f http://imgur.com/8MN9Kg0.png
+  $ pachctl put-file images@master:AT-AT.png -f http://imgur.com/8MN9Kg0.png
 
-  $ pachctl put-file images master kitten.png -f http://imgur.com/g2QnNqa.png
+  $ pachctl put-file images@master:kitten.png -f http://imgur.com/g2QnNqa.png
 
 Adding a new commit of data will automatically trigger the pipeline to run on the new data we've added. We'll see corresponding jobs get started and commits to the output "edges" repo. Let's also view our new outputs. 
 

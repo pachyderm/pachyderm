@@ -60,10 +60,10 @@ If there is an open commit, `put-file` will add files to that commit. This examp
 $ pachctl start-commit <repo> <branch>
 
 # put <file1> in the <repo> on <branch>
-$ pachctl put-file <repo> <branch> </path/to/file1> -f <file1>
+$ pachctl put-file <repo>@<branch>:</path/to/file1> -f <file1>
 
 # put <file2> in the <repo> on <branch>
-$ pachctl put-file <repo> <branch> </path/to/file2> -f <file2>
+$ pachctl put-file <repo>@<branch>:</path/to/file2> -f <file2>
 
 # then finish the commit
 $ pachctl finish-commit <repo> <branch>
@@ -72,33 +72,33 @@ $ pachctl finish-commit <repo> <branch>
 If there is not an open commit, `put-file` will implicitly start and finish the commit. This is called an atomic commit:
 
 ```sh
-$ pachctl put-file <repo> <branch> </path/to/file> -f <file> 
+$ pachctl put-file <repo>@<branch>:</path/to/file> -f <file> 
 ```
 
 Put data from a URL:
 
 ```sh
-$ pachctl put-file <repo> <branch> </path/to/file> -f http://url_path
+$ pachctl put-file <repo>@<branch>:</path/to/file> -f http://url_path
 ```
 
 Put data directly from an object store:
 
 ```sh
 # here you can use s3://, gcs://, or as://
-$ pachctl put-file <repo> <branch> </path/to/file> -f s3://object_store_url
+$ pachctl put-file <repo>@<branch>:</path/to/file> -f s3://object_store_url
 ```
 Add multiple files at once by using the `-i` option or multiple `-f` flags. In
 the case of `-i`, the target file should be a list of files, paths, or URLs
 that you want to input all at once:
 
 ```sh
-$ pachctl put-file <repo> <branch> -i <file containing list of files, paths, or URLs>
+$ pachctl put-file <repo>@<branch> -i <file containing list of files, paths, or URLs>
 ```
 
 Pipe data from stdin into a data repository:
 
 ```sh
-$ echo "data" | pachctl put-file <repo> <branch> -f </path/to/file>
+$ echo "data" | pachctl put-file <repo>@<branch> -f </path/to/file>
 ```
 
 Add an entire directory or all of the contents at a particular URL (either
@@ -106,7 +106,7 @@ HTTP(S) or object store URL, `s3://`, `gcs://`, and `as://`) by using the
 recursive flag, `-r`:
 
 ```sh
-$ pachctl put-file <repo> <branch> -r -f <dir>
+$ pachctl put-file <repo>@<branch> -r -f <dir>
 ```
 
 ### Pachyderm Language Clients

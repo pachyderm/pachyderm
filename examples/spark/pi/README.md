@@ -75,7 +75,7 @@ pachctl create-repo estimate_pi_config
 pachctl create-pipeline -f estimate_pi_pipeline.json
 
 # kick off a job with 1000 samples
-echo 1000 | pachctl put-file estimate_pi_config master num_samples
+echo 1000 | pachctl put-file estimate_pi_config@master:num_samples
 
 # check job status
 pachctl list-job --pipeline estimate_pi
