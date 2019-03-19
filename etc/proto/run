@@ -34,7 +34,7 @@ Mgoogle/protobuf/timestamp.proto=github.com/gogo/protobuf/types,\
 Mgoogle/protobuf/wrappers.proto=github.com/gogo/protobuf/types,\
 Mgogoproto/gogo.proto=github.com/gogo/protobuf/gogoproto,\
 :${GOPATH}/src \
-	${i} >/dev/fd/2
+	${i} >/dev/stderr
 done
 
 find src -regex ".*\.go" | xargs tar cf -
