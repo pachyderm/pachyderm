@@ -40,7 +40,7 @@ const (
 )
 
 // Helper types for 'put-file' and 'put-files' commands
-type PutFileOptions struct {
+type putFileOptions struct {
 	overwrite bool
 	recursive bool
 	split string
@@ -49,12 +49,12 @@ type PutFileOptions struct {
 	headerRecords int64
 }
 
-type PutFileRequest struct {
+type putFileRequest struct {
 	sources []string
 	repo string
 	commit string
 	path string
-	options PutFileOptions
+	options putFileOptions
 }
 
 // Cmds returns a slice containing pfs commands.
@@ -791,13 +791,13 @@ $ pachctl put-file repo branch -i http://host/path
 				!*noMetrics,
 				!*noPortForwarding,
 				parallelism,
-				[]*PutFileRequest{
+				[]*putFileRequest{
 					{
 						sources,
 						repo,
 						commit,
 						path,
-						PutFileOptions{
+						putFileOptions{
 							overwrite,
 							recursive,
 							split,
@@ -845,7 +845,7 @@ $ pachctl put-file repo branch -i http://host/path
 		func (argSets []cmdutil.BatchArgs) error {
 			// Aggregate these fields over all of the command-line invocations
 			var stdinUsed bool // We can only allow stdin to be used for one thing
-			var requests []*PutFileRequest
+			var requests []*putFileRequest
 			for _, args := range argSets {
 				repo, commit, path := parseRepoCommitPath(args.Positionals[0])
 				inputFile := args.GetStringFlag("input-file")
@@ -883,12 +883,12 @@ $ pachctl put-file repo branch -i http://host/path
 
 				requests = append(
 					requests,
-					&PutFileRequest{
+					&putFileRequest{
 						sources,
 						repo,
 						commit,
 						path,
-						PutFileOptions{
+						putFileOptions{
 							overwrite,
 							recursive,
 							split,
@@ -1351,7 +1351,7 @@ func runPutFileRequests(
 	metrics bool,
 	portForwarding bool,
 	parallelism int,
-	requests []*PutFileRequest,
+	requests []*putFileRequest,
 ) (retErr error) {
 	limiter := limit.New(parallelism)
 	c, err := client.NewOnUserMachine(metrics, portForwarding, "user", client.WithMaxConcurrentStreams(parallelism))
@@ -1373,15 +1373,15 @@ func runPutFileRequests(
 	for _, request := range requests {
 		filesPut := &gosync.Map{}
 		if len(request.sources) == 1  && request.path != "" {
-			fmt.Printf("one-off source with path (%s) to (%s)\n", request.sources[0], request.path)
+			request := request
 			eg.Go(func() error {
 				return putFileHelper(c, pfc, limiter, filesPut, request.repo, request.commit, request.path, request.sources[0], &request.options)
 			})
 		} else {
 			for _, source := range request.sources {
+				request := request
 				source := source
 				path := joinPaths(request.path, source)
-				fmt.Printf("looping over sources (%s) to (%s)\n", source, path)
 				eg.Go(func() error {
 					return putFileHelper(c, pfc, limiter, filesPut, request.repo, request.commit, path, source, &request.options)
 				})
@@ -1401,15 +1401,13 @@ func putFileHelper(
 	commit string,
 	path string,
 	source string,
-	options *PutFileOptions,
+	options *putFileOptions,
 ) (retErr error) {
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("Multiple files put with the path %s, aborting. "+
 			"Some files may already have been put and should be cleaned up with "+
 			"delete-file or delete-commit.", path)
 	}
-
-	fmt.Printf("putting (%s) to (%s)\n", source, path)
 
 	putFile := func(reader io.ReadSeeker) error {
 		if options.split != "" {
@@ -1470,7 +1468,6 @@ func putFileHelper(
 			// don't do a second recursive put-file, just put the one file at
 			// filePath into childDest, and then this walk loop will go on to the
 			// next one
-			fmt.Printf("recursive put-file")
 			subOptions := options
 			subOptions.recursive = false
 			childDest := filepath.Join(path, strings.TrimPrefix(filePath, source))
@@ -1517,7 +1514,7 @@ func loadPutFileSources(
 
 	if (inputFile == "-") {
 		if stdinUsed {
-			return nil, false, fmt.Errorf("Cannot use stdin for multiple sources of data.")
+			return nil, false, fmt.Errorf("cannot use stdin for multiple sources of data")
 		}
 		stdinUsed = true
 	}
@@ -1593,7 +1590,7 @@ func validatePutFileSources(
 	for _, source := range sources {
 		if source == "-" {
 			if inputUsesStdin || sourceUsesStdin {
-				return fmt.Errorf("Cannot use stdin for multiple inputs.")
+				return fmt.Errorf("cannot use stdin for multiple inputs")
 			}
 			sourceUsesStdin = true
 		}
@@ -1602,9 +1599,9 @@ func validatePutFileSources(
 	if sourceUsesStdin {
 		if path == "" {
 			// We can't use the filename for the path with stdin, so error
-			return fmt.Errorf("Must specify path in repo when reading data from stdin.")
+			return fmt.Errorf("must specify path in repo when reading data from stdin")
 		} else if recursive {
-			return fmt.Errorf("Cannot set -r and read from stdin (must also set -f or -i)")
+			return fmt.Errorf("cannot set -r and read from stdin (must also set -f or -i)")
 		}
 	}
 

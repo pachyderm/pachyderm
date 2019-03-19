@@ -2024,22 +2024,26 @@ func (d *driver) filePathFromEtcdPath(etcdPath string) string {
 	return path.Join(split[4:]...)
 }
 
-// If not one-off (i.e. and open commit), we need file & record
+// FileRecordResult contains the information we need to finish commiting data
+// after the file has been added to object storage.
 type FileRecordResult struct {
 	file *pfs.File
 	records *pfs.PutFileRecords
 }
 
+// groupPutFileResult will determine if the uploaded file belongs in an existing
+// open commit or a new commit, then store it in the appropriate slice
+// (openRecords and newCommitRecords, respectively).
 func (d *driver) groupPutFileResult(
 	pachClient *client.APIClient,
 	result *FileRecordResult,
 	openRecords []*FileRecordResult,
-	oneOffRecords map[string]map[string][]*FileRecordResult,
+	newCommitRecords map[string]map[string][]*FileRecordResult,
 ) ([]*FileRecordResult, map[string]map[string][]*FileRecordResult, error) {
 	commit := result.file.Commit
 	repo := commit.Repo.Name
 	branch := ""
-	oneOff := false
+	newCommit := false
 
 	// inspectCommit will replace file.Commit.ID with an actual
 	// commit ID if it's a branch. So we want to save it first.
@@ -2049,30 +2053,30 @@ func (d *driver) groupPutFileResult(
 
 	// inspect the commit where we're adding files and figure out
 	// if this is a one-off put-file.
-	// - if 'commit' refers to an open commit                -> not oneOff
-	// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
+	// - if 'commit' refers to an open commit                -> not newCommit
+	// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes newCommit
 	// Note that if commit is a specific commit ID, it must be
 	// open for this call to succeed
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		if (!isNotFoundErr(err) && !isNoHeadErr(err)) || branch == "" {
-			return openRecords, oneOffRecords, err
+			return openRecords, newCommitRecords, err
 		}
-		oneOff = true
+		newCommit = true
 	}
 	if commitInfo != nil && commitInfo.Finished != nil {
 		if branch == "" {
-			return openRecords, oneOffRecords, pfsserver.ErrCommitFinished{commit}
+			return openRecords, newCommitRecords, pfsserver.ErrCommitFinished{commit}
 		}
-		oneOff = true
+		newCommit = true
 	}
 
 	// Store the records in the appropriate structure and return the updated structures
-	if oneOff {
-		submap := oneOffRecords[repo]
+	if newCommit {
+		submap := newCommitRecords[repo]
 		if submap == nil {
 			submap = map[string][]*FileRecordResult{}
-			oneOffRecords[repo] = submap
+			newCommitRecords[repo] = submap
 		}
 		if submap[branch] == nil {
 			submap[branch] = []*FileRecordResult{}
@@ -2082,13 +2086,17 @@ func (d *driver) groupPutFileResult(
 		openRecords = append(openRecords, result)
 	}
 
-	return openRecords, oneOffRecords, nil
+	return openRecords, newCommitRecords, nil
 }
 
+// putFiles loops over each pfs.PutFileRequest from the putFileServer - it will
+// turn the request into a stream of data, store that data in object storage,
+// then update an existing commit's hashtree or issue a new commit, depending
+// on the target branch for each request.
 func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error {
 	var mu sync.Mutex
 	openRecords := []*FileRecordResult{}
-	oneOffRecords := map[string]map[string][]*FileRecordResult{}
+	newCommitRecords := map[string]map[string][]*FileRecordResult{}
 
 	err := d.forEachPutFile(pachClient, s, func(req *pfs.PutFileRequest, r io.Reader) error {
 		records, err := d.putFile(pachClient, req.File, req.Delimiter, req.TargetFileDatums,
@@ -2099,10 +2107,10 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		mu.Lock()
 		defer mu.Unlock()
 
-		// Group the result into one of openRecords or oneOffRecords, based on
+		// Group the result into one of openRecords or newCommitRecords, based on
 		// if the files are being written to an open commit or not.
 		result := &FileRecordResult{req.File, records}
-		openRecords, oneOffRecords, err = d.groupPutFileResult(pachClient, result, openRecords, oneOffRecords)
+		openRecords, newCommitRecords, err = d.groupPutFileResult(pachClient, result, openRecords, newCommitRecords)
 		return err
 	})
 	if err != nil {
@@ -2118,9 +2126,9 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 
 	// If we have any one-off commits to make, open a new STM transaction and
 	// issue all the new commits atomically.
-	if len(oneOffRecords) > 0 {
+	if len(newCommitRecords) > 0 {
 		_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
-			for repo, resultsByBranch := range oneOffRecords {
+			for repo, resultsByBranch := range newCommitRecords {
 				for branch, results := range resultsByBranch {
 					paths := []string{}
 					records := []*pfs.PutFileRecords{}
@@ -3643,6 +3651,9 @@ func (s *putFileServer) Peek() (*pfs.PutFileRequest, error) {
 	return req, nil
 }
 
+// forEachPutFile loops over every request on the pfs.API_PutFileServer and
+// generates a data stream for each request and passes it to the specified
+// callback.
 func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io.Reader) error) (err error) {
 	limiter := limit.New(client.DefaultMaxConcurrentStreams)
 	var pr *io.PipeReader
