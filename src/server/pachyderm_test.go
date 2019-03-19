@@ -8813,7 +8813,7 @@ func TestKafka(t *testing.T) {
 	// 	t.Fatal(err)
 	// }
 	// spew.Dump(b)
-	part, err := kafka.LookupPartition(context.Background(), "tcp", "localhost:32400", topic, 0)
+	part, err := kafka.LookupPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", "localhost", controller.Port), topic, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
