@@ -399,7 +399,7 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     "test_s3.setup_lifecycle_expiration_test",
 ]
 
-class Gateway:
+class ClientGateway:
     def target(self):
         self.proc = subprocess.Popen(["pachctl", "s3gateway", "-v"])
 
@@ -489,9 +489,44 @@ def print_failures():
 
     return 0
 
+def run(test):
+    if test:
+        print("Running test {}".format(test))
+
+        # In some places, nose and its plugins expect tests to be
+        # specified as testmodule.testname, but here, it's expected to be
+        # testmodule:testname. This replaces the last . with a : so that
+        # the testmodule.testname format can be used everywhere, including
+        # here.
+        if "." in test and not ":" in test:
+            test = ":".join(test.rsplit(".", 1))
+
+        run_nosetests(test)
+    else:
+        print("Running all tests")
+
+        # This uses the `nose-exclude` plugin to exclude tests for
+        # unsupported features. Note that `nosetest` does have a built-in
+        # way of excluding tests, but it only seems to match on top-level
+        # modules, rather than on specific tests.
+        blacklisted_tests = []
+        for test in BLACKLISTED_FUNCTIONAL_TESTS:
+            blacklisted_tests.append("s3tests.functional.{}".format(test))
+            blacklisted_tests.append("s3tests_boto3.functional.{}".format(test))
+        extra_env = {
+            "NOSE_EXCLUDE_TESTS": ";".join(blacklisted_tests)
+        }
+
+        filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
+        with open(filepath, "w") as f:
+            run_nosetests("-a" "!fails_on_aws", env=extra_env, stderr=f)
+
+        sys.exit(print_failures())
+
 def main():
     parser = argparse.ArgumentParser(description="Runs a conformance test suite for PFS' s3gateway.")
     parser.add_argument("--no-run", default=False, action="store_true", help="Disables a test run, and just prints failure data from the last test run")
+    parser.add_argument("--no-gateway-start", default=False, action="store_true", help="Disables startup of the s3gateway")
     parser.add_argument("--test", default="", help="Run a specific test")
     args = parser.parse_args()
 
@@ -502,66 +537,36 @@ def main():
     if proc.returncode != 0:
         raise Exception("bad exit code: {}".format(proc.returncode))
 
-    output = subprocess.run("ps -ef | grep pachctl | grep -v grep", shell=True, stdout=subprocess.PIPE).stdout
+    if args.no_gateway_start:
+        run(args.test)
+    else:
+        output = subprocess.run("ps -ef | grep pachctl | grep -v grep", shell=True, stdout=subprocess.PIPE).stdout
 
-    if len(output.strip()) > 0:
-        print("It looks like `pachctl` is already running. Please kill it before running conformance tests.", file=sys.stderr)
-        sys.exit(1)
-
-    with Gateway():
-        for _ in range(10):
-            conn = http.client.HTTPConnection("localhost:30600")
-
-            try:
-                conn.request("GET", "/")
-                response = conn.getresponse()
-                if response.status == 200:
-                    conn.close()
-                    break
-            except ConnectionRefusedError:
-                pass
-
-            conn.close()
-            print("Waiting for s3gateway...")
-            time.sleep(1)
-        else:
-            print("s3gateway did not start", file=sys.stderr)
+        if len(output.strip()) > 0:
+            print("It looks like `pachctl` is already running. Please kill it before running conformance tests.", file=sys.stderr)
             sys.exit(1)
+        
+        with ClientGateway():
+            for _ in range(10):
+                conn = http.client.HTTPConnection("localhost:30600")
 
-        if args.test:
-            print("Running test {}".format(args.test))
+                try:
+                    conn.request("GET", "/")
+                    response = conn.getresponse()
+                    if response.status == 200:
+                        conn.close()
+                        break
+                except ConnectionRefusedError:
+                    pass
 
-            # In some places, nose and its plugins expect tests to be
-            # specified as testmodule.testname, but here, it's expected to be
-            # testmodule:testname. This replaces the last . with a : so that
-            # the testmodule.testname format can be used everywhere, including
-            # here.
-            if "." in args.test and not ":" in args.test:
-                test = ":".join(args.test.rsplit(".", 1))
+                conn.close()
+                print("Waiting for s3gateway...")
+                time.sleep(1)
             else:
-                test = args.test
+                print("s3gateway did not start", file=sys.stderr)
+                sys.exit(1)
 
-            run_nosetests(test)
-        else:
-            print("Running all tests")
-
-            # This uses the `nose-exclude` plugin to exclude tests for
-            # unsupported features. Note that `nosetest` does have a built-in
-            # way of excluding tests, but it only seems to match on top-level
-            # modules, rather than on specific tests.
-            blacklisted_tests = []
-            for test in BLACKLISTED_FUNCTIONAL_TESTS:
-                blacklisted_tests.append("s3tests.functional.{}".format(test))
-                blacklisted_tests.append("s3tests_boto3.functional.{}".format(test))
-            extra_env = {
-                "NOSE_EXCLUDE_TESTS": ";".join(blacklisted_tests)
-            }
-
-            filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
-            with open(filepath, "w") as f:
-                run_nosetests("-a" "!fails_on_aws", env=extra_env, stderr=f)
-
-            sys.exit(print_failures())
+            run(args.test)
                 
 if __name__ == "__main__":
     main()
