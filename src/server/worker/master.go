@@ -868,12 +868,17 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) (ret
 						retErr = err
 					}
 				}()
+				hasFile := false
 				for {
 					fileHeader, err := outTar.Next()
 					if err == io.EOF {
 						fmt.Println("tar EOF")
+						if !hasFile {
+							continue
+						}
 						break
 					}
+					hasFile = true
 					fmt.Println("next file is", fileHeader.Name)
 					fmt.Println("file size is", fileHeader.Size)
 
