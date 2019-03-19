@@ -920,14 +920,20 @@ nextSubvBranch:
 			if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
 			}
-			headIsSubset := true
-			for _, c := range branchHeadInfo.Provenance {
-				if _, ok := commitProvMap[c.ID]; !ok {
-					headIsSubset = false
+			headIsSubset := false
+			for k := range commitProvMap {
+				matched := false
+				for _, c := range branchHeadInfo.Provenance {
+					if c.ID == k {
+						matched = true
+					}
+				}
+				headIsSubset = matched
+				if !headIsSubset {
 					break
 				}
 			}
-			if len(branchHeadInfo.Provenance) == len(commitProvMap) && headIsSubset {
+			if len(branchHeadInfo.Provenance) >= len(commitProvMap) && headIsSubset {
 				// existing HEAD commit is the same new output commit would be; don't
 				// create new commit
 				continue nextSubvBranch

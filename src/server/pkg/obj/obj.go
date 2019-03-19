@@ -655,9 +655,45 @@ func isNetRetryable(err error) bool {
 	return ok && netErr.Temporary()
 }
 
-// TestIsNotExist is a defensive method for checking to make sure IsNotExist is
-// satisfying its semantics.
-func TestIsNotExist(ctx context.Context, c Client) error {
+// TestStorage is a defensive method for checking to make sure that storage is
+// properly configured.
+func TestStorage(ctx context.Context, c Client) error {
+	testObj := uuid.NewWithoutDashes()
+	if err := func() (retErr error) {
+		w, err := c.Writer(ctx, testObj)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := w.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = w.Write([]byte("test"))
+		return err
+	}(); err != nil {
+		return fmt.Errorf("unable to write to object storage: %v", err)
+	}
+	if err := func() (retErr error) {
+		r, err := c.Reader(ctx, testObj, 0, 0)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := r.Close(); err != nil && retErr == nil {
+				retErr = err
+			}
+		}()
+		_, err = ioutil.ReadAll(r)
+		return err
+	}(); err != nil {
+		return fmt.Errorf("unable to read from object storage: %v", err)
+	}
+	if err := c.Delete(ctx, testObj); err != nil {
+		return fmt.Errorf("unable to delete from object storage: %v", err)
+	}
+	// Try reading a non-existant object to make sure our IsNotExist function
+	// works.
 	_, err := c.Reader(ctx, uuid.NewWithoutDashes(), 0, 0)
 	if !c.IsNotExist(err) {
 		return fmt.Errorf("storage is unable to discern NotExist errors, \"%s\" should count as NotExist", err.Error())

@@ -14,7 +14,7 @@ import (
 	"syscall"
 
 	units "github.com/docker/go-units"
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
@@ -42,6 +42,10 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) ([]*cobra.Command, error) {
 	raw := false
 	rawFlag := func(cmd *cobra.Command) {
 		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+	}
+	fullTimestamps := false
+	fullTimestampsFlag := func(cmd *cobra.Command) {
+		cmd.Flags().BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
 	}
 	marshaller := &jsonpb.Marshaler{
 		Indent:   "  ",
@@ -87,11 +91,16 @@ To increase the throughput of a job, increase the 'shard' parameter.
 			if raw {
 				return marshaller.Marshal(os.Stdout, jobInfo)
 			}
-			return pretty.PrintDetailedJobInfo(jobInfo)
+			ji := &pretty.PrintableJobInfo{
+				JobInfo:        jobInfo,
+				FullTimestamps: fullTimestamps,
+			}
+			return pretty.PrintDetailedJobInfo(ji)
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
 	rawFlag(inspectJob)
+	fullTimestampsFlag(inspectJob)
 
 	var pipelineName string
 	var outputCommitStr string
@@ -148,7 +157,7 @@ $ pachctl list-job -p foo bar/YYY
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
-				pretty.PrintJobInfo(writer, ji)
+				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
 				return err
@@ -159,6 +168,7 @@ $ pachctl list-job -p foo bar/YYY
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
 	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit.")
 	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits.")
+	fullTimestampsFlag(listJob)
 	rawFlag(listJob)
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -202,7 +212,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
 			for _, jobInfo := range jobInfos {
-				pretty.PrintJobInfo(writer, jobInfo)
+				pretty.PrintJobInfo(writer, jobInfo, fullTimestamps)
 			}
 
 			return writer.Flush()
@@ -210,6 +220,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 	}
 	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
 	rawFlag(flushJob)
+	fullTimestampsFlag(flushJob)
 
 	deleteJob := &cobra.Command{
 		Use:   "delete-job job-id",
@@ -476,10 +487,15 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if raw {
 				return marshaller.Marshal(os.Stdout, pipelineInfo)
 			}
-			return pretty.PrintDetailedPipelineInfo(pipelineInfo)
+			pi := &pretty.PrintablePipelineInfo{
+				PipelineInfo:   pipelineInfo,
+				FullTimestamps: fullTimestamps,
+			}
+			return pretty.PrintDetailedPipelineInfo(pi)
 		}),
 	}
 	rawFlag(inspectPipeline)
+	fullTimestampsFlag(inspectPipeline)
 
 	extractPipeline := &cobra.Command{
 		Use:   "extract-pipeline pipeline-name",
@@ -553,7 +569,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			request.Update = true
 			request.Reprocess = reprocess
-			if request.Input.Atom != nil {
+			if request.Input != nil && request.Input.Atom != nil {
 				fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
 			}
 			if _, err := client.PpsAPIClient.CreatePipeline(
@@ -601,12 +617,13 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.PipelineHeader)
 			for _, pipelineInfo := range pipelineInfos {
-				pretty.PrintPipelineInfo(writer, pipelineInfo)
+				pretty.PrintPipelineInfo(writer, pipelineInfo, fullTimestamps)
 			}
 			return writer.Flush()
 		}),
 	}
 	rawFlag(listPipeline)
+	fullTimestampsFlag(listPipeline)
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output create-pipeline compatibility specs.")
 
 	var all bool
@@ -775,7 +792,7 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 		} else if err != nil {
 			return err
 		}
-		if request.Input.Atom != nil {
+		if request.Input != nil && request.Input.Atom != nil {
 			fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
 		}
 		if update {
@@ -810,7 +827,7 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 				if dockerfile == "" {
 					dockerfile = "./Dockerfile"
 				}
-				err = buildImage(dockerClient, registry, repo, contextDir, dockerfile, destTag)
+				err = buildImage(dockerClient, repo, contextDir, dockerfile, destTag)
 				if err != nil {
 					return err
 				}
@@ -819,7 +836,7 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 				// the right image
 				sourceTag = destTag
 			}
-			image, err := pushImage(dockerClient, authConfig, registry, repo, sourceTag, destTag)
+			image, err := pushImage(dockerClient, authConfig, repo, sourceTag, destTag)
 			if err != nil {
 				return err
 			}
@@ -899,16 +916,16 @@ func dockerConfig(registry string, username string) (*docker.Client, docker.Auth
 	return client, authConfig, nil
 }
 
-// buildImage builds a new docker image as registry/user/repo.
-func buildImage(client *docker.Client, registry string, repo string, contextDir string, dockerfile string, destTag string) error {
-	destImage := fmt.Sprintf("%s/%s:%s", registry, repo, destTag)
+// buildImage builds a new docker image.
+func buildImage(client *docker.Client, repo string, contextDir string, dockerfile string, destTag string) error {
+	destImage := fmt.Sprintf("%s:%s", repo, destTag)
 
 	fmt.Printf("Building %s, this may take a while.\n", destImage)
 
 	err := client.BuildImage(docker.BuildImageOptions{
-		Name: destImage,
-		ContextDir: contextDir,
-		Dockerfile: dockerfile,
+		Name:         destImage,
+		ContextDir:   contextDir,
+		Dockerfile:   dockerfile,
 		OutputStream: os.Stdout,
 	})
 
@@ -919,16 +936,15 @@ func buildImage(client *docker.Client, registry string, repo string, contextDir 
 	return nil
 }
 
-// pushImage pushes an image as registry/user/repo.
-func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, registry string, repo string, sourceTag string, destTag string) (string, error) {
-	fullRepo := fmt.Sprintf("%s/%s", registry, repo)
-	sourceImage := fmt.Sprintf("%s:%s", fullRepo, sourceTag)
-	destImage := fmt.Sprintf("%s:%s", fullRepo, destTag)
+// pushImage pushes a docker image.
+func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, repo string, sourceTag string, destTag string) (string, error) {
+	sourceImage := fmt.Sprintf("%s:%s", repo, sourceTag)
+	destImage := fmt.Sprintf("%s:%s", repo, destTag)
 
 	fmt.Printf("Tagging/pushing %s, this may take a while.\n", destImage)
 
 	if err := client.TagImage(sourceImage, docker.TagImageOptions{
-		Repo:    fullRepo,
+		Repo:    repo,
 		Tag:     destTag,
 		Context: context.Background(),
 	}); err != nil {
@@ -938,7 +954,7 @@ func pushImage(client *docker.Client, authConfig docker.AuthConfiguration, regis
 
 	if err := client.PushImage(
 		docker.PushImageOptions{
-			Name: fullRepo,
+			Name: repo,
 			Tag:  destTag,
 		},
 		authConfig,

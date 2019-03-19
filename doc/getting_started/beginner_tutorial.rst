@@ -23,12 +23,11 @@ For this demo, we'll simply create a repo called ``images`` to hold the data we 
 .. code-block:: shell
 
   $ pachctl create-repo images
-
-  # See the repo we just created
   $ pachctl list-repo
-  NAME                CREATED             SIZE
-  images              2 minutes ago       0 B
+  NAME   CREATED       SIZE (MASTER) 
+  images 7 seconds ago 0B
 
+This shows that the repo has been successfully created, and the size of repo's HEAD commit on the master branch is 0B, since we haven't added anything to it yet.
 
 Adding Data to Pachyderm
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -55,18 +54,18 @@ We can check to make sure the data we just added is in Pachyderm.
 
   # If we list the repos, we can see that there is now data
   $ pachctl list-repo
-  NAME                CREATED             SIZE
-  images              5 minutes ago   57.27 KiB
+  NAME   CREATED            SIZE (MASTER)
+  images About a minute ago 57.27KiB
 
   # We can view the commit we just created
   $ pachctl list-commit images
-  REPO                ID                                 PARENT              STARTED            DURATION            SIZE
-  images              7162f5301e494ec8820012576476326c   <none>              2 minutes ago      38 seconds          57.27 KiB
+  REPO   COMMIT                           PARENT STARTED        DURATION           SIZE
+  images d89758a7496a4c56920b0eaa7d7d3255 <none> 29 seconds ago Less than a second 57.27KiB
   
   # And view the file in that commit
   $ pachctl list-file images master
-  NAME                TYPE                SIZE
-  liberty.png         file                57.27 KiB
+  COMMIT                           NAME         TYPE COMMITTED          SIZE     
+  d89758a7496a4c56920b0eaa7d7d3255 /liberty.png file About a minute ago 57.27KiB
 
 We can also view the file we just added to Pachyderm. Since this is an image, we can't just print it out in the terminal, but the following commands will let you view it easily.
 
@@ -161,17 +160,17 @@ You can view the job with:
 .. code-block:: shell
 
   $ pachctl list-job
-  ID                                STARTED       DURATION   RESTART PROGRESS  DL       UL       STATE
-  490a28be32de491e942372018cd42460  2 minutes ago 35 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
+  ID                               PIPELINE STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE            
+  0f6a53829eeb4ca193bb7944fe693700 edges    16 seconds ago Less than a second 0       1 + 0 / 1 57.27KiB 22.22KiB success
 
 Yay! Our pipeline succeeded! Pachyderm creates a corresponding output repo for every pipeline. This output repo will have the same name as the pipeline, and all the results of that pipeline will be versioned in this output repo. In our example, the "edges" pipeline created a repo called "edges" to store the results. 
 
 .. code-block:: shell
 
   $ pachctl list-repo
-  NAME                CREATED            SIZE
-  edges               2 minutes ago      22.22 KiB
-  images              10 minutes ago     57.27 KiB
+  NAME   CREATED       SIZE (MASTER)
+  edges  2 minutes ago 22.22KiB
+  images 5 minutes ago 57.27KiB
 
 
 Reading the Output
