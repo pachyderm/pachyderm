@@ -50,17 +50,18 @@ func AddSpanToAnyExisting(ctx context.Context, operation string, kvs ...interfac
 		for i := 0; i < len(kvs); i += 2 {
 			if len(kvs) == i+1 {
 				// likely forgot key or value--best effort
-				options = append(options, opentracing.Tag{"extra", kvs[i]})
+				options = append(options, opentracing.Tag{"extra", fmt.Sprintf("%v", kvs[i])})
 				break
 			}
-			if key, ok := kvs[i].(string); ok {
-				// common case -- skip printf
-				options = append(options, opentracing.Tag{key, kvs[i+1]})
-			} else {
-				options = append(options, opentracing.Tag{
-					fmt.Sprintf("%v", kvs[i]), kvs[i+1],
-				})
+			key, ok := kvs[i].(string) // common case--key is string
+			if !ok {
+				key = fmt.Sprintf("%v", kvs[i])
 			}
+			val, ok := kvs[i+1].(string) // common case--val is string
+			if !ok {
+				val = fmt.Sprintf("%v", kvs[i+1])
+			}
+			options = append(options, opentracing.Tag{key, val})
 		}
 
 		// construct new span
