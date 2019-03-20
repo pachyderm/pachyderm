@@ -483,7 +483,11 @@ def print_failures():
 
     causes = sorted(causes.items(), key=lambda i: len(i[1]), reverse=True)
     for (cause_name, failing_tests) in causes:
-        print("{}:".format(cause_name))
+        if len(cause_name) > 160:
+            print("{} [...]:".format(cause_name[:160]))
+        else:
+            print("{}:".format(cause_name))
+        
         for failing_test in failing_tests:
             print("- {}".format(failing_test))
 
