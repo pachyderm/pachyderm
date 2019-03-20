@@ -393,6 +393,7 @@ BLACKLISTED_BOTO2_FUNCTIONAL_TESTS = [
     "test_s3.test_append_object",
     "test_s3.test_append_object_position_wrong",
     "test_s3.test_bucket_create_naming_bad_starts_nonalpha",
+    "test_s3.test_atomic_write_bucket_gone",
 
     # These tests are disabled because the tests themselves have bugs:
     # - Seems to rely on an old boto bug
@@ -801,6 +802,9 @@ BLACKLISTED_BOTO3_FUNCTIONAL_TESTS = [
     "test_s3.test_bucket_list_unordered",
     "test_s3.test_bucket_create_naming_bad_starts_nonalpha",
     "test_s3.test_bucket_head_extended",
+    "test_s3.test_put_object_ifnonmatch_failed",
+    "test_s3.test_put_object_ifnonmatch_overwrite_existed_failed",
+    "test_s3.test_atomic_dual_conditional_write_1mb",
 ]
 
 class ClientGateway:
