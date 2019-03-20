@@ -11,6 +11,11 @@ import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
 
+message Plugin {
+  string source = 1;
+  string symbol = 2;
+}
+
 message Secret {
   // Name must be the name of the secret in kubernetes.
   string name = 1;
@@ -107,6 +112,11 @@ message GitInput {
   string commit = 4;
 }
 
+message FilterInput {
+  Plugin predicate = 1;
+  Input input = 2;
+}
+
 message Input {
   // Note: this is deprecated and replaced by `PfsInput`
   AtomInput atom = 1;
@@ -115,6 +125,7 @@ message Input {
   repeated Input union = 3;
   CronInput cron = 4;
   GitInput git = 5;
+  FilterInput filter = 7;
 }
 
 message ParallelismSpec {
