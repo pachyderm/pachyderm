@@ -186,7 +186,6 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps bool) {
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 	}
-
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
