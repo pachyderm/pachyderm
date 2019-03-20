@@ -8574,6 +8574,7 @@ func TestKafka(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c := getPachClient(t)
+
 	require.NoError(t, c.DeleteAll())
 
 	conn, err := kafka.Dial("tcp", "localhost:32400")
@@ -8581,7 +8582,10 @@ func TestKafka(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-	controller, _ := conn.Controller()
+	controller, err := conn.Controller()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	conn, err = kafka.Dial("tcp", fmt.Sprintf("%v:%v", "localhost", controller.Port))
 	if err != nil {
@@ -8613,14 +8617,16 @@ func TestKafka(t *testing.T) {
 	}
 	// now write to the kafka topic
 	go func() {
+		i := 0
 		for {
 			_, err = conn.WriteMessages(
-				kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", time.Now()))},
+				kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", i))},
 			)
 			if err != nil {
 				t.Fatal(err)
 			}
-			time.Sleep(time.Second)
+			// time.Sleep(time.Second)
+			i++
 		}
 	}()
 

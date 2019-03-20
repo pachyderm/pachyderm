@@ -818,19 +818,20 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) (retErr error) {
 	return backoff.RetryNotify(func() error {
 		repo := a.pipelineInfo.Pipeline.Name
-		out, err := os.Open("/pfs/out")
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := out.Close(); err != nil && retErr == nil {
-				// this lets us pass the error through if Close fails
-				retErr = err
-			}
-		}()
+
 		for {
 			// this extra closure is so that we can scope the defer
 			if err := func() (retErr1 error) {
+				out, err := os.Open("/pfs/out")
+				if err != nil {
+					return err
+				}
+				defer func() {
+					if err := out.Close(); err != nil && retErr == nil {
+						// this lets us pass the error through if Close fails
+						retErr = err
+					}
+				}()
 				outTar := tar.NewReader(out)
 
 				// start commit
@@ -854,19 +855,19 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) (ret
 						retErr1 = err
 					}
 				}()
-				hasFile := false
+				// hasFile := false
 				for {
 					fileHeader, err := outTar.Next()
 					if err == io.EOF {
-						if !hasFile {
-							continue
-						}
+						// if !hasFile {
+						// 	continue
+						// }
 						break
 					}
 					if err != nil {
 						return err
 					}
-					hasFile = true
+					// hasFile = true
 
 					// put files
 					if a.pipelineInfo.Spout.Overwrite {
