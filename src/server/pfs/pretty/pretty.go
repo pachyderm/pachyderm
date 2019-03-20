@@ -179,11 +179,14 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps bool) {
 	} else {
 		fmt.Fprint(w, "dir\t")
 	}
-	if fullTimestamps {
+	if fileInfo.Committed == nil {
+		fmt.Fprintf(w, "-\t")
+	} else if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
 	} else {
 		fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
 	}
+
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
