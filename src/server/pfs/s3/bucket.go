@@ -3,10 +3,9 @@ package s3
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
 
 	"github.com/gobwas/glob"
 	"github.com/gogo/protobuf/types"
@@ -88,7 +87,7 @@ func newBucketHandler(pc *client.APIClient) bucketHandler {
 
 func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	repo, branch := bucketArgs(w, r)
-	
+
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		notFoundError(w, r, err)
@@ -118,7 +117,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 			invalidArgument(w, r)
 			return
 		}
-		maxKeys = i	
+		maxKeys = i
 	}
 
 	delimiter := r.FormValue("delimiter")
@@ -126,6 +125,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		invalidDelimiterError(w, r)
 		return
 	}
+	recursive := delimiter == ""
 
 	result := &ListBucketResult{
 		Name:        repo,
@@ -139,55 +139,16 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	if branchInfo.Head == nil {
 		// if there's no head commit, just print an empty list of files
 		writeXML(w, r, http.StatusOK, result)
-	} else if delimiter == "" {
-		h.listRecursive(w, r, result, branch)
-	} else {
-		h.list(w, r, result, branch)
-	}
-}
-
-func (h bucketHandler) listRecursive(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
-	err := h.pc.Walk(result.Name, branch, filepath.Dir(result.Prefix), func(fileInfo *pfs.FileInfo) error {
-		origFilePath := fileInfo.File.Path
-		fileInfo = updateFileInfo(branch, result.Marker, result.Prefix, fileInfo)
-		if fileInfo == nil || fileInfo.FileType == pfs.FileType_DIR {
-			return nil
-		}
-		if result.isFull() {
-			if result.MaxKeys > 0 {
-				result.IsTruncated = true
-			}
-			return errutil.ErrBreak
-		}
-
-		meta, err := getMeta(h.pc, result.Name, branch, origFilePath)
-		if err != nil {
-			return err
-		}
-		etag := ""
-		if meta != nil {
-			etag = meta.MD5
-		}
-		
-		contents, err := newContents(fileInfo, etag)
-		if err != nil {
-			return err
-		}
-		result.Contents = append(result.Contents, contents)
-		
-		return nil
-	})
-	if err != nil {
-		internalError(w, r, err)
 		return
 	}
 
-	setNextMarker(result)
-	writeXML(w, r, http.StatusOK, result)
-}
+	var pattern string
+	if recursive {
+		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(result.Prefix))
+	} else {
+		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
+	}
 
-func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *ListBucketResult, branch string) {
-	pattern := fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
 	fileInfos, err := h.pc.GlobFile(result.Name, branch, pattern)
 	if err != nil {
 		internalError(w, r, err)
@@ -195,11 +156,33 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 	}
 
 	for _, fileInfo := range fileInfos {
-		origFilePath := fileInfo.File.Path
-		fileInfo = updateFileInfo(branch, result.Marker, result.Prefix, fileInfo)
-		if fileInfo == nil {
+		if fileInfo.FileType == pfs.FileType_DIR {
+			if fileInfo.File.Path == "/" {
+				// skip the root directory
+				continue
+			}
+			if recursive {
+				// skip directories if recursing
+				continue
+			}
+		} else if fileInfo.FileType == pfs.FileType_FILE {
+			if strings.HasSuffix(fileInfo.File.Path, ".s3g.json") {
+				// skip metadata files
+				continue
+			}
+		} else {
+			// skip anything that isn't a file or dir
 			continue
 		}
+		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
+		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
+			continue
+		}
+		if fileInfo.File.Path <= result.Marker {
+			// skip file paths below the marker
+			continue
+		}
+
 		if result.isFull() {
 			if result.MaxKeys > 0 {
 				result.IsTruncated = true
@@ -207,7 +190,7 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 			break
 		}
 		if fileInfo.FileType == pfs.FileType_FILE {
-			meta, err := getMeta(h.pc, result.Name, branch, origFilePath)
+			meta, err := getMeta(h.pc, result.Name, branch, fmt.Sprintf("/%s", fileInfo.File.Path))
 			if err != nil {
 				internalError(w, r, err)
 				return
@@ -229,7 +212,23 @@ func (h bucketHandler) list(w http.ResponseWriter, r *http.Request, result *List
 		}
 	}
 
-	setNextMarker(result)
+	if result.IsTruncated {
+		if len(result.Contents) > 0 && len(result.CommonPrefixes) == 0 {
+			result.NextMarker = result.Contents[len(result.Contents)-1].Key
+		} else if len(result.Contents) == 0 && len(result.CommonPrefixes) > 0 {
+			result.NextMarker = result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
+		} else if len(result.Contents) > 0 && len(result.CommonPrefixes) > 0 {
+			lastContents := result.Contents[len(result.Contents)-1].Key
+			lastCommonPrefixes := result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
+
+			if lastContents > lastCommonPrefixes {
+				result.NextMarker = lastContents
+			} else {
+				result.NextMarker = lastCommonPrefixes
+			}
+		}
+	}
+
 	writeXML(w, r, http.StatusOK, result)
 }
 
@@ -306,54 +305,4 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// updateFileInfo takes in a `FileInfo`, and updates it to be used in s3
-// object listings:
-// 1) if nil is returned, the `FileInfo` should not be included in the list
-// 2) the path is updated to remove the leading slash
-func updateFileInfo(branch, marker, prefix string, fileInfo *pfs.FileInfo) *pfs.FileInfo {
-	if fileInfo.FileType == pfs.FileType_DIR {
-		if fileInfo.File.Path == "/" {
-			// skip the root directory
-			return nil
-		}
-	} else if fileInfo.FileType == pfs.FileType_FILE {
-		if strings.HasSuffix(fileInfo.File.Path, ".s3g.json") {
-			// skip metadata files
-			return nil
-		}
-	} else {
-		// skip anything that isn't a file or dir
-		return nil
-	}
-	fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
-	if !strings.HasPrefix(fileInfo.File.Path, prefix) {
-		return nil
-	}
-	if fileInfo.File.Path <= marker {
-		// skip file paths below the marker
-		return nil
-	}
-
-	return fileInfo
-}
-
-func setNextMarker(result *ListBucketResult) {
-	if result.IsTruncated {
-		if len(result.Contents) > 0 && len(result.CommonPrefixes) == 0 {
-			result.NextMarker = result.Contents[len(result.Contents)-1].Key
-		} else if len(result.Contents) == 0 && len(result.CommonPrefixes) > 0 {
-			result.NextMarker = result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-		} else if len(result.Contents) > 0 && len(result.CommonPrefixes) > 0 {
-			lastContents := result.Contents[len(result.Contents)-1].Key
-			lastCommonPrefixes := result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-
-			if lastContents > lastCommonPrefixes {
-				result.NextMarker = lastContents
-			} else {
-				result.NextMarker = lastCommonPrefixes
-			}
-		}
-	}
 }
