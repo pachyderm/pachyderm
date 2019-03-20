@@ -8600,16 +8600,17 @@ func TestKafka(t *testing.T) {
 		ReplicationFactor: 3,
 	})
 	if err != nil {
-		fmt.Println("can't create topic", err)
+		t.Fatal("Can't create topic", err)
 	}
 
 	part, err := kafka.LookupPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", "localhost", controller.Port), topic, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	spew.Dump(part)
+	// We need to pass the host IP and port to the image
 	host := part.Leader.Host
 	port := fmt.Sprint(part.Leader.Port)
+	// but since kafka and pachyderm are in the same kubernetes cluster, we need to adjust the host address to "localhost" here
 	part.Leader.Host = "localhost"
 	conn, err = kafka.DialPartition(context.Background(), "tcp", "localhost:"+port, part)
 	if err != nil {
@@ -8625,19 +8626,15 @@ func TestKafka(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			// time.Sleep(time.Second)
 			i++
 		}
 	}()
 
 	// create a spout pipeline
-	dataRepo := tu.UniqueString("kafka_data")
-	require.NoError(t, c.CreateRepo(dataRepo))
-
 	_, err = c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline("kafka" + topic),
+			Pipeline: client.NewPipeline(topic),
 			Transform: &pps.Transform{
 				Image: "kafka-demo:latest",
 				Cmd:   []string{"go", "run", "./main.go"},
@@ -8652,5 +8649,18 @@ func TestKafka(t *testing.T) {
 	require.NoError(t, err)
 
 	// and verify that the spout is consuming it
-	time.Sleep(time.Minute)
+
+	// get 5 succesive commits, and ensure that the file size increases each time
+	// since the spout should be appending to that file on each commit
+	iter, err := c.SubscribeCommit(topic, "master", "", pfs.CommitState_FINISHED)
+	require.NoError(t, err)
+
+	for i := 0; i < 5; i++ {
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+		files, err := c.ListFile(topic, commitInfo.Commit.ID, "")
+		require.NoError(t, err)
+
+		spew.Dump(files)
+	}
 }
