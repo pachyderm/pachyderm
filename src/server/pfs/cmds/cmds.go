@@ -923,7 +923,7 @@ $ pachctl list-file foo master --history -1
 				pretty.PrintFileInfo(writer, fi, fullTimestamps)
 				return nil
 			}); err != nil {
-				return nil
+				return err
 			}
 			return writer.Flush()
 		}),
