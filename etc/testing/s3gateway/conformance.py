@@ -339,10 +339,14 @@ BLACKLISTED_BOTO2_FUNCTIONAL_TESTS = [
     "test_s3.test_bucket_list_prefix_delimiter_prefix_not_exist",
     "test_s3.test_lifecycle_expiration_header_put",
     "test_s3.test_lifecycle_expiration_header_head",
+    "test_s3.test_list_buckets_anonymous",
 
     # These tests are disabled due to our tighter restrictions on bucket
     # naming
     "test_s3.test_bucket_create_naming_good_contains_period",
+    "test_s3.test_bucket_create_naming_dns_dot_dot",
+    "test_s3.test_bucket_create_naming_dns_dot_dash",
+    "test_s3.test_bucket_create_naming_dns_dash_dot",
 
     # These tests are disabled because go's http server doesn't support custom
     # error responses for those triggered by these tests. If go adds support
@@ -384,6 +388,11 @@ BLACKLISTED_BOTO2_FUNCTIONAL_TESTS = [
     # directory, which works in s3, but is not expected to in the s3gateway
     # TODO: server is returning 500's, and should give a better error for this
     "test_s3.test_bucket_list_delimiter_basic",
+
+    # Ignored because it's testing non-standard extensions
+    "test_s3.test_append_object",
+    "test_s3.test_append_object_position_wrong",
+    "test_s3.test_bucket_create_naming_bad_starts_nonalpha",
 
     # These tests are disabled because the tests themselves have bugs:
     # - Seems to rely on an old boto bug
@@ -478,11 +487,24 @@ BLACKLISTED_BOTO2_FUNCTIONAL_TESTS = [
     "test_s3.test_bucket_list_special_prefix",
     "test_s3.test_ranged_big_request_response_code",
     "test_s3.test_sse_kms_present",
+    "test_s3.test_put_object_ifmatch_good",
+    "test_s3.test_put_object_ifmatch_overwrite_existed_good",
+    "test_s3.test_put_object_ifmatch_nonexisted_failed",
+    "test_s3.test_put_object_ifnonmatch_good",
+    "test_s3.test_put_object_ifnonmatch_failed",
+    "test_s3.test_put_object_ifnonmatch_nonexisted_good",
+    "test_s3.test_put_object_ifnonmatch_overwrite_existed_failed",
+    "test_s3.test_atomic_conditional_write_1mb",
+    "test_s3.test_atomic_dual_conditional_write_1mb",
+    "test_s3.test_lifecycle_expiration_date",
+    "test_s3.test_append_normal_object",
+    "test_s3.test_bucket_head_extended",
 ]
 
-# Ignores for boto3 functional tests. Most of these are also ignored in boto2;
-# see above comments for why they are ignored.
+# Ignores for boto3 functional tests
 BLACKLISTED_BOTO3_FUNCTIONAL_TESTS = [
+    # Most of the following tests are also ignored in boto2; see above
+    # comments for why they are ignored.
     "test_headers.test_object_create_bad_contentlength_none",
     "test_headers.test_object_create_bad_authorization_empty",
     "test_headers.test_object_create_bad_authorization_none",
@@ -747,6 +769,38 @@ BLACKLISTED_BOTO3_FUNCTIONAL_TESTS = [
     "test_s3.test_lifecycle_expiration_header_put",
     "test_s3.test_lifecycle_expiration_header_head",
     "test_s3.setup_lifecycle_expiration_test",
+    "test_s3.test_bucket_acl_canned_during_create",
+    "test_s3.test_bucket_acl_grant_userid_fullcontrol",
+    "test_s3.test_bucket_acl_grant_userid_read",
+    "test_s3.test_bucket_acl_grant_userid_readacp",
+    "test_s3.test_bucket_acl_grant_userid_write",
+    "test_s3.test_bucket_acl_grant_userid_writeacp",
+    "test_s3.test_bucket_header_acl_grants",
+    "test_s3.test_bucket_acl_grant_email",
+    "test_s3.test_object_acl",
+    "test_s3.test_object_acl_write",
+    "test_s3.test_object_acl_writeacp",
+    "test_s3.test_object_acl_read",
+    "test_s3.test_object_acl_readacp",
+    "test_s3.test_object_header_acl_grants",
+    "test_s3.test_bucket_create_naming_dns_dot_dot",
+    "test_s3.test_bucket_create_naming_dns_dot_dash",
+    "test_s3.test_bucket_create_naming_dns_dash_dot",
+    "test_s3.test_multipart_upload",
+    "test_s3.test_lifecycle_multipart_expiration",
+    "test_s3.test_encryption_sse_c_multipart_upload",
+    "test_s3.test_lifecycle_expiration",
+    "test_s3.test_lifecycle_expiration_date",
+    "test_s3.test_lifecycle_noncur_expiration",
+    "test_s3.test_lifecycle_deletemarker_expiration",
+    "test_s3.test_object_acl_full_control_verify_owner",
+    "test_s3.test_put_object_ifmatch_nonexisted_failed",
+    "test_s3.test_list_buckets_anonymous",
+
+    # Ignored because it's testing non-standard extensions
+    "test_s3.test_bucket_list_unordered",
+    "test_s3.test_bucket_create_naming_bad_starts_nonalpha",
+    "test_s3.test_bucket_head_extended",
 ]
 
 class ClientGateway:
@@ -874,7 +928,7 @@ def run(test):
 
         filepath = os.path.join(RUNS_ROOT, datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S.txt"))
         with open(filepath, "w") as f:
-            run_nosetests("-a" "!fails_on_aws", env=extra_env, stderr=f)
+            run_nosetests(env=extra_env, stderr=f)
 
         sys.exit(print_failures())
 
