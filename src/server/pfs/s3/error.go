@@ -2,17 +2,8 @@ package s3
 
 import (
 	"net/http"
-	"regexp"
-)
 
-// note: the repo matcher is stricter than what PFS enforces, because this is
-// based off of minio's bucket matching regexp. At the point where we're
-// matching errors, we shouldn't be attempting to operate on buckets that
-// don't match the minio regexp anyways.
-var (
-	repoNotFoundMatcher   = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
-	branchNotFoundMatcher = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
-	fileNotFoundMatcher   = regexp.MustCompile(`file .+ not found`)
+	"github.com/pachyderm/pachyderm/src/server/pfs"
 )
 
 // Error is an XML-encodable error response
@@ -89,11 +80,9 @@ func noSuchKeyError(w http.ResponseWriter, r *http.Request) {
 }
 
 func notFoundError(w http.ResponseWriter, r *http.Request, err error) {
-	s := err.Error()
-
-	if repoNotFoundMatcher.MatchString(s) || branchNotFoundMatcher.MatchString(s) {
+	if pfs.IsRepoNotFoundErr(err) || pfs.IsBranchNotFoundErr(err) {
 		noSuchBucketError(w, r)
-	} else if fileNotFoundMatcher.MatchString(s) {
+	} else if pfs.IsFileNotFoundErr(err) {
 		noSuchKeyError(w, r)
 	} else {
 		internalError(w, r, err)

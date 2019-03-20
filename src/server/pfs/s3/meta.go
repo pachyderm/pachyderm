@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/server/pfs"
 )
 
 // ObjectMeta is JSON-serializable metadata about an object
@@ -21,7 +22,7 @@ func isMeta(file string) bool {
 func getMeta(client *client.APIClient, repo, branch, file string) (*ObjectMeta, error) {
 	metaReader, err := client.GetFileReader(repo, branch, fmt.Sprintf("%s.s3g.json", file), 0, 0)
 	if err != nil {
-		if !fileNotFoundMatcher.MatchString(err.Error()) {
+		if !pfs.IsFileNotFoundErr(err) {
 			return nil, err
 		}
 		return nil, nil
@@ -29,7 +30,7 @@ func getMeta(client *client.APIClient, repo, branch, file string) (*ObjectMeta, 
 
 	meta := new(ObjectMeta)
 	if err = json.NewDecoder(metaReader).Decode(&meta); err != nil {
-		if !fileNotFoundMatcher.MatchString(err.Error()) {
+		if !pfs.IsFileNotFoundErr(err) {
 			return nil, err
 		}
 		return nil, nil
@@ -53,7 +54,7 @@ func delMeta(client *client.APIClient, repo, branch, file string) error {
 	if err := client.DeleteFile(repo, branch, fmt.Sprintf("%s.s3g.json", file)); err != nil {
 		// ignore errors related to the metadata file not being found, since
 		// it may validly not exist
-		if !fileNotFoundMatcher.MatchString(err.Error()) {
+		if !pfs.IsFileNotFoundErr(err) {
 			return err
 		}
 	}

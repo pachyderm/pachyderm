@@ -10,8 +10,9 @@ import (
 	"github.com/gobwas/glob"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 )
 
 const defaultMaxKeys int = 1000
@@ -48,7 +49,7 @@ type Contents struct {
 	Owner        User      `xml:"Owner"`
 }
 
-func newContents(fileInfo *pfs.FileInfo, etag string) (Contents, error) {
+func newContents(fileInfo *pfsClient.FileInfo, etag string) (Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
 		return Contents{}, err
@@ -156,7 +157,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, fileInfo := range fileInfos {
-		if fileInfo.FileType == pfs.FileType_DIR {
+		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
 				continue
@@ -165,7 +166,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 				// skip directories if recursing
 				continue
 			}
-		} else if fileInfo.FileType == pfs.FileType_FILE {
+		} else if fileInfo.FileType == pfsClient.FileType_FILE {
 			if strings.HasSuffix(fileInfo.File.Path, ".s3g.json") {
 				// skip metadata files
 				continue
@@ -189,7 +190,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 			}
 			break
 		}
-		if fileInfo.FileType == pfs.FileType_FILE {
+		if fileInfo.FileType == pfsClient.FileType_FILE {
 			meta, err := getMeta(h.pc, result.Name, branch, fmt.Sprintf("/%s", fileInfo.File.Path))
 			if err != nil {
 				internalError(w, r, err)
@@ -237,13 +238,13 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
-		if strings.Contains(err.Error(), "as it already exists") {
+		if errutil.IsAlreadyExistError(err) {
 			// Bucket already exists - this is not an error so long as the
 			// branch being created is new. Verify if that is the case now,
 			// since PFS' `CreateBranch` won't error out.
 			_, err := h.pc.InspectBranch(repo, branch)
 			if err != nil {
-				if !branchNotFoundMatcher.MatchString(err.Error()) {
+				if !pfsServer.IsBranchNotFoundErr(err) {
 					internalError(w, r, err)
 					return
 				}
@@ -280,8 +281,8 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 
 	if branchInfo.Head != nil {
 		hasFiles := false
-		err = h.pc.Walk(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfs.FileInfo) error {
-			if fileInfo.FileType == pfs.FileType_FILE {
+		err = h.pc.Walk(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, "", func(fileInfo *pfsClient.FileInfo) error {
+			if fileInfo.FileType == pfsClient.FileType_FILE {
 				hasFiles = true
 				return errutil.ErrBreak
 			}
