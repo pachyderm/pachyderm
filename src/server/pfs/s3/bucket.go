@@ -305,5 +305,20 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	repoInfo, err := h.pc.InspectRepo(repo)
+	if err != nil {
+		internalError(w, r, err)
+		return
+	}
+
+	// delete the repo if this was the last branch
+	if len(repoInfo.Branches) == 0 {
+		err = h.pc.DeleteRepo(repo, false)
+		if err != nil {
+			internalError(w, r, err)
+			return
+		}
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
