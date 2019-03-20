@@ -397,6 +397,86 @@ BLACKLISTED_FUNCTIONAL_TESTS = [
     # - nosetests picks this up as a test function, even though it's intended
     # purpose is a utility function
     "test_s3.setup_lifecycle_expiration_test",
+    # - This test checks that the returned etag matches an expected md5 value,
+    # but the s3 spec says that etags should be treated as an opaque string,
+    # and not tied to any specific algo
+    "test_s3.test_object_write_check_etag",
+]
+
+BLACKLISTED_BOTO2_FUNCTIONAL_TESTS = [
+    # these tests check that the returned etag matches an expected md5 value,
+    # but the s3 spec says that etags should be treated as an opaque string,
+    # and not tied to any specific algo
+    "test_headers.test_object_create_bad_md5_none",
+    "test_headers.test_object_create_bad_expect_empty",
+    "test_headers.test_object_create_bad_expect_none",
+    "test_headers.test_object_create_bad_contenttype_invalid",
+    "test_headers.test_object_create_bad_contenttype_empty",
+    "test_headers.test_object_create_bad_contenttype_none",
+    "test_headers.test_object_create_date_and_amz_date",
+    "test_headers.test_object_create_amz_date_and_no_date",
+    "test_headers.test_object_create_bad_ua_empty_aws2",
+    "test_headers.test_object_create_bad_ua_none_aws2",
+    "test_s3.test_bucket_list_delimiter_empty",
+    "test_s3.test_bucket_list_delimiter_none",
+    "test_s3.test_bucket_list_delimiter_not_exist",
+    "test_s3.test_bucket_list_prefix_alt",
+    "test_s3.test_bucket_list_maxkeys_one",
+    "test_s3.test_bucket_list_maxkeys_zero",
+    "test_s3.test_bucket_list_maxkeys_none",
+    "test_s3.test_bucket_list_maxkeys_invalid",
+    "test_s3.test_bucket_list_maxkeys_unreadable",
+    "test_s3.test_bucket_list_marker_none",
+    "test_s3.test_bucket_list_marker_empty",
+    "test_s3.test_bucket_list_marker_unreadable",
+    "test_s3.test_bucket_list_marker_not_in_list",
+    "test_s3.test_bucket_list_marker_after_list",
+    "test_s3.test_bucket_list_marker_before_list",
+    "test_s3.test_object_write_read_update_read_delete",
+    "test_s3.test_object_metadata_replaced_on_put",
+    "test_s3.test_object_write_file",
+    "test_s3.test_get_object_ifmatch_good",
+    "test_s3.test_get_object_ifnonematch_good",
+    "test_s3.test_get_object_ifnonematch_failed",
+    "test_s3.test_get_object_ifmodifiedsince_good",
+    "test_s3.test_get_object_ifunmodifiedsince_failed",
+    "test_s3.test_bucket_list_prefix_basic",
+    "test_s3.test_bucket_list_prefix_empty",
+    "test_s3.test_bucket_list_prefix_none",
+    "test_s3.test_bucket_list_prefix_not_exist",
+    "test_s3.test_bucket_list_prefix_unreadable",
+    "test_s3.test_bucket_list_prefix_delimiter_basic",
+    "test_s3.test_atomic_read_1mb",
+    "test_s3.test_atomic_write_1mb",
+    "test_s3.test_atomic_dual_write_1mb",
+    "test_s3.test_encrypted_transfer_1MB",
+    "test_s3.test_sse_kms_transfer_1MB",
+    "test_s3.test_bucket_list_many",
+    "test_s3.test_bucket_list_object_time",
+    "test_s3.test_object_delete_key_bucket_gone",
+    "test_s3.test_atomic_read_4mb",
+    "test_s3.test_atomic_write_4mb",
+    "test_s3.test_atomic_dual_write_4mb",
+    "test_s3.test_atomic_read_8mb",
+    "test_s3.test_atomic_write_8mb",
+    "test_s3.test_atomic_dual_write_8mb",
+    "test_s3.test_ranged_request_response_code",
+    "test_s3.test_ranged_request_skip_leading_bytes_response_code",
+    "test_s3.test_ranged_request_return_trailing_bytes_response_code",
+    "test_s3.test_bucket_list_distinct",
+    "test_s3.test_bucket_list_delimiter_prefix",
+    "test_s3.test_encrypted_transfer_1b",
+    "test_s3.test_sse_kms_transfer_1b",
+    "test_s3.test_encrypted_transfer_1kb",
+    "test_s3.test_sse_kms_transfer_1kb",
+    "test_s3.test_encrypted_transfer_13b",
+    "test_s3.test_sse_kms_transfer_13b",
+    "test_s3.test_bucket_list_delimiter_prefix_underscore",
+    "test_s3.test_bucket_delete_nonempty",
+    "test_s3.test_object_head_zero_bytes",
+    "test_s3.test_bucket_list_special_prefix",
+    "test_s3.test_ranged_big_request_response_code",
+    "test_s3.test_sse_kms_present",
 ]
 
 class ClientGateway:
@@ -517,6 +597,8 @@ def run(test):
         for test in BLACKLISTED_FUNCTIONAL_TESTS:
             blacklisted_tests.append("s3tests.functional.{}".format(test))
             blacklisted_tests.append("s3tests_boto3.functional.{}".format(test))
+        for test in BLACKLISTED_BOTO2_FUNCTIONAL_TESTS:
+            blacklisted_tests.append("s3tests.functional.{}".format(test))
         extra_env = {
             "NOSE_EXCLUDE_TESTS": ";".join(blacklisted_tests)
         }
