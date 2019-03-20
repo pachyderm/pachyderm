@@ -49,7 +49,7 @@ type Contents struct {
 	Owner        User      `xml:"Owner"`
 }
 
-func newContents(fileInfo *pfsClient.FileInfo, etag string) (Contents, error) {
+func newContents(fileInfo *pfsClient.FileInfo) (Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
 		return Contents{}, err
@@ -58,7 +58,7 @@ func newContents(fileInfo *pfsClient.FileInfo, etag string) (Contents, error) {
 	return Contents{
 		Key:          fileInfo.File.Path,
 		LastModified: t,
-		ETag:         etag,
+		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
 		Size:         fileInfo.SizeBytes,
 		StorageClass: storageClass,
 		Owner:        defaultUser,
@@ -166,21 +166,17 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 				// skip directories if recursing
 				continue
 			}
-		} else if fileInfo.FileType == pfsClient.FileType_FILE {
-			if strings.HasSuffix(fileInfo.File.Path, ".s3g.json") {
-				// skip metadata files
-				continue
-			}
-		} else {
+		} else if fileInfo.FileType != pfsClient.FileType_FILE {
 			// skip anything that isn't a file or dir
 			continue
 		}
+
 		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
+		
 		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
 			continue
 		}
 		if fileInfo.File.Path <= result.Marker {
-			// skip file paths below the marker
 			continue
 		}
 
@@ -191,17 +187,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		if fileInfo.FileType == pfsClient.FileType_FILE {
-			meta, err := getMeta(h.pc, result.Name, branch, fmt.Sprintf("/%s", fileInfo.File.Path))
-			if err != nil {
-				internalError(w, r, err)
-				return
-			}
-			etag := ""
-			if meta != nil {
-				etag = meta.MD5
-			}
-
-			contents, err := newContents(fileInfo, etag)
+			contents, err := newContents(fileInfo)
 			if err != nil {
 				internalError(w, r, err)
 				return
