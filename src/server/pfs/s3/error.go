@@ -79,7 +79,7 @@ func noSuchKeyError(w http.ResponseWriter, r *http.Request) {
 	writeError(w, r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.")
 }
 
-func notFoundError(w http.ResponseWriter, r *http.Request, err error) {
+func maybeNotFoundError(w http.ResponseWriter, r *http.Request, err error) {
 	if pfs.IsRepoNotFoundErr(err) || pfs.IsBranchNotFoundErr(err) {
 		noSuchBucketError(w, r)
 	} else if pfs.IsFileNotFoundErr(err) {

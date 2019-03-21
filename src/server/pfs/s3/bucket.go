@@ -91,7 +91,7 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 
@@ -106,7 +106,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	// ensure the branch exists and has a head
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 
@@ -261,7 +261,7 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	// otherwise return a 404.
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 

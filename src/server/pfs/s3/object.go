@@ -25,7 +25,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	repo, branch, file := objectArgs(w, r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 	if branchInfo.Head == nil {
@@ -39,7 +39,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 
@@ -63,7 +63,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	repo, branch, file := objectArgs(w, r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 	if strings.HasSuffix(file, "/") {
@@ -121,7 +121,7 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 	repo, branch, file := objectArgs(w, r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 	if branchInfo.Head == nil {
@@ -134,7 +134,7 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 
