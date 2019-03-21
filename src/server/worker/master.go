@@ -815,13 +815,14 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 	})
 }
 
-func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) (retErr error) {
+func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
 		repo := a.pipelineInfo.Pipeline.Name
 
 		for {
 			// this extra closure is so that we can scope the defer
-			if err := func() (retErr1 error) {
+			if err := func() (retErr error) {
+				fmt.Println("opening pfs/out")
 				out, err := os.Open("/pfs/out")
 				if err != nil {
 					return err
@@ -835,6 +836,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) (ret
 				outTar := tar.NewReader(out)
 
 				// start commit
+				fmt.Println("starting commit")
 				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
 					Parent: &pfs.Commit{
 						Repo: &pfs.Repo{
@@ -850,24 +852,19 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) (ret
 
 				defer func() {
 					// close commit
-					if err := a.pachClient.FinishCommit(repo, commit.ID); err != nil && retErr1 == nil {
+					if err := a.pachClient.FinishCommit(repo, commit.ID); err != nil && retErr == nil {
 						// this lets us pass the error through if Close fails
-						retErr1 = err
+						retErr = err
 					}
 				}()
-				// hasFile := false
 				for {
 					fileHeader, err := outTar.Next()
 					if err == io.EOF {
-						// if !hasFile {
-						// 	continue
-						// }
 						break
 					}
 					if err != nil {
 						return err
 					}
-					// hasFile = true
 
 					// put files
 					if a.pipelineInfo.Spout.Overwrite {

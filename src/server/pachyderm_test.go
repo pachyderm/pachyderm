@@ -25,7 +25,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -8582,34 +8581,38 @@ func TestKafka(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-	controller, err := conn.Controller()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	conn, err = kafka.Dial("tcp", fmt.Sprintf("%v:%v", "localhost", controller.Port))
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	// create the topic
 	topic := tu.UniqueString("demo")
-	err = conn.CreateTopics(kafka.TopicConfig{
-		Topic:             topic,
-		NumPartitions:     1,
-		ReplicationFactor: 3,
-	})
-	if err != nil {
-		t.Fatal("Can't create topic", err)
+	brokers, err := conn.Brokers()
+	port := ""
+	for i, b := range brokers {
+		conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", "localhost", b.Port))
+		if err != nil {
+			t.Fatal(err)
+		}
+		brokers, err = conn.Brokers()
+		port = fmt.Sprint(b.Port)
+		err = conn.CreateTopics(kafka.TopicConfig{
+			Topic:             topic,
+			NumPartitions:     1,
+			ReplicationFactor: len(brokers),
+		})
+		if err != nil {
+			if i < len(brokers)-1 {
+				continue
+			}
+			t.Fatal("Can't create topic", err)
+		}
+		break
 	}
-
-	part, err := kafka.LookupPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", "localhost", controller.Port), topic, 0)
+	part, err := kafka.LookupPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", "localhost", port), topic, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// We need to pass the host IP and port to the image
 	host := part.Leader.Host
-	port := fmt.Sprint(part.Leader.Port)
+	port = fmt.Sprint(part.Leader.Port)
 	// but since kafka and pachyderm are in the same kubernetes cluster, we need to adjust the host address to "localhost" here
 	part.Leader.Host = "localhost"
 	conn, err = kafka.DialPartition(context.Background(), "tcp", "localhost:"+port, part)
@@ -8654,13 +8657,28 @@ func TestKafka(t *testing.T) {
 	// since the spout should be appending to that file on each commit
 	iter, err := c.SubscribeCommit(topic, "master", "", pfs.CommitState_FINISHED)
 	require.NoError(t, err)
-
+	num := 1
 	for i := 0; i < 5; i++ {
+		num--
 		commitInfo, err := iter.Next()
 		require.NoError(t, err)
 		files, err := c.ListFile(topic, commitInfo.Commit.ID, "")
 		require.NoError(t, err)
+		require.Equal(t, i+1, len(files))
 
-		spew.Dump(files)
+		var buf bytes.Buffer
+		err = c.GetFile(topic, commitInfo.Commit.ID, files[i].File.Path, 0, 0, &buf)
+		if err != nil {
+			t.Errorf("Could not get file %v", err)
+		}
+
+		for err != io.EOF {
+			line := ""
+			line, err = buf.ReadString('\n')
+			if len(line) > 0 && line != fmt.Sprintf("Now it's %v\n", num) {
+				t.Error("Missed a kafka message:", num)
+			}
+			num++
+		}
 	}
 }
