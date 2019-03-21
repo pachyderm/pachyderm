@@ -36,28 +36,35 @@ const pachdTracingEnvVar = "PACH_ENABLE_TRACING"
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
 
-func tagSpan(span opentracing.Span, kvs []interface{}) opentracing.Span {
-	for i := 0; i < len(kvs); i += 2 {
-		if len(kvs) == i+1 {
-			span = span.SetTag("extra", kvs[i]) // likely forgot key or value--best effort
-			break
-		}
-		if key, ok := kvs[i].(string); ok {
-			span = span.SetTag(key, kvs[i+1]) // common case -- skip printf
-		} else {
-			span = span.SetTag(fmt.Sprintf("%v", kvs[i]), kvs[i+1])
-		}
-	}
-	return span
-}
-
 // AddSpanToAnyExisting checks 'ctx' for Jaeger tracing information, and if
 // tracing metadata is present, it generates a new span for 'operation', marks
 // it as a child of the existing span, and returns it.
 func AddSpanToAnyExisting(ctx context.Context, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
 	if parentSpan := opentracing.SpanFromContext(ctx); parentSpan != nil {
-		span := opentracing.StartSpan(operation, opentracing.ChildOf(parentSpan.Context()))
-		tagSpan(span, kvs)
+		// Construct new span's options
+		options := []opentracing.StartSpanOption{
+			opentracing.ChildOf(parentSpan.Context()),
+		}
+
+		// Construct new span's tags
+		for i := 0; i < len(kvs); i += 2 {
+			if len(kvs) == i+1 {
+				// likely forgot key or value--best effort
+				options = append(options, opentracing.Tag{"extra", kvs[i]})
+				break
+			}
+			if key, ok := kvs[i].(string); ok {
+				// common case -- skip printf
+				options = append(options, opentracing.Tag{key, kvs[i+1]})
+			} else {
+				options = append(options, opentracing.Tag{
+					fmt.Sprintf("%v", kvs[i]), kvs[i+1],
+				})
+			}
+		}
+
+		// construct new span
+		span := opentracing.StartSpan(operation, options...)
 		return span, opentracing.ContextWithSpan(ctx, span)
 	}
 	return nil, ctx
