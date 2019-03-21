@@ -818,14 +818,15 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) error {
 	return backoff.RetryNotify(func() error {
 		repo := a.pipelineInfo.Pipeline.Name
-
 		for {
 			// this extra closure is so that we can scope the defer
 			if err := func() (retErr error) {
+				// open a read connection to the /pfs/out named pipe
 				out, err := os.Open("/pfs/out")
 				if err != nil {
 					return err
 				}
+				// and close it at the end of each loop
 				defer func() {
 					if err := out.Close(); err != nil && retErr == nil {
 						// this lets us pass the error through if Close fails
@@ -848,13 +849,14 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					return err
 				}
 
+				// finish the commit even if there was an issue
 				defer func() {
-					// close commit
 					if err := a.pachClient.FinishCommit(repo, commit.ID); err != nil && retErr == nil {
-						// this lets us pass the error through if Close fails
+						// this lets us pass the error through if FinishCommit fails
 						retErr = err
 					}
 				}()
+				// this loops through all the files in the tar that we've read from /pfs/out
 				for {
 					fileHeader, err := outTar.Next()
 					if err == io.EOF {
@@ -863,8 +865,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					if err != nil {
 						return err
 					}
-
-					// put files
+					// put files into pachyderm
 					if a.pipelineInfo.Spout.Overwrite {
 						_, err = a.pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
 						if err != nil {
@@ -877,7 +878,6 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 						}
 					}
 				}
-
 				return nil
 			}(); err != nil {
 				return err
