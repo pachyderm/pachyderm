@@ -822,7 +822,6 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 		for {
 			// this extra closure is so that we can scope the defer
 			if err := func() (retErr error) {
-				fmt.Println("opening pfs/out")
 				out, err := os.Open("/pfs/out")
 				if err != nil {
 					return err
@@ -836,7 +835,6 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				outTar := tar.NewReader(out)
 
 				// start commit
-				fmt.Println("starting commit")
 				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
 					Parent: &pfs.Commit{
 						Repo: &pfs.Repo{
