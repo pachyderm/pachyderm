@@ -243,7 +243,7 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	if resp, ok := s.rset[key]; ok {
 		return resp
 	}
-	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Get")
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Get", "key", key)
 	defer tracing.FinishAnySpan(span)
 	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
