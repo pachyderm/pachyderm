@@ -77,8 +77,9 @@ const (
 )
 
 var (
-	errSpecialFile = errors.New("cannot upload special file")
-	statsTagSuffix = "_stats"
+	errSpecialFile       = errors.New("cannot upload special file")
+	errDatumErrorHandled = errors.New("the datum errored, and the error was handled successfully")
+	statsTagSuffix       = "_stats"
 )
 
 // APIServer implements the worker API
@@ -690,8 +691,8 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 // Run user error code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserErrorCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
-	a.reportUserCodeStats(logger)
-	defer func(start time.Time) { a.reportDeferredUserCodeStats(retErr, start, stats, logger) }(time.Now())
+	// a.reportUserCodeStats(logger)
+	// defer func(start time.Time) { a.reportDeferredUserCodeStats(retErr, start, stats, logger) }(time.Now())
 	logger.Logf("beginning to run user error code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -1115,6 +1116,7 @@ type processResult struct {
 	failedDatumID   string
 	datumsProcessed int64
 	datumsSkipped   int64
+	datumsErrored   int64
 	datumsFailed    int64
 }
 
@@ -1171,6 +1173,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 		if err := jobs.Update(jobID, jobPtr, func() error {
 			jobPtr.DataProcessed += processResult.datumsProcessed
 			jobPtr.DataSkipped += processResult.datumsSkipped
+			// jobPtr.DataErrored += processResult.datumsErrored
 			jobPtr.DataFailed += processResult.datumsFailed
 			return nil
 		}); err != nil {
@@ -1861,7 +1864,8 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
+	df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -2034,10 +2038,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				failures++
 				if failures >= jobInfo.DatumTries {
 					logger.Logf("failed to process datum with error: %+v", err)
-
-					if err = a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-						return fmt.Errorf("error runUserErrorCode: %v", err)
-					}
 					if statsTree != nil {
 						object, size, err := pachClient.PutObject(strings.NewReader(err.Error()))
 						if err != nil {
@@ -2054,11 +2054,20 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 							statsTree.PutFile("failure", h, size, objectInfo.BlockRef)
 						}
 					}
+					if a.pipelineInfo.Transform.ErrCmd != nil {
+						if err = a.runUserErrorCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+							return fmt.Errorf("error runUserErrorCode: %v", err)
+						}
+						return errDatumErrorHandled
+					}
 					return err
 				}
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
-			}); err != nil {
+			}); err == errDatumErrorHandled {
+				atomic.AddInt64(&result.datumsErrored, 1)
+				return nil
+			} else if err != nil {
 				result.failedDatumID = a.DatumID(data)
 				atomic.AddInt64(&result.datumsFailed, 1)
 				return nil
@@ -2091,7 +2100,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	}); err != nil {
 		return nil, err
 	}
-	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed
+	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed - result.datumsErrored
 	// Merge datum hashtrees into a chunk hashtree, then cache it.
 	if err := a.mergeChunk(logger, high, result); err != nil {
 		return nil, err
