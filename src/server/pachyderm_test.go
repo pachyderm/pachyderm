@@ -8576,7 +8576,7 @@ func TestKafka(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 
 	// Open a connection to the kafka cluster
-	conn, err := kafka.Dial("tcp", "localhost:32400")
+	conn, err := kafka.Dial("tcp", "127.0.0.1:80:32400")
 	if err != nil {
 		t.Fatal(err)
 	}
