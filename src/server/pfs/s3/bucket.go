@@ -150,53 +150,51 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
 	}
 
-	fileInfos, err := h.pc.GlobFile(result.Name, branch, pattern)
-	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-
-	for _, fileInfo := range fileInfos {
+	if err = h.pc.GlobFileF(result.Name, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
-				continue
+				return nil
 			}
 			if recursive {
 				// skip directories if recursing
-				continue
+				return nil
 			}
 		} else if fileInfo.FileType != pfsClient.FileType_FILE {
 			// skip anything that isn't a file or dir
-			continue
+			return nil
 		}
 
 		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 		
 		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
-			continue
+			return nil
 		}
 		if fileInfo.File.Path <= result.Marker {
-			continue
+			return nil
 		}
 
 		if result.isFull() {
 			if result.MaxKeys > 0 {
 				result.IsTruncated = true
 			}
-			break
+			return errutil.ErrBreak
 		}
 		if fileInfo.FileType == pfsClient.FileType_FILE {
 			contents, err := newContents(fileInfo)
 			if err != nil {
-				internalError(w, r, err)
-				return
+				return err
 			}
 
 			result.Contents = append(result.Contents, contents)
 		} else {
 			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 		}
+
+		return nil
+	}); err != nil {
+		internalError(w, r, err)
+		return
 	}
 
 	if result.IsTruncated {
