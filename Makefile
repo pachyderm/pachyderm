@@ -558,44 +558,16 @@ doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
 clean-launch-kafka:
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/configure/docker-storageclass-broker.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/configure/docker-storageclass-zookeeper.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/00-namespace.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/10zookeeper-config.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/20pzoo-service.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/30service.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/50pzoo.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/51zoo.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/kafka/10broker-config.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/kafka/20dns.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/kafka/30bootstrap-service.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/kafka/50kafka.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/outside-services/outside-0.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/outside-services/outside-1.yml
-	kubectl delete --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/outside-services/outside-2.yml
+	kubectl delete -f etc/kubernetes-kafka -R
 	
 launch-kafka:
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/configure/docker-storageclass-broker.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/configure/docker-storageclass-zookeeper.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/00-namespace.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/10zookeeper-config.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/20pzoo-service.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/30service.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/50pzoo.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/zookeeper/51zoo.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/kafka/10broker-config.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/kafka/20dns.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/kafka/30bootstrap-service.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/kafka/50kafka.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/outside-services/outside-0.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/outside-services/outside-1.yml
-	kubectl apply --filename https://raw.githubusercontent.com/Yolean/kubernetes-kafka/cd332860d3a8367de85e9b046b2a277536d3df4e/outside-services/outside-2.yml
+	kubectl apply -f etc/kubernetes-kafka -R
 
 clean-launch-stats:
-	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+	kubectl delete --filename etc/kubernetes-prometheus -R
 
 launch-stats:
-	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+	kubectl apply --filename etc/kubernetes-prometheus -R
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
