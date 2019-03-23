@@ -3,6 +3,7 @@ package worker
 import (
 	"fmt"
 	"io"
+	"plugin"
 	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -189,6 +190,18 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 	return result
 }
 
+func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input) (DatumFactory, error) {
+	result := &crossDatumFactory{}
+	for _, input := range cross {
+		datumFactory, err := NewDatumFactory(pachClient, input)
+		if err != nil {
+			return nil, err
+		}
+		result.inputs = append(result.inputs, datumFactory)
+	}
+	return result, nil
+}
+
 type gitDatumFactory struct {
 	inputs []*Input
 }
@@ -224,18 +237,6 @@ func (d *gitDatumFactory) Datum(i int) []*Input {
 	return []*Input{d.inputs[i]}
 }
 
-func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input) (DatumFactory, error) {
-	result := &crossDatumFactory{}
-	for _, input := range cross {
-		datumFactory, err := NewDatumFactory(pachClient, input)
-		if err != nil {
-			return nil, err
-		}
-		result.inputs = append(result.inputs, datumFactory)
-	}
-	return result, nil
-}
-
 func newCronDatumFactory(pachClient *client.APIClient, input *pps.CronInput) (DatumFactory, error) {
 	return newPFSDatumFactory(pachClient, &pps.PFSInput{
 		Name:   input.Name,
@@ -244,6 +245,50 @@ func newCronDatumFactory(pachClient *client.APIClient, input *pps.CronInput) (Da
 		Commit: input.Commit,
 		Glob:   "/*",
 	})
+}
+
+type filterDatumFactory struct {
+	pred  pps.FilterFunc
+	input DatumFactory
+}
+
+func (d *filterDatumFactory) Len() int {
+	return d.input.Len()
+}
+
+func (d *filterDatumFactory) Datum(i int) []*Input {
+	result := d.input.Datum(i)
+	var fis []*pfs.FileInfo
+	for _, in := range result {
+		fis = append(fis, in.FileInfo)
+	}
+	if d.pred(fis) {
+		return result
+	}
+	return nil
+}
+
+func newFilterDatumFactory(pachClient *client.APIClient, input *pps.FilterInput) (DatumFactory, error) {
+	in, err := NewDatumFactory(pachClient, input.Input)
+	if err != nil {
+		return nil, err
+	}
+	p, err := plugin.Open(input.Predicate.Source)
+	if err != nil {
+		return nil, err
+	}
+	symb, err := p.Lookup(input.Predicate.Symbol)
+	if err != nil {
+		return nil, err
+	}
+	pred, ok := symb.(pps.FilterFunc)
+	if !ok {
+		return nil, fmt.Errorf("predicate of the wrong type")
+	}
+	return &filterDatumFactory{
+		pred:  pred,
+		input: in,
+	}, nil
 }
 
 // NewDatumFactory creates a datumFactory for an input.
@@ -261,6 +306,8 @@ func NewDatumFactory(pachClient *client.APIClient, input *pps.Input) (DatumFacto
 		return newCronDatumFactory(pachClient, input.Cron)
 	case input.Git != nil:
 		return newGitDatumFactory(pachClient, input.Git)
+	case input.Filter != nil:
+		return newFilterDatumFactory(pachClient, input.Filter)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }
