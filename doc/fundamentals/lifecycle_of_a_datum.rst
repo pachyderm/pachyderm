@@ -369,7 +369,7 @@ would contain the files
    wisdom -> 1\n
    foolishness -> 1\n
 
-Where “:raw-latex:`\n`” is the newline appended by our “wordcount” code
+Where ``\n`` is the newline appended by our “wordcount” code
 after it outputs the word count. If we were to fix ``ttc.txt``, either
 by appending the missing text or replacing it with the entire first
 paragraph using ``pachctl put-file`` with the ``--overwrite`` flag, the
