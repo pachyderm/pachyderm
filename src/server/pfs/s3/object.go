@@ -11,7 +11,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 type objectHandler struct {
@@ -38,23 +37,19 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileInfos, err := h.pc.ListFileHistory(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file, 1)
+	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
 		return
 	}
-	if len(fileInfos) != 1 || fileInfos[0].FileType != pfs.FileType_FILE {
-		noSuchKeyError(w, r)
-		return
-	}
 
-	timestamp, err := types.TimestampFromProto(fileInfos[0].Committed)
+	timestamp, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
 
-	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", fileInfos[0].Hash))
+	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", fileInfo.Hash))
 	reader, err := h.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
 		internalError(w, r, err)
