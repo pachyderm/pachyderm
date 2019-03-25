@@ -4723,3 +4723,66 @@ func TestFileHistory(t *testing.T) {
 		require.Equal(t, i, len(fileInfos))
 	}
 }
+
+// TestAtomicHistory repeatedly writes to a file while concurrently reading
+// its history. This checks for a regression where the repo would sometimes
+// lock.
+func TestAtomicHistory(t *testing.T) {
+    pc := GetPachClient(t)
+    repo := tu.UniqueString("TestAtomicHistory")
+    require.NoError(t, pc.CreateRepo(repo))
+    require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
+
+    a := strings.Repeat("A", 1*1024*1024)
+    b := strings.Repeat("B", 1*1024*1024)
+    done := make(chan bool, 1)
+
+    for i := 0; i < 100; i++ {
+        _, err := pc.PutFileOverwrite(repo, "master", "/file", strings.NewReader(a), 0)
+        require.NoError(t, err)
+
+        go func() {
+            r := SlowReader{underlying: strings.NewReader(b)}
+            _, err := pc.PutFileOverwrite(repo, "master", "/file", &r, 0)
+            require.NoError(t, err)
+            done <- true
+        }()
+
+        // should pull /file when it's all A's
+        branchInfo, err := pc.InspectBranch(repo, "master")
+	    require.NoError(t, err)
+	    require.NotNil(t, branchInfo.Head)
+
+	    fileInfos, err := pc.ListFileHistory(repo, branchInfo.Head.ID, "/file", 1)
+	    require.NoError(t, err)
+	    require.Equal(t, len(fileInfos), 1)
+
+	    _, err = types.TimestampFromProto(fileInfos[0].Committed)
+	    require.NoError(t, err)
+
+	    // wait until B's have been written
+        <-done
+        
+        // should pull /file when it's all B's
+        branchInfo, err = pc.InspectBranch(repo, "master")
+	    require.NoError(t, err)
+	    require.NotNil(t, branchInfo.Head)
+
+	    fileInfos, err = pc.ListFileHistory(repo, branchInfo.Head.ID, "/file", 1)
+	    require.NoError(t, err)
+	    require.Equal(t, len(fileInfos), 1)
+
+	    _, err = types.TimestampFromProto(fileInfos[0].Committed)
+	    require.NoError(t, err)
+    }
+}
+
+type SlowReader struct {
+    underlying io.Reader
+}
+
+func (r *SlowReader) Read(p []byte) (n int, err error) {
+    a, b := r.underlying.Read(p)
+    time.Sleep(1 * time.Millisecond)
+    return a, b
+}
