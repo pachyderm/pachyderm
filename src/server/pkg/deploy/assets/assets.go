@@ -628,6 +628,11 @@ func PachdService(opts *AssetOpts) *v1.Service {
 			},
 			Ports: []v1.ServicePort{
 				{
+					Port:     600, // also set in cmd/pachd/main.go
+					Name:     "s3gateway-port",
+					NodePort: 30600,
+				},
+				{
 					Port:     650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
 					NodePort: 30650,
