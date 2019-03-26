@@ -37,7 +37,7 @@ a few options:
   Python, or Scala, Pachyderm uses a protobuf API which supports many other
   languages, we just haven’t built the full clients yet.
 - [Via the s3gateway](#the-s3gateway): This is ideal when using existing tools
-or libraries that interact with object stores.
+  or libraries that interact with object stores.
 - [Via the Pachyderm dashboard](#the-pachyderm-dashboard): The Pachyderm Enterprise dashboard provides a
   very convenient way to upload data right from the GUI. You can find out more
   about Pachyderm Enterprise Edition [here](../enterprise/overview.html).
