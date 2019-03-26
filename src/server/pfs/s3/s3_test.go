@@ -97,7 +97,7 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 	for i, expectedFilename := range expectedFiles {
 		actualFile := actualFiles[i]
 		require.Equal(t, expectedFilename, actualFile.Key)
-		require.Equal(t, "", actualFile.ETag, fmt.Sprintf("unexpected etag for %s", expectedFilename))
+		require.True(t, len(actualFile.ETag) > 0, fmt.Sprintf("unexpected empty etag for %s", expectedFilename))
 		expectedLen := int64(len(filepath.Base(expectedFilename)) + 1)
 		require.Equal(t, expectedLen, actualFile.Size, fmt.Sprintf("unexpected file length for %s", expectedFilename))
 		require.True(t, startTime.Before(actualFile.LastModified), fmt.Sprintf("unexpected last modified for %s", expectedFilename))
@@ -107,7 +107,7 @@ func checkListObjects(t *testing.T, ch <-chan minio.ObjectInfo, startTime time.T
 	for i, expectedDirname := range expectedDirs {
 		actualDir := actualDirs[i]
 		require.Equal(t, expectedDirname, actualDir.Key)
-		require.Equal(t, "", actualDir.ETag, fmt.Sprintf("unexpected etag for %s", expectedDirname))
+		require.True(t, len(actualDir.ETag) == 0, fmt.Sprintf("unexpected etag for %s: %s", expectedDirname, actualDir.ETag))
 		require.Equal(t, int64(0), actualDir.Size)
 		require.True(t, actualDir.LastModified.IsZero(), fmt.Sprintf("unexpected last modified for %s", expectedDirname))
 	}
@@ -249,7 +249,7 @@ func TestStatObject(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, startTime.Before(info.LastModified))
 	require.True(t, endTime.After(info.LastModified))
-	require.Equal(t, "", info.ETag) //etags aren't returned by our API
+	require.True(t, len(info.ETag) > 0)
 	require.Equal(t, "text/plain; charset=utf-8", info.ContentType)
 	require.Equal(t, int64(11), info.Size)
 
@@ -276,26 +276,6 @@ func TestPutObject(t *testing.T) {
 
 	require.NoError(t, srv.Close())
 }
-
-func TestPutObjectMeta(t *testing.T) {
-	srv, pc, c := serve(t)
-
-	repo := tu.UniqueString("testputmeta")
-	require.NoError(t, pc.CreateRepo(repo))
-	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
-
-	// this should not work because `.s3g.json` are special metadata files,
-	// and inaccessible via the gateway
-	_, err := c.PutObject(fmt.Sprintf("master.%s", repo), "file.s3g.json", strings.NewReader("content1"), "text/plain")
-	require.YesError(t, err)
-	require.Equal(t, err.Error(), "Invalid file path")
-
-	_, err = getObject(t, c, repo, "master", "file.s3g.json")
-	require.YesError(t, err)
-
-	require.NoError(t, srv.Close())
-}
-
 
 func TestRemoveObject(t *testing.T) {
 	srv, pc, c := serve(t)

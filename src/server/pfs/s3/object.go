@@ -25,21 +25,21 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	repo, branch, file := objectArgs(w, r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 	if branchInfo.Head == nil {
 		noSuchKeyError(w, r)
 		return
 	}
-	if isMeta(file) || strings.HasSuffix(file, "/") {
+	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
 
 	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 
@@ -49,15 +49,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	meta, err := getMeta(h.pc, branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
-	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-	if meta != nil {
-		w.Header().Set("ETag", fmt.Sprintf("\"%s\"", meta.MD5))
-	}
-
+	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", fileInfo.Hash))
 	reader, err := h.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
 		internalError(w, r, err)
@@ -71,10 +63,10 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	repo, branch, file := objectArgs(w, r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
-	if isMeta(file) || strings.HasSuffix(file, "/") {
+	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
@@ -91,80 +83,58 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	hasher := md5.New()
 	reader := io.TeeReader(r.Body, hasher)
+	success := false
 
-	client, err := h.pc.NewPutFileClient()
+	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
 		internalError(w, r, err)
 		return
 	}
 
-	_, err = client.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
-	if err != nil {
-		internalError(w, r, err)
-		if err = client.Close(); err != nil {
-			requestLogger(r).Errorf("could not close put file client: %v", err)
+	defer func() {
+		// try to clean up the file if an error occurred
+		if !success {
+	        if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+	            requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
+	        }
 		}
-		return
-	}
+	}()
 
 	actualHashBytes := hasher.Sum(nil)
-	actualHash := fmt.Sprintf("%x", actualHashBytes)
-	failed := false
 	if expectedHashBytes != nil && !bytes.Equal(expectedHashBytes, actualHashBytes) {
 		badDigestError(w, r)
-		failed = true
+		return
 	}
 
-	if !failed {
-		meta := ObjectMeta { MD5: actualHash }
-		if err = putMeta(client, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, &meta); err != nil {
-			internalError(w, r, err)
-			failed = true
-		}
+	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	if err != nil {
+		internalError(w, r, err)
+		return
 	}
 
-	if err = client.Close(); err != nil {
-		if !failed {
-			internalError(w, r, err)
-			failed = true
-		} else {
-			requestLogger(r).Errorf("could not close put file client: %v", err)
-		}
-	}
-
-	if failed {
-		// try to clean up the file if an error occurred
-        if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-            requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
-        }
-	} else {
-		w.Header().Set("ETag", fmt.Sprintf("\"%s\"", actualHash))
-		w.WriteHeader(http.StatusOK)
-	}
+	success = true
+	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", fileInfo.Hash))
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 	repo, branch, file := objectArgs(w, r)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 	if branchInfo.Head == nil {
 		noSuchKeyError(w, r)
 		return
 	}
-	if isMeta(file) || strings.HasSuffix(file, "/") {
+	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
-
-	if err = delMeta(h.pc, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-		internalError(w, r, err)
-		return
-	}
+	
 	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-		notFoundError(w, r, err)
+		maybeNotFoundError(w, r, err)
 		return
 	}
 

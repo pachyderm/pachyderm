@@ -67,9 +67,9 @@ type objBlockAPIServer struct {
 // to run multiple block servers locally, which would conflict if groups
 // had the same name. We also do not report stats to prometheus
 func newObjBlockAPIServer(dir string, cacheBytes int64, etcdAddress string, objClient obj.Client, test bool) (*objBlockAPIServer, error) {
-	// defensive mesaure in case IsNotExist checking breaks due to underlying
-	// changes. Use context.Background() b/c only run on startup.
-	if err := obj.TestIsNotExist(context.Background(), objClient); err != nil {
+	// defensive measure to make sure storage is working and error early if it's not
+	// this is where we'll find out if the credentials have been misconfigured
+	if err := obj.TestStorage(context.Background(), objClient); err != nil {
 		return nil, err
 	}
 	oneCacheShare := cacheBytes / (objectCacheShares + tagCacheShares + objectInfoCacheShares + blockCacheShares)
