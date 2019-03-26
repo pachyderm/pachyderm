@@ -281,6 +281,12 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 					return err
 				}
 			}
+			if input.Filter != nil {
+				if set {
+					return fmt.Errorf("multiple input types set")
+				}
+				set = true
+			}
 			if !set {
 				return fmt.Errorf("no input set")
 			}

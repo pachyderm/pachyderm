@@ -23,6 +23,8 @@ func VisitInput(input *Input, f func(*Input)) {
 		for _, input := range input.Union {
 			VisitInput(input, f)
 		}
+	case input.Filter != nil:
+		VisitInput(input.Filter.Input, f)
 	}
 	f(input)
 }

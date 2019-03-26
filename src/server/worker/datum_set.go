@@ -275,11 +275,11 @@ func newFilterDatumFactory(pachClient *client.APIClient, input *pps.FilterInput)
 	}
 	p, err := plugin.Open(input.Predicate.Source)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("plugin.Open: %v", err)
 	}
 	symb, err := p.Lookup(input.Predicate.Symbol)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("plugin.Lookup: %v", err)
 	}
 	pred, ok := symb.(pps.FilterFunc)
 	if !ok {

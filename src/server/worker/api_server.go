@@ -1823,6 +1823,11 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			defer atomic.AddInt64(&a.queueSize, -1)
 
 			data := df.Datum(int(datumIdx))
+			if len(data) == 0 {
+				atomic.AddInt64(&result.datumsSkipped, 1)
+				logger.Logf("skipping datum")
+				return nil
+			}
 			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
 			if err != nil {
 				return err

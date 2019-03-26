@@ -8322,6 +8322,55 @@ func TestSpout(t *testing.T) {
 	})
 }
 
+func TestFilter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo1 := tu.UniqueString("TestFilter_data1")
+	dataRepo2 := tu.UniqueString("TestFilter_data2")
+	require.NoError(t, c.CreateRepo(dataRepo1))
+	require.NoError(t, c.CreateRepo(dataRepo2))
+
+	_, err := c.PutFile(dataRepo1, "master", "file1", strings.NewReader("file1\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo1, "master", "file2", strings.NewReader("file2\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo2, "master", "file1", strings.NewReader("file1\n"))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo2, "master", "file2", strings.NewReader("file2\n"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("TestFilter")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"pachyderm_filter",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo1),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewFilterInput("/filter.so", "Filter",
+			client.NewCrossInput(
+				client.NewPFSInput(dataRepo1, "/*"),
+				client.NewPFSInput(dataRepo1, "/*"),
+			),
+		),
+		"",
+		false,
+	))
+
+	commitIter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo1, "master"), client.NewCommit(dataRepo2, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)

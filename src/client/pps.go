@@ -169,6 +169,21 @@ func NewCronInput(name string, spec string) *pps.Input {
 	}
 }
 
+// NewFilterInput returns an input which filters datums from another input.
+// Source and symbol reference the source file and symbole name for a go plugin
+// which implements the filtering predicate.
+func NewFilterInput(source, symbol string, input *pps.Input) *pps.Input {
+	return &pps.Input{
+		Filter: &pps.FilterInput{
+			Predicate: &pps.Plugin{
+				Source: source,
+				Symbol: symbol,
+			},
+			Input: input,
+		},
+	}
+}
+
 // NewPipeline creates a pps.Pipeline.
 func NewPipeline(pipelineName string) *pps.Pipeline {
 	return &pps.Pipeline{Name: pipelineName}
