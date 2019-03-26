@@ -36,6 +36,8 @@ a few options:
   applications written in those languages. Actually, even if you don't use Go,
   Python, or Scala, Pachyderm uses a protobuf API which supports many other
   languages, we just haven’t built the full clients yet.
+- [Via the s3gateway](#the-s3gateway): This is ideal when using existing tools
+or libraries that interact with object stores.
 - [Via the Pachyderm dashboard](#the-pachyderm-dashboard): The Pachyderm Enterprise dashboard provides a
   very convenient way to upload data right from the GUI. You can find out more
   about Pachyderm Enterprise Edition [here](../enterprise/overview.html).
@@ -114,6 +116,12 @@ $ pachctl put-file <repo> <branch> -r -f <dir>
 There are a number of Pachyderm language clients.  These can be used to
 programmatically put data into Pachyderm, and much more.  You can find out more
 about these clients [here](../reference/clients.html).
+
+### The S3Gateway
+
+We support an HTTP API that offers a subset of S3's functionality. With this,
+you can use existing tools or libraries that work with object stores, such as
+minio. [See the s3gateway docs for more information](./s3gateway.html).
 
 ### The Pachyderm Dashboard
 
