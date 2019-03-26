@@ -126,8 +126,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 				r.Header.Set("X-Request-ID", requestID)
 			}
 
-			// TODO: reduce log level
-			requestLogger(r).Infof("http request: %s %s", r.Method, r.RequestURI)
+			requestLogger(r).Debugf("http request: %s %s", r.Method, r.RequestURI)
 
 			w.Header().Set("x-amz-request-id", requestID)
 			router.ServeHTTP(w, r)
