@@ -13,7 +13,6 @@ import "client/pfs/pfs.proto";
 
 message Plugin {
   string source = 1;
-  string symbol = 2;
 }
 
 message Secret {
@@ -115,6 +114,18 @@ message GitInput {
 message FilterInput {
   Plugin predicate = 1;
   Input input = 2;
+}
+
+message FilterRequest {
+  repeated pfs.FileInfo files = 1;
+}
+
+message FilterResponse {
+  bool filter = 1;
+}
+
+service Filter {
+  rpc Filter(FilterRequest) returns (FilterResponse) {}
 }
 
 message Input {
