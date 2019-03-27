@@ -647,6 +647,56 @@ func TestPipelineFailure(t *testing.T) {
 	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
 }
 
+func TestPipelineErrorHandling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestPipelineErrorHandling_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	_, err := c.PutFile(dataRepo, "master", "file1", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+
+	_, err = c.PutFile(dataRepo, "master", "file2", strings.NewReader("bar\n"))
+	require.NoError(t, err)
+
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd:    []string{"bash"},
+				Stdin:  []string{"if", fmt.Sprintf("[ -a pfs/%v/file1 ]", dataRepo), "then", "exit 1", "fi", "ls pfs"},
+				ErrCmd: []string{"bash"},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+
+	var jobInfos []*pps.JobInfo
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err = c.ListJob(pipeline, nil, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 1 {
+			return fmt.Errorf("expected 1 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+	jobInfo, err := c.PpsAPIClient.InspectJob(context.Background(), &pps.InspectJobRequest{
+		Job:        jobInfos[0].Job,
+		BlockState: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	require.Equal(t, int64(1), jobInfo.DataProcessed)
+	require.Equal(t, int64(0), jobInfo.DataFailed)
+}
+
 func TestEgressFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
