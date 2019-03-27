@@ -438,7 +438,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
-		Long:  "Create a new pipeline from a pipeline specification",
+		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(!*noMetrics, !*noPortForwarding, false, build, pushImages, registry, username, pipelinePath, false)
 		}),
@@ -453,7 +453,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
-		Long:  "Update a Pachyderm pipeline with a new pipeline specification",
+		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(!*noMetrics, !*noPortForwarding, reprocess, build, pushImages, registry, username, pipelinePath, true)
 		}),
