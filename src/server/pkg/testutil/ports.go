@@ -2,7 +2,7 @@ package testutil
 
 import "sync/atomic"
 
-var nextPort uint32 = 41300
+var nextPort uint32 = 40000
 
 // UniquePort generates a likely unique port, so that multiple servers can run
 // concurrently. Note that it does not actually check that the port is free,
