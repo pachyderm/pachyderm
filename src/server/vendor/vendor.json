@@ -922,10 +922,28 @@
 			"revisionTime": "2016-04-07T17:41:26Z"
 		},
 		{
+			"checksumSHA1": "Gvaoaw0uFe3531fmLwwQihfd7Bo=",
+			"path": "github.com/hashicorp/go-hclog",
+			"revision": "6907afbebd2eef854f0be9194eb79b0ba75d7b29",
+			"revisionTime": "2019-03-05T18:45:41Z"
+		},
+		{
 			"checksumSHA1": "g7uHECbzuaWwdxvwoyxBwgeERPk=",
 			"path": "github.com/hashicorp/go-multierror",
 			"revision": "b7773ae218740a7be65057fc60b366a49b538a44",
 			"revisionTime": "2017-12-04T18:29:08Z"
+		},
+		{
+			"checksumSHA1": "gyFqLTk3KDzmkSuXFVEGy9GbS6k=",
+			"path": "github.com/hashicorp/go-plugin",
+			"revision": "52e1c4730856c1438ced7597c9b5c585a7bd06a2",
+			"revisionTime": "2019-03-22T17:27:44Z"
+		},
+		{
+			"checksumSHA1": "uTvnRQ5UWn/bhRxbW/UCfYFseSc=",
+			"path": "github.com/hashicorp/go-plugin/internal/plugin",
+			"revision": "52e1c4730856c1438ced7597c9b5c585a7bd06a2",
+			"revisionTime": "2019-03-22T17:27:44Z"
 		},
 		{
 			"checksumSHA1": "A1PcINvF3UiwHRKn8UcgARgvGRs=",
@@ -1028,6 +1046,12 @@
 			"path": "github.com/hashicorp/vault/helper/strutil",
 			"revision": "43e9bcd94895e9431d2bfab109cf0884d7feb403",
 			"revisionTime": "2018-03-26T15:30:58Z"
+		},
+		{
+			"checksumSHA1": "ldkAQ1CpiAaQ9sti0qIch+UyRsI=",
+			"path": "github.com/hashicorp/yamux",
+			"revision": "2f1d1f20f75d5404f53b9edf6b53ed5505508675",
+			"revisionTime": "2018-10-12T17:50:58Z"
 		},
 		{
 			"checksumSHA1": "K6exl2ouL7d8cR2i378EzZOdRVI=",
@@ -1191,6 +1215,12 @@
 			"revisionTime": "2016-12-03T19:45:07Z"
 		},
 		{
+			"checksumSHA1": "sOKKo6gC91+8G8bEsg4Kob0k61g=",
+			"path": "github.com/mitchellh/go-testing-interface",
+			"revision": "6d0b8010fcc857872e42fc6c931227569016843c",
+			"revisionTime": "2018-08-26T20:35:19Z"
+		},
+		{
 			"checksumSHA1": "Yvzge1YQcD/wSDXLD5qNHqmI/0s=",
 			"path": "github.com/mitchellh/mapstructure",
 			"revision": "00c29f56e2386353d58c599509e8dc3801b0d716",
@@ -1213,6 +1243,12 @@
 			"path": "github.com/montanaflynn/stats",
 			"revision": "41c34e4914ec3c05d485e564d9028d8861d5d9ad",
 			"revisionTime": "2017-04-04T20:43:49Z"
+		},
+		{
+			"checksumSHA1": "nf3UoPNBIut7BL9nWE8Fw2X2j+Q=",
+			"path": "github.com/oklog/run",
+			"revision": "6934b124db28979da51d3470dadfa34d73d72652",
+			"revisionTime": "2018-03-08T00:51:04Z"
 		},
 		{
 			"checksumSHA1": "3AoPMXlmVq2+iWMpsdJZkcUKHB8=",
@@ -2069,6 +2105,12 @@
 			"revisionTime": "2018-12-04T23:41:53Z",
 			"version": "v1.17.0",
 			"versionExact": "v1.17.0"
+		},
+		{
+			"checksumSHA1": "wabmZzT67A/Oy1tWQxYWw7UuTnY=",
+			"path": "google.golang.org/grpc/health",
+			"revision": "ed10349f451e96cf671d270545c99ff0041fea7c",
+			"revisionTime": "2019-03-25T22:42:16Z"
 		},
 		{
 			"checksumSHA1": "KfgIKMqGJ8FdFbWlGDsnmrCY7eE=",

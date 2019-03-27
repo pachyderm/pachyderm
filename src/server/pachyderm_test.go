@@ -8355,7 +8355,7 @@ func TestFilter(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewFilterInput("/filter.so", "Filter",
+		client.NewFilterInput("/filter",
 			client.NewCrossInput(
 				client.NewPFSInput(dataRepo1, "/*"),
 				client.NewPFSInput(dataRepo1, "/*"),

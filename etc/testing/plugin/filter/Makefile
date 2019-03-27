@@ -1,5 +1,5 @@
 build:
-	go build -buildmode=plugin ./
+	go build ./
 
 docker-build: build
 	docker build . -t pachyderm_filter

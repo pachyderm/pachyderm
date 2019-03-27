@@ -3,9 +3,10 @@ package worker
 import (
 	"fmt"
 	"io"
-	"plugin"
+	"os/exec"
 	"sort"
 
+	plugin "github.com/hashicorp/go-plugin"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -273,18 +274,22 @@ func newFilterDatumFactory(pachClient *client.APIClient, input *pps.FilterInput)
 	if err != nil {
 		return nil, err
 	}
-	p, err := plugin.Open(input.Predicate.Source)
+	// We're a host. Start by launching the plugin process.
+	client := plugin.NewClient(&plugin.ClientConfig{
+		HandshakeConfig:  pps.FilterHandshake,
+		Plugins:          pps.FilterPluginMap,
+		Cmd:              exec.Command("sh", "-c", input.Predicate.Source),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+	})
+	grpcClient, err := client.Client()
 	if err != nil {
-		return nil, fmt.Errorf("plugin.Open: %v", err)
+		return nil, err
 	}
-	symb, err := p.Lookup(input.Predicate.Symbol)
+	raw, err := grpcClient.Dispense("filter_grpc")
 	if err != nil {
-		return nil, fmt.Errorf("plugin.Lookup: %v", err)
+		return nil, err
 	}
-	pred, ok := symb.(pps.FilterFunc)
-	if !ok {
-		return nil, fmt.Errorf("predicate of the wrong type")
-	}
+	pred := raw.(pps.FilterFunc)
 	return &filterDatumFactory{
 		pred:  pred,
 		input: in,

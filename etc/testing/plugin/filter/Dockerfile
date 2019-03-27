@@ -1,2 +1,2 @@
 FROM ubuntu
-ADD ./filter.so /
+ADD ./filter /
