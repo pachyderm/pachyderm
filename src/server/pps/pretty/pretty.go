@@ -57,7 +57,11 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 		fmt.Fprintf(w, "-\t")
 	}
 	fmt.Fprintf(w, "%d\t", jobInfo.Restart)
-	fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	if jobInfo.DataRecovered != 0 {
+		fmt.Fprintf(w, "%d + %d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataRecovered, jobInfo.DataTotal)
+	} else {
+		fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	}
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
 	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
