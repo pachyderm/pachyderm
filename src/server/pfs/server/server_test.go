@@ -4737,10 +4737,12 @@ func TestAtomicHistory(t *testing.T) {
 	b := strings.Repeat("B", 1*1024*1024)
 	done := make(chan bool, 1)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
+		// create a file of all A's
 		_, err := pc.PutFileOverwrite(repo, "master", "/file", strings.NewReader(a), 0)
 		require.NoError(t, err)
 
+		// sllowwwllly replace it with all B's
 		go func() {
 			r := SlowReader{underlying: strings.NewReader(b)}
 			_, err := pc.PutFileOverwrite(repo, "master", "/file", &r, 0)
@@ -4748,32 +4750,22 @@ func TestAtomicHistory(t *testing.T) {
 			done <- true
 		}()
 
-		// should pull /file when it's all A's
 		branchInfo, err := pc.InspectBranch(repo, "master")
 		require.NoError(t, err)
 		require.NotNil(t, branchInfo.Head)
 
+		// should pull /file when it's all A's
 		fileInfos, err := pc.ListFileHistory(repo, branchInfo.Head.ID, "/file", 1)
 		require.NoError(t, err)
 		require.Equal(t, len(fileInfos), 1)
-
-		_, err = types.TimestampFromProto(fileInfos[0].Committed)
-		require.NoError(t, err)
 
 		// wait until B's have been written
 		<-done
 		
 		// should pull /file when it's all B's
-		branchInfo, err = pc.InspectBranch(repo, "master")
-		require.NoError(t, err)
-		require.NotNil(t, branchInfo.Head)
-
 		fileInfos, err = pc.ListFileHistory(repo, branchInfo.Head.ID, "/file", 1)
 		require.NoError(t, err)
 		require.Equal(t, len(fileInfos), 1)
-
-		_, err = types.TimestampFromProto(fileInfos[0].Committed)
-		require.NoError(t, err)
 	}
 }
 
