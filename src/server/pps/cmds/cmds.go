@@ -68,8 +68,6 @@ To increase the throughput of a job, increase the 'shard' parameter.
 `,
 	}
 
-	pipelineSpec := "[Pipeline Specification](../reference/pipeline_spec.html)"
-
 	var block bool
 	inspectJob := &cobra.Command{
 		Use:   "inspect-job job-id",
@@ -440,7 +438,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	createPipeline := &cobra.Command{
 		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
-		Long:  fmt.Sprintf("Create a new pipeline from a %s", pipelineSpec),
+		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(!*noMetrics, !*noPortForwarding, false, build, pushImages, registry, username, pipelinePath, false)
 		}),
@@ -455,7 +453,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	updatePipeline := &cobra.Command{
 		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
-		Long:  fmt.Sprintf("Update a Pachyderm pipeline with a new %s", pipelineSpec),
+		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(!*noMetrics, !*noPortForwarding, reprocess, build, pushImages, registry, username, pipelinePath, true)
 		}),
