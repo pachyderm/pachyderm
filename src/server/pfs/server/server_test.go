@@ -4733,29 +4733,25 @@ func TestAtomicHistory(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
 
-	a := strings.Repeat("A", 1*1024*1024)
-	b := strings.Repeat("B", 1*1024*1024)
 	done := make(chan bool, 1)
 
 	for i := 0; i < 10; i++ {
 		// create a file of all A's
+		a := strings.Repeat("A", 1*1024*1024)
 		_, err := pc.PutFileOverwrite(repo, "master", "/file", strings.NewReader(a), 0)
 		require.NoError(t, err)
 
 		// sllowwwllly replace it with all B's
 		go func() {
+			b := strings.Repeat("B", 1*1024*1024)
 			r := SlowReader{underlying: strings.NewReader(b)}
 			_, err := pc.PutFileOverwrite(repo, "master", "/file", &r, 0)
 			require.NoError(t, err)
 			done <- true
 		}()
 
-		branchInfo, err := pc.InspectBranch(repo, "master")
-		require.NoError(t, err)
-		require.NotNil(t, branchInfo.Head)
-
 		// should pull /file when it's all A's
-		fileInfos, err := pc.ListFileHistory(repo, branchInfo.Head.ID, "/file", 1)
+		fileInfos, err := pc.ListFileHistory(repo, "master", "/file", 1)
 		require.NoError(t, err)
 		require.Equal(t, len(fileInfos), 1)
 
@@ -4763,7 +4759,7 @@ func TestAtomicHistory(t *testing.T) {
 		<-done
 		
 		// should pull /file when it's all B's
-		fileInfos, err = pc.ListFileHistory(repo, branchInfo.Head.ID, "/file", 1)
+		fileInfos, err = pc.ListFileHistory(repo, "master", "/file", 1)
 		require.NoError(t, err)
 		require.Equal(t, len(fileInfos), 1)
 	}
