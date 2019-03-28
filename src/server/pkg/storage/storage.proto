@@ -21,9 +21,3 @@ message DataOp {
   DataRef dataRef = 1;
   Op op = 2;
 }
-
-// ChunkRef is a reference to a deduplication chunk.
-message ChunkRef {
-  string hash = 1;
-  int64 offset = 2;
-}
