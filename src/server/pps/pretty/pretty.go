@@ -137,6 +137,7 @@ Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
 Failed: {{.DataFailed}}
 Skipped: {{.DataSkipped}}
+Recovered: {{.DataRecovered}}
 Total: {{.DataTotal}}
 Data Downloaded: {{prettySize .Stats.DownloadBytes}}
 Data Uploaded: {{prettySize .Stats.UploadBytes}}
