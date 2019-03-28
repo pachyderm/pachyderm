@@ -301,7 +301,13 @@ And you can view the generated montage image via:
 Exploring your DAG in the Pachyderm dashboard
 --------------------------------------------
 
-When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You should see something similar to this:
+When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard, get the address of the ``dash`` pod running in minikube:
+
+.. code-block:: shell
+
+  $ minikube service dash --url | grep 30080
+
+And open it in an Internet browser (e.g., Google Chrome). You should see something similar to this:
 
 .. image:: dashboard1.png
 
