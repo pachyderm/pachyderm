@@ -25,7 +25,8 @@ associated with, and any differences or peculiarities relative to S3. A few
 notes:
 
 * Generally, you would not call these endpoints directly, but rather use a
-tool or library that calls them.
+tool or library designed to work with S3-like APIs. Because of that, some
+working knowledge of S3 and HTTP is assumed.
 * You can only interact with the HEAD commit of non-authorization-gated PFS
 branches through the gateway.
 * The operations outlined below largely mirror those documented in S3's
@@ -58,6 +59,8 @@ deleted. Unlike S3, you can delete non-empty branches.
 
 Route: `GET /`.
 
+Lists all of the branches across all of the repos as S3 buckets.
+
 ### Object operations
 
 #### Writing objects
@@ -86,19 +89,20 @@ Deletes the PFS file `filepath` in an atomic commit on the HEAD of `branch`.
 
 Route: `GET /branch.repo/`
 
-Only v1 is supported. PFS directories are represented via `CommonPrefixes`.
-This largely mirrors how S3 is used in practice, but leads to a couple of
-differences:
-* If you set a delimiter, it must be `/`.
+Only S3's list objects v1 is supported.
+
+PFS directories are represented via `CommonPrefixes`. This largely mirrors how
+S3 is used in practice, but leads to a couple of differences:
+* If you set the delimiter parameter, it must be `/`.
 * Empty directories are included in listed results.
 
 With regard to listed results:
 * Due to PFS peculiarities, the `LastModified` field references when the most
 recent commit to the branch happened, which may or may not have modified the
 specific object listed.
-* The HTTP `ETag` field does not use md5, but should still be treated as a
-cryptographically secure hash of the file contents.
-* The S3 `StorageClass` and `Owner` fields always have the same default value.
+* The HTTP `ETag` field does not use MD5, but is a cryptographically secure
+hash of the file contents.
+* The S3 `StorageClass` and `Owner` fields always have the same filler value.
 
 #### Getting objects
 
@@ -111,8 +115,8 @@ With regard to HTTP response headers:
 * Due to PFS peculiarities, the HTTP `Last-Modified` header references when
 the most recent commit to the branch happened, which may or may not have
 modified this specific object.
-* The HTTP `ETag` does not use md5, but should still be treated as a
-cryptographically secure hash of the file contents.
+* The HTTP `ETag` does not use MD5, but is a cryptographically secure hash of
+the file contents.
 
 ## Unsupported operations
 
