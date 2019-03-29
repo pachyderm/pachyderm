@@ -5,14 +5,14 @@ prep:
 	pachctl version
 	cd citibike_data && ./load.sh
 	cd weather_data && ./load.sh
-	pachctl create-pipeline -f ./sales_data/pipeline.json
+	pachctl create pipeline -f ./sales_data/pipeline.json
 
 launch-jupyter:
-	pachctl create-job -f jupyter.json
+	pachctl create pipeline -f jupyter.json
 
 clean-launch:
-	pachctl delete-repo trips
-	pachctl delete-repo weather
-	pachctl delete-repo sales
+	pachctl delete repo trips
+	pachctl delete repo weather
+	pachctl delete repo sales
 
 
