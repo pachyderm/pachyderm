@@ -18,17 +18,27 @@ forwarder (`pachctl port-forward`). However, we don't recommend it, as
 kubernetes' port forwarder incurs overhead, and does not recover well from
 broken connections.
 
-## Overview
+## Supported operations
 
-The s3gateway gives you access to the HEAD commit of non-authorization-gated
-PFS branches and repos.
+This outlines the S3 operations that are supported, the HTTP endpoints they're
+associated with, and any differences or peculiarities relative to S3. A few
+notes:
+
+* Generally, you would not call these endpoints directly, but rather use a
+tool or library that calls them.
+* You can only interact with the HEAD commit of non-authorization-gated PFS
+branches through the gateway.
+* The operations outlined below largely mirror those documented in S3's
+official docs, see the
+[REST API documentation](https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html)
+for more details.
+
+### Operations on buckets
 
 Buckets are represented via `branch.repo`, e.g. the `master.images` bucket
 corresponds to the `master` branch of the `images` repo.
 
-## Bucket operations
-
-### Creating buckets
+#### Creating buckets
 
 Route: `PUT /branch.repo/`.
 
@@ -37,23 +47,20 @@ is likewise created. As per S3's behavior in some regions (but not all),
 trying to create the same bucket twice will return a `BucketAlreadyOwnedByYou`
 error.
 
-### Deleting buckets
+#### Deleting buckets
 
 Route: `DELETE /branch.repo/`.
 
-Unlike S3, you can delete non-empty branches.
+Deletes the branch. If it is the last branch in the repo, the repo is also
+deleted. Unlike S3, you can delete non-empty branches.
 
-### Listing buckets
+#### Listing buckets
 
 Route: `GET /`.
 
-### Bucket stats
+### Object operations
 
-Route: `HEAD /branch.repo/`
-
-## Object operations
-
-### Writing objects
+#### Writing objects
 
 Route: `PUT /branch.repo/filepath`.
 
@@ -69,13 +76,13 @@ Some S3 libraries and clients will detect that our s3gateway does not support
 multipart uploads and automatically fallback to using this endpoint. Notably,
 this includes minio.
 
-### Removing objects
+#### Removing objects
 
 Route: `DELETE /branch.repo/filepath`.
 
 Deletes the PFS file `filepath` in an atomic commit on the HEAD of `branch`.
 
-### Listing objects
+#### Listing objects
 
 Route: `GET /branch.repo/`
 
@@ -89,11 +96,11 @@ With regard to listed results:
 * Due to PFS peculiarities, the `LastModified` field references when the most
 recent commit to the branch happened, which may or may not have modified the
 specific object listed.
-* The `ETag` field does not use md5, but should still be treated as a
+* The HTTP `ETag` field does not use md5, but should still be treated as a
 cryptographically secure hash of the file contents.
-* The `StorageClass` and `Owner` fields always have the same default value.
+* The S3 `StorageClass` and `Owner` fields always have the same default value.
 
-### Getting objects
+#### Getting objects
 
 Route: `GET /branch.repo/filepath`.
 
@@ -101,22 +108,11 @@ There is support for range queries and conditional requests, however error
 response bodies for bad requests using these headers are not standard S3 XML.
 
 With regard to HTTP response headers:
-* Due to PFS peculiarities, `Last-Modified` references when the most recent
-commit to the branch happened, which may or may not have modified this
-specific object.
-* `ETag` does not use md5, but should still be treated as a cryptographically
-secure hash of the file contents.
-
-### Object stats
-
-Route: `HEAD /branch.repo/filepath`.
-
-With regard to HTTP response headers:
-* Due to PFS peculiarities, `Last-Modified` references when the most recent
-commit to the branch happened, which may or may not have modified this
-specific object.
-* `ETag` does not use md5, but should still be treated as a cryptographically
-secure hash of the file contents.
+* Due to PFS peculiarities, the HTTP `Last-Modified` header references when
+the most recent commit to the branch happened, which may or may not have
+modified this specific object.
+* The HTTP `ETag` does not use md5, but should still be treated as a
+cryptographically secure hash of the file contents.
 
 ## Unsupported operations
 
