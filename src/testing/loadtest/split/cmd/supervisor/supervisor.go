@@ -45,7 +45,7 @@ var (
 	totalUniqueKeys     int64  // total number of output files
 	pipelineConcurrency uint64 // parallelism of split pipeline
 	hashtreeShards      uint64 // number of output hashtree shards for the loadtest pipeline
-	putFileConcurrency  int64  // number of allowed concurrent put-files
+	putFileConcurrency  int64  // number of allowed concurrent 'put file's
 
 	// commitTimes[i] is the amount of time that it took to start and finish
 	// commit number 'i' (read by main() and PrintDurations())
@@ -211,12 +211,12 @@ func main() {
 		for j := 0; j < filesPerCommit; j++ {
 			i, j := i, j
 			eg.Go(func() error {
-				// if any put-file fails, the load test panics, so don't need a context
+				// if any 'put file' fails, the load test panics, so don't need a context
 				sem.Acquire(context.Background(), 1)
 				defer sem.Release(1)
 				// log progress every 10% of the way through ingressing data
 				if filesPerCommit < 10 || j%(filesPerCommit/10) == 0 {
-					log.Printf("starting put-file(input-%d), (number %d in commit %d)", i*filesPerCommit+j, j, i)
+					log.Printf("starting 'put file' (input-%d), (number %d in commit %d)", i*filesPerCommit+j, j, i)
 				}
 				fileNo := i*filesPerCommit + j
 				name := fmt.Sprintf("input-%010x", fileNo)
@@ -225,7 +225,7 @@ func main() {
 			})
 		}
 		if err := eg.Wait(); err != nil {
-			log.Fatalf("error from put-file: %v", err)
+			log.Fatalf("could not put file: %v", err)
 		}
 		if err := c.FinishCommit(repo, commit.ID); err != nil {
 			log.Fatalf("could not finish commit: %v", err)

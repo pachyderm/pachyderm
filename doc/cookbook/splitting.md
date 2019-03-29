@@ -20,7 +20,7 @@ $ head user_data.csv
 
 If we just put this into Pachyderm as a single file, we could not subsequently process each of these user records in parallel as separate "datums" (see [this guide](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html) for more information on datums and distributed computing).  Of course, you could manually separate out each of these user records into separate files before you commit them into the `users` repo or via a pipeline stage dedicated to this splitting task.  This would work, but Pachyderm actually makes it much easier for you.
 
-The `put-file` API includes an option for splitting up the file into separate datums automatically.  You can do this with the `pachctl` CLI tool via the `--split` flag on `put-file`.  For example, to automatically split the `user_data.csv` file up into separate datums for each line, you could execute the following:
+The `put file` API includes an option for splitting up the file into separate datums automatically.  You can do this with the `pachctl` CLI tool via the `--split` flag on `put file`.  For example, to automatically split the `user_data.csv` file up into separate datums for each line, you could execute the following:
 
 ```
 $ pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
@@ -91,7 +91,7 @@ $ pachctl list file bar@master:users/
 NAME                    TYPE SIZE 
 /users/0000000000000000 file 22B  
 /users/0000000000000001 file 20B  
-# Before we set the header, we just see the raw data when we issue a get-file
+# Before we set the header, we just see the raw data when we issue a 'get file'
 $ pachctl get file bar@master:users/0000000000000000
 4,alice,aaa@place.com
 
@@ -102,7 +102,7 @@ $ pachctl get file bar@master:users/0000000000000000
 id,name,email
 4,alice,aaa@place.com
 
-# If you issue a get-file on the directory, it returns just the header/footer
+# If you issue a 'get file' on the directory, it returns just the header/footer
 $ pachctl get file bar@master:users
 id,name,email
 # We can get the entire CSV file back with:
@@ -189,7 +189,7 @@ into individual files (or if you specify the `--target-file-datums` or
 SQL statements for setting up the tables.
 
 The header and footer are stored on the directory containing the rows. This way,
-if you request a `get-file` on the directory, you'll get just the header and
+if you request a `get file` on the directory, you'll get just the header and
 footer. If you request an individual file, you'll see the header plus the row(s)
 plus the footer. If you request all the files with a glob pattern, e.g.
 `/directoryname/*`, you'll receive the header plus all the rows plus the footer,

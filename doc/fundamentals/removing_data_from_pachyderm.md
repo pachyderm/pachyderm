@@ -22,7 +22,7 @@ incorrect, corrupt, or otherwise bad data. In this scenario, the HEAD of your br
 (i.e., the latest commit) is bad. Users who read from it are likely to be misled, and/or
 pipeline subscribed to it are likely to fail or produce bad downstream output.
 
-To fix this you should use `delete-commit` as follows:
+To fix this you should use `delete commit` as follows:
 
 ```sh
 $ pachctl delete commit <repo>@<branch-or-commit-id>
@@ -52,7 +52,7 @@ still delete the commit as in the previous section, however, unless the subseque
 commits overwrote or deleted the bad data, it will still be present in the
 children commits. *Deleting a commit does not modify its children.*
 
-In git terms, `delete-commit` is equivalent to squashing a commit out of existence.
+In git terms, `delete commit` is equivalent to squashing a commit out of existence.
 It's not equivalent to reverting a commit. The reason for this behavior is that the
 semantics of revert can get ambiguous when the files being reverted have been
 otherwise modified. Git's revert can leave you with a merge conflict to solve,

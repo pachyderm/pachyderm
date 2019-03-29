@@ -45,7 +45,7 @@ following Go conventions - `stateLock`, `mapLock` etc.
 - Avoid waiting for asynchronous things to happen (e.g. waiting 10 seconds and
 assuming that a service will be afterward). Instead you try, wait, retry, etc.
 with a limited number of tries. If possible use a method of waiting directly
-(e.g. flush-commit is much better than repeatedly trying to read from a
+(e.g. 'flush commit' is much better than repeatedly trying to read from a
 commit).
 
 ### Third-party Code

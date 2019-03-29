@@ -49,11 +49,11 @@ more data repositories to hold your data:
 $ pachctl create repo <repo name>
 ```
 
-Then, to put data into the created repo, you use the `put-file` command. Below
-are a few example uses of `put-file`, but you can see the complete
+Then, to put data into the created repo, you use the `put file` command. Below
+are a few example uses of `put file`, but you can see the complete
 documentation [here](../pachctl/pachctl_put_file.html).
 
-If there is an open commit, `put-file` will add files to that commit. This example will add two files to a new commit, then close the commit:
+If there is an open commit, `put file` will add files to that commit. This example will add two files to a new commit, then close the commit:
 
 ```sh
 # first start a commit
@@ -69,7 +69,7 @@ $ pachctl put file <repo>@<branch>:</path/to/file2> -f <file2>
 $ pachctl finish commit <repo>@<branch>
 ```
 
-If there is not an open commit, `put-file` will implicitly start and finish the commit. This is called an atomic commit:
+If there is not an open commit, `put file` will implicitly start and finish the commit. This is called an atomic commit:
 
 ```sh
 $ pachctl put file <repo>@<branch>:</path/to/file> -f <file> 

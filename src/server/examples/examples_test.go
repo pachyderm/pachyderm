@@ -43,13 +43,13 @@ func TestWordCount(t *testing.T) {
 	// Need to choose a page w much fewer links to make this pass on CI
 	inputPipelineManifest := strings.Replace(string(rawInputPipelineManifest), oldURL, newURL, 1)
 
-	cmd := exec.Command("pachctl", "create-pipeline")
+	cmd := exec.Command("pachctl", "create", "pipeline")
 	cmd.Stdin = strings.NewReader(inputPipelineManifest)
 	cmd.Dir = exampleDir
 	_, err = cmd.CombinedOutput()
 	require.NoError(t, err)
 
-	cmd = exec.Command("pachctl", "run-pipeline", "input")
+	cmd = exec.Command("pachctl", "run", "pipeline", "input")
 	cmd.Dir = exampleDir
 	_, err = cmd.Output()
 	require.NoError(t, err)
@@ -62,7 +62,7 @@ func TestWordCount(t *testing.T) {
 	wordcountMapPipelineManifest, err := ioutil.ReadFile(filepath.Join(exampleDir, "mapPipeline.json"))
 	require.NoError(t, err)
 
-	cmd = exec.Command("pachctl", "create-pipeline")
+	cmd = exec.Command("pachctl", "create", "pipeline")
 	cmd.Stdin = strings.NewReader(string(wordcountMapPipelineManifest))
 	cmd.Dir = exampleDir
 	_, err = cmd.Output()
@@ -97,7 +97,7 @@ func TestWordCount(t *testing.T) {
 	wordcountReducePipelineManifest, err := ioutil.ReadFile(filepath.Join(exampleDir, "reducePipeline.json"))
 	require.NoError(t, err)
 
-	cmd = exec.Command("pachctl", "create-pipeline")
+	cmd = exec.Command("pachctl", "create", "pipeline")
 	cmd.Stdin = strings.NewReader(string(wordcountReducePipelineManifest))
 	cmd.Dir = exampleDir
 	_, err = cmd.Output()

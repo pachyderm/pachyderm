@@ -36,13 +36,13 @@ Now that we've created a repo it's time to add some data. In Pachyderm, you writ
 
 Let's start by just adding a file, in this case an image, to a new commit. We've provided some sample images for you that we host on Imgur. 
 
-We'll use the ``put-file`` command along with the ``-f`` flag. ``-f`` can take either a local file, a URL, or a object storage bucket which it'll automatically scrape. In our case, we'll simply pass the URL.
+We'll use the ``put file`` command along with the ``-f`` flag. ``-f`` can take either a local file, a URL, or a object storage bucket which it'll automatically scrape. In our case, we'll simply pass the URL.
 
-Unlike Git, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. `Put-file` automatically starts and finishes a commit for you so you can add files more easily. If you want to add many files over a period of time, you can do `start-commit` and `finish-commit` yourself.
+Unlike Git, commits in Pachyderm must be explicitly started and finished as they can contain huge amounts of data and we don't want that much "dirty" data hanging around in an unpersisted state. ``put file`` automatically starts and finishes a commit for you so you can add files more easily. If you want to add many files over a period of time, you can do ``start commit`` and ``finish commit`` yourself.
 
 We also specify the repo name "images", the branch name "master", and the file name: "liberty.png".
 
-Here's an example atomic commit of the file `liberty.png` to the `images` repo's `master` branch:
+Here's an example atomic commit of the file ``liberty.png`` to the ``images`` repo's ``master`` branch:
 
 .. code-block:: shell
 
@@ -195,7 +195,7 @@ Processing More Data
 
 Pipelines will also automatically process the data from new commits as they are created. Think of pipelines as being subscribed to any new commits on their input repo(s). Also similar to Git, commits have a parental structure that tracks which files have changed. In this case we're going to be adding more images.
 
-Let's create two new commits in a parental structure. To do this we will simply do two more ``put-file`` commands and by specifying ``master`` as the branch, it'll automatically parent our commits onto each other. Branch names are just references to a particular HEAD commit.
+Let's create two new commits in a parental structure. To do this we will simply do two more ``put file`` commands and by specifying ``master`` as the branch, it'll automatically parent our commits onto each other. Branch names are just references to a particular HEAD commit.
 
 .. code-block:: shell
 

@@ -57,20 +57,20 @@ Pachyderm's actual data. Restoring involves populating that PV and object store 
 ### 1. Pause all pipeline and data loading/unloading operations
 
 #### Pausing pipelines
-From the directed acyclic graphs (DAG) that define your pachyderm cluster, stop each pipeline.  You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the `pachctl stop-pipeline` command.
+From the directed acyclic graphs (DAG) that define your pachyderm cluster, stop each pipeline.  You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the `pachctl stop pipeline` command.
 
-`pachctl stop-pipeline <pipeline name>`
+`pachctl stop pipeline <pipeline-name>`
 
-You can confirm each pipeline is paused using the `pachctl list-pipeline` command
+You can confirm each pipeline is paused using the `pachctl list pipeline` command
 
-`pachctl list-pipeline`
+`pachctl list pipeline`
 
-Alternatively, a useful shell script for running stop-pipeline on all pipelines is included below.   It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
+Alternatively, a useful shell script for running `stop pipeline` on all pipelines is included below.   It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
 
 ```
-pachctl list-pipeline --raw \
+pachctl list pipeline --raw \
   | jq -r '.pipeline.name' \
-  | xargs -P3 -n1 -I{} pachctl stop-pipeline {}
+  | xargs -P3 -n1 -I{} pachctl stop pipeline {}
 ```
 
 It's also a useful practice, for simple to moderately complex deployments, to keep a terminal window up showing the state of all running kubernetes pods.
@@ -80,15 +80,15 @@ It's also a useful practice, for simple to moderately complex deployments, to ke
 You may need to install the `watch` and `kubectl` commands on your system, and configure `kubectl` to point at the cluster that Pachyderm is running in.
 
 #### Pausing data loading operations
-**Input repositories** or **input repos** in pachyderm are repositories created with the `pachctl create repo` command.  They're designed to be the repos at the top of a directed acyclic graph of pipelines. Pipelines have their own output repos associated with them, and are not considered input repos. If there are any processes external to pachyderm that put data into input repos using any method (the Pachyderm APIs, `pachctl put-file`, etc.), they need to be paused.  See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
+**Input repositories** or **input repos** in pachyderm are repositories created with the `pachctl create repo` command.  They're designed to be the repos at the top of a directed acyclic graph of pipelines. Pipelines have their own output repos associated with them, and are not considered input repos. If there are any processes external to pachyderm that put data into input repos using any method (the Pachyderm APIs, `pachctl put file`, etc.), they need to be paused.  See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
 
 Alternatively, you can use the following commands to stop all data loading into Pachyderm from outside processes.
 
 ```
 # Once you have stopped all running pachyderm pipelines, such as with this command,
-# $ pachctl list-pipeline --raw \
+# $ pachctl list pipeline --raw \
 #   | jq -r '.pipeline.name' \
-#   | xargs -P3 -n1 -I{} pachctl stop-pipeline {}
+#   | xargs -P3 -n1 -I{} pachctl stop pipeline {}
 
 # all pipelines in your cluster should be suspended. To stop all
 # data loading processes, we're going to modify the pachd Kubernetes service so that
@@ -160,29 +160,29 @@ The above cloning/snapshotting technique is recommended when doing a migration w
 
 Once the backup is complete, restart all paused pipelines and data loading operations.
 
-From the directed acyclic graphs (DAG) that define your pachyderm cluster, start each pipeline.    You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the `pachctl start-pipeline` command.
+From the directed acyclic graphs (DAG) that define your pachyderm cluster, start each pipeline.    You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the `pachctl start pipeline` command.
 
-`pachctl start-pipeline pipeline-name`
+`pachctl start pipeline <pipeline-name>`
 
-You can confirm each pipeline is started using the pachctl list-pipeline command
+You can confirm each pipeline is started using the `list pipeline` command
 
-`pachctl list-pipeline`
+`pachctl list pipeline`
 
-A useful shell script for running `start-pipeline` on all pipelines is included below.  It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
+A useful shell script for running `start pipeline` on all pipelines is included below.  It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
 
 ```
-pachctl list-pipeline --raw \
+pachctl list pipeline --raw \
   | jq -r '.pipeline.name' \
-  | xargs -P3 -n1 -I{} pachctl start-pipeline {}
+  | xargs -P3 -n1 -I{} pachctl start pipeline {}
 ```
 
 If you used the port-changing technique, [above](#pausing-data-loading-operations), to stop all data loading into Pachyderm from outside processes, you should change the ports back.
 
 ```
 # Once you have restarted all running pachyderm pipelines, such as with this command,
-# $ pachctl list-pipeline --raw \
+# $ pachctl list pipeline --raw \
 #   | jq -r '.pipeline.name' \
-#   | xargs -P3 -n1 -I{} pachctl start-pipeline {}
+#   | xargs -P3 -n1 -I{} pachctl start pipeline {}
 
 # all pipelines in your cluster should be restarted. To restart all data loading 
 # processes, we're going to change the pachd Kubernetes service so that
@@ -260,20 +260,20 @@ pachyderm's actual data, as shown above in [ General backup & restore procedure]
 ### Migration steps
 #### 1. Pause all pipeline and data loading operations
 
-From the directed acyclic graphs (DAG) that define your pachyderm cluster, stop each pipeline step.  You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the 'pachctl stop-pipeline' command.
+From the directed acyclic graphs (DAG) that define your pachyderm cluster, stop each pipeline step.  You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the `stop pipeline` command.
 
-`pachctl stop-pipeline pipeline_name`
+`pachctl stop pipeline <pipeline-name>`
 
-You can confirm each pipeline is paused using the `pachctl list-pipeline` command
+You can confirm each pipeline is paused using the `list pipeline` command
 
-`pachctl list-pipeline`
+`pachctl list pipeline`
 
-Alternatively, a useful shell script for running stop-pipeline on all pipelines is included below.  It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
+Alternatively, a useful shell script for running `stop pipeline` on all pipelines is included below.  It may be necessary to install the utilities used in the script, like `jq` and `xargs`, on your system.
 
 ```
-pachctl list-pipeline --raw \
+pachctl list pipeline --raw \
   | jq -r '.pipeline.name' \
-  | xargs -P3 -n1 -I{} pachctl start-pipeline {}
+  | xargs -P3 -n1 -I{} pachctl stop pipeline {}
 ```
 
 It's also a useful practice, for simple to moderately complex deployments, to keep a terminal window up showing the state of all running kubernetes pods.
@@ -283,15 +283,15 @@ It's also a useful practice, for simple to moderately complex deployments, to ke
 You may need to install the `watch` and `kubectl` commands on your system, and configure `kubectl` to point at the cluster that Pachyderm is running in.
 
 #### Pausing data loading operations
-**Input repositories** or **input repos** in Pachyderm are repositories created with the `pachctl create repo` command.  They're designed to be the repos at the top of a directed acyclic graph of pipelines. Pipelines have their own output repos associated with them, and are not considered input repos. If there are any processes external to pachyderm that put data into input repos using any method (the Pachyderm APIs, `pachctl put-file`, etc.), they need to be paused.  See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
+**Input repositories** or **input repos** in Pachyderm are repositories created with the `pachctl create repo` command.  They're designed to be the repos at the top of a directed acyclic graph of pipelines. Pipelines have their own output repos associated with them, and are not considered input repos. If there are any processes external to pachyderm that put data into input repos using any method (the Pachyderm APIs, `pachctl put file`, etc.), they need to be paused.  See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below for design considerations for those processes that will minimize downtime during a restore or migration.
 
 Alternatively, you can use the following commands to stop all data loading into Pachyderm from outside processes.
 
 ```
 # Once you have stopped all running pachyderm pipelines, such as with this command,
-# $ pachctl list-pipeline --raw \
+# $ pachctl list pipeline --raw \
 #   | jq -r '.pipeline.name' \
-#   | xargs -P3 -n1 -I{} pachctl stop-pipeline {}
+#   | xargs -P3 -n1 -I{} pachctl stop pipeline {}
 
 # all pipelines in your cluster should be suspended. To stop all
 # data loading processes, we're going to modify the pachd Kubernetes service so that
@@ -343,29 +343,29 @@ Below, we give an example using the Amazon Web Services CLI to clone one bucket 
 
 Once the backup and clone operations are complete, restart all paused pipelines and data loading operations, setting a checkpoint for the started operations that you can use in step [7. Load transactional data from checkpoint into new cluster](#load-transactional-data-from-checkpoint-into-new-cluster), below.  See [Loading data from other sources into pachyderm](#loading-data-from-other-sources-into-pachyderm) below  to understand why designing this checkpoint into your data loading systems is important.
 
-From the directed acyclic graphs (DAG) that define your pachyderm cluster, start each pipeline.    You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the 'pachctl start-pipeline' command.
+From the directed acyclic graphs (DAG) that define your pachyderm cluster, start each pipeline.    You can either run a multiline shell command, shown below, or you must, for each pipeline, manually run the 'start pipeline' command.
 
-`pachctl start-pipeline pipeline_name`
+`pachctl start pipeline <pipeline-name>`
 
-You can confirm each pipeline is started using the `pachctl list-pipeline` command
+You can confirm each pipeline is started using the `list pipeline` command
 
-`pachctl list-pipeline`
+`pachctl list pipeline`
 
-A useful shell script for running `start-pipeline` on all pipelines is included below.  It may be necessary to install several of the utlilies used in the script, like jq, on your system.
+A useful shell script for running `start pipeline` on all pipelines is included below.  It may be necessary to install several of the utlilies used in the script, like jq, on your system.
 
 ```
-pachctl list-pipeline --raw \
+pachctl list pipeline --raw \
   | jq -r '.pipeline.name' \
-  | xargs -P3 -n1 -I{} pachctl start-pipeline {}
+  | xargs -P3 -n1 -I{} pachctl start pipeline {}
 ```
 
 If you used the port-changing technique, [above](#pause-all-pipeline-and-data-loading-operations), to stop all data loading into Pachyderm from outside processes, you should change the ports back.
 
 ```
 # Once you have restarted all running pachyderm pipelines, such as with this command,
-# $ pachctl list-pipeline --raw \
+# $ pachctl list pipeline --raw \
 #   | jq -r '.pipeline.name' \
-#   | xargs -P3 -n1 -I{} pachctl start-pipeline {}
+#   | xargs -P3 -n1 -I{} pachctl start pipeline {}
 
 # all pipelines in your cluster should be restarted. To restart all data loading 
 # processes, we're going to change the pachd Kubernetes service so that

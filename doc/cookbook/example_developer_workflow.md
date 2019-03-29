@@ -10,7 +10,7 @@ Pachyderm is a powerful system for providing data provenance and scalable proces
 
 ![alt tag](developer_workflow.png)
 
-As you write code, you test it in containers and notebooks against sample data in Pachyderm repos.  You can also run your code in development pipelines in Pachyderm.  Pachyderm provides facilities to help with day-to-day development practices, including the ``--build`` and ``--push-images`` flags to the ``update-pipeline`` command, which can build & push or just push images to a docker registry.
+As you write code, you test it in containers and notebooks against sample data in Pachyderm repos.  You can also run your code in development pipelines in Pachyderm.  Pachyderm provides facilities to help with day-to-day development practices, including the ``--build`` and ``--push-images`` flags to the ``update pipeline`` command, which can build & push or just push images to a docker registry.
 
 There are a couple of things to note about the files shown in git, in the left-hand side of the diagram above.  The pipeline.json template file, in addition to being used for CI/CD as noted below,  could be used with local build targets in a makefile for development purposes: the local build uses DOCKERFILE and creates a pipeline.json for use in development pipelines.  This is optional, of course, but may fit in with some workflows.
 
@@ -29,7 +29,7 @@ Your CI process should automatically kick off the build of an docker container i
 
 The docker image created in the prior step is then pushed to your preferred docker registry and tagged with the git commit SHA, shown as just "tag" in the figure above.
 
-### 4. Update-pipeline using template with tagged image
+### 4. 'update pipeline' using template with tagged image
 
 In this step, your CI/CD infrastructure would use the pipeline.json template that was checked in, and fill in the git commit SHA for the version of the image that should be used in this pipeline.  It will then use the ``pachctl update pipeline`` command to push it to pachyderm.
 

@@ -35,8 +35,8 @@ const (
 	codestart = "```sh\n\n"
 	codeend   = "\n```"
 
-	// DefaultParallelism is the default parallelism used by get-file
-	// and put-file.
+	// DefaultParallelism is the default parallelism used by 'get file'
+	// and 'put file'.
 	DefaultParallelism = 10
 )
 
@@ -57,7 +57,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Short: "Docs for repos.",
 		Long: `Repos, short for repository, are the top level data object in Pachyderm.
 
-Repos are created with create-repo.
+Repos are created with 'create repo'.
 `,
 	}
 
@@ -216,9 +216,9 @@ Repos are created with create-repo.
 		Long: `Commits are atomic transactions on the content of a repo.
 
 Creating a commit is a multistep process:
-- start a new commit with start-commit
-- write files to it through fuse or with put-file
-- finish the new commit with finish-commit
+- start a new commit with 'start commit'
+- write files to it through fuse or with 'put file'
+- finish the new commit with 'finish commit'
 
 Commits that have been started but not finished are NOT durable storage.
 Commits become reliable (and immutable) when they are finished.
@@ -618,8 +618,8 @@ $ pachctl set-branch foo test master` + codeend,
 		Short: "Docs for files.",
 		Long: `Files are the lowest level data object in Pachyderm.
 
-Files can be written to started (but not finished) commits with put-file.
-Files can be read from finished commits with get-file.
+Files can be written to started (but not finished) commits with 'put file'.
+Files can be read from finished commits with 'get file'.
 `,
 	}
 
@@ -636,7 +636,7 @@ Files can be read from finished commits with get-file.
 	putFile := &cobra.Command{
 		Use:   "put-file repo-name branch [path/to/file/in/pfs]",
 		Short: "Put a file into the filesystem.",
-		Long: `Put-file supports a number of ways to insert data into pfs:
+		Long: `Put a file into the filesystem.  This supports a number of ways to insert data into pfs:
 ` + codestart + `# Put data from stdin as repo/branch/path:
 $ echo "data" | pachctl put-file repo branch path
 
@@ -785,7 +785,7 @@ $ pachctl put-file repo branch -i http://host/path
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
-	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 
 	copyFile := &cobra.Command{
 		Use:   "copy-file src-repo src-commit src-path dst-repo dst-commit dst-path",
@@ -800,7 +800,7 @@ $ pachctl put-file repo branch -i http://host/path
 			return c.CopyFile(args[0], args[1], args[2], args[3], args[4], args[5], overwrite)
 		}),
 	}
-	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 
 	var outputPath string
 	getFile := &cobra.Command{
@@ -1005,7 +1005,7 @@ $ pachctl diff-file foo master path1 bar master path2
 			case len(args) == 6:
 				newFiles, oldFiles, err = client.DiffFile(args[0], args[1], args[2], args[3], args[4], args[5], shallow)
 			default:
-				return fmt.Errorf("diff-file expects either 3 or 6 args, got %d", len(args))
+				return fmt.Errorf("'diff file' expects either 3 or 6 args, got %d", len(args))
 			}
 			if err != nil {
 				return err
@@ -1230,7 +1230,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
 			"some files may already have been put and should be cleaned up with "+
-			"delete-file or delete-commit", path)
+			"'delete file' or 'delete commit'", path)
 	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
@@ -1286,7 +1286,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 			}
 			childDest := filepath.Join(path, strings.TrimPrefix(filePath, source))
 			eg.Go(func() error {
-				// don't do a second recursive put-file, just put the one file at
+				// don't do a second recursive 'put file', just put the one file at
 				// filePath into childDest, and then this walk loop will go on to the
 				// next one
 				return putFileHelper(c, pfc, repo, commit, childDest, filePath, false,

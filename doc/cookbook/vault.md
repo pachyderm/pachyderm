@@ -142,7 +142,7 @@ The response metadata contains the `user_token` that you need to use to connect 
 Again, if you wanted to use this Pachyderm token on the command line:
 ```
 $ echo "aa425375f03d4a5bb0f529379d82aa39" | pachctl auth use-auth-token
-$ PACHD_ADDRESS=127.0.0.1:30650 pachctl list-repo
+$ PACHD_ADDRESS=127.0.0.1:30650 pachctl list repo
 ```
 
 The TTL is tied to the vault lease in `lease_id`, which can be inspected or revoked

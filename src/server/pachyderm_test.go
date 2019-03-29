@@ -4685,7 +4685,7 @@ func TestPipelineWithStats(t *testing.T) {
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	}
 
-	// Make sure inspect-datum works
+	// Make sure 'inspect datum' works
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
@@ -4749,7 +4749,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	// Last entry should be success
 	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
 
-	// Make sure inspect-datum works for failed state
+	// Make sure 'inspect datum' works for failed state
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
@@ -4986,7 +4986,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	}
 
-	// Make sure inspect-datum works
+	// Make sure 'inspect datum' works
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
@@ -6832,13 +6832,13 @@ func TestCommitDescription(t *testing.T) {
 	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Branch:      "master",
 		Parent:      client.NewCommit(dataRepo, ""),
-		Description: "test commit description in start-commit",
+		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
 	c.FinishCommit(dataRepo, commit.ID)
 	commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "test commit description in start-commit", commitInfo.Description)
+	require.Equal(t, "test commit description in 'start commit'", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 
 	// Test putting a message in FinishCommit
@@ -6846,27 +6846,27 @@ func TestCommitDescription(t *testing.T) {
 	require.NoError(t, err)
 	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 		Commit:      commit,
-		Description: "test commit description in finish-commit",
+		Description: "test commit description in 'finish commit'",
 	})
 	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "test commit description in finish-commit", commitInfo.Description)
+	require.Equal(t, "test commit description in 'finish commit'", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 
 	// Test overwriting a commit message
 	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Branch:      "master",
 		Parent:      client.NewCommit(dataRepo, ""),
-		Description: "test commit description in start-commit",
+		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
 	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 		Commit:      commit,
-		Description: "test commit description in finish-commit that overwrites",
+		Description: "test commit description in 'finish commit' that overwrites",
 	})
 	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "test commit description in finish-commit that overwrites", commitInfo.Description)
+	require.Equal(t, "test commit description in 'finish commit' that overwrites", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 }
 
