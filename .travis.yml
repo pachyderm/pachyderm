@@ -34,6 +34,7 @@ after_failure:
 - kubectl get all
 - kubectl get all --namespace kafka
 - kubectl describe pod kafka-0 --namespace kafka
+- kubectl describe service outside-0 --namespace kafka
 - kubectl logs kafka-0 -c init-config --namespace kafka
 - kubectl logs kafka-0 --namespace kafka
 - kubectl describe pod -l app=pachd
