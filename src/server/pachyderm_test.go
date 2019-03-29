@@ -8305,6 +8305,7 @@ func TestKafka(t *testing.T) {
 	}
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
+	time.Sleep(20 * time.Second)
 
 	host := os.Getenv("KAFKA_IP")
 	// if host == "" {
