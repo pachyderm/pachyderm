@@ -36,17 +36,17 @@ Icon  ref.dict  ref.fasta  ref.fasta.fai  refSDF
 ```
 Next, we want to create our pachyderm repo and then instruct pachyderm to import those into our repo
 ```sh
-$ pachctl create-repo reference
-$ pachctl put-file reference master -r -f .
+$ pachctl create repo reference
+$ pachctl put file reference@master -r -f .
 ```
 First milestone reached! Lets just check and make sure everything looks good
 ```sh
-$ pachctl list-repo
+$ pachctl list repo
 NAME                CREATED             SIZE
 reference           43 seconds ago      83.68MiB
 ```
 ```sh
-$ pachctl list-file reference master
+$ pachctl list file reference@master
 NAME                TYPE                SIZE
 Icon                file                0B
 ref.dict            file                164B
@@ -61,26 +61,26 @@ $ cd ../../
 Next, we're going to work on commiting the `*.bam` files for Mom. Let's start by create a repositories for input `*.bam` files to go into:
 
 ```sh
-$ pachctl create-repo samples
+$ pachctl create repo samples
 ```
 
 Add a `*.bam` file (along with it's index file) corresponding to a first sample, in our case it's the `mother`. Here we will assume that the files corresponding to each sample are committed to separate directories (e.g., `/mother`). 
 
 ```sh
 $ cd data/bams/
-$ pachctl start-commit samples master
-$ for f in $(ls mother.*); do pachctl put-file samples master mother/$f -f $f; done
-$ pachctl finish-commit samples master
+$ pachctl start commit samples@master
+$ for f in $(ls mother.*); do pachctl put file samples@master:mother/$f -f $f; done
+$ pachctl finish commit samples@master
 $ cd ../../
 ```
 
 You should then be able to see the versioned sample data in Pachyderm:
 
 ```sh
-$ pachctl list-file samples master
+$ pachctl list file samples@master
 NAME                TYPE                SIZE
 mother              dir                 23.79MiB
-$ pachctl list-file samples master mother
+$ pachctl list file samples@master:mother
 NAME                TYPE                SIZE
 mother/mother.bai   file                9.047KiB
 mother/mother.bam   file                23.79MiB
@@ -93,13 +93,13 @@ To call variants for the input sample, we will run the `HaplotypeCaller` using G
 To create and run the variant calling pipeline to generate genotype likelihoods:
 
 ```sh
-$ pachctl create-pipeline -f likelihoods.json
+$ pachctl create pipeline -f likelihoods.json
 ```
 
 This will automatically trigger a job:
 
 ```sh
-$ pachctl list-job
+$ pachctl list job
 ID                                   OUTPUT COMMIT                                STARTED        DURATION   RESTART PROGRESS  DL       UL       STATE
 c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1cb 43 minutes ago 18 seconds 0       1 + 0 / 1 107.5MiB 4.667MiB success
 ```
@@ -107,7 +107,7 @@ c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1c
 And you can view the output of the variant calling as follows:
 
 ```sh
-$ pachctl list-file likelihoods master
+$ pachctl list file likelihoods@master
 NAME                TYPE                SIZE
 mother.g.vcf        file                4.667MiB
 mother.g.vcf.idx    file                758B
@@ -120,17 +120,17 @@ The last step is to joint call all your GVCF files using the GATK tool GenotypeG
 To run the joint genotyping:
 
 ```sh
-$ pachctl create-pipeline -f joint_call.json
+$ pachctl create pipeline -f joint_call.json
 ```
 
 This will automatically trigger a job and produce our final output:
 
 ```sh
-$ pachctl list-job
+$ pachctl list job
 ID                                   OUTPUT COMMIT                                STARTED        DURATION   RESTART PROGRESS  DL       UL       STATE
 67135f10-4121-4f29-a30b-1eaf6ffe2194 joint_call/c4ebd6dd0c764a97a8d7f3a71f6bb9ce  38 minutes ago 5 seconds  0       1 + 0 / 1 88.35MiB 113.9KiB success
 c61c71d1-6544-48ad-8361-b4ad155ba1a0 likelihoods/992393004c5a45c0a35995cf0179f1cb 43 minutes ago 18 seconds 0       1 + 0 / 1 107.5MiB 4.667MiB success
-$ pachctl list-file joint_call master
+$ pachctl list file joint_call@master
 NAME                TYPE                SIZE
 joint.vcf           file                103.7KiB
 joint.vcf.idx       file                10.21KiB
@@ -142,15 +142,15 @@ Now that we have our pipelines running, out final results will be automatically 
 
 ```sh
 $ cd data/bams/
-$ pachctl start-commit samples master
+$ pachctl start commit samples@master
 dc963cc9bdc2486798b92d20eead5058
-$ for f in $(ls father.*); do pachctl put-file samples master father/$f -f $f; done
-$ pachctl finish-commit samples master
-$ pachctl start-commit samples master
+$ for f in $(ls father.*); do pachctl put file samples@master:father/$f -f $f; done
+$ pachctl finish commit samples@master
+$ pachctl start commit samples@master
 84e6615de64f43d8815909fa978bd4bc
-$ for f in $(ls son.*); do pachctl put-file samples master son/$f -f $f; done
-$ pachctl finish-commit samples master
-$ pachctl list-file samples master
+$ for f in $(ls son.*); do pachctl put file samples@master:son/$f -f $f; done
+$ pachctl finish commit samples@master
+$ pachctl list file samples@master
 NAME                TYPE                SIZE
 father              dir                 9.662MiB
 mother              dir                 23.79MiB
@@ -160,7 +160,7 @@ son                 dir                 9.58MiB
 This will trigger new jobs to process the new samples:
 
 ```sh
-pachctl list-job
+pachctl list job
 ID                                   OUTPUT COMMIT                                STARTED            DURATION   RESTART PROGRESS  DL       UL       STATE
 73222c06-c444-4dff-b370-6c7dea83258d joint_call/32d3615a036e4c0eadd3ed49435ee7db  About a minute ago 6 seconds  0       1 + 0 / 1 97.64MiB 188.6KiB success
 47652b28-a1ba-454e-a74c-7b43740a72f0 likelihoods/a7e160f8418a4bd5a46233bd6b1d84ce 2 minutes ago      16 seconds 0       1 + 2 / 3 93.26MiB 4.729MiB success

@@ -27,7 +27,7 @@ make prep
 2) Determine the output commit we are going to access with Jupyter:
 
 ```
-pachctl flush-commit trips/master/30
+pachctl flush commit trips@master/30
 ```
 
 and replace the `<output-commitid>` in `jupyter.json` with the sales repo commitid shown. 
@@ -41,7 +41,7 @@ Just like a normal Pachyderm Job, a container is created with a specific version
 To deploy the service:
 
 ```
-pachctl create-job -f jupyter.json
+pachctl create job -f jupyter.json
 ```
 
 4) Access Jupyter at `http://localhost:8888` in a browser.  You will see that you have access to the three repos mentioned above plus `/pfs/out`:

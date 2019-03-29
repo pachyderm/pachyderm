@@ -31,7 +31,7 @@ The docker image created in the prior step is then pushed to your preferred dock
 
 ### 4. Update-pipeline using template with tagged image
 
-In this step, your CI/CD infrastructure would use the pipeline.json template that was checked in, and fill in the git commit SHA for the version of the image that should be used in this pipeline.  It will then use the ``pachctl update-pipeline`` command to push it to pachyderm.
+In this step, your CI/CD infrastructure would use the pipeline.json template that was checked in, and fill in the git commit SHA for the version of the image that should be used in this pipeline.  It will then use the ``pachctl update pipeline`` command to push it to pachyderm.
 
 ### 5. Pull tagged image from registry
 
@@ -39,9 +39,9 @@ Pachyderm handles this part automatically for you, but we include it here for co
 
 ## Tracking provenance
 
-When looking at a job using the ``pachctl inspect-job`` command, you can see the exact image tag that produced the commits in that job, bridging from data provenance to code provenance.
+When looking at a job using the ``pachctl inspect job`` command, you can see the exact image tag that produced the commits in that job, bridging from data provenance to code provenance.
 
-``pachctl list-job`` gives you  ``--input`` and  ``--output`` flags that can be used with an argument in the form of repo/commit-id to get you complete provenance on the jobs that produced a particular commit in a particular repo.
+``pachctl list job`` gives you  ``--input`` and  ``--output`` flags that can be used with an argument in the form of repo@branch-or-commit to get you complete provenance on the jobs that produced a particular commit in a particular repo.
 
 
 ## Summary

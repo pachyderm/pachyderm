@@ -25,7 +25,7 @@ pipeline subscribed to it are likely to fail or produce bad downstream output.
 To fix this you should use `delete-commit` as follows:
 
 ```sh
-$ pachctl delete-commit <repo> <branch-or-commit-id>
+$ pachctl delete commit <repo>@<branch-or-commit-id>
 ```
 
 When you delete the bad commit, several things will happen (all atomically):
@@ -62,9 +62,9 @@ the system and the size of the data being stored.
 In these scenario, you can also delete the children commits, however those commits
 may also have good data that you don't want to delete. If so, you should:
 
-1. Start a new commit on the branch with `pachctl start-commit`.
-2. Delete all bad files from the newly opened commit with `pachctl delete-file`.
-3. Finish the commit with `pachctl finish-commit`.
+1. Start a new commit on the branch with `pachctl start commit`.
+2. Delete all bad files from the newly opened commit with `pachctl delete file`.
+3. Finish the commit with `pachctl finish commit`.
 4. Delete the initial bad commits and all children up to the newly finished
    commit.
 
@@ -84,4 +84,4 @@ Pachyderm stores data in a content addressed way and when you delete
 a file or a commit, Pachyderm only deletes references to the underlying data, it
 doesn't delete the actual data until it performs garbage collection. To truly
 purge the data you must delete all references to it using the methods described
-above, and then you must run a garbage collect with `pachctl garbage-collect`.
+above, and then you must run a garbage collect with `pachctl garbage collect`.

@@ -130,13 +130,13 @@ EOF
 ```
 Then, try:
 ```
-pachctl create-repo group-test
-pachctl put-file group-test master -f some-data.txt
+pachctl create repo group-test
+pachctl put file group-test@master -f some-data.txt
 pachctl auth set group/saml:"Test Group" reader group-test
 ```
 Elsewhere:
 ```
 pachctl auth login --code=<auth code>
-pachctl get-file group-test master /some-data.txt # should work for members of "Test Group"
+pachctl get file group-test@master:some-data.txt # should work for members of "Test Group"
 ```
 
