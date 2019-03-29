@@ -289,9 +289,15 @@ func newFilterDatumFactory(pachClient *client.APIClient, input *pps.FilterInput)
 	if err != nil {
 		return nil, err
 	}
-	pred := raw.(pps.FilterFunc)
+	c := raw.(*pps.FilterGRPCClient)
 	return &filterDatumFactory{
-		pred:  pred,
+		pred: func(fis []*pfs.FileInfo) bool {
+			result, err := c.Filter(fis)
+			if err != nil {
+				panic(err)
+			}
+			return result
+		},
 		input: in,
 	}, nil
 }
