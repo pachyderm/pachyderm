@@ -34,6 +34,7 @@ until {
   minikube status 2>&1 >/dev/null
   kubectl version 2>&1 >/dev/null
 }; do
+    kubectl create clusterrolebinding add-on-cluster-admin --clusterrole=cluster-admin --serviceaccount=kube-system:default
     if ((max_t-- <= 0)); then
         echo "Could not connect to minikube"
         echo "minikube status --alsologtostderr --loglevel=0 -v9:"
