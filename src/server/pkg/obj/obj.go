@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/storage"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
@@ -193,7 +192,7 @@ func NewGoogleClientFromSecret(bucket string) (Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("google-cred not found")
 	}
-	opts := []option.ClientOption{option.WithScopes(storage.ScopeFullControl)}
+	var opts []option.ClientOption
 	if cred != "" {
 		opts = append(opts, option.WithCredentialsFile(secretFile("/google-cred")))
 	} else {
@@ -212,8 +211,7 @@ func NewGoogleClientFromEnv() (Client, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s not found", GoogleCredEnvVar)
 	}
-	opts := []option.ClientOption{option.WithScopes(storage.ScopeFullControl)}
-	opts = append(opts, option.WithCredentialsJSON([]byte(creds)))
+	opts := []option.ClientOption{option.WithCredentialsJSON([]byte(creds))}
 	return NewGoogleClient(bucket, opts)
 }
 
