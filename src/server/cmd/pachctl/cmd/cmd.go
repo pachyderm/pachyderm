@@ -168,6 +168,7 @@ __is_active_arg() {
 	return 1
 }
 
+# TODO: retest all this stuff
 __custom_func() {
 	case ${last_command} in
 		pachctl_auth_check)
@@ -189,6 +190,51 @@ __custom_func() {
 				__pachctl_get_repo
 			fi
 			;;
+		pachctl_update_repo | pachctl_inspect_repo | pachctl_delete_repo | pachctl_list_branch | pachctl_list_commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo
+			fi
+			;;
+		pachctl_delete_branch | pachctl_subscribe_commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo_branch
+			fi
+			;;
+		pachctl_finish_commit | pachctl_inspect_commit | pachctl_delete_commit | pachctl_create_branch | pachctl_start_commit)
+			if __is_active_arg 0; then
+				__pachctl_get_repo_commit
+			fi
+			;;
+		pachctl_get_file | pachctl_inspect_file | pachctl_list_file | pachctl_delete_file | pachctl_glob_file | pachctl_put_file)
+			# completion splits the ':' character into its own argument
+			if __is_active_arg 0 1 2; then
+				__pachctl_get_repo_commit_path
+			fi
+			;;
+		pachctl_copy_file | pachctl_diff_file)
+			__pachctl_get_repo_commit_path
+			;;
+		pachctl_inspect_job | pachctl_delete_job | pachctl_stop_job | pachctl_list_datum | pachctl_restart_datum)
+			if __is_active_arg 0; then
+				__pachctl_get_job
+			fi
+			;;
+		pachctl_inspect_datum)
+			if __is_active_arg 0; then
+				__pachctl_get_job
+			elif __is_active_arg 1; then
+				__pachctl_get_datum ${nouns[0]}
+			fi
+			;;
+		pachctl_inspect_pipeline | pachctl_delete_pipeline | pachctl_start_pipeline | pachctl_stop_pipeline | pachctl_extract_pipeline | pachctl_edit_pipeline)
+			if __is_active_arg 0; then
+				__pachctl_get_pipeline
+			fi
+			;;
+		pachctl_flush_job | pachctl_flush-commit)
+			__pachctl_get_repo_commit
+			;;
+		# Deprecated v1.8 commands - remove later
 		pachctl_update-repo | pachctl_inspect-repo | pachctl_delete-repo | pachctl_list-branch | pachctl_list-commit)
 			if __is_active_arg 0; then
 				__pachctl_get_repo
@@ -196,29 +242,35 @@ __custom_func() {
 			;;
 		pachctl_delete-branch | pachctl_subscribe-commit)
 			if __is_active_arg 0; then
-				__pachctl_get_repo_branch
+				__pachctl_get_repo
+			elif __is_active_arg 1; then
+				__pachctl_get_branch ${nouns[0]}
 			fi
 			;;
 		pachctl_finish-commit | pachctl_inspect-commit | pachctl_delete-commit | pachctl_create-branch | pachctl_start-commit)
 			if __is_active_arg 0; then
-				__pachctl_get_repo_commit
-			fi
-			;;
-		pachctl_set-branch)
-			if __is_active_arg 0; then
-				__pachctl_get_repo_branch 0
+				__pachctl_get_repo
 			elif __is_active_arg 1; then
-				__pachctl_get_branch $(__parse_repo ${nouns[0]})
+				__pachctl_get_commit ${nouns[0]}
 			fi
 			;;
 		pachctl_get-file | pachctl_inspect-file | pachctl_list-file | pachctl_delete-file | pachctl_glob-file | pachctl_put-file)
-			# completion splits the ':' character into its own argument
-			if __is_active_arg 0 1 2; then
-				__pachctl_get_repo_commit_path
+			if __is_active_arg 0; then
+				__pachctl_get_repo
+			elif __is_active_arg 1; then
+				__pachctl_get_commit ${nouns[0]}
+			elif __is_active_arg 2; then
+			  __pachctl_get_file ${nouns[0]} ${nouns[1]}
 			fi
 			;;
 		pachctl_copy-file | pachctl_diff-file)
-			__pachctl_get_repo_commit_path
+			if __is_active_arg 0 3; then
+				__pachctl_get_repo
+			elif __is_active_arg 1 4; then
+				__pachctl_get_commit ${nouns[0]}
+			elif __is_active_arg 2 5; then
+			  __pachctl_get_file ${nouns[0]} ${nouns[1]}
+			fi
 			;;
 		pachctl_inspect-job | pachctl_delete-job | pachctl_stop-job | pachctl_list-datum | pachctl_restart-datum)
 			if __is_active_arg 0; then
@@ -238,7 +290,7 @@ __custom_func() {
 			fi
 			;;
 		pachctl_flush-job | pachctl_flush-commit)
-			__pachctl_get_repo_commit
+			__pachctl_get_repo_slash_commit
 			;;
 		*)
 			;;
