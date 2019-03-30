@@ -737,28 +737,28 @@ you can increase the amount of memory used for the bloom filters with the
 	}
 	garbageCollect.Flags().StringVarP(&memory, "memory", "m", "0", "The amount of memory to use during garbage collection. Default is 10MB.")
 
-    jobCommands := []*cobra.Command{
-        inspectJob,
-        listJob,
-        flushJob,
-        deleteJob,
-        stopJob,
-    }
+	jobCommands := []*cobra.Command{
+		inspectJob,
+		listJob,
+		flushJob,
+		deleteJob,
+		stopJob,
+	}
 
-    pipelineCommands := []*cobra.Command{
-        createPipeline,
-        updatePipeline,
-        inspectPipeline,
-        extractPipeline,
-        editPipeline,
-        listPipeline,
-        deletePipeline,
-        startPipeline,
-        stopPipeline,
-    }
+	pipelineCommands := []*cobra.Command{
+		createPipeline,
+		updatePipeline,
+		inspectPipeline,
+		extractPipeline,
+		editPipeline,
+		listPipeline,
+		deletePipeline,
+		startPipeline,
+		stopPipeline,
+	}
 
-    cmdutil.SetDocsUsage(job, jobCommands)
-    cmdutil.SetDocsUsage(pipeline, pipelineCommands)
+	cmdutil.SetDocsUsage(job, jobCommands)
+	cmdutil.SetDocsUsage(pipeline, pipelineCommands)
 
 	var result []*cobra.Command
 	result = append(result, job)
