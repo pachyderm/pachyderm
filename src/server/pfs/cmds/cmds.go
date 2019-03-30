@@ -1159,38 +1159,38 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
 
-    repoCommands := []*cobra.Command{
-        createRepo,
-        updateRepo,
-        inspectRepo,
-        listRepo,
-        deleteRepo,
-    }
+	repoCommands := []*cobra.Command{
+		createRepo,
+		updateRepo,
+		inspectRepo,
+		listRepo,
+		deleteRepo,
+	}
 
-    commitCommands := []*cobra.Command{
-        startCommit,
-        finishCommit,
-        inspectCommit,
-        listCommit,
-        flushCommit,
-        subscribeCommit,
-        deleteCommit,
-    }
+	commitCommands := []*cobra.Command{
+		startCommit,
+		finishCommit,
+		inspectCommit,
+		listCommit,
+		flushCommit,
+		subscribeCommit,
+		deleteCommit,
+	}
 
-    fileCommands := []*cobra.Command{
-        putFile,
-        copyFile,
-        getFile,
-        inspectFile,
-        listFile,
-        globFile,
-        diffFile,
-        deleteFile,
-    }
+	fileCommands := []*cobra.Command{
+		putFile,
+		copyFile,
+		getFile,
+		inspectFile,
+		listFile,
+		globFile,
+		diffFile,
+		deleteFile,
+	}
 
-    cmdutil.SetDocsUsage(repo, repoCommands)
-    cmdutil.SetDocsUsage(commit, commitCommands)
-    cmdutil.SetDocsUsage(file, fileCommands)
+	cmdutil.SetDocsUsage(repo, repoCommands)
+	cmdutil.SetDocsUsage(commit, commitCommands)
+	cmdutil.SetDocsUsage(file, fileCommands)
 
 	var result []*cobra.Command
 	result = append(result, repo)
