@@ -17,11 +17,7 @@ func main() {
 	tracing.InstallJaegerTracerFromEnv()
 	err := func() error {
 		defer tracing.CloseAndReportTraces()
-		rootCmd, err := cmd.PachctlCmd()
-		if err != nil {
-			return err
-		}
-		return rootCmd.Execute()
+		return cmd.PachctlCmd().Execute()
 	}()
 	if err != nil {
 		if errString := strings.TrimSpace(err.Error()); errString != "" {
