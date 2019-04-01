@@ -35,6 +35,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     fundamentals/updating_pipelines
     fundamentals/distributed_computing
     fundamentals/incrementality
+    fundamentals/s3gateway
 
 .. toctree::
     :maxdepth: 1
@@ -101,6 +102,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     reference/pipeline_spec
     pachctl/pachctl
     reference/clients
+    reference/s3gateway_api
     
 
 

@@ -24,10 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
-
 	"github.com/spf13/cobra"
 )
 
@@ -1159,38 +1159,59 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
 
-    repoCommands := []*cobra.Command{
-        createRepo,
-        updateRepo,
-        inspectRepo,
-        listRepo,
-        deleteRepo,
-    }
+	var port uint16
+	s3gateway := &cobra.Command{
+		Use:   "s3gateway",
+		Short: "Expose pfs via an S3-like API. This command blocks.",
+		Long:  "Expose pfs via an S3-like API. This command blocks.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
 
-    commitCommands := []*cobra.Command{
-        startCommit,
-        finishCommit,
-        inspectCommit,
-        listCommit,
-        flushCommit,
-        subscribeCommit,
-        deleteCommit,
-    }
+			server := s3.Server(client, port)
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				return err
+			}
+			return nil
+		}),
+	}
+	s3gateway.Flags().Uint16VarP(&port, "port", "p", 30600, "The local port to bind the S3 gateway to.")
 
-    fileCommands := []*cobra.Command{
-        putFile,
-        copyFile,
-        getFile,
-        inspectFile,
-        listFile,
-        globFile,
-        diffFile,
-        deleteFile,
-    }
+	repoCommands := []*cobra.Command{
+		createRepo,
+		updateRepo,
+		inspectRepo,
+		listRepo,
+		deleteRepo,
+	}
 
-    cmdutil.SetDocsUsage(repo, repoCommands)
-    cmdutil.SetDocsUsage(commit, commitCommands)
-    cmdutil.SetDocsUsage(file, fileCommands)
+	commitCommands := []*cobra.Command{
+		startCommit,
+		finishCommit,
+		inspectCommit,
+		listCommit,
+		flushCommit,
+		subscribeCommit,
+		deleteCommit,
+	}
+
+	fileCommands := []*cobra.Command{
+		putFile,
+		copyFile,
+		getFile,
+		inspectFile,
+		listFile,
+		globFile,
+		diffFile,
+		deleteFile,
+	}
+
+	cmdutil.SetDocsUsage(repo, repoCommands)
+	cmdutil.SetDocsUsage(commit, commitCommands)
+	cmdutil.SetDocsUsage(file, fileCommands)
 
 	var result []*cobra.Command
 	result = append(result, repo)
@@ -1207,6 +1228,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, getTag)
 	result = append(result, mount)
 	result = append(result, unmount)
+	result = append(result, s3gateway)
 	return result
 }
 
