@@ -24,10 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
+	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -1284,7 +1284,28 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		}),
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
-	commands = append(commands, cmdutil.CreateAliases(mount, []string{"unmount"})...)
+	commands = append(commands, cmdutil.CreateAliases(unmount, []string{"unmount"})...)
+
+	var port uint16
+	s3gateway := &cobra.Command{
+		Short: "Expose pfs via an S3-like API. This command blocks.",
+		Long:  "Expose pfs via an S3-like API. This command blocks.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			server := s3.Server(client, port)
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				return err
+			}
+			return nil
+		}),
+	}
+	s3gateway.Flags().Uint16VarP(&port, "port", "p", 30600, "The local port to bind the S3 gateway to.")
+	commands = append(commands, cmdutil.CreateAliases(s3gateway, []string{"s3gateway"})...)
 
 	return commands
 }

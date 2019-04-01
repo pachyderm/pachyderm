@@ -502,8 +502,16 @@ test-vault:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
-test-s3:
-	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT)
+./etc/testing/s3gateway/s3-tests:
+	cd ./etc/testing/s3gateway && git clone git@github.com:ceph/s3-tests.git
+	cd ./etc/testing/s3gateway/s3-tests && ./bootstrap
+	cd ./etc/testing/s3gateway.s3-tests && source virtualenv/bin/activate && pip install nose-exclude==0.5.0
+
+test-s3gateway-integration:
+	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1 | grep -v 'INFO pfs.'
+
+test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
+	./etc/testing/s3gateway/conformance.py
 
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
@@ -733,7 +741,8 @@ goxc-build:
 	pretest \
 	test \
 	test-client \
-	test-s3 \
+	test-s3gateway-conformance \
+	test-s3gateway-integration \
 	test-fuse \
 	test-local \
 	clean \

@@ -1163,6 +1163,36 @@ func (c APIClient) GlobFile(repoName string, commitID string, pattern string) ([
 	return result, nil
 }
 
+// GlobFileF returns files that match a given glob pattern in a given commit,
+// calling f with each FileInfo. The pattern is documented here:
+// https://golang.org/pkg/path/filepath/#Match
+func (c APIClient) GlobFileF(repoName string, commitID string, pattern string, f func(fi *pfs.FileInfo) error) error {
+	fs, err := c.PfsAPIClient.GlobFileStream(
+		c.Ctx(),
+		&pfs.GlobFileRequest{
+			Commit:  NewCommit(repoName, commitID),
+			Pattern: pattern,
+		},
+	)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		fi, err := fs.Recv()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(fi); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
 // DiffFile returns the difference between 2 paths, old path may be omitted in
 // which case the parent of the new path will be used. DiffFile return 2 values
 // (unless it returns an error) the first value is files present under new
@@ -1194,7 +1224,8 @@ func (c APIClient) DiffFile(newRepoName, newCommitID, newPath, oldRepoName,
 type WalkFn func(*pfs.FileInfo) error
 
 // Walk walks the pfs filesystem rooted at path. walkFn will be called for each
-// file found under path, this includes both regular files and directories.
+// file found under path in lexicographical order. This includes both regular
+// files and directories.
 func (c APIClient) Walk(repoName string, commitID string, path string, f WalkFn) error {
 	fs, err := c.PfsAPIClient.WalkFile(
 		c.Ctx(),

@@ -30,6 +30,7 @@ const (
 	dashUILocalPort        = 30080
 	dashWebSocketLocalPort = 30081
 	pfsLocalPort           = 30652
+	s3gatewayLocalPort     = 30600
 )
 
 // PortForwarder handles proxying local traffic to a kubernetes pod
@@ -186,6 +187,14 @@ func (f *PortForwarder) RunForPFS(localPort uint16) error {
 		localPort = pfsLocalPort
 	}
 	return f.Run("pachd", localPort, 30652)
+}
+
+// RunForS3Gateway creates a port forwarder for the s3gateway.
+func (f *PortForwarder) RunForS3Gateway(localPort uint16) error {
+	if localPort == 0 {
+		localPort = s3gatewayLocalPort
+	}
+	return f.Run("pachd", localPort, 600)
 }
 
 // Lock uses pidfiles to ensure that only one port forwarder is running across

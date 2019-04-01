@@ -9,9 +9,12 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
+	"sort"
 	"strings"
 	"text/tabwriter"
+	"text/template"
 	"time"
+	"unicode"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
@@ -50,7 +53,7 @@ __pachctl_get_object() {
 }
 
 __pachctl_get_repo() {
-	__pachctl_get_object "list-repo" 1
+	__pachctl_get_object "list repo" 1
 }
 
 # $1: repo name
@@ -58,8 +61,8 @@ __pachctl_get_commit() {
 	if [[ -z $1 ]]; then
 		return
 	fi
-	__pachctl_get_object "list-commit $1" 2
-	__pachctl_get_object "list-branch $1" 1
+	__pachctl_get_object "list commit $1" 2
+	__pachctl_get_object "list branch $1" 1
 }
 
 # Performs completion of the standard format <repo>@<branch-or-commit>
@@ -118,7 +121,7 @@ __pachctl_get_path() {
 		return
 	fi
 
-	__pachctl_get_object "glob-file \"$1@$2:${cur}**\"" 2
+	__pachctl_get_object "glob file \"$1@$2:${cur}**\"" 2
 }
 
 # $1: repo name
@@ -126,19 +129,19 @@ __pachctl_get_branch() {
 	if [[ -z $1 ]]; then
 		return
 	fi
-	__pachctl_get_object "list-branch $1" 1
+	__pachctl_get_object "list branch $1" 1
 }
 
 __pachctl_get_job() {
-	__pachctl_get_object "list-job" 1
+	__pachctl_get_object "list job" 1
 }
 
 __pachctl_get_pipeline() {
-	__pachctl_get_object "list-pipeline" 1
+	__pachctl_get_object "list pipeline" 1
 }
 
 __pachctl_get_datum() {
-	__pachctl_get_object "list-datum $2" 1
+	__pachctl_get_object "list datum $2" 1
 }
 
 # Parses repo from the format <repo>@<branch-or-commit>
@@ -231,7 +234,7 @@ __custom_func() {
 				__pachctl_get_pipeline
 			fi
 			;;
-		pachctl_flush_job | pachctl_flush-commit)
+		pachctl_flush_job | pachctl_flush_commit)
 			__pachctl_get_repo_commit
 			;;
 		# Deprecated v1.8 commands - remove later
@@ -260,7 +263,7 @@ __custom_func() {
 			elif __is_active_arg 1; then
 				__pachctl_get_commit ${nouns[0]}
 			elif __is_active_arg 2; then
-			  __pachctl_get_file ${nouns[0]} ${nouns[1]}
+			  __pachctl_get_path ${nouns[0]} ${nouns[1]}
 			fi
 			;;
 		pachctl_copy-file | pachctl_diff-file)
@@ -269,7 +272,7 @@ __custom_func() {
 			elif __is_active_arg 1 4; then
 				__pachctl_get_commit ${nouns[0]}
 			elif __is_active_arg 2 5; then
-			  __pachctl_get_file ${nouns[0]} ${nouns[1]}
+			  __pachctl_get_path ${nouns[0]} ${nouns[1]}
 			fi
 			;;
 		pachctl_inspect-job | pachctl_delete-job | pachctl_stop-job | pachctl_list-datum | pachctl_restart-datum)
@@ -499,6 +502,7 @@ This resets the cluster to its initial state.`,
 	var uiPort uint16
 	var uiWebsocketPort uint16
 	var pfsPort uint16
+	var s3gatewayPort uint16
 	var namespace string
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
@@ -547,7 +551,13 @@ This resets the cluster to its initial state.`,
 				failCount++
 			}
 
-			if failCount < 5 {
+			fmt.Println("Forwarding the s3gateway port...")
+			if err = fw.RunForS3Gateway(s3gatewayPort); err != nil {
+				fmt.Printf("%v\n", err)
+				failCount++
+			}
+
+			if failCount < 6 {
 				fmt.Println("CTRL-C to exit")
 				fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
 
@@ -565,6 +575,7 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16VarP(&uiPort, "ui-port", "u", 30080, "The local port to bind Pachyderm's dash service to.")
 	portForward.Flags().Uint16VarP(&uiWebsocketPort, "proxy-port", "x", 30081, "The local port to bind Pachyderm's dash proxy service to.")
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
+	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
 	subcommands = append(subcommands, cmdutil.CreateAliases(portForward, []string{"port-forward"})...)
 
@@ -598,6 +609,16 @@ This resets the cluster to its initial state.`,
 			} else {
 				dest = os.Stdout
 			}
+
+			// Remove 'hidden' flag from all commands so we can get bash completions for them as well
+			var unhide func(*cobra.Command)
+			unhide = func(cmd *cobra.Command) {
+				cmd.Hidden = false
+				for _, subcmd := range cmd.Commands() {
+					unhide(subcmd)
+				}
+			}
+			unhide(rootCmd)
 
 			return rootCmd.GenBashCompletion(dest)
 		}),
@@ -734,33 +755,120 @@ func printVersion(w io.Writer, component string, v *versionpb.Version) {
 }
 
 func applyRootUsageFunc(rootCmd *cobra.Command) {
-	/*
-	`Usage:{{if .Runnable}}
-  {{if .HasAvailableFlags}}{{appendIfNotPresent .UseLine "[flags]"}}{{else}}{{.UseLine}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
-  {{ .CommandPath}} [command]{{end}}{{if gt .Aliases 0}}
+	// Partition subcommands by category
+	var admin []*cobra.Command
+	var resources []*cobra.Command
+	var actions []*cobra.Command
+	var other []*cobra.Command
 
-Aliases:
-  {{.NameAndAliases}}
-{{end}}{{if .HasExample}}
+	for _, subcmd := range rootCmd.Commands() {
+		switch subcmd.Name() {
+		case
+			"branch",
+			"commit",
+			"datum",
+			"file",
+			"job",
+			"object",
+			"pipeline",
+			"repo",
+			"tag":
+			resources = append(resources, subcmd)
+		case
+			"copy",
+			"create",
+			"delete",
+			"diff",
+			"edit",
+			"finish",
+			"flush",
+			"get",
+			"glob",
+			"inspect",
+			"list",
+			"put",
+			"restart",
+			"start",
+			"stop",
+			"subscribe",
+			"update":
+			actions = append(actions, subcmd)
+		case
+			"deploy",
+			"undeploy",
+			"extract",
+			"restore",
+			"garbage-collect",
+			"update-dash",
+			"auth",
+			"enterprise":
+			admin = append(admin, subcmd)
+		default:
+			other = append(other, subcmd)
+		}
+	}
 
-Examples:
-{{ .Example }}{{end}}{{ if .HasAvailableSubCommands}}
+	sortGroup := func(group []*cobra.Command) {
+		sort.Slice(group, func(i, j int) bool {
+			return group[i].Name() < group[j].Name()
+		})
+	}
 
-Available Commands:{{range .Commands}}{{if .IsAvailableCommand}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasAvailableLocalFlags}}
+	sortGroup(admin)
+	sortGroup(resources)
+	sortGroup(actions)
+	sortGroup(other)
+
+	// Template environment copied from cobra templates
+	templateFuncs := template.FuncMap{
+		"trimRightSpace": func(s string) string {
+			return strings.TrimRightFunc(s, unicode.IsSpace)
+		},
+		"rpad": func(s string, padding int) string {
+			format := fmt.Sprintf("%%-%ds", padding)
+			return fmt.Sprintf(format, s)
+		},
+		"admin": func() []*cobra.Command {
+			return admin
+		},
+		"resources": func() []*cobra.Command {
+			return resources
+		},
+		"actions": func() []*cobra.Command {
+			return actions
+		},
+		"other": func() []*cobra.Command {
+			return other
+		},
+	}
+
+	// template modified from default cobra template
+	text := `Usage:
+  {{.CommandPath}} [command]
+
+Administration Commands:{{range admin}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
+
+Commands by Resource:{{range resources}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
+
+Commands by Action:{{range actions}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
+
+Other Commands:{{range other}}{{if .IsAvailableCommand}}
+  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
 
 Flags:
-{{.LocalFlags.FlagUsages | trimRightSpace}}{{end}}{{ if .HasAvailableInheritedFlags}}
+{{.LocalFlags.FlagUsages | trimRightSpace}}{{end}}{{if .HasAvailableInheritedFlags}}
 
 Global Flags:
 {{.InheritedFlags.FlagUsages | trimRightSpace}}{{end}}{{if .HasHelpSubCommands}}
 
 Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
-  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasAvailableSubCommands }}
+  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
 
 Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
 `
-	*/
 
 	originalUsageFunc := rootCmd.UsageFunc()
 	rootCmd.SetUsageFunc(func(cmd *cobra.Command) error {
@@ -768,6 +876,10 @@ Use "{{.CommandPath}} [command] --help" for more information about a command.{{e
 			return originalUsageFunc(cmd)
 		}
 
+		t := template.New("top")
+		t.Funcs(templateFuncs)
+		template.Must(t.Parse(text))
+		return t.Execute(cmd.Out(), cmd)
 		return originalUsageFunc(cmd)
 	})
 }

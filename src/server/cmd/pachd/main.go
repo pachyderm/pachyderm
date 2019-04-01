@@ -13,6 +13,7 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
+	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
@@ -20,6 +21,7 @@ import (
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pfs/s3"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
@@ -302,6 +304,18 @@ func doFullMode(config interface{}) (retErr error) {
 			log.Printf("error starting githook server %v\n", err)
 		}
 		return fmt.Errorf("RunGitHookServer: %v", err)
+	})
+	eg.Go(func() error {
+		c, err := client.NewFromAddress(fmt.Sprintf("localhost:%d", env.Port))
+		if err != nil {
+			return fmt.Errorf("s3gateway gRPC client init: %v", err)
+		}
+		defer c.Close()
+		server := s3.Server(c, env.S3GatewayPort)
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			return fmt.Errorf("s3gateway server: %v", err)
+		}
+		return nil
 	})
 	eg.Go(func() error {
 		http.Handle("/metrics", promhttp.Handler())
