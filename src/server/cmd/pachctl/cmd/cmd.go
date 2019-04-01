@@ -421,8 +421,6 @@ This resets the cluster to its initial state.`,
 
 			if failCount < 6 {
 				fmt.Println("CTRL-C to exit")
-				fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
-
 				ch := make(chan os.Signal, 1)
 				signal.Notify(ch, os.Interrupt)
 				<-ch
