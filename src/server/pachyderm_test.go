@@ -8350,7 +8350,7 @@ func TestFilter(t *testing.T) {
 		[]string{"bash"},
 		[]string{
 			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo1),
-			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo1),
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo2),
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
@@ -8358,7 +8358,7 @@ func TestFilter(t *testing.T) {
 		client.NewFilterInput("/filter",
 			client.NewCrossInput(
 				client.NewPFSInput(dataRepo1, "/*"),
-				client.NewPFSInput(dataRepo1, "/*"),
+				client.NewPFSInput(dataRepo2, "/*"),
 			),
 		),
 		"",
