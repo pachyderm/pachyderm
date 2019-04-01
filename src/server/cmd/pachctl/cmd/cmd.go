@@ -10,13 +10,13 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"text/tabwriter"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
@@ -244,7 +244,7 @@ Environment variables:
 			}
 
 			// Print header + client version
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			if raw {
 				if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
 					return err
@@ -280,7 +280,7 @@ Environment variables:
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
-				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
+				errWriter := ansiterm.NewTabWriter(buf, 20, 1, 3, ' ', 0)
 				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
