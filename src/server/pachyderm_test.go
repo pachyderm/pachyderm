@@ -8309,7 +8309,7 @@ func TestKafka(t *testing.T) {
 
 	host := os.Getenv("KAFKA_IP")
 	// if host == "" {
-	host = "localhost"
+	host = "0.0.0.0"
 	// }
 	// Open a connection to the kafka cluster
 	conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, 32400))
