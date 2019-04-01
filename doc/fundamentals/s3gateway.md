@@ -26,13 +26,13 @@ broken connections.
 
 These operations are supported by the gateway:
 
-* Creating buckets
-* Deleting buckets
-* Listing buckets
-* Writing objects
-* Removing objects
-* Listing objects
-* Getting objects
+* Creating buckets: creates a repo and/or branch.
+* Deleting buckets: Deletings a branch and/or repo.
+* Listing buckets: Lists all branches on all repos as s3 buckets.
+* Writing objects: Atomically overwrites a file on the HEAD of a branch.
+* Removing objects: Atomically removes a file on the HEAD of a branch.
+* Listing objects: Lists the files in the HEAD of a branch.
+* Getting objects: Gets file contents on the HEAD of a branch.
 
 For details on what's going on under the hood and current peculiarities, see the
 [s3gateway API](../reference/s3gateway_api.md).
