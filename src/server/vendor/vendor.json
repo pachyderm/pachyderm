@@ -1078,6 +1078,18 @@
 			"revisionTime": "2018-08-06T06:07:27Z"
 		},
 		{
+			"checksumSHA1": "b4Bd+o7lqSpiJr8eYHrfn6Y5iPE=",
+			"path": "github.com/juju/ansiterm",
+			"revision": "720a0952cc2ac777afc295d9861263e2a4cf96a1",
+			"revisionTime": "2018-01-09T21:29:12Z"
+		},
+		{
+			"checksumSHA1": "XDKaGjOQfEl5/tZzdJF5wbzh0dU=",
+			"path": "github.com/juju/ansiterm/tabwriter",
+			"revision": "720a0952cc2ac777afc295d9861263e2a4cf96a1",
+			"revisionTime": "2018-01-09T21:29:12Z"
+		},
+		{
 			"checksumSHA1": "dqtKfXGotqkiYaS328PpWeusig8=",
 			"path": "github.com/juju/ratelimit",
 			"revision": "59fac5042749a5afb9af70e813da1dd5474f0167",
@@ -1088,6 +1100,12 @@
 			"path": "github.com/julienschmidt/httprouter",
 			"revision": "975b5c4c7c21c0e3d2764200bf2aa8e34657ae6e",
 			"revisionTime": "2017-04-30T22:20:11Z"
+		},
+		{
+			"checksumSHA1": "U2SPoYbH/b9NTJKekAHYZCsd4/M=",
+			"path": "github.com/lunixbochs/vtclean",
+			"revision": "88cfb0c2efe8ed7b0ccf0af83db39359829027bb",
+			"revisionTime": "2019-02-01T18:16:06Z"
 		},
 		{
 			"checksumSHA1": "urY45++NYCue4nh4k8OjUFnIGfU=",
