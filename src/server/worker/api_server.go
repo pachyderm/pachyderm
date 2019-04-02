@@ -2016,8 +2016,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					})
 				}
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-					failures++
-					if a.pipelineInfo.Transform.ErrCmd != nil && failures >= jobInfo.DatumTries {
+					if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
 						if err = a.runUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
 							return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
 						}
@@ -2043,6 +2042,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
 				}
+				failures++
 				if failures >= jobInfo.DatumTries {
 					logger.Logf("failed to process datum with error: %+v", err)
 					if statsTree != nil {
