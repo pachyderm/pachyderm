@@ -22,10 +22,10 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Long:    "Extract Pachyderm state to stdout or an object store bucket.",
 		Example: `
 # Extract into a local file:
-pachctl {{alias}} > backup
+$ {{alias}} > backup
 
 # Extract to s3:
-pachctl {{alias}} -u s3://bucket/backup`,
+$ {{alias}} -u s3://bucket/backup`,
 		Run:     cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -53,10 +53,10 @@ pachctl {{alias}} -u s3://bucket/backup`,
 		Long:    "Restore Pachyderm state from stdin or an object store.",
 		Example: `
 # Restore from a local file:
-pachctl {{alias}} < backup
+$ {{alias}} < backup
 
 # Restore from s3:
-pachctl {{alias}} -u s3://bucket/backup`,
+$ {{alias}} -u s3://bucket/backup`,
 		Run:     cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
