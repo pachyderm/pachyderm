@@ -171,7 +171,6 @@ __is_active_arg() {
 	return 1
 }
 
-# TODO: retest all this stuff
 __custom_func() {
 	case ${last_command} in
 		pachctl_auth_check)
