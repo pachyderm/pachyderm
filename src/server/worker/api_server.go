@@ -701,6 +701,9 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *tagged
 	}(time.Now())
 
 	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.ErrCmd[0], a.pipelineInfo.Transform.ErrCmd[1:]...)
+	if a.pipelineInfo.Transform.ErrStdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
+	}
 	cmd.Stdout = logger.userLogger()
 	cmd.Stderr = logger.userLogger()
 	cmd.Env = environ
@@ -2013,6 +2016,13 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					})
 				}
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+					failures++
+					if a.pipelineInfo.Transform.ErrCmd != nil && failures >= jobInfo.DatumTries {
+						if err = a.runUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+							return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
+						}
+						return errDatumRecovered
+					}
 					return fmt.Errorf("error runUserCode: %v", err)
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
@@ -2033,7 +2043,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				if isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
 				}
-				failures++
 				if failures >= jobInfo.DatumTries {
 					logger.Logf("failed to process datum with error: %+v", err)
 					if statsTree != nil {
@@ -2051,12 +2060,6 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 							}
 							statsTree.PutFile("failure", h, size, objectInfo.BlockRef)
 						}
-					}
-					if a.pipelineInfo.Transform.ErrCmd != nil {
-						if err = a.runUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
-							return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
-						}
-						return errDatumRecovered
 					}
 					return err
 				}
