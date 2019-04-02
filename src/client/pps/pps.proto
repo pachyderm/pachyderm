@@ -28,6 +28,7 @@ message Transform {
   repeated Secret secrets = 4;
   repeated string image_pull_secrets = 9;
   repeated string stdin = 5;
+  repeated string err_stdin = 14;
   repeated int64 accept_return_code = 6;
   bool debug = 7;
   string user = 10;
