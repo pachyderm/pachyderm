@@ -11,8 +11,6 @@ import (
 	"os/signal"
 	"sort"
 	"strings"
-	"text/tabwriter"
-	"text/template"
 	"time"
 	"unicode"
 
@@ -20,6 +18,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
+	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
@@ -381,7 +380,7 @@ Environment variables:
 			}
 
 			// Print header + client version
-			writer := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
 			if raw {
 				if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
 					return err
@@ -417,7 +416,7 @@ Environment variables:
 
 			if err != nil {
 				buf := bytes.NewBufferString("")
-				errWriter := tabwriter.NewWriter(buf, 20, 1, 3, ' ', 0)
+				errWriter := ansiterm.NewTabWriter(buf, 20, 1, 3, ' ', 0)
 				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), grpc.ErrorDesc(err))
 				errWriter.Flush()
 				return errors.New(buf.String())
@@ -558,8 +557,6 @@ This resets the cluster to its initial state.`,
 
 			if failCount < 6 {
 				fmt.Println("CTRL-C to exit")
-				fmt.Println("NOTE: kubernetes port-forward often outputs benign error messages, these should be ignored unless they seem to be impacting your ability to connect over the forwarded port.")
-
 				ch := make(chan os.Signal, 1)
 				signal.Notify(ch, os.Interrupt)
 				<-ch
