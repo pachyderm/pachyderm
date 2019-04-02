@@ -52,7 +52,7 @@ func TestWeirdPortError(t *testing.T) {
 func TestCommandAliases(t *testing.T) {
 	pachctlCmd := PachctlCmd()
 
-	// Replace the first component with 'pachctl' because it use os.Args[0]
+	// Replace the first component with 'pachctl' because it uses os.Args[0] by default
 	path := func(cmd *cobra.Command) string {
 		return strings.Replace(cmd.CommandPath(), os.Args[0], "pachctl", 1)
 	}

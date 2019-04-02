@@ -91,7 +91,7 @@ func ParseCommits(args []string) ([]*pfs.Commit, error) {
 }
 
 // ParseBranch takes an argument of the form "repo[@branch]" and
-// returns the corresponding *pfs.Branch.  This uses ParseBranch under the hood
+// returns the corresponding *pfs.Branch.  This uses ParseCommit under the hood
 // because a branch name is usually interchangeable with a commit-id.
 func ParseBranch(arg string) (*pfs.Branch, error) {
 	commit, err := ParseCommit(arg)

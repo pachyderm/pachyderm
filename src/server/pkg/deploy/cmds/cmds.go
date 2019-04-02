@@ -511,7 +511,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAliases(listImages, []string{
-    "deploy list-images",
+		"deploy list-images",
 	})...)
 
 	exportImages := &cobra.Command{
@@ -532,7 +532,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAliases(exportImages, []string{
-    "deploy export-images",
+		"deploy export-images",
 	})...)
 
 	importImages := &cobra.Command{
@@ -553,7 +553,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAliases(importImages, []string{
-    "deploy import-images",
+		"deploy import-images",
 	})...)
 
 	var blockCacheSize string

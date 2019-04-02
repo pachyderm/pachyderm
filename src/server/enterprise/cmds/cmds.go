@@ -32,10 +32,10 @@ func parseISO8601(s string) (time.Time, error) {
 // Pachyderm within a Pachyderm cluster. All repos will go from
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
-func ActivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func ActivateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 	var expires string
 	activate := &cobra.Command{
-		Use: "activate <activation-code>",
+		Use: "{{alias}} <activation-code>",
 		Short: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
 		Long: "Activate the enterprise features of Pachyderm with an activation " +
@@ -77,16 +77,16 @@ func ActivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 		"RFC 3339/ISO 8601 datetime). This is only applied if it's earlier than "+
 		"the signed expiration time encoded in 'activation-code', and therefore "+
 		"is only useful for testing.")
-	return activate
+
+	return cmdutil.CreateAliases(activate, []string{"enterprise activate"})
 }
 
 // GetStateCmd returns a cobra.Command to activate the enterprise features of
 // Pachyderm within a Pachyderm cluster. All repos will go from
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
-func GetStateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func GetStateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 	getState := &cobra.Command{
-		Use: "get-state",
 		Short: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Long: "Check whether the Pachyderm cluster has enterprise features " +
@@ -115,17 +115,21 @@ func GetStateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 			return nil
 		}),
 	}
-	return getState
+	return cmdutil.CreateAliases(activate, []string{"enterprise get-state"})
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
 func Cmds(noMetrics, noPortForwarding *bool) []*cobra.Command {
+	var commands []*cobra.Command
+
 	enterprise := &cobra.Command{
-		Use:   "enterprise",
 		Short: "Enterprise commands enable Pachyderm Enterprise features",
 		Long:  "Enterprise commands enable Pachyderm Enterprise features",
 	}
-	enterprise.AddCommand(ActivateCmd(noMetrics, noPortForwarding))
-	enterprise.AddCommand(GetStateCmd(noMetrics, noPortForwarding))
-	return []*cobra.Command{enterprise}
+	commands = append(commands, cmdutil.CreateAliases(enterprise, []string{"enterprise"})...)
+
+	commands = append(commands, ActivateCmd(noMetrics, noPortForwarding)...)
+	commands = append(commands, GetStateCmd(noMetrics, noPortForwarding)...)
+
+	return commands
 }
