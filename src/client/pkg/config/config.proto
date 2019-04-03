@@ -40,5 +40,10 @@ message ConfigV1 {
     // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
     // to determine if pachctl actions are authorized.
     string session_token = 1;
+
+    // The currently active transaction for batching together pachctl commands.
+    // This can be set or cleared via many of the `pachctl * transaction` commands.
+    // This is the ID of the transaction object stored in the pachyderm etcd.
+    string transaction_id = 4
 }
 
