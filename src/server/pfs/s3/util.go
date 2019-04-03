@@ -49,6 +49,6 @@ func objectArgs(w http.ResponseWriter, r *http.Request) (string, string, string)
 func requestLogger(r *http.Request) *logrus.Entry {
 	return logrus.WithFields(logrus.Fields{
 		"request-id": r.Header.Get("X-Request-ID"),
-		"source": "s3gateway",
+		"source":     "s3gateway",
 	})
 }
