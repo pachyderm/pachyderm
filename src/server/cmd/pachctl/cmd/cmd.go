@@ -357,8 +357,8 @@ Environment variables:
 	var clientOnly bool
 	var timeoutFlag string
 	versionCmd := &cobra.Command{
-		Short: "Return version information.",
-		Long:  "Return version information.",
+		Short: "Print Pachyderm version information.",
+		Long:  "Print Pachyderm version information.",
 		Run:   cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if clientOnly {
 				if raw {
@@ -680,14 +680,14 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, cmdutil.CreateAliases(subscribeDocs, []string{"subscribe"})...)
 
 	putDocs := &cobra.Command{
-		Short: "Insert data into the Pachyderm filesystem.",
-		Long:  "Insert data into the Pachyderm filesystem.",
+		Short: "Insert data into Pachyderm.",
+		Long:  "Insert data into Pachyderm.",
 	}
 	subcommands = append(subcommands, cmdutil.CreateAliases(putDocs, []string{"put"})...)
 
 	copyDocs := &cobra.Command{
-		Short: "Copy data between locations in the Pachyderm filesystem",
-		Long:  "Copy data between locations in the Pachyderm filesystem",
+		Short: "Copy a Pachyderm resource.",
+		Long:  "Copy a Pachyderm resource.",
 	}
 	subcommands = append(subcommands, cmdutil.CreateAliases(copyDocs, []string{"copy"})...)
 
