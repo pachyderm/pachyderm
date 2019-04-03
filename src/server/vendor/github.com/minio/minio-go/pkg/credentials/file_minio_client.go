@@ -1,6 +1,6 @@
 /*
  * Minio Go Library for Amazon S3 Compatible Cloud Storage
- * (C) 2017 Minio, Inc.
+ * Copyright 2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	homedir "github.com/minio/go-homedir"
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 // A FileMinioClient retrieves credentials from the current user's home
@@ -62,13 +62,17 @@ func NewFileMinioClient(filename string, alias string) *Credentials {
 // users home directory.
 func (p *FileMinioClient) Retrieve() (Value, error) {
 	if p.filename == "" {
-		homeDir, err := homedir.Dir()
-		if err != nil {
-			return Value{}, err
-		}
-		p.filename = filepath.Join(homeDir, ".mc", "config.json")
-		if runtime.GOOS == "windows" {
-			p.filename = filepath.Join(homeDir, "mc", "config.json")
+		if value, ok := os.LookupEnv("MINIO_SHARED_CREDENTIALS_FILE"); ok {
+			p.filename = value
+		} else {
+			homeDir, err := homedir.Dir()
+			if err != nil {
+				return Value{}, err
+			}
+			p.filename = filepath.Join(homeDir, ".mc", "config.json")
+			if runtime.GOOS == "windows" {
+				p.filename = filepath.Join(homeDir, "mc", "config.json")
+			}
 		}
 	}
 

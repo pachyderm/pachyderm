@@ -1163,40 +1163,40 @@
 			"revisionTime": "2019-04-03T07:30:16Z"
 		},
 		{
-			"checksumSHA1": "H4DIGmrbu8XEe24zy/5s0JuB/gU=",
+			"checksumSHA1": "pw8e6bgWfeEZUIMnD0Zge4d/KPo=",
 			"path": "github.com/minio/minio-go/pkg/credentials",
-			"revision": "24176ea4dbd770e08311df606c49cf6fe6282230",
-			"revisionTime": "2017-05-22T18:31:00Z"
+			"revision": "30a777d088e69c23131eabfdf9b6aabf88a4d1df",
+			"revisionTime": "2019-04-03T07:30:16Z"
 		},
 		{
-			"checksumSHA1": "lsxCcRcNUDxhQyO999SOdvKzzfM=",
+			"checksumSHA1": "Md5pOKYfoKtrG7xNvs2FtiDPfDc=",
 			"path": "github.com/minio/minio-go/pkg/encrypt",
-			"revision": "24176ea4dbd770e08311df606c49cf6fe6282230",
-			"revisionTime": "2017-05-22T18:31:00Z"
+			"revision": "30a777d088e69c23131eabfdf9b6aabf88a4d1df",
+			"revisionTime": "2019-04-03T07:30:16Z"
 		},
 		{
-			"checksumSHA1": "neH34/65OXeKHM/MlV8MbhcdFBc=",
+			"checksumSHA1": "BxFHeQVFZ0t/ZFBJTeM2uegFZI8=",
 			"path": "github.com/minio/minio-go/pkg/policy",
-			"revision": "2d9b5aa27693f8489b04aed103d2ef53fa5ddb4f",
-			"revisionTime": "2017-01-07T19:26:19Z"
+			"revision": "30a777d088e69c23131eabfdf9b6aabf88a4d1df",
+			"revisionTime": "2019-04-03T07:30:16Z"
 		},
 		{
-			"checksumSHA1": "KUD7ZG+upbJZaHPyFEabaDHNGKA=",
+			"checksumSHA1": "1KcTZxPRRQ0BWLt1zDVG1bSjm/4=",
 			"path": "github.com/minio/minio-go/pkg/s3signer",
-			"revision": "24176ea4dbd770e08311df606c49cf6fe6282230",
-			"revisionTime": "2017-05-22T18:31:00Z"
+			"revision": "30a777d088e69c23131eabfdf9b6aabf88a4d1df",
+			"revisionTime": "2019-04-03T07:30:16Z"
 		},
 		{
-			"checksumSHA1": "gRnCFKb4x83GBLVUZXoOjujd+U0=",
+			"checksumSHA1": "7iUaZkEJdhkyAu3F07vrX8pyavI=",
 			"path": "github.com/minio/minio-go/pkg/s3utils",
-			"revision": "24176ea4dbd770e08311df606c49cf6fe6282230",
-			"revisionTime": "2017-05-22T18:31:00Z"
+			"revision": "30a777d088e69c23131eabfdf9b6aabf88a4d1df",
+			"revisionTime": "2019-04-03T07:30:16Z"
 		},
 		{
-			"checksumSHA1": "maUy+dbN6VfTTnfErrAW2lLit1w=",
+			"checksumSHA1": "Wt8ej+rZXTdNBR9Xyw1eGo3Iq5o=",
 			"path": "github.com/minio/minio-go/pkg/set",
-			"revision": "24176ea4dbd770e08311df606c49cf6fe6282230",
-			"revisionTime": "2017-05-22T18:31:00Z"
+			"revision": "30a777d088e69c23131eabfdf9b6aabf88a4d1df",
+			"revisionTime": "2019-04-03T07:30:16Z"
 		},
 		{
 			"path": "github.com/minio/minio-go/policy",

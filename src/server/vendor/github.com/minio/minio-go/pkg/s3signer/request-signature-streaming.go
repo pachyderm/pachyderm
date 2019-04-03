@@ -1,5 +1,6 @@
 /*
- * Minio Go Library for Amazon S3 Compatible Cloud Storage (C) 2017 Minio, Inc.
+ * Minio Go Library for Amazon S3 Compatible Cloud Storage
+ * Copyright 2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +22,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"strings"
@@ -31,7 +33,6 @@ import (
 // http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html#example-signature-calculations-streaming
 const (
 	streamingSignAlgorithm = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
-	streamingEncoding      = "aws-chunked"
 	streamingPayloadHdr    = "AWS4-HMAC-SHA256-PAYLOAD"
 	emptySHA256            = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	payloadChunkSize       = 64 * 1024
@@ -98,9 +99,8 @@ func prepareStreamingRequest(req *http.Request, sessionToken string, dataLen int
 	if sessionToken != "" {
 		req.Header.Set("X-Amz-Security-Token", sessionToken)
 	}
-	req.Header.Set("Content-Encoding", streamingEncoding)
-	req.Header.Set("X-Amz-Date", timestamp.Format(iso8601DateFormat))
 
+	req.Header.Set("X-Amz-Date", timestamp.Format(iso8601DateFormat))
 	// Set content length with streaming signature for each chunk included.
 	req.ContentLength = getStreamLength(dataLen, int64(payloadChunkSize))
 	req.Header.Set("x-amz-decoded-content-length", strconv.FormatInt(dataLen, 10))
@@ -205,6 +205,10 @@ func StreamingSignV4(req *http.Request, accessKeyID, secretAccessKey, sessionTok
 	// Set headers needed for streaming signature.
 	prepareStreamingRequest(req, sessionToken, dataLen, reqTime)
 
+	if req.Body == nil {
+		req.Body = ioutil.NopCloser(bytes.NewReader([]byte("")))
+	}
+
 	stReader := &StreamingReader{
 		baseReadCloser:  req.Body,
 		accessKeyID:     accessKeyID,
@@ -249,7 +253,18 @@ func (s *StreamingReader) Read(buf []byte) (int, error) {
 		s.chunkBufLen = 0
 		for {
 			n1, err := s.baseReadCloser.Read(s.chunkBuf[s.chunkBufLen:])
-			if err == nil || err == io.ErrUnexpectedEOF {
+			// Usually we validate `err` first, but in this case
+			// we are validating n > 0 for the following reasons.
+			//
+			// 1. n > 0, err is one of io.EOF, nil (near end of stream)
+			// A Reader returning a non-zero number of bytes at the end
+			// of the input stream may return either err == EOF or err == nil
+			//
+			// 2. n == 0, err is io.EOF (actual end of stream)
+			//
+			// Callers should always process the n > 0 bytes returned
+			// before considering the error err.
+			if n1 > 0 {
 				s.chunkBufLen += n1
 				s.bytesRead += int64(n1)
 
@@ -260,25 +275,26 @@ func (s *StreamingReader) Read(buf []byte) (int, error) {
 					s.signChunk(s.chunkBufLen)
 					break
 				}
+			}
+			if err != nil {
+				if err == io.EOF {
+					// No more data left in baseReader - last chunk.
+					// Done reading the last chunk from baseReader.
+					s.done = true
 
-			} else if err == io.EOF {
-				// No more data left in baseReader - last chunk.
-				// Done reading the last chunk from baseReader.
-				s.done = true
+					// bytes read from baseReader different than
+					// content length provided.
+					if s.bytesRead != s.contentLen {
+						return 0, io.ErrUnexpectedEOF
+					}
 
-				// bytes read from baseReader different than
-				// content length provided.
-				if s.bytesRead != s.contentLen {
-					return 0, io.ErrUnexpectedEOF
+					// Sign the chunk and write it to s.buf.
+					s.signChunk(0)
+					break
 				}
-
-				// Sign the chunk and write it to s.buf.
-				s.signChunk(0)
-				break
-
-			} else {
 				return 0, err
 			}
+
 		}
 	}
 	return s.buf.Read(buf)

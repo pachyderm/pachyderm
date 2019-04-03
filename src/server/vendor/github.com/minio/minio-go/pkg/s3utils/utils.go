@@ -1,5 +1,6 @@
 /*
- * Minio Go Library for Amazon S3 Compatible Cloud Storage (C) 2016 Minio, Inc.
+ * Minio Go Library for Amazon S3 Compatible Cloud Storage
+ * Copyright 2015-2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +20,7 @@ package s3utils
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"net"
 	"net/url"
 	"regexp"
@@ -79,26 +81,102 @@ func IsVirtualHostSupported(endpointURL url.URL, bucketName string) bool {
 	return IsAmazonEndpoint(endpointURL) || IsGoogleEndpoint(endpointURL)
 }
 
-// IsAmazonEndpoint - Match if it is exactly Amazon S3 endpoint.
-func IsAmazonEndpoint(endpointURL url.URL) bool {
-	if IsAmazonChinaEndpoint(endpointURL) {
-		return true
-	}
+// Refer for region styles - https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region
 
-	return endpointURL.Host == "s3.amazonaws.com"
+// amazonS3HostHyphen - regular expression used to determine if an arg is s3 host in hyphenated style.
+var amazonS3HostHyphen = regexp.MustCompile(`^s3-(.*?)\.amazonaws\.com$`)
+
+// amazonS3HostDualStack - regular expression used to determine if an arg is s3 host dualstack.
+var amazonS3HostDualStack = regexp.MustCompile(`^s3\.dualstack\.(.*?)\.amazonaws\.com$`)
+
+// amazonS3HostDot - regular expression used to determine if an arg is s3 host in . style.
+var amazonS3HostDot = regexp.MustCompile(`^s3\.(.*?)\.amazonaws\.com$`)
+
+// amazonS3ChinaHost - regular expression used to determine if the arg is s3 china host.
+var amazonS3ChinaHost = regexp.MustCompile(`^s3\.(cn.*?)\.amazonaws\.com\.cn$`)
+
+// GetRegionFromURL - returns a region from url host.
+func GetRegionFromURL(endpointURL url.URL) string {
+	if endpointURL == sentinelURL {
+		return ""
+	}
+	if endpointURL.Host == "s3-external-1.amazonaws.com" {
+		return ""
+	}
+	if IsAmazonGovCloudEndpoint(endpointURL) {
+		return "us-gov-west-1"
+	}
+	parts := amazonS3HostDualStack.FindStringSubmatch(endpointURL.Host)
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	parts = amazonS3HostHyphen.FindStringSubmatch(endpointURL.Host)
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	parts = amazonS3ChinaHost.FindStringSubmatch(endpointURL.Host)
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	parts = amazonS3HostDot.FindStringSubmatch(endpointURL.Host)
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	return ""
 }
 
-// IsAmazonChinaEndpoint - Match if it is exactly Amazon S3 China endpoint.
-// Customers who wish to use the new Beijing Region are required
-// to sign up for a separate set of account credentials unique to
-// the China (Beijing) Region. Customers with existing AWS credentials
-// will not be able to access resources in the new Region, and vice versa.
-// For more info https://aws.amazon.com/about-aws/whats-new/2013/12/18/announcing-the-aws-china-beijing-region/
-func IsAmazonChinaEndpoint(endpointURL url.URL) bool {
+// IsAmazonEndpoint - Match if it is exactly Amazon S3 endpoint.
+func IsAmazonEndpoint(endpointURL url.URL) bool {
+	if endpointURL.Host == "s3-external-1.amazonaws.com" || endpointURL.Host == "s3.amazonaws.com" {
+		return true
+	}
+	return GetRegionFromURL(endpointURL) != ""
+}
+
+// IsAmazonGovCloudEndpoint - Match if it is exactly Amazon S3 GovCloud endpoint.
+func IsAmazonGovCloudEndpoint(endpointURL url.URL) bool {
 	if endpointURL == sentinelURL {
 		return false
 	}
-	return endpointURL.Host == "s3.cn-north-1.amazonaws.com.cn"
+	return (endpointURL.Host == "s3-us-gov-west-1.amazonaws.com" ||
+		IsAmazonFIPSGovCloudEndpoint(endpointURL))
+}
+
+// IsAmazonFIPSGovCloudEndpoint - Match if it is exactly Amazon S3 FIPS GovCloud endpoint.
+// See https://aws.amazon.com/compliance/fips.
+func IsAmazonFIPSGovCloudEndpoint(endpointURL url.URL) bool {
+	if endpointURL == sentinelURL {
+		return false
+	}
+	return endpointURL.Host == "s3-fips-us-gov-west-1.amazonaws.com" ||
+		endpointURL.Host == "s3-fips.dualstack.us-gov-west-1.amazonaws.com"
+}
+
+// IsAmazonFIPSUSEastWestEndpoint - Match if it is exactly Amazon S3 FIPS US East/West endpoint.
+// See https://aws.amazon.com/compliance/fips.
+func IsAmazonFIPSUSEastWestEndpoint(endpointURL url.URL) bool {
+	if endpointURL == sentinelURL {
+		return false
+	}
+	switch endpointURL.Host {
+	case "s3-fips.us-east-2.amazonaws.com":
+	case "s3-fips.dualstack.us-west-1.amazonaws.com":
+	case "s3-fips.dualstack.us-west-2.amazonaws.com":
+	case "s3-fips.dualstack.us-east-2.amazonaws.com":
+	case "s3-fips.dualstack.us-east-1.amazonaws.com":
+	case "s3-fips.us-west-1.amazonaws.com":
+	case "s3-fips.us-west-2.amazonaws.com":
+	case "s3-fips.us-east-1.amazonaws.com":
+	default:
+		return false
+	}
+	return true
+}
+
+// IsAmazonFIPSEndpoint - Match if it is exactly Amazon S3 FIPS endpoint.
+// See https://aws.amazon.com/compliance/fips.
+func IsAmazonFIPSEndpoint(endpointURL url.URL) bool {
+	return IsAmazonFIPSUSEastWestEndpoint(endpointURL) || IsAmazonFIPSGovCloudEndpoint(endpointURL)
 }
 
 // IsGoogleEndpoint - Match if it is exactly Google cloud storage endpoint.
@@ -180,4 +258,74 @@ func EncodePath(pathName string) string {
 		}
 	}
 	return encodedPathname
+}
+
+// We support '.' with bucket names but we fallback to using path
+// style requests instead for such buckets.
+var (
+	validBucketName       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9\.\-\_\:]{1,61}[A-Za-z0-9]$`)
+	validBucketNameStrict = regexp.MustCompile(`^[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]$`)
+	ipAddress             = regexp.MustCompile(`^(\d+\.){3}\d+$`)
+)
+
+// Common checker for both stricter and basic validation.
+func checkBucketNameCommon(bucketName string, strict bool) (err error) {
+	if strings.TrimSpace(bucketName) == "" {
+		return errors.New("Bucket name cannot be empty")
+	}
+	if len(bucketName) < 3 {
+		return errors.New("Bucket name cannot be smaller than 3 characters")
+	}
+	if len(bucketName) > 63 {
+		return errors.New("Bucket name cannot be greater than 63 characters")
+	}
+	if ipAddress.MatchString(bucketName) {
+		return errors.New("Bucket name cannot be an ip address")
+	}
+	if strings.Contains(bucketName, "..") {
+		return errors.New("Bucket name contains invalid characters")
+	}
+	if strict {
+		if !validBucketNameStrict.MatchString(bucketName) {
+			err = errors.New("Bucket name contains invalid characters")
+		}
+		return err
+	}
+	if !validBucketName.MatchString(bucketName) {
+		err = errors.New("Bucket name contains invalid characters")
+	}
+	return err
+}
+
+// CheckValidBucketName - checks if we have a valid input bucket name.
+func CheckValidBucketName(bucketName string) (err error) {
+	return checkBucketNameCommon(bucketName, false)
+}
+
+// CheckValidBucketNameStrict - checks if we have a valid input bucket name.
+// This is a stricter version.
+// - http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingBucket.html
+func CheckValidBucketNameStrict(bucketName string) (err error) {
+	return checkBucketNameCommon(bucketName, true)
+}
+
+// CheckValidObjectNamePrefix - checks if we have a valid input object name prefix.
+//   - http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
+func CheckValidObjectNamePrefix(objectName string) error {
+	if len(objectName) > 1024 {
+		return errors.New("Object name cannot be greater than 1024 characters")
+	}
+	if !utf8.ValidString(objectName) {
+		return errors.New("Object name with non UTF-8 strings are not supported")
+	}
+	return nil
+}
+
+// CheckValidObjectName - checks if we have a valid input object name.
+//   - http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
+func CheckValidObjectName(objectName string) error {
+	if strings.TrimSpace(objectName) == "" {
+		return errors.New("Object name cannot be empty")
+	}
+	return CheckValidObjectNamePrefix(objectName)
 }
