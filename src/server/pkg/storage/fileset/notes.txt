@@ -21,3 +21,10 @@ workers and how to filter chunk data from them)
 should be getting processed. Some details about file deletions need to be taken into account.  
 - Keep checkpoint around (full merge) separate from output for the particular job. Can delete checkpoint to save space at the
 cost of having to do more merges for older commits.
+- The larger the metadata:data ratio gets, the more value we will get out of chunk compression in terms of metadata storage.
+  - Metadata should in general have highly compressable data (same user id, permissions, chunk references, padding).
+  - If the metadata:data ratio is small, then the value of compression goes down, but the metadata is smaller therefore it is not as valuable anyways.
+  - This is just a general note not to be too concerned with storing repeating metadata for each file.
+- At each commit, store the output of the commit. Merge log will point to prior commits. If merging a set of prior commits (small commits chosen by heuristic),
+  we will write a new merged fileset. If this new fileset is used in a later merge, then we can delete it if no checkpointing is involved.
+- Think about reference counters for chunks when designing this.
