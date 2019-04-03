@@ -1,5 +1,6 @@
 /*
- * Minio Go Library for Amazon S3 Compatible Cloud Storage (C) 2015 Minio, Inc.
+ * Minio Go Library for Amazon S3 Compatible Cloud Storage
+ * Copyright 2015-2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,10 +41,11 @@ type ObjectInfo struct {
 	LastModified time.Time `json:"lastModified"` // Date and time the object was last modified.
 	Size         int64     `json:"size"`         // Size in bytes of the object.
 	ContentType  string    `json:"contentType"`  // A standard MIME type describing the format of the object data.
+	Expires      time.Time `json:"expires"`      // The date and time at which the object is no longer able to be cached.
 
 	// Collection of additional metadata on the object.
 	// eg: x-amz-meta-*, content-encoding etc.
-	Metadata http.Header `json:"metadata"`
+	Metadata http.Header `json:"metadata" xml:"-"`
 
 	// Owner name.
 	Owner struct {

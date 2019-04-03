@@ -1,5 +1,6 @@
 /*
- * Minio Go Library for Amazon S3 Compatible Cloud Storage (C) 2015 Minio, Inc.
+ * Minio Go Library for Amazon S3 Compatible Cloud Storage
+ * Copyright 2015-2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,8 +37,8 @@ type owner struct {
 	ID          string
 }
 
-// commonPrefix container for prefix response.
-type commonPrefix struct {
+// CommonPrefix container for prefix response.
+type CommonPrefix struct {
 	Prefix string
 }
 
@@ -45,7 +46,7 @@ type commonPrefix struct {
 type ListBucketV2Result struct {
 	// A response can contain CommonPrefixes only if you have
 	// specified a delimiter.
-	CommonPrefixes []commonPrefix
+	CommonPrefixes []CommonPrefix
 	// Metadata about each object returned.
 	Contents  []ObjectInfo
 	Delimiter string
@@ -74,7 +75,7 @@ type ListBucketV2Result struct {
 type ListBucketResult struct {
 	// A response can contain CommonPrefixes only if you have
 	// specified a delimiter.
-	CommonPrefixes []commonPrefix
+	CommonPrefixes []CommonPrefix
 	// Metadata about each object returned.
 	Contents  []ObjectInfo
 	Delimiter string
@@ -116,7 +117,7 @@ type ListMultipartUploadsResult struct {
 	Prefix             string
 	Delimiter          string
 	// A response can contain CommonPrefixes only if you specify a delimiter.
-	CommonPrefixes []commonPrefix
+	CommonPrefixes []CommonPrefix
 }
 
 // initiator container for who initiated multipart upload.
@@ -128,7 +129,7 @@ type initiator struct {
 // copyObjectResult container for copy object response.
 type copyObjectResult struct {
 	ETag         string
-	LastModified string // time string format "2006-01-02T15:04:05.000Z"
+	LastModified time.Time // time string format "2006-01-02T15:04:05.000Z"
 }
 
 // ObjectPart container for particular part of an object.

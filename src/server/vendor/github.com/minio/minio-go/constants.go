@@ -1,5 +1,6 @@
 /*
- * Minio Go Library for Amazon S3 Compatible Cloud Storage (C) 2015 Minio, Inc.
+ * Minio Go Library for Amazon S3 Compatible Cloud Storage
+ * Copyright 2015-2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +19,11 @@ package minio
 
 /// Multipart upload defaults.
 
-// miniPartSize - minimum part size 64MiB per object after which
+// absMinPartSize - absolute minimum part size (5 MiB) below which
+// a part in a multipart upload may not be uploaded.
+const absMinPartSize = 1024 * 1024 * 5
+
+// minPartSize - minimum part size 64MiB per object after which
 // putObject behaves internally as multipart.
 const minPartSize = 1024 * 1024 * 64
 
@@ -37,16 +42,12 @@ const maxSinglePutObjectSize = 1024 * 1024 * 1024 * 5
 // Multipart operation.
 const maxMultipartPutObjectSize = 1024 * 1024 * 1024 * 1024 * 5
 
-// optimalReadBufferSize - optimal buffer 5MiB used for reading
-// through Read operation.
-const optimalReadBufferSize = 1024 * 1024 * 5
-
 // unsignedPayload - value to be set to X-Amz-Content-Sha256 header when
 // we don't want to sign the request payload
 const unsignedPayload = "UNSIGNED-PAYLOAD"
 
 // Total number of parallel workers used for multipart operation.
-var totalWorkers = 3
+const totalWorkers = 4
 
 // Signature related constants.
 const (
@@ -54,9 +55,8 @@ const (
 	iso8601DateFormat = "20060102T150405Z"
 )
 
-// Encryption headers stored along with the object.
-const (
-	amzHeaderIV      = "X-Amz-Meta-X-Amz-Iv"
-	amzHeaderKey     = "X-Amz-Meta-X-Amz-Key"
-	amzHeaderMatDesc = "X-Amz-Meta-X-Amz-Matdesc"
-)
+// Storage class header constant.
+const amzStorageClass = "X-Amz-Storage-Class"
+
+// Website redirect location header constant
+const amzWebsiteRedirectLocation = "X-Amz-Website-Redirect-Location"

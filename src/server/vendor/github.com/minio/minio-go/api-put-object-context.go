@@ -1,6 +1,6 @@
 /*
  * Minio Go Library for Amazon S3 Compatible Cloud Storage
- * Copyright 2015-2017 Minio, Inc.
+ * Copyright 2017 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,15 @@ package minio
 
 import (
 	"context"
+	"io"
 )
 
-// FPutObject - Create an object in a bucket, with contents from file at filePath
-func (c Client) FPutObject(bucketName, objectName, filePath string, opts PutObjectOptions) (n int64, err error) {
-	return c.FPutObjectWithContext(context.Background(), bucketName, objectName, filePath, opts)
+// PutObjectWithContext - Identical to PutObject call, but accepts context to facilitate request cancellation.
+func (c Client) PutObjectWithContext(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64,
+	opts PutObjectOptions) (n int64, err error) {
+	err = opts.validate()
+	if err != nil {
+		return 0, err
+	}
+	return c.putObjectCommon(ctx, bucketName, objectName, reader, objectSize, opts)
 }
