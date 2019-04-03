@@ -1,4 +1,4 @@
-// Copyright 2016 Google LLC
+// Copyright 2018 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build appengine
+// +build !go1.9
 
-package http
+package option
 
 import (
-	"context"
-	"net/http"
-
-	"google.golang.org/appengine/urlfetch"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/internal"
 )
 
-func init() {
-	appengineUrlfetchHook = func(ctx context.Context) http.RoundTripper {
-		return &urlfetch.Transport{Context: ctx}
-	}
+type withCreds google.DefaultCredentials
+
+func (w *withCreds) Apply(o *internal.DialSettings) {
+	o.Credentials = (*google.DefaultCredentials)(w)
+}
+
+func WithCredentials(creds *google.DefaultCredentials) ClientOption {
+	return (*withCreds)(creds)
 }
