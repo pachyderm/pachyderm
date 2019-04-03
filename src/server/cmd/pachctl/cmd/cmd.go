@@ -716,8 +716,8 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, cmdutil.CreateAliases(stopDocs, []string{"stop"})...)
 
 	restartDocs := &cobra.Command{
-		Short: "Resume a stopped task.",
-		Long:  "Resume a stopped task.",
+		Short: "Cancel and restart an ongoing task.",
+		Long:  "Cancel and restart an ongoing task.",
 	}
 	subcommands = append(subcommands, cmdutil.CreateAliases(restartDocs, []string{"restart"})...)
 

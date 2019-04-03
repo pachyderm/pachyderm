@@ -115,7 +115,7 @@ func GetStateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAliases(activate, []string{"enterprise get-state"})
+	return cmdutil.CreateAliases(getState, []string{"enterprise get-state"})
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
