@@ -1180,6 +1180,254 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	s3gateway.Flags().Uint16VarP(&port, "port", "p", 30600, "The local port to bind the S3 gateway to.")
 
+	transaction := &cobra.Command{
+		Use: "transaction",
+		Short: "Docs for transactions.",
+		Long: "Do a few thing.",
+	}
+
+	listTransaction := &cobra.Command{
+		Use: "list-transaction",
+		Short: "List transactions.",
+		Long: "List transactions.",
+		Run: cmdutil.RunFixedArgs(0, func([]string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			transactions, err := c.ListTransactions()
+			if err != nil {
+				return err
+			}
+			if raw {
+				for _, transaction := range transactions {
+					if err := marshaller.Marshal(os.Stdout, transaction); err != nil {
+						return err
+					}
+				}
+				return nil
+			}
+			writer := tabwriter.NewWriter(os.Stdout, pretty.TransactionHeader)
+			for _, transaction := range transactions {
+				pretty.PrintTransaction(writer, transaction)
+			}
+			return writer.Flush()
+		}),
+	}
+
+	getActiveTransaction := func() (string, error) {
+		cfg, err := config.Read()
+		if err != nil {
+			return "", fmt.Errorf("error reading Pachyderm config: %v", err)
+		}
+		if cfg.V1 == nil {
+			return "", nil
+		}
+		return cfg.V1.ActiveTransaction, nil
+	}
+
+	setActiveTransaction := func(id string) error {
+		cfg, err := config.Read()
+		if err != nil {
+			return fmt.Errorf("error reading Pachyderm config: %v", err)
+		}
+		if cfg.V1 == nil {
+			cfg.V1 = &config.ConfigV1{}
+		}
+		cfg.V1.ActiveTransaction = id
+		if err := cfg.Write(); err != nil {
+			return fmt.Errorf("error writing Pachyderm config: %v", err)
+		}
+		return nil
+	}
+
+	startTransaction := &cobra.Command{
+		Use: "start-transaction",
+		Short: "Start a new transaction.",
+		Long: "Start a new transaction.",
+		Run: cmdutil.RunFixedArgs(0, func([]string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			transaction, err := c.StartTransaction()
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			// TODO: use advisory locks on config so we don't have a race condition if
+			// two commands are run simultaneously
+			err = setActiveTransaction(transaction.ID)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Started new transaction: %s\n", transaction.ID)
+			return nil
+		}),
+	}
+
+	stopTransaction := &cobra.Command{
+		Use: "stop-transaction",
+		Short: "Stop modifying the current transaction.",
+		Long: "Start modifying the current transaction.",
+		Run: cmdutil.RunFixedArgs(0, func([]string) error {
+			transaction, err := c.StartTransaction()
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			// TODO: use advisory locks on config so we don't have a race condition if
+			// two commands are run simultaneously
+			id, err := getActiveTransaction()
+			if err != nil {
+				return err
+			}
+
+			if id == "" {
+				return fmt.Errorf("No active transaction")
+			}
+
+			err = setActiveTransaction("")
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Cleared active transaction: %s\n", id)
+			return nil
+		}),
+	}
+
+	finishTransaction := &cobra.Command{
+		Use: "finish-transaction [<transaction>]",
+		Short: "Close the currently active transaction and execute it.",
+		Long: "Close the currently active transaction and execute it.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			var id string
+			if len(args) > 0 {
+				id = args[0]
+			} else {
+				id, err = getActiveTransaction()
+				if err != nil {
+					return err
+				}
+			}
+
+			result, err := c.FinishTransaction(id)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+
+			err = setActiveTransaction("")
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Completed transaction with %d requests: %s\n", len(result.responses), result.info.transaction.ID)
+			return nil
+		}),
+	}
+
+	deleteTransaction := &cobra.Command{
+		Use: "delete-transaction [<transaction>]",
+		Short: "Cancel and delete an existing transaction.",
+		Long: "Cancel and delete an existing transaction.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			var id string
+			if len(args) > 0 {
+				id = args[0]
+			} else {
+				id, err = getActiveTransaction()
+				if err != nil {
+					return err
+				}
+			}
+
+			err := c.DeleteTransaction(args[0])
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			return nil
+		}),
+	}
+
+	inspectTransaction := &cobra.Command{
+		Use: "inspect-transaction [<transaction>]",
+		Short: "Print information about an open transaction.",
+		Long: "Print information about an open transaction.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			var id string
+			if len(args) > 0 {
+				id = args[0]
+			} else {
+				id, err = getActiveTransaction()
+				if err != nil {
+					return err
+				}
+			}
+
+			info, err := c.InspectTransaction(id)
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if info == nil {
+				return fmt.Errorf("transaction %s not found", id)
+			}
+			if raw {
+				return marshaller.Marshal(os.Stdout, info)
+			}
+			return pretty.PrintDetailedTransactionInfo(&pretty.PrintableTransactionInfo{
+				TransactionInfo: info,
+				FullTimestamps:  fullTimestamps,
+			})
+		}),
+	}
+
+	resumeTransaction := &cobra.Command{
+		Use: "resume-transaction <transaction>",
+		Short: "Set an existing transaction as active.",
+		Long: "Set an existing transaction as active.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			info, err := c.InspectTransaction(args[0])
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			if info == nil {
+				return fmt.Errorf("transaction %s not found", args[0])
+			}
+
+			err = setActiveTransaction(info.transaction.ID)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Resuming existing transaction with %d requests: %s\n", len(info.requests), info.transaction.ID)
+			return nil
+		}),
+	}
+
 	repoCommands := []*cobra.Command{
 		createRepo,
 		updateRepo,
@@ -1209,9 +1457,21 @@ $ pachctl diff-file foo master path1 bar master path2
 		deleteFile,
 	}
 
+	transactionCommands := []*cobra.Command{
+		listTransaction,
+		startTransaction,
+		stopTransaction,
+		finishTransaction,
+		deleteTransaction,
+		inspectTransaction,
+		resumeTransaction,
+	}
+
+
 	cmdutil.SetDocsUsage(repo, repoCommands)
 	cmdutil.SetDocsUsage(commit, commitCommands)
 	cmdutil.SetDocsUsage(file, fileCommands)
+	cmdutil.SetDocsUsage(transaction, transactionCommands)
 
 	var result []*cobra.Command
 	result = append(result, repo)
@@ -1229,6 +1489,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, mount)
 	result = append(result, unmount)
 	result = append(result, s3gateway)
+	result = append(result, transactionCommands...)
 	return result
 }
 

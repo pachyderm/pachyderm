@@ -455,6 +455,11 @@ message TransactionResponse {
   }
 }
 
+message TransactionResult {
+  TransactionInfo info = 1;
+  repeated TransactionResponse responses = 2;
+}
+
 message Transaction {
   string id = 1 [(gogoproto.customname) = "ID"];
 }
@@ -462,6 +467,7 @@ message Transaction {
 message TransactionInfo {
   Transaction transaction = 1;
   repeated TransactionRequest requests = 2;
+  google.protobuf.Timestamp started = 3;
 }
 
 message InspectTransactionRequest {
@@ -490,7 +496,7 @@ service API {
   rpc InspectTransaction(InspectTransactionRequest) returns (TransactionInfo) {}
   rpc DeleteTransaction(DeleteTransactionRequest) returns (google.protobuf.Empty) {}
   rpc ListTransaction(ListTransactionRequest) returns (stream TransactionInfo) {}
-  rpc FinishTransaction(FinishTransactionRequest) returns (stream TransactionResponse) {}
+  rpc FinishTransaction(FinishTransactionRequest) returns (TransactionResult) {}
   rpc AppendTransaction(AppendTransactionRequest) returns (google.protobuf.Empty) {}
 
   // Repo rpcs

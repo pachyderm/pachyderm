@@ -22,6 +22,8 @@ const (
 	BranchHeader = "BRANCH\tHEAD\t\n"
 	// FileHeader is the header for files.
 	FileHeader = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
+	//TransactionHeader is the header for transactions.
+	TransactionHeader = "TRANSACTION\tSTARTED\tSIZE\t\n"
 )
 
 // PrintRepoHeader prints a repo header.
@@ -201,6 +203,19 @@ Children: {{range .Children}} {{.}} {{end}}
 		return err
 	}
 	return template.Execute(os.Stdout, fileInfo)
+}
+
+func PrintTransactionInfo(w io.Writer, info *pfs.TransactionInfo, fullTimestamps bool) {
+	fmt.Fprintf(w, "%s\t", info.Transaction.ID)
+	if fullTimestamps {
+		fmt.Fprintf(w, "%s\t", info.Started.String())
+	} else {
+		fmt.Fprintf(w, "%s\t", pretty.Ago(info.Started))
+	}
+	fmt.Fprintf(w, "%d\n", len(info.Requests))
+}
+
+func PrintDetailedTransactionInfo(info *pfs.TransactionInfo) error {
 }
 
 type uint64Slice []uint64
