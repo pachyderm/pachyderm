@@ -802,7 +802,7 @@ you can increase the amount of memory used for the bloom filters with the
 		}),
 	}
 	garbageCollect.Flags().StringVarP(&memory, "memory", "m", "0", "The amount of memory to use during garbage collection. Default is 10MB.")
-	commands = append(commands, cmdutil.CreateAliases(stopPipeline, []string{"garbage-collect"})...)
+	commands = append(commands, cmdutil.CreateAliases(garbageCollect, []string{"garbage-collect"})...)
 
 	return commands
 }
