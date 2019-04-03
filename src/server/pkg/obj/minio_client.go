@@ -55,7 +55,7 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 		pipe:    writer,
 	}
 	go func() {
-		_, err := client.PutObject(client.bucket, name, reader, "application/octet-stream")
+		_, err := client.PutObject(client.bucket, name, reader, -1, nil) //"application/octet-stream")
 		if err != nil {
 			reader.CloseWithError(err)
 		}
@@ -119,7 +119,7 @@ func (l *limitReadCloser) Read(p []byte) (int, error) {
 }
 
 func (c *minioClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	obj, err := c.GetObject(c.bucket, name)
+	obj, err := c.GetObject(c.bucket, name, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (c *minioClient) Delete(_ context.Context, name string) error {
 }
 
 func (c *minioClient) Exists(_ context.Context, name string) bool {
-	_, err := c.StatObject(c.bucket, name)
+	_, err := c.StatObject(c.bucket, name, nil)
 	return err == nil
 }
 
