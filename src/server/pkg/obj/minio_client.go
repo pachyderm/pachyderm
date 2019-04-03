@@ -54,11 +54,11 @@ func newMinioWriter(ctx context.Context, client *minioClient, name string) *mini
 		errChan: make(chan error),
 		pipe:    writer,
 	}
-	opts := minio.PutObjectOptions{
-		ContentType: "application/octet-stream",
-	}
 	go func() {
-		_, err := client.PutObject(client.bucket, name, reader, -1, opts) //"application/octet-stream")
+		opts := minio.PutObjectOptions{
+			ContentType: "application/octet-stream",
+		}
+		_, err := client.PutObject(client.bucket, name, reader, -1, opts)
 		if err != nil {
 			reader.CloseWithError(err)
 		}
