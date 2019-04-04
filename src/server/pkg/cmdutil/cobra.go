@@ -5,6 +5,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/spf13/cobra"
@@ -201,7 +202,7 @@ func CreateAliases(cmd *cobra.Command, invocations []string) []*cobra.Command {
 
 			// The leaf command node should include the usage from the given cmd,
 			// while logical nodes just need one piece of the invocation.
-			if i == len(args) - 1 {
+			if i == len(args)-1 {
 				*cur = *cmd
 				if cmd.Use == "" {
 					cur.Use = arg
@@ -270,4 +271,58 @@ func MergeCommands(root *cobra.Command, children []*cobra.Command) {
 			MergeCommands(parent, cmd.Commands())
 		}
 	}
+}
+
+// SetDocsUsage sets the usage string for a docs-style command.  Docs commands
+// have no functionality except to output some docs and related commands, and
+// should not specify a 'Run' attribute.
+func SetDocsUsage(command *cobra.Command) {
+	command.SetHelpTemplate(`{{or .Long .Short}}
+
+{{.UsageString}}
+
+`)
+
+	command.SetUsageFunc(func(cmd *cobra.Command) error {
+		rootCmd := cmd.Root()
+
+		// Walk the command tree, finding commands with the documented word
+		var associated []*cobra.Command
+		var walk func(*cobra.Command)
+		walk = func(cursor *cobra.Command) {
+			if cursor.Name() == cmd.Name() && cursor.CommandPath() != cmd.CommandPath() {
+				associated = append(associated, cursor)
+			}
+			for _, subcmd := range cursor.Commands() {
+				walk(subcmd)
+			}
+		}
+		walk(rootCmd)
+
+		var maxCommandPath int
+		for _, x := range associated {
+			commandPathLen := len(x.CommandPath())
+			if commandPathLen > maxCommandPath {
+				maxCommandPath = commandPathLen
+			}
+		}
+
+		templateFuncs := template.FuncMap{
+			"pad": func(s string) string {
+				format := fmt.Sprintf("%%-%ds", maxCommandPath+1)
+				return fmt.Sprintf(format, s)
+			},
+			"associated": func() []*cobra.Command {
+				return associated
+			},
+		}
+
+		text := `Associated Commands:{{range associated}}{{if .IsAvailableCommand}}
+  {{pad .CommandPath}} {{.Short}}{{end}}{{end}}`
+
+		t := template.New("top")
+		t.Funcs(templateFuncs)
+		template.Must(t.Parse(text))
+		return t.Execute(cmd.Out(), cmd)
+	})
 }

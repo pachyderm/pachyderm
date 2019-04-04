@@ -53,11 +53,9 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
-		Long: `Repos, short for repository, are the top level data object in Pachyderm.
-
-Repos are created with create-repo.
-`,
+		Long:  "Repos, short for repository, are the top level data object in Pachyderm.",
 	}
+	cmdutil.SetDocsUsage(repoDocs)
 	commands = append(commands, cmdutil.CreateAliases(repoDocs, []string{"repo"})...)
 
 	var description string
@@ -65,7 +63,7 @@ Repos are created with create-repo.
 		Use:   "{{alias}} <repo>",
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -82,16 +80,13 @@ Repos are created with create-repo.
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	commands = append(commands, cmdutil.CreateAliases(createRepo, []string{
-		"create repo",
-		"repo create",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(createRepo, []string{"create repo"})...)
 
 	updateRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Update a repo.",
 		Long:  "Update a repo.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -109,16 +104,13 @@ Repos are created with create-repo.
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	commands = append(commands, cmdutil.CreateAliases(updateRepo, []string{
-		"update repo",
-		"repo update",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(updateRepo, []string{"update repo"})...)
 
 	inspectRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -143,10 +135,7 @@ Repos are created with create-repo.
 	}
 	inspectRepo.Flags().AddFlagSet(rawFlags)
 	inspectRepo.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(inspectRepo, []string{
-		"inspect repo",
-		"repo inspect",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(inspectRepo, []string{"inspect repo"})...)
 
 	listRepo := &cobra.Command{
 		Short: "Return all repos.",
@@ -183,10 +172,7 @@ Repos are created with create-repo.
 	}
 	listRepo.Flags().AddFlagSet(rawFlags)
 	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(listRepo, []string{
-		"list repo",
-		"repo list",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(listRepo, []string{"list repo"})...)
 
 	var force bool
 	var all bool
@@ -194,7 +180,7 @@ Repos are created with create-repo.
 		Use:   "{{alias}} <repo>",
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
-		Run:   cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -223,34 +209,31 @@ Repos are created with create-repo.
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-	commands = append(commands, cmdutil.CreateAliases(deleteRepo, []string{
-		"delete repo",
-		"repo delete",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(deleteRepo, []string{"delete repo"})...)
 
 	commitDocs := &cobra.Command{
 		Short: "Docs for commits.",
 		Long: `Commits are atomic transactions on the content of a repo.
 
 Creating a commit is a multistep process:
-- start a new commit with start-commit
-- write files to it through fuse or with put-file
-- finish the new commit with finish-commit
+- start a new commit with 'start commit'
+- write files to it through fuse or with 'put file'
+- finish the new commit with 'finish commit'
 
 Commits that have been started but not finished are NOT durable storage.
 Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.
-This layers the data in the commit over the data in the parent.
-`,
+This layers the data in the commit over the data in the parent.`,
 	}
+	cmdutil.SetDocsUsage(commitDocs)
 	commands = append(commands, cmdutil.CreateAliases(commitDocs, []string{"commit"})...)
 
 	var parent string
 	startCommit := &cobra.Command{
-		Use:     "{{alias}} <repo>@<branch-or-commit>",
-		Short:   "Start a new commit.",
-		Long:    "Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.",
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Short: "Start a new commit.",
+		Long:  "Start a new commit with parent-commit as the parent, or start a commit on the given branch; if the branch does not exist, it will be created.",
 		Example: `# Start a new commit in repo "test" that's not on any branch
 $ {{alias}} test
 
@@ -262,7 +245,7 @@ $ {{alias}} test@patch -p master
 
 # Start a commit with XXX as the parent in repo "test", not on any branch
 $ {{alias}} test -p XXX`,
-		Run:     cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
@@ -289,16 +272,13 @@ $ {{alias}} test -p XXX`,
 	startCommit.MarkFlagCustom("parent", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
 	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-	commands = append(commands, cmdutil.CreateAliases(startCommit, []string{
-		"start commit",
-		"commit start",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(startCommit, []string{"start commit"})...)
 
 	finishCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Finish a started commit.",
 		Long:  "Finish a started commit. Commit-id must be a writeable commit.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
 				return err
@@ -321,16 +301,13 @@ $ {{alias}} test -p XXX`,
 	}
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
 	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-	commands = append(commands, cmdutil.CreateAliases(finishCommit, []string{
-		"finish commit",
-		"commit finish",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(finishCommit, []string{"finish commit"})...)
 
 	inspectCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Return info about a commit.",
 		Long:  "Return info about a commit.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
 				return err
@@ -360,17 +337,14 @@ $ {{alias}} test -p XXX`,
 	}
 	inspectCommit.Flags().AddFlagSet(rawFlags)
 	inspectCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(inspectCommit, []string{
-		"inspect commit",
-		"commit inspect",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(inspectCommit, []string{"inspect commit"})...)
 
 	var from string
 	var number int
 	listCommit := &cobra.Command{
-		Use:     "{{alias}} <repo>[@branch]",
-		Short:   "Return all commits on a repo.",
-		Long:    "Return all commits on a repo.",
+		Use:   "{{alias}} <repo>[@branch]",
+		Short: "Return all commits on a repo.",
+		Long:  "Return all commits on a repo.",
 		Example: `
 # return commits in repo "foo"
 $ {{alias}} foo
@@ -383,7 +357,7 @@ $ {{alias}} foo@master -n 20
 
 # return commits in repo "foo" since commit XXX
 $ {{alias}} foo@master --from XXX`,
-		Run:     cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -414,10 +388,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	listCommit.Flags().AddFlagSet(rawFlags)
 	listCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(listCommit, []string{
-		"list commit",
-		"commit list",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(listCommit, []string{"list commit"})...)
 
 	printCommitIter := func(commitIter client.CommitInfoIterator) error {
 		if raw {
@@ -450,16 +421,16 @@ $ {{alias}} foo@master --from XXX`,
 
 	var repos cmdutil.RepeatedStringArg
 	flushCommit := &cobra.Command{
-		Use:     "{{alias}} <repo>@<branch-or-commit> ...",
-		Short:   "Wait for all commits caused by the specified commits to finish and return them.",
-		Long:    "Wait for all commits caused by the specified commits to finish and return them.",
+		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
+		Short: "Wait for all commits caused by the specified commits to finish and return them.",
+		Long:  "Wait for all commits caused by the specified commits to finish and return them.",
 		Example: `
 # return commits caused by foo@XXX and bar@YYY
 $ {{alias}} foo@XXX bar@YYY
 
 # return commits caused by foo@XXX leading to repos bar and baz
 $ {{alias}} foo@XXX -r bar -r baz`,
-		Run:     cmdutil.Run(func(args []string) error {
+		Run: cmdutil.Run(func(args []string) error {
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
 				return err
@@ -488,16 +459,13 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 	flushCommit.MarkFlagCustom("repos", "__pachctl_get_repo")
 	flushCommit.Flags().AddFlagSet(rawFlags)
 	flushCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(flushCommit, []string{
-		"flush commit",
-		"commit flush",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(flushCommit, []string{"flush commit"})...)
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{
-		Use:     "{{alias}} <repo>@<branch>",
-		Short:   "Print commits as they are created (finished).",
-		Long:    "Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.",
+		Use:   "{{alias}} <repo>@<branch>",
+		Short: "Print commits as they are created (finished).",
+		Long:  "Print commits as they are created in the specified repo and branch.  By default, all existing commits on the specified branch are returned first.  A commit is only considered 'created' when it's been finished.",
 		Example: `
 # subscribe to commits in repo "test" on branch "master"
 $ {{alias}} test@master
@@ -507,7 +475,7 @@ $ {{alias}} test@master --from XXX
 
 # subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
 $ {{alias}} test@master --new`,
-		Run:     cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
@@ -539,16 +507,13 @@ $ {{alias}} test@master --new`,
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
 	subscribeCommit.Flags().AddFlagSet(rawFlags)
 	subscribeCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(subscribeCommit, []string{
-		"subscribe commit",
-		"commit subscribe",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(subscribeCommit, []string{"subscribe commit"})...)
 
 	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Delete an input commit.",
 		Long:  "Delete an input commit. An input is a commit which is not the output of a pipeline.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			commit, err := cmdutil.ParseCommit(args[0])
 			if err != nil {
 				return err
@@ -561,15 +526,13 @@ $ {{alias}} test@master --new`,
 			return client.DeleteCommit(commit.Repo.Name, commit.ID)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deleteCommit, []string{
-		"delete commit",
-		"commit delete",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(deleteCommit, []string{"delete commit"})...)
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
 		Long:  "Docs for branches.",
 	}
+	cmdutil.SetDocsUsage(branchDocs)
 	commands = append(commands, cmdutil.CreateAliases(branchDocs, []string{"branch"})...)
 
 	var branchProvenance cmdutil.RepeatedStringArg
@@ -578,7 +541,7 @@ $ {{alias}} test@master --new`,
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Create a new branch, or update an existing branch, on a repo.",
 		Long:  "Create a new branch, or update an existing branch, on a repo, starting a commit on the branch will also create it, so there's often no need to call this.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
@@ -599,16 +562,13 @@ $ {{alias}} test@master --new`,
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
 	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	commands = append(commands, cmdutil.CreateAliases(createBranch, []string{
-		"create branch",
-		"branch create",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(createBranch, []string{"create branch"})...)
 
 	listBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>",
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -634,16 +594,13 @@ $ {{alias}} test@master --new`,
 		}),
 	}
 	listBranch.Flags().AddFlagSet(rawFlags)
-	commands = append(commands, cmdutil.CreateAliases(listBranch, []string{
-		"list branch",
-		"branch list",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(listBranch, []string{"list branch"})...)
 
 	deleteBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Delete a branch",
 		Long:  "Delete a branch, while leaving the commits intact",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			branch, err := cmdutil.ParseBranch(args[0])
 			if err != nil {
 				return err
@@ -657,19 +614,16 @@ $ {{alias}} test@master --new`,
 		}),
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
-	commands = append(commands, cmdutil.CreateAliases(deleteBranch, []string{
-		"delete branch",
-		"branch delete",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(deleteBranch, []string{"delete branch"})...)
 
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
 		Long: `Files are the lowest level data object in Pachyderm.
 
 Files can be written to started (but not finished) commits with put-file.
-Files can be read from finished commits with get-file.
-`,
+Files can be read from finished commits with get-file.`,
 	}
+	cmdutil.SetDocsUsage(fileDocs)
 	commands = append(commands, cmdutil.CreateAliases(fileDocs, []string{"file"})...)
 
 	var filePaths []string
@@ -683,9 +637,9 @@ Files can be read from finished commits with get-file.
 	var putFileCommit bool
 	var overwrite bool
 	putFile := &cobra.Command{
-		Use:     "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
-		Short:   "Put a file into the filesystem.",
-		Long:    "Put-file supports a number of ways to insert data into pfs:",
+		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
+		Short: "Put a file into the filesystem.",
+		Long:  "Put-file supports a number of ways to insert data into pfs:",
 		Example: `
 # Put data from stdin as repo/branch/path:
 $ echo "data" | {{alias}} repo branch path
@@ -725,7 +679,7 @@ $ {{alias}} repo branch -i file
 # NOTE this URL can reference local files, so it could cause you to put sensitive
 # files into your Pachyderm cluster.
 $ {{alias}} repo branch -i http://host/path`,
-		Run:     cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -830,16 +784,13 @@ $ {{alias}} repo branch -i http://host/path`,
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
-	commands = append(commands, cmdutil.CreateAliases(putFile, []string{
-		"put file",
-		"file put",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(putFile, []string{"put file"})...)
 
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
 		Short: "Copy files between pfs paths.",
 		Long:  "Copy files between pfs paths.",
-		Run:   cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
 			srcFile, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -861,16 +812,13 @@ $ {{alias}} repo branch -i http://host/path`,
 		}),
 	}
 	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
-	commands = append(commands, cmdutil.CreateAliases(copyFile, []string{
-		"copy file",
-		"file copy",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(copyFile, []string{"copy file"})...)
 
 	var outputPath string
 	getFile := &cobra.Command{
-		Use:     "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
-		Short:   "Return the contents of a file.",
-		Long:    "Return the contents of a file.",
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
+		Short: "Return the contents of a file.",
+		Long:  "Return the contents of a file.",
 		Example: `
 # get file "XXX" on branch "master" in repo "foo"
 $ {{alias}} foo@master:XXX
@@ -882,7 +830,7 @@ $ {{alias}} foo@master^:XXX
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
 $ {{alias}} foo@master^2:XXX`,
-		Run:     cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -917,16 +865,13 @@ $ {{alias}} foo@master^2:XXX`,
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
-	commands = append(commands, cmdutil.CreateAliases(getFile, []string{
-		"get file",
-		"file get",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(getFile, []string{"get file"})...)
 
 	inspectFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Return info about a file.",
 		Long:  "Return info about a file.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -950,16 +895,13 @@ $ {{alias}} foo@master^2:XXX`,
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(rawFlags)
-	commands = append(commands, cmdutil.CreateAliases(inspectFile, []string{
-		"inspect file",
-		"file inspect",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(inspectFile, []string{"inspect file"})...)
 
 	var history int64
 	listFile := &cobra.Command{
-		Use:     "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
-		Short:   "Return the files in a directory.",
-		Long:    "Return the files in a directory.",
+		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
+		Short: "Return the files in a directory.",
+		Long:  "Return the files in a directory.",
 		Example: `
 # list top-level files on branch "master" in repo "foo"
 $ {{alias}} foo@master
@@ -980,7 +922,7 @@ $ {{alias}} foo@master --history n
 
 # list all versions of top-level files on branch "master" in repo "foo"
 $ {{alias}} foo@master --history -1`,
-		Run:     cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -1008,15 +950,12 @@ $ {{alias}} foo@master --history -1`,
 	listFile.Flags().AddFlagSet(rawFlags)
 	listFile.Flags().AddFlagSet(fullTimestampsFlags)
 	listFile.Flags().Int64Var(&history, "history", 0, "Return revision history for files.")
-	commands = append(commands, cmdutil.CreateAliases(listFile, []string{
-		"list file",
-		"file list",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(listFile, []string{"list file"})...)
 
 	globFile := &cobra.Command{
-		Use:     "{{alias}} <repo>@<branch-or-commit>:<pattern>",
-		Short:   "Return files that match a glob pattern in a commit.",
-		Long:    "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
+		Use:   "{{alias}} <repo>@<branch-or-commit>:<pattern>",
+		Short: "Return files that match a glob pattern in a commit.",
+		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
 		Example: `
 # Return files in repo "foo" on branch "master" that start
 # with the character "A".  Note how the double quotation marks around the 
@@ -1025,7 +964,7 @@ $ {{alias}} "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
 $ {{alias}} "foo@master:data/*"`,
-		Run:     cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -1056,16 +995,13 @@ $ {{alias}} "foo@master:data/*"`,
 	}
 	globFile.Flags().AddFlagSet(rawFlags)
 	globFile.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(globFile, []string{
-		"glob file",
-		"file glob",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(globFile, []string{"glob file"})...)
 
 	var shallow bool
 	diffFile := &cobra.Command{
-		Use:     "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
-		Short:   "Return a diff of two file trees.",
-		Long:    "Return a diff of two file trees.",
+		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
+		Short: "Return a diff of two file trees.",
+		Long:  "Return a diff of two file trees.",
 		Example: `
 # Return the diff of the file "path" of the repo "foo" between the head of the
 # "master" branch and its parent.
@@ -1074,7 +1010,7 @@ $ {{alias}} foo@master:path
 # Return the diff between the master branches of repos foo and bar at paths
 # path1 and path2, respectively.
 $ {{alias}} foo@master:path1 bar@master:path2`,
-		Run:     cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
 			newFile, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -1127,16 +1063,13 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	}
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
 	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(diffFile, []string{
-		"diff file",
-		"file diff",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(diffFile, []string{"diff file"})...)
 
 	deleteFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
 		Short: "Delete a file.",
 		Long:  "Delete a file.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
@@ -1149,22 +1082,20 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			return client.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deleteFile, []string{
-		"delete file",
-		"file delete",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(deleteFile, []string{"delete file"})...)
 
 	objectDocs := &cobra.Command{
 		Short: "Docs for objects.",
 		Long:  "Docs for objects.",
 	}
+	cmdutil.SetDocsUsage(objectDocs)
 	commands = append(commands, cmdutil.CreateAliases(objectDocs, []string{"object"})...)
 
 	getObject := &cobra.Command{
 		Use:   "{{alias}} <hash>",
 		Short: "Print the contents of an object.",
 		Long:  "Print the contents of an object.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -1173,22 +1104,20 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			return client.GetObject(args[0], os.Stdout)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(getObject, []string{
-		"get object",
-		"object get",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(getObject, []string{"get object"})...)
 
 	tagDocs := &cobra.Command{
 		Short: "Docs for tags.",
 		Long:  "Docs for tags.",
 	}
+	cmdutil.SetDocsUsage(tagDocs)
 	commands = append(commands, cmdutil.CreateAliases(tagDocs, []string{"tag"})...)
 
 	getTag := &cobra.Command{
 		Use:   "{{alias}} <tag>",
 		Short: "Print the contents of a tag.",
 		Long:  "Print the contents of a tag.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -1197,10 +1126,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			return client.GetTag(args[0], os.Stdout)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(getTag, []string{
-		"get tag",
-		"tag get",
-	})...)
+	commands = append(commands, cmdutil.CreateAliases(getTag, []string{"get tag"})...)
 
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
@@ -1208,7 +1134,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "fuse")
 			if err != nil {
 				return err
@@ -1237,7 +1163,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Unmount pfs.",
 		Long:  "Unmount pfs.",
-		Run:   cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			if len(args) == 1 {
 				return syscall.Unmount(args[0], 0)
 			}

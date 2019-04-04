@@ -314,7 +314,7 @@ func PachctlCmd() *cobra.Command {
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	rootCmd := &cobra.Command{
-		Use:  os.Args[0],
+		Use: os.Args[0],
 		Long: `Access the Pachyderm API.
 
 Environment variables:
@@ -359,7 +359,7 @@ Environment variables:
 	versionCmd := &cobra.Command{
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			if clientOnly {
 				if raw {
 					if err := marshaller.Marshal(os.Stdout, version.Version); err != nil {
@@ -450,9 +450,9 @@ Environment variables:
 
 	deleteAll := &cobra.Command{
 		Short: "Delete everything.",
-		Long:  `Delete all repos, commits, files, pipelines and jobs.
+		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewOnUserMachine(!noMetrics, !noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -506,7 +506,7 @@ This resets the cluster to its initial state.`,
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			fw, err := client.NewPortForwarder(namespace)
 			if err != nil {
 				return err
@@ -581,7 +581,7 @@ This resets the cluster to its initial state.`,
 	completion := &cobra.Command{
 		Short: "Print or install the bash completion code.",
 		Long:  "Print or install the bash completion code. This should be placed as the file `pachctl` in the bash completion directory (by default this is `/etc/bash_completion.d`. If bash-completion was installed via homebrew, this would be `$(brew --prefix)/etc/bash_completion.d`.)",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			var dest io.Writer
 
 			if install {
@@ -753,8 +753,8 @@ func printVersion(w io.Writer, component string, v *versionpb.Version) {
 
 func applyRootUsageFunc(rootCmd *cobra.Command) {
 	// Partition subcommands by category
+	var docs []*cobra.Command
 	var admin []*cobra.Command
-	var resources []*cobra.Command
 	var actions []*cobra.Command
 	var other []*cobra.Command
 
@@ -770,7 +770,8 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 			"pipeline",
 			"repo",
 			"tag":
-			resources = append(resources, subcmd)
+			// These are ignored - they will show up in the help topics section
+			docs = append(docs, subcmd)
 		case
 			"copy",
 			"create",
@@ -812,7 +813,6 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 	}
 
 	sortGroup(admin)
-	sortGroup(resources)
 	sortGroup(actions)
 	sortGroup(other)
 
@@ -827,9 +827,6 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 		},
 		"admin": func() []*cobra.Command {
 			return admin
-		},
-		"resources": func() []*cobra.Command {
-			return resources
 		},
 		"actions": func() []*cobra.Command {
 			return actions
@@ -846,23 +843,14 @@ func applyRootUsageFunc(rootCmd *cobra.Command) {
 Administration Commands:{{range admin}}{{if .IsAvailableCommand}}
   {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
 
-Commands by Resource:{{range resources}}{{if .IsAvailableCommand}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
-
 Commands by Action:{{range actions}}{{if .IsAvailableCommand}}
   {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}
 
 Other Commands:{{range other}}{{if .IsAvailableCommand}}
   {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{if .HasAvailableLocalFlags}}
 
-Flags:
-{{.LocalFlags.FlagUsages | trimRightSpace}}{{end}}{{if .HasAvailableInheritedFlags}}
-
-Global Flags:
-{{.InheritedFlags.FlagUsages | trimRightSpace}}{{end}}{{if .HasHelpSubCommands}}
-
 Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
-  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
+  {{rpad .Name .NamePadding}} {{.Short}}{{end}}{{end}}{{end}}{{if .HasAvailableSubCommands}}
 
 Use "{{.CommandPath}} [command] --help" for more information about a command.{{end}}
 `
