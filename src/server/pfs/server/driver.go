@@ -1364,7 +1364,7 @@ nextSubvBranch:
 		}
 		// Fill it with the passed in provenance
 		for _, prov := range provenance {
-			commitProvMap[prov.commit.ID] = prov
+			commitProvMap[prov.Commit.ID] = prov
 		}
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
@@ -3756,11 +3756,6 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 		add(&repoInfo.Branches, provBranch)
 		return nil
 	})
-}
-
-type branchCommit struct {
-	commit *pfs.Commit
-	branch *pfs.Branch
 }
 
 func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
