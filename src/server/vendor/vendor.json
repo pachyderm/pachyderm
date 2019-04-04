@@ -1573,6 +1573,12 @@
 			"revisionTime": "2014-08-04T02:12:11Z"
 		},
 		{
+			"checksumSHA1": "b+ckCFreONwT20uyqiVFGvkHsl8=",
+			"path": "go.pedge.io/pb/go/google/protobuf",
+			"revision": "dbc791b8a69cce716f7521a8a407830195964229",
+			"revisionTime": "2017-12-03T17:45:23Z"
+		},
+		{
 			"checksumSHA1": "VkEkGu35DN26D3OvUKxgmCtVKAY=",
 			"path": "go.pedge.io/proto/rpclog",
 			"revision": "7cc6be1aa9efff236599f317cf0e7374c2996cf9",
