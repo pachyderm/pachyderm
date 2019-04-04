@@ -52,7 +52,7 @@ func TestWeirdPortError(t *testing.T) {
 func TestCommandAliases(t *testing.T) {
 	pachctlCmd := PachctlCmd()
 
-	// Replace the first component with 'pachctl' because it use os.Args[0]
+	// Replace the first component with 'pachctl' because it uses os.Args[0] by default
 	path := func(cmd *cobra.Command) string {
 		return strings.Replace(cmd.CommandPath(), os.Args[0], "pachctl", 1)
 	}
@@ -61,12 +61,6 @@ func TestCommandAliases(t *testing.T) {
 
 	var walk func(*cobra.Command)
 	walk = func(cmd *cobra.Command) {
-		require.True(
-			t, cmd.Run != nil || len(cmd.Commands()) > 0,
-			"Command is not runnable and has no child commands: '%s' (%s)",
-			path(cmd), cmd.Short,
-		)
-
 		for _, subcmd := range cmd.Commands() {
 			// This should only happen if there is a bug in MergeCommands, or some
 			// code is bypassing it.

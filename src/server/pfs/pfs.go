@@ -102,6 +102,9 @@ var (
 	commitNotFoundRe = regexp.MustCompile("commit [^ ]+ not found in repo [^ ]+")
 	commitDeletedRe  = regexp.MustCompile("commit [^ ]+/[^ ]+ was deleted")
 	commitFinishedRe = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
+	repoNotFoundRe   = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
+	branchNotFoundRe = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
+	fileNotFoundRe   = regexp.MustCompile(`file .+ not found`)
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -129,4 +132,31 @@ func IsCommitFinishedErr(err error) bool {
 		return false
 	}
 	return commitFinishedRe.MatchString(grpcutil.ScrubGRPC(err).Error())
+}
+
+// IsRepoNotFoundErr returns true if 'err' is an error message about a repo
+// not being found
+func IsRepoNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return repoNotFoundRe.MatchString(err.Error())
+}
+
+// IsBranchNotFoundErr returns true if 'err' is an error message about a
+// branch not being found
+func IsBranchNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return branchNotFoundRe.MatchString(err.Error())
+}
+
+// IsFileNotFoundErr returns true if 'err' is an error message about a PFS
+// file not being found
+func IsFileNotFoundErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return fileNotFoundRe.MatchString(err.Error())
 }

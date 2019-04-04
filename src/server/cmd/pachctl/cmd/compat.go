@@ -2,27 +2,28 @@ package cmd
 
 import (
 	"fmt"
+	"html/template"
 	"os"
 	"strings"
-	"html/template"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
-	pfspretty "github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
 	"github.com/spf13/cobra"
 )
+
 func applyCommandCompat1_8(rootCmd *cobra.Command, noMetrics *bool, noPortForwarding *bool) {
 	var commands []*cobra.Command
 
 	// Command.Find matches args as well as command names, so implement our own
-	findCommand := func (fullName string) *cobra.Command {
+	findCommand := func(fullName string) *cobra.Command {
 		cursor := rootCmd
 		for _, name := range strings.SplitN(fullName, " ", -1) {
 			var next *cobra.Command
@@ -42,36 +43,38 @@ func applyCommandCompat1_8(rootCmd *cobra.Command, noMetrics *bool, noPortForwar
 	// These commands are backwards compatible aside from the reorganization, just
 	// add new aliases.
 	simpleCompat := map[string]string{
-		"create repo": "create-repo",
-		"update repo": "update-repo",
-		"inspect repo": "inspect-repo",
-		"list repo": "list-repo",
-		"delete repo": "delete-repo",
-		"list branch": "list-branch",
-		"get object": "get-object",
-		"get tag": "get-tag",
-		"inspect job": "inspect-job",
-		"delete job": "delete-job",
-		"stop job": "stop-job",
-		"restart datum": "restart-datum",
-		"list datum": "list-datum",
-		"inspect datum": "inspect-datum",
-		"get logs": "get-logs",
-		"create pipeline": "create-pipeline",
-		"update pipeline": "update-pipeline",
-		"inspect pipeline": "inspect-pipeline",
-		"extract pipeline": "extract-pipeline",
-		"edit pipeline": "edit-pipeline",
-		"list pipeline": "list-pipeline",
-		"delete pipeline": "delete-pipeline",
-		"start pipeline": "start-pipeline",
-		"stop pipeline": "stop-pipeline",
-		"inspect cluster": "inspect-cluster",
-		"debug dump": "debug-dump",
-		"debug profile": "debug-profile",
-		"debug binary": "debug-binary",
-		"debug pprof": "debug-pprof",
-		"delete all": "delete-all",
+		"create repo":              "create-repo",
+		"update repo":              "update-repo",
+		"inspect repo":             "inspect-repo",
+		"list repo":                "list-repo",
+		"delete repo":              "delete-repo",
+		"list branch":              "list-branch",
+		"get object":               "get-object",
+		"get tag":                  "get-tag",
+		"inspect job":              "inspect-job",
+		"delete job":               "delete-job",
+		"stop job":                 "stop-job",
+		"restart datum":            "restart-datum",
+		"list datum":               "list-datum",
+		"inspect datum":            "inspect-datum",
+		"logs":                     "get-logs",
+		"create pipeline":          "create-pipeline",
+		"update pipeline":          "update-pipeline",
+		"inspect pipeline":         "inspect-pipeline",
+		"extract pipeline":         "extract-pipeline",
+		"edit pipeline":            "edit-pipeline",
+		"list pipeline":            "list-pipeline",
+		"delete pipeline":          "delete-pipeline",
+		"start pipeline":           "start-pipeline",
+		"stop pipeline":            "stop-pipeline",
+		"inspect cluster":          "inspect-cluster",
+		"debug dump":               "debug-dump",
+		"debug profile":            "debug-profile",
+		"debug binary":             "debug-binary",
+		"debug pprof":              "debug-pprof",
+		"delete all":               "delete-all",
+		"deploy storage amazon":    "deploy storage aws",
+		"deploy storage microsoft": "deploy storage azure",
 	}
 
 	for newName, oldName := range simpleCompat {
@@ -80,20 +83,20 @@ func applyCommandCompat1_8(rootCmd *cobra.Command, noMetrics *bool, noPortForwar
 
 		useSplit := strings.SplitN(compatCmd.Use, " ", 2)
 		if len(useSplit) == 2 {
-			compatCmd.Use = fmt.Sprintf("%s %s", oldName, useSplit[1])
+			compatCmd.Use = fmt.Sprintf("{{alias}} %s", useSplit[1])
 		} else {
-			compatCmd.Use = oldName
+			compatCmd.Use = "{{alias}}"
 		}
 
-		commands = append(commands, compatCmd)
+		commands = append(commands, cmdutil.CreateAlias(compatCmd, oldName))
 	}
 
 	// Helper types for organizing more complicated command compatibility
 	type RunFunc func(*cobra.Command, []string)
 	type CompatChanges struct {
-		Use string
+		Use     string
 		Example string
-		Run func(*cobra.Command, RunFunc) RunFunc
+		Run     func(*cobra.Command, RunFunc) RunFunc
 	}
 
 	// These helper functions will transform positional command-line args and
@@ -182,21 +185,21 @@ $ pachctl start-commit test patch -p master
 # Start a commit with XXX as the parent in repo "test", not on any branch
 $ pachctl start-commit test -p XXX
 			`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunBoundedArgs(1, 2, transformRepoBranch(cmd, newRun))
 			},
 		},
 
 		"finish commit": {
 			Use: "finish-commit <repo> <branch-or-commit>",
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(2, transformRepoBranch(cmd, newRun))
 			},
 		},
 
 		"subscribe commit": {
 			Use: "subscribe-commit <repo> <branch>",
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(2, transformRepoBranch(cmd, newRun))
 			},
 		},
@@ -215,21 +218,21 @@ $ {{alias}} foo master -n 20
 
 # return commits in repo "foo" since commit XXX
 $ {{alias}} foo master --from XXX`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunBoundedArgs(1, 2, transformRepoBranch(cmd, newRun))
 			},
 		},
 
 		"delete commit": {
 			Use: "delete-commit <repo> <commit>",
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(2, transformRepoBranch(cmd, newRun))
 			},
 		},
 
 		"delete branch": {
 			Use: "delete-branch <repo> <branch>",
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(2, transformRepoBranch(cmd, newRun))
 			},
 		},
@@ -242,7 +245,7 @@ $ pachctl flush-job foo/XXX bar/YYY
 
 # return jobs caused by foo/XXX leading to pipelines bar and baz
 $ pachctl flush-job foo/XXX -p bar -p baz`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.Run(transformRepoSlashBranch(cmd, newRun))
 			},
 		},
@@ -255,7 +258,7 @@ $ pachctl flush-commit foo/XXX bar/YYY
 
 # return commits caused by foo/XXX leading to repos bar and baz
 $ pachctl flush-commit foo/XXX -r bar -r baz`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.Run(transformRepoSlashBranch(cmd, newRun))
 			},
 		},
@@ -301,7 +304,7 @@ $ pachctl put-file repo branch -i file
 # NOTE this URL can reference local files, so it could cause you to put sensitive
 # files into your Pachyderm cluster.
 $ pachctl put-file repo branch -i http://host/path`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunBoundedArgs(2, 3, transformRepoBranchFile(cmd, newRun))
 			},
 		},
@@ -319,14 +322,14 @@ $ pachctl get-file foo master^ XXX
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
 $ pachctl get-file foo master^2 XXX`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(3, transformRepoBranchFile(cmd, newRun))
 			},
 		},
 
 		"inspect file": {
-			Use:   "inspect-file <repo> <commit> <path/to/file>",
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Use: "inspect-file <repo> <commit> <path/to/file>",
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(3, transformRepoBranchFile(cmd, newRun))
 			},
 		},
@@ -353,7 +356,7 @@ $ pachctl list-file foo master --history n
 
 # list all versions of top-level files on branch "master" in repo "foo"
 $ pachctl list-file foo master --history -1`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunBoundedArgs(2, 3, transformRepoBranchFile(cmd, newRun))
 			},
 		},
@@ -368,21 +371,21 @@ $ pachctl glob-file foo master "A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
 $ pachctl glob-file foo master "data/*"`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(3, transformRepoBranchFile(cmd, newRun))
 			},
 		},
 
 		"delete file": {
 			Use: "delete-file <repo> <commit> <path/to/file>",
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(3, transformRepoBranchFile(cmd, newRun))
 			},
 		},
 
 		"copy file": {
 			Use: "copy-file <src-repo> <src-commit> <src-path> <dst-repo> <dst-commit> <dst-path>",
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunFixedArgs(6, transformRepoBranchFile(cmd, newRun))
 			},
 		},
@@ -395,7 +398,7 @@ $ pachctl diff-file foo master path
 
 # Return the diff between foo master path1 and bar master path2.
 $ pachctl diff-file foo master path1 bar master path2`,
-			Run: func (cmd *cobra.Command, newRun RunFunc) RunFunc {
+			Run: func(cmd *cobra.Command, newRun RunFunc) RunFunc {
 				return cmdutil.RunBoundedArgs(3, 6, transformRepoBranchFile(cmd, newRun))
 			},
 		},
@@ -486,9 +489,9 @@ $ pachctl diff-file foo master path1 bar master path2`,
 	var inputCommitStrs []string
 	newListJob := findCommand("list job")
 	oldListJob := &cobra.Command{
-		Use:     "list-job",
-		Short:   newListJob.Short,
-		Long:    newListJob.Long,
+		Use:   "list-job",
+		Short: newListJob.Short,
+		Long:  newListJob.Long,
 		Example: `
 # return all jobs
 $ pachctl list-job
@@ -501,7 +504,7 @@ $ pachctl list-job foo/XXX bar/YYY
 
 # return all jobs in pipeline foo and whose input commits include bar/YYY
 $ pachctl list-job -p foo bar/YYY`,
-		Run:     cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -550,14 +553,14 @@ $ pachctl list-job -p foo bar/YYY`,
 	oldListJob.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
 	commands = append(commands, oldListJob)
 
-	oldPrintDetailedCommitInfo := func (commitInfo *pfspretty.PrintableCommitInfo) error {
+	oldPrintDetailedCommitInfo := func(commitInfo *pfspretty.PrintableCommitInfo) error {
 		var funcMap = template.FuncMap{
 			"prettyAgo":  pretty.Ago,
 			"prettySize": pretty.Size,
 		}
 
-	 template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
-		 `Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .Description}}
+		template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
+			`Commit: {{.Commit.Repo.Name}}/{{.Commit.ID}}{{if .Description}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.ID}}{{end}}{{if .FullTimestamps}}
 Started: {{.Started}}{{else}}
@@ -567,14 +570,14 @@ Finished: {{prettyAgo .Finished}}{{end}}{{end}}
 Size: {{prettySize .SizeBytes}}{{if .Provenance}}
 Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}}{{end}}{{end}}
 `)
-	 if err != nil {
-		 return err
-	 }
-	 err = template.Execute(os.Stdout, commitInfo)
-	 if err != nil {
-		 return err
-	 }
-	 return nil
+		if err != nil {
+			return err
+		}
+		err = template.Execute(os.Stdout, commitInfo)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	// inspect-commit had its output changed to use 'repo@commit' instead of
@@ -584,7 +587,7 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}}{{end}}{{end}}
 		Use:   "inspect-commit <repo> <commit>",
 		Short: newInspectCommit.Short,
 		Long:  newInspectCommit.Long,
-		Run:   cmdutil.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -613,26 +616,49 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}}{{end}}{{end}}
 	commands = append(commands, oldInspectCommit)
 
 	// Apply the 'Hidden' attribute to all these commands so they don't pollute help
-	for _, cmd := range commands {
-		cmd.Hidden = true
+	var walk func(*cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		if cmd.Run != nil {
+			cmd.Hidden = true
 
-		// Dear god
-		oldPreRun := cmd.PreRun
-		oldPreRunE := cmd.PreRunE
-		cmd.PreRun = nil
-		cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-			oldPath := cmd.CommandPath()
-			newPath := strings.Replace(oldPath, "-", " ", -1)
-			fmt.Fprintf(os.Stderr, "WARNING: '%s' is deprecated and will be removed in a future release, use '%s' instead.\n", oldPath, newPath)
-			if oldPreRunE != nil {
-				return oldPreRunE(cmd, args)
+			// Dear god
+			oldPreRun := cmd.PreRun
+			oldPreRunE := cmd.PreRunE
+			cmd.PreRun = nil
+			cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+				oldPath := cmd.CommandPath()
+
+				// Special case for a couple commands that don't match the pattern
+				var newPath string
+				if oldPath == fmt.Sprintf("%s deploy storage aws", os.Args[0]) {
+					newPath = fmt.Sprintf("%s deploy storage amazon", os.Args[0])
+				} else if oldPath == fmt.Sprintf("%s deploy storage azure", os.Args[0]) {
+					newPath = fmt.Sprintf("%s deploy storage microsoft", os.Args[0])
+				} else if oldPath == fmt.Sprintf("%s get-logs", os.Args[0]) {
+					newPath = fmt.Sprintf("%s logs", os.Args[0])
+				} else {
+					newPath = strings.Replace(oldPath, "-", " ", -1)
+				}
+
+				fmt.Fprintf(os.Stderr, "WARNING: '%s' is deprecated and will be removed in a future release, use '%s' instead.\n", oldPath, newPath)
+				if oldPreRunE != nil {
+					return oldPreRunE(cmd, args)
+				}
+				if oldPreRun != nil {
+					oldPreRun(cmd, args)
+				}
+				return nil
 			}
-			if oldPreRun != nil {
-				oldPreRun(cmd, args)
-			}
-			return nil
+		}
+
+		for _, subcmd := range cmd.Commands() {
+			walk(subcmd)
 		}
 	}
 
-	rootCmd.AddCommand(commands...)
+	for _, cmd := range commands {
+		walk(cmd)
+	}
+
+	cmdutil.MergeCommands(rootCmd, commands)
 }

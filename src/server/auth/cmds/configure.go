@@ -18,7 +18,7 @@ import (
 
 // GetConfigCmd returns a cobra command that lets the caller see the configured
 // auth backends in Pachyderm
-func GetConfigCmd(noPortForwarding *bool) []*cobra.Command {
+func GetConfigCmd(noPortForwarding *bool) *cobra.Command {
 	var format string
 	getConfig := &cobra.Command{
 		Short: "Retrieve Pachyderm's current auth configuration",
@@ -58,12 +58,12 @@ func GetConfigCmd(noPortForwarding *bool) []*cobra.Command {
 	}
 	getConfig.Flags().StringVarP(&format, "output-format", "o", "json", "output "+
 		"format (\"json\" or \"yaml\")")
-	return cmdutil.CreateAliases(getConfig, []string{"auth get-config"})
+	return cmdutil.CreateAlias(getConfig, "auth get-config")
 }
 
 // SetConfigCmd returns a cobra command that lets the caller configure auth
 // backends in Pachyderm
-func SetConfigCmd(noPortForwarding *bool) []*cobra.Command {
+func SetConfigCmd(noPortForwarding *bool) *cobra.Command {
 	var file string
 	setConfig := &cobra.Command{
 		Short: "Set Pachyderm's current auth configuration",
@@ -105,5 +105,5 @@ func SetConfigCmd(noPortForwarding *bool) []*cobra.Command {
 	}
 	setConfig.Flags().StringVarP(&file, "file", "f", "-", "input file (to use "+
 		"as the new config")
-	return cmdutil.CreateAliases(setConfig, []string{"auth set-config"})
+	return cmdutil.CreateAlias(setConfig, "auth set-config")
 }

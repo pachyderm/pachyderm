@@ -2927,13 +2927,13 @@ func TestDiff(t *testing.T) {
 	require.Equal(t, "dir/fizz", oldFiles[0].File.Path)
 }
 
-func TestGlob(t *testing.T) {
+func TestGlobFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
 	c := GetPachClient(t)
-	repo := tu.UniqueString("TestGlob")
+	repo := tu.UniqueString("TestGlobFile")
 	require.NoError(t, c.CreateRepo(repo))
 
 	// Write foo
@@ -3063,6 +3063,41 @@ func TestGlob(t *testing.T) {
 	fileInfos, err = c.GlobFile(repo, "master", "**")
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
+}
+
+func TestGlobFileF(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := GetPachClient(t)
+	repo := tu.UniqueString("TestGlobFileF")
+	require.NoError(t, c.CreateRepo(repo))
+
+	_, err := c.StartCommit(repo, "master")
+	require.NoError(t, err)
+	expectedFileNames := []string{}
+	for i := 0; i < 100; i++ {
+		filename := fmt.Sprintf("/%d", i)
+		_, err = c.PutFile(repo, "master", filename, strings.NewReader(filename))
+		require.NoError(t, err)
+
+		if strings.HasPrefix(filename, "/1") {
+			expectedFileNames = append(expectedFileNames, filename)
+		}
+	}
+	require.NoError(t, c.FinishCommit(repo, "master"))
+
+	actualFileNames := []string{}
+	err = c.GlobFileF(repo, "master", "/1*", func(fileInfo *pfs.FileInfo) error {
+		actualFileNames = append(actualFileNames, fileInfo.File.Path)
+		return nil
+	})
+	require.NoError(t, err)
+
+	sort.Strings(expectedFileNames)
+	sort.Strings(actualFileNames)
+	require.Equal(t, expectedFileNames, actualFileNames)
 }
 
 // TestGetFileGlobOrder checks that GetFile(glob) streams data back in the

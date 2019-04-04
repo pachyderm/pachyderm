@@ -61,4 +61,6 @@ Although `pachctl` and `egress` provide easy ways to interact with data in Pachy
 
 - Have one or more of your pipeline stages connect and export data to databases running outside of Pachyderm.
 - Use a Pachyderm service to launch a long running service, like Jupyter, that has access to internal Pachyderm data and can be accessed externally via a specified port.
+- Via s3gateway, which allows you to use existing tools or libraries that work
+  with object stores. [See the s3gateway docs for more information](./s3gateway.html).
 - Mount versioned data from the distributed file system via `pachctl mount ...` (a feature best suited for experimentation and testing).

@@ -7,12 +7,12 @@ import (
 	"io"
 	"os"
 	"strings"
-	"text/tabwriter"
 	"text/template"
 
 	"github.com/docker/go-units"
 	"github.com/fatih/color"
 	"github.com/gogo/protobuf/types"
+	"github.com/juju/ansiterm"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
@@ -32,8 +32,6 @@ const (
 
 // PrintJobHeader prints a job header.
 func PrintJobHeader(w io.Writer) {
-	// because STATE is a colorful field it has to be at the end of the line,
-	// otherwise the terminal escape characters will trip up the tabwriter
 	fmt.Fprint(w, JobHeader)
 }
 
@@ -71,8 +69,6 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 
 // PrintPipelineHeader prints a pipeline header.
 func PrintPipelineHeader(w io.Writer) {
-	// because STATE is a colorful field it has to be at the end of the line,
-	// otherwise the terminal escape characters will trip up the tabwriter
 	fmt.Fprint(w, PipelineHeader)
 }
 
@@ -286,12 +282,12 @@ func PrintDetailedDatumInfo(w io.Writer, datumInfo *ppsclient.DatumInfo) {
 	fmt.Fprintf(w, "Upload Time\t%s\n", uploadTime)
 
 	fmt.Fprintf(w, "PFS State:\n")
-	tw := tabwriter.NewWriter(w, 10, 1, 3, ' ', 0)
+	tw := ansiterm.NewTabWriter(w, 10, 1, 3, ' ', 0)
 	PrintFileHeader(tw)
 	PrintFile(tw, datumInfo.PfsState)
 	tw.Flush()
 	fmt.Fprintf(w, "Inputs:\n")
-	tw = tabwriter.NewWriter(w, 10, 1, 3, ' ', 0)
+	tw = ansiterm.NewTabWriter(w, 10, 1, 3, ' ', 0)
 	PrintFileHeader(tw)
 	for _, d := range datumInfo.Data {
 		PrintFile(tw, d.File)
@@ -370,7 +366,7 @@ func jobInput(jobInfo PrintableJobInfo) string {
 
 func workerStatus(jobInfo PrintableJobInfo) string {
 	var buffer bytes.Buffer
-	writer := tabwriter.NewWriter(&buffer, 20, 1, 3, ' ', 0)
+	writer := ansiterm.NewTabWriter(&buffer, 20, 1, 3, ' ', 0)
 	PrintWorkerStatusHeader(writer)
 	for _, workerStatus := range jobInfo.WorkerStatus {
 		PrintWorkerStatus(writer, workerStatus, jobInfo.FullTimestamps)
