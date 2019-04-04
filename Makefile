@@ -479,7 +479,7 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	KAFKA_IP=$$(kubectl --namespace=kafka get svc/outside-0 -o json | jq -r .spec.clusterIP) \
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
+	  go test -v ./src/server -parallel 1 -count 1 -timeout 300 $(RUN) && \
 	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
 test-client:
@@ -564,6 +564,10 @@ clean-launch-kafka:
 launch-kafka:
 	kubectl apply -f etc/kubernetes-kafka -R
 	until timeout 5s ./etc/kube/check_ready.sh app=kafka kafka; do sleep 5; done
+	kubectl --namespace=kafka port-forward service/outside-0 32400:32400 &
+	kubectl --namespace=kafka port-forward service/outside-1 32401:32401 &
+	kubectl --namespace=kafka port-forward service/outside-2 32402:32402 &
+
 
 clean-launch-stats:
 	kubectl delete --filename etc/kubernetes-prometheus -R
