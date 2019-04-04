@@ -795,7 +795,7 @@ func (d *driver) writeFinishedCommit(ctx context.Context, commit *pfs.Commit, co
 // starts downstream output commits (which trigger PPS jobs) when new input
 // commits arrive on 'branch', when 'branch's HEAD is deleted, or when 'branch'
 // is newly created (i.e. in CreatePipeline).
-func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch, provenance []*branchCommit) error {
+func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch, provenance []*pfs.CommitProvenance) error {
 	if branch == nil {
 		return fmt.Errorf("cannot propagate nil branch")
 	}
@@ -853,7 +853,7 @@ nextSubvBranch:
 		}
 		// Fill it with the passed in provenance
 		for _, prov := range provenance {
-			commitProvMap[prov.commit.ID] = prov
+			commitProvMap[prov.Commit.ID] = prov
 		}
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
@@ -3213,11 +3213,6 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 		add(&repoInfo.Branches, provBranch)
 		return nil
 	})
-}
-
-type branchCommit struct {
-	commit *pfs.Commit
-	branch *pfs.Branch
 }
 
 func appendSubvenance(commitInfo *pfs.CommitInfo, subvCommitInfo *pfs.CommitInfo) {
