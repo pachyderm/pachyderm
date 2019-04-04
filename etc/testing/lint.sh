@@ -1,14 +1,13 @@
 #!/bin/bash
 
+set -e
+
 go get -u golang.org/x/lint/golint
-for file in $(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do \
-    golint $file; \
-    if [ -n "$(golint $file)" ]; then \
-        echo "golint errors!" && echo && exit 1; \
-    fi; \
+for file in $(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do
+    golint -set_exit_status $file;
 done;
 
-files=$(gofmt -l . | grep -v vendor)
+files=$(gofmt -l . | grep -v vendor || true)
 
 if [[ $files ]]; then
     echo Files not passing gofmt:
