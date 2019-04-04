@@ -18,15 +18,15 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	var noObjects bool
 	var url string
 	extract := &cobra.Command{
-		Short:   "Extract Pachyderm state to stdout or an object store bucket.",
-		Long:    "Extract Pachyderm state to stdout or an object store bucket.",
+		Short: "Extract Pachyderm state to stdout or an object store bucket.",
+		Long:  "Extract Pachyderm state to stdout or an object store bucket.",
 		Example: `
 # Extract into a local file:
 $ {{alias}} > backup
 
 # Extract to s3:
 $ {{alias}} -u s3://bucket/backup`,
-		Run:     cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -49,15 +49,15 @@ $ {{alias}} -u s3://bucket/backup`,
 	commands = append(commands, cmdutil.CreateAliases(extract, []string{"extract"})...)
 
 	restore := &cobra.Command{
-		Short:   "Restore Pachyderm state from stdin or an object store.",
-		Long:    "Restore Pachyderm state from stdin or an object store.",
+		Short: "Restore Pachyderm state from stdin or an object store.",
+		Long:  "Restore Pachyderm state from stdin or an object store.",
 		Example: `
 # Restore from a local file:
 $ {{alias}} < backup
 
 # Restore from s3:
 $ {{alias}} -u s3://bucket/backup`,
-		Run:     cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -82,7 +82,7 @@ $ {{alias}} -u s3://bucket/backup`,
 	inspectCluster := &cobra.Command{
 		Short: "Returns info about the pachyderm cluster",
 		Long:  "Returns info about the pachyderm cluster",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err

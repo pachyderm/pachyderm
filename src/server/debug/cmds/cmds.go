@@ -21,7 +21,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	dump := &cobra.Command{
 		Short: "Return a dump of running goroutines.",
 		Long:  "Return a dump of running goroutines.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "debug-dump")
 			if err != nil {
 				return err
@@ -37,7 +37,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Use:   "{{alias}} <profile>",
 		Short: "Return a profile from the server.",
 		Long:  "Return a profile from the server.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "debug-dump")
 			if err != nil {
 				return err
@@ -52,7 +52,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	binary := &cobra.Command{
 		Short: "Return the binary the server is running.",
 		Long:  "Return the binary the server is running.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "debug-dump")
 			if err != nil {
 				return err
@@ -69,7 +69,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Use:   "{{alias}} <profile>",
 		Short: "Analyze a profile of pachd in pprof.",
 		Long:  "Analyze a profile of pachd in pprof.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "debug-dump")
 			if err != nil {
 				return err
