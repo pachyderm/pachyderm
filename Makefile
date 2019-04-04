@@ -563,6 +563,7 @@ clean-launch-kafka:
 	
 launch-kafka:
 	kubectl apply -f etc/kubernetes-kafka -R
+	until timeout 5s ./etc/kube/check_ready.sh app=kafka kafka; do sleep 5; done
 
 clean-launch-stats:
 	kubectl delete --filename etc/kubernetes-prometheus -R
