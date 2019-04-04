@@ -217,14 +217,13 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 Creating a commit is a multistep process:
 - start a new commit with 'start commit'
-- write files to it through fuse or with 'put file'
+- write files to the commit via 'put file'
 - finish the new commit with 'finish commit'
 
 Commits that have been started but not finished are NOT durable storage.
 Commits become reliable (and immutable) when they are finished.
 
-Commits can be created with another commit as a parent.
-This layers the data in the commit over the data in the parent.`,
+Commits can be created with another commit as a parent.`,
 	}
 	cmdutil.SetDocsUsage(commitDocs)
 	commands = append(commands, cmdutil.CreateAlias(commitDocs, "commit"))
@@ -342,7 +341,7 @@ $ {{alias}} test -p XXX`,
 	var from string
 	var number int
 	listCommit := &cobra.Command{
-		Use:   "{{alias}} <repo>[@branch]",
+		Use:   "{{alias}} <repo>[@<branch>]",
 		Short: "Return all commits on a repo.",
 		Long:  "Return all commits on a repo.",
 		Example: `
@@ -530,7 +529,13 @@ $ {{alias}} test@master --new`,
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
-		Long:  "Docs for branches.",
+		Long: `A branch in Pachyderm is an alias for a Commit ID.
+
+The branch reference will "float" to always refer to the latest commit on the
+branch, known as the HEAD commit. Not all commits must be on a branch and
+multiple branches can refer to the same commit.
+
+Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
 	cmdutil.SetDocsUsage(branchDocs)
 	commands = append(commands, cmdutil.CreateAlias(branchDocs, "branch"))
@@ -958,7 +963,7 @@ $ {{alias}} foo@master --history -1`,
 		Long:  "Return files that match a glob pattern in a commit (that is, match a glob pattern in a repo at the state represented by a commit). Glob patterns are documented [here](https://golang.org/pkg/path/filepath/#Match).",
 		Example: `
 # Return files in repo "foo" on branch "master" that start
-# with the character "A".  Note how the double quotation marks around the 
+# with the character "A".  Note how the double quotation marks around the
 # parameter are necessary because otherwise your shell might interpret the "*".
 $ {{alias}} "foo@master:A*"
 

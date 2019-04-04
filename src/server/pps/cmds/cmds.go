@@ -253,7 +253,14 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 
 	datumDocs := &cobra.Command{
 		Short: "Docs for datums.",
-		Long:  "Docs for datums.",
+		Long: `Datums are the small independent unit of processing for Pachyderm jobs.
+
+A datum is defined by applying a glob pattern (in the pipeline spec) to the file
+paths in the input repo. A datum can include one or more files or directories.
+
+Datums within a job will be processed independently, sometimes distributed
+across separate workers.  A separate execution of user code will be run for
+each datum.`,
 	}
 	cmdutil.SetDocsUsage(datumDocs)
 	commands = append(commands, cmdutil.CreateAlias(datumDocs, "datum"))
@@ -429,11 +436,11 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 		Short: "Docs for pipelines.",
 		Long: `Pipelines are a powerful abstraction for automating jobs.
 
-Pipelines take a set of repos as inputs, rather than the set of commits that
-jobs take. Pipelines then subscribe to commits on those repos and launches a job
-to process each incoming commit.
-Creating a pipeline will also create a repo of the same name.
-All jobs created by a pipeline will create commits in the pipeline's repo.`,
+Pipelines take a set of repos and branches as inputs and will write to a single
+output repo of the same name. Pipelines then subscribe to commits on those repos
+and launch a job to process each incoming commit.
+
+All jobs created by a pipeline will create commits in the pipeline's output repo.`,
 	}
 	cmdutil.SetDocsUsage(pipelineDocs)
 	commands = append(commands, cmdutil.CreateAlias(pipelineDocs, "pipeline"))
