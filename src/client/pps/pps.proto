@@ -625,9 +625,9 @@ message StopPipelineRequest {
 }
 
 message RunPipelineRequest {
+  reserved 3;
   Pipeline pipeline = 1;
-  repeated pfs.Commit provenance = 2;
-  repeated pfs.Branch branch_provenance = 3;
+  repeated pfs.CommitProvenance provenance = 2;
 }
 
 message GarbageCollectRequest {
