@@ -111,7 +111,7 @@ var AuthRequest = func(req *http.Request) (any, sensitive bool) {
 }
 
 func init() {
-	http.HandleFunc("/debug/requests", func(w http.ResponseWriter, req *http.Request) {
+	http.HandleFunc("/debug/requests2", func(w http.ResponseWriter, req *http.Request) {
 		any, sensitive := AuthRequest(req)
 		if !any {
 			http.Error(w, "not allowed", http.StatusUnauthorized)
@@ -120,7 +120,7 @@ func init() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		Render(w, req, sensitive)
 	})
-	http.HandleFunc("/debug/events", func(w http.ResponseWriter, req *http.Request) {
+	http.HandleFunc("/debug/events2", func(w http.ResponseWriter, req *http.Request) {
 		any, sensitive := AuthRequest(req)
 		if !any {
 			http.Error(w, "not allowed", http.StatusUnauthorized)

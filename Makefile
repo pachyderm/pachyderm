@@ -669,13 +669,7 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 lint:
-	@go get -u golang.org/x/lint/golint
-	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do \
-	  golint $$file; \
-	  if [ -n "$$(golint $$file)" ]; then \
-	    echo "golint errors!" && echo && exit 1; \
-	  fi; \
-	done;
+	etc/testing/lint.sh
 
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions

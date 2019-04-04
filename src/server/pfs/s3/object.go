@@ -2,12 +2,12 @@ package s3
 
 import (
 	"bytes"
+	"crypto/md5"
+	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
-	"fmt"
-	"crypto/md5"
-	"encoding/base64"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
@@ -94,9 +94,9 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		// try to clean up the file if an error occurred
 		if !success {
-	        if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-	            requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
-	        }
+			if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+				requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
+			}
 		}
 	}()
 
@@ -132,7 +132,7 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 		invalidFilePathError(w, r)
 		return
 	}
-	
+
 	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
 		maybeNotFoundError(w, r, err)
 		return

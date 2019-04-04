@@ -1,4 +1,4 @@
-// Copyright 2016 Google LLC
+// Copyright 2018 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build appengine
+// +build !go1.9
 
-package http
+package transport
 
 import (
 	"context"
-	"net/http"
 
-	"google.golang.org/appengine/urlfetch"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/internal"
+	"google.golang.org/api/option"
 )
 
-func init() {
-	appengineUrlfetchHook = func(ctx context.Context) http.RoundTripper {
-		return &urlfetch.Transport{Context: ctx}
+// Creds constructs a google.DefaultCredentials from the information in the options,
+// or obtains the default credentials in the same way as google.FindDefaultCredentials.
+func Creds(ctx context.Context, opts ...option.ClientOption) (*google.DefaultCredentials, error) {
+	var ds internal.DialSettings
+	for _, opt := range opts {
+		opt.Apply(&ds)
 	}
+	return internal.Creds(ctx, &ds)
 }
