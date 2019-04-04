@@ -8,9 +8,11 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
@@ -5707,146 +5710,146 @@ func collectCommitInfos(t testing.TB, commitInfoIter client.CommitInfoIterator) 
 // 	require.Equal(t, "image/gif", contentDisposition)
 // }
 
-// func TestService(t *testing.T) {
-// 	if testing.Short() {
-// 		t.Skip("Skipping integration tests in short mode")
-// 	}
-// 	c := getPachClient(t)
-// 	require.NoError(t, c.DeleteAll())
+func TestService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
 
-// 	dataRepo := tu.UniqueString("TestService_data")
-// 	require.NoError(t, c.CreateRepo(dataRepo))
+	dataRepo := tu.UniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
 
-// 	commit1, err := c.StartCommit(dataRepo, "master")
-// 	_, err = c.PutFile(dataRepo, commit1.ID, "file1", strings.NewReader("foo"))
-// 	require.NoError(t, err)
-// 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+	commit1, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit1.ID, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-// 	pipeline := tu.UniqueString("pipelineservice")
-// 	// This pipeline sleeps for 10 secs per datum
-// 	require.NoError(t, c.CreatePipelineService(
-// 		pipeline,
-// 		"trinitronx/python-simplehttpserver",
-// 		[]string{"sh"},
-// 		[]string{
-// 			"cd /pfs",
-// 			"exec python -m SimpleHTTPServer 8000",
-// 		},
-// 		&pps.ParallelismSpec{
-// 			Constant: 1,
-// 		},
-// 		client.NewPFSInput(dataRepo, "/"),
-// 		false,
-// 		8000,
-// 		31800,
-// 	))
-// 	time.Sleep(10 * time.Second)
+	pipeline := tu.UniqueString("pipelineservice")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipelineService(
+		pipeline,
+		"trinitronx/python-simplehttpserver",
+		[]string{"sh"},
+		[]string{
+			"cd /pfs",
+			"exec python -m SimpleHTTPServer 8000",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/"),
+		false,
+		8000,
+		31800,
+	))
+	time.Sleep(10 * time.Second)
 
-// 	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
-// 	serviceAddr := func() string {
-// 		// Hack: detect if running inside the cluster by looking for this env var
-// 		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
-// 			// Outside cluster: Re-use external IP and external port defined above
-// 			clientAddr := c.GetAddress()
-// 			host, _, err := net.SplitHostPort(clientAddr)
-// 			require.NoError(t, err)
-// 			return net.JoinHostPort(host, "31800")
-// 		}
-// 		// Get k8s service corresponding to pachyderm service above--must access
-// 		// via internal cluster IP, but we don't know what that is
-// 		var address string
-// 		kubeClient := tu.GetKubeClient(t)
-// 		backoff.Retry(func() error {
-// 			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
-// 			require.NoError(t, err)
-// 			for _, svc := range svcs.Items {
-// 				// Pachyderm actually generates two services for pipelineservice: one
-// 				// for pachyderm (a ClusterIP service) and one for the user container
-// 				// (a NodePort service, which is the one we want)
-// 				rightName := strings.Contains(svc.Name, "pipelineservice")
-// 				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
-// 				if !rightName || !rightType {
-// 					continue
-// 				}
-// 				host := svc.Spec.ClusterIP
-// 				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
-// 				address = net.JoinHostPort(host, port)
-// 				return nil
-// 			}
-// 			return fmt.Errorf("no matching k8s service found")
-// 		}, backoff.NewTestingBackOff())
+	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
+	serviceAddr := func() string {
+		// Hack: detect if running inside the cluster by looking for this env var
+		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
+			// Outside cluster: Re-use external IP and external port defined above
+			clientAddr := c.GetAddress()
+			host, _, err := net.SplitHostPort(clientAddr)
+			require.NoError(t, err)
+			return net.JoinHostPort(host, "31800")
+		}
+		// Get k8s service corresponding to pachyderm service above--must access
+		// via internal cluster IP, but we don't know what that is
+		var address string
+		kubeClient := tu.GetKubeClient(t)
+		backoff.Retry(func() error {
+			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
+			require.NoError(t, err)
+			for _, svc := range svcs.Items {
+				// Pachyderm actually generates two services for pipelineservice: one
+				// for pachyderm (a ClusterIP service) and one for the user container
+				// (a NodePort service, which is the one we want)
+				rightName := strings.Contains(svc.Name, "pipelineservice")
+				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
+				if !rightName || !rightType {
+					continue
+				}
+				host := svc.Spec.ClusterIP
+				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
+				address = net.JoinHostPort(host, port)
+				return nil
+			}
+			return fmt.Errorf("no matching k8s service found")
+		}, backoff.NewTestingBackOff())
 
-// 		require.NotEqual(t, "", address)
-// 		return address
-// 	}()
+		require.NotEqual(t, "", address)
+		return address
+	}()
 
-// 	require.NoError(t, backoff.Retry(func() error {
-// 		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if resp.StatusCode != 200 {
-// 			return fmt.Errorf("GET returned %d", resp.StatusCode)
-// 		}
-// 		content, err := ioutil.ReadAll(resp.Body)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if string(content) != "foo" {
-// 			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
-// 		}
-// 		return nil
-// 	}, backoff.NewTestingBackOff()))
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "foo" {
+			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
-// 	clientAddr := c.GetAddress()
-// 	host, _, err := net.SplitHostPort(clientAddr)
-// 	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
-// 	if !ok {
-// 		port = "30652" // default NodePort port for Pachd's HTTP API
-// 	}
-// 	httpAPIAddr := net.JoinHostPort(host, port)
-// 	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
-// 	require.NoError(t, backoff.Retry(func() error {
-// 		resp, err := http.Get(url)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if resp.StatusCode != 200 {
-// 			return fmt.Errorf("GET returned %d", resp.StatusCode)
-// 		}
-// 		content, err := ioutil.ReadAll(resp.Body)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if string(content) != "foo" {
-// 			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
-// 		}
-// 		return nil
-// 	}, backoff.NewTestingBackOff()))
+	clientAddr := c.GetAddress()
+	host, _, err := net.SplitHostPort(clientAddr)
+	port, ok := os.LookupEnv("PACHD_SERVICE_PORT_API_HTTP_PORT")
+	if !ok {
+		port = "30652" // default NodePort port for Pachd's HTTP API
+	}
+	httpAPIAddr := net.JoinHostPort(host, port)
+	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(url)
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "foo" {
+			return fmt.Errorf("wrong content for file1: expected foo, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 
-// 	commit2, err := c.StartCommit(dataRepo, "master")
-// 	_, err = c.PutFile(dataRepo, commit2.ID, "file2", strings.NewReader("bar"))
-// 	require.NoError(t, err)
-// 	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
+	commit2, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit2.ID, "file2", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit2.ID))
 
-// 	require.NoError(t, backoff.Retry(func() error {
-// 		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file2", serviceAddr, dataRepo))
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if resp.StatusCode != 200 {
-// 			return fmt.Errorf("GET returned %d", resp.StatusCode)
-// 		}
-// 		content, err := ioutil.ReadAll(resp.Body)
-// 		if err != nil {
-// 			return err
-// 		}
-// 		if string(content) != "bar" {
-// 			return fmt.Errorf("wrong content for file2: expected bar, got %s", string(content))
-// 		}
-// 		return nil
-// 	}, backoff.NewTestingBackOff()))
-// }
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file2", serviceAddr, dataRepo))
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("GET returned %d", resp.StatusCode)
+		}
+		content, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		if string(content) != "bar" {
+			return fmt.Errorf("wrong content for file2: expected bar, got %s", string(content))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+}
 
 // func TestChunkSpec(t *testing.T) {
 // 	if testing.Short() {
