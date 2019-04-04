@@ -158,7 +158,7 @@ func deployCmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	deployLocal := &cobra.Command{
 		Short: "Deploy a single-node Pachyderm cluster with local metadata storage.",
 		Long:  "Deploy a single-node Pachyderm cluster with local metadata storage.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			metrics := !*noMetrics
 
 			if metrics && !dev {
@@ -199,11 +199,11 @@ func deployCmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	deployGoogle := &cobra.Command{
 		Use:   "{{alias}} <bucket-name> <disk-size> [<credentials-file>]",
 		Short: "Deploy a Pachyderm cluster running on Google Cloud Platform.",
-		Long:  `Deploy a Pachyderm cluster running on Google Cloud Platform.
+		Long: `Deploy a Pachyderm cluster running on Google Cloud Platform.
   <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
   <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
   <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).`,
-		Run:   cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(2, 3, func(args []string) (retErr error) {
 			metrics := !*noMetrics
 
 			if metrics {
@@ -245,10 +245,10 @@ func deployCmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	deployCustom := &cobra.Command{
 		Use:   "{{alias}} --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>",
 		Short: "Deploy a custom Pachyderm cluster configuration",
-		Long:  `Deploy a custom Pachyderm cluster configuration.
+		Long: `Deploy a custom Pachyderm cluster configuration.
 If <object store backend> is \"s3\", then the arguments are:
     <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>`,
-		Run:   cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(4, 7, func(args []string) (retErr error) {
 			metrics := !*noMetrics
 
 			if metrics {
@@ -285,11 +285,11 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployAmazon := &cobra.Command{
 		Use:   "{{alias}} <bucket-name> <region> <disk-size>",
 		Short: "Deploy a Pachyderm cluster running on AWS.",
-		Long:  `Deploy a Pachyderm cluster running on AWS.
+		Long: `Deploy a Pachyderm cluster running on AWS.
   <bucket-name>: An S3 bucket where Pachyderm will store PFS data.
   <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
   <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).`,
-		Run:   cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(3, func(args []string) (retErr error) {
 			metrics := !*noMetrics
 
 			if metrics {
@@ -389,10 +389,10 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployMicrosoft := &cobra.Command{
 		Use:   "{{alias}} <container> <account-name> <account-key> <disk-size>",
 		Short: "Deploy a Pachyderm cluster running on Microsoft Azure.",
-		Long:  `Deploy a Pachyderm cluster running on Microsoft Azure.
+		Long: `Deploy a Pachyderm cluster running on Microsoft Azure.
   <container>: An Azure container where Pachyderm will store PFS data.
   <disk-size>: Size of persistent volumes, in GB (assumed to all be the same).`,
-		Run:   cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(4, func(args []string) (retErr error) {
 			metrics := !*noMetrics
 
 			if metrics {
@@ -429,10 +429,9 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 	commands = append(commands, cmdutil.CreateAliases(deployMicrosoft, []string{
 		"deploy microsoft",
-		"deploy azure",
 	})...)
 
-	deployStorageSecrets := func (data map[string][]byte) error {
+	deployStorageSecrets := func(data map[string][]byte) error {
 		c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 		if err != nil {
 			return fmt.Errorf("error constructing pachyderm client: %v", err)
@@ -452,7 +451,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Use:   "{{alias}} <region> <bucket-id> <secret> [<token>]",
 		Short: "Deploy credentials for the Amazon S3 storage provider.",
 		Long:  "Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.",
-		Run:   cmdutil.RunBoundedArgs(3, 4, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(3, 4, func(args []string) error {
 			var token string
 			if len(args) == 4 {
 				token = args[3]
@@ -469,7 +468,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Use:   "{{alias}} <credentials-file>",
 		Short: "Deploy credentials for the Google Cloud storage provider.",
 		Long:  "Deploy credentials for the Google Cloud storage provider, so that Pachyderm can ingress data from and egress data to it.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			credBytes, err := ioutil.ReadFile(args[0])
 			if err != nil {
 				return fmt.Errorf("error reading credentials file %s: %v", args[0], err)
@@ -485,7 +484,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Use:   "{{alias}} <account-name> <account-key>",
 		Short: "Deploy credentials for the Azure storage provider.",
 		Long:  "Deploy credentials for the Azure storage provider, so that Pachyderm can ingress data from and egress data to it.",
-		Run:   cmdutil.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			return deployStorageSecrets(assets.MicrosoftSecret("", args[0], args[1]))
 		}),
 	}
@@ -503,7 +502,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	listImages := &cobra.Command{
 		Short: "Output the list of images in a deployment.",
 		Long:  "Output the list of images in a deployment.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			for _, image := range assets.Images(opts) {
 				fmt.Println(image)
 			}
@@ -518,7 +517,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Use:   "{{alias}} <output-file>",
 		Short: "Export a tarball (to stdout) containing all of the images in a deployment.",
 		Long:  "Export a tarball (to stdout) containing all of the images in a deployment.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			file, err := os.Create(args[0])
 			if err != nil {
 				return err
@@ -539,7 +538,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		Use:   "{{alias}} <input-file>",
 		Short: "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
 		Long:  "Import a tarball (from stdin) containing all of the images in a deployment and push them to a private registry.",
-		Run:   cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			file, err := os.Open(args[0])
 			if err != nil {
 				return err
@@ -690,7 +689,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	undeploy := &cobra.Command{
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			if all {
 				fmt.Printf(`
 By using the --all flag, you are going to delete everything, including the
@@ -755,7 +754,7 @@ removed.`)
 	updateDash := &cobra.Command{
 		Short: "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
 		Long:  "Update and redeploy the Pachyderm Dashboard at the latest compatible version.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			// Undeploy the dash
 			if !updateDashDryRun {
 				io := cmdutil.IO{
