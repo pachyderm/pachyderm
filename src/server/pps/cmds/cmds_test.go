@@ -20,7 +20,7 @@
 //
 // - list datum
 // - inspect datum
-// - get logs
+// - logs
 
 package cmds
 

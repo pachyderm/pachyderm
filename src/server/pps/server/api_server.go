@@ -319,7 +319,7 @@ func (a *apiServer) validateKube() {
 	pods, err := a.rcPods("pachd")
 	if err != nil {
 		errors = true
-		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'get logs' will not work. error: %v", err)
+		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 	} else {
 		for _, pod := range pods {
 			_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
@@ -328,7 +328,7 @@ func (a *apiServer) validateKube() {
 				}).Timeout(10 * time.Second).Do().Raw()
 			if err != nil {
 				errors = true
-				logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'get logs' will not work. error: %v", err)
+				logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 			}
 			break
 		}

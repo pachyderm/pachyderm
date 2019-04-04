@@ -205,7 +205,7 @@ Actually, you can see how 'dumb' the model is. If you [read through the Tensorfl
 
 ```
 $pachctl list job
-$pachctl get logs {job ID from GoT_train job}
+$pachctl logs {job ID from GoT_train job}
 0 | Epoch: 1 Learning rate: 1.000
 0 | 0.002 perplexity: 8526.820 speed: 1558 wps
 0 | 0.102 perplexity: 880.494 speed: 1598 wps
