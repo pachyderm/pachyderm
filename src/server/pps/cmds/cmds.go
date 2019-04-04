@@ -423,7 +423,7 @@ $ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
-	commands = append(commands, cmdutil.CreateAliases(getLogs, []string{"get logs", "logs"})...)
+	commands = append(commands, cmdutil.CreateAliases(getLogs, []string{"logs"})...)
 
 	pipelineDocs := &cobra.Command{
 		Short: "Docs for pipelines.",

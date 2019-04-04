@@ -43,36 +43,38 @@ func applyCommandCompat1_8(rootCmd *cobra.Command, noMetrics *bool, noPortForwar
 	// These commands are backwards compatible aside from the reorganization, just
 	// add new aliases.
 	simpleCompat := map[string]string{
-		"create repo":      "create-repo",
-		"update repo":      "update-repo",
-		"inspect repo":     "inspect-repo",
-		"list repo":        "list-repo",
-		"delete repo":      "delete-repo",
-		"list branch":      "list-branch",
-		"get object":       "get-object",
-		"get tag":          "get-tag",
-		"inspect job":      "inspect-job",
-		"delete job":       "delete-job",
-		"stop job":         "stop-job",
-		"restart datum":    "restart-datum",
-		"list datum":       "list-datum",
-		"inspect datum":    "inspect-datum",
-		"get logs":         "get-logs",
-		"create pipeline":  "create-pipeline",
-		"update pipeline":  "update-pipeline",
-		"inspect pipeline": "inspect-pipeline",
-		"extract pipeline": "extract-pipeline",
-		"edit pipeline":    "edit-pipeline",
-		"list pipeline":    "list-pipeline",
-		"delete pipeline":  "delete-pipeline",
-		"start pipeline":   "start-pipeline",
-		"stop pipeline":    "stop-pipeline",
-		"inspect cluster":  "inspect-cluster",
-		"debug dump":       "debug-dump",
-		"debug profile":    "debug-profile",
-		"debug binary":     "debug-binary",
-		"debug pprof":      "debug-pprof",
-		"delete all":       "delete-all",
+		"create repo":              "create-repo",
+		"update repo":              "update-repo",
+		"inspect repo":             "inspect-repo",
+		"list repo":                "list-repo",
+		"delete repo":              "delete-repo",
+		"list branch":              "list-branch",
+		"get object":               "get-object",
+		"get tag":                  "get-tag",
+		"inspect job":              "inspect-job",
+		"delete job":               "delete-job",
+		"stop job":                 "stop-job",
+		"restart datum":            "restart-datum",
+		"list datum":               "list-datum",
+		"inspect datum":            "inspect-datum",
+		"logs":                     "get-logs",
+		"create pipeline":          "create-pipeline",
+		"update pipeline":          "update-pipeline",
+		"inspect pipeline":         "inspect-pipeline",
+		"extract pipeline":         "extract-pipeline",
+		"edit pipeline":            "edit-pipeline",
+		"list pipeline":            "list-pipeline",
+		"delete pipeline":          "delete-pipeline",
+		"start pipeline":           "start-pipeline",
+		"stop pipeline":            "stop-pipeline",
+		"inspect cluster":          "inspect-cluster",
+		"debug dump":               "debug-dump",
+		"debug profile":            "debug-profile",
+		"debug binary":             "debug-binary",
+		"debug pprof":              "debug-pprof",
+		"delete all":               "delete-all",
+		"deploy storage amazon":    "deploy storage aws",
+		"deploy storage microsoft": "deploy storage azure",
 	}
 
 	for newName, oldName := range simpleCompat {
@@ -81,12 +83,12 @@ func applyCommandCompat1_8(rootCmd *cobra.Command, noMetrics *bool, noPortForwar
 
 		useSplit := strings.SplitN(compatCmd.Use, " ", 2)
 		if len(useSplit) == 2 {
-			compatCmd.Use = fmt.Sprintf("%s %s", oldName, useSplit[1])
+			compatCmd.Use = fmt.Sprintf("{{alias}} %s", useSplit[1])
 		} else {
-			compatCmd.Use = oldName
+			compatCmd.Use = "{{alias}}"
 		}
 
-		commands = append(commands, compatCmd)
+		commands = append(commands, cmdutil.CreateAliases(compatCmd, []string{oldName})...)
 	}
 
 	// Helper types for organizing more complicated command compatibility
@@ -614,26 +616,49 @@ Provenance: {{range .Provenance}} {{.Repo.Name}}/{{.ID}}{{end}}{{end}}
 	commands = append(commands, oldInspectCommit)
 
 	// Apply the 'Hidden' attribute to all these commands so they don't pollute help
-	for _, cmd := range commands {
-		cmd.Hidden = true
+	var walk func(*cobra.Command)
+	walk = func(cmd *cobra.Command) {
+		if cmd.Run != nil {
+			cmd.Hidden = true
 
-		// Dear god
-		oldPreRun := cmd.PreRun
-		oldPreRunE := cmd.PreRunE
-		cmd.PreRun = nil
-		cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-			oldPath := cmd.CommandPath()
-			newPath := strings.Replace(oldPath, "-", " ", -1)
-			fmt.Fprintf(os.Stderr, "WARNING: '%s' is deprecated and will be removed in a future release, use '%s' instead.\n", oldPath, newPath)
-			if oldPreRunE != nil {
-				return oldPreRunE(cmd, args)
+			// Dear god
+			oldPreRun := cmd.PreRun
+			oldPreRunE := cmd.PreRunE
+			cmd.PreRun = nil
+			cmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+				oldPath := cmd.CommandPath()
+
+				// Special case for a couple commands that don't match the pattern
+				var newPath string
+				if oldPath == fmt.Sprintf("%s deploy storage aws", os.Args[0]) {
+					newPath = fmt.Sprintf("%s deploy storage amazon", os.Args[0])
+				} else if oldPath == fmt.Sprintf("%s deploy storage azure", os.Args[0]) {
+					newPath = fmt.Sprintf("%s deploy storage microsoft", os.Args[0])
+				} else if oldPath == fmt.Sprintf("%s get-logs", os.Args[0]) {
+					newPath = fmt.Sprintf("%s logs", os.Args[0])
+				} else {
+					newPath = strings.Replace(oldPath, "-", " ", -1)
+				}
+
+				fmt.Fprintf(os.Stderr, "WARNING: '%s' is deprecated and will be removed in a future release, use '%s' instead.\n", oldPath, newPath)
+				if oldPreRunE != nil {
+					return oldPreRunE(cmd, args)
+				}
+				if oldPreRun != nil {
+					oldPreRun(cmd, args)
+				}
+				return nil
 			}
-			if oldPreRun != nil {
-				oldPreRun(cmd, args)
-			}
-			return nil
+		}
+
+		for _, subcmd := range cmd.Commands() {
+			walk(subcmd)
 		}
 	}
 
-	rootCmd.AddCommand(commands...)
+	for _, cmd := range commands {
+		walk(cmd)
+	}
+
+	cmdutil.MergeCommands(rootCmd, commands)
 }

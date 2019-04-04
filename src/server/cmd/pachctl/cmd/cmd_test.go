@@ -61,12 +61,6 @@ func TestCommandAliases(t *testing.T) {
 
 	var walk func(*cobra.Command)
 	walk = func(cmd *cobra.Command) {
-		require.True(
-			t, cmd.Run != nil || len(cmd.Commands()) > 0,
-			"Command is not runnable and has no child commands: '%s' (%s)",
-			path(cmd), cmd.Short,
-		)
-
 		for _, subcmd := range cmd.Commands() {
 			// This should only happen if there is a bug in MergeCommands, or some
 			// code is bypassing it.

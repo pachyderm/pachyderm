@@ -461,7 +461,6 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 	commands = append(commands, cmdutil.CreateAliases(deployStorageAmazon, []string{
 		"deploy storage amazon",
-		"deploy storage aws",
 	})...)
 
 	deployStorageGoogle := &cobra.Command{
@@ -489,7 +488,6 @@ If <object store backend> is \"s3\", then the arguments are:
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAliases(deployStorageAzure, []string{
-		"deploy storage azure",
 		"deploy storage microsoft",
 	})...)
 
