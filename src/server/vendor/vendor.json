@@ -1579,6 +1579,12 @@
 			"revisionTime": "2016-06-28T03:46:14Z"
 		},
 		{
+			"checksumSHA1": "YpWSolDomCOFzISfff77MH8fM34=",
+			"path": "go.pedge.io/proto/version",
+			"revision": "671bc5dde355c10447e5f4c6d05cf9dcf69be068",
+			"revisionTime": "2017-12-03T17:48:04Z"
+		},
+		{
 			"checksumSHA1": "IQkUIOnvlf0tYloFx9mLaXSvXWQ=",
 			"path": "golang.org/x/crypto/curve25519",
 			"revision": "bd6f299fb381e4c3393d1c4b1f0b94f5e77650c8",
