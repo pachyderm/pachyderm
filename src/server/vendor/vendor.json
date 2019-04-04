@@ -1597,6 +1597,12 @@
 			"revisionTime": "2019-03-19T22:29:04Z"
 		},
 		{
+			"checksumSHA1": "eaK7NuGdfEVypOnqYniZSuF2S6s=",
+			"path": "golang.org/x/crypto/blake2b",
+			"revision": "b7391e95e576cacdcdd422573063bc057239113d",
+			"revisionTime": "2019-03-19T22:29:04Z"
+		},
+		{
 			"checksumSHA1": "IQkUIOnvlf0tYloFx9mLaXSvXWQ=",
 			"path": "golang.org/x/crypto/curve25519",
 			"revision": "bd6f299fb381e4c3393d1c4b1f0b94f5e77650c8",
@@ -1745,6 +1751,12 @@
 			"path": "golang.org/x/sync/semaphore",
 			"revision": "1d60e4601c6fd243af51cc01ddf169918a5407ca",
 			"revisionTime": "2018-03-14T17:21:19Z"
+		},
+		{
+			"checksumSHA1": "c2uqM0KcVJ2SFu/9Nt4w63GZ9xo=",
+			"path": "golang.org/x/sys/cpu",
+			"revision": "f7bb7a8bee54210937e93ec56d007d892c1f0580",
+			"revisionTime": "2019-03-21T05:04:16Z"
 		},
 		{
 			"checksumSHA1": "2YeDxLpLYDkQqqIjKjigC3QdGNY=",
