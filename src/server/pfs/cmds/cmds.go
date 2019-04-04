@@ -56,7 +56,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Long:  "Repos, short for repository, are the top level data object in Pachyderm.",
 	}
 	cmdutil.SetDocsUsage(repoDocs)
-	commands = append(commands, cmdutil.CreateAliases(repoDocs, []string{"repo"})...)
+	commands = append(commands, cmdutil.CreateAlias(repoDocs, "repo"))
 
 	var description string
 	createRepo := &cobra.Command{
@@ -80,7 +80,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		}),
 	}
 	createRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	commands = append(commands, cmdutil.CreateAliases(createRepo, []string{"create repo"})...)
+	commands = append(commands, cmdutil.CreateAlias(createRepo, "create repo"))
 
 	updateRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
@@ -104,7 +104,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		}),
 	}
 	updateRepo.Flags().StringVarP(&description, "description", "d", "", "A description of the repo.")
-	commands = append(commands, cmdutil.CreateAliases(updateRepo, []string{"update repo"})...)
+	commands = append(commands, cmdutil.CreateAlias(updateRepo, "update repo"))
 
 	inspectRepo := &cobra.Command{
 		Use:   "{{alias}} <repo>",
@@ -135,7 +135,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	}
 	inspectRepo.Flags().AddFlagSet(rawFlags)
 	inspectRepo.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(inspectRepo, []string{"inspect repo"})...)
+	commands = append(commands, cmdutil.CreateAlias(inspectRepo, "inspect repo"))
 
 	listRepo := &cobra.Command{
 		Short: "Return all repos.",
@@ -172,7 +172,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	}
 	listRepo.Flags().AddFlagSet(rawFlags)
 	listRepo.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(listRepo, []string{"list repo"})...)
+	commands = append(commands, cmdutil.CreateAlias(listRepo, "list repo"))
 
 	var force bool
 	var all bool
@@ -209,7 +209,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
 	deleteRepo.Flags().BoolVar(&all, "all", false, "remove all repos")
-	commands = append(commands, cmdutil.CreateAliases(deleteRepo, []string{"delete repo"})...)
+	commands = append(commands, cmdutil.CreateAlias(deleteRepo, "delete repo"))
 
 	commitDocs := &cobra.Command{
 		Short: "Docs for commits.",
@@ -227,7 +227,7 @@ Commits can be created with another commit as a parent.
 This layers the data in the commit over the data in the parent.`,
 	}
 	cmdutil.SetDocsUsage(commitDocs)
-	commands = append(commands, cmdutil.CreateAliases(commitDocs, []string{"commit"})...)
+	commands = append(commands, cmdutil.CreateAlias(commitDocs, "commit"))
 
 	var parent string
 	startCommit := &cobra.Command{
@@ -272,7 +272,7 @@ $ {{alias}} test -p XXX`,
 	startCommit.MarkFlagCustom("parent", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	startCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents")
 	startCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-	commands = append(commands, cmdutil.CreateAliases(startCommit, []string{"start commit"})...)
+	commands = append(commands, cmdutil.CreateAlias(startCommit, "start commit"))
 
 	finishCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -301,7 +301,7 @@ $ {{alias}} test -p XXX`,
 	}
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
 	finishCommit.Flags().StringVar(&description, "description", "", "A description of this commit's contents (synonym for --message)")
-	commands = append(commands, cmdutil.CreateAliases(finishCommit, []string{"finish commit"})...)
+	commands = append(commands, cmdutil.CreateAlias(finishCommit, "finish commit"))
 
 	inspectCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -337,7 +337,7 @@ $ {{alias}} test -p XXX`,
 	}
 	inspectCommit.Flags().AddFlagSet(rawFlags)
 	inspectCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(inspectCommit, []string{"inspect commit"})...)
+	commands = append(commands, cmdutil.CreateAlias(inspectCommit, "inspect commit"))
 
 	var from string
 	var number int
@@ -388,7 +388,7 @@ $ {{alias}} foo@master --from XXX`,
 	listCommit.MarkFlagCustom("from", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
 	listCommit.Flags().AddFlagSet(rawFlags)
 	listCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(listCommit, []string{"list commit"})...)
+	commands = append(commands, cmdutil.CreateAlias(listCommit, "list commit"))
 
 	printCommitIter := func(commitIter client.CommitInfoIterator) error {
 		if raw {
@@ -459,7 +459,7 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 	flushCommit.MarkFlagCustom("repos", "__pachctl_get_repo")
 	flushCommit.Flags().AddFlagSet(rawFlags)
 	flushCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(flushCommit, []string{"flush commit"})...)
+	commands = append(commands, cmdutil.CreateAlias(flushCommit, "flush commit"))
 
 	var newCommits bool
 	subscribeCommit := &cobra.Command{
@@ -507,7 +507,7 @@ $ {{alias}} test@master --new`,
 	subscribeCommit.Flags().BoolVar(&newCommits, "new", false, "subscribe to only new commits created from now on")
 	subscribeCommit.Flags().AddFlagSet(rawFlags)
 	subscribeCommit.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(subscribeCommit, []string{"subscribe commit"})...)
+	commands = append(commands, cmdutil.CreateAlias(subscribeCommit, "subscribe commit"))
 
 	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -526,14 +526,14 @@ $ {{alias}} test@master --new`,
 			return client.DeleteCommit(commit.Repo.Name, commit.ID)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deleteCommit, []string{"delete commit"})...)
+	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
 		Long:  "Docs for branches.",
 	}
 	cmdutil.SetDocsUsage(branchDocs)
-	commands = append(commands, cmdutil.CreateAliases(branchDocs, []string{"branch"})...)
+	commands = append(commands, cmdutil.CreateAlias(branchDocs, "branch"))
 
 	var branchProvenance cmdutil.RepeatedStringArg
 	var head string
@@ -562,7 +562,7 @@ $ {{alias}} test@master --new`,
 	createBranch.MarkFlagCustom("provenance", "__pachctl_get_repo_commit")
 	createBranch.Flags().StringVarP(&head, "head", "", "", "The head of the newly created branch.")
 	createBranch.MarkFlagCustom("head", "__pachctl_get_commit $(__parse_repo ${nouns[0]})")
-	commands = append(commands, cmdutil.CreateAliases(createBranch, []string{"create branch"})...)
+	commands = append(commands, cmdutil.CreateAlias(createBranch, "create branch"))
 
 	listBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>",
@@ -594,7 +594,7 @@ $ {{alias}} test@master --new`,
 		}),
 	}
 	listBranch.Flags().AddFlagSet(rawFlags)
-	commands = append(commands, cmdutil.CreateAliases(listBranch, []string{"list branch"})...)
+	commands = append(commands, cmdutil.CreateAlias(listBranch, "list branch"))
 
 	deleteBranch := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
@@ -614,7 +614,7 @@ $ {{alias}} test@master --new`,
 		}),
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
-	commands = append(commands, cmdutil.CreateAliases(deleteBranch, []string{"delete branch"})...)
+	commands = append(commands, cmdutil.CreateAlias(deleteBranch, "delete branch"))
 
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
@@ -624,7 +624,7 @@ Files can be written to started (but not finished) commits with put-file.
 Files can be read from finished commits with get-file.`,
 	}
 	cmdutil.SetDocsUsage(fileDocs)
-	commands = append(commands, cmdutil.CreateAliases(fileDocs, []string{"file"})...)
+	commands = append(commands, cmdutil.CreateAlias(fileDocs, "file"))
 
 	var filePaths []string
 	var recursive bool
@@ -784,7 +784,7 @@ $ {{alias}} repo branch -i http://host/path`,
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
 	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
-	commands = append(commands, cmdutil.CreateAliases(putFile, []string{"put file"})...)
+	commands = append(commands, cmdutil.CreateAlias(putFile, "put file"))
 
 	copyFile := &cobra.Command{
 		Use:   "{{alias}} <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-branch-or-commit>:<dst-path>",
@@ -812,7 +812,7 @@ $ {{alias}} repo branch -i http://host/path`,
 		}),
 	}
 	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
-	commands = append(commands, cmdutil.CreateAliases(copyFile, []string{"copy file"})...)
+	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
 
 	var outputPath string
 	getFile := &cobra.Command{
@@ -865,7 +865,7 @@ $ {{alias}} foo@master^2:XXX`,
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
 	getFile.Flags().StringVarP(&outputPath, "output", "o", "", "The path where data will be downloaded.")
 	getFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "The maximum number of files that can be downloaded in parallel")
-	commands = append(commands, cmdutil.CreateAliases(getFile, []string{"get file"})...)
+	commands = append(commands, cmdutil.CreateAlias(getFile, "get file"))
 
 	inspectFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
@@ -895,7 +895,7 @@ $ {{alias}} foo@master^2:XXX`,
 		}),
 	}
 	inspectFile.Flags().AddFlagSet(rawFlags)
-	commands = append(commands, cmdutil.CreateAliases(inspectFile, []string{"inspect file"})...)
+	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
 	var history int64
 	listFile := &cobra.Command{
@@ -950,7 +950,7 @@ $ {{alias}} foo@master --history -1`,
 	listFile.Flags().AddFlagSet(rawFlags)
 	listFile.Flags().AddFlagSet(fullTimestampsFlags)
 	listFile.Flags().Int64Var(&history, "history", 0, "Return revision history for files.")
-	commands = append(commands, cmdutil.CreateAliases(listFile, []string{"list file"})...)
+	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
 
 	globFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<pattern>",
@@ -995,7 +995,7 @@ $ {{alias}} "foo@master:data/*"`,
 	}
 	globFile.Flags().AddFlagSet(rawFlags)
 	globFile.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(globFile, []string{"glob file"})...)
+	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
 
 	var shallow bool
 	diffFile := &cobra.Command{
@@ -1063,7 +1063,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	}
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
 	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
-	commands = append(commands, cmdutil.CreateAliases(diffFile, []string{"diff file"})...)
+	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
 
 	deleteFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>:<path/in/pfs>",
@@ -1082,14 +1082,14 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			return client.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deleteFile, []string{"delete file"})...)
+	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
 
 	objectDocs := &cobra.Command{
 		Short: "Docs for objects.",
 		Long:  "Docs for objects.",
 	}
 	cmdutil.SetDocsUsage(objectDocs)
-	commands = append(commands, cmdutil.CreateAliases(objectDocs, []string{"object"})...)
+	commands = append(commands, cmdutil.CreateAlias(objectDocs, "object"))
 
 	getObject := &cobra.Command{
 		Use:   "{{alias}} <hash>",
@@ -1104,14 +1104,14 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			return client.GetObject(args[0], os.Stdout)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(getObject, []string{"get object"})...)
+	commands = append(commands, cmdutil.CreateAlias(getObject, "get object"))
 
 	tagDocs := &cobra.Command{
 		Short: "Docs for tags.",
 		Long:  "Docs for tags.",
 	}
 	cmdutil.SetDocsUsage(tagDocs)
-	commands = append(commands, cmdutil.CreateAliases(tagDocs, []string{"tag"})...)
+	commands = append(commands, cmdutil.CreateAlias(tagDocs, "tag"))
 
 	getTag := &cobra.Command{
 		Use:   "{{alias}} <tag>",
@@ -1126,7 +1126,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			return client.GetTag(args[0], os.Stdout)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(getTag, []string{"get tag"})...)
+	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
 
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
@@ -1157,7 +1157,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
 	mount.Flags().VarP(&commits, "commits", "c", "Commits to mount for repos, arguments should be of the form \"repo@commit\"")
 	mount.MarkFlagCustom("commits", "__pachctl_get_repo_branch")
-	commands = append(commands, cmdutil.CreateAliases(mount, []string{"mount"})...)
+	commands = append(commands, cmdutil.CreateAlias(mount, "mount"))
 
 	unmount := &cobra.Command{
 		Use:   "{{alias}} <path/to/mount/point>",
@@ -1210,7 +1210,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		}),
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
-	commands = append(commands, cmdutil.CreateAliases(unmount, []string{"unmount"})...)
+	commands = append(commands, cmdutil.CreateAlias(unmount, "unmount"))
 
 	var port uint16
 	s3gateway := &cobra.Command{
@@ -1231,7 +1231,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 		}),
 	}
 	s3gateway.Flags().Uint16VarP(&port, "port", "p", 30600, "The local port to bind the S3 gateway to.")
-	commands = append(commands, cmdutil.CreateAliases(s3gateway, []string{"s3gateway"})...)
+	commands = append(commands, cmdutil.CreateAlias(s3gateway, "s3gateway"))
 
 	return commands
 }

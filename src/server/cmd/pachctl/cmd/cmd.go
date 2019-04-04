@@ -446,7 +446,7 @@ Environment variables:
 		"--client-only is set, this flag is ignored. If unset, pachctl will use a "+
 		"default timeout; if set to 0s, the call will never time out.")
 	versionCmd.Flags().AddFlagSet(rawFlags)
-	subcommands = append(subcommands, cmdutil.CreateAliases(versionCmd, []string{"version"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(versionCmd, "version"))
 
 	deleteAll := &cobra.Command{
 		Short: "Delete everything.",
@@ -493,7 +493,7 @@ This resets the cluster to its initial state.`,
 			return nil
 		}),
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(deleteAll, []string{"delete all"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(deleteAll, "delete all"))
 
 	var port uint16
 	var remotePort uint16
@@ -574,7 +574,7 @@ This resets the cluster to its initial state.`,
 	portForward.Flags().Uint16VarP(&pfsPort, "pfs-port", "f", 30652, "The local port to bind PFS over HTTP to.")
 	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
 	portForward.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace Pachyderm is deployed in.")
-	subcommands = append(subcommands, cmdutil.CreateAliases(portForward, []string{"port-forward"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
 	var install bool
 	var path string
@@ -622,110 +622,110 @@ This resets the cluster to its initial state.`,
 	}
 	completion.Flags().BoolVar(&install, "install", false, "Install the completion.")
 	completion.Flags().StringVar(&path, "path", "/etc/bash_completion.d/pachctl", "Path to install the completion to. This will default to `/etc/bash_completion.d/` if unspecified.")
-	subcommands = append(subcommands, cmdutil.CreateAliases(completion, []string{"completion"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(completion, "completion"))
 
 	// Logical commands for grouping commands by verb (no run functions)
 	deleteDocs := &cobra.Command{
 		Short: "Delete an existing Pachyderm resource.",
 		Long:  "Delete an existing Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(deleteDocs, []string{"delete"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(deleteDocs, "delete"))
 
 	createDocs := &cobra.Command{
 		Short: "Create a new instance of a Pachyderm resource.",
 		Long:  "Create a new instance of a Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(createDocs, []string{"create"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(createDocs, "create"))
 
 	updateDocs := &cobra.Command{
 		Short: "Change the properties of an existing Pachyderm resource.",
 		Long:  "Change the properties of an existing Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(updateDocs, []string{"update"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(updateDocs, "update"))
 
 	inspectDocs := &cobra.Command{
 		Short: "Show detailed information about a Pachyderm resource.",
 		Long:  "Show detailed information about a Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(inspectDocs, []string{"inspect"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(inspectDocs, "inspect"))
 
 	listDocs := &cobra.Command{
 		Short: "Print a list of Pachyderm resources of a specific type.",
 		Long:  "Print a list of Pachyderm resources of a specific type.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(listDocs, []string{"list"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(listDocs, "list"))
 
 	startDocs := &cobra.Command{
 		Short: "Start a Pachyderm resource.",
 		Long:  "Start a Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(startDocs, []string{"start"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(startDocs, "start"))
 
 	finishDocs := &cobra.Command{
 		Short: "Finish a Pachyderm resource.",
 		Long:  "Finish a Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(finishDocs, []string{"finish"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(finishDocs, "finish"))
 
 	flushDocs := &cobra.Command{
 		Short: "Wait for the side-effects of a Pachyderm resource to propagate.",
 		Long:  "Wait for the side-effects of a Pachyderm resource to propagate.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(flushDocs, []string{"flush"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(flushDocs, "flush"))
 
 	subscribeDocs := &cobra.Command{
 		Short: "Wait for notifications of changes to a Pachyderm resource.",
 		Long:  "Wait for notifications of changes to a Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(subscribeDocs, []string{"subscribe"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(subscribeDocs, "subscribe"))
 
 	putDocs := &cobra.Command{
 		Short: "Insert data into Pachyderm.",
 		Long:  "Insert data into Pachyderm.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(putDocs, []string{"put"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(putDocs, "put"))
 
 	copyDocs := &cobra.Command{
 		Short: "Copy a Pachyderm resource.",
 		Long:  "Copy a Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(copyDocs, []string{"copy"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(copyDocs, "copy"))
 
 	getDocs := &cobra.Command{
 		Short: "Get the raw data represented by a Pachyderm resource.",
 		Long:  "Get the raw data represented by a Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(getDocs, []string{"get"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(getDocs, "get"))
 
 	globDocs := &cobra.Command{
 		Short: "Print a list of Pachyderm resources matching a glob pattern.",
 		Long:  "Print a list of Pachyderm resources matching a glob pattern.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(globDocs, []string{"glob"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(globDocs, "glob"))
 
 	diffDocs := &cobra.Command{
 		Short: "Show the differences between two Pachyderm resources.",
 		Long:  "Show the differences between two Pachyderm resources.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(diffDocs, []string{"diff"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(diffDocs, "diff"))
 
 	stopDocs := &cobra.Command{
 		Short: "Cancel an ongoing task.",
 		Long:  "Cancel an ongoing task.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(stopDocs, []string{"stop"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(stopDocs, "stop"))
 
 	restartDocs := &cobra.Command{
 		Short: "Cancel and restart an ongoing task.",
 		Long:  "Cancel and restart an ongoing task.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(restartDocs, []string{"restart"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(restartDocs, "restart"))
 
 	editDocs := &cobra.Command{
 		Short: "Edit the value of an existing Pachyderm resource.",
 		Long:  "Edit the value of an existing Pachyderm resource.",
 	}
-	subcommands = append(subcommands, cmdutil.CreateAliases(editDocs, []string{"edit"})...)
+	subcommands = append(subcommands, cmdutil.CreateAlias(editDocs, "edit"))
 
 	subcommands = append(subcommands, pfscmds.Cmds(&noMetrics, &noPortForwarding)...)
 	subcommands = append(subcommands, ppscmds.Cmds(&noMetrics, &noPortForwarding)...)

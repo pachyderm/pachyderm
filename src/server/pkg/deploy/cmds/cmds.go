@@ -194,7 +194,7 @@ func deployCmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
 	deployLocal.Flags().BoolVarP(&dev, "dev", "d", false, "Deploy pachd with local version tags, disable metrics, expose Pachyderm's object/block API, and use an insecure authentication mechanism (do not set on any cluster with sensitive data)")
-	commands = append(commands, cmdutil.CreateAliases(deployLocal, []string{"deploy local"})...)
+	commands = append(commands, cmdutil.CreateAlias(deployLocal, "deploy local"))
 
 	deployGoogle := &cobra.Command{
 		Use:   "{{alias}} <bucket-name> <disk-size> [<credentials-file>]",
@@ -236,7 +236,7 @@ func deployCmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			return kubectlCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deployGoogle, []string{"deploy google"})...)
+	commands = append(commands, cmdutil.CreateAlias(deployGoogle, "deploy google"))
 
 	var objectStoreBackend string
 	var persistentDiskBackend string
@@ -276,7 +276,7 @@ If <object store backend> is \"s3\", then the arguments are:
 		"(required) Backend providing an object-storage API to pachyderm. One of: "+
 			"s3, gcs, or azure-blob.")
 	deployCustom.Flags().BoolVar(&isS3V2, "isS3V2", false, "Enable S3V2 client")
-	commands = append(commands, cmdutil.CreateAliases(deployCustom, []string{"deploy custom"})...)
+	commands = append(commands, cmdutil.CreateAlias(deployCustom, "deploy custom"))
 
 	var cloudfrontDistribution string
 	var creds string
@@ -382,9 +382,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deployAmazon.Flags().StringVar(&creds, "credentials", "", "Use the format \"<id>,<secret>[,<token>]\". You can get a token by running \"aws sts get-session-token\".")
 	deployAmazon.Flags().StringVar(&vault, "vault", "", "Use the format \"<address/hostport>,<role>,<token>\".")
 	deployAmazon.Flags().StringVar(&iamRole, "iam-role", "", fmt.Sprintf("Use the given IAM role for authorization, as opposed to using static credentials. The given role will be applied as the annotation %s, this used with a Kubernetes IAM role management system such as kube2iam allows you to give pachd credentials in a more secure way.", assets.IAMAnnotation))
-	commands = append(commands, cmdutil.CreateAliases(deployAmazon, []string{
-		"deploy amazon",
-	})...)
+	commands = append(commands, cmdutil.CreateAlias(deployAmazon, "deploy amazon"))
 
 	deployMicrosoft := &cobra.Command{
 		Use:   "{{alias}} <container> <account-name> <account-key> <disk-size>",
@@ -427,9 +425,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			return kubectlCreate(dryRun, manifest, opts, metrics)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deployMicrosoft, []string{
-		"deploy microsoft",
-	})...)
+	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
 
 	deployStorageSecrets := func(data map[string][]byte) error {
 		c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
@@ -459,9 +455,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, ""))
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deployStorageAmazon, []string{
-		"deploy storage amazon",
-	})...)
+	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
 
 	deployStorageGoogle := &cobra.Command{
 		Use:   "{{alias}} <credentials-file>",
@@ -475,9 +469,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			return deployStorageSecrets(assets.GoogleSecret("", string(credBytes)))
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deployStorageGoogle, []string{
-		"deploy storage google",
-	})...)
+	commands = append(commands, cmdutil.CreateAlias(deployStorageGoogle, "deploy storage google"))
 
 	deployStorageAzure := &cobra.Command{
 		Use:   "{{alias}} <account-name> <account-key>",
@@ -487,15 +479,13 @@ If <object store backend> is \"s3\", then the arguments are:
 			return deployStorageSecrets(assets.MicrosoftSecret("", args[0], args[1]))
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(deployStorageAzure, []string{
-		"deploy storage microsoft",
-	})...)
+	commands = append(commands, cmdutil.CreateAlias(deployStorageAzure, "deploy storage microsoft"))
 
 	deployStorage := &cobra.Command{
 		Short: "Deploy credentials for a particular storage provider.",
 		Long:  "Deploy credentials for a particular storage provider, so that Pachyderm can ingress data from and egress data to it.",
 	}
-	commands = append(commands, cmdutil.CreateAliases(deployStorage, []string{"deploy storage"})...)
+	commands = append(commands, cmdutil.CreateAlias(deployStorage, "deploy storage"))
 
 	listImages := &cobra.Command{
 		Short: "Output the list of images in a deployment.",
@@ -507,9 +497,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			return nil
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(listImages, []string{
-		"deploy list-images",
-	})...)
+	commands = append(commands, cmdutil.CreateAlias(listImages, "deploy list-images"))
 
 	exportImages := &cobra.Command{
 		Use:   "{{alias}} <output-file>",
@@ -528,9 +516,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			return images.Export(opts, file)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(exportImages, []string{
-		"deploy export-images",
-	})...)
+	commands = append(commands, cmdutil.CreateAlias(exportImages, "deploy export-images"))
 
 	importImages := &cobra.Command{
 		Use:   "{{alias}} <input-file>",
@@ -549,9 +535,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			return images.Import(opts, file)
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(importImages, []string{
-		"deploy import-images",
-	})...)
+	commands = append(commands, cmdutil.CreateAlias(importImages, "deploy import-images"))
 
 	var blockCacheSize string
 	var dashImage string
@@ -671,7 +655,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			"request. Size is in bytes, with SI suffixes (M, K, G, Mi, Ki, Gi, "+
 			"etc).")
 
-	commands = append(commands, cmdutil.CreateAliases(deploy, []string{"deploy"})...)
+	commands = append(commands, cmdutil.CreateAlias(deploy, "deploy"))
 
 	return commands
 }
@@ -745,7 +729,7 @@ unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
 	undeploy.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to undeploy Pachyderm from.")
-	commands = append(commands, cmdutil.CreateAliases(undeploy, []string{"undeploy"})...)
+	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
 
 	var updateDashDryRun bool
 	var updateDashOutputFormat string
@@ -778,7 +762,7 @@ removed.`)
 	}
 	updateDash.Flags().BoolVar(&updateDashDryRun, "dry-run", false, "Don't actually deploy Pachyderm Dash to Kubernetes, instead just print the manifest.")
 	updateDash.Flags().StringVarP(&updateDashOutputFormat, "output", "o", "json", "Output formmat. One of: json|yaml")
-	commands = append(commands, cmdutil.CreateAliases(updateDash, []string{"update-dash"})...)
+	commands = append(commands, cmdutil.CreateAlias(updateDash, "update-dash"))
 
 	return commands
 }

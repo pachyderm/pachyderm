@@ -88,7 +88,7 @@ func applyCommandCompat1_8(rootCmd *cobra.Command, noMetrics *bool, noPortForwar
 			compatCmd.Use = "{{alias}}"
 		}
 
-		commands = append(commands, cmdutil.CreateAliases(compatCmd, []string{oldName})...)
+		commands = append(commands, cmdutil.CreateAlias(compatCmd, oldName))
 	}
 
 	// Helper types for organizing more complicated command compatibility

@@ -51,7 +51,7 @@ func writePachTokenToCfg(token string) error {
 }
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
-func ActivateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func ActivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	var initialAdmin string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
@@ -104,12 +104,12 @@ this user once auth is active.  If you set 'initial-admin' to a robot
 user, pachctl will print that robot user's Pachyderm token; this token is
 effectively a root token, and if it's lost you will be locked out of your
 cluster`[1:])
-	return cmdutil.CreateAliases(activate, []string{"auth activate"})
+	return cmdutil.CreateAlias(activate, "auth activate")
 }
 
 // DeactivateCmd returns a cobra.Command to delete all ACLs, tokens, and admins,
 // deactivating Pachyderm's auth system
-func DeactivateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func DeactivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	deactivate := &cobra.Command{
 		Short: "Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth",
 		Long: "Deactivate Pachyderm's auth system, which will delete ALL auth " +
@@ -131,13 +131,13 @@ func DeactivateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	return cmdutil.CreateAliases(deactivate, []string{"auth deactivate"})
+	return cmdutil.CreateAlias(deactivate, "auth deactivate")
 }
 
 // LoginCmd returns a cobra.Command to login to a Pachyderm cluster with your
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
-func LoginCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func LoginCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	var useOTP bool
 	login := &cobra.Command{
 		Short: "Log in to Pachyderm",
@@ -193,13 +193,13 @@ func LoginCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 	login.PersistentFlags().BoolVarP(&useOTP, "one-time-password", "o", false,
 		"If set, authenticate with a Dash-provided One-Time Password, rather than "+
 			"via GitHub")
-	return cmdutil.CreateAliases(login, []string{"auth login"})
+	return cmdutil.CreateAlias(login, "auth login")
 }
 
 // LogoutCmd returns a cobra.Command that deletes your local Pachyderm
 // credential, logging you out of your cluster. Note that this is not necessary
 // to do before logging in as another user, but is useful for testing.
-func LogoutCmd() []*cobra.Command {
+func LogoutCmd() *cobra.Command {
 	logout := &cobra.Command{
 		Short: "Log out of Pachyderm by deleting your local credential",
 		Long: "Log out of Pachyderm by deleting your local credential. Note that " +
@@ -219,13 +219,13 @@ func LogoutCmd() []*cobra.Command {
 			return cfg.Write()
 		}),
 	}
-	return cmdutil.CreateAliases(logout, []string{"auth logout"})
+	return cmdutil.CreateAlias(logout, "auth logout")
 }
 
 // WhoamiCmd returns a cobra.Command that deletes your local Pachyderm
 // credential, logging you out of your cluster. Note that this is not necessary
 // to do before logging in as another user, but is useful for testing.
-func WhoamiCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func WhoamiCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
 		Long:  "Print your Pachyderm identity.",
@@ -249,12 +249,12 @@ func WhoamiCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAliases(whoami, []string{"auth whoami"})
+	return cmdutil.CreateAlias(whoami, "auth whoami")
 }
 
 // CheckCmd returns a cobra command that sends an "Authorize" RPC to Pachd, to
 // determine whether the specified user has access to the specified repo.
-func CheckCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func CheckCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	check := &cobra.Command{
 		Use:   "{{alias}} (none|reader|writer|owner) <repo>",
 		Short: "Check whether you have reader/writer/etc-level access to 'repo'",
@@ -286,12 +286,12 @@ func CheckCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAliases(check, []string{"auth check"})
+	return cmdutil.CreateAlias(check, "auth check")
 }
 
 // GetCmd returns a cobra command that gets either the ACL for a Pachyderm
 // repo or another user's scope of access to that repo
-func GetCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func GetCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	get := &cobra.Command{
 		Use:   "{{alias}} [<username>] <repo>",
 		Short: "Get the ACL for 'repo' or the access that 'username' has to 'repo'",
@@ -333,12 +333,12 @@ func GetCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAliases(get, []string{"auth get"})
+	return cmdutil.CreateAlias(get, "auth get")
 }
 
 // SetScopeCmd returns a cobra command that lets a user set the level of access
 // that another user has to a repo
-func SetScopeCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func SetScopeCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	setScope := &cobra.Command{
 		Use:   "{{alias}} <username> (none|reader|writer|owner) <repo>",
 		Short: "Set the scope of access that 'username' has to 'repo'",
@@ -369,11 +369,11 @@ func SetScopeCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	return cmdutil.CreateAliases(setScope, []string{"auth set"})
+	return cmdutil.CreateAlias(setScope, "auth set")
 }
 
 // ListAdminsCmd returns a cobra command that lists the current cluster admins
-func ListAdminsCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func ListAdminsCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	listAdmins := &cobra.Command{
 		Short: "List the current cluster admins",
 		Long:  "List the current cluster admins",
@@ -393,12 +393,12 @@ func ListAdminsCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAliases(listAdmins, []string{"auth list-admins"})
+	return cmdutil.CreateAlias(listAdmins, "auth list-admins")
 }
 
 // ModifyAdminsCmd returns a cobra command that modifies the set of current
 // cluster admins
-func ModifyAdminsCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func ModifyAdminsCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	var add []string
 	var remove []string
 	modifyAdmins := &cobra.Command{
@@ -428,12 +428,12 @@ func ModifyAdminsCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 		"Comma-separated list of users to grant admin status")
 	modifyAdmins.PersistentFlags().StringSliceVar(&remove, "remove", []string{},
 		"Comma-separated list of users revoke admin status")
-	return cmdutil.CreateAliases(modifyAdmins, []string{"auth modify-admins"})
+	return cmdutil.CreateAlias(modifyAdmins, "auth modify-admins")
 }
 
 // GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
 // token on behalf of themselves or another user
-func GetAuthTokenCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func GetAuthTokenCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	var quiet bool
 	getAuthToken := &cobra.Command{
 		Use:   "{{alias}} <username>",
@@ -464,12 +464,12 @@ func GetAuthTokenCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 	getAuthToken.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "if "+
 		"set, only print the resulting token (if successful). This is useful for "+
 		"scripting, as the output can be piped to use-auth-token")
-	return cmdutil.CreateAliases(getAuthToken, []string{"auth get-auth-token"})
+	return cmdutil.CreateAlias(getAuthToken, "auth get-auth-token")
 }
 
 // UseAuthTokenCmd returns a cobra command that lets a user get a pachyderm
 // token on behalf of themselves or another user
-func UseAuthTokenCmd() []*cobra.Command {
+func UseAuthTokenCmd() *cobra.Command {
 	useAuthToken := &cobra.Command{
 		Short: "Read a Pachyderm auth token from stdin, and write it to the " +
 			"current user's Pachyderm config file",
@@ -485,7 +485,7 @@ func UseAuthTokenCmd() []*cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAliases(useAuthToken, []string{"auth use-auth-token"})
+	return cmdutil.CreateAlias(useAuthToken, "auth use-auth-token")
 }
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
@@ -498,21 +498,21 @@ func Cmds(noMetrics, noPortForwarding *bool) []*cobra.Command {
 		Long:  "Auth commands manage access to data in a Pachyderm cluster",
 	}
 
-	commands = append(commands, cmdutil.CreateAliases(auth, []string{"auth"})...)
-	commands = append(commands, ActivateCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, DeactivateCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, LoginCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, LogoutCmd()...)
-	commands = append(commands, WhoamiCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, CheckCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, SetScopeCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, GetCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, ListAdminsCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, ModifyAdminsCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, GetAuthTokenCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, UseAuthTokenCmd()...)
-	commands = append(commands, GetConfigCmd(noPortForwarding)...)
-	commands = append(commands, SetConfigCmd(noPortForwarding)...)
+	commands = append(commands, cmdutil.CreateAlias(auth, "auth"))
+	commands = append(commands, ActivateCmd(noMetrics, noPortForwarding))
+	commands = append(commands, DeactivateCmd(noMetrics, noPortForwarding))
+	commands = append(commands, LoginCmd(noMetrics, noPortForwarding))
+	commands = append(commands, LogoutCmd())
+	commands = append(commands, WhoamiCmd(noMetrics, noPortForwarding))
+	commands = append(commands, CheckCmd(noMetrics, noPortForwarding))
+	commands = append(commands, SetScopeCmd(noMetrics, noPortForwarding))
+	commands = append(commands, GetCmd(noMetrics, noPortForwarding))
+	commands = append(commands, ListAdminsCmd(noMetrics, noPortForwarding))
+	commands = append(commands, ModifyAdminsCmd(noMetrics, noPortForwarding))
+	commands = append(commands, GetAuthTokenCmd(noMetrics, noPortForwarding))
+	commands = append(commands, UseAuthTokenCmd())
+	commands = append(commands, GetConfigCmd(noPortForwarding))
+	commands = append(commands, SetConfigCmd(noPortForwarding))
 
 	return commands
 }

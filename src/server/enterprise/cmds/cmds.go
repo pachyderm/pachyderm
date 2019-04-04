@@ -32,7 +32,7 @@ func parseISO8601(s string) (time.Time, error) {
 // Pachyderm within a Pachyderm cluster. All repos will go from
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
-func ActivateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func ActivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	var expires string
 	activate := &cobra.Command{
 		Use: "{{alias}} <activation-code>",
@@ -78,14 +78,14 @@ func ActivateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 		"the signed expiration time encoded in 'activation-code', and therefore "+
 		"is only useful for testing.")
 
-	return cmdutil.CreateAliases(activate, []string{"enterprise activate"})
+	return cmdutil.CreateAlias(activate, "enterprise activate")
 }
 
 // GetStateCmd returns a cobra.Command to activate the enterprise features of
 // Pachyderm within a Pachyderm cluster. All repos will go from
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
-func GetStateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func GetStateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 	getState := &cobra.Command{
 		Short: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
@@ -115,7 +115,7 @@ func GetStateCmd(noMetrics, noPortForwarding *bool) []*cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAliases(getState, []string{"enterprise get-state"})
+	return cmdutil.CreateAlias(getState, "enterprise get-state")
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
@@ -126,10 +126,10 @@ func Cmds(noMetrics, noPortForwarding *bool) []*cobra.Command {
 		Short: "Enterprise commands enable Pachyderm Enterprise features",
 		Long:  "Enterprise commands enable Pachyderm Enterprise features",
 	}
-	commands = append(commands, cmdutil.CreateAliases(enterprise, []string{"enterprise"})...)
+	commands = append(commands, cmdutil.CreateAlias(enterprise, "enterprise"))
 
-	commands = append(commands, ActivateCmd(noMetrics, noPortForwarding)...)
-	commands = append(commands, GetStateCmd(noMetrics, noPortForwarding)...)
+	commands = append(commands, ActivateCmd(noMetrics, noPortForwarding))
+	commands = append(commands, GetStateCmd(noMetrics, noPortForwarding))
 
 	return commands
 }

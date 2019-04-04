@@ -46,7 +46,7 @@ $ {{alias}} -u s3://bucket/backup`,
 	}
 	extract.Flags().BoolVar(&noObjects, "no-objects", false, "don't extract from object storage, only extract data from etcd")
 	extract.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to extract to.")
-	commands = append(commands, cmdutil.CreateAliases(extract, []string{"extract"})...)
+	commands = append(commands, cmdutil.CreateAlias(extract, "extract"))
 
 	restore := &cobra.Command{
 		Short: "Restore Pachyderm state from stdin or an object store.",
@@ -77,7 +77,7 @@ $ {{alias}} -u s3://bucket/backup`,
 		}),
 	}
 	restore.Flags().StringVarP(&url, "url", "u", "", "An object storage url (i.e. s3://...) to restore from.")
-	commands = append(commands, cmdutil.CreateAliases(restore, []string{"restore"})...)
+	commands = append(commands, cmdutil.CreateAlias(restore, "restore"))
 
 	inspectCluster := &cobra.Command{
 		Short: "Returns info about the pachyderm cluster",
@@ -96,7 +96,7 @@ $ {{alias}} -u s3://bucket/backup`,
 			return nil
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAliases(inspectCluster, []string{"inspect cluster"})...)
+	commands = append(commands, cmdutil.CreateAlias(inspectCluster, "inspect cluster"))
 
 	return commands
 }
