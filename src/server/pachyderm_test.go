@@ -8310,10 +8310,8 @@ func TestKafka(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 	time.Sleep(20 * time.Second)
 
-	host := os.Getenv("KAFKA_IP")
-	// if host == "" {
-	host = "0.0.0.0"
-	// }
+	host := "0.0.0.0"
+
 	// Open a connection to the kafka cluster
 	conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, 32400))
 	if err != nil {
