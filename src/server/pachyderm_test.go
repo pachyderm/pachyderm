@@ -8320,6 +8320,7 @@ func TestKafka(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Close()
+	fmt.Println("Connection 1")
 
 	// create the topic
 	port := ""
@@ -8328,10 +8329,15 @@ func TestKafka(t *testing.T) {
 	brokers, err := conn.Brokers()
 	// so to deal with that, we try connecting to each broker
 	for i, b := range brokers {
+		fmt.Println("Try Broker", i)
+
 		conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", "localhost", b.Port))
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		fmt.Println("Connected Broker", i)
+
 		// we keep track of the port number of brokers
 		brokers, err = conn.Brokers() // this is ok since Go does the for loop over brokers as it was for the initial loop
 		port = fmt.Sprint(b.Port)
@@ -8349,6 +8355,8 @@ func TestKafka(t *testing.T) {
 			// but if all of them fail, that's bad
 			t.Fatal("Can't create topic", err)
 		}
+		fmt.Println("Topic created", i)
+
 		// once we found one that works, we can be done with this part
 		break
 	}
@@ -8359,6 +8367,9 @@ func TestKafka(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	fmt.Println("Found partition")
+
 	// we grab the host IP and port to pass to the image
 	host = part.Leader.Host
 	port = fmt.Sprint(part.Leader.Port)
@@ -8369,6 +8380,9 @@ func TestKafka(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	fmt.Println("Final connection!")
+
 	// now we asynchronously write to the kafka topic
 	go func() {
 		i := 0
@@ -8399,7 +8413,7 @@ func TestKafka(t *testing.T) {
 			Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
 		})
 	require.NoError(t, err)
-
+	fmt.Println("Pipeline created")
 	// and verify that the spout is consuming it
 	// we'll get 5 succesive commits, and ensure that we find all the kafka messages we wrote
 	// to the first five files.
@@ -8407,6 +8421,7 @@ func TestKafka(t *testing.T) {
 	require.NoError(t, err)
 	num := 1
 	for i := 0; i < 5; i++ {
+		fmt.Println("Subscribe", i)
 		num-- // files end in a newline so we need to decrement here inbetween iterations
 		commitInfo, err := iter.Next()
 		require.NoError(t, err)
