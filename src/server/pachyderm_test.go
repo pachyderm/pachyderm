@@ -1,6 +1,6 @@
 package server
+
 import (
-	"github.com/segmentio/kafka-go"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -22,6 +22,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/segmentio/kafka-go"
 
 	"golang.org/x/sync/errgroup"
 
@@ -54,6 +56,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 )
+
 const (
 	// If this environment variable is set, then the tests are being run
 	// in a real cluster in the cloud.
@@ -1410,7 +1413,7 @@ func TestDeletePipeline(t *testing.T) {
 	require.NoError(t, c.CreateRepo(repo))
 	commit, err := c.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = c.PutFile(repo, commit.ID, uuid.NewWithoutDashes(), strings.NewReader("foo")) 
+	_, err = c.PutFile(repo, commit.ID, uuid.NewWithoutDashes(), strings.NewReader("foo"))
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(repo, commit.ID))
 	pipelines := []string{tu.UniqueString("TestDeletePipeline1"), tu.UniqueString("TestDeletePipeline2")}
@@ -8327,9 +8330,8 @@ func TestKafka(t *testing.T) {
 	}
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	time.Sleep(20 * time.Second)
 
-	host := "0.0.0.0"
+	host := "localhost"
 
 	// Open a connection to the kafka cluster
 	conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, 32400))
@@ -8337,24 +8339,18 @@ func TestKafka(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer conn.Close()
-	fmt.Println("Connection 1")
 
-	// create the topic 
+	// create the topic
 	port := ""
 	topic := tu.UniqueString("demo")
 	// this part is kinda finnicky because sometimes the zookeeper session will timeout for one of the brokers
 	brokers, err := conn.Brokers()
 	// so to deal with that, we try connecting to each broker
 	for i, b := range brokers {
-		fmt.Println("Try Broker", i)
-
-		conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", "localhost", b.Port))
+		conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, b.Port))
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		fmt.Println("Connected Broker", i)
-
 		// we keep track of the port number of brokers
 		brokers, err = conn.Brokers() // this is ok since Go does the for loop over brokers as it was for the initial loop
 		port = fmt.Sprint(b.Port)
@@ -8372,33 +8368,27 @@ func TestKafka(t *testing.T) {
 			// but if all of them fail, that's bad
 			t.Fatal("Can't create topic", err)
 		}
-		fmt.Println("Topic created", i)
-
 		// once we found one that works, we can be done with this part
 		break
 	}
 
 	// now we want to connect to the leader broker with our topic
 	// so we look up the partiton which will have this information
-	part, err := kafka.LookupPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", "localhost", port), topic, 0)
+	part, err := kafka.LookupPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", host, port), topic, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Println("Found partition")
 
 	// we grab the host IP and port to pass to the image
 	host = part.Leader.Host
 	port = fmt.Sprint(part.Leader.Port)
 	// since kafka and pachyderm are in the same kubernetes cluster, we need to adjust the host address to "localhost" here
-	part.Leader.Host = "localhost"
+	part.Leader.Host = host
 	// and we can now make a connection to the leader
-	conn, err = kafka.DialPartition(context.Background(), "tcp", "localhost:"+port, part)
+	conn, err = kafka.DialPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", host, port), part)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	fmt.Println("Final connection!")
 
 	// now we asynchronously write to the kafka topic
 	go func() {
