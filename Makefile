@@ -479,7 +479,7 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	KAFKA_IP=$$(kubectl --namespace=kafka get svc/outside-0 -o json | jq -r .spec.clusterIP) \
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v ./src/server -parallel 1 -count 1 -timeout 300 $(RUN) && \
+	  go test -v ./src/server -parallel 1 -count 1 -timeout 300s $(RUN) && \
 	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
 test-client:
