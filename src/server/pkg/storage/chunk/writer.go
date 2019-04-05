@@ -73,7 +73,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 		// If the AverageBits lowest bits are zero and the chunk is >= MinSize, then a split point is created.
 		// If the chunk is >= MaxSize, then a split point is created regardless.
 		if w.hash.Sum64()&w.splitMask == 0 && size >= MinSize || size >= MaxSize {
-			w.buf.Write(data[offset : i-offset+1])
+			w.buf.Write(data[offset : i+1])
 			hash, err := w.put()
 			if err != nil {
 				return 0, err
