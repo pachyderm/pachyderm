@@ -470,6 +470,13 @@ message TransactionInfo {
   google.protobuf.Timestamp started = 3;
 }
 
+message TransactionInfos {
+  repeated TransactionInfo transaction_info = 1;
+}
+
+message StartTransactionRequest {
+}
+
 message InspectTransactionRequest {
   Transaction transaction = 1;
 }
@@ -487,15 +494,15 @@ message FinishTransactionRequest {
 
 message AppendTransactionRequest {
   Transaction transaction = 1;
-  repeated TransactionRequest item = 2;
+  repeated TransactionRequest items = 2;
 }
 
 service API {
   // Transaction rpcs
-  rpc StartTransaction(google.protobuf.Empty) returns (Transaction) {}
+  rpc StartTransaction(StartTransactionRequest) returns (Transaction) {}
   rpc InspectTransaction(InspectTransactionRequest) returns (TransactionInfo) {}
   rpc DeleteTransaction(DeleteTransactionRequest) returns (google.protobuf.Empty) {}
-  rpc ListTransaction(ListTransactionRequest) returns (stream TransactionInfo) {}
+  rpc ListTransaction(ListTransactionRequest) returns (TransactionInfos) {}
   rpc FinishTransaction(FinishTransactionRequest) returns (TransactionResult) {}
   rpc AppendTransaction(AppendTransactionRequest) returns (google.protobuf.Empty) {}
 

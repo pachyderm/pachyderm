@@ -205,6 +205,11 @@ Children: {{range .Children}} {{.}} {{end}}
 	return template.Execute(os.Stdout, fileInfo)
 }
 
+type PrintableTransactionInfo struct {
+	*pfs.TransactionInfo
+	FullTimestamps bool
+}
+
 func PrintTransactionInfo(w io.Writer, info *pfs.TransactionInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", info.Transaction.ID)
 	if fullTimestamps {
@@ -215,7 +220,8 @@ func PrintTransactionInfo(w io.Writer, info *pfs.TransactionInfo, fullTimestamps
 	fmt.Fprintf(w, "%d\n", len(info.Requests))
 }
 
-func PrintDetailedTransactionInfo(info *pfs.TransactionInfo) error {
+func PrintDetailedTransactionInfo(info *PrintableTransactionInfo) error {
+	return nil
 }
 
 type uint64Slice []uint64

@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
@@ -1180,23 +1181,23 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	s3gateway.Flags().Uint16VarP(&port, "port", "p", 30600, "The local port to bind the S3 gateway to.")
 
-	transaction := &cobra.Command{
-		Use: "transaction",
+	transactionDocs := &cobra.Command{
+		Use:   "transaction",
 		Short: "Docs for transactions.",
-		Long: "Do a few thing.",
+		Long:  "Do a few thing.",
 	}
 
 	listTransaction := &cobra.Command{
-		Use: "list-transaction",
+		Use:   "list-transaction",
 		Short: "List transactions.",
-		Long: "List transactions.",
+		Long:  "List transactions.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			transactions, err := c.ListTransactions()
+			transactions, err := c.ListTransaction()
 			if err != nil {
 				return err
 			}
@@ -1210,11 +1211,12 @@ $ pachctl diff-file foo master path1 bar master path2
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.TransactionHeader)
 			for _, transaction := range transactions {
-				pretty.PrintTransaction(writer, transaction)
+				pretty.PrintTransactionInfo(writer, transaction, fullTimestamps)
 			}
 			return writer.Flush()
 		}),
 	}
+	fullTimestampsFlag(listTransaction)
 
 	getActiveTransaction := func() (string, error) {
 		cfg, err := config.Read()
@@ -1243,9 +1245,9 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 
 	startTransaction := &cobra.Command{
-		Use: "start-transaction",
+		Use:   "start-transaction",
 		Short: "Start a new transaction.",
-		Long: "Start a new transaction.",
+		Long:  "Start a new transaction.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -1268,14 +1270,10 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 
 	stopTransaction := &cobra.Command{
-		Use: "stop-transaction",
+		Use:   "stop-transaction",
 		Short: "Stop modifying the current transaction.",
-		Long: "Start modifying the current transaction.",
+		Long:  "Start modifying the current transaction.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			transaction, err := c.StartTransaction()
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
 			id, err := getActiveTransaction()
@@ -1298,9 +1296,9 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 
 	finishTransaction := &cobra.Command{
-		Use: "finish-transaction [<transaction>]",
+		Use:   "finish-transaction [<transaction>]",
 		Short: "Close the currently active transaction and execute it.",
-		Long: "Close the currently active transaction and execute it.",
+		Long:  "Close the currently active transaction and execute it.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -1318,7 +1316,7 @@ $ pachctl diff-file foo master path1 bar master path2
 				}
 			}
 
-			result, err := c.FinishTransaction(id)
+			result, err := c.FinishTransaction(&pfsclient.Transaction{ID: id})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -1328,15 +1326,15 @@ $ pachctl diff-file foo master path1 bar master path2
 				return err
 			}
 
-			fmt.Printf("Completed transaction with %d requests: %s\n", len(result.responses), result.info.transaction.ID)
+			fmt.Printf("Completed transaction with %d requests: %s\n", len(result.Responses), result.Info.Transaction.ID)
 			return nil
 		}),
 	}
 
 	deleteTransaction := &cobra.Command{
-		Use: "delete-transaction [<transaction>]",
+		Use:   "delete-transaction [<transaction>]",
 		Short: "Cancel and delete an existing transaction.",
-		Long: "Cancel and delete an existing transaction.",
+		Long:  "Cancel and delete an existing transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -1354,7 +1352,7 @@ $ pachctl diff-file foo master path1 bar master path2
 				}
 			}
 
-			err := c.DeleteTransaction(args[0])
+			err = c.DeleteTransaction(&pfsclient.Transaction{ID: id})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -1363,9 +1361,9 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 
 	inspectTransaction := &cobra.Command{
-		Use: "inspect-transaction [<transaction>]",
+		Use:   "inspect-transaction [<transaction>]",
 		Short: "Print information about an open transaction.",
-		Long: "Print information about an open transaction.",
+		Long:  "Print information about an open transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -1383,7 +1381,7 @@ $ pachctl diff-file foo master path1 bar master path2
 				}
 			}
 
-			info, err := c.InspectTransaction(id)
+			info, err := c.InspectTransaction(&pfsclient.Transaction{ID: id})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -1399,18 +1397,19 @@ $ pachctl diff-file foo master path1 bar master path2
 			})
 		}),
 	}
+	fullTimestampsFlag(inspectTransaction)
 
 	resumeTransaction := &cobra.Command{
-		Use: "resume-transaction <transaction>",
+		Use:   "resume-transaction <transaction>",
 		Short: "Set an existing transaction as active.",
-		Long: "Set an existing transaction as active.",
+		Long:  "Set an existing transaction as active.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			info, err := c.InspectTransaction(args[0])
+			info, err := c.InspectTransaction(&pfsclient.Transaction{ID: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -1418,12 +1417,12 @@ $ pachctl diff-file foo master path1 bar master path2
 				return fmt.Errorf("transaction %s not found", args[0])
 			}
 
-			err = setActiveTransaction(info.transaction.ID)
+			err = setActiveTransaction(info.Transaction.ID)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("Resuming existing transaction with %d requests: %s\n", len(info.requests), info.transaction.ID)
+			fmt.Printf("Resuming existing transaction with %d requests: %s\n", len(info.Requests), info.Transaction.ID)
 			return nil
 		}),
 	}
@@ -1467,11 +1466,10 @@ $ pachctl diff-file foo master path1 bar master path2
 		resumeTransaction,
 	}
 
-
 	cmdutil.SetDocsUsage(repo, repoCommands)
 	cmdutil.SetDocsUsage(commit, commitCommands)
 	cmdutil.SetDocsUsage(file, fileCommands)
-	cmdutil.SetDocsUsage(transaction, transactionCommands)
+	cmdutil.SetDocsUsage(transactionDocs, transactionCommands)
 
 	var result []*cobra.Command
 	result = append(result, repo)

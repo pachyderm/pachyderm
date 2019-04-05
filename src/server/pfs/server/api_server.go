@@ -383,6 +383,62 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) StartTransaction(ctx context.Context, request *pfs.StartTransactionRequest) (response *pfs.Transaction, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	return a.driver.startTransaction(a.env.GetPachClient(ctx))
+}
+
+func (a *apiServer) InspectTransaction(ctx context.Context, request *pfs.InspectTransactionRequest) (response *pfs.TransactionInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	return a.driver.inspectTransaction(a.env.GetPachClient(ctx), request.Transaction)
+}
+
+func (a *apiServer) DeleteTransaction(ctx context.Context, request *pfs.DeleteTransactionRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	err := a.driver.deleteTransaction(a.env.GetPachClient(ctx), request.Transaction)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
+}
+
+func (a *apiServer) ListTransaction(ctx context.Context, request *pfs.ListTransactionRequest) (response *pfs.TransactionInfos, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	transactions, err := a.driver.listTransaction(a.env.GetPachClient(ctx))
+	if err != nil {
+		return nil, err
+	}
+	return &pfs.TransactionInfos{TransactionInfo: transactions}, nil
+}
+
+func (a *apiServer) FinishTransaction(ctx context.Context, request *pfs.FinishTransactionRequest) (response *pfs.TransactionResult, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	return a.driver.finishTransaction(a.env.GetPachClient(ctx), request.Transaction)
+}
+
+func (a *apiServer) AppendTransaction(ctx context.Context, request *pfs.AppendTransactionRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	err := a.driver.appendTransaction(a.env.GetPachClient(ctx), request.Transaction, request.Items)
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
+}
+
 func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())

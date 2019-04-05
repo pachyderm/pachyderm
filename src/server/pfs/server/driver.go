@@ -106,6 +106,7 @@ type driver struct {
 	commits        collectionFactory
 	branches       collectionFactory
 	openCommits    col.Collection
+	transactions   col.Collection
 
 	// a cache for hashtrees
 	treeCache *hashtree.Cache
@@ -136,9 +137,10 @@ func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtre
 		branches: func(repo string) col.Collection {
 			return pfsdb.Branches(etcdClient, etcdPrefix, repo)
 		},
-		openCommits: pfsdb.OpenCommits(etcdClient, etcdPrefix),
-		treeCache:   treeCache,
-		storageRoot: storageRoot,
+		openCommits:  pfsdb.OpenCommits(etcdClient, etcdPrefix),
+		transactions: pfsdb.Transactions(etcdClient, etcdPrefix),
+		treeCache:    treeCache,
+		storageRoot:  storageRoot,
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
 	}
@@ -3522,4 +3524,59 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	}
 	err = eg.Wait()
 	return oneOff, repo, branch, err
+}
+
+func (d *driver) startTransaction(pachClient *client.APIClient) (*pfs.Transaction, error) {
+	ctx := pachClient.Ctx()
+	var result *pfs.Transaction
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (d *driver) inspectTransaction(pachClient *client.APIClient, txn *pfs.Transaction) (*pfs.TransactionInfo, error) {
+	ctx := pachClient.Ctx()
+	result := &pfs.TransactionInfo{}
+	if err := d.transactions.ReadOnly(ctx).Get(txn.ID, result); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (d *driver) deleteTransaction(pachClient *client.APIClient, txn *pfs.Transaction) error {
+	ctx := pachClient.Ctx()
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		return nil
+	})
+	return err
+}
+
+func (d *driver) listTransaction(pachClient *client.APIClient) ([]*pfs.TransactionInfo, error) {
+	return nil, nil
+}
+
+func (d *driver) finishTransaction(pachClient *client.APIClient, txn *pfs.Transaction) (*pfs.TransactionResult, error) {
+	ctx := pachClient.Ctx()
+	var result *pfs.TransactionResult
+
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (d *driver) appendTransaction(pachClient *client.APIClient, txn *pfs.Transaction, items []*pfs.TransactionRequest) error {
+	ctx := pachClient.Ctx()
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		return nil
+	})
+	return err
 }
