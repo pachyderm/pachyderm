@@ -228,6 +228,9 @@ docker-build-gpu:
 	docker build -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
+docker-build-kafka:
+	docker build -t kafka-demo examples/kafka
+
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
 
