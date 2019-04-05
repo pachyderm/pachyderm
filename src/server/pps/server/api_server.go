@@ -729,6 +729,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		DataSkipped:   jobPtr.DataSkipped,
 		DataTotal:     jobPtr.DataTotal,
 		DataFailed:    jobPtr.DataFailed,
+		DataRecovered: jobPtr.DataRecovered,
 		Stats:         jobPtr.Stats,
 		StatsCommit:   jobPtr.StatsCommit,
 		State:         jobPtr.State,
