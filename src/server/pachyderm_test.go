@@ -8420,7 +8420,6 @@ func TestKafka(t *testing.T) {
 			Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
 		})
 	require.NoError(t, err)
-	fmt.Println("Pipeline created")
 	// and verify that the spout is consuming it
 	// we'll get 5 succesive commits, and ensure that we find all the kafka messages we wrote
 	// to the first five files.
@@ -8428,7 +8427,6 @@ func TestKafka(t *testing.T) {
 	require.NoError(t, err)
 	num := 1
 	for i := 0; i < 5; i++ {
-		fmt.Println("Subscribe", i)
 		num-- // files end in a newline so we need to decrement here inbetween iterations
 		commitInfo, err := iter.Next()
 		require.NoError(t, err)

@@ -54,7 +54,7 @@ func main() {
 					// read a message and write it to the buffer
 					m, err := reader.ReadMessage(context.Background())
 					if err != nil {
-						panic(err)
+						return err
 					}
 					b.Write(m.Value)
 				case <-tick.C:
