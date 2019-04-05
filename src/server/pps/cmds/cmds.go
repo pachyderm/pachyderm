@@ -52,16 +52,14 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 	jobDocs := &cobra.Command{
 		Short: "Docs for jobs.",
-		Long: `Jobs are the basic unit of computation in Pachyderm.
+		Long: `Jobs are the basic units of computation in Pachyderm.
 
-Jobs run a containerized workload over a set of finished input commits.
-Creating a job will also create a new repo and a commit in that repo which
-contains the output of the job, unless the job is created with another job as a
-parent. If the job is created with a parent, it will use the same repo as its
-parent job and the commit it creates will use the parent job's commit as a
-parent.
-If the job fails, the commit it creates will not be finished.
-To increase the throughput of a job, increase the 'shard' parameter.`,
+Jobs run a containerized workload over a set of finished input commits. Jobs are
+created by pipelines and will write output to a commit in the pipeline's output
+repo. A job can have multiple datums, each processed independently and the
+results will be merged together at the end.
+
+If the job fails, the output commit will not be populated with data.`,
 	}
 	cmdutil.SetDocsUsage(jobDocs)
 	commands = append(commands, cmdutil.CreateAlias(jobDocs, "job"))
@@ -253,7 +251,7 @@ $ {{alias}} foo@XXX -p bar -p baz`,
 
 	datumDocs := &cobra.Command{
 		Short: "Docs for datums.",
-		Long: `Datums are the small independent unit of processing for Pachyderm jobs.
+		Long: `Datums are the small independent units of processing for Pachyderm jobs.
 
 A datum is defined by applying a glob pattern (in the pipeline spec) to the file
 paths in the input repo. A datum can include one or more files or directories.
