@@ -28,3 +28,4 @@ cost of having to do more merges for older commits.
 - At each commit, store the output of the commit. Merge log will point to prior commits. If merging a set of prior commits (small commits chosen by heuristic),
   we will write a new merged fileset. If this new fileset is used in a later merge, then we can delete it if no checkpointing is involved.
 - Think about reference counters for chunks when designing this.
+- Maybe get rid of shards and do just a metadata merge at top level worker that farms out merging of data to workers.

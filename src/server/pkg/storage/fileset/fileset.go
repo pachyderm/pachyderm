@@ -7,27 +7,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/obj"
 )
 
-// Notes:
-// - I am drawing a distinction between parts of a fileset and the merge log because I think it makes sense to require
-// the full merging of data within a commit. The merge log will apply across commit boundaries. This also makes the finishing
-// step a bit easier because we simply merge everything in memory and in the scratch space, then maybe merge with the parent commits
-// based on some heuristics.
-// - This should be used primarily for a fileset that requires Put/Overwrite/Delete operations (input repos, uploading datum/chunk data).
-// For merging multiple serialized filesets, a Scratch and/or Merge operation should be used.
-// - Example structure in object storage:
-// /pfs/repo/commit/shard-0/fileset
-// /pfs/repo/commit/shard-0/index
-// /pfs/repo/commit/shard-0/mergelog
-// /pfs/repo/commit/shard-1/fileset
-// /pfs/repo/commit/shard-1/index
-// /pfs/repo/commit/shard-1/mergelog
-// /pfs/chunks/8cfd
-// /pfs/chunks/ef7d
-// /pfs/chunks/823a
-// /pfs/chunks/b54d
-// - Handling of shards will happen outside of the storage layer (does not make sense for storage layer to understand
-// workers and how to filter chunk data from them.
-
 const (
 	FileSet = "fileset"
 )
