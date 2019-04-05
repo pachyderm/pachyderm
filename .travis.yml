@@ -39,5 +39,8 @@ after_failure:
 - kubectl logs kafka-0 --namespace kafka
 - kubectl describe pod -l app=pachd
 - kubectl describe pod -l suite=pachyderm,app=etcd
+- KAFKA_PIPELINE=$(kubectl get pods -o json | jq -r .items[3].metadata.name)
+- kubectl logs $KAFKA_PIPELINE user
+- kubectl logs $KAFKA_PIPELINE storage
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
