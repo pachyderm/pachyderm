@@ -480,7 +480,7 @@ test-pps:
 
 test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
-	go test -v ./src/server -parallel 1 -count 1 -timeout 300s $(RUN) && \
+	go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
 	go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
 test-client:

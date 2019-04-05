@@ -33,14 +33,7 @@ after_failure:
 - kubectl version
 - kubectl get all
 - kubectl get all --namespace kafka
-- kubectl describe pod kafka-0 --namespace kafka
-- kubectl describe service outside-0 --namespace kafka
-- kubectl logs kafka-0 -c init-config --namespace kafka
-- kubectl logs kafka-0 --namespace kafka
 - kubectl describe pod -l app=pachd
 - kubectl describe pod -l suite=pachyderm,app=etcd
-- KAFKA_PIPELINE=$(kubectl get pods -o json | jq -r .items[3].metadata.name)
-- kubectl logs $KAFKA_PIPELINE user
-- kubectl logs $KAFKA_PIPELINE storage
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
