@@ -1448,6 +1448,9 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	}
 	for _, entry := range req.Entries {
 		user, scope := entry.Username, entry.Scope
+		if user == magicUser {
+			continue
+		}
 		eg.Go(func() error {
 			principal, err := a.canonicalizeSubject(ctx, user)
 			if err != nil {
@@ -1533,7 +1536,11 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 
 		// Set new ACL
 		if len(newACL.Entries) == 0 {
-			return acls.Delete(req.Repo)
+			err := acls.Delete(req.Repo)
+			if col.IsErrNotFound(err) {
+				return nil
+			}
+			return err
 		}
 		return acls.Put(req.Repo, newACL)
 	})

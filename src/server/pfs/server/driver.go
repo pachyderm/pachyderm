@@ -208,9 +208,6 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 	if err := validateRepoName(repo.Name); err != nil {
 		return err
 	}
-	if update {
-		return d.updateRepo(pachClient, repo, description)
-	}
 
 	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		repos := d.repos.ReadWrite(stm)
@@ -223,8 +220,12 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 		if err != nil && !col.IsErrNotFound(err) {
 			return fmt.Errorf("error checking whether \"%s\" exists: %v",
 				repo.Name, err)
-		} else if err == nil {
+		} else if err == nil && !update {
 			return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
+		}
+		created := now()
+		if err == nil {
+			created = existingRepoInfo.Created
 		}
 
 		// Create ACL for new repo
@@ -247,29 +248,16 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 
 		repoInfo := &pfs.RepoInfo{
 			Repo:        repo,
-			Created:     now(),
+			Created:     created,
 			Description: description,
 		}
-		return repos.Create(repo.Name, repoInfo)
-	})
-	return err
-}
-
-func (d *driver) updateRepo(pachClient *client.APIClient, repo *pfs.Repo, description string) error {
-	ctx := pachClient.Ctx()
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		repos := d.repos.ReadWrite(stm)
-		repoInfo := &pfs.RepoInfo{}
-		if err := repos.Get(repo.Name, repoInfo); err != nil {
-			return fmt.Errorf("error updating repo: %v", err)
+		// Only Put the new repoInfo if something has changed.  This
+		// optimization is impactful because pps will frequently update the
+		// __spec__ repo to make sure it exists.
+		if !proto.Equal(repoInfo, &existingRepoInfo) {
+			return repos.Put(repo.Name, repoInfo)
 		}
-		// Caller only neads to be a WRITER to call UpdatePipeline(), so caller only
-		// needs to be a WRITER to update the provenance.
-		if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_WRITER); err != nil {
-			return err
-		}
-		repoInfo.Description = description
-		return repos.Put(repo.Name, repoInfo)
+		return nil
 	})
 	return err
 }
