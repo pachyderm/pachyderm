@@ -8383,9 +8383,9 @@ func TestKafka(t *testing.T) {
 	host = part.Leader.Host
 	port = fmt.Sprint(part.Leader.Port)
 	// since kafka and pachyderm are in the same kubernetes cluster, we need to adjust the host address to "localhost" here
-	part.Leader.Host = host
+	part.Leader.Host = "localhost"
 	// and we can now make a connection to the leader
-	conn, err = kafka.DialPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", host, port), part)
+	conn, err = kafka.DialPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", "localhost", port), part)
 	if err != nil {
 		t.Fatal(err)
 	}
