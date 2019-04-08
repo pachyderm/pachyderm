@@ -585,10 +585,10 @@
 			"revisionTime": "2017-02-12T20:01:51Z"
 		},
 		{
-			"checksumSHA1": "2XtrajUc7LktpQETiH+H2hbd200=",
+			"checksumSHA1": "rasgUuf7DVFShc3hKeh9wjWBWO0=",
 			"path": "github.com/gogo/protobuf/gogoproto",
-			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
-			"revisionTime": "2017-06-06T14:43:17Z"
+			"revision": "382325bbbb4d1c850eec1f3ec92a1a16f502d68b",
+			"revisionTime": "2019-03-24T16:07:22Z"
 		},
 		{
 			"checksumSHA1": "gXiisLiXWRTmmYoxf49E4IZuOCs=",
@@ -597,10 +597,10 @@
 			"revisionTime": "2017-06-06T14:43:17Z"
 		},
 		{
-			"checksumSHA1": "6ZxSmrIx3Jd15aou16oG0HPylP4=",
+			"checksumSHA1": "jyCYGbN0KvpV6PasLXLOmNsaA3s=",
 			"path": "github.com/gogo/protobuf/proto",
-			"revision": "efccd33a0c20aa078705571d5ddbfa14c8395a63",
-			"revisionTime": "2017-06-06T14:43:17Z"
+			"revision": "382325bbbb4d1c850eec1f3ec92a1a16f502d68b",
+			"revisionTime": "2019-03-24T16:07:22Z"
 		},
 		{
 			"checksumSHA1": "U6RUw5eBwarsz1tgGdTK4WphhbI=",
@@ -669,10 +669,10 @@
 			"revisionTime": "2017-11-13T18:07:20Z"
 		},
 		{
-			"checksumSHA1": "yqF125xVSkmfLpIVGrLlfE05IUk=",
+			"checksumSHA1": "Y2MOwzNZfl4NRNDbLCZa6sgx7O0=",
 			"path": "github.com/golang/protobuf/proto",
-			"revision": "1e59b77b52bf8e4b449a57e6f79f21226d571845",
-			"revisionTime": "2017-11-13T18:07:20Z"
+			"revision": "e91709a02e0e8ff8b86b7aa913fdc9ae9498e825",
+			"revisionTime": "2019-04-09T05:09:43Z"
 		},
 		{
 			"checksumSHA1": "XNHQiRltA7NQJV0RvUroY+cf+zg=",
