@@ -832,6 +832,53 @@ func TestCommitBranch(t *testing.T) {
 	require.Equal(t, "master", commitInfo.Provenance[0].Branch.Name)
 }
 
+func TestCommitOnTwoBranchesProvenance(t *testing.T) {
+	client := GetPachClient(t)
+
+	require.NoError(t, client.CreateRepo("repo"))
+
+	parentCommit, err := client.StartCommit("repo", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("repo", parentCommit.ID))
+
+	masterCommit, err := client.StartCommit("repo", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("repo", masterCommit.ID))
+
+	// Make two branches provenant on the same commit on the master branch
+	require.NoError(t, client.CreateBranch("repo", "A", masterCommit.ID, nil))
+	require.NoError(t, client.CreateBranch("repo", "B", masterCommit.ID, nil))
+
+	// Now create a branch provenant on both branches A and B
+	require.NoError(t, client.CreateBranch("repo", "C", "", []*pfs.Branch{pclient.NewBranch("repo", "A"), pclient.NewBranch("repo", "B")}))
+
+	// The head commit of the C branch should have branches A and B both represented in the provenance
+	// This is important because jobInput looks up commits by branch
+	ci, err := client.InspectCommit("repo", "C")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(ci.Provenance))
+
+	// We should also be able to delete the head commit of A
+	require.NoError(t, client.DeleteCommit("repo", "A"))
+
+	// And the head of branch B should go back to the parent of the deleted commit
+	branchInfo, err := client.InspectBranch("repo", "B")
+	require.NoError(t, err)
+	require.Equal(t, parentCommit.ID, branchInfo.Head.ID)
+
+	// We should also be able to delete the head commit of A
+	require.NoError(t, client.DeleteCommit("repo", parentCommit.ID))
+
+	// It should also be ok to make new commits on branches A and B
+	aCommit, err := client.StartCommit("repo", "A")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("repo", aCommit.ID))
+
+	bCommit, err := client.StartCommit("repo", "B")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("repo", bCommit.ID))
+}
+
 func TestSimple(t *testing.T) {
 	client := GetPachClient(t)
 
