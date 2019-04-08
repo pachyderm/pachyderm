@@ -1302,14 +1302,14 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{Name: tag}); err == nil {
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
 			}
 			var statsTag *pfs.Tag
 			if a.pipelineInfo.EnableStats {
-				statsTag = &pfs.Tag{tag + statsTagSuffix}
+				statsTag = &pfs.Tag{Name: tag + statsTagSuffix}
 			}
 			subStats := &pps.ProcessStats{}
 			statsPath := path.Join("/", logger.template.DatumID)

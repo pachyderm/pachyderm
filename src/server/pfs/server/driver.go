@@ -2653,9 +2653,8 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 		var header *pfs.Object
 		var footer *pfs.Object
 		headerFooterSize := int64(0)
-		emptyRecord := pfs.PutFileRecord{}
 		if records.Header != nil {
-			if *records.Header == emptyRecord {
+			if records.Header.ObjectHash == "" || records.Header.SizeBytes == 0 {
 				header = &pfs.Object{}
 			} else {
 				header = &pfs.Object{Hash: records.Header.ObjectHash}
@@ -2663,7 +2662,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 		if records.Footer != nil {
-			if *records.Footer == emptyRecord {
+			if records.Footer.ObjectHash == "" || records.Footer.SizeBytes == 0 {
 				footer = &pfs.Object{}
 			} else {
 				footer = &pfs.Object{Hash: records.Footer.ObjectHash}

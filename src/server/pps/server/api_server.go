@@ -465,7 +465,7 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 		return nil, err
 	}
 
-	job := &pps.Job{uuid.NewWithoutDashes()}
+	job := &pps.Job{ID: uuid.NewWithoutDashes()}
 	_, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{
 			Job:          job,
@@ -743,7 +743,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	defer func(start time.Time) {
 		if response != nil && len(response.JobInfo) > client.MaxListItemsLog {
 			logrus.Infof("Response contains %d objects; logging the first %d", len(response.JobInfo), client.MaxListItemsLog)
-			a.Log(request, &pps.JobInfos{response.JobInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+			a.Log(request, &pps.JobInfos{JobInfo: response.JobInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
 		}
@@ -756,7 +756,7 @@ func (a *apiServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	}); err != nil {
 		return nil, err
 	}
-	return &pps.JobInfos{jobInfos}, nil
+	return &pps.JobInfos{JobInfo: jobInfos}, nil
 }
 
 func (a *apiServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_ListJobStreamServer) (retErr error) {
@@ -974,7 +974,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	}
 
 	var datumFileInfos []*pfs.FileInfo
-	fs, err := pfsClient.ListFileStream(ctx, &pfs.ListFileRequest{file, true})
+	fs, err := pfsClient.ListFileStream(ctx, &pfs.ListFileRequest{File: file, Full: true})
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
 	}
@@ -1110,7 +1110,7 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	datumInfo = &pps.DatumInfo{
 		Datum: &pps.Datum{
 			ID:  datumID,
-			Job: &pps.Job{jobID},
+			Job: &pps.Job{ID: jobID},
 		},
 		State: pps.DatumState_SUCCESS,
 	}
@@ -1134,7 +1134,7 @@ func (a *apiServer) getDatum(pachClient *client.APIClient, repo string, commit *
 		Commit: commit,
 		Path:   fmt.Sprintf("/%v/failure", datumID),
 	}
-	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{stateFile})
+	_, err = pfsClient.InspectFile(ctx, &pfs.InspectFileRequest{File: stateFile})
 	if err == nil {
 		datumInfo.State = pps.DatumState_FAILED
 	} else if !isNotFoundErr(err) {
@@ -1890,7 +1890,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	} else {
 		// Create output repo, pipeline output, and stats
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
-			Repo: &pfs.Repo{pipelineName},
+			Repo: &pfs.Repo{Name: pipelineName},
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
@@ -2102,7 +2102,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	defer func(start time.Time) {
 		if response != nil && len(response.PipelineInfo) > client.MaxListItemsLog {
 			logrus.Infof("Response contains %d objects; logging the first %d", len(response.PipelineInfo), client.MaxListItemsLog)
-			a.Log(request, &pps.PipelineInfos{response.PipelineInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+			a.Log(request, &pps.PipelineInfos{PipelineInfo: response.PipelineInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
 		}
@@ -2228,7 +2228,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	jobPtr := &pps.EtcdJobInfo{}
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions, func(jobID string) error {
 		eg.Go(func() error {
-			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{&pps.Job{jobID}})
+			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: &pps.Job{ID: jobID}})
 			return err
 		})
 		return nil

@@ -335,8 +335,8 @@ func (a *APIServer) collectDatum(pachClient *client.APIClient, index int, files 
 	tree hashtree.OpenHashTree, statsTree hashtree.OpenHashTree, treeMu *sync.Mutex, failed bool) error {
 	datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 	datumID := a.DatumID(files)
-	tag := &pfs.Tag{datumHash}
-	statsTag := &pfs.Tag{datumHash + statsTagSuffix}
+	tag := &pfs.Tag{Name: datumHash}
+	statsTag := &pfs.Tag{Name: datumHash + statsTagSuffix}
 
 	var eg errgroup.Group
 	var subTree hashtree.HashTree

@@ -435,7 +435,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
 					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(kubeClient, kubeNamespace))
-					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID}))
+					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{ID: clusterID}))
 					healthclient.RegisterHealthServer(s, publicHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(
@@ -534,7 +534,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(kubeClient, kubeNamespace))
 					healthclient.RegisterHealthServer(s, peerHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID}))
+					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{ID: clusterID}))
 					return nil
 				},
 			},

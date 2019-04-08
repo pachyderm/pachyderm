@@ -531,20 +531,11 @@ func (h *hashtree) PutHeaderFooter(path string, header *pfs.Object, footer *pfs.
 		return errorf(PathConflict, "could not put dir at \"%s\"; a file of "+
 			"type %s is already there", path, node.nodetype().tostring())
 	}
-	emptyObject := pfs.Object{}
-	if header != nil {
-		if *header == emptyObject {
-			node.DirNode.Header = nil
-		} else {
-			node.DirNode.Header = header
-		}
+	if header != nil && header.Hash != "" {
+		node.DirNode.Header = header
 	}
-	if footer != nil {
-		if *footer == emptyObject {
-			node.DirNode.Footer = nil
-		} else {
-			node.DirNode.Footer = footer
-		}
+	if footer != nil && footer.Hash != "" {
+		node.DirNode.Footer = footer
 	}
 	node.SubtreeSize += headerFooterSize
 	h.changed[path] = true
@@ -556,20 +547,11 @@ func (h *hashtree) PutHeaderFooter(path string, header *pfs.Object, footer *pfs.
 				DirNode: &DirectoryNodeProto{},
 			}
 			if child == filepath.Dir(path) {
-				emptyObject := pfs.Object{}
-				if header != nil {
-					if *header == emptyObject {
-						node.DirNode.Header = nil
-					} else {
-						node.DirNode.Header = header
-					}
+				if header != nil && header.Hash != "" {
+					node.DirNode.Header = header
 				}
-				if footer != nil {
-					if *footer == emptyObject {
-						node.DirNode.Footer = nil
-					} else {
-						node.DirNode.Footer = footer
-					}
+				if footer != nil && footer.Hash != "" {
+					node.DirNode.Footer = footer
 				}
 			}
 			h.fs[parent] = node
