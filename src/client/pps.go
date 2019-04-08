@@ -628,13 +628,12 @@ func (c APIClient) StopPipeline(name string) error {
 }
 
 // RunPipeline runs a pipeline over a given set of commits.
-func (c APIClient) RunPipeline(name string, provenance []*pfs.Commit, branchProvenance []*pfs.Branch) error {
+func (c APIClient) RunPipeline(name string, provenance []*pfs.CommitProvenance) error {
 	_, err := c.PpsAPIClient.RunPipeline(
 		c.Ctx(),
 		&pps.RunPipelineRequest{
-			Pipeline:         NewPipeline(name),
-			Provenance:       provenance,
-			BranchProvenance: branchProvenance,
+			Pipeline:   NewPipeline(name),
+			Provenance: provenance,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
