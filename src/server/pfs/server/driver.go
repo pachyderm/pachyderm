@@ -765,7 +765,9 @@ func (d *driver) writeFinishedCommit(ctx context.Context, commit *pfs.Commit, co
 				if err := d.branches(commit.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
 					return err
 				}
-				if branchInfo.Head.ID == commit.ID {
+				// If the head commit of master has been deleted, we could get here if another branch
+				// had shared its head commit with master, and then we created a new commit on that branch
+				if branchInfo.Head != nil && branchInfo.Head.ID == commit.ID {
 					repoInfo.SizeBytes = commitInfo.SizeBytes
 					if err := repos.Put(commit.Repo.Name, repoInfo); err != nil {
 						return err
@@ -832,6 +834,7 @@ nextSubvBranch:
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
+		key := path.Join
 		commitProvMap := make(map[string]*pfs.CommitProvenance)
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
@@ -841,7 +844,8 @@ nextSubvBranch:
 			if provBranchInfo.Head == nil {
 				continue
 			}
-			commitProvMap[provBranchInfo.Head.ID] = &pfs.CommitProvenance{
+			// We need to key on both the commit id and the branch name, so that branches with a shared commit are both represented in the provenance
+			commitProvMap[key(provBranchInfo.Head.ID, provBranch.Name)] = &pfs.CommitProvenance{
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
@@ -864,10 +868,10 @@ nextSubvBranch:
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
 			}
 			headIsSubset := false
-			for k := range commitProvMap {
+			for _, v := range commitProvMap {
 				matched := false
 				for _, c := range branchHeadInfo.Provenance {
-					if c.Commit.ID == k {
+					if c.Commit.ID == v.Commit.ID {
 						matched = true
 					}
 				}
@@ -1352,7 +1356,10 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 				if err := commits.Get(commit.ID, commitInfo); err != nil {
 					return err
 				}
-				deleted[commit.ID] = commitInfo
+				// If a commit has already been deleted, we don't want to overwrite the existing information, since commitInfo will be nil
+				if _, ok := deleted[commit.ID]; !ok {
+					deleted[commit.ID] = commitInfo
+				}
 				if err := commits.Delete(commit.ID); err != nil {
 					return err
 				}
