@@ -500,7 +500,7 @@ service API {
   rpc DeleteTransaction(DeleteTransactionRequest) returns (google.protobuf.Empty) {}
   rpc ListTransaction(ListTransactionRequest) returns (TransactionInfos) {}
   rpc FinishTransaction(FinishTransactionRequest) returns (TransactionInfo) {}
-  rpc AppendTransaction(AppendTransactionRequest) returns (google.protobuf.Empty) {}
+  rpc AppendTransaction(AppendTransactionRequest) returns (TransactionInfo) {}
 
   // Repo rpcs
   // CreateRepo creates a new repo.
