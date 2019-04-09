@@ -176,7 +176,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
-		if span, spanCtx = addJobSpanToAnyCommitTrace(oldCtx, a.etcdClient, commitInfo); spanCtx != nil {
+		if span, spanCtx = addJobSpanToAnyExtendedTrace(oldCtx, a.etcdClient, commitInfo); spanCtx != nil {
 			pachClient = pachClient.WithCtx(spanCtx)
 		}
 		if commitInfo.Finished != nil {
@@ -473,8 +473,7 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
 	logger.Logf("waitJob: %s", jobInfo.Job.ID)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
-	var span opentracing.Span
-	span, ctx = tracing.AddSpanToAnyExisting(ctx, "worker.waitJob")
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "worker.waitJob")
 	defer tracing.FinishAnySpan(span)
 	pachClient = pachClient.WithCtx(ctx)
 

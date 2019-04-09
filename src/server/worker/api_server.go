@@ -40,6 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -279,6 +280,14 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
 	initPrometheus()
+
+	span, ctx := addStartupSpanToAnyExtendedTrace(pachClient.Ctx(), etcdClient, pipelineInfo.Pipeline.Name)
+	oldPachClient := pachClient
+	if span != nil {
+		pachClient = pachClient.WithCtx(ctx)
+	}
+	defer tracing.FinishAnySpan(span)
+
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -292,7 +301,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
 	server := &APIServer{
-		pachClient:   pachClient,
+		pachClient:   oldPachClient,
 		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,

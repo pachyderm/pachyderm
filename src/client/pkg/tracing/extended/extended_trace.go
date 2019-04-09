@@ -52,7 +52,6 @@ func TracesCol(c *etcd.Client) col.Collection {
 // GetTraceFromCtx extracts any extended trace embeded in 'ctx's metadata
 func GetTraceFromCtx(ctx context.Context) (*TraceProto, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
-	// fmt.Printf(">>> [pfs/driver] metadata from incoming ctx: %v, %v\n", md, ok)
 	if !ok {
 		return nil, nil // no trace
 	}
@@ -63,7 +62,6 @@ func GetTraceFromCtx(ctx context.Context) (*TraceProto, error) {
 	if len(vals) > 1 {
 		return nil, fmt.Errorf("ctx should have at most one extended trace, but found %d", len(vals))
 	}
-	// fmt.Printf(">>> [pfs/driver] encoded extended trace: %v\n", vals)
 	marshalledProto, err := base64.URLEncoding.DecodeString(vals[0])
 	if err != nil {
 		return nil, fmt.Errorf("error base64-decoding marshalled ExtendedTrace proto: %v", err)
@@ -73,7 +71,6 @@ func GetTraceFromCtx(ctx context.Context) (*TraceProto, error) {
 		return nil, fmt.Errorf("error unmarshalling extended trace from ctx: %v", err)
 
 	}
-	fmt.Printf(">>> [tracing/GetTraceFromCtx] extendedTrace:\n%v\n", extendedTrace)
 	return extendedTrace, nil
 }
 

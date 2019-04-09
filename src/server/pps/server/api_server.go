@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -1761,6 +1762,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
+	ctx = extended.TraceIn2Out(ctx)
 	pachClient := a.getPachClient().WithCtx(ctx)
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
@@ -2203,7 +2205,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 
 	// Delete pipeline's workers
-	if err := a.deleteWorkersForPipeline(request.Pipeline.Name); err != nil {
+	if err := a.deleteWorkersForPipeline(ctx, request.Pipeline.Name); err != nil {
 		return nil, fmt.Errorf("error deleting workers: %v", err)
 	}
 
