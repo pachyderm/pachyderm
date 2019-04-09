@@ -81,7 +81,7 @@ func init() {
 	flag.Uint64Var(&hashtreeShards, "hashtree-shards", 3, "the "+
 		"number of output hashtree shards for the split pipeline")
 	flag.Int64Var(&putFileConcurrency, "put-file-concurrency", 3, "the number "+
-		"of concurrent put-file RPCs that the load test will make while loading "+
+		"of concurrent 'put file' RPCs that the load test will make while loading "+
 		"input data")
 }
 
