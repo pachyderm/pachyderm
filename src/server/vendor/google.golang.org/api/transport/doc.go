@@ -1,4 +1,4 @@
-// Copyright 2016 Google LLC
+// Copyright 2019 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,19 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +build appengine
-
-package http
-
-import (
-	"context"
-	"net/http"
-
-	"google.golang.org/appengine/urlfetch"
-)
-
-func init() {
-	appengineUrlfetchHook = func(ctx context.Context) http.RoundTripper {
-		return &urlfetch.Transport{Context: ctx}
-	}
-}
+// Package transport provides utility methods for creating authenticated
+// transports to Google's HTTP and gRPC APIs. It is intended to be used in
+// conjunction with google.golang.org/api/option.
+//
+// This package is not intended for use by end developers. Use the
+// google.golang.org/api/option package to configure API clients.
+package transport

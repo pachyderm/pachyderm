@@ -19,6 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
 )
 
 // Environment variables for determining storage backend and pathing
@@ -159,8 +161,8 @@ type Client interface {
 }
 
 // NewGoogleClient creates a google client with the given bucket name.
-func NewGoogleClient(bucket string, credFile string) (Client, error) {
-	return newGoogleClient(bucket, credFile)
+func NewGoogleClient(bucket string, opts []option.ClientOption) (Client, error) {
+	return newGoogleClient(bucket, opts)
 }
 
 func secretFile(name string) string {
@@ -190,11 +192,13 @@ func NewGoogleClientFromSecret(bucket string) (Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("google-cred not found")
 	}
-	var credFile string
+	var opts []option.ClientOption
 	if cred != "" {
-		credFile = secretFile("/google-cred")
+		opts = append(opts, option.WithCredentialsFile(secretFile("/google-cred")))
+	} else {
+		opts = append(opts, option.WithTokenSource(google.ComputeTokenSource("")))
 	}
-	return NewGoogleClient(bucket, credFile)
+	return NewGoogleClient(bucket, opts)
 }
 
 // NewGoogleClientFromEnv creates a Google client based on environment variables.
@@ -203,16 +207,12 @@ func NewGoogleClientFromEnv() (Client, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s not found", GoogleBucketEnvVar)
 	}
-	// (bryce) Need to upgrade gcs client to be able to pass in credentials as bytes
-	//cred, ok := os.LookupEnv(GoogleCredEnvVar)
-	//if !ok {
-	//	return nil, fmt.Errorf("%s not found", GoogleCredEnvVar)
-	//}
-	//var credFile string
-	//if cred != "" {
-	//	credFile = secretFile("/google-cred")
-	//}
-	return NewGoogleClient(bucket, "")
+	creds, ok := os.LookupEnv(GoogleCredEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("%s not found", GoogleCredEnvVar)
+	}
+	opts := []option.ClientOption{option.WithCredentialsJSON([]byte(creds))}
+	return NewGoogleClient(bucket, opts)
 }
 
 // NewMicrosoftClient creates a microsoft client:

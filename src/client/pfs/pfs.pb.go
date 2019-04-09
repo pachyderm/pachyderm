@@ -6488,10 +6488,20 @@ func _API_ListBranch_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_DeleteBranch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteBranchRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func (m *Branch) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
+		n1, err1 := m.Repo.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
+		}
+		i += n1
 	}
 	if interceptor == nil {
 		return srv.(APIServer).DeleteBranch(ctx, in)
@@ -6532,10 +6542,48 @@ func (x *aPIPutFileServer) Recv() (*PutFileRequest, error) {
 	return m, nil
 }
 
-func _API_CopyFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CopyFileRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func (m *BranchInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.Name) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Name)))
+		i += copy(dAtA[i:], m.Name)
+	}
+	if m.Head != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Head.Size()))
+		n2, err2 := m.Head.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
+		}
+		i += n2
+	}
+	if len(m.Provenance) > 0 {
+		for _, msg := range m.Provenance {
+			dAtA[i] = 0x1a
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.Branch != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Branch.Size()))
+		n3, err3 := m.Branch.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
+		}
+		i += n3
 	}
 	if interceptor == nil {
 		return srv.(APIServer).CopyFile(ctx, in)
@@ -6567,14 +6615,20 @@ type aPIGetFileServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIGetFileServer) Send(m *types.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _API_InspectFile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InspectFileRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func (m *File) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Commit != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Commit.Size()))
+		n4, err4 := m.Commit.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
+		}
+		i += n4
 	}
 	if interceptor == nil {
 		return srv.(APIServer).InspectFile(ctx, in)
@@ -6724,13 +6778,51 @@ func _API_DeleteFile_Handler(srv interface{}, ctx context.Context, dec func(inte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _API_DeleteAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(types.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
+func (m *RepoInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
+		n5, err5 := m.Repo.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
+		}
+		i += n5
 	}
-	if interceptor == nil {
-		return srv.(APIServer).DeleteAll(ctx, in)
+	if m.Created != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Created.Size()))
+		n6, err6 := m.Created.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
+		}
+		i += n6
+	}
+	if m.SizeBytes != 0 {
+		dAtA[i] = 0x18
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.SizeBytes))
+	}
+	if len(m.Description) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Description)))
+		i += copy(dAtA[i:], m.Description)
+	}
+	if m.AuthInfo != nil {
+		dAtA[i] = 0x32
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.AuthInfo.Size()))
+		n7, err7 := m.AuthInfo.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
+		}
+		i += n7
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
@@ -6975,23 +7067,26 @@ func (c *objectAPIClient) PutObjectSplit(ctx context.Context, opts ...grpc.CallO
 	return x, nil
 }
 
-type ObjectAPI_PutObjectSplitClient interface {
-	Send(*PutObjectRequest) error
-	CloseAndRecv() (*Objects, error)
-	grpc.ClientStream
-}
-
-type objectAPIPutObjectSplitClient struct {
-	grpc.ClientStream
-}
-
-func (x *objectAPIPutObjectSplitClient) Send(m *PutObjectRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *objectAPIPutObjectSplitClient) CloseAndRecv() (*Objects, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
+func (m *Commit) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
+		n8, err8 := m.Repo.MarshalTo(dAtA[i:])
+		if err8 != nil {
+			return 0, err8
+		}
+		i += n8
+	}
+	if len(m.ID) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.ID)))
+		i += copy(dAtA[i:], m.ID)
 	}
 	m := new(Objects)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
@@ -7009,23 +7104,30 @@ func (c *objectAPIClient) PutObjects(ctx context.Context, opts ...grpc.CallOptio
 	return x, nil
 }
 
-type ObjectAPI_PutObjectsClient interface {
-	Send(*PutObjectRequest) error
-	CloseAndRecv() (*types.Empty, error)
-	grpc.ClientStream
-}
-
-type objectAPIPutObjectsClient struct {
-	grpc.ClientStream
-}
-
-func (x *objectAPIPutObjectsClient) Send(m *PutObjectRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *objectAPIPutObjectsClient) CloseAndRecv() (*types.Empty, error) {
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
+func (m *CommitRange) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Lower != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Lower.Size()))
+		n9, err9 := m.Lower.MarshalTo(dAtA[i:])
+		if err9 != nil {
+			return 0, err9
+		}
+		i += n9
+	}
+	if m.Upper != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Upper.Size()))
+		n10, err10 := m.Upper.MarshalTo(dAtA[i:])
+		if err10 != nil {
+			return 0, err10
+		}
+		i += n10
 	}
 	m := new(types.Empty)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
@@ -7049,31 +7151,50 @@ func (c *objectAPIClient) GetObject(ctx context.Context, in *Object, opts ...grp
 	return x, nil
 }
 
-type ObjectAPI_GetObjectClient interface {
-	Recv() (*types.BytesValue, error)
-	grpc.ClientStream
-}
-
-type objectAPIGetObjectClient struct {
-	grpc.ClientStream
-}
-
-func (x *objectAPIGetObjectClient) Recv() (*types.BytesValue, error) {
-	m := new(types.BytesValue)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
+func (m *CommitInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Commit != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Commit.Size()))
+		n11, err11 := m.Commit.MarshalTo(dAtA[i:])
+		if err11 != nil {
+			return 0, err11
+		}
+		i += n11
 	}
-	return m, nil
-}
-
-func (c *objectAPIClient) GetObjects(ctx context.Context, in *GetObjectsRequest, opts ...grpc.CallOption) (ObjectAPI_GetObjectsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ObjectAPI_serviceDesc.Streams[4], "/pfs.ObjectAPI/GetObjects", opts...)
-	if err != nil {
-		return nil, err
+	if m.ParentCommit != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.ParentCommit.Size()))
+		n12, err12 := m.ParentCommit.MarshalTo(dAtA[i:])
+		if err12 != nil {
+			return 0, err12
+		}
+		i += n12
 	}
-	x := &objectAPIGetObjectsClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
+	if m.Started != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Started.Size()))
+		n13, err13 := m.Started.MarshalTo(dAtA[i:])
+		if err13 != nil {
+			return 0, err13
+		}
+		i += n13
+	}
+	if m.Finished != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Finished.Size()))
+		n14, err14 := m.Finished.MarshalTo(dAtA[i:])
+		if err14 != nil {
+			return 0, err14
+		}
+		i += n14
 	}
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
@@ -7095,20 +7216,76 @@ func (x *objectAPIGetObjectsClient) Recv() (*types.BytesValue, error) {
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	return m, nil
-}
-
-func (c *objectAPIClient) GetBlocks(ctx context.Context, in *GetBlocksRequest, opts ...grpc.CallOption) (ObjectAPI_GetBlocksClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ObjectAPI_serviceDesc.Streams[5], "/pfs.ObjectAPI/GetBlocks", opts...)
-	if err != nil {
-		return nil, err
+	if m.Tree != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Tree.Size()))
+		n15, err15 := m.Tree.MarshalTo(dAtA[i:])
+		if err15 != nil {
+			return 0, err15
+		}
+		i += n15
+	}
+	if len(m.Description) > 0 {
+		dAtA[i] = 0x42
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Description)))
+		i += copy(dAtA[i:], m.Description)
+	}
+	if len(m.Subvenance) > 0 {
+		for _, msg := range m.Subvenance {
+			dAtA[i] = 0x4a
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.BranchProvenance) > 0 {
+		for _, msg := range m.BranchProvenance {
+			dAtA[i] = 0x52
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.ChildCommits) > 0 {
+		for _, msg := range m.ChildCommits {
+			dAtA[i] = 0x5a
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.ReadyProvenance != 0 {
+		dAtA[i] = 0x60
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.ReadyProvenance))
 	}
 	x := &objectAPIGetBlocksClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
+	if m.Datums != nil {
+		dAtA[i] = 0x72
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Datums.Size()))
+		n16, err16 := m.Datums.MarshalTo(dAtA[i:])
+		if err16 != nil {
+			return 0, err16
+		}
+		i += n16
 	}
 	return x, nil
 }
@@ -7139,11 +7316,88 @@ func (c *objectAPIClient) TagObject(ctx context.Context, in *TagObjectRequest, o
 	return out, nil
 }
 
-func (c *objectAPIClient) InspectObject(ctx context.Context, in *Object, opts ...grpc.CallOption) (*ObjectInfo, error) {
-	out := new(ObjectInfo)
-	err := c.cc.Invoke(ctx, "/pfs.ObjectAPI/InspectObject", in, out, opts...)
-	if err != nil {
-		return nil, err
+func (m *FileInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.File != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.File.Size()))
+		n17, err17 := m.File.MarshalTo(dAtA[i:])
+		if err17 != nil {
+			return 0, err17
+		}
+		i += n17
+	}
+	if m.FileType != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.FileType))
+	}
+	if m.SizeBytes != 0 {
+		dAtA[i] = 0x18
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.SizeBytes))
+	}
+	if len(m.Children) > 0 {
+		for _, s := range m.Children {
+			dAtA[i] = 0x32
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			dAtA[i] = uint8(l)
+			i++
+			i += copy(dAtA[i:], s)
+		}
+	}
+	if len(m.Hash) > 0 {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Hash)))
+		i += copy(dAtA[i:], m.Hash)
+	}
+	if len(m.Objects) > 0 {
+		for _, msg := range m.Objects {
+			dAtA[i] = 0x42
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.BlockRefs) > 0 {
+		for _, msg := range m.BlockRefs {
+			dAtA[i] = 0x4a
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.Committed != nil {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Committed.Size()))
+		n18, err18 := m.Committed.MarshalTo(dAtA[i:])
+		if err18 != nil {
+			return 0, err18
+		}
+		i += n18
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return out, nil
 }
@@ -7189,23 +7443,71 @@ func (x *objectAPIListObjectsClient) Recv() (*Object, error) {
 	return m, nil
 }
 
-func (c *objectAPIClient) DeleteObjects(ctx context.Context, in *DeleteObjectsRequest, opts ...grpc.CallOption) (*DeleteObjectsResponse, error) {
-	out := new(DeleteObjectsResponse)
-	err := c.cc.Invoke(ctx, "/pfs.ObjectAPI/DeleteObjects", in, out, opts...)
+func (m *BlockRef) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Block != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Block.Size()))
+		n19, err19 := m.Block.MarshalTo(dAtA[i:])
+		if err19 != nil {
+			return 0, err19
+		}
+		i += n19
+	}
+	if m.Range != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Range.Size()))
+		n20, err20 := m.Range.MarshalTo(dAtA[i:])
+		if err20 != nil {
+			return 0, err20
+		}
+		i += n20
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ObjectInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *objectAPIClient) GetTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (ObjectAPI_GetTagClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ObjectAPI_serviceDesc.Streams[7], "/pfs.ObjectAPI/GetTag", opts...)
-	if err != nil {
-		return nil, err
+func (m *ObjectInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Object != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Object.Size()))
+		n21, err21 := m.Object.MarshalTo(dAtA[i:])
+		if err21 != nil {
+			return 0, err21
+		}
+		i += n21
 	}
-	x := &objectAPIGetTagClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
+	if m.BlockRef != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.BlockRef.Size()))
+		n22, err22 := m.BlockRef.MarshalTo(dAtA[i:])
+		if err22 != nil {
+			return 0, err22
+		}
+		i += n22
 	}
 	if err := x.ClientStream.CloseSend(); err != nil {
 		return nil, err
@@ -7218,8 +7520,41 @@ type ObjectAPI_GetTagClient interface {
 	grpc.ClientStream
 }
 
-type objectAPIGetTagClient struct {
-	grpc.ClientStream
+func (m *CreateRepoRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
+		n23, err23 := m.Repo.MarshalTo(dAtA[i:])
+		if err23 != nil {
+			return 0, err23
+		}
+		i += n23
+	}
+	if len(m.Description) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Description)))
+		i += copy(dAtA[i:], m.Description)
+	}
+	if m.Update {
+		dAtA[i] = 0x20
+		i++
+		if m.Update {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 func (x *objectAPIGetTagClient) Recv() (*types.BytesValue, error) {
@@ -7230,11 +7565,23 @@ func (x *objectAPIGetTagClient) Recv() (*types.BytesValue, error) {
 	return m, nil
 }
 
-func (c *objectAPIClient) InspectTag(ctx context.Context, in *Tag, opts ...grpc.CallOption) (*ObjectInfo, error) {
-	out := new(ObjectInfo)
-	err := c.cc.Invoke(ctx, "/pfs.ObjectAPI/InspectTag", in, out, opts...)
-	if err != nil {
-		return nil, err
+func (m *InspectRepoRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
+		n24, err24 := m.Repo.MarshalTo(dAtA[i:])
+		if err24 != nil {
+			return 0, err24
+		}
+		i += n24
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return out, nil
 }
@@ -7289,26 +7636,45 @@ func (c *objectAPIClient) Compact(ctx context.Context, in *types.Empty, opts ...
 	return out, nil
 }
 
-// ObjectAPIServer is the server API for ObjectAPI service.
-type ObjectAPIServer interface {
-	PutObject(ObjectAPI_PutObjectServer) error
-	PutObjectSplit(ObjectAPI_PutObjectSplitServer) error
-	PutObjects(ObjectAPI_PutObjectsServer) error
-	GetObject(*Object, ObjectAPI_GetObjectServer) error
-	GetObjects(*GetObjectsRequest, ObjectAPI_GetObjectsServer) error
-	GetBlocks(*GetBlocksRequest, ObjectAPI_GetBlocksServer) error
-	TagObject(context.Context, *TagObjectRequest) (*types.Empty, error)
-	InspectObject(context.Context, *Object) (*ObjectInfo, error)
-	// CheckObject checks if an object exists in the blob store without
-	// actually reading the object.
-	CheckObject(context.Context, *CheckObjectRequest) (*CheckObjectResponse, error)
-	ListObjects(*ListObjectsRequest, ObjectAPI_ListObjectsServer) error
-	DeleteObjects(context.Context, *DeleteObjectsRequest) (*DeleteObjectsResponse, error)
-	GetTag(*Tag, ObjectAPI_GetTagServer) error
-	InspectTag(context.Context, *Tag) (*ObjectInfo, error)
-	ListTags(*ListTagsRequest, ObjectAPI_ListTagsServer) error
-	DeleteTags(context.Context, *DeleteTagsRequest) (*DeleteTagsResponse, error)
-	Compact(context.Context, *types.Empty) (*types.Empty, error)
+func (m *DeleteRepoRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
+		n25, err25 := m.Repo.MarshalTo(dAtA[i:])
+		if err25 != nil {
+			return 0, err25
+		}
+		i += n25
+	}
+	if m.Force {
+		dAtA[i] = 0x10
+		i++
+		if m.Force {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.All {
+		dAtA[i] = 0x18
+		i++
+		if m.All {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 func RegisterObjectAPIServer(s *grpc.Server, srv ObjectAPIServer) {
@@ -7341,8 +7707,49 @@ func (x *objectAPIPutObjectServer) Recv() (*PutObjectRequest, error) {
 	return m, nil
 }
 
-func _ObjectAPI_PutObjectSplit_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ObjectAPIServer).PutObjectSplit(&objectAPIPutObjectSplitServer{stream})
+func (m *StartCommitRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Parent != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Parent.Size()))
+		n26, err26 := m.Parent.MarshalTo(dAtA[i:])
+		if err26 != nil {
+			return 0, err26
+		}
+		i += n26
+	}
+	if len(m.Provenance) > 0 {
+		for _, msg := range m.Provenance {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if len(m.Branch) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Branch)))
+		i += copy(dAtA[i:], m.Branch)
+	}
+	if len(m.Description) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Description)))
+		i += copy(dAtA[i:], m.Description)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 type ObjectAPI_PutObjectSplitServer interface {
@@ -7367,8 +7774,59 @@ func (x *objectAPIPutObjectSplitServer) Recv() (*PutObjectRequest, error) {
 	return m, nil
 }
 
-func _ObjectAPI_PutObjects_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ObjectAPIServer).PutObjects(&objectAPIPutObjectsServer{stream})
+func (m *BuildCommitRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Parent != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Parent.Size()))
+		n27, err27 := m.Parent.MarshalTo(dAtA[i:])
+		if err27 != nil {
+			return 0, err27
+		}
+		i += n27
+	}
+	if len(m.Provenance) > 0 {
+		for _, msg := range m.Provenance {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.Tree != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Tree.Size()))
+		n28, err28 := m.Tree.MarshalTo(dAtA[i:])
+		if err28 != nil {
+			return 0, err28
+		}
+		i += n28
+	}
+	if len(m.Branch) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Branch)))
+		i += copy(dAtA[i:], m.Branch)
+	}
+	if len(m.ID) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.ID)))
+		i += copy(dAtA[i:], m.ID)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 type ObjectAPI_PutObjectsServer interface {
@@ -7393,31 +7851,76 @@ func (x *objectAPIPutObjectsServer) Recv() (*PutObjectRequest, error) {
 	return m, nil
 }
 
-func _ObjectAPI_GetObject_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(Object)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+func (m *FinishCommitRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Commit != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Commit.Size()))
+		n29, err29 := m.Commit.MarshalTo(dAtA[i:])
+		if err29 != nil {
+			return 0, err29
+		}
+		i += n29
 	}
-	return srv.(ObjectAPIServer).GetObject(m, &objectAPIGetObjectServer{stream})
-}
-
-type ObjectAPI_GetObjectServer interface {
-	Send(*types.BytesValue) error
-	grpc.ServerStream
-}
-
-type objectAPIGetObjectServer struct {
-	grpc.ServerStream
-}
-
-func (x *objectAPIGetObjectServer) Send(m *types.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _ObjectAPI_GetObjects_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetObjectsRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
+	if len(m.Description) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Description)))
+		i += copy(dAtA[i:], m.Description)
+	}
+	if m.Tree != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Tree.Size()))
+		n30, err30 := m.Tree.MarshalTo(dAtA[i:])
+		if err30 != nil {
+			return 0, err30
+		}
+		i += n30
+	}
+	if m.Empty {
+		dAtA[i] = 0x20
+		i++
+		if m.Empty {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if len(m.Trees) > 0 {
+		for _, msg := range m.Trees {
+			dAtA[i] = 0x2a
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	if m.SizeBytes != 0 {
+		dAtA[i] = 0x30
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.SizeBytes))
+	}
+	if m.Datums != nil {
+		dAtA[i] = 0x3a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Datums.Size()))
+		n31, err31 := m.Datums.MarshalTo(dAtA[i:])
+		if err31 != nil {
+			return 0, err31
+		}
+		i += n31
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	return srv.(ObjectAPIServer).GetObjects(m, &objectAPIGetObjectsServer{stream})
 }
@@ -7443,23 +7946,20 @@ func _ObjectAPI_GetBlocks_Handler(srv interface{}, stream grpc.ServerStream) err
 	return srv.(ObjectAPIServer).GetBlocks(m, &objectAPIGetBlocksServer{stream})
 }
 
-type ObjectAPI_GetBlocksServer interface {
-	Send(*types.BytesValue) error
-	grpc.ServerStream
-}
-
-type objectAPIGetBlocksServer struct {
-	grpc.ServerStream
-}
-
-func (x *objectAPIGetBlocksServer) Send(m *types.BytesValue) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _ObjectAPI_TagObject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TagObjectRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func (m *InspectCommitRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Commit != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Commit.Size()))
+		n32, err32 := m.Commit.MarshalTo(dAtA[i:])
+		if err32 != nil {
+			return 0, err32
+		}
+		i += n32
 	}
 	if interceptor == nil {
 		return srv.(ObjectAPIServer).TagObject(ctx, in)
@@ -7492,13 +7992,40 @@ func _ObjectAPI_InspectObject_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ObjectAPI_CheckObject_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CheckObjectRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func (m *ListCommitRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Repo != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
+		n33, err33 := m.Repo.MarshalTo(dAtA[i:])
+		if err33 != nil {
+			return 0, err33
+		}
+		i += n33
 	}
-	if interceptor == nil {
-		return srv.(ObjectAPIServer).CheckObject(ctx, in)
+	if m.From != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.From.Size()))
+		n34, err34 := m.From.MarshalTo(dAtA[i:])
+		if err34 != nil {
+			return 0, err34
+		}
+		i += n34
+	}
+	if m.To != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.To.Size()))
+		n35, err35 := m.To.MarshalTo(dAtA[i:])
+		if err35 != nil {
+			return 0, err35
+		}
+		i += n35
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
@@ -7527,21 +8054,33 @@ type objectAPIListObjectsServer struct {
 	grpc.ServerStream
 }
 
-func (x *objectAPIListObjectsServer) Send(m *Object) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _ObjectAPI_DeleteObjects_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleteObjectsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func (m *CreateBranchRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Head != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Head.Size()))
+		n36, err36 := m.Head.MarshalTo(dAtA[i:])
+		if err36 != nil {
+			return 0, err36
+		}
+		i += n36
 	}
 	if interceptor == nil {
 		return srv.(ObjectAPIServer).DeleteObjects(ctx, in)
 	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pfs.ObjectAPI/DeleteObjects",
+	if m.Branch != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Branch.Size()))
+		n37, err37 := m.Branch.MarshalTo(dAtA[i:])
+		if err37 != nil {
+			return 0, err37
+		}
+		i += n37
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ObjectAPIServer).DeleteObjects(ctx, req.(*DeleteObjectsRequest))
@@ -7746,8 +8285,12 @@ func (m *Repo) MarshalTo(dAtA []byte) (int, error) {
 	if len(m.Name) > 0 {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+		i = encodeVarintPfs(dAtA, i, uint64(m.Branch.Size()))
+		n38, err38 := m.Branch.MarshalTo(dAtA[i:])
+		if err38 != nil {
+			return 0, err38
+		}
+		i += n38
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -7774,9 +8317,9 @@ func (m *Branch) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
-		n1, err := m.Repo.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n39, err39 := m.Repo.MarshalTo(dAtA[i:])
+		if err39 != nil {
+			return 0, err39
 		}
 		i += n1
 	}
@@ -7810,16 +8353,10 @@ func (m *BranchInfo) MarshalTo(dAtA []byte) (int, error) {
 	if len(m.Name) > 0 {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.Head != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Head.Size()))
-		n2, err := m.Head.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.Branch.Size()))
+		n40, err40 := m.Branch.MarshalTo(dAtA[i:])
+		if err40 != nil {
+			return 0, err40
 		}
 		i += n2
 	}
@@ -7838,10 +8375,10 @@ func (m *BranchInfo) MarshalTo(dAtA []byte) (int, error) {
 	if m.Branch != nil {
 		dAtA[i] = 0x22
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Branch.Size()))
-		n3, err := m.Branch.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.Commit.Size()))
+		n41, err41 := m.Commit.MarshalTo(dAtA[i:])
+		if err41 != nil {
+			return 0, err41
 		}
 		i += n3
 	}
@@ -7926,18 +8463,33 @@ func (m *File) MarshalTo(dAtA []byte) (int, error) {
 	if m.Commit != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Commit.Size()))
-		n4, err := m.Commit.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
+		n42, err42 := m.Repo.MarshalTo(dAtA[i:])
+		if err42 != nil {
+			return 0, err42
 		}
 		i += n4
 	}
 	if len(m.Path) > 0 {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(len(m.Path)))
-		i += copy(dAtA[i:], m.Path)
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Branch)))
+		i += copy(dAtA[i:], m.Branch)
+	}
+	if m.From != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.From.Size()))
+		n43, err43 := m.From.MarshalTo(dAtA[i:])
+		if err43 != nil {
+			return 0, err43
+		}
+		i += n43
+	}
+	if m.State != 0 {
+		dAtA[i] = 0x20
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.State))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -7963,8 +8515,22 @@ func (m *Block) MarshalTo(dAtA []byte) (int, error) {
 	if len(m.Hash) > 0 {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(len(m.Hash)))
-		i += copy(dAtA[i:], m.Hash)
+		i = encodeVarintPfs(dAtA, i, uint64(m.File.Size()))
+		n44, err44 := m.File.MarshalTo(dAtA[i:])
+		if err44 != nil {
+			return 0, err44
+		}
+		i += n44
+	}
+	if m.OffsetBytes != 0 {
+		dAtA[i] = 0x10
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.OffsetBytes))
+	}
+	if m.SizeBytes != 0 {
+		dAtA[i] = 0x18
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.SizeBytes))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8017,8 +8583,64 @@ func (m *Tag) MarshalTo(dAtA []byte) (int, error) {
 	if len(m.Name) > 0 {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+		i = encodeVarintPfs(dAtA, i, uint64(m.File.Size()))
+		n45, err45 := m.File.MarshalTo(dAtA[i:])
+		if err45 != nil {
+			return 0, err45
+		}
+		i += n45
+	}
+	if len(m.Value) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Value)))
+		i += copy(dAtA[i:], m.Value)
+	}
+	if len(m.Url) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(len(m.Url)))
+		i += copy(dAtA[i:], m.Url)
+	}
+	if m.Recursive {
+		dAtA[i] = 0x30
+		i++
+		if m.Recursive {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.Delimiter != 0 {
+		dAtA[i] = 0x38
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Delimiter))
+	}
+	if m.TargetFileDatums != 0 {
+		dAtA[i] = 0x40
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.TargetFileDatums))
+	}
+	if m.TargetFileBytes != 0 {
+		dAtA[i] = 0x48
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.TargetFileBytes))
+	}
+	if m.OverwriteIndex != nil {
+		dAtA[i] = 0x52
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.OverwriteIndex.Size()))
+		n46, err46 := m.OverwriteIndex.MarshalTo(dAtA[i:])
+		if err46 != nil {
+			return 0, err46
+		}
+		i += n46
+	}
+	if m.HeaderRecords != 0 {
+		dAtA[i] = 0x58
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.HeaderRecords))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8054,10 +8676,10 @@ func (m *RepoInfo) MarshalTo(dAtA []byte) (int, error) {
 	if m.Created != nil {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Created.Size()))
-		n6, err := m.Created.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.OverwriteIndex.Size()))
+		n47, err47 := m.OverwriteIndex.MarshalTo(dAtA[i:])
+		if err47 != nil {
+			return 0, err47
 		}
 		i += n6
 	}
@@ -8094,6 +8716,36 @@ func (m *RepoInfo) MarshalTo(dAtA []byte) (int, error) {
 			i += n
 		}
 	}
+	if m.Tombstone {
+		dAtA[i] = 0x18
+		i++
+		if m.Tombstone {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.Header != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Header.Size()))
+		n48, err48 := m.Header.MarshalTo(dAtA[i:])
+		if err48 != nil {
+			return 0, err48
+		}
+		i += n48
+	}
+	if m.Footer != nil {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Footer.Size()))
+		n49, err49 := m.Footer.MarshalTo(dAtA[i:])
+		if err49 != nil {
+			return 0, err49
+		}
+		i += n49
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
 	}
@@ -8115,8 +8767,34 @@ func (m *RepoAuthInfo) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.AccessLevel != 0 {
-		dAtA[i] = 0x8
+	if m.Src != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Src.Size()))
+		n50, err50 := m.Src.MarshalTo(dAtA[i:])
+		if err50 != nil {
+			return 0, err50
+		}
+		i += n50
+	}
+	if m.Dst != nil {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintPfs(dAtA, i, uint64(m.Dst.Size()))
+		n51, err51 := m.Dst.MarshalTo(dAtA[i:])
+		if err51 != nil {
+			return 0, err51
+		}
+		i += n51
+	}
+	if m.Overwrite {
+		dAtA[i] = 0x18
+		i++
+		if m.Overwrite {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
 		i++
 		i = encodeVarintPfs(dAtA, i, uint64(m.AccessLevel))
 	}
@@ -8144,10 +8822,10 @@ func (m *Commit) MarshalTo(dAtA []byte) (int, error) {
 	if m.Repo != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
-		n8, err := m.Repo.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.File.Size()))
+		n52, err52 := m.File.MarshalTo(dAtA[i:])
+		if err52 != nil {
+			return 0, err52
 		}
 		i += n8
 	}
@@ -8181,20 +8859,20 @@ func (m *CommitRange) MarshalTo(dAtA []byte) (int, error) {
 	if m.Lower != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Lower.Size()))
-		n9, err := m.Lower.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.File.Size()))
+		n53, err53 := m.File.MarshalTo(dAtA[i:])
+		if err53 != nil {
+			return 0, err53
 		}
 		i += n9
 	}
 	if m.Upper != nil {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Upper.Size()))
-		n10, err := m.Upper.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.File.Size()))
+		n54, err54 := m.File.MarshalTo(dAtA[i:])
+		if err54 != nil {
+			return 0, err54
 		}
 		i += n10
 	}
@@ -8223,9 +8901,9 @@ func (m *CommitInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintPfs(dAtA, i, uint64(m.Commit.Size()))
-		n11, err := m.Commit.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n55, err55 := m.Commit.MarshalTo(dAtA[i:])
+		if err55 != nil {
+			return 0, err55
 		}
 		i += n11
 	}
@@ -8379,17 +9057,22 @@ func (m *FileInfo) MarshalTo(dAtA []byte) (int, error) {
 	if m.File != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.File.Size()))
-		n17, err := m.File.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.NewFile.Size()))
+		n56, err56 := m.NewFile.MarshalTo(dAtA[i:])
+		if err56 != nil {
+			return 0, err56
 		}
 		i += n17
 	}
 	if m.FileType != 0 {
 		dAtA[i] = 0x10
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.FileType))
+		i = encodeVarintPfs(dAtA, i, uint64(m.OldFile.Size()))
+		n57, err57 := m.OldFile.MarshalTo(dAtA[i:])
+		if err57 != nil {
+			return 0, err57
+		}
+		i += n57
 	}
 	if m.SizeBytes != 0 {
 		dAtA[i] = 0x18
@@ -8475,12 +9158,12 @@ func (m *ByteRange) MarshalTo(dAtA []byte) (int, error) {
 	if m.Lower != 0 {
 		dAtA[i] = 0x8
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Lower))
-	}
-	if m.Upper != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Upper))
+		i = encodeVarintPfs(dAtA, i, uint64(m.File.Size()))
+		n58, err58 := m.File.MarshalTo(dAtA[i:])
+		if err58 != nil {
+			return 0, err58
+		}
+		i += n58
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -8516,10 +9199,10 @@ func (m *BlockRef) MarshalTo(dAtA []byte) (int, error) {
 	if m.Range != nil {
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Range.Size()))
-		n20, err := m.Range.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.Block.Size()))
+		n59, err59 := m.Block.MarshalTo(dAtA[i:])
+		if err59 != nil {
+			return 0, err59
 		}
 		i += n20
 	}
@@ -8635,10 +9318,10 @@ func (m *InspectRepoRequest) MarshalTo(dAtA []byte) (int, error) {
 	if m.Repo != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
-		n24, err := m.Repo.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.Object.Size()))
+		n60, err60 := m.Object.MarshalTo(dAtA[i:])
+		if err60 != nil {
+			return 0, err60
 		}
 		i += n24
 	}
@@ -8720,20 +9403,20 @@ func (m *DeleteRepoRequest) MarshalTo(dAtA []byte) (int, error) {
 	if m.Repo != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Repo.Size()))
-		n25, err := m.Repo.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.Tag.Size()))
+		n61, err61 := m.Tag.MarshalTo(dAtA[i:])
+		if err61 != nil {
+			return 0, err61
 		}
 		i += n25
 	}
 	if m.Force {
 		dAtA[i] = 0x10
 		i++
-		if m.Force {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
+		i = encodeVarintPfs(dAtA, i, uint64(m.Object.Size()))
+		n62, err62 := m.Object.MarshalTo(dAtA[i:])
+		if err62 != nil {
+			return 0, err62
 		}
 		i++
 	}
@@ -8975,10 +9658,10 @@ func (m *InspectCommitRequest) MarshalTo(dAtA []byte) (int, error) {
 	if m.Commit != nil {
 		dAtA[i] = 0xa
 		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Commit.Size()))
-		n32, err := m.Commit.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		i = encodeVarintPfs(dAtA, i, uint64(m.Object.Size()))
+		n63, err63 := m.Object.MarshalTo(dAtA[i:])
+		if err63 != nil {
+			return 0, err63
 		}
 		i += n32
 	}
@@ -9097,13 +9780,32 @@ func (m *CreateBranchRequest) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if m.Head != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPfs(dAtA, i, uint64(m.Head.Size()))
-		n36, err := m.Head.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+	if len(m.Objects) > 0 {
+		for k, _ := range m.Objects {
+			dAtA[i] = 0xa
+			i++
+			v := m.Objects[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovPfs(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovPfs(uint64(len(k))) + msgSize
+			i = encodeVarintPfs(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintPfs(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintPfs(dAtA, i, uint64(v.Size()))
+				n64, err64 := v.MarshalTo(dAtA[i:])
+				if err64 != nil {
+					return 0, err64
+				}
+				i += n64
+			}
 		}
 		i += n36
 	}
@@ -9127,10 +9829,17 @@ func (m *CreateBranchRequest) MarshalTo(dAtA []byte) (int, error) {
 		for _, msg := range m.Provenance {
 			dAtA[i] = 0x22
 			i++
-			i = encodeVarintPfs(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+			i = encodeVarintPfs(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintPfs(dAtA, i, uint64(v.Size()))
+				n65, err65 := v.MarshalTo(dAtA[i:])
+				if err65 != nil {
+					return 0, err65
+				}
+				i += n65
 			}
 			i += n
 		}

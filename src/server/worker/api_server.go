@@ -35,7 +35,7 @@ import (
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"github.com/fsouza/go-dockerclient"
+	docker "github.com/fsouza/go-dockerclient"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -77,8 +77,9 @@ const (
 )
 
 var (
-	errSpecialFile = errors.New("cannot upload special file")
-	statsTagSuffix = "_stats"
+	errSpecialFile    = errors.New("cannot upload special file")
+	errDatumRecovered = errors.New("the datum errored, and the error was handled successfully")
+	statsTagSuffix    = "_stats"
 )
 
 // APIServer implements the worker API
@@ -688,6 +689,74 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	return nil
 }
 
+// Run user error code and return the combined output of stdout and stderr.
+func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+	logger.Logf("beginning to run user error handling code")
+	defer func(start time.Time) {
+		if retErr != nil {
+			logger.Logf("errored running user error handling code after %v: %v", time.Since(start), retErr)
+		} else {
+			logger.Logf("finished running user error handling code after %v", time.Since(start))
+		}
+	}(time.Now())
+
+	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.ErrCmd[0], a.pipelineInfo.Transform.ErrCmd[1:]...)
+	if a.pipelineInfo.Transform.ErrStdin != nil {
+		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
+	}
+	cmd.Stdout = logger.userLogger()
+	cmd.Stderr = logger.userLogger()
+	cmd.Env = environ
+	if a.uid != nil && a.gid != nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: &syscall.Credential{
+				Uid: *a.uid,
+				Gid: *a.gid,
+			},
+		}
+	}
+	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
+	err := cmd.Start()
+	if err != nil {
+		return fmt.Errorf("error cmd.Start: %v", err)
+	}
+	// A context w a deadline will successfully cancel/kill
+	// the running process (minus zombies)
+	state, err := cmd.Process.Wait()
+	if err != nil {
+		return fmt.Errorf("error cmd.Wait: %v", err)
+	}
+	if isDone(ctx) {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+	}
+	// Because of this issue: https://github.com/golang/go/issues/18874
+	// We forked os/exec so that we can call just the part of cmd.Wait() that
+	// happens after blocking on the process. Unfortunately calling
+	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
+	// close the IO using this helper
+	err = cmd.WaitIO(state, err)
+	// We ignore broken pipe errors, these occur very occasionally if a user
+	// specifies Stdin but their process doesn't actually read everything from
+	// Stdin. This is a fairly common thing to do, bash by default ignores
+	// broken pipe errors.
+	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
+		// (if err is an acceptable return code, don't return err)
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+				for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
+					if int(returnCode) == status.ExitStatus() {
+						return nil
+					}
+				}
+			}
+		}
+		return fmt.Errorf("error cmd.WaitIO: %v", err)
+	}
+	return nil
+}
+
 func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
 	duration := time.Since(start)
 	stats.UploadTime = types.DurationProto(duration)
@@ -1048,6 +1117,7 @@ type processResult struct {
 	failedDatumID   string
 	datumsProcessed int64
 	datumsSkipped   int64
+	datumsRecovered int64
 	datumsFailed    int64
 }
 
@@ -1104,6 +1174,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 		if err := jobs.Update(jobID, jobPtr, func() error {
 			jobPtr.DataProcessed += processResult.datumsProcessed
 			jobPtr.DataSkipped += processResult.datumsSkipped
+			jobPtr.DataRecovered += processResult.datumsRecovered
 			jobPtr.DataFailed += processResult.datumsFailed
 			return nil
 		}); err != nil {
@@ -1794,7 +1865,8 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo, df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
+	df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -1944,6 +2016,12 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					})
 				}
 				if err := a.runUserCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+					if a.pipelineInfo.Transform.ErrCmd != nil && failures == jobInfo.DatumTries-1 {
+						if err = a.runUserErrorHandlingCode(ctx, logger, env, subStats, jobInfo.DatumTimeout); err != nil {
+							return fmt.Errorf("error runUserErrorHandlingCode: %v", err)
+						}
+						return errDatumRecovered
+					}
 					return fmt.Errorf("error runUserCode: %v", err)
 				}
 				// CleanUp is idempotent so we can call it however many times we want.
@@ -1987,7 +2065,10 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				}
 				logger.Logf("failed processing datum: %v, retrying in %v", err, d)
 				return nil
-			}); err != nil {
+			}); err == errDatumRecovered {
+				atomic.AddInt64(&result.datumsRecovered, 1)
+				return nil
+			} else if err != nil {
 				result.failedDatumID = a.DatumID(data)
 				atomic.AddInt64(&result.datumsFailed, 1)
 				return nil
@@ -2020,7 +2101,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 	}); err != nil {
 		return nil, err
 	}
-	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed
+	result.datumsProcessed = high - low - result.datumsSkipped - result.datumsFailed - result.datumsRecovered
 	// Merge datum hashtrees into a chunk hashtree, then cache it.
 	if err := a.mergeChunk(logger, high, result); err != nil {
 		return nil, err

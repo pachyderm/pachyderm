@@ -16,12 +16,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// GetConfig returns a cobra command that lets the caller see the configured
+// GetConfigCmd returns a cobra command that lets the caller see the configured
 // auth backends in Pachyderm
-func GetConfig(noPortForwarding *bool) *cobra.Command {
+func GetConfigCmd(noPortForwarding *bool) *cobra.Command {
 	var format string
 	getConfig := &cobra.Command{
-		Use:   "get-config",
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
@@ -59,15 +58,14 @@ func GetConfig(noPortForwarding *bool) *cobra.Command {
 	}
 	getConfig.Flags().StringVarP(&format, "output-format", "o", "json", "output "+
 		"format (\"json\" or \"yaml\")")
-	return getConfig
+	return cmdutil.CreateAlias(getConfig, "auth get-config")
 }
 
-// SetConfig returns a cobra command that lets the caller configure auth
+// SetConfigCmd returns a cobra command that lets the caller configure auth
 // backends in Pachyderm
-func SetConfig(noPortForwarding *bool) *cobra.Command {
+func SetConfigCmd(noPortForwarding *bool) *cobra.Command {
 	var file string
-	configure := &cobra.Command{
-		Use:   "set-config",
+	setConfig := &cobra.Command{
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
@@ -105,7 +103,7 @@ func SetConfig(noPortForwarding *bool) *cobra.Command {
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	configure.Flags().StringVarP(&file, "file", "f", "-", "input file (to use "+
+	setConfig.Flags().StringVarP(&file, "file", "f", "-", "input file (to use "+
 		"as the new config")
-	return configure
+	return cmdutil.CreateAlias(setConfig, "auth set-config")
 }

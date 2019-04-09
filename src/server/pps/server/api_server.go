@@ -729,6 +729,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		DataSkipped:   jobPtr.DataSkipped,
 		DataTotal:     jobPtr.DataTotal,
 		DataFailed:    jobPtr.DataFailed,
+		DataRecovered: jobPtr.DataRecovered,
 		Stats:         jobPtr.Stats,
 		StatsCommit:   jobPtr.StatsCommit,
 		State:         jobPtr.State,
@@ -1869,12 +1870,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 	pipelineName := pipelineInfo.Pipeline.Name
 	pps.SortInput(pipelineInfo.Input) // Makes datum hashes comparable
+	update := false
 	if request.Update {
-		// inspect the pipeline here so that if it doesn't exist users get a
-		// sensible error message
-		if _, err := a.inspectPipeline(pachClient, request.Pipeline.Name); err != nil {
-			return nil, err
+		// inspect the pipeline to see if this is a real update
+		if _, err := a.inspectPipeline(pachClient, request.Pipeline.Name); err == nil {
+			update = true
 		}
+	}
+	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
 		if ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
 			return nil, err
@@ -2436,7 +2439,14 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	if err := pachClient.DeleteRepo(ppsconsts.SpecRepo, true); err != nil && !isNotFoundErr(err) {
 		return nil, err
 	}
-	if err := pachClient.CreateRepo(ppsconsts.SpecRepo); err != nil && !isAlreadyExistsErr(err) {
+	if _, err := pachClient.PfsAPIClient.CreateRepo(
+		pachClient.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:        client.NewRepo(ppsconsts.SpecRepo),
+			Update:      true,
+			Description: ppsconsts.SpecRepoDesc,
+		},
+	); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
