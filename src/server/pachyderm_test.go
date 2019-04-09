@@ -6724,7 +6724,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	commit := branches[0].Head
 
 	// Now wait for the pipeline complete as normal
-	outputRepo := &pfs.Repo{Name: pipeline}
+	outputRepo := client.NewRepo(pipeline)
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
@@ -6871,7 +6871,7 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 	commit := branches[0].Head
 
 	// Now wait for the pipeline complete as normal
-	outputRepo := &pfs.Repo{Name: pipeline}
+	outputRepo := client.NewRepo(pipeline)
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
@@ -6947,7 +6947,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 		commit := branches[0].Head
 
 		// Now wait for the pipeline complete as normal
-		outputRepo := &pfs.Repo{Name: pipelines[i]}
+		outputRepo := client.NewRepo(pipelines[i])
 		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 		require.NoError(t, err)
 		commitInfos := collectCommitInfos(t, commitIter)
@@ -7090,7 +7090,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	require.NotNil(t, commit)
 
 	// Now wait for the pipeline complete as normal
-	outputRepo := &pfs.Repo{Name: pipeline}
+	outputRepo := client.NewRepo(pipeline)
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
