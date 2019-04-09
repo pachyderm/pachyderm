@@ -828,8 +828,8 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	_, err = aliceClient.SetACL(aliceClient.Ctx(), &auth.SetACLRequest{
 		Repo: repo,
 		Entries: []*auth.ACLEntry{
-			{alice, auth.Scope_OWNER},
-			{"carol", auth.Scope_READER},
+			{Username: alice, Scope: auth.Scope_OWNER},
+			{Username: "carol", Scope: auth.Scope_READER},
 		},
 	})
 	require.YesError(t, err)
@@ -865,8 +865,8 @@ func TestGetSetScopeAndAclWithExpiredToken(t *testing.T) {
 	_, err = adminClient.SetACL(adminClient.Ctx(), &auth.SetACLRequest{
 		Repo: repo,
 		Entries: []*auth.ACLEntry{
-			{alice, auth.Scope_OWNER},
-			{"carol", auth.Scope_WRITER},
+			{Username: alice, Scope: auth.Scope_OWNER},
+			{Username: "carol", Scope: auth.Scope_WRITER},
 		},
 	})
 	require.NoError(t, err)

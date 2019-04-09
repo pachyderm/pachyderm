@@ -500,7 +500,7 @@ func TestMultipleInputsFromTheSameRepoDifferentBranchesIncremental(t *testing.T)
 	// Creating this pipeline should error, because the two inputs are
 	// from the same repo but they don't specify different names.
 	req := &pps.CreatePipelineRequest{
-		Pipeline: &pps.Pipeline{Name: pipeline},
+		Pipeline: client.NewPipeline(pipeline),
 		Transform: &pps.Transform{
 			Cmd: []string{"bash"},
 			Stdin: []string{
@@ -630,7 +630,7 @@ func TestEgressFailure(t *testing.T) {
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
 			Input:  client.NewAtomInput(dataRepo, "/"),
-			Egress: &pps.Egress{"invalid://blahblah"},
+			Egress: &pps.Egress{URL: "invalid://blahblah"},
 		})
 	require.NoError(t, err)
 
@@ -946,7 +946,7 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
 
 	aCommit := commit2
-	commitIter, err := c.FlushCommit([]*pfs.Commit{aCommit}, []*pfs.Repo{{bPipeline}})
+	commitIter, err := c.FlushCommit([]*pfs.Commit{aCommit}, []*pfs.Repo{{Name: bPipeline}})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
@@ -1050,7 +1050,7 @@ func TestProvenance2(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(aRepo, commit2.ID))
 
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit2}, []*pfs.Repo{{dPipeline}})
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit2}, []*pfs.Repo{{Name: dPipeline}})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
@@ -1636,7 +1636,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{pipelineName},
+			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd:              []string{"sh"},
 				Stdin:            []string{"exit 1"},
@@ -1773,7 +1773,7 @@ func TestPrettyPrinting(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{pipelineName},
+			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -3542,7 +3542,7 @@ func TestPipelineResourceRequest(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{pipelineName},
+			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -3619,7 +3619,7 @@ func TestPipelineResourceLimit(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{pipelineName},
+			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -3690,7 +3690,7 @@ func TestPipelineResourceLimitDefaults(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{pipelineName},
+			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -3749,7 +3749,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{fmt.Sprintf("%s-%d", pipelineName, 0)},
+			Pipeline: client.NewPipeline(fmt.Sprintf("%s-%d", pipelineName, 0)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -3769,7 +3769,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{fmt.Sprintf("%s-%d", pipelineName, 1)},
+			Pipeline: client.NewPipeline(fmt.Sprintf("%s-%d", pipelineName, 1)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -3788,7 +3788,7 @@ func TestPipelinePartialResourceRequest(t *testing.T) {
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{fmt.Sprintf("%s-%d", pipelineName, 2)},
+			Pipeline: client.NewPipeline(fmt.Sprintf("%s-%d", pipelineName, 2)),
 			Transform: &pps.Transform{
 				Cmd: []string{"true"},
 			},
@@ -3830,7 +3830,7 @@ func TestPodSpecOpts(t *testing.T) {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		context.Background(),
 		&pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{pipelineName},
+			Pipeline: client.NewPipeline(pipelineName),
 			Transform: &pps.Transform{
 				Cmd: []string{"cp", path.Join("/pfs", dataRepo, "file"), "/pfs/out/file"},
 			},
@@ -5400,7 +5400,7 @@ func TestCronPipeline(t *testing.T) {
 	t.Run("CronIncremental", func(t *testing.T) {
 		pipeline := tu.UniqueString("CronIncremental-")
 		req := &pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{Name: pipeline},
+			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -5433,7 +5433,7 @@ func TestCronPipeline(t *testing.T) {
 	t.Run("CronIncrementalFailures", func(t *testing.T) {
 		pipeline := tu.UniqueString("CronIncremental-")
 		req := &pps.CreatePipelineRequest{
-			Pipeline: &pps.Pipeline{Name: pipeline},
+			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
 				Cmd: []string{"bash"},
 				Stdin: []string{
@@ -6396,7 +6396,7 @@ func TestPipelineWithGitInput(t *testing.T) {
 	commit := branches[0].Head
 
 	// Now wait for the pipeline complete as normal
-	outputRepo := &pfs.Repo{Name: pipeline}
+	outputRepo := client.NewRepo(pipeline)
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
@@ -6543,7 +6543,7 @@ func TestPipelineWithGitInputCustomName(t *testing.T) {
 	commit := branches[0].Head
 
 	// Now wait for the pipeline complete as normal
-	outputRepo := &pfs.Repo{Name: pipeline}
+	outputRepo := client.NewRepo(pipeline)
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
@@ -6619,7 +6619,7 @@ func TestPipelineWithGitInputMultiPipelineSeparateInputs(t *testing.T) {
 		commit := branches[0].Head
 
 		// Now wait for the pipeline complete as normal
-		outputRepo := &pfs.Repo{Name: pipelines[i]}
+		outputRepo := client.NewRepo(pipelines[i])
 		commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 		require.NoError(t, err)
 		commitInfos := collectCommitInfos(t, commitIter)
@@ -6762,7 +6762,7 @@ func TestPipelineWithGitInputAndBranch(t *testing.T) {
 	require.NotNil(t, commit)
 
 	// Now wait for the pipeline complete as normal
-	outputRepo := &pfs.Repo{Name: pipeline}
+	outputRepo := client.NewRepo(pipeline)
 	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, []*pfs.Repo{outputRepo})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
