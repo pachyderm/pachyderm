@@ -162,7 +162,12 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 					return err
 				}
 				etcdWatcher = etcd.NewWatcher(client)
-				rch = etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(nextRevision))
+				// regenerate options to use new revision
+				options := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
+				if withPrev {
+					options = append(options, etcd.WithPrevKV())
+				}
+				rch = etcdWatcher.Watch(ctx, prefix, options...)
 				continue
 			}
 			if err := resp.Err(); err != nil {
