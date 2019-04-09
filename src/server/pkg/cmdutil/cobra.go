@@ -3,7 +3,9 @@ package cmdutil
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/spf13/cobra"
@@ -56,46 +58,105 @@ func ErrorAndExit(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-// ParseCommits takes a slice of arguments of the form "repo/commit-id" or
-// "repo" (in which case we consider the commit ID to be empty), and returns
-// a list of *pfs.Commits
-func ParseCommits(args []string) ([]*pfs.Commit, error) {
-	var commits []*pfs.Commit
-	for _, arg := range args {
-		parts := strings.SplitN(arg, "/", 2)
-		hasRepo := len(parts) > 0 && parts[0] != ""
-		hasCommit := len(parts) == 2 && parts[1] != ""
-		if hasCommit && !hasRepo {
-			return nil, fmt.Errorf("invalid commit id \"%s\": repo cannot be empty", arg)
-		}
-		commit := &pfs.Commit{
-			Repo: &pfs.Repo{
-				Name: parts[0],
-			},
-		}
-		if len(parts) == 2 {
-			commit.ID = parts[1]
-		} else {
-			commit.ID = ""
-		}
-		commits = append(commits, commit)
+// ParseCommit takes an argument of the form "repo[@branch-or-commit]" and
+// returns the corresponding *pfs.Commit.
+func ParseCommit(arg string) (*pfs.Commit, error) {
+	parts := strings.SplitN(arg, "@", 2)
+	if parts[0] == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": repo cannot be empty", arg)
 	}
-	return commits, nil
+	commit := &pfs.Commit{
+		Repo: &pfs.Repo{
+			Name: parts[0],
+		},
+		ID: "",
+	}
+	if len(parts) == 2 {
+		commit.ID = parts[1]
+	}
+	return commit, nil
 }
 
-// ParseBranches takes a slice of arguments of the form "repo/branch-name" or
-// "repo" (in which case we consider the branch name to be empty), and returns
-// a list of *pfs.Branches
-func ParseBranches(args []string) ([]*pfs.Branch, error) {
-	commits, err := ParseCommits(args)
+// ParseCommits converts all arguments to *pfs.Commit structs using the
+// semantics of ParseCommit
+func ParseCommits(args []string) ([]*pfs.Commit, error) {
+	var results []*pfs.Commit
+	for _, arg := range args {
+		commit, err := ParseCommit(arg)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, commit)
+	}
+	return results, nil
+}
+
+// ParseBranch takes an argument of the form "repo[@branch]" and
+// returns the corresponding *pfs.Branch.  This uses ParseCommit under the hood
+// because a branch name is usually interchangeable with a commit-id.
+func ParseBranch(arg string) (*pfs.Branch, error) {
+	commit, err := ParseCommit(arg)
 	if err != nil {
 		return nil, err
 	}
-	var result []*pfs.Branch
-	for _, commit := range commits {
-		result = append(result, &pfs.Branch{Repo: commit.Repo, Name: commit.ID})
+	return &pfs.Branch{Repo: commit.Repo, Name: commit.ID}, nil
+}
+
+// ParseBranches converts all arguments to *pfs.Commit structs using the
+// semantics of ParseBranch
+func ParseBranches(args []string) ([]*pfs.Branch, error) {
+	var results []*pfs.Branch
+	for _, arg := range args {
+		branch, err := ParseBranch(arg)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, branch)
 	}
-	return result, nil
+	return results, nil
+}
+
+// ParseFile takes an argument of the form "repo[@branch-or-commit[:path]]", and
+// returns the corresponding *pfs.File.
+func ParseFile(arg string) (*pfs.File, error) {
+	repoAndRest := strings.SplitN(arg, "@", 2)
+	if repoAndRest[0] == "" {
+		return nil, fmt.Errorf("invalid format \"%s\": repo cannot be empty", arg)
+	}
+	file := &pfs.File{
+		Commit: &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: repoAndRest[0],
+			},
+			ID: "",
+		},
+		Path: "",
+	}
+	if len(repoAndRest) > 1 {
+		commitAndPath := strings.SplitN(repoAndRest[1], ":", 2)
+		if commitAndPath[0] == "" {
+			return nil, fmt.Errorf("invalid format \"%s\": commit cannot be empty", arg)
+		}
+		file.Commit.ID = commitAndPath[0]
+		if len(commitAndPath) > 1 {
+			file.Path = commitAndPath[1]
+		}
+	}
+	return file, nil
+}
+
+// ParseFiles converts all arguments to *pfs.Commit structs using the
+// semantics of ParseFile
+func ParseFiles(args []string) ([]*pfs.File, error) {
+	var results []*pfs.File
+	for _, arg := range args {
+		commit, err := ParseFile(arg)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, commit)
+	}
+	return results, nil
 }
 
 // RepeatedStringArg is an alias for []string
@@ -123,48 +184,140 @@ func (r *RepeatedStringArg) Type() string {
 	return "[]string"
 }
 
+// CreateAlias generates a nested command tree for the invocation specified,
+// which should be space-delimited as on the command-line.  The 'Use' field of
+// 'cmd' should specify '{{alias}}' instead of the command name as that will be
+// filled in based on each invocation.  Similarly, for the 'Example' field,
+// '{{alias}}' will be replaced with the full command path.  These commands can
+// later be merged into the final Command tree using 'MergeCommands' below.
+func CreateAlias(cmd *cobra.Command, invocation string) *cobra.Command {
+
+	// Create logical commands for each substring in each invocation
+	var root, prev *cobra.Command
+	args := strings.Split(invocation, " ")
+
+	for i, arg := range args {
+		cur := &cobra.Command{}
+
+		// The leaf command node should include the usage from the given cmd,
+		// while logical nodes just need one piece of the invocation.
+		if i == len(args)-1 {
+			*cur = *cmd
+			if cmd.Use == "" {
+				cur.Use = arg
+			} else {
+				cur.Use = strings.Replace(cmd.Use, "{{alias}}", arg, -1)
+			}
+			cur.Example = strings.Replace(cmd.Example, "{{alias}}", fmt.Sprintf("%s %s", os.Args[0], invocation), -1)
+		} else {
+			cur.Use = arg
+		}
+
+		if root == nil {
+			root = cur
+		} else if prev != nil {
+			prev.AddCommand(cur)
+		}
+		prev = cur
+	}
+
+	return root
+}
+
+// MergeCommands merges several command aliases (generated by 'CreateAlias'
+// above) into a single coherent cobra command tree (with root command 'root').
+// Because 'CreateAlias' generates empty commands to preserve the right
+// hierarchy, we go through a little extra effort to allow intermediate 'docs'
+// commands to be preserved in the final command structure.
+func MergeCommands(root *cobra.Command, children []*cobra.Command) {
+	// Implement our own 'find' function because Command.Find is not reliable?
+	findCommand := func(parent *cobra.Command, name string) *cobra.Command {
+		for _, cmd := range parent.Commands() {
+			if cmd.Name() == name {
+				return cmd
+			}
+		}
+		return nil
+	}
+
+	// Sort children by max nesting depth - this will put 'docs' commands first,
+	// so they are not overwritten by logical commands added by aliases.
+	var depth func(*cobra.Command) int
+	depth = func(cmd *cobra.Command) int {
+		maxDepth := 0
+		for _, subcmd := range cmd.Commands() {
+			subcmdDepth := depth(subcmd)
+			if subcmdDepth > maxDepth {
+				maxDepth = subcmdDepth
+			}
+		}
+		return maxDepth + 1
+	}
+
+	sort.Slice(children, func(i, j int) bool {
+		return depth(children[i]) < depth(children[j])
+	})
+
+	// Move each child command over to the main command tree recursively
+	for _, cmd := range children {
+		parent := findCommand(root, cmd.Name())
+		if parent == nil {
+			root.AddCommand(cmd)
+		} else {
+			MergeCommands(parent, cmd.Commands())
+		}
+	}
+}
+
 // SetDocsUsage sets the usage string for a docs-style command.  Docs commands
 // have no functionality except to output some docs and related commands, and
 // should not specify a 'Run' attribute.
-func SetDocsUsage(command *cobra.Command, subcommands []*cobra.Command) {
-	command.SetUsageTemplate(`Usage:
-  pachctl [command]{{if gt .Aliases 0}}
+func SetDocsUsage(command *cobra.Command) {
+	command.SetHelpTemplate(`{{or .Long .Short}}
 
-Aliases:
-  {{.NameAndAliases}}
-{{end}}{{if .HasExample}}
-
-Examples:
-{{ .Example }}{{end}}{{ if .HasAvailableSubCommands}}
-
-Available Commands:{{range .Commands}}{{if .IsAvailableCommand}}
-  {{rpad .Name .NamePadding }} {{.Short}}{{end}}{{end}}{{end}}{{ if .HasAvailableLocalFlags}}
-
-Flags:
-{{.LocalFlags.FlagUsages | trimRightSpace}}{{end}}{{if .HasHelpSubCommands}}
-
-Additional help topics:{{range .Commands}}{{if .IsHelpCommand}}
-  {{rpad .CommandPath .CommandPathPadding}} {{.Short}}{{end}}{{end}}{{end}}
+{{.UsageString}}
 `)
 
-	command.SetHelpTemplate(`{{or .Long .Short}}
-{{.UsageString}}`)
+	command.SetUsageFunc(func(cmd *cobra.Command) error {
+		rootCmd := cmd.Root()
 
-	// This song-and-dance is so that we can render the related commands without
-	// actually having them usable as subcommands of the docs command.
-	// That is, we don't want `pachctl job list-job` to work, it should just
-	// be `pachctl list-job`.  Therefore, we lazily add/remove the subcommands
-	// only when we try to render usage for the docs command.
-	originalUsage := command.UsageFunc()
-	command.SetUsageFunc(func(c *cobra.Command) error {
-		newUsage := command.UsageFunc()
-		command.SetUsageFunc(originalUsage)
-		defer command.SetUsageFunc(newUsage)
+		// Walk the command tree, finding commands with the documented word
+		var associated []*cobra.Command
+		var walk func(*cobra.Command)
+		walk = func(cursor *cobra.Command) {
+			if cursor.Name() == cmd.Name() && cursor.CommandPath() != cmd.CommandPath() {
+				associated = append(associated, cursor)
+			}
+			for _, subcmd := range cursor.Commands() {
+				walk(subcmd)
+			}
+		}
+		walk(rootCmd)
 
-		command.AddCommand(subcommands...)
-		defer command.RemoveCommand(subcommands...)
+		var maxCommandPath int
+		for _, x := range associated {
+			commandPathLen := len(x.CommandPath())
+			if commandPathLen > maxCommandPath {
+				maxCommandPath = commandPathLen
+			}
+		}
 
-		command.Usage()
-		return nil
+		templateFuncs := template.FuncMap{
+			"pad": func(s string) string {
+				format := fmt.Sprintf("%%-%ds", maxCommandPath+1)
+				return fmt.Sprintf(format, s)
+			},
+			"associated": func() []*cobra.Command {
+				return associated
+			},
+		}
+
+		text := `Associated Commands:{{range associated}}{{if .IsAvailableCommand}}
+  {{pad .CommandPath}} {{.Short}}{{end}}{{end}}`
+
+		t := template.New("top")
+		t.Funcs(templateFuncs)
+		template.Must(t.Parse(text))
+		return t.Execute(cmd.Out(), cmd)
 	})
 }
