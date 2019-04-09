@@ -1,0 +1,86 @@
+syntax = "proto3";
+
+package transaction;
+option go_package = "github.com/pachyderm/pachyderm/src/transaction/pfs";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+import "gogoproto/gogo.proto";
+
+import "client/pfs/pfs.proto";
+import "client/pps/pps.proto";
+
+message TransactionRequest {
+  oneof request {
+    pfs.CreateRepoRequest create_repo = 1;
+    pfs.DeleteRepoRequest delete_repo = 2;
+    pfs.StartCommitRequest start_commit = 3;
+    pfs.FinishCommitRequest finish_commit = 4;
+    pfs.DeleteCommitRequest delete_commit = 5;
+    pfs.CreateBranchRequest create_branch = 6;
+    pfs.DeleteBranchRequest delete_branch = 7;
+    pfs.PutFileRequest put_file = 8; // probably need a different message for this
+    pfs.CopyFileRequest copy_file = 9; // might need a different message for this
+    pfs.DeleteFileRequest delete_file = 10;
+    google.protobuf.Empty delete_all = 11;
+
+    pps.CreatePipelineRequest create_pipeline = 12;
+  }
+}
+
+message TransactionResponse {
+  oneof response {
+    google.protobuf.Empty none = 1;
+    pfs.Commit commit = 2; // Only used for StartCommit - any way we can deterministically provide this before finishing the transaction?
+  }
+}
+
+message Transaction {
+  string id = 1 [(gogoproto.customname) = "ID"];
+}
+
+message TransactionInfo {
+  Transaction transaction = 1;
+  repeated TransactionRequest requests = 2;
+  repeated TransactionResponse responses = 3;
+  google.protobuf.Timestamp started = 4;
+}
+
+message TransactionInfos {
+  repeated TransactionInfo transaction_info = 1;
+}
+
+message StartTransactionRequest {
+}
+
+message InspectTransactionRequest {
+  Transaction transaction = 1;
+}
+
+message DeleteTransactionRequest {
+  Transaction transaction = 1;
+}
+
+message ListTransactionRequest {
+}
+
+message FinishTransactionRequest {
+  Transaction transaction = 1;
+}
+
+message AppendTransactionRequest {
+  Transaction transaction = 1;
+  repeated TransactionRequest items = 2;
+}
+
+service API {
+  // Transaction rpcs
+  rpc StartTransaction(StartTransactionRequest) returns (Transaction) {}
+  rpc InspectTransaction(InspectTransactionRequest) returns (TransactionInfo) {}
+  rpc DeleteTransaction(DeleteTransactionRequest) returns (google.protobuf.Empty) {}
+  rpc ListTransaction(ListTransactionRequest) returns (TransactionInfos) {}
+  rpc FinishTransaction(FinishTransactionRequest) returns (TransactionInfo) {}
+  rpc AppendTransaction(AppendTransactionRequest) returns (TransactionInfo) {}
+}
