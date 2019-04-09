@@ -3013,6 +3013,16 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 }
 
 func (d *driver) deleteAll(pachClient *client.APIClient) error {
+	ctx := pachClient.Ctx()
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		transactions := d.transactions.ReadWrite(stm)
+		transactions.DeleteAll()
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
 	repoInfos, err := d.listRepo(pachClient, !includeAuth)
@@ -3615,7 +3625,7 @@ func (d *driver) appendTransaction(
 		// 1. make sure the appended request is valid
 		// 2. Capture the result of the request to be returned
 		var transactionLength int
-		dryrunResponses := []*pfs.TransactionResponse{}
+		var dryrunResponses []*pfs.TransactionResponse
 
 		info := &pfs.TransactionInfo{}
 		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
@@ -3637,8 +3647,8 @@ func (d *driver) appendTransaction(
 				return err
 			}
 
-			dryrunResponses := info.Responses[transactionLength:]
-			return TransactionDryrunError{}
+			dryrunResponses = info.Responses[transactionLength:]
+			return &TransactionDryrunError{}
 		})
 
 		info = &pfs.TransactionInfo{}
@@ -3652,23 +3662,23 @@ func (d *driver) appendTransaction(
 			}
 
 			if len(info.Requests) != transactionLength {
-				return TransactionConflictError{}
+				return &TransactionConflictError{}
 			}
 
 			info.Requests = append(info.Requests, items...)
 			info.Responses = append(info.Responses, dryrunResponses...)
 
-			err = transactions.Put(txn.ID, info)
-			if err != nil {
-				return err
-			}
+			return transactions.Put(txn.ID, info)
 		})
 
-		if err == TransactionDryRun {
+		if err == nil {
 			return info, nil
-		} else if err != TransactionConflictError {
+		}
+		switch err.(type) {
+		case *TransactionConflictError: // pass
+		default:
 			return nil, err
 		}
 	}
-	return nil, err
+	return nil, &TransactionConflictError{}
 }

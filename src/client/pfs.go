@@ -1548,7 +1548,7 @@ func (c APIClient) StartTransaction() (*pfs.Transaction, error) {
 	return response, nil
 }
 
-func (c APIClient) FinishTransaction(transaction *pfs.Transaction) (*pfs.TransactionResult, error) {
+func (c APIClient) FinishTransaction(transaction *pfs.Transaction) (*pfs.TransactionInfo, error) {
 	response, err := c.PfsAPIClient.FinishTransaction(
 		c.Ctx(),
 		&pfs.FinishTransactionRequest{

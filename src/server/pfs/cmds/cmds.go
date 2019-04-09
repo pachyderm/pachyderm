@@ -1282,7 +1282,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 			return writer.Flush()
 		}),
 	}
-	fullTimestampsFlag(listTransaction)
+	listTransaction.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(listTransaction, "list transaction"))
 
 	getActiveTransaction := func() (string, error) {
@@ -1290,8 +1290,8 @@ Tags are a low-level resource and should not be accessed directly by most users.
 		if err != nil {
 			return "", fmt.Errorf("error reading Pachyderm config: %v", err)
 		}
-		if cfg.V1 == nil {
-			return "", nil
+		if cfg.V1 == nil || cfg.V1.ActiveTransaction == "" {
+			return "", fmt.Errorf("no active transaction")
 		}
 		return cfg.V1.ActiveTransaction, nil
 	}
@@ -1347,10 +1347,6 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				return err
 			}
 
-			if id == "" {
-				return fmt.Errorf("No active transaction")
-			}
-
 			err = setActiveTransaction("")
 			if err != nil {
 				return err
@@ -1373,6 +1369,8 @@ Tags are a low-level resource and should not be accessed directly by most users.
 			}
 			defer c.Close()
 
+			// TODO: use advisory locks on config so we don't have a race condition if
+			// two commands are run simultaneously
 			var id string
 			if len(args) > 0 {
 				id = args[0]
@@ -1383,7 +1381,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				}
 			}
 
-			result, err := c.FinishTransaction(&pfsclient.Transaction{ID: id})
+			info, err := c.FinishTransaction(&pfsclient.Transaction{ID: id})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -1393,7 +1391,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				return err
 			}
 
-			fmt.Printf("Completed transaction with %d requests: %s\n", len(result.Responses), result.Info.Transaction.ID)
+			fmt.Printf("Completed transaction with %d requests: %s\n", len(info.Responses), info.Transaction.ID)
 			return nil
 		}),
 	}
@@ -1410,19 +1408,33 @@ Tags are a low-level resource and should not be accessed directly by most users.
 			}
 			defer c.Close()
 
+			// TODO: use advisory locks on config so we don't have a race condition if
+			// two commands are run simultaneously
 			var id string
+			var isActive bool
 			if len(args) > 0 {
 				id = args[0]
+
+				// Don't check err here, this is just a quality-of-life check to clean
+				// up the config after a successful delete
+				activeTransaction, _ = getActiveTransaction()
+				isActive = id == activeTransaction
 			} else {
 				id, err = getActiveTransaction()
 				if err != nil {
 					return err
 				}
+				isActive = true
 			}
 
 			err = c.DeleteTransaction(&pfsclient.Transaction{ID: id})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
+			}
+			if isActive {
+				// The active transaction was successfully deleted, clean it up so the
+				// user doesn't need to manually 'stop transaction' it.
+				setActiveTransaction("")
 			}
 			return nil
 		}),
@@ -1466,7 +1478,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 			})
 		}),
 	}
-	fullTimestampsFlag(inspectTransaction)
+	inspectTransaction.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectTransaction, "inspect transaction"))
 
 	resumeTransaction := &cobra.Command{
