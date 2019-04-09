@@ -795,9 +795,9 @@ func (m *Op1_7) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Object.Size()))
-		n1, err := m.Object.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.Object.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -805,9 +805,9 @@ func (m *Op1_7) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Tag.Size()))
-		n2, err := m.Tag.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Tag.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -815,9 +815,9 @@ func (m *Op1_7) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Repo.Size()))
-		n3, err := m.Repo.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Repo.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -825,9 +825,9 @@ func (m *Op1_7) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Commit.Size()))
-		n4, err := m.Commit.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.Commit.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -835,9 +835,9 @@ func (m *Op1_7) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Branch.Size()))
-		n5, err := m.Branch.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.Branch.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}
@@ -845,9 +845,9 @@ func (m *Op1_7) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Pipeline.Size()))
-		n6, err := m.Pipeline.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n6, err6 := m.Pipeline.MarshalTo(dAtA[i:])
+		if err6 != nil {
+			return 0, err6
 		}
 		i += n6
 	}
@@ -876,9 +876,9 @@ func (m *Op1_8) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Object.Size()))
-		n7, err := m.Object.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n7, err7 := m.Object.MarshalTo(dAtA[i:])
+		if err7 != nil {
+			return 0, err7
 		}
 		i += n7
 	}
@@ -886,9 +886,9 @@ func (m *Op1_8) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Tag.Size()))
-		n8, err := m.Tag.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n8, err8 := m.Tag.MarshalTo(dAtA[i:])
+		if err8 != nil {
+			return 0, err8
 		}
 		i += n8
 	}
@@ -896,9 +896,9 @@ func (m *Op1_8) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Repo.Size()))
-		n9, err := m.Repo.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n9, err9 := m.Repo.MarshalTo(dAtA[i:])
+		if err9 != nil {
+			return 0, err9
 		}
 		i += n9
 	}
@@ -906,9 +906,9 @@ func (m *Op1_8) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Commit.Size()))
-		n10, err := m.Commit.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n10, err10 := m.Commit.MarshalTo(dAtA[i:])
+		if err10 != nil {
+			return 0, err10
 		}
 		i += n10
 	}
@@ -916,9 +916,9 @@ func (m *Op1_8) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x32
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Branch.Size()))
-		n11, err := m.Branch.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n11, err11 := m.Branch.MarshalTo(dAtA[i:])
+		if err11 != nil {
+			return 0, err11
 		}
 		i += n11
 	}
@@ -926,9 +926,9 @@ func (m *Op1_8) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x3a
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Pipeline.Size()))
-		n12, err := m.Pipeline.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n12, err12 := m.Pipeline.MarshalTo(dAtA[i:])
+		if err12 != nil {
+			return 0, err12
 		}
 		i += n12
 	}
@@ -957,9 +957,9 @@ func (m *Op) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Op1_7.Size()))
-		n13, err := m.Op1_7.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n13, err13 := m.Op1_7.MarshalTo(dAtA[i:])
+		if err13 != nil {
+			return 0, err13
 		}
 		i += n13
 	}
@@ -967,9 +967,9 @@ func (m *Op) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Op1_8.Size()))
-		n14, err := m.Op1_8.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n14, err14 := m.Op1_8.MarshalTo(dAtA[i:])
+		if err14 != nil {
+			return 0, err14
 		}
 		i += n14
 	}
@@ -1055,9 +1055,9 @@ func (m *ExtractPipelineRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Pipeline.Size()))
-		n15, err := m.Pipeline.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n15, err15 := m.Pipeline.MarshalTo(dAtA[i:])
+		if err15 != nil {
+			return 0, err15
 		}
 		i += n15
 	}
@@ -1086,9 +1086,9 @@ func (m *RestoreRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAdmin(dAtA, i, uint64(m.Op.Size()))
-		n16, err := m.Op.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n16, err16 := m.Op.MarshalTo(dAtA[i:])
+		if err16 != nil {
+			return 0, err16
 		}
 		i += n16
 	}

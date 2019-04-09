@@ -276,7 +276,6 @@ func SetDocsUsage(command *cobra.Command) {
 	command.SetHelpTemplate(`{{or .Long .Short}}
 
 {{.UsageString}}
-
 `)
 
 	command.SetUsageFunc(func(cmd *cobra.Command) error {

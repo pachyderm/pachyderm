@@ -57,7 +57,11 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 		fmt.Fprintf(w, "-\t")
 	}
 	fmt.Fprintf(w, "%d\t", jobInfo.Restart)
-	fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	if jobInfo.DataRecovered != 0 {
+		fmt.Fprintf(w, "%d + %d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataRecovered, jobInfo.DataTotal)
+	} else {
+		fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	}
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
 	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
@@ -133,6 +137,7 @@ Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
 Failed: {{.DataFailed}}
 Skipped: {{.DataSkipped}}
+Recovered: {{.DataRecovered}}
 Total: {{.DataTotal}}
 Data Downloaded: {{prettySize .Stats.DownloadBytes}}
 Data Uploaded: {{prettySize .Stats.UploadBytes}}
@@ -311,6 +316,8 @@ func datumState(datumState ppsclient.DatumState) string {
 		return color.New(color.FgYellow).SprintFunc()("skipped")
 	case ppsclient.DatumState_FAILED:
 		return color.New(color.FgRed).SprintFunc()("failed")
+	case ppsclient.DatumState_RECOVERED:
+		return color.New(color.FgYellow).SprintFunc()("recovered")
 	case ppsclient.DatumState_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
 	}

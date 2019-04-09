@@ -3884,9 +3884,9 @@ func (m *IDProvider) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.SAML.Size()))
-		n1, err := m.SAML.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.SAML.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -3971,9 +3971,9 @@ func (m *AuthConfig) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x1a
 		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.SAMLServiceOptions.Size()))
-		n2, err := m.SAMLServiceOptions.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.SAMLServiceOptions.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -4078,9 +4078,9 @@ func (m *GetConfigurationResponse) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.Configuration.Size()))
-		n3, err := m.Configuration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Configuration.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -4109,9 +4109,9 @@ func (m *SetConfigurationRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.Configuration.Size()))
-		n4, err := m.Configuration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.Configuration.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -4296,9 +4296,9 @@ func (m *OTPInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintAuth(dAtA, i, uint64(m.SessionExpiration.Size()))
-		n5, err := m.SessionExpiration.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.SessionExpiration.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}

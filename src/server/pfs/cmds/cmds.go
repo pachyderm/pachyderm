@@ -53,7 +53,10 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 	repoDocs := &cobra.Command{
 		Short: "Docs for repos.",
-		Long:  "Repos, short for repository, are the top level data object in Pachyderm.",
+		Long: `Repos, short for repository, are the top level data objects in Pachyderm.
+
+Repos contain version-controlled directories and files. Files can be of any size
+or type (e.g. csv, binary, images, etc).`,
 	}
 	cmdutil.SetDocsUsage(repoDocs)
 	commands = append(commands, cmdutil.CreateAlias(repoDocs, "repo"))
@@ -623,11 +626,11 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 
 	fileDocs := &cobra.Command{
 		Short: "Docs for files.",
-		Long: `Files are the lowest level data object in Pachyderm.
+		Long: `Files are the lowest level data objects in Pachyderm.
 
-Files can be written to started (but not finished) commits with 'put file'.
-Files can be read from finished commits with 'get file'.
-`,
+Files can be of any type (e.g. csv, binary, images, etc) or size and can be
+written to started (but not finished) commits with 'put file'. Files can be read
+from commits with 'get file'.`,
 	}
 	cmdutil.SetDocsUsage(fileDocs)
 	commands = append(commands, cmdutil.CreateAlias(fileDocs, "file"))
@@ -1092,7 +1095,9 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 
 	objectDocs := &cobra.Command{
 		Short: "Docs for objects.",
-		Long:  "Docs for objects.",
+		Long: `Objects are content-addressed blobs of data that are directly stored in the backend object store.
+
+Objects are a low-level resource and should not be accessed directly by most users.`,
 	}
 	cmdutil.SetDocsUsage(objectDocs)
 	commands = append(commands, cmdutil.CreateAlias(objectDocs, "object"))
@@ -1114,7 +1119,9 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 
 	tagDocs := &cobra.Command{
 		Short: "Docs for tags.",
-		Long:  "Docs for tags.",
+		Long: `Tags are aliases for objects. Many tags can refer to the same object.
+
+Tags are a low-level resource and should not be accessed directly by most users.`,
 	}
 	cmdutil.SetDocsUsage(tagDocs)
 	commands = append(commands, cmdutil.CreateAlias(tagDocs, "tag"))
