@@ -5825,6 +5825,7 @@ func TestService(t *testing.T) {
 	}
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.GarbageCollect(1e7))
 
 	dataRepo := tu.UniqueString("TestService_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
