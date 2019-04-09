@@ -3528,55 +3528,160 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 
 func (d *driver) startTransaction(pachClient *client.APIClient) (*pfs.Transaction, error) {
 	ctx := pachClient.Ctx()
-	var result *pfs.Transaction
+	info := &pfs.TransactionInfo{
+		Transaction: &pfs.Transaction{
+			ID: uuid.New(),
+		},
+		Requests: []*pfs.TransactionRequest{},
+		Started:  now(),
+	}
+
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		return nil
+		return d.transactions.ReadWrite(stm).Put(
+			info.Transaction.ID,
+			info,
+		)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return info.Transaction, nil
 }
 
 func (d *driver) inspectTransaction(pachClient *client.APIClient, txn *pfs.Transaction) (*pfs.TransactionInfo, error) {
 	ctx := pachClient.Ctx()
-	result := &pfs.TransactionInfo{}
-	if err := d.transactions.ReadOnly(ctx).Get(txn.ID, result); err != nil {
+	info := &pfs.TransactionInfo{}
+	err := d.transactions.ReadOnly(ctx).Get(txn.ID, result)
+	if err != nil {
 		return nil, err
 	}
-	return result, nil
+	return info, nil
 }
 
 func (d *driver) deleteTransaction(pachClient *client.APIClient, txn *pfs.Transaction) error {
 	ctx := pachClient.Ctx()
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		return nil
+		return d.transactions.ReadWrite(stm).Delete(txn.ID)
 	})
 	return err
 }
 
 func (d *driver) listTransaction(pachClient *client.APIClient) ([]*pfs.TransactionInfo, error) {
-	return nil, nil
+	var result []*pfs.TransactionInfo
+	transactionInfo := &pfs.TransactionInfo{}
+	transactions := d.transactions.ReadOnly(pachClient.Ctx())
+	if err := transactions.List(transactionInfo, col.DefaultOptions, func(string) error {
+		result = append(result, proto.Clone(transactionInfo).(*pfs.TransactionInfo))
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
-func (d *driver) finishTransaction(pachClient *client.APIClient, txn *pfs.Transaction) (*pfs.TransactionResult, error) {
-	ctx := pachClient.Ctx()
-	var result *pfs.TransactionResult
+func (d *driver) runTransaction(stm col.STM, txnInfo *pfs.TransactionInfo) (*pfs.TransactionInfo, error) {
 
+}
+
+func (d *driver) finishTransaction(pachClient *client.APIClient, txn *pfs.Transaction) (*pfs.TransactionInfo, error) {
+	ctx := pachClient.Ctx()
+	result := &pfs.TransactionResult{}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		return nil
+		info := &pfs.TransactionInfo{}
+		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
+		if err != nil {
+			return err
+		}
+		result, err = d.runTransaction(stm, info)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-
 	return result, nil
 }
 
-func (d *driver) appendTransaction(pachClient *client.APIClient, txn *pfs.Transaction, items []*pfs.TransactionRequest) error {
+// Error to be returned when aborting a dryrun transaction (following success)
+type TransactionDryrunError struct{}
+
+func (e *transactionDryrunError) Error() string {
+	return fmt.Sprintf("transaction dry run successful")
+}
+
+// Error to be returned when the transaction has been modified between our two STM calls
+type TransactionConflictError struct{}
+
+func (e *transactionConflictError) Error() string {
+	return fmt.Sprintf("transaction could not be modified due to concurrent modifications")
+}
+
+func (d *driver) appendTransaction(
+	pachClient *client.APIClient,
+	txn *pfs.Transaction,
+	items []*pfs.TransactionRequest
+) ([]*pfs.TransactionResponse, error) {
 	ctx := pachClient.Ctx()
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		return nil
-	})
+
+	// Run this thing in a loop in case we get a conflict, time out after some tries
+	for i := 0; i < 10; i++ {
+		// We first do a dryrun of the transaction to:
+		// 1. make sure the appended request is valid
+		// 2. Capture the result of the request to be returned
+		var transactionLength int
+		dryrunResponses := []*pfs.TransactionResponse{}
+
+		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			transactions := d.transactions.ReadWrite(stm)
+			info := &pfs.TransactionInfo{}
+
+			// Get the existing transaction and append the new requests
+			err := transactions.Get(txn.ID, info)
+			if err != nil {
+				return err
+			}
+
+			// Save the length so that we can check that nothing else modifies the
+			// transaction in the meantime
+			transactionLength = len(info.Requests)
+			info.Requests = append(info.Requests, items...)
+
+			results, err := d.runTransactions(stm, info)
+			if err != nil {
+				return err
+			}
+
+			dryrunResponses := info.Responses[transactionLength:]
+			return DryrunError{}
+		})
+
+		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			transactions := d.transactions.ReadWrite(stm)
+			info := &pfs.TransactionInfo{}
+
+			// Get the existing transaction, append the new requests, save it back
+			err := transactions.Get(txn.ID, info)
+			if err != nil {
+				return err
+			}
+
+			if len(info.Requests) != transactionLength {
+				return ConflictError{}
+			}
+
+			info.Requests = append(info.Requests, items...)
+			info.Responses = append(info.Responses, dryrunResponses...)
+
+			err = transactions.Put(txn.ID, info)
+			if err != nil {
+				return err
+			}
+		})
+
+		if err == TransactionDryRun {
+			return nil
+		} else if err != TransactionConflictError {
+			return err
+		}
+	}
 	return err
 }

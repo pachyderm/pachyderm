@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -23,7 +24,7 @@ const (
 	// FileHeader is the header for files.
 	FileHeader = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
 	//TransactionHeader is the header for transactions.
-	TransactionHeader = "TRANSACTION\tSTARTED\tSIZE\t\n"
+	TransactionHeader = "TRANSACTION\tSTARTED\tLENGTH\t\n"
 )
 
 // PrintRepoHeader prints a repo header.
@@ -221,7 +222,17 @@ func PrintTransactionInfo(w io.Writer, info *pfs.TransactionInfo, fullTimestamps
 }
 
 func PrintDetailedTransactionInfo(info *PrintableTransactionInfo) error {
-	return nil
+	template, err := template.New("TransactionInfo").Funcs(funcMap).Parse(
+		`ID: {{.Transaction.ID}}{{if .FullTimestamps}}
+Started: {{.Started}}{{else}}
+Started: {{prettyAgo .Started}}{{end}}
+Requests:
+{{transactionRequests .Requests}}
+`)
+	if err != nil {
+		return err
+	}
+	return template.Execute(os.Stdout, info)
 }
 
 type uint64Slice []uint64
@@ -237,10 +248,24 @@ func fileType(fileType pfs.FileType) string {
 	return "dir"
 }
 
+func transactionRequests(requests []*pfs.TransactionRequest) string {
+	if len(requests) == 0 {
+		return "  -"
+	}
+
+	lines := []string{}
+	for i, _ := range requests {
+		lines = append(lines, fmt.Sprintf("  request %d", i))
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 var funcMap = template.FuncMap{
-	"prettyAgo":  pretty.Ago,
-	"prettySize": pretty.Size,
-	"fileType":   fileType,
+	"prettyAgo":           pretty.Ago,
+	"prettySize":          pretty.Size,
+	"fileType":            fileType,
+	"transactionRequests": transactionRequests,
 }
 
 // CompactPrintBranch renders 'b' as a compact string, e.g.
