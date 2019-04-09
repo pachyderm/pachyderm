@@ -28,6 +28,7 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -44,6 +45,8 @@ const (
 	// DefaultParallelism is the default parallelism used by get-file
 	// and put-file.
 	DefaultParallelism = 10
+
+	createPipelineTracingEnvVar = "PACH_TRACING_TARGET_REPO"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -669,9 +672,9 @@ want to consider using commit IDs directly.
 				return err
 			}
 
-			// tracing
-			if repo, ok := os.LookupEnv("PACH_TRACING_TARGET_REPO"); ok && tracing.IsActive() {
-				// unmarshal commit trace from RPC context
+			// Add trace if env var is set
+			if repo, ok := os.LookupEnv(createPipelineTracingEnvVar); ok && tracing.IsActive() {
+				// unmarshal extended trace from RPC context
 				clientSpan, ctx := opentracing.StartSpanFromContext(
 					c.Ctx(),
 					"/pfs.API/PutFile",
@@ -679,25 +682,25 @@ want to consider using commit IDs directly.
 					opentracing.Tag{string(ext.Component), "gRPC"},
 				)
 				defer clientSpan.Finish()
-				commitTrace := pfsclient.CommitTrace{Value: map[string]string{}} // init map
+				extendedTrace := extended.TraceProto{SerializedTrace: map[string]string{}} // init map
 				opentracing.GlobalTracer().Inject(
 					clientSpan.Context(),
 					opentracing.TextMap,
-					opentracing.TextMapCarrier(commitTrace.Value),
+					opentracing.TextMapCarrier(extendedTrace.SerializedTrace),
 				)
-				commitTrace.Branch = &pfsclient.Branch{
+				extendedTrace.Branch = &pfsclient.Branch{
 					Repo: &pfsclient.Repo{Name: repo},
 					Name: "master", // TODO(msteffen) look up pipeline
 				}
-				marshalledTrace, err := commitTrace.Marshal()
+				marshalledTrace, err := extendedTrace.Marshal()
 				if err == nil {
 					ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
-						pfsclient.CommitTraceCtxKey,
+						extended.TraceCtxKey,
 						base64.URLEncoding.EncodeToString(marshalledTrace),
 					))
 					c = c.WithCtx(ctx)
 				} else {
-					fmt.Printf("ERROR marshalling commit trace proto: %v", err)
+					fmt.Printf("ERROR marshalling extended trace proto: %v", err)
 				}
 			}
 

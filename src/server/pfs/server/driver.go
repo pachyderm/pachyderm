@@ -805,8 +805,6 @@ func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
 	// (new) HEAD of A.
 	sort.Slice(subvBranchInfos, func(i, j int) bool { return len(subvBranchInfos[i].Provenance) < len(subvBranchInfos[j].Provenance) })
 
-	// newCommits is a list of new HEAD commits created below (maps commit ID ->
-	// repo name), for tracing
 	// Iterate through downstream branches and determine which need a new commit.
 nextSubvBranch:
 	for _, branchInfo := range subvBranchInfos {
@@ -929,8 +927,8 @@ nextSubvBranch:
 			return err
 		}
 	}
-	// associate new commits created above with any commit traces that are running
-	attachNewCommitsToAnyCommitTrace(d.etcdClient, d.prefix, stm)
+	// associate new commits above with any extended traces that are running
+	attachNewCommitsToAnyExtendedTrace(d.etcdClient, d.prefix, stm)
 	return nil
 }
 

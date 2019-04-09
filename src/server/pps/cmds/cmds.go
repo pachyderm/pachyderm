@@ -1,6 +1,7 @@
 package cmds
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,17 +13,23 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
+	"github.com/spf13/cobra"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/metadata"
+
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
-	"github.com/spf13/cobra"
-	"golang.org/x/net/context"
 )
 
 const (
@@ -434,6 +441,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
+
 			for {
 				request, err := cfgReader.NextCreatePipelineRequest()
 				if err == io.EOF {
@@ -441,6 +449,47 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				} else if err != nil {
 					return err
 				}
+
+				// Add trace if env var is set
+				if _, ok := os.LookupEnv("PACH_TRACING_TARGET_REPO"); ok && tracing.IsActive() {
+					// unmarshal extended trace from RPC context
+					clientSpan, ctx := opentracing.StartSpanFromContext(
+						client.Ctx(),
+						"/pps.API/CreatePipeline",
+						ext.SpanKindRPCClient,
+						opentracing.Tag{string(ext.Component), "gRPC"},
+					)
+					defer clientSpan.Finish()
+					extendedTrace := extended.TraceProto{SerializedTrace: map[string]string{}} // init map
+					opentracing.GlobalTracer().Inject(
+						clientSpan.Context(),
+						opentracing.TextMap,
+						opentracing.TextMapCarrier(extendedTrace.SerializedTrace),
+					)
+					outputBranch := "master"
+					if request.OutputBranch != "" {
+						outputBranch = request.OutputBranch
+					}
+					extendedTrace.Branch = &pfs.Branch{
+						Repo: &pfs.Repo{Name: request.Pipeline.Name},
+						Name: outputBranch,
+					}
+					extendedTrace.Pipeline = request.Pipeline.Name
+					marshalledTrace, err := extendedTrace.Marshal()
+					if err == nil {
+						ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
+							extended.TraceCtxKey,
+							base64.URLEncoding.EncodeToString(marshalledTrace),
+						))
+						client = client.WithCtx(ctx)
+					} else {
+						fmt.Printf("ERROR marshalling extended trace proto: %v", err)
+					}
+
+					fmt.Printf(">>> [pps/cmds] spanCtx: %v\n", clientSpan.Context())
+					fmt.Printf(">>> [pps/cmds] extendedTrace:\n%v\n", extendedTrace)
+				}
+
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
