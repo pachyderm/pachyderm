@@ -214,11 +214,6 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {
-		if input.Atom != nil {
-			if commit, ok := branchToCommit[key(input.Atom.Repo, input.Atom.Branch)]; ok {
-				input.Atom.Commit = commit.ID
-			}
-		}
 		if input.Pfs != nil {
 			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.Branch)]; ok {
 				input.Pfs.Commit = commit.ID

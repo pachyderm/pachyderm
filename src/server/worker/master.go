@@ -374,9 +374,6 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 		}
 	}
 	pps.VisitInput(jobInfo.Input, func(input *pps.Input) {
-		if input.Atom != nil && input.Atom.Commit != "" {
-			blockCommit(input.Atom.Name, client.NewCommit(input.Atom.Repo, input.Atom.Commit))
-		}
 		if input.Pfs != nil && input.Pfs.Commit != "" {
 			blockCommit(input.Pfs.Name, client.NewCommit(input.Pfs.Repo, input.Pfs.Commit))
 		}

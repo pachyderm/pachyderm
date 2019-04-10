@@ -60,7 +60,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "datum_tries": int,
   "job_timeout": string,
   "input": {
-    <"atom", "pfs", "cross", "union", "cron", or "git" see below>
+    <"pfs", "cross", "union", "cron", or "git" see below>
   },
   "output_branch": string,
   "egress": {
@@ -84,19 +84,6 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   },
   "pod_spec": string,
   "pod_patch": string,
-}
-
-------------------------------------
-"atom" input
-------------------------------------
-
-"atom": {
-  "name": string,
-  "repo": string,
-  "branch": string,
-  "glob": string,
-  "lazy" bool,
-  "empty_files": bool
 }
 
 ------------------------------------
@@ -363,7 +350,6 @@ these fields be set for any instantiation of the object.
 
 ```
 {
-    "atom": atom_input,
     "pfs": pfs_input,
     "union": union_input,
     "cross": cross_input,
@@ -371,13 +357,9 @@ these fields be set for any instantiation of the object.
 }
 ```
 
-#### Atom Input
-
-Atom inputs are deprecated in Pachyderm 1.8.1+. They have been renamed to PFS inputs. The configuration is the same, but all instances of `atom` should be changed to `pfs`.
-
 #### PFS Input
 
-**Note:** PFS inputs are only available in versions of Pachyderm 1.8.1+. If you are using an older version of Pachyderm, see atom inputs instead.
+**Note:** Atom inputs were renamed to PFS inputs in 1.8.1. If you are on an older version of Pachyderm, replace every instance of `pfs` with `atom`, and it will function the same way.
 
 PFS inputs are the simplest inputs, they take input from a single branch on a
 single repo.

@@ -178,7 +178,7 @@ func TestRepoSize(t *testing.T) {
 	require.Equal(t, uint64(3), repoInfo.SizeBytes)
 }
 
-func TestAtomPipeline(t *testing.T) {
+func TestPFSPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -186,7 +186,7 @@ func TestAtomPipeline(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestAtomPipeline_data")
+	dataRepo := tu.UniqueString("TestPFSPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -195,7 +195,7 @@ func TestAtomPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	pipeline := tu.UniqueString("TestAtomPipeline")
+	pipeline := tu.UniqueString("TestPFSPipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -206,7 +206,7 @@ func TestAtomPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewAtomInput(dataRepo, "/*"),
+		client.NewPFSInput(dataRepo, "/*"),
 		"",
 		false,
 	))
