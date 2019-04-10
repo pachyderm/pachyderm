@@ -1,16 +1,14 @@
 package client
 
 import (
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
-func (c APIClient) ListTransaction() ([]*pfs.TransactionInfo, error) {
-	response, err := c.PfsAPIClient.ListTransaction(
+func (c APIClient) ListTransaction() ([]*transaction.TransactionInfo, error) {
+	response, err := c.TransactionAPIClient.ListTransaction(
 		c.Ctx(),
-		&pfs.ListTransactionRequest{},
+		&transaction.ListTransactionRequest{},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -18,10 +16,10 @@ func (c APIClient) ListTransaction() ([]*pfs.TransactionInfo, error) {
 	return response.TransactionInfo, nil
 }
 
-func (c APIClient) StartTransaction() (*pfs.Transaction, error) {
-	response, err := c.PfsAPIClient.StartTransaction(
+func (c APIClient) StartTransaction() (*transaction.Transaction, error) {
+	response, err := c.TransactionAPIClient.StartTransaction(
 		c.Ctx(),
-		&pfs.StartTransactionRequest{},
+		&transaction.StartTransactionRequest{},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -29,11 +27,11 @@ func (c APIClient) StartTransaction() (*pfs.Transaction, error) {
 	return response, nil
 }
 
-func (c APIClient) FinishTransaction(transaction *pfs.Transaction) (*pfs.TransactionInfo, error) {
-	response, err := c.PfsAPIClient.FinishTransaction(
+func (c APIClient) FinishTransaction(txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
+	response, err := c.TransactionAPIClient.FinishTransaction(
 		c.Ctx(),
-		&pfs.FinishTransactionRequest{
-			Transaction: transaction,
+		&transaction.FinishTransactionRequest{
+			Transaction: txn,
 		},
 	)
 	if err != nil {
@@ -42,21 +40,21 @@ func (c APIClient) FinishTransaction(transaction *pfs.Transaction) (*pfs.Transac
 	return response, nil
 }
 
-func (c APIClient) DeleteTransaction(transaction *pfs.Transaction) error {
-	_, err := c.PfsAPIClient.DeleteTransaction(
+func (c APIClient) DeleteTransaction(txn *transaction.Transaction) error {
+	_, err := c.TransactionAPIClient.DeleteTransaction(
 		c.Ctx(),
-		&pfs.DeleteTransactionRequest{
-			Transaction: transaction,
+		&transaction.DeleteTransactionRequest{
+			Transaction: txn,
 		},
 	)
 	return grpcutil.ScrubGRPC(err)
 }
 
-func (c APIClient) InspectTransaction(transaction *pfs.Transaction) (*pfs.TransactionInfo, error) {
-	response, err := c.PfsAPIClient.InspectTransaction(
+func (c APIClient) InspectTransaction(txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
+	response, err := c.TransactionAPIClient.InspectTransaction(
 		c.Ctx(),
-		&pfs.InspectTransactionRequest{
-			Transaction: transaction,
+		&transaction.InspectTransactionRequest{
+			Transaction: txn,
 		},
 	)
 	if err != nil {

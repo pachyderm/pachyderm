@@ -17,7 +17,6 @@ const (
 	commitsPrefix        = "/commits"
 	branchesPrefix       = "/branches"
 	openCommitsPrefix    = "/openCommits"
-	transactionsPrefix   = "/transactions"
 )
 
 var (
@@ -85,18 +84,6 @@ func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, openCommitsPrefix),
 		nil,
 		&pfs.Commit{},
-		nil,
-		nil,
-	)
-}
-
-// Transactions returns a collection of open transactions
-func Transactions(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
-	return col.NewCollection(
-		etcdClient,
-		path.Join(etcdPrefix, transactionsPrefix),
-		nil,
-		&pfs.TransactionInfo{},
 		nil,
 		nil,
 	)

@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
+	transactionclient "github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
@@ -50,6 +51,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
+	transactionserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -181,6 +183,12 @@ func doSidecarMode(config interface{}) (retErr error) {
 					return fmt.Errorf("pps.NewSidecarAPIServer: %v", err)
 				}
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
+
+				transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), memoryRequestBytes)
+				if err != nil {
+					return fmt.Errorf("transaction.NewAPIServer: %v", err)
+				}
+				transactionclient.RegisterAPIServer(s, transactionAPIServer)
 
 				authAPIServer, err := authserver.NewAuthServer(
 					env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), false)
@@ -368,6 +376,12 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
+					transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), memoryRequestBytes)
+					if err != nil {
+						return fmt.Errorf("transaction.NewAPIServer: %v", err)
+					}
+					transactionclient.RegisterAPIServer(s, transactionAPIServer)
+
 					if env.ExposeObjectAPI {
 						// Generally the object API should not be exposed publicly, but
 						// TestGarbageCollection uses it and it may help with debugging
@@ -485,6 +499,12 @@ func doFullMode(config interface{}) (retErr error) {
 						return fmt.Errorf("pps.NewAPIServer: %v", err)
 					}
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
+
+					transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), memoryRequestBytes)
+					if err != nil {
+						return fmt.Errorf("transaction.NewAPIServer: %v", err)
+					}
+					transactionclient.RegisterAPIServer(s, transactionAPIServer)
 
 					authAPIServer, err := authserver.NewAuthServer(
 						env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
