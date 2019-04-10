@@ -6,6 +6,7 @@
 # VENDOR_ALL: do not ignore some vendors when updating vendor directory
 # VENDOR_IGNORE_DIRS: ignore vendor dirs
 # KUBECTLFLAGS: flags for kubectl
+# DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
 
 ifndef TESTPKGS
@@ -21,6 +22,7 @@ COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 GC_FLAGS = "all=-trimpath=${PWD}"
+export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
@@ -150,7 +152,7 @@ release-worker:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_worker
 
 docker-build-compile:
-	docker build -t pachyderm_compile .
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_compile .
 
 # To bump this, update the etc/compile/GO_VERSION file
 publish-compile: docker-build-compile
@@ -219,13 +221,13 @@ docker-build:
 	make docker-build-helper
 
 docker-build-proto:
-	docker build -t pachyderm_proto etc/proto
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
 
 docker-build-netcat:
-	docker build -t pachyderm_netcat etc/netcat
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
 
 docker-build-gpu:
-	docker build -t pachyderm_nvidia_driver_install etc/deploy/gpu
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-push-gpu:
@@ -241,7 +243,7 @@ docker-gpu: docker-build-gpu docker-push-gpu
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
 docker-build-test-entrypoint:
-	docker build -t pachyderm_entrypoint etc/testing/entrypoint
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_entrypoint etc/testing/entrypoint
 
 check-kubectl:
 	@# check that kubectl is installed

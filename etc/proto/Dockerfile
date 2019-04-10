@@ -4,7 +4,7 @@ LABEL maintainer="msteffen@pachyderm.io"
 RUN apt-get update -yq
 RUN apt-get install -yq unzip
 
-RUN wget https://github.com/google/protobuf/releases/download/v3.6.1/protoc-3.6.1-linux-x86_64.zip -O protoc.zip
+RUN wget https://github.com/google/protobuf/releases/download/v3.7.1/protoc-3.7.1-linux-x86_64.zip -O protoc.zip
 RUN unzip protoc.zip -d /
 RUN cp -r /include /bin
 
