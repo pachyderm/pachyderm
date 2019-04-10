@@ -6,6 +6,7 @@
 # VENDOR_ALL: do not ignore some vendors when updating vendor directory
 # VENDOR_IGNORE_DIRS: ignore vendor dirs
 # KUBECTLFLAGS: flags for kubectl
+# DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
 
 ifndef TESTPKGS
@@ -18,8 +19,10 @@ endif
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
-VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
+export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+GC_FLAGS = "all=-trimpath=${PWD}"
+export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
@@ -78,11 +81,11 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" ./src/server/cmd/pachctl
+	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -90,7 +93,7 @@ install-clean:
 	@make install
 
 install-doc:
-	GO15VENDOREXPERIMENT=1 go install ./src/server/cmd/pachctl-doc
+	GO15VENDOREXPERIMENT=1 go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
 	# The latest docker client requires server api version >= 1.24.
@@ -117,13 +120,15 @@ release-candidate:
 	@rm VERSION
 	@echo "Release completed"
 
-custom-release:
-	@make VERSION_ADDITIONAL=-$$(git log --pretty=format:%H | head -n 1) release-helper
-	@make release-pachctl-custom
+custom-release: release-helper release-pachctl-custom
 	@echo 'For brew install, do:'
 	@echo "$$ brew install https://raw.githubusercontent.com/pachyderm/homebrew-tap/$$(cat VERSION)-$$(git log --pretty=format:%H | head -n 1)/pachctl@$$(cat VERSION | cut -f -2 -d\.).rb"
 	@echo 'For linux install, do:'
 	@echo "$$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v$$(cat VERSION)/pachctl_$$(cat VERSION)_amd64.deb && sudo dpkg -i /tmp/pachctl.deb"
+	# Workaround for https://github.com/laher/goxc/issues/112
+	@git push origin :v$$(cat VERSION)
+	@git tag v$$(cat VERSION)
+	@git push origin --tags
 	@rm VERSION
 	@echo "Release completed"
 
@@ -206,7 +211,10 @@ docker-push-test:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build-helper: enterprise-code-checkin-test docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+docker-build-helper: enterprise-code-checkin-test
+	@# run these in separate make process so that if
+	@# 'enterprise-code-checkin-test' fails, the rest of the build process aborts
+	@make docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
 
 docker-build:
 	docker pull $(COMPILE_IMAGE)
@@ -323,11 +331,11 @@ launch-kube: check-kubectl
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
 	@if [ -z "${ADDRESS}" ]; then \
-		echo -e "Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		echo -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
+		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
 	  exit 1; \
 	fi
 	# Making sure minikube isn't still up from a previous run...
@@ -344,11 +352,11 @@ launch-dev-vm: check-kubectl
 launch-release-vm:
 	@# Make sure the caller sets address to avoid confusion later
 	@if [ -z "${ADDRESS}" ]; then \
-		echo -e"Must set ADDRESS\nRun:\nexport ADDRESS=192.168.99.100:30650"; \
+		$$( which echo ) -e "Must set PACHD_ADDRESS\nRun:\nexport PACHD_ADDRESS=192.168.99.100:30650"; \
 	  exit 1; \
 	fi
 	@if [ -n "${PACH_CA_CERTS}" ]; then \
-		echo -e"Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
+		$$( which echo ) -e "Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS"; \
 	  exit 1; \
 	fi
 	# Making sure minikube isn't still up from a previous run...
@@ -441,38 +449,28 @@ pretest:
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
 
-test-misc: lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-libs test-vault test-auth test-enterprise test-worker
-
 # Run all the tests. Note! This is no longer the test entrypoint for travis
-test: clean-launch-dev launch-dev test-misc test-pps
+test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build test-pfs-server test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth test-enterprise test-worker test-admin test-pps
 
 enterprise-code-checkin-test:
+	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
 	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
-	if grep --files-with-matches --exclude=Makefile --exclude-from=.gitignore -r -e 'RM2o1Qit6YlZhS1RGdXVac' . ; \
+	if ag --ignore=Makefile -p .gitignore 'RM2o1Qit6YlZhS1RGdXVac'; \
 	then \
 	  $$( which echo ) -e "\n*** It looks like Pachyderm Engineering's test activation code may be in this repo. Please remove it before committing! ***\n"; \
 	  false; \
 	fi
 
 test-pfs-server:
-	@# If etcd is not available, start it in a docker container
-	if ! ETCDCTL_API=3 etcdctl --endpoints=127.0.0.1:2379 get "testkey"; then \
-	  docker run \
-	    --publish 32379:2379 \
-	    --ulimit nofile=2048 \
-	    $(ETCD_IMAGE) \
-	    etcd \
-	    --listen-client-urls=http://0.0.0.0:2379 \
-	    --advertise-client-urls=http://0.0.0.0:2379 & \
-	fi
-	@# don't run this in verbose mode, as it produces a huge amount of logs
-	go test ./src/server/pfs/server -timeout $(TIMEOUT)
+	./etc/testing/pfs_server.sh $(ETCD_IMAGE) $(TIMEOUT)
 
 test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
 	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 
+test-deploy-cmds:
+	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
 
 test-pps:
 	@# Travis uses the helper directly because it needs to specify a
@@ -497,6 +495,7 @@ test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
 	go test ./src/server/pkg/hashtree -timeout $(TIMEOUT)
 	go test ./src/server/pkg/cert -timeout $(TIMEOUT)
+	go test ./src/server/pkg/localcache -timeout $(TIMEOUT)
 
 test-vault:
 	kill $$(cat /tmp/vault.pid) || true
@@ -504,6 +503,17 @@ test-vault:
 	./src/plugin/vault/etc/setup-vault.sh
 	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
+
+./etc/testing/s3gateway/s3-tests:
+	cd ./etc/testing/s3gateway && git clone git@github.com:ceph/s3-tests.git
+	cd ./etc/testing/s3gateway/s3-tests && ./bootstrap
+	cd ./etc/testing/s3gateway.s3-tests && source virtualenv/bin/activate && pip install nose-exclude==0.5.0
+
+test-s3gateway-integration:
+	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1 | grep -v 'INFO pfs.'
+
+test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
+	./etc/testing/s3gateway/conformance.py
 
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
@@ -517,13 +527,17 @@ test-auth:
 	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
 
+test-admin:
+	@# Dont cache these results as they require the pachd cluster
+	go test -v ./src/server/admin/server -count 1 -timeout $(TIMEOUT)
+
 test-enterprise:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/enterprise/server -count 1 -timeout $(TIMEOUT)
 
-# TODO This is not very robust -- it doesn't work when the ADDRESS host isn't an IPv4 address
-PACHD_HOST := $(word 1,$(subst :, ,$(ADDRESS)))
-PACHD_PORT := $(word 2,$(subst :, ,$(ADDRESS)))
+# TODO This is not very robust -- it doesn't work when the PACHD_ADDRESS host isn't an IPv4 address
+PACHD_HOST := $(word 1,$(subst :, ,$(PACHD_ADDRESS)))
+PACHD_PORT := $(word 2,$(subst :, ,$(PACHD_ADDRESS)))
 
 test-tls:
 	# Pachyderm must be running when this target is called
@@ -543,20 +557,12 @@ test-worker: launch-stats test-worker-helper
 test-worker-helper:
 	@# Dont cache these results as they require the pachd cluster
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
-	  go test -v ./src/server/worker/ -run=TestPrometheusStats -timeout $(TIMEOUT) -count 1
+	  go test -v ./src/server/worker/ -timeout $(TIMEOUT) -count 1
 
 clean: clean-launch clean-launch-kube
 
 doc-custom: install-doc release-version
-	# we rename to pachctl because the program name is used in generating docs
-	cp $(GOPATH)/bin/pachctl-doc ./pachctl
-	# This file isn't autogenerated so we need to keep it around:
-	cp doc/pachctl/pachctl.rst .
-	rm -rf doc/pachctl && mkdir doc/pachctl
-	./pachctl
-	rm ./pachctl
-	mv pachctl.rst doc/pachctl
-	VERSION="$(shell cat VERSION)" ./etc/build/release_doc
+	./etc/build/doc
 
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
@@ -665,13 +671,7 @@ install-go-bindata:
 	go get -u github.com/jteeuwen/go-bindata/...
 
 lint:
-	@go get -u golang.org/x/lint/golint
-	@for file in $$(find "./src" -name '*.go' | grep -v '/vendor/' | grep -v '\.pb\.go'); do \
-	  golint $$file; \
-	  if [ -n "$$(golint $$file)" ]; then \
-	    echo "golint errors!" && echo && exit 1; \
-	  fi; \
-	done;
+	etc/testing/lint.sh
 
 spellcheck:
 	@mdspell doc/*.md doc/**/*.md *.md --en-us --ignore-numbers --ignore-acronyms --report --no-suggestions
@@ -689,11 +689,11 @@ goxc-release:
 	  @exit 1; \
 	fi
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
-	goxc -pv="$(VERSION)" -wd=./src/server/cmd/pachctl
+	goxc -pv="$(VERSION)" -build-gcflags="$(GC_FLAGS)" -wd=./src/server/cmd/pachctl
 
 goxc-build:
 	sed 's/%%VERSION_ADDITIONAL%%/$(VERSION_ADDITIONAL)/' .goxc.json.template > .goxc.json
-	goxc -tasks=xc -wd=./src/server/cmd/pachctl
+	goxc -build-gcflags="$(GC_FLAGS)" -tasks=xc -wd=./src/server/cmd/pachctl
 
 .PHONY: all \
 	version \
@@ -709,8 +709,10 @@ goxc-build:
 	install-doc \
 	homebrew \
 	release \
+	release-helper \
 	release-worker \
 	release-manifest \
+	release-pachctl-custom \
 	release-pachd \
 	release-version \
 	docker-build \
@@ -735,6 +737,8 @@ goxc-build:
 	pretest \
 	test \
 	test-client \
+	test-s3gateway-conformance \
+	test-s3gateway-integration \
 	test-fuse \
 	test-local \
 	clean \

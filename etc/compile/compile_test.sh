@@ -4,7 +4,7 @@ set -Ee
 
 # Builds a docker container that is just golang + docker client
 if [ "${1}" = "--make-env" ]; then
-	docker build -t pachyderm_test_buildenv - <<EOF
+	docker build ${DOCKER_BUILD_FLAGS} -t pachyderm_test_buildenv - <<EOF
 FROM golang:1.11.1
 RUN curl -fsSL https://get.docker.com/builds/Linux/x86_64/docker-1.12.1.tgz \
   | tar -C /bin -xz docker/docker --strip-components=1 \
