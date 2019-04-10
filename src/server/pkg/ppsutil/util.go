@@ -209,8 +209,8 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
 	branchToCommit := make(map[string]*pfs.Commit)
 	key := path.Join
-	for i, provCommit := range outputCommitInfo.Provenance {
-		branchToCommit[key(provCommit.Repo.Name, outputCommitInfo.BranchProvenance[i].Name)] = provCommit
+	for _, prov := range outputCommitInfo.Provenance {
+		branchToCommit[key(prov.Commit.Repo.Name, prov.Branch.Name)] = prov.Commit
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {

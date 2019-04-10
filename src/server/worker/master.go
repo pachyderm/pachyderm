@@ -26,6 +26,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
@@ -838,13 +839,9 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 
 				// start commit
 				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
-					Parent: &pfs.Commit{
-						Repo: &pfs.Repo{
-							Name: repo,
-						},
-					},
+					Parent:     client.NewCommit(repo, ""),
 					Branch:     "master",
-					Provenance: []*pfs.Commit{a.pipelineInfo.SpecCommit},
+					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, "master", a.pipelineInfo.SpecCommit.ID)},
 				})
 				if err != nil {
 					return err

@@ -748,10 +748,9 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		return nil, err
 	}
 	var specCommit *pfs.Commit
-	for i, provCommit := range commitInfo.Provenance {
-		provBranch := commitInfo.BranchProvenance[i]
-		if provBranch.Repo.Name == ppsconsts.SpecRepo && provBranch.Name == jobPtr.Pipeline.Name {
-			specCommit = provCommit
+	for _, prov := range commitInfo.Provenance {
+		if prov.Commit.Repo.Name == ppsconsts.SpecRepo && prov.Branch.Name == jobPtr.Pipeline.Name {
+			specCommit = prov.Commit
 			break
 		}
 	}
