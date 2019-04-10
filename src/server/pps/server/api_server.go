@@ -992,7 +992,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		return 0, 0, goerr.New("getPageBounds: unreachable code")
 	}
 
-	df, err := workerpkg.NewDatumFactory(pachClient, jobInfo.Input)
+	df, err := workerpkg.NewDatumFactory(pachClient, jobInfo.Input, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1249,7 +1249,7 @@ func (a *apiServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	if jobInfo.StatsCommit == nil {
 		return nil, fmt.Errorf("job not finished, no stats output yet")
 	}
-	df, err := workerpkg.NewDatumFactory(pachClient, jobInfo.Input)
+	df, err := workerpkg.NewDatumFactory(pachClient, jobInfo.Input, nil)
 	if err != nil {
 		return nil, err
 	}

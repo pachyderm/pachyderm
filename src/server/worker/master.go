@@ -225,7 +225,11 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
-		df, err := NewDatumFactory(pachClient, jobInput)
+		logger, err := a.getTaggedLogger(pachClient, job.ID, nil, false)
+		if err != nil {
+			return err
+		}
+		df, err := NewDatumFactory(pachClient, jobInput, logger)
 		if err != nil {
 			return err
 		}
@@ -233,7 +237,10 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			return fmt.Errorf("services must have a single datum")
 		}
 		data := df.Datum(0)
-		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
+		logger, err = a.getTaggedLogger(pachClient, job.ID, data, false)
+		if err != nil {
+			return err
+		}
 		puller := filesync.NewPuller()
 		// If this is our second time through the loop cleanup the old data.
 		if dir != "" {
@@ -494,7 +501,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 
 		// Create a datum factory pointing at the job's inputs and split up the
 		// input data into chunks
-		df, err := NewDatumFactory(pachClient, jobInfo.Input)
+		df, err := NewDatumFactory(pachClient, jobInfo.Input, logger)
 		if err != nil {
 			return err
 		}

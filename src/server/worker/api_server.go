@@ -1687,7 +1687,7 @@ func (a *APIServer) worker() {
 			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
 				return err
 			}
-			df, err := NewDatumFactory(pachClient, jobInfo.Input)
+			df, err := NewDatumFactory(pachClient, jobInfo.Input, logger)
 			if err != nil {
 				return fmt.Errorf("error from NewDatumFactory: %v", err)
 			}

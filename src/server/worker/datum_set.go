@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"sort"
 
+	hclog "github.com/hashicorp/go-hclog"
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -133,10 +134,10 @@ type unionDatumFactory struct {
 	inputs []DatumFactory
 }
 
-func newUnionDatumFactory(pachClient *client.APIClient, union []*pps.Input) (DatumFactory, error) {
+func newUnionDatumFactory(pachClient *client.APIClient, union []*pps.Input, logger io.Writer) (DatumFactory, error) {
 	result := &unionDatumFactory{}
 	for _, input := range union {
-		datumFactory, err := NewDatumFactory(pachClient, input)
+		datumFactory, err := NewDatumFactory(pachClient, input, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -191,10 +192,10 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 	return result
 }
 
-func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input) (DatumFactory, error) {
+func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input, logger io.Writer) (DatumFactory, error) {
 	result := &crossDatumFactory{}
 	for _, input := range cross {
-		datumFactory, err := NewDatumFactory(pachClient, input)
+		datumFactory, err := NewDatumFactory(pachClient, input, logger)
 		if err != nil {
 			return nil, err
 		}
@@ -269,17 +270,21 @@ func (d *filterDatumFactory) Datum(i int) []*Input {
 	return nil
 }
 
-func newFilterDatumFactory(pachClient *client.APIClient, input *pps.FilterInput) (DatumFactory, error) {
-	in, err := NewDatumFactory(pachClient, input.Input)
+func newFilterDatumFactory(pachClient *client.APIClient, input *pps.FilterInput, logger io.Writer) (DatumFactory, error) {
+	in, err := NewDatumFactory(pachClient, input.Input, logger)
 	if err != nil {
 		return nil, err
 	}
-	// We're a host. Start by launching the plugin process.
 	client := plugin.NewClient(&plugin.ClientConfig{
 		HandshakeConfig:  pps.FilterHandshake,
 		Plugins:          pps.FilterPluginMap,
 		Cmd:              exec.Command("sh", "-c", input.Predicate.Source),
 		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		Managed:          true,
+		Logger: hclog.New(&hclog.LoggerOptions{
+			Level:  hclog.Warn,
+			Output: logger,
+		}),
 	})
 	grpcClient, err := client.Client()
 	if err != nil {
@@ -303,22 +308,22 @@ func newFilterDatumFactory(pachClient *client.APIClient, input *pps.FilterInput)
 }
 
 // NewDatumFactory creates a datumFactory for an input.
-func NewDatumFactory(pachClient *client.APIClient, input *pps.Input) (DatumFactory, error) {
+func NewDatumFactory(pachClient *client.APIClient, input *pps.Input, logger io.Writer) (DatumFactory, error) {
 	switch {
 	case input.Atom != nil:
 		return newAtomDatumFactory(pachClient, input.Atom)
 	case input.Pfs != nil:
 		return newPFSDatumFactory(pachClient, input.Pfs)
 	case input.Union != nil:
-		return newUnionDatumFactory(pachClient, input.Union)
+		return newUnionDatumFactory(pachClient, input.Union, logger)
 	case input.Cross != nil:
-		return newCrossDatumFactory(pachClient, input.Cross)
+		return newCrossDatumFactory(pachClient, input.Cross, logger)
 	case input.Cron != nil:
 		return newCronDatumFactory(pachClient, input.Cron)
 	case input.Git != nil:
 		return newGitDatumFactory(pachClient, input.Git)
 	case input.Filter != nil:
-		return newFilterDatumFactory(pachClient, input.Filter)
+		return newFilterDatumFactory(pachClient, input.Filter, logger)
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }
