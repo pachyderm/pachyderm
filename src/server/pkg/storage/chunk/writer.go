@@ -15,12 +15,8 @@ import (
 const (
 	// MB is Megabytes.
 	MB = 1024 * 1024
-	// MinSize is the minimum chunk size.
-	MinSize = 5 * MB
 	// AverageBits determines the average chunk size (2^AverageBits).
 	AverageBits = 23
-	// MaxSize is the maximum chunk size.
-	MaxSize = 15 * MB
 	// WindowSize is the size of the rolling hash window.
 	WindowSize = 64
 )
@@ -92,9 +88,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 	for i, b := range data {
 		size++
 		w.hash.Roll(b)
-		// If the AverageBits lowest bits are zero and the chunk is >= MinSize, then a split point is created.
-		// If the chunk is >= MaxSize, then a split point is created regardless.
-		if w.hash.Sum64()&w.splitMask == 0 && size >= MinSize || size >= MaxSize {
+		if w.hash.Sum64()&w.splitMask == 0 {
 			w.buf.Write(data[offset : i+1])
 			if err := w.put(); err != nil {
 				return 0, err
