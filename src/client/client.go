@@ -285,21 +285,8 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 		}
 		return envAddr, options, nil
 	}
-	// 2) ADDRESS environment variable (now renamed to PACHD_ADDRESS)
-	// TODO(ys): remove this eventually
-	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
-		log.Warnf("the `ADDRESS` environment variable is deprecated; please use `PACHD_ADDRESS`")
-		if !strings.Contains(envAddr, ":") {
-			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
-		}
-		options, err := getCertOptionsFromEnv()
-		if err != nil {
-			return "", nil, err
-		}
-		return envAddr, options, nil
-	}
 
-	// 3) Get target address from global config if possible
+	// 2) Get target address from global config if possible
 	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
 		// Also get cert info from config (if set)
 		if cfg.V1.ServerCAs != "" {
@@ -312,7 +299,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 		return cfg.V1.PachdAddress, nil, nil
 	}
 
-	// 4) Use default address (broadcast) if nothing else works
+	// 3) Use default address (broadcast) if nothing else works
 	options, err := getCertOptionsFromEnv()
 	if err != nil {
 		return "", nil, err
