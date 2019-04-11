@@ -8451,9 +8451,9 @@ func TestKafka(t *testing.T) {
 			num++
 		}
 	}
-	// we also check that at least 100 kafka messages were consumed
-	if num < 100 {
-		t.Error("Expected to process more than 100 kafka messages:", num)
+	// we also check that at least 5 kafka messages were consumed
+	if num < 5 {
+		t.Error("Expected to process more than 5 kafka messages:", num)
 	}
 }
 
