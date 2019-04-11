@@ -214,11 +214,12 @@ work.  To get that behavior, you can set `cmd` to be a shell of your choice
 `transform.stdin` is an array of lines that are sent to your command on stdin.
 Lines need not end in newline characters.
 
-`transform.err_cmd` is an option command that will only get run on datums which fail.
-If the err_cmd is successful, it won't prevent the job from succeeding. This means that
-it can be used to ignore failed datums. It has the same limitations as `transform.cmd`.
+`transform.err_cmd` is an optional command that will only get run on datums which fail.
+If the err_cmd is successful (returns 0 error code), it won't prevent the job from succeeding.
+This means that it can be used to ignore failed datums while still writing successful datums to the output repo,
+instead of failing the whole job when some datums fail. It has the same limitations as `transform.cmd`.
 
-`transform.err_stdin` is an array of lines that are sent to your error command on err_stdin.
+`transform.err_stdin` is an array of lines that are sent to your error command on stdin.
 Lines need not end in newline characters.
 
 `transform.env` is a map from key to value of environment variables that will be
