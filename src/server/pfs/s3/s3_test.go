@@ -25,9 +25,9 @@ import (
 )
 
 var (
-	pachClient *client.APIClient
+	pachClient  *client.APIClient
 	minioClient *minio.Client
-	clientOnce sync.Once
+	clientOnce  sync.Once
 )
 
 func clients(t testing.TB) (*client.APIClient, *minio.Client) {
@@ -35,7 +35,7 @@ func clients(t testing.TB) (*client.APIClient, *minio.Client) {
 
 	clientOnce.Do(func() {
 		var err error
-		
+
 		pachClient, err = client.NewOnUserMachine(false, false, "user")
 		require.NoError(t, err)
 

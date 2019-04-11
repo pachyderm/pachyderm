@@ -13,9 +13,9 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
 var enterpriseTimeout = 24 * time.Hour
