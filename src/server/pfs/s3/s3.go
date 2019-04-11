@@ -149,11 +149,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 					return
 				}
 
-				if resp.State == enterpriseclient.State_ACTIVE {
-					isEnterprise = true
-				} else {
-					isEnterprise = false
-				}
+				isEnterprise = resp.State == enterpriseclient.State_ACTIVE
 			}
 			if !isEnterprise {
 				enterpriseDisabledError(w, r)
