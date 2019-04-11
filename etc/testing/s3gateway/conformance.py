@@ -340,6 +340,7 @@ BLACKLISTED_BOTO2_FUNCTIONAL_TESTS = [
     "test_s3.test_lifecycle_expiration_header_put",
     "test_s3.test_lifecycle_expiration_header_head",
     "test_s3.test_list_buckets_anonymous",
+    "test_s3.test_versioning_obj_read_not_exist_null",
 
     # These tests are disabled due to our tighter restrictions on bucket
     # naming
