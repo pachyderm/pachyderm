@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package chunk;
+
+// DataRef is a reference to a chunk of data.
+message DataRef {
+  string hash = 1;
+  // Hash of the subchunk (defined by offset and size).
+  // Should be empty if this is a reference to the whole chunk.
+  string sub_hash = 2;
+  uint64 offset = 3;
+  uint64 size = 4;
+}

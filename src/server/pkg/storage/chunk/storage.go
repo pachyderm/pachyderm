@@ -29,8 +29,9 @@ func NewStorage(objC obj.Client, prefix string) *Storage {
 // NewReader creates an io.ReadCloser for a chunk.
 // (bryce) The whole chunk is in-memory right now. Could be a problem with
 // concurrency, particularly the merge process.
-func (s *Storage) NewReader(ctx context.Context, hash string) (io.ReadCloser, error) {
-	objR, err := s.objC.Reader(ctx, path.Join(s.prefix, hash), 0, 0)
+// May want to handle concurrency here (pass in multiple data refs)
+func (s *Storage) NewReader(ctx context.Context, dataRef *DataRef) (io.ReadCloser, error) {
+	objR, err := s.objC.Reader(ctx, path.Join(s.prefix, dataRef.Hash), 0, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -46,14 +47,15 @@ func (s *Storage) NewReader(ctx context.Context, hash string) (io.ReadCloser, er
 	if _, err := io.CopyBuffer(chunk, gzipR, buf); err != nil {
 		return nil, err
 	}
-	return ioutil.NopCloser(chunk), nil
+	data := chunk.Bytes()[dataRef.Offset : dataRef.Offset+dataRef.Size]
+	return ioutil.NopCloser(bytes.NewReader(data)), nil
 }
 
 // NewWriter creates an io.WriteCloser for a stream of bytes to be chunked.
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
 // The callback arguments are the chunk hash and content.
-func (s *Storage) NewWriter(ctx context.Context, f func(string, io.Reader) error) io.WriteCloser {
+func (s *Storage) NewWriter(ctx context.Context, f func([]*DataRef) error) *Writer {
 	return newWriter(ctx, s.objC, s.prefix, f)
 }
 

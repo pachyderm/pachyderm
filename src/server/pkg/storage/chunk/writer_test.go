@@ -41,24 +41,22 @@ func TestWriteThenRead(t *testing.T) {
 		require.NoError(t, s.Clear(context.Background()))
 		require.NoError(t, objC.Delete(context.Background(), prefix))
 	}()
-	buf := &bytes.Buffer{}
-	hashes := []string{}
-	w := s.NewWriter(context.Background(), func(hash string, r io.Reader) error {
-		defer buf.Reset()
-		_, err := io.Copy(buf, r)
-		require.NoError(t, err)
-		require.True(t, buf.Len() >= MinSize && buf.Len() <= MaxSize)
-		hashes = append(hashes, hash)
+	var finalDataRefs []*DataRef
+	w := s.NewWriter(context.Background(), func(dataRefs []*DataRef) error {
+		finalDataRefs = append(finalDataRefs, dataRefs...)
 		return nil
 	})
 	seq := randSeq(100 * MB)
 	for i := 0; i < 100; i++ {
+		w.StartRange()
 		_, err := w.Write(seq[i*MB : (i+1)*MB])
 		require.NoError(t, err)
 	}
 	require.NoError(t, w.Close())
-	for _, hash := range hashes {
-		r, err := s.NewReader(context.Background(), hash)
+	buf := &bytes.Buffer{}
+	for _, dataRef := range finalDataRefs {
+		r, err := s.NewReader(context.Background(), dataRef)
+		require.NoError(t, err)
 		_, err = io.Copy(buf, r)
 		require.NoError(t, err)
 	}
@@ -75,10 +73,11 @@ func BenchmarkWriter(b *testing.B) {
 	b.SetBytes(100 * MB)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w := s.NewWriter(context.Background(), func(hash string, r io.Reader) error {
+		w := s.NewWriter(context.Background(), func(_ []*DataRef) error {
 			return nil
 		})
 		for i := 0; i < 100; i++ {
+			w.StartRange()
 			_, err := w.Write(seq[i*MB : (i+1)*MB])
 			require.NoError(b, err)
 		}

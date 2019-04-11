@@ -25,7 +25,7 @@ const (
 	WindowSize = 64
 )
 
-// Writer splits written data into content defined chunks that are deduplicated/uploaded to object storage.
+// Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 // A min/max chunk size is also enforced to avoid creating chunks that are too small/big.
 // (bryce) The chunking/hashing/uploading could be made concurrent by reading ahead a certain amount and splitting the data among chunking/hashing/uploading workers
@@ -39,14 +39,16 @@ type Writer struct {
 	ctx       context.Context
 	objC      obj.Client
 	prefix    string
-	f         func(string, io.Reader) error
+	f         func([]*DataRef) error
 	buf       *bytes.Buffer
 	hash      *buzhash64.Buzhash64
 	splitMask uint64
+	dataRefs  []*DataRef
+	done      [][]*DataRef
 }
 
 // newWriter creates a new Writer.
-func newWriter(ctx context.Context, objC obj.Client, prefix string, f func(string, io.Reader) error) io.WriteCloser {
+func newWriter(ctx context.Context, objC obj.Client, prefix string, f func([]*DataRef) error) *Writer {
 	// Initialize buzhash64 with WindowSize window.
 	hash := buzhash64.New()
 	hash.Write(make([]byte, WindowSize))
@@ -59,6 +61,26 @@ func newWriter(ctx context.Context, objC obj.Client, prefix string, f func(strin
 		hash:      hash,
 		splitMask: (1 << uint64(AverageBits)) - 1,
 	}
+}
+
+// StartRange specifies the start of a range within the byte stream that is meaningful to the caller.
+// When this range has ended (by calling StartRange again or Close) and all of the necessary chunks are written, the
+// callback given during initialization will be called with DataRefs that can be used for accessing that range.
+func (w *Writer) StartRange() {
+	// Finish prior range.
+	if w.dataRefs != nil {
+		w.finishRange()
+	}
+	// Start new range.
+	w.dataRefs = []*DataRef{&DataRef{Offset: uint64(w.buf.Len())}}
+}
+
+func (w *Writer) finishRange() {
+	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
+	lastDataRef.Size = uint64(w.buf.Len()) - lastDataRef.Offset
+	data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
+	lastDataRef.SubHash = hash.EncodeHash(hash.Sum(data))
+	w.done = append(w.done, w.dataRefs)
 }
 
 // Write rolls through the data written, calling c.f when a chunk is found.
@@ -74,11 +96,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 		// If the chunk is >= MaxSize, then a split point is created regardless.
 		if w.hash.Sum64()&w.splitMask == 0 && size >= MinSize || size >= MaxSize {
 			w.buf.Write(data[offset : i+1])
-			hash, err := w.put()
-			if err != nil {
-				return 0, err
-			}
-			if err := w.f(hash, w.buf); err != nil {
+			if err := w.put(); err != nil {
 				return 0, err
 			}
 			w.buf.Reset()
@@ -90,30 +108,55 @@ func (w *Writer) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-func (w *Writer) put() (string, error) {
-	hash := hash.EncodeHash(hash.Sum(w.buf.Bytes()))
-	path := path.Join(w.prefix, hash)
+func (w *Writer) put() error {
+	chunkHash := hash.EncodeHash(hash.Sum(w.buf.Bytes()))
+	path := path.Join(w.prefix, chunkHash)
 	// If it does not exist, compress and write it.
 	if !w.objC.Exists(w.ctx, path) {
 		objW, err := w.objC.Writer(w.ctx, path)
 		if err != nil {
-			return "", err
+			return err
 		}
 		defer objW.Close()
 		gzipW := gzip.NewWriter(objW)
 		defer gzipW.Close()
 		// (bryce) Encrypt?
 		if _, err := io.Copy(gzipW, bytes.NewReader(w.buf.Bytes())); err != nil {
-			return "", err
+			return err
 		}
 	}
-	return hash, nil
+	// Update chunk hash and run callback for ranges within the current chunk.
+	for _, dataRefs := range w.done {
+		lastDataRef := dataRefs[len(dataRefs)-1]
+		// Handle edge case where DataRef is size zero.
+		if lastDataRef.Size == 0 {
+			dataRefs = dataRefs[:len(dataRefs)-1]
+		} else {
+			// Set hash for last DataRef (from current chunk).
+			lastDataRef.Hash = chunkHash
+		}
+		if err := w.f(dataRefs); err != nil {
+			return err
+		}
+	}
+	w.done = nil
+	// Update hash and sub hash (if at first sub chunk in range)
+	// in last DataRef for current range.
+	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
+	lastDataRef.Hash = chunkHash
+	if lastDataRef.Offset > 0 {
+		data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
+		lastDataRef.SubHash = hash.EncodeHash(hash.Sum(data))
+	}
+	lastDataRef.Size = uint64(w.buf.Len()) - lastDataRef.Offset
+	// Setup DataRef for next chunk.
+	w.dataRefs = append(w.dataRefs, &DataRef{})
+	return nil
 }
 
+// Close closes the writer and flushes the remaining bytes to a chunk and finishes
+// the final range.
 func (w *Writer) Close() error {
-	hash, err := w.put()
-	if err != nil {
-		return err
-	}
-	return w.f(hash, w.buf)
+	w.finishRange()
+	return w.put()
 }
