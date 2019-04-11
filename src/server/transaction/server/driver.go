@@ -7,11 +7,15 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/transactiondb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"
@@ -23,6 +27,10 @@ type driver struct {
 	etcdClient *etcd.Client
 	prefix     string
 
+	pfsServer  *pfsserver.APIServer
+	ppsServer  *ppsserver.APIServer
+	authServer *authserver.APIServer
+
 	// collections
 	transactions col.Collection
 
@@ -31,12 +39,22 @@ type driver struct {
 }
 
 // newDriver
-func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, memoryRequest int64) (*driver, error) {
+func newDriver(
+	env *serviceenv.ServiceEnv,
+	etcdPrefix string,
+	pfsServer *pfsserver.APIServer,
+	ppsServer *ppsserver.APIServer,
+	authServer *authserver.APIServer,
+	memoryRequest int64,
+) (*driver, error) {
 	// Initialize driver
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
 		etcdClient:   etcdClient,
 		prefix:       etcdPrefix,
+		pfsServer:    pfsServer,
+		ppsServer:    ppsServer,
+		authServer:   authServer,
 		transactions: transactiondb.Transactions(etcdClient, etcdPrefix),
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
@@ -105,8 +123,69 @@ func (d *driver) listTransaction(pachClient *client.APIClient) ([]*transaction.T
 	return result, nil
 }
 
-func (d *driver) runTransaction(stm col.STM, txnInfo *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
-	return nil, fmt.Errorf("not yet implemented")
+func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, txnInfo *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+	responses := []*transaction.TransactionResponse{}
+	for i, request := range txnInfo.Requests {
+		var err error
+		var response *transaction.TransactionResponse
+		switch request.Request.(type) {
+		case *transaction.TransactionRequest_CreateRepo:
+			err = d.pfsServer.CreateRepoInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_DeleteRepo:
+			err = d.pfsServer.DeleteRepoInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_StartCommit:
+			var commit *pfs.Commit
+			commit, err = d.pfsServer.StartCommitInTransaction(pachClient, stm, request.Request)
+			response = client.NewCommitResponse(commit)
+		case *transaction.TransactionRequest_FinishCommit:
+			result, err = d.pfsServer.FinishCommitInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_DeleteCommit:
+			result, err = d.pfsServer.DeleteCommitInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_CreateBranch:
+			result, err = d.pfsServer.CreateBranchInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_DeleteBranch:
+			result, err = d.pfsServer.DeleteBranchInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_PutFile:
+			result, err = d.pfsServer.PutFileInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_CopyFile:
+			result, err = d.pfsServer.CopyFileInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_DeleteFile:
+			result, err = d.pfsServer.DeleteFileInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_DeleteAll:
+			err = fmt.Errorf("not yet implemented")
+			/*
+				_, err = d.authServer.RunInTransaction(pachClient, stm, &auth.DeactivateRequest{})
+				if err == nil {
+					_, err = d.pfsServer.RunInTransaction(pachClient, stm, &pfs.DeleteAllRequest{})
+				}
+				if err == nil {
+					_, err = d.ppsServer.RunInTransaction(pachClient, stm, &pps.DeleteAllRequest{})
+				}
+			*/
+		case *transaction.TransactionRequest_CreatePipeline:
+			result, err = ppsClient.RunInTransaction(pachClient, stm, request.Request)
+			response = client.NewEmptyResponse()
+		default:
+			err = fmt.Errorf("unrecognized transaction request type")
+		}
+
+		if err != nil {
+			return nil, fmt.Errorf("error running request %d of %d: %v", err)
+		}
+
+		responses = append(responses, response)
+	}
+
+	// TODO: check that responses match the cached responses in the transaction info
 }
 
 func (d *driver) finishTransaction(pachClient *client.APIClient, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
@@ -117,7 +196,7 @@ func (d *driver) finishTransaction(pachClient *client.APIClient, txn *transactio
 		if err != nil {
 			return err
 		}
-		info, err = d.runTransaction(stm, info)
+		info, err = d.runTransaction(pachClient, stm, info)
 		return err
 	})
 	if err != nil {
@@ -149,7 +228,7 @@ func (d *driver) appendTransaction(
 
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
-		// We first do a dryrun of the transaction to:
+		// We first do a dryrun of the transaction to
 		// 1. make sure the appended request is valid
 		// 2. Capture the result of the request to be returned
 		var transactionLength int
@@ -170,7 +249,7 @@ func (d *driver) appendTransaction(
 			transactionLength = len(info.Requests)
 			info.Requests = append(info.Requests, items...)
 
-			info, err = d.runTransaction(stm, info)
+			info, err = d.runTransaction(pachClient, stm, info)
 			if err != nil {
 				return err
 			}

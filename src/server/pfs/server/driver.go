@@ -196,7 +196,7 @@ func absent(key string) etcd.Cmp {
 	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
-func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, description string, update bool) error {
+func (d *driver) createRepo(pachClient *client.APIClient, stm col.STM, repo *pfs.Repo, description string, update bool) error {
 	ctx := pachClient.Ctx()
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
@@ -210,57 +210,54 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 		return err
 	}
 
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		repos := d.repos.ReadWrite(stm)
+	repos := d.repos.ReadWrite(stm)
 
-		// check if 'repo' already exists. If so, return that error. Otherwise,
-		// proceed with ACL creation (avoids awkward "access denied" error when
-		// calling "createRepo" on a repo that already exists)
-		var existingRepoInfo pfs.RepoInfo
-		err := repos.Get(repo.Name, &existingRepoInfo)
-		if err != nil && !col.IsErrNotFound(err) {
-			return fmt.Errorf("error checking whether \"%s\" exists: %v",
-				repo.Name, err)
-		} else if err == nil && !update {
-			return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
-		}
-		created := now()
-		if err == nil {
-			created = existingRepoInfo.Created
-		}
+	// check if 'repo' already exists. If so, return that error. Otherwise,
+	// proceed with ACL creation (avoids awkward "access denied" error when
+	// calling "createRepo" on a repo that already exists)
+	var existingRepoInfo pfs.RepoInfo
+	err = repos.Get(repo.Name, &existingRepoInfo)
+	if err != nil && !col.IsErrNotFound(err) {
+		return fmt.Errorf("error checking whether \"%s\" exists: %v",
+			repo.Name, err)
+	} else if err == nil && !update {
+		return fmt.Errorf("cannot create \"%s\" as it already exists", repo.Name)
+	}
+	created := now()
+	if err == nil {
+		created = existingRepoInfo.Created
+	}
 
-		// Create ACL for new repo
-		if authIsActivated {
-			// auth is active, and user is logged in. Make user an owner of the new
-			// repo (and clear any existing ACL under this name that might have been
-			// created by accident)
-			_, err := pachClient.AuthAPIClient.SetACL(ctx, &auth.SetACLRequest{
-				Repo: repo.Name,
-				Entries: []*auth.ACLEntry{{
-					Username: whoAmI.Username,
-					Scope:    auth.Scope_OWNER,
-				}},
-			})
-			if err != nil {
-				return fmt.Errorf("could not create ACL for new repo \"%s\": %v",
-					repo.Name, grpcutil.ScrubGRPC(err))
-			}
+	// Create ACL for new repo
+	if authIsActivated {
+		// auth is active, and user is logged in. Make user an owner of the new
+		// repo (and clear any existing ACL under this name that might have been
+		// created by accident)
+		_, err := pachClient.AuthAPIClient.SetACL(ctx, &auth.SetACLRequest{
+			Repo: repo.Name,
+			Entries: []*auth.ACLEntry{{
+				Username: whoAmI.Username,
+				Scope:    auth.Scope_OWNER,
+			}},
+		})
+		if err != nil {
+			return fmt.Errorf("could not create ACL for new repo \"%s\": %v",
+				repo.Name, grpcutil.ScrubGRPC(err))
 		}
+	}
 
-		repoInfo := &pfs.RepoInfo{
-			Repo:        repo,
-			Created:     created,
-			Description: description,
-		}
-		// Only Put the new repoInfo if something has changed.  This
-		// optimization is impactful because pps will frequently update the
-		// __spec__ repo to make sure it exists.
-		if !proto.Equal(repoInfo, &existingRepoInfo) {
-			return repos.Put(repo.Name, repoInfo)
-		}
-		return nil
-	})
-	return err
+	repoInfo := &pfs.RepoInfo{
+		Repo:        repo,
+		Created:     created,
+		Description: description,
+	}
+	// Only Put the new repoInfo if something has changed.  This
+	// optimization is impactful because pps will frequently update the
+	// __spec__ repo to make sure it exists.
+	if !proto.Equal(repoInfo, &existingRepoInfo) {
+		return repos.Put(repo.Name, repoInfo)
+	}
+	return nil
 }
 
 func (d *driver) inspectRepo(pachClient *client.APIClient, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {

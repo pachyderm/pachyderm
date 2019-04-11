@@ -1,9 +1,28 @@
 package client
 
 import (
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
+
+	"github.com/gogo/protobuf/types"
 )
+
+func NewEmptyResponse() *transaction.TransactionResponse {
+	return &transaction.TransactionResponse{
+		Response: &transaction.TransactionResponse_None{
+			None: &types.Empty{},
+		},
+	}
+}
+
+func NewCommitResponse(commit *pfs.Commit) *transaction.TransactionResponse {
+	return &transaction.TransactionResponse{
+		Response: &transaction.TransactionResponse_Commit{
+			Commit: commit, // TODO: copy?
+		},
+	}
+}
 
 func (c APIClient) ListTransaction() ([]*transaction.TransactionInfo, error) {
 	response, err := c.TransactionAPIClient.ListTransaction(

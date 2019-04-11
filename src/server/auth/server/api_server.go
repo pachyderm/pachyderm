@@ -87,7 +87,7 @@ var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
 // though empty values are still stored in etcd)
 var epsilon = &types.BoolValue{Value: true}
 
-type apiServer struct {
+type APIServer struct {
 	env        *serviceenv.ServiceEnv
 	pachLogger log.Logger
 
@@ -135,7 +135,7 @@ type apiServer struct {
 // LogReq is like log.Logger.Log(), but it assumes that it's being called from
 // the top level of a GRPC method implementation, and correspondingly extracts
 // the method name from the parent stack frame
-func (a *apiServer) LogReq(request interface{}) {
+func (a *APIServer) LogReq(request interface{}) {
 	a.pachLogger.Log(request, nil, nil, 0)
 }
 
@@ -145,7 +145,7 @@ func (a *apiServer) LogReq(request interface{}) {
 //    stack frame
 // 2) It logs NotActivatedError at DebugLevel instead of ErrorLevel, as, in most
 //    cases, this error is expected, and logging it frequently may confuse users
-func (a *apiServer) LogResp(request interface{}, response interface{}, err error, duration time.Duration) {
+func (a *APIServer) LogResp(request interface{}, response interface{}, err error, duration time.Duration) {
 	if err == nil {
 		a.pachLogger.LogAtLevelFromDepth(request, response, err, duration, logrus.InfoLevel, 4)
 	} else if authclient.IsErrNotActivated(err) {
@@ -157,7 +157,7 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 
 // NewAuthServer returns an implementation of authclient.APIServer.
 func NewAuthServer(env *serviceenv.ServiceEnv, etcdPrefix string, public bool) (authclient.APIServer, error) {
-	s := &apiServer{
+	s := &APIServer{
 		env:        env,
 		pachLogger: log.NewLogger("authclient.API"),
 		adminCache: make(map[string]struct{}),
@@ -247,7 +247,7 @@ const (
 // When the activation state is 'partial' users cannot authenticate; the only
 // functioning auth API calls are Activate() (to retry activation) and
 // Deactivate() (to give up and revert to the 'none' state)
-func (a *apiServer) activationState() activationState {
+func (a *APIServer) activationState() activationState {
 	a.adminMu.Lock()
 	defer a.adminMu.Unlock()
 	if len(a.adminCache) == 0 {
@@ -263,7 +263,7 @@ func (a *apiServer) activationState() activationState {
 // TODO This is a hack. It avoids the need to return superuser tokens from
 // GetAuthToken (essentially, PPS and Auth communicate through etcd instead of
 // an API) but we should define an internal API and use that instead.
-func (a *apiServer) retrieveOrGeneratePPSToken() {
+func (a *APIServer) retrieveOrGeneratePPSToken() {
 	var tokenProto types.StringValue // will contain PPS token
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -298,7 +298,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	}
 }
 
-func (a *apiServer) watchAdmins(fullAdminPrefix string) {
+func (a *APIServer) watchAdmins(fullAdminPrefix string) {
 	b := backoff.NewExponentialBackOff()
 	backoff.RetryNotify(func() error {
 		// Watch for the addition/removal of new admins. Note that this will return
@@ -347,7 +347,7 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 	})
 }
 
-func (a *apiServer) watchConfig() {
+func (a *APIServer) watchConfig() {
 	b := backoff.NewExponentialBackOff()
 	backoff.RetryNotify(func() error {
 		// Watch for the addition/removal of new admins. Note that this will return
@@ -403,7 +403,7 @@ func (a *apiServer) watchConfig() {
 	})
 }
 
-func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
+func (a *APIServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	pachClient := a.env.GetPachClient(context.Background())
 	resp, err := pachClient.Enterprise.GetState(context.Background(),
 		&enterpriseclient.GetStateRequest{})
@@ -413,7 +413,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	return resp.State, nil
 }
 
-func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
+func (a *APIServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // copy auth information
 	// We don't want to actually log the request/response since they contain
@@ -544,7 +544,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
 
-func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRequest) (resp *authclient.DeactivateResponse, retErr error) {
+func (a *APIServer) Deactivate(ctx context.Context, req *authclient.DeactivateRequest) (resp *authclient.DeactivateResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -649,7 +649,7 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 	return authclient.GitHubPrefix + verifiedUsername, nil
 }
 
-func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequest) (resp *authclient.GetAdminsResponse, retErr error) {
+func (a *APIServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequest) (resp *authclient.GetAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {
@@ -677,7 +677,7 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequ
 	return resp, nil
 }
 
-func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) error {
+func (a *APIServer) validateModifyAdminsRequest(add []string, remove []string) error {
 	// Check to make sure that req doesn't remove all cluster admins
 	m := make(map[string]struct{})
 	// copy existing admins into m
@@ -705,7 +705,7 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 	return nil
 }
 
-func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdminsRequest) (resp *authclient.ModifyAdminsResponse, retErr error) {
+func (a *APIServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdminsRequest) (resp *authclient.ModifyAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {
@@ -790,7 +790,7 @@ func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdmi
 
 // expiredClusterAdminCheck enforces that if the cluster's enterprise token is
 // expired, only admins may log in.
-func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username string) error {
+func (a *APIServer) expiredClusterAdminCheck(ctx context.Context, username string) error {
 	state, err := a.getEnterpriseTokenState()
 	if err != nil {
 		return fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
@@ -808,7 +808,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 	return nil
 }
 
-func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
+func (a *APIServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	switch a.activationState() {
 	case none:
 		// PPS is authenticated by a token read from etcd. It never calls or needs
@@ -907,7 +907,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *authclient.Authentica
 	}, nil
 }
 
-func (a *apiServer) getCallerTTL(ctx context.Context) (int64, error) {
+func (a *APIServer) getCallerTTL(ctx context.Context) (int64, error) {
 	token, err := getAuthToken(ctx)
 	if err != nil {
 		return 0, err
@@ -919,7 +919,7 @@ func (a *apiServer) getCallerTTL(ctx context.Context) (int64, error) {
 	return ttl, nil
 }
 
-func (a *apiServer) GetOneTimePassword(ctx context.Context, req *authclient.GetOneTimePasswordRequest) (resp *authclient.GetOneTimePasswordResponse, retErr error) {
+func (a *APIServer) GetOneTimePassword(ctx context.Context, req *authclient.GetOneTimePasswordRequest) (resp *authclient.GetOneTimePasswordResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
 	defer func(start time.Time) { a.LogResp(nil, nil, retErr, time.Since(start)) }(time.Now())
@@ -1016,7 +1016,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *authclient.GetO
 // but is also called directly by handleSAMLREsponse. It generates a
 // short-lived authentication code for 'username', writes it to
 // a.authenticationCodes, and returns it
-func (a *apiServer) getOneTimePassword(ctx context.Context, username string, expiration time.Time) (code string, err error) {
+func (a *APIServer) getOneTimePassword(ctx context.Context, username string, expiration time.Time) (code string, err error) {
 	// Create OTPInfo that will be stored
 	otpInfo := &authclient.OTPInfo{
 		Subject: username,
@@ -1041,7 +1041,7 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, exp
 	return code, nil
 }
 
-func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
+func (a *APIServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -1098,7 +1098,7 @@ func (a *apiServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}, nil
 }
 
-func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
+func (a *APIServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -1145,7 +1145,7 @@ func validateSetScopeRequest(ctx context.Context, req *authclient.SetScopeReques
 	return nil
 }
 
-func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
+func (a *APIServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 	if subject == magicUser {
 		return true, nil
 	}
@@ -1168,7 +1168,7 @@ func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 	return false, nil
 }
 
-func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
+func (a *APIServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -1272,7 +1272,7 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 // getScope is a helper function for the GetScope GRPC API, as well is
 // Authorized() and other authorization checks (e.g. checking if a user is an
 // OWNER to determine if they can modify an ACL).
-func (a *apiServer) getScope(ctx context.Context, subject string, acl *authclient.ACL) (authclient.Scope, error) {
+func (a *APIServer) getScope(ctx context.Context, subject string, acl *authclient.ACL) (authclient.Scope, error) {
 	// Get scope based on user's direct access
 	scope := acl.Entries[subject]
 
@@ -1291,7 +1291,7 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *authclien
 	return scope, nil
 }
 
-func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
+func (a *APIServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -1375,7 +1375,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	return resp, nil
 }
 
-func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
+func (a *APIServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -1415,7 +1415,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	return resp, nil
 }
 
-func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
+func (a *APIServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -1550,7 +1550,7 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	return &authclient.SetACLResponse{}, nil
 }
 
-func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTokenRequest) (resp *authclient.GetAuthTokenResponse, retErr error) {
+func (a *APIServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTokenRequest) (resp *authclient.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -1638,7 +1638,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	}, nil
 }
 
-func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendAuthTokenRequest) (resp *authclient.ExtendAuthTokenResponse, retErr error) {
+func (a *APIServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendAuthTokenRequest) (resp *authclient.ExtendAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() != full {
@@ -1705,7 +1705,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	return &authclient.ExtendAuthTokenResponse{}, nil
 }
 
-func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
+func (a *APIServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() != full {
@@ -1749,7 +1749,7 @@ func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeA
 // also by handleSAMLResponse (which updates group membership information based
 // on signed SAML assertions). This does no auth checks, so the caller must do
 // all relevant authorization.
-func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
+func (a *APIServer) setGroupsForUserInternal(ctx context.Context, subject string, groups []string) error {
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		members := a.members.ReadWrite(stm)
 
@@ -1799,7 +1799,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 	return err
 }
 
-func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGroupsForUserRequest) (resp *authclient.SetGroupsForUserResponse, retErr error) {
+func (a *APIServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGroupsForUserRequest) (resp *authclient.SetGroupsForUserResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() != full {
@@ -1833,7 +1833,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 	return &authclient.SetGroupsForUserResponse{}, nil
 }
 
-func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMembersRequest) (resp *authclient.ModifyMembersResponse, retErr error) {
+func (a *APIServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMembersRequest) (resp *authclient.ModifyMembersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() != full {
@@ -1927,7 +1927,7 @@ func removeFromSet(set map[string]bool, elems ...string) map[string]bool {
 
 // getGroups is a helper function used primarily by the GRPC API GetGroups, but
 // also by Authorize() and isAdmin().
-func (a *apiServer) getGroups(ctx context.Context, subject string) ([]string, error) {
+func (a *APIServer) getGroups(ctx context.Context, subject string) ([]string, error) {
 	members := a.members.ReadOnly(ctx)
 	var groupsProto authclient.Groups
 	if err := members.Get(subject, &groupsProto); err != nil {
@@ -1939,7 +1939,7 @@ func (a *apiServer) getGroups(ctx context.Context, subject string) ([]string, er
 	return setToList(groupsProto.Groups), nil
 }
 
-func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequest) (resp *authclient.GetGroupsResponse, retErr error) {
+func (a *APIServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequest) (resp *authclient.GetGroupsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() != full {
@@ -1983,7 +1983,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 	return &authclient.GetGroupsResponse{Groups: groups}, nil
 }
 
-func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
+func (a *APIServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() != full {
@@ -2068,7 +2068,7 @@ func getAuthToken(ctx context.Context) (string, error) {
 	return md[authclient.ContextTokenKey][0], nil
 }
 
-func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.TokenInfo, error) {
+func (a *APIServer) getAuthenticatedUser(ctx context.Context) (*authclient.TokenInfo, error) {
 	// TODO(msteffen) cache these lookups, especially since users always authorize
 	// themselves at the beginning of a request. Don't want to look up the same
 	// token -> username entry twice.
@@ -2098,7 +2098,7 @@ func (a *apiServer) getAuthenticatedUser(ctx context.Context) (*authclient.Token
 }
 
 // canonicalizeSubjects applies canonicalizeSubject to a list
-func (a *apiServer) canonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
+func (a *APIServer) canonicalizeSubjects(ctx context.Context, subjects []string) ([]string, error) {
 	if subjects == nil {
 		return []string{}, nil
 	}
@@ -2128,7 +2128,7 @@ func (a *apiServer) canonicalizeSubjects(ctx context.Context, subjects []string)
 // that. If 'subject' has no prefix, they are assumed to be a GitHub user.
 // TODO(msteffen): We'd like to require that subjects always have a prefix, but
 // this behavior hasn't been implemented in the dash yet.
-func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
+func (a *APIServer) canonicalizeSubject(ctx context.Context, subject string) (string, error) {
 	colonIdx := strings.Index(subject, ":")
 	if colonIdx < 0 {
 		subject = authclient.GitHubPrefix + subject
@@ -2185,7 +2185,7 @@ func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error
 	return authclient.GitHubPrefix + u.GetLogin(), nil
 }
 
-func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetConfigurationRequest) (resp *authclient.GetConfigurationResponse, retErr error) {
+func (a *APIServer) GetConfiguration(ctx context.Context, req *authclient.GetConfigurationRequest) (resp *authclient.GetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {
@@ -2232,7 +2232,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	}, nil
 }
 
-func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetConfigurationRequest) (resp *authclient.SetConfigurationResponse, retErr error) {
+func (a *APIServer) SetConfiguration(ctx context.Context, req *authclient.SetConfigurationRequest) (resp *authclient.SetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	switch a.activationState() {

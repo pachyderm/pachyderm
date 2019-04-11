@@ -49,9 +49,9 @@ func generateRandomString(n int) string {
 	return string(b)
 }
 
-// runServers starts serving requests for the given apiServer & blockAPIServer
+// runServers starts serving requests for the given APIServer & blockAPIServer
 // in a separate goroutine. Helper for getPachClient()
-func runServers(t testing.TB, port int32, apiServer pfs.APIServer,
+func runServers(t testing.TB, port int32, apiServer *APIServer,
 	blockAPIServer BlockAPIServer) {
 	ready := make(chan bool)
 	go func() {

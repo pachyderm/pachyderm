@@ -42,7 +42,7 @@ var (
 
 // The master process is responsible for creating/deleting workers as
 // pipelines are created/removed.
-func (a *apiServer) master() {
+func (a *APIServer) master() {
 	masterLock := dlock.NewDLock(a.env.GetEtcdClient(), path.Join(a.etcdPrefix, masterLockPath))
 	backoff.RetryNotify(func() error {
 		ctx, cancel := context.WithCancel(context.Background())
@@ -246,11 +246,11 @@ func (a *apiServer) master() {
 	})
 }
 
-func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
+func (a *APIServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
 	return ppsutil.FailPipeline(ctx, a.env.GetEtcdClient(), a.pipelines, pipelineName, reason)
 }
 
-func (a *apiServer) checkOrDeployGithookService() error {
+func (a *APIServer) checkOrDeployGithookService() error {
 	kubeClient := a.env.GetKubeClient()
 	_, err := getGithookService(kubeClient, a.namespace)
 	if err != nil {
@@ -288,7 +288,7 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 	return &serviceList.Items[0], nil
 }
 
-func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+func (a *APIServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
 	var errCount int
 	if err := backoff.RetryNotify(func() error {
 		var resourceRequests *v1.ResourceList
@@ -367,7 +367,7 @@ func (a *apiServer) upsertWorkersForPipeline(pipelineInfo *pps.PipelineInfo) err
 	return nil
 }
 
-func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
+func (a *APIServer) deleteWorkersForPipeline(pipelineName string) error {
 	cancel, ok := a.monitorCancels[pipelineName]
 	if ok {
 		cancel()
@@ -404,7 +404,7 @@ func (a *apiServer) deleteWorkersForPipeline(pipelineName string) error {
 	return nil
 }
 
-func (a *apiServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+func (a *APIServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
 	rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
@@ -417,7 +417,7 @@ func (a *apiServer) scaleDownWorkersForPipeline(pipelineInfo *pps.PipelineInfo) 
 	return err
 }
 
-func (a *apiServer) scaleUpWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
+func (a *APIServer) scaleUpWorkersForPipeline(pipelineInfo *pps.PipelineInfo) error {
 	rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
@@ -447,7 +447,7 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 	}
 }
 
-func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState, reason string) error {
+func (a *APIServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState, reason string) error {
 	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
 	_, err := col.NewSTM(pachClient.Ctx(), a.env.GetEtcdClient(), func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
@@ -464,7 +464,7 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 	return err
 }
 
-func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
+func (a *APIServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
@@ -558,7 +558,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 
 // makeCronCommits makes commits to a single cron input's repo. It's
 // a helper function called by monitorPipeline.
-func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
+func (a *APIServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input) error {
 	schedule, err := cron.ParseStandard(in.Cron.Spec)
 	if err != nil {
 		return err // Shouldn't happen, as the input is validated in CreatePipeline

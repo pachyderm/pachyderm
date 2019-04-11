@@ -184,18 +184,18 @@ func doSidecarMode(config interface{}) (retErr error) {
 				}
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
-				transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), memoryRequestBytes)
-				if err != nil {
-					return fmt.Errorf("transaction.NewAPIServer: %v", err)
-				}
-				transactionclient.RegisterAPIServer(s, transactionAPIServer)
-
 				authAPIServer, err := authserver.NewAuthServer(
 					env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), false)
 				if err != nil {
 					return fmt.Errorf("NewAuthServer: %v", err)
 				}
 				authclient.RegisterAPIServer(s, authAPIServer)
+
+				transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), pfsAPIServer, ppsAPIServer, authAPIServer, memoryRequestBytes)
+				if err != nil {
+					return fmt.Errorf("transaction.NewAPIServer: %v", err)
+				}
+				transactionclient.RegisterAPIServer(s, transactionAPIServer)
 
 				enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 					env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
@@ -376,12 +376,6 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
-					transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), memoryRequestBytes)
-					if err != nil {
-						return fmt.Errorf("transaction.NewAPIServer: %v", err)
-					}
-					transactionclient.RegisterAPIServer(s, transactionAPIServer)
-
 					if env.ExposeObjectAPI {
 						// Generally the object API should not be exposed publicly, but
 						// TestGarbageCollection uses it and it may help with debugging
@@ -401,6 +395,12 @@ func doFullMode(config interface{}) (retErr error) {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
+
+					transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), pfsAPIServer, ppsAPIServer, authAPIServer, memoryRequestBytes)
+					if err != nil {
+						return fmt.Errorf("transaction.NewAPIServer: %v", err)
+					}
+					transactionclient.RegisterAPIServer(s, transactionAPIServer)
 
 					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 						env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))
@@ -500,12 +500,6 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
-					transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), memoryRequestBytes)
-					if err != nil {
-						return fmt.Errorf("transaction.NewAPIServer: %v", err)
-					}
-					transactionclient.RegisterAPIServer(s, transactionAPIServer)
-
 					authAPIServer, err := authserver.NewAuthServer(
 						env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
 						false)
@@ -513,6 +507,12 @@ func doFullMode(config interface{}) (retErr error) {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
+
+					transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), pfsAPIServer, ppsAPIServer, authAPIServer, memoryRequestBytes)
+					if err != nil {
+						return fmt.Errorf("transaction.NewAPIServer: %v", err)
+					}
+					transactionclient.RegisterAPIServer(s, transactionAPIServer)
 
 					enterpriseAPIServer, err := eprsserver.NewEnterpriseServer(
 						env, path.Join(env.EtcdPrefix, env.EnterpriseEtcdPrefix))

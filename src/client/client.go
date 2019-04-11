@@ -458,6 +458,7 @@ func (c *APIClient) Close() error {
 
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),

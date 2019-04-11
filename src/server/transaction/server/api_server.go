@@ -7,8 +7,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
+	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
+	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	ppsserver "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -32,8 +35,15 @@ type apiServer struct {
 	_pachClient *client.APIClient
 }
 
-func newAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, memoryRequest int64) (*apiServer, error) {
-	d, err := newDriver(env, etcdPrefix, memoryRequest)
+func newAPIServer(
+	env *serviceenv.ServiceEnv,
+	etcdPrefix string,
+	pfsServer *pfsserver.APIServer,
+	ppsServer *ppsserver.APIServer,
+	authServer *authserver.APIServer,
+	memoryRequest int64,
+) (*apiServer, error) {
+	d, err := newDriver(env, etcdPrefix, pfsServer, ppsServer, authServer, memoryRequest)
 	if err != nil {
 		return nil, err
 	}

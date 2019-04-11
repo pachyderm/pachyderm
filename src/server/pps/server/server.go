@@ -30,7 +30,7 @@ func NewAPIServer(
 	httpPort uint16,
 	peerPort uint16,
 ) (ppsclient.APIServer, error) {
-	apiServer := &apiServer{
+	apiServer := &APIServer{
 		Logger:                log.NewLogger("pps.API"),
 		env:                   env,
 		etcdPrefix:            etcdPrefix,
@@ -73,7 +73,7 @@ func NewSidecarAPIServer(
 	httpPort uint16,
 	peerPort uint16,
 ) (ppsclient.APIServer, error) {
-	apiServer := &apiServer{
+	apiServer := &APIServer{
 		Logger:         log.NewLogger("pps.API"),
 		env:            env,
 		etcdPrefix:     etcdPrefix,

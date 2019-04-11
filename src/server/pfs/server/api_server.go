@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -22,7 +23,7 @@ var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
-type apiServer struct {
+type APIServer struct {
 	log.Logger
 	driver *driver
 
@@ -36,12 +37,12 @@ type apiServer struct {
 	_pachClient *client.APIClient
 }
 
-func newAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*apiServer, error) {
+func newAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*APIServer, error) {
 	d, err := newDriver(env, etcdPrefix, treeCache, storageRoot, memoryRequest)
 	if err != nil {
 		return nil, err
 	}
-	s := &apiServer{
+	s := &APIServer{
 		Logger: log.NewLogger("pfs.API"),
 		driver: d,
 		env:    env,
@@ -50,24 +51,35 @@ func newAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hash
 	return s, nil
 }
 
-func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
+func (a *APIServer) CreateRepoInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.CreateRepoRequest,
+) error {
+	return a.driver.createRepo(pachClient, stm, request.Repo, request.Description, request.Update)
+}
+
+func (a *APIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.createRepo(a.env.GetPachClient(ctx), request.Repo, request.Description, request.Update); err != nil {
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.CreateRepoInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
+	if err != nil {
 		return nil, err
 	}
-	return &types.Empty{}, nil
+	return response, nil
 }
 
-func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
+func (a *APIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.inspectRepo(a.env.GetPachClient(ctx), request.Repo, true)
 }
 
-func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
+func (a *APIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -75,7 +87,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	return repoInfos, err
 }
 
-func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
+func (a *APIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -92,7 +104,7 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
+func (a *APIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -103,7 +115,7 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	return commit, nil
 }
 
-func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
+func (a *APIServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -114,7 +126,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	return commit, nil
 }
 
-func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
+func (a *APIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if request.Trees != nil {
@@ -127,14 +139,14 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
+func (a *APIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.inspectCommit(a.env.GetPachClient(ctx), request.Commit, request.BlockState)
 }
 
-func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
+func (a *APIServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -147,7 +159,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	}, nil
 }
 
-func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
+func (a *APIServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
@@ -159,7 +171,7 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 	})
 }
 
-func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
+func (a *APIServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -169,13 +181,13 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
+func (a *APIServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return a.driver.inspectBranch(a.env.GetPachClient(ctx), request.Branch)
 }
 
-func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
+func (a *APIServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -186,7 +198,7 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	return &pfs.BranchInfos{BranchInfo: branches}, nil
 }
 
-func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
+func (a *APIServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -196,7 +208,7 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {
+func (a *APIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -206,21 +218,21 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
+func (a *APIServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.flushCommit(a.env.GetPachClient(stream.Context()), request.Commits, request.ToRepos, stream.Send)
 }
 
-func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
+func (a *APIServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.subscribeCommit(a.env.GetPachClient(stream.Context()), request.Repo, request.Branch, request.From, request.State, stream.Send)
 }
 
-func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
+func (a *APIServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	s := newPutFileServer(putFileServer)
 	r, err := s.Peek()
 	if err != nil {
@@ -240,7 +252,7 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	return a.driver.putFiles(pachClient, s)
 }
 
-func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+func (a *APIServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
@@ -249,7 +261,7 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
+func (a *APIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
@@ -260,14 +272,14 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	return grpcutil.WriteToStreamingBytesServer(file, apiGetFileServer)
 }
 
-func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+func (a *APIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), request.File)
 }
 
-func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
+func (a *APIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
@@ -290,7 +302,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	}, nil
 }
 
-func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.API_ListFileStreamServer) (retErr error) {
+func (a *APIServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.API_ListFileStreamServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
@@ -302,7 +314,7 @@ func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.
 	})
 }
 
-func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
+func (a *APIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
@@ -314,7 +326,7 @@ func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 	})
 }
 
-func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
+func (a *APIServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
@@ -337,7 +349,7 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 	}, nil
 }
 
-func (a *apiServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileStreamServer) (retErr error) {
+func (a *APIServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileStreamServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
@@ -349,7 +361,7 @@ func (a *apiServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.
 	})
 }
 
-func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {
+func (a *APIServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && (len(response.NewFiles) > client.MaxListItemsLog || len(response.OldFiles) > client.MaxListItemsLog) {
@@ -372,7 +384,7 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 	}, nil
 }
 
-func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
+func (a *APIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -383,7 +395,7 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+func (a *APIServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
