@@ -486,6 +486,32 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
+	runPipeline := &cobra.Command{
+		Use:   "{{alias}} <pipeline> [commits...]",
+		Short: "Run an existing Pachyderm pipeline on the specified commits or branches.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commits. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
+		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			provCommits, err := cmdutil.ParseCommits(args[1:])
+			if err != nil {
+				return err
+			}
+			prov := make([]*pfs.CommitProvenance, 0, len(args[1:]))
+			for _, commit := range provCommits {
+				prov = append(prov, &pfs.CommitProvenance{
+					Commit: commit,
+				})
+			}
+			client.RunPipeline(args[0], prov)
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
+
 	inspectPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Return info about a pipeline.",

@@ -1362,9 +1362,25 @@ nextSubvBranch:
 				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
 			}
 		}
+
 		// Fill it with the passed in provenance
 		for _, prov := range provenance {
-			commitProvMap[prov.Commit.ID] = prov
+			// resolve the commit in case the commit is actually a branch name
+			provCommitInfo, err := d.resolveCommit(stm, prov.Commit)
+			if err != nil {
+				return err
+			}
+
+			if prov.Branch == nil {
+				// if the branch isn't specified, default to using the commit's branch
+				prov.Branch = provCommitInfo.Branch
+				// but if the original "commit id" was a branch name, use that as the branch instead
+				if provCommitInfo.Commit.ID != prov.Commit.ID {
+					prov.Branch.Name = prov.Commit.ID
+					prov.Commit = provCommitInfo.Commit
+				}
+			}
+			commitProvMap[key(provCommitInfo.Commit.ID, prov.Branch.Name)] = prov
 		}
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
