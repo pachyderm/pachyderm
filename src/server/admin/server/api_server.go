@@ -280,9 +280,6 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 	add = func(name string) {
 		if pi, ok := piMap[name]; ok {
 			pps.VisitInput(pi.Input, func(input *pps.Input) {
-				if input.Atom != nil {
-					add(input.Atom.Repo)
-				}
 				if input.Pfs != nil {
 					add(input.Pfs.Repo)
 				}

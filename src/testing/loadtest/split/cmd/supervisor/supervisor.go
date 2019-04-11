@@ -177,7 +177,7 @@ func main() {
 				Cpu:    1,
 			},
 			Input: &pps.Input{
-				Atom: &pps.AtomInput{
+				pfs: &pps.PFSInput{
 					Repo:   repo,
 					Branch: branch,
 					Glob:   "/*",
