@@ -508,6 +508,7 @@ test-vault:
 	cd ./etc/testing/s3gateway.s3-tests && source virtualenv/bin/activate && pip install nose-exclude==0.5.0
 
 test-s3gateway-integration:
+	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1 | grep -v 'INFO pfs.'
 
 test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
