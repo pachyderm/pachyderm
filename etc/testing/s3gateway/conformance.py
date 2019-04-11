@@ -901,7 +901,7 @@ def main():
     if proc.returncode != 0:
         raise Exception("bad exit code: {}".format(proc.returncode))
 
-    if test:
+    if args.test:
         print("Running test {}".format(args.test))
 
         # In some places, nose and its plugins expect tests to be
