@@ -69,7 +69,7 @@ func (a *APIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	if err != nil {
 		return nil, err
 	}
-	return response, nil
+	return &types.Empty{}, nil
 }
 
 func (a *APIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
@@ -87,28 +87,55 @@ func (a *APIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	return repoInfos, err
 }
 
+func (a *APIServer) DeleteRepoInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.DeleteRepoRequest,
+) error {
+	if request.All {
+		if err := a.driver.deleteAll(pachClient, stm); err != nil {
+			return err
+		}
+	} else {
+		if err := a.driver.deleteRepo(pachClient, stm, request.Repo, request.Force); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (a *APIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if request.All {
-		if err := a.driver.deleteAll(a.env.GetPachClient(ctx)); err != nil {
-			return nil, err
-		}
-	} else {
-		if err := a.driver.deleteRepo(a.env.GetPachClient(ctx), request.Repo, request.Force); err != nil {
-			return nil, err
-		}
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.DeleteRepoInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
+	if err != nil {
+		return nil, err
 	}
-
 	return &types.Empty{}, nil
+}
+
+func (a *APIServer) StartCommitInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.StartCommitRequest,
+) (*pfs.Commit, error) {
+	return a.driver.startCommit(pachClient, request.Parent, request.Branch, request.Provenance, request.Description)
 }
 
 func (a *APIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.startCommit(a.env.GetPachClient(ctx), request.Parent, request.Branch, request.Provenance, request.Description)
+	var err error
+	commit := &pfs.Commit{}
+	_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		commit, err = a.StartCommitInTransaction(a.env.GetPachClient(ctx), stm, request)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -126,14 +153,26 @@ func (a *APIServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	return commit, nil
 }
 
+func (a *APIServer) FinishCommitInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.FinishCommitRequest,
+) error {
+	if request.Trees != nil {
+		return a.driver.finishOutputCommit(pachClient, stm, request.Commit, request.Trees, request.Datums, request.SizeBytes)
+	} else {
+		return a.driver.finishCommit(pachClient, stm, request.Commit, request.Tree, request.Empty, request.Description)
+	}
+}
+
 func (a *APIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if request.Trees != nil {
-		if err := a.driver.finishOutputCommit(a.env.GetPachClient(ctx), request.Commit, request.Trees, request.Datums, request.SizeBytes); err != nil {
-			return nil, err
-		}
-	} else if err := a.driver.finishCommit(a.env.GetPachClient(ctx), request.Commit, request.Tree, request.Empty, request.Description); err != nil {
+
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.FinishCommitInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -171,6 +210,14 @@ func (a *APIServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 	})
 }
 
+func (a *APIServer) CreateBranchInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.CreateBranchRequest,
+) error {
+	return nil
+}
+
 func (a *APIServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -198,6 +245,14 @@ func (a *APIServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 	return &pfs.BranchInfos{BranchInfo: branches}, nil
 }
 
+func (a *APIServer) DeleteBranchInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.DeleteBranchRequest,
+) error {
+	return nil
+}
+
 func (a *APIServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -206,6 +261,14 @@ func (a *APIServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 		return nil, err
 	}
 	return &types.Empty{}, nil
+}
+
+func (a *APIServer) DeleteCommitInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.DeleteCommitRequest,
+) error {
+	return nil
 }
 
 func (a *APIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {

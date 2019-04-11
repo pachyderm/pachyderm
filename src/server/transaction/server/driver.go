@@ -128,51 +128,52 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, txnIn
 	for i, request := range txnInfo.Requests {
 		var err error
 		var response *transaction.TransactionResponse
-		switch request.Request.(type) {
+		switch x := request.Request.(type) {
 		case *transaction.TransactionRequest_CreateRepo:
-			err = d.pfsServer.CreateRepoInTransaction(pachClient, stm, request.Request)
+			err = d.pfsServer.CreateRepoInTransaction(pachClient, stm, x.CreateRepo)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteRepo:
-			err = d.pfsServer.DeleteRepoInTransaction(pachClient, stm, request.Request)
+			err = d.pfsServer.DeleteRepoInTransaction(pachClient, stm, x.DeleteRepo)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_StartCommit:
 			var commit *pfs.Commit
-			commit, err = d.pfsServer.StartCommitInTransaction(pachClient, stm, request.Request)
+			commit, err = d.pfsServer.StartCommitInTransaction(pachClient, stm, x.StartCommit)
 			response = client.NewCommitResponse(commit)
 		case *transaction.TransactionRequest_FinishCommit:
-			result, err = d.pfsServer.FinishCommitInTransaction(pachClient, stm, request.Request)
+			err = d.pfsServer.FinishCommitInTransaction(pachClient, stm, x.FinishCommit)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteCommit:
-			result, err = d.pfsServer.DeleteCommitInTransaction(pachClient, stm, request.Request)
+			err = d.pfsServer.DeleteCommitInTransaction(pachClient, stm, x.DeleteCommit)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_CreateBranch:
-			result, err = d.pfsServer.CreateBranchInTransaction(pachClient, stm, request.Request)
+			err = d.pfsServer.CreateBranchInTransaction(pachClient, stm, x.CreateBranch)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteBranch:
-			result, err = d.pfsServer.DeleteBranchInTransaction(pachClient, stm, request.Request)
+			err = d.pfsServer.DeleteBranchInTransaction(pachClient, stm, x.DeleteBranch)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_PutFile:
-			result, err = d.pfsServer.PutFileInTransaction(pachClient, stm, request.Request)
-			response = client.NewEmptyResponse()
+			err = fmt.Errorf("not yet implemented")
+			// err = d.pfsServer.PutFileInTransaction(pachClient, stm, x.PutFile)
+			// response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_CopyFile:
-			result, err = d.pfsServer.CopyFileInTransaction(pachClient, stm, request.Request)
+			err = d.pfsServer.CopyFileInTransaction(pachClient, stm, x.CopyFile)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteFile:
-			result, err = d.pfsServer.DeleteFileInTransaction(pachClient, stm, request.Request)
+			err = d.pfsServer.DeleteFileInTransaction(pachClient, stm, x.DeleteFile)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteAll:
 			err = fmt.Errorf("not yet implemented")
 			/*
-				_, err = d.authServer.RunInTransaction(pachClient, stm, &auth.DeactivateRequest{})
+				_, err = d.authServer.DeactivateInTransaction(pachClient, stm, &auth.DeactivateRequest{})
 				if err == nil {
-					_, err = d.pfsServer.RunInTransaction(pachClient, stm, &pfs.DeleteAllRequest{})
+					_, err = d.pfsServer.DeleteAllInTransaction(pachClient, stm, &pfs.DeleteAllRequest{})
 				}
 				if err == nil {
-					_, err = d.ppsServer.RunInTransaction(pachClient, stm, &pps.DeleteAllRequest{})
+					_, err = d.ppsServer.DeleteAllInTransaction(pachClient, stm, &pps.DeleteAllRequest{})
 				}
 			*/
 		case *transaction.TransactionRequest_CreatePipeline:
-			result, err = ppsClient.RunInTransaction(pachClient, stm, request.Request)
+			err = ppsClient.RunInTransaction(pachClient, stm, x.CreatePipeline)
 			response = client.NewEmptyResponse()
 		default:
 			err = fmt.Errorf("unrecognized transaction request type")
