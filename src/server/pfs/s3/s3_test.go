@@ -155,42 +155,33 @@ func TestListBuckets(t *testing.T) {
 	// `LastModified` date is correct. A few minutes are subtracted/added to
 	// each to tolerate the node time not being the same as the host time.
 	startTime := time.Now().Add(time.Duration(-5) * time.Minute)
-	repo1 := tu.UniqueString("testlistbuckets1")
-	require.NoError(t, pc.CreateRepo(repo1))
-	repo2 := tu.UniqueString("testlistbuckets2")
-	require.NoError(t, pc.CreateRepo(repo2))
+	repo := tu.UniqueString("testlistbuckets1")
+	require.NoError(t, pc.CreateRepo(repo))
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	require.NoError(t, pc.CreateBranch(repo1, "master", "", nil))
-	require.NoError(t, pc.CreateBranch(repo1, "branch", "", nil))
-	require.NoError(t, pc.CreateBranch(repo2, "branch", "", nil))
+	require.NoError(t, pc.CreateBranch(repo, "master", "", nil))
+	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	hasRepo1Master := false
-	hasRepo1Branch := false
-	hasRepo2Branch := false
+	hasMaster := false
+	hasBranch := false
 
 	buckets, err := c.ListBuckets()
 	require.NoError(t, err)
-	require.True(t, len(buckets) >= 3)
+
 	for _, bucket := range buckets {
-		if bucket.Name == fmt.Sprintf("master.%s", repo1) {
-			hasRepo1Master = true
+		if bucket.Name == fmt.Sprintf("master.%s", repo) {
+			hasMaster = true
 			require.True(t, startTime.Before(bucket.CreationDate))
 			require.True(t, endTime.After(bucket.CreationDate))
-		} else if bucket.Name == fmt.Sprintf("branch.%s", repo1) {
-			hasRepo1Branch = true
-			require.True(t, startTime.Before(bucket.CreationDate))
-			require.True(t, endTime.After(bucket.CreationDate))
-		} else if bucket.Name == fmt.Sprintf("branch.%s", repo2) {
-			hasRepo2Branch = true
+		} else if bucket.Name == fmt.Sprintf("branch.%s", repo) {
+			hasBranch = true
 			require.True(t, startTime.Before(bucket.CreationDate))
 			require.True(t, endTime.After(bucket.CreationDate))
 		}
 	}
 
-	require.True(t, hasRepo1Master)
-	require.True(t, hasRepo1Branch)
-	require.True(t, hasRepo2Branch)
+	require.True(t, hasMaster)
+	require.True(t, hasBranch)
 }
 
 func TestListBucketsBranchless(t *testing.T) {
