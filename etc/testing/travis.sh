@@ -54,6 +54,7 @@ PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
 
 make install
 make docker-build
+make docker-build-kafka
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
     make launch-dev && break

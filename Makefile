@@ -230,6 +230,9 @@ docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
+docker-build-kafka:
+	docker build -t kafka-demo examples/kafka
+
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
 
@@ -477,7 +480,7 @@ test-pps:
 	@# subset of the tests using the run flag
 	@make RUN= test-pps-helper
 
-test-pps-helper: launch-stats docker-build-test-entrypoint
+test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
@@ -567,12 +570,18 @@ doc-custom: install-doc release-version
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
+clean-launch-kafka:
+	kubectl delete -f etc/kubernetes-kafka -R
+	
+launch-kafka:
+	kubectl apply -f etc/kubernetes-kafka -R
+	until timeout 10s ./etc/kube/check_ready.sh app=kafka kafka; do sleep 10; done
 
 clean-launch-stats:
-	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+	kubectl delete --filename etc/kubernetes-prometheus -R
 
 launch-stats:
-	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+	kubectl apply --filename etc/kubernetes-prometheus -R
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring
