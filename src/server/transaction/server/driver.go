@@ -123,9 +123,9 @@ func (d *driver) listTransaction(pachClient *client.APIClient) ([]*transaction.T
 	return result, nil
 }
 
-func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, txnInfo *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	responses := []*transaction.TransactionResponse{}
-	for i, request := range txnInfo.Requests {
+	for i, request := range info.Requests {
 		var err error
 		var response *transaction.TransactionResponse
 		switch x := request.Request.(type) {
@@ -153,8 +153,10 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, txnIn
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_PutFile:
 			err = fmt.Errorf("not yet implemented")
-			// err = d.pfsServer.PutFileInTransaction(pachClient, stm, x.PutFile)
-			// response = client.NewEmptyResponse()
+			// TODO: we need a different request from PutFile because that is a large
+			// (blocking) operation that we don't want to run transactionally.  Add a
+			// new transaction server rpc that will put the file and capture the
+			// hash tree updates and put that in a separate transaction call.
 		case *transaction.TransactionRequest_CopyFile:
 			err = d.pfsServer.CopyFileInTransaction(pachClient, stm, x.CopyFile)
 			response = client.NewEmptyResponse()
@@ -163,30 +165,28 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, txnIn
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteAll:
 			err = fmt.Errorf("not yet implemented")
-			/*
-				_, err = d.authServer.DeactivateInTransaction(pachClient, stm, &auth.DeactivateRequest{})
-				if err == nil {
-					_, err = d.pfsServer.DeleteAllInTransaction(pachClient, stm, &pfs.DeleteAllRequest{})
-				}
-				if err == nil {
-					_, err = d.ppsServer.DeleteAllInTransaction(pachClient, stm, &pps.DeleteAllRequest{})
-				}
-			*/
+			// TODO: add this once PPS APIServer calls have been written to take
+			// advantage of PFS transaction calls.  This should:
+			// * auth.DeactivateRequest
+			// * pfs.DeleteAllRequest
+			// * pps.DeleteAllRequest
 		case *transaction.TransactionRequest_CreatePipeline:
-			err = ppsClient.RunInTransaction(pachClient, stm, x.CreatePipeline)
-			response = client.NewEmptyResponse()
+			err = fmt.Errorf("not yet implemented")
+			// TODO: add this once PPS APIServer calls have been written to take
+			// advantage of PFS transaction calls
 		default:
 			err = fmt.Errorf("unrecognized transaction request type")
 		}
 
 		if err != nil {
-			return nil, fmt.Errorf("error running request %d of %d: %v", err)
+			return nil, fmt.Errorf("error running request %d of %d: %v", i+1, len(info.Requests), err)
 		}
 
 		responses = append(responses, response)
 	}
 
 	// TODO: check that responses match the cached responses in the transaction info
+	return info, nil
 }
 
 func (d *driver) finishTransaction(pachClient *client.APIClient, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {

@@ -123,7 +123,7 @@ func (a *APIServer) StartCommitInTransaction(
 	stm col.STM,
 	request *pfs.StartCommitRequest,
 ) (*pfs.Commit, error) {
-	return a.driver.startCommit(pachClient, request.Parent, request.Branch, request.Provenance, request.Description)
+	return a.driver.startCommit(pachClient, stm, request.Parent, request.Branch, request.Provenance, request.Description)
 }
 
 func (a *APIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
@@ -215,14 +215,17 @@ func (a *APIServer) CreateBranchInTransaction(
 	stm col.STM,
 	request *pfs.CreateBranchRequest,
 ) error {
-	return nil
+	return a.driver.createBranch(pachClient, stm, request.Branch, request.Head, request.Provenance)
 }
 
 func (a *APIServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.createBranch(a.env.GetPachClient(ctx), request.Branch, request.Head, request.Provenance); err != nil {
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.CreateBranchInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -250,14 +253,17 @@ func (a *APIServer) DeleteBranchInTransaction(
 	stm col.STM,
 	request *pfs.DeleteBranchRequest,
 ) error {
-	return nil
+	return a.driver.deleteBranch(pachClient, stm, request.Branch, request.Force)
 }
 
 func (a *APIServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.deleteBranch(a.env.GetPachClient(ctx), request.Branch, request.Force); err != nil {
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.DeleteBranchInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -268,14 +274,17 @@ func (a *APIServer) DeleteCommitInTransaction(
 	stm col.STM,
 	request *pfs.DeleteCommitRequest,
 ) error {
-	return nil
+	return a.driver.deleteCommit(pachClient, stm, request.Commit)
 }
 
 func (a *APIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.deleteCommit(a.env.GetPachClient(ctx), request.Commit); err != nil {
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.DeleteCommitInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -315,10 +324,22 @@ func (a *APIServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	return a.driver.putFiles(pachClient, s)
 }
 
+func (a *APIServer) CopyFileInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.CopyFileRequest,
+) error {
+	return a.driver.copyFile(pachClient, stm, request.Src, request.Dst, request.Overwrite)
+}
+
 func (a *APIServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
+
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.CopyFileInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -447,22 +468,43 @@ func (a *APIServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 	}, nil
 }
 
+func (a *APIServer) DeleteFileInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.DeleteFileRequest,
+) error {
+	return a.driver.deleteFile(pachClient, stm, request.File)
+}
+
 func (a *APIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err := a.driver.deleteFile(a.env.GetPachClient(ctx), request.File)
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.DeleteFileInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
 	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
 }
 
-func (a *APIServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+func (a *APIServer) DeleteAllInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.DeleteAllRequest,
+) error {
+	return a.driver.deleteAll(pachClient, stm)
+}
+
+func (a *APIServer) DeleteAll(ctx context.Context, request *pfs.DeleteAllRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.driver.deleteAll(a.env.GetPachClient(ctx)); err != nil {
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.DeleteAllInTransaction(a.env.GetPachClient(ctx), stm, request)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

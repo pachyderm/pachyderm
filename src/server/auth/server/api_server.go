@@ -156,7 +156,7 @@ func (a *APIServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewAuthServer returns an implementation of authclient.APIServer.
-func NewAuthServer(env *serviceenv.ServiceEnv, etcdPrefix string, public bool) (authclient.APIServer, error) {
+func NewAuthServer(env *serviceenv.ServiceEnv, etcdPrefix string, public bool) (*APIServer, error) {
 	s := &APIServer{
 		env:        env,
 		pachLogger: log.NewLogger("authclient.API"),

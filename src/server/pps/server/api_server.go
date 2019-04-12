@@ -2413,7 +2413,7 @@ func (a *APIServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 	return nil, fmt.Errorf("TODO")
 }
 
-func (a *APIServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+func (a *APIServer) DeleteAll(ctx context.Context, request *pps.DeleteAllRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)
