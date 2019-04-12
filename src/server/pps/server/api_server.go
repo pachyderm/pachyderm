@@ -285,7 +285,7 @@ func (a *apiServer) validateKube() {
 	pods, err := a.rcPods("pachd")
 	if err != nil {
 		errors = true
-		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but get-logs will not work. error: %v", err)
+		logrus.Errorf("unable to access kubernetes pods, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 	} else {
 		for _, pod := range pods {
 			_, err = kubeClient.CoreV1().Pods(a.namespace).GetLogs(
@@ -294,7 +294,7 @@ func (a *apiServer) validateKube() {
 				}).Timeout(10 * time.Second).Do().Raw()
 			if err != nil {
 				errors = true
-				logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but get-logs will not work. error: %v", err)
+				logrus.Errorf("unable to access kubernetes logs, Pachyderm will continue to work but 'pachctl logs' will not work. error: %v", err)
 			}
 			break
 		}
@@ -603,7 +603,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		//
 		// If 'pipeline' isn't set, then we don't return an error (otherwise, a
 		// caller without access to a single pipeline's output repo couldn't run
-		// `pachctl list-job` at all) and instead silently skip jobs where the user
+		// `pachctl list job` at all) and instead silently skip jobs where the user
 		// doesn't have access to the job's output repo.
 		resp, err := pachClient.Authorize(pachClient.Ctx(), &auth.AuthorizeRequest{
 			Repo:  pipeline.Name,
@@ -1834,7 +1834,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			return nil, fmt.Errorf("the HEAD commit of this pipeline's spec branch " +
 				"is open. Either another CreatePipeline call is running or a previous " +
 				"call crashed. If you're sure no other CreatePipeline commands are " +
-				"running, you can run 'pachctl update-pipeline --clean' which will " +
+				"running, you can run 'pachctl update pipeline --clean' which will " +
 				"delete this open commit")
 		}
 

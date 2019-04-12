@@ -2157,7 +2157,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		return pfsserver.ErrCommitFinished{dst.Commit}
 	}
 	var paths []string
-	var records []*pfs.PutFileRecords // used if 'dst' is finished (atomic put-file)
+	var records []*pfs.PutFileRecords // used if 'dst' is finished (atomic 'put file')
 	if overwrite {
 		if dstIsOpenCommit {
 			if err := d.deleteFile(pachClient, dst); err != nil {
@@ -3389,7 +3389,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 					branch = commit.ID
 				}
 				// inspect the commit where we're adding files and figure out
-				// if this is a one-off put-file.
+				// if this is a one-off 'put file'.
 				// - if 'commit' refers to an open commit                -> not oneOff
 				// - otherwise (i.e. branch with closed HEAD or no HEAD) -> yes oneOff
 				// Note that if commit is a specific commit ID, it must be
@@ -3498,7 +3498,7 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				}
 				continue
 			}
-			// Close the previous put-file if there is one
+			// Close the previous 'put file' if there is one
 			if pw != nil {
 				pw.Close() // can't error
 			}

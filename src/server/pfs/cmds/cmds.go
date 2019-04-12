@@ -33,7 +33,7 @@ import (
 )
 
 const (
-	// DefaultParallelism is the default parallelism used by get-file and put-file.
+	// DefaultParallelism is the default parallelism used by 'get file' and 'put file'.
 	DefaultParallelism = 10
 )
 
@@ -648,7 +648,7 @@ from commits with 'get file'.`,
 	putFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Put a file into the filesystem.",
-		Long:  "Put-file supports a number of ways to insert data into pfs:",
+		Long:  "Put a file into the filesystem.  This supports a number of ways to insert data into pfs.",
 		Example: `
 # Put data from stdin as repo/branch/path:
 $ echo "data" | {{alias}} repo branch path
@@ -792,7 +792,7 @@ $ {{alias}} repo branch -i http://host/path`,
 	putFile.Flags().UintVar(&targetFileBytes, "target-file-bytes", 0, "The target upper bound of the number of bytes that each file contains; needs to be used with --split.")
 	putFile.Flags().UintVar(&headerRecords, "header-records", 0, "the number of records that will be converted to a PFS 'header', and prepended to future retrievals of any subset of data from PFS; needs to be used with --split=(json|line|csv)")
 	putFile.Flags().BoolVarP(&putFileCommit, "commit", "c", false, "DEPRECATED: Put file(s) in a new commit.")
-	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+	putFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	commands = append(commands, cmdutil.CreateAlias(putFile, "put file"))
 
 	copyFile := &cobra.Command{
@@ -820,7 +820,7 @@ $ {{alias}} repo branch -i http://host/path`,
 			)
 		}),
 	}
-	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.")
+	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
 	commands = append(commands, cmdutil.CreateAlias(copyFile, "copy file"))
 
 	var outputPath string
@@ -1269,7 +1269,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
 			"some files may already have been put and should be cleaned up with "+
-			"delete-file or delete-commit", path)
+			"'delete file' or 'delete commit'", path)
 	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
@@ -1325,7 +1325,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 			}
 			childDest := filepath.Join(path, strings.TrimPrefix(filePath, source))
 			eg.Go(func() error {
-				// don't do a second recursive put-file, just put the one file at
+				// don't do a second recursive 'put file', just put the one file at
 				// filePath into childDest, and then this walk loop will go on to the
 				// next one
 				return putFileHelper(c, pfc, repo, commit, childDest, filePath, false,

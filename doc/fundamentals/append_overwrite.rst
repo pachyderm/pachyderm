@@ -49,14 +49,14 @@ Appending to files
 
 When putting files into a pfs repo via Pachyderm’s ``pachctl`` utility
 or via the Pachyderm APIs, it’s vital to know about the default
-behaviors of the ``put-file`` command. The following commands create the
+behaviors of the ``put file`` command. The following commands create the
 repo “voterData” and place a local file called “OHVoterData.csv” into
 it.
 
 ::
 
-   $ pachctl create-repo voterData
-   $ pachctl put-file voterData master -f OHVoterData.csv
+   $ pachctl create repo voterData
+   $ pachctl put file voterData@master -f OHVoterData.csv
 
 The file will, by default, be placed into the top-level directory of
 voterData with the name “OHVoterData.csv”. If the file were 153.8KiB,
@@ -64,17 +64,17 @@ running the command to list files in that repo would result in
 
 ::
 
-   $ pachctl list-file voterData master
+   $ pachctl list file voterData@master
    COMMIT                           NAME             TYPE COMMITTED    SIZE
    8560235e7d854eae80aa03a33f8927eb /OHVoterData.csv file 1 second ago 153.8KiB
 
-If you were to re-run the ``put-file`` command above, by default, the
+If you were to re-run the ``put file`` command above, by default, the
 file would be appended to itself and listing the repo would look like
 this:
 
 ::
 
-   $ pachctl list-file voterData master
+   $ pachctl list file voterData@master
    COMMIT                           NAME             TYPE COMMITTED     SIZE
    105aab526f064b58a351fe0783686c54 /OHVoterData.csv file 2 seconds ago 307.6KiB
 
@@ -94,12 +94,12 @@ it.
 
 ::
 
-   $ pachctl put-file voterData master -f OHVoterData.csv --overwrite
-   $ pachctl list-file voterData master
+   $ pachctl put file voterData@master -f OHVoterData.csv --overwrite
+   $ pachctl list file voterData@master
    COMMIT                           NAME             TYPE COMMITTED    SIZE
    8560235e7d854eae80aa03a33f8927eb /OHVoterData.csv file 1 second ago 153.8KiB
-   $ pachctl put-file voterData master -f OHVoterData.csv --overwrite
-   $ pachctl list-file voterData master
+   $ pachctl put file voterData@master -f OHVoterData.csv --overwrite
+   $ pachctl list file voterData@master
    COMMIT                           NAME             TYPE COMMITTED    SIZE
    4876f99951cc4ea9929a6a213554ced8 /OHVoterData.csv file 1 second ago 153.8KiB
 
@@ -111,7 +111,7 @@ were to load another file that hashed identically to “OHVoterData.csv”,
 there would be one copy of the data in Pachyderm with two files’
 metadata pointing to it. This works even when using the append behavior
 above. If you were to put a file named OHVoterData2004.csv that was
-identical to that first put-file of OHVoterData.csv, and then update
+identical to that first ``put file`` of OHVoterData.csv, and then update
 OHVoterData.csv as shown above, there would be two sets of bits in
 Pachyderm:
 
@@ -156,7 +156,7 @@ it can only be processed by a single worker.
 
 Because of these reasons, it’s pretty common to break up large files
 into smaller chunks. For simple data types, Pachyderm provides the
-``--split`` flag to ``put-file`` to automatically do this for you. For
+``--split`` flag to ``put file`` to automatically do this for you. For
 more complex splitting patterns (e.g. ``avro`` or other binary formats),
 you’ll need to manually split your data either at ingest or with a
 Pachyderm pipeline.
@@ -208,7 +208,7 @@ get better control over the details of the split.
    target byte number with just one record, it will move on to the next
    split-file. If it hits the target datum number after adding another
    line, it will move on to the next split-file. Using the example
-   above, if the flags supplied to put-file are
+   above, if the flags supplied to ``put file`` are
    ``--split lines --target-file-datums 2 --target-file-bytes 100``, it
    will have the same result as ``--target-file-datums 2``, since that’s
    the most compact constraint, and file sizes will hover around 40
@@ -223,18 +223,18 @@ my-data.txt into Pachyderm with the following commands:
 
 ::
    
-   $ pachctl create-repo line-data
-   $ pachctl put-file line-data master -f my-data.txt --split line
+   $ pachctl create repo line-data
+   $ pachctl put file line-data@master -f my-data.txt --split line
 
-After put-file is complete, list the files in the repo.
+After ``put file`` is complete, list the files in the repo.
 
 ::
    
-   $ pachctl list-file line-data master
+   $ pachctl list file line-data@master
    COMMIT                           NAME         TYPE COMMITTED          SIZE
    8cce4de3571f46459cbe4d7fe222a466 /my-data.txt dir  About a minute ago 1.071KiB
 
-.. important:: The ``list-file`` command indicates that the line-oriented file we uploaded, “my-data.txt”, is actually a directory.
+.. important:: The ``list file`` command indicates that the line-oriented file we uploaded, “my-data.txt”, is actually a directory.
 
 This file *looks* like a directory because
 the ``--split`` flag has instructed Pachyderm to split the file up, and
@@ -253,7 +253,7 @@ reveals the naming structure used:
 
 ::
 
-   $ pachctl list-file line-data master my-data.txt
+   $ pachctl list file line-data@master my-data.txt
    COMMIT                           NAME                          TYPE COMMITTED          SIZE
    8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000000 file About a minute ago 21B
    8cce4de3571f46459cbe4d7fe222a466 /my-data.txt/0000000000000001 file About a minute ago 22B
@@ -311,10 +311,10 @@ Appending to files with –split
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Combining ``--split`` with the default “append” behavior of
-``pachctl put-file`` allows flexible and scalable processing of
+``pachctl put file`` allows flexible and scalable processing of
 record-oriented file data from external, legacy systems. Each of the
 split-files will be deduplicated. You would have to ensure that
-``put-file`` commands always have the ``--split`` flag.
+``put file`` commands always have the ``--split`` flag.
 
 ``pachctl`` will reject the command if ``--split`` is not specified to
 append a file that it was previously specified with an error like this
@@ -347,7 +347,7 @@ like
 
 ::
    
-   pachctl put-file line-data master count.txt -f ./count.txt --split line
+   pachctl put file line-data@master:count.txt -f ./count.txt --split line
 
 will result in five files in a directory named “count.txt” in the input
 repo, each of which will have the following contents
@@ -374,7 +374,7 @@ file were named, “more-count.txt”, the command might look like
 
 ::
 
-   pachctl put-file line-data master my-data.txt -f more-count.txt --split line
+   pachctl put file line-data@master:my-data.txt -f more-count.txt --split line
 
 That will result in six files in the directory named “count.txt” in the
 input repo, each of which will have the following contents
@@ -443,7 +443,7 @@ Let’s upload it to Pachyderm using ``--split`` and ``--overwrite``.
 
 ::
 
-   pachctl put-file line-data master count.txt -f ./count.txt --split line --overwrite
+   pachctl put file line-data@master:count.txt -f ./count.txt --split line --overwrite
 
 The input repo will now look like this
 
@@ -524,28 +524,28 @@ to its output.
 With this configuration, the ``my-pipeline`` repo will always be a copy
 of the ``my-data`` repo. Where it gets interesting is in the view of
 jobs processed. Let’s say you have two data files and
-you use the ``put-file`` command to load both of those into my-data
+you use the ``put file`` command to load both of those into my-data
 
 ::
 
-   $ pachctl put-file my-data master -f my-data-file-1.txt -f my-data-file-2.txt
+   $ pachctl put file my-data@master -f my-data-file-1.txt -f my-data-file-2.txt
 
 Listing jobs will show that the job had 2 input datums, something like
 this:
 
 ::
    
-   $ pachctl list-job
+   $ pachctl list job
    ID                               PIPELINE    STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
    0517ff33742a4fada32d8d43d7adb108 my-pipeline 20 seconds ago Less than a second 0       2 + 0 / 2 3.218KiB 3.218KiB success
 
 What if you had defined the pipeline to use the “/” glob, instead? That
-``list-job`` output would’ve showed one datum, because it treats the
+``list job`` output would’ve showed one datum, because it treats the
 entire input directory as one datum.
 
 ::
    
-   $ pachctl list-job
+   $ pachctl list job
    ID                               PIPELINE    STARTED        DURATION           RESTART PROGRESS  DL       UL       STATE
    aa436dbb53ba4cee9baaf84a1cc6717a my-pipeline 19 seconds ago Less than a second 0       1 + 0 / 1 3.218KiB 3.218KiB success
 

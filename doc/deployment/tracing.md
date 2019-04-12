@@ -44,7 +44,7 @@ To use tracing in Pachyderm, you need to:
     running any `pachctl` command (note that `JAEGER_ENDPOINT` must also be
     set/exported):
     ```
-    PACH_ENABLE_TRACING=true pachctl list-job # for example
+    PACH_ENABLE_TRACING=true pachctl list job # for example
     ```
 
     We generally don't recommend exporting `PACH_ENABLE_TRACING` because

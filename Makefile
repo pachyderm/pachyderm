@@ -522,7 +522,7 @@ test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
-	yes | pachctl delete-all
+	yes | pachctl delete all
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)

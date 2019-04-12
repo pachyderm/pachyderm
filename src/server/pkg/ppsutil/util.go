@@ -260,7 +260,7 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 }
 
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
-// create-pipeline and update-pipeline
+// 'create pipeline' and 'update pipeline'
 type PipelineManifestReader struct {
 	buf     bytes.Buffer
 	decoder *json.Decoder

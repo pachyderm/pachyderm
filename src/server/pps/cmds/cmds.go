@@ -632,7 +632,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			return writer.Flush()
 		}),
 	}
-	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output create-pipeline compatibility specs.")
+	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output 'create pipeline' compatibility specs.")
 	listPipeline.Flags().AddFlagSet(rawFlags)
 	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
@@ -725,7 +725,7 @@ To actually remove the data, you will need to manually invoke garbage
 collection with "pachctl garbage-collect".
 
 Currently "pachctl garbage-collect" can only be started when there are no
-pipelines running.  You also need to ensure that there's no ongoing "put-file".
+pipelines running.  You also need to ensure that there's no ongoing "put file".
 Garbage collection puts the cluster into a readonly mode where no new jobs can
 be created and no data can be added.
 

@@ -13,12 +13,12 @@ There are a variety of use cases in which you would want to match datums from mu
 Let's say that we have two repositories containing JSON records, `A` and `B`.  These repositories may correspond to two experiments, two geographic regions, two different devices generating data, etc.  In any event, the repositories look similar to:
 
 ```
-$ pachctl list-file A master
+$ pachctl list file A@master
 NAME                TYPE                SIZE                
 1.json              file                39 B                
 2.json              file                39 B                
 3.json              file                39 B                
-$ pachctl list-file B master
+$ pachctl list file B@master
 NAME                TYPE                SIZE                
 1.json              file                39 B                
 2.json              file                39 B                
@@ -57,7 +57,7 @@ Once the records that need to be processed together are grouped by the first pip
 The second pipeline will perform any merging, aggregation, or other processing on the respective grouping of records and could, for example, output each respective result to the root of the output directory:
 
 ```
-$ pachctl list-file merge master
+$ pachctl list file merge@master
 NAME                TYPE                SIZE                
 result_1.json              file                39 B                
 result_2.json              file                39 B                

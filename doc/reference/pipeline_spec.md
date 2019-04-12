@@ -2,7 +2,7 @@
 
 This document discusses each of the fields present in a pipeline specification.
 To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
-create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
+create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
 
 ## JSON Manifest Format
 
@@ -526,7 +526,7 @@ Git inputs also require some additional configuration. In order for new commits 
 
 1. Create your Pachyderm pipeline with the Git Input.
 
-2. To get the URL of the webhook to your cluster, do `pachctl inspect-pipeline` on your pipeline. You should see a `Githook URL` field with a URL set. Note - this will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you see `pending` as the value (and you've deployed on a cloud provider), it's possible that the service is still being provisioned. You can check `kubectl get svc` to make sure you see the `githook` service running.
+2. To get the URL of the webhook to your cluster, do `pachctl inspect pipeline` on your pipeline. You should see a `Githook URL` field with a URL set. Note - this will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you see `pending` as the value (and you've deployed on a cloud provider), it's possible that the service is still being provisioned. You can check `kubectl get svc` to make sure you see the `githook` service running.
 
 3. To setup the GitHub webhook, navigate to:
 
@@ -575,7 +575,7 @@ repeatedly, then the cache can speed up processing significantly.
 pipeline to commit to a second branch in its output repo called `"stats"`. This
 branch will have information about each datum that is processed including:
 timing information, size information, logs and a `/pfs` snapshot. This
-information can be accessed through the `inspect-datum` and `list-datum`
+information can be accessed through the `inspect datum` and `list datum`
 pachctl commands and through the webUI.
 
 Note: enabling stats will use extra storage for logs and timing information.

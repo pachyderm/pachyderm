@@ -30,10 +30,10 @@ a `staging` branch in addition to the usual `master` branch that the
 pipeline takes as input. To begin, create your input repo and your
 pipeline (which by default will read from the master branch). This will
 automatically create a branch on your input repo called `master`. You can
-check this with `list-branch`:
+check this with `list branch`:
 
 ```sh
-$ pachctl list-branch data
+$ pachctl list branch data
 BRANCH HEAD
 master -
 ```
@@ -50,15 +50,15 @@ a staging area to then process later.
 Commit a file to the staging branch:
 
 ```sh
-$ pachctl put-file data staging -f <file>
+$ pachctl put file data@staging -f <file>
 ```
 
-Your repo now has 2 branches, `staging` and `master` (`put-file`
+Your repo now has 2 branches, `staging` and `master` (`put file`
 automatically creates branches if they don't exist). If you do
-`list-branch` again you should see:
+`list branch` again you should see:
 
 ```sh
-$ pachctl list-branch data
+$ pachctl list branch data
 BRANCH  HEAD
 staging f3506f0fab6e483e8338754081109e69
 master  -
@@ -74,15 +74,15 @@ When you're ready to actually process the data all you need to do is
 update the master branch to point to the head of the staging branch:
 
 ```sh
-$ pachctl create-branch data master --head staging
-$ pachctl list-branch
+$ pachctl create branch data@master --head staging
+$ pachctl list branch
 staging f3506f0fab6e483e8338754081109e69
 master  f3506f0fab6e483e8338754081109e69
 ```
 
 Notice that `master` and `staging` now have the same head commit. This
 means that your pipeline finally has something to process. If you do
-`list-job` you should see a new job. Notice that even if you created
+`list job` you should see a new job. Notice that even if you created
 multiple commits on `staging` before updating `master` you still only get
 1 job. Despite the fact that those other commits are ancestors of the
 current HEAD of master, they were never the actual HEAD of `master`
@@ -99,12 +99,12 @@ set `master` to have them as HEAD. For example if you had 10 commits on
 commits, you would do:
 
 ```sh
-$ pachctl create-branch data master --head staging^7
-$ pachctl create-branch data master --head staging^3
-$ pachctl create-branch data master --head staging
+$ pachctl create branch data@master --head staging^7
+$ pachctl create branch data@master --head staging^3
+$ pachctl create branch data@master --head staging
 ```
 
-If you do `list-job` while running the above commands, you will see
+If you do `list job` while running the above commands, you will see
 between 1 and 3 new jobs. Eventually there will be a job for each of the
 HEAD commits, however Pachyderm won't create a new job until the previous
 job has completed.
@@ -119,7 +119,7 @@ the result of processing `staging^1`, you can "roll back" your HEAD commit
 the same way we did before.
 
 ```sh
-$ pachctl create-branch data master --head staging^1
+$ pachctl create branch data@master --head staging^1
 ```
 
 This will kick off a new job to process `staging^1`. The HEAD commit on
@@ -134,19 +134,19 @@ input commits to look like. Sometimes you want to be able to commit data
 in an ad-hoc, disorganized way and then organize it later. For this,
 instead of updating your `master` branch to point at commits from
 `staging`, you can copy files directly from `staging` to `master`. With
-`copy-file`, this only copies references, it doesn't move the actual data
+`copy file`, this only copies references, it doesn't move the actual data
 for the files around.
 
 This would look like:
 
 ```sh
-$ pachctl start-commit data master
-$ pachctl copy-file data staging file1 data master
-$ pachctl copy-file data staging file2 data master
+$ pachctl start commit data@master
+$ pachctl copy file data@staging:file1 data@master
+$ pachctl copy file data@staging:file2 data@master
 ...
-$ pachctl finish-commit data master
+$ pachctl finish commit data@master
 ```
 
-You can also, of course, issue `delete-file` and `put-file` while the commit is
+You can also, of course, issue `delete file` and `put file` while the commit is
 open if you want to remove something from the parent commit or add something
 that isn't stored anywhere else.

@@ -69,7 +69,7 @@ than welcome to use any other public or private Docker registry.
 Note, it is best practice to uniquely tag your Docker images with something
 other than `:latest`.  This allows you to track which Docker images were used
 to process which data, and will help you as you update your pipelines.  You can
-also utilize the `--build` or `--push-images` flags on `update-pipeline` to
+also utilize the `--build` or `--push-images` flags on `update pipeline` to
 help you tag your images as they are updated.  See the [updating pipelines
 docs](updating_pipelines.html) for more information.
 
@@ -105,7 +105,7 @@ Here's an example pipeline spec:
 After you create the JSON pipeline spec (and save it, e.g., as `your_pipeline.json`), you can create the pipeline in Pachyderm using `pachctl`:
 
 ```sh
-$ pachctl create-pipeline -f your_pipeline.json
+$ pachctl create pipeline -f your_pipeline.json
 ```
 
 (`-f` can also take a URL if your JSON manifest is hosted on GitHub or elsewhere. Keeping pipeline specifications under version control is a great idea so you can track changes and seamlessly view or deploy older pipelines if needed.)

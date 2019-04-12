@@ -14,7 +14,7 @@ You will then be able to access the following information for any jobs correspon
 - Success/failure information on a per-datum level.
 - The directory structure of input data that was seen by the job.
 
-The primary and recommended way to view this information is via the Pachyderm Enterprise dashboard, which can be deployed as detailed [here](deployment.html#deploying-the-pachyderm-enterprise-edition-dashboard). However, the same information is available through the `inspect-datum` and `list-datum` `pachctl` commands or through their language client equivalents.  
+The primary and recommended way to view this information is via the Pachyderm Enterprise dashboard, which can be deployed as detailed [here](deployment.html#deploying-the-pachyderm-enterprise-edition-dashboard). However, the same information is available through the `inspect datum` and `list datum` `pachctl` commands or through their language client equivalents.  
 
 **Note** - We recommend enabling stats for all of your pipeline and only disabling the feature for very stable, long-running pipelines. In most cases, the debugging/maintenance benefits of the stats data will outweigh any disadvantages of storing the extra data associated with the stats. Also note, none of your data is duplicated in producing the stats.
 
@@ -41,10 +41,10 @@ As mentioned above, enabling stats collection for a pipeline is as simple as add
 }
 ```
 
-Once the pipeline has been created and you have utilized it to process data, you can confirm that stats are being collected with `list-file`. There should now be stats data in the output repo of the pipeline under a branch called `stats`:
+Once the pipeline has been created and you have utilized it to process data, you can confirm that stats are being collected with `list file`. There should now be stats data in the output repo of the pipeline under a branch called `stats`:
 
 ```
-$ pachctl list-file edges stats
+$ pachctl list file edges@stats
 NAME                                                               TYPE                SIZE                
 002f991aa9db9f0c44a92a30dff8ab22e788f86cc851bec80d5a74e05ad12868   dir                 342.7KiB            
 0597f2df3f37f1bb5b9bcd6397841f30c62b2b009e79653f9a97f5f13432cf09   dir                 1.177MiB            
