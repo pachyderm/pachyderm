@@ -142,11 +142,6 @@ func validateNames(names map[string]bool, input *pps.Input) error {
 	switch {
 	case input == nil:
 		return nil // spouts can have nil input
-	case input.Atom != nil:
-		if names[input.Atom.Name] {
-			return fmt.Errorf(`name "%s" was used more than once`, input.Atom.Name)
-		}
-		names[input.Atom.Name] = true
 	case input.Pfs != nil:
 		if names[input.Pfs.Name] {
 			return fmt.Errorf(`name "%s" was used more than once`, input.Pfs.Name)
@@ -193,35 +188,6 @@ func (a *APIServer) validateInput(pachClient *client.APIClient, pipelineName str
 	pps.VisitInput(input, func(input *pps.Input) {
 		if err := func() error {
 			set := false
-			if input.Atom != nil {
-				set = true
-				switch {
-				case len(input.Atom.Name) == 0:
-					return fmt.Errorf("input must specify a name")
-				case input.Atom.Name == "out":
-					return fmt.Errorf("input cannot be named \"out\", as pachyderm " +
-						"already creates /pfs/out to collect job output")
-				case input.Atom.Repo == "":
-					return fmt.Errorf("input must specify a repo")
-				case input.Atom.Branch == "" && !job:
-					return fmt.Errorf("input must specify a branch")
-				case len(input.Atom.Glob) == 0:
-					return fmt.Errorf("input must specify a glob")
-				}
-				// Note that input.Atom.Commit is empty if a) this is a job b) one of
-				// the job pipeline's input branches has no commits yet
-				if job && input.Atom.Commit != "" {
-					// for jobs we check that the input commit exists
-					if _, err := pachClient.InspectCommit(input.Atom.Repo, input.Atom.Commit); err != nil {
-						return err
-					}
-				} else {
-					// for pipelines we only check that the repo exists
-					if _, err := pachClient.InspectRepo(input.Atom.Repo); err != nil {
-						return err
-					}
-				}
-			}
 			if input.Pfs != nil {
 				set = true
 				switch {
@@ -428,8 +394,6 @@ func (a *APIServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 
 			if in.Pfs != nil {
 				repo = in.Pfs.Repo
-			} else if in.Atom != nil {
-				repo = in.Atom.Repo
 			} else {
 				return
 			}
@@ -687,13 +651,6 @@ func (a *APIServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 		if len(inputCommits) > 0 {
 			found := make([]bool, len(inputCommits))
 			pps.VisitInput(jobInfo.Input, func(in *pps.Input) {
-				if in.Atom != nil {
-					for i, inputCommit := range inputCommits {
-						if in.Atom.Commit == inputCommit.ID {
-							found[i] = true
-						}
-					}
-				}
 				if in.Pfs != nil {
 					for i, inputCommit := range inputCommits {
 						if in.Pfs.Commit == inputCommit.ID {
@@ -748,10 +705,9 @@ func (a *APIServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 		return nil, err
 	}
 	var specCommit *pfs.Commit
-	for i, provCommit := range commitInfo.Provenance {
-		provBranch := commitInfo.BranchProvenance[i]
-		if provBranch.Repo.Name == ppsconsts.SpecRepo && provBranch.Name == jobPtr.Pipeline.Name {
-			specCommit = provCommit
+	for _, prov := range commitInfo.Provenance {
+		if prov.Commit.Repo.Name == ppsconsts.SpecRepo && prov.Branch.Name == jobPtr.Pipeline.Name {
+			specCommit = prov.Commit
 			break
 		}
 	}
@@ -1552,9 +1508,6 @@ func (a *APIServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 func branchProvenance(input *pps.Input) []*pfs.Branch {
 	var result []*pfs.Branch
 	pps.VisitInput(input, func(input *pps.Input) {
-		if input.Atom != nil {
-			result = append(result, client.NewBranch(input.Atom.Repo, input.Atom.Branch))
-		}
 		if input.Pfs != nil {
 			result = append(result, client.NewBranch(input.Pfs.Repo, input.Pfs.Branch))
 		}
@@ -1695,8 +1648,6 @@ func (a *APIServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 		pps.VisitInput(prevPipelineInfo.Input, func(input *pps.Input) {
 			var repo string
 			switch {
-			case input.Atom != nil:
-				repo = input.Atom.Repo
 			case input.Pfs != nil:
 				repo = input.Pfs.Repo
 			case input.Cron != nil:
@@ -1726,8 +1677,6 @@ func (a *APIServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 		pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
 			var repo string
 			switch {
-			case input.Atom != nil:
-				repo = input.Atom.Repo
 			case input.Pfs != nil:
 				repo = input.Pfs.Repo
 			case input.Cron != nil:
@@ -2024,14 +1973,6 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 		pipelineInfo.Transform.Image = DefaultUserImage
 	}
 	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-		if input.Atom != nil {
-			if input.Atom.Branch == "" {
-				input.Atom.Branch = "master"
-			}
-			if input.Atom.Name == "" {
-				input.Atom.Name = input.Atom.Repo
-			}
-		}
 		if input.Pfs != nil {
 			if input.Pfs.Branch == "" {
 				input.Pfs.Branch = "master"

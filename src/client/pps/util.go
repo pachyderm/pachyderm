@@ -32,8 +32,6 @@ func InputName(input *Input) string {
 	switch {
 	case input == nil:
 		return ""
-	case input.Atom != nil:
-		return input.Atom.Name
 	case input.Pfs != nil:
 		return input.Pfs.Name
 	case input.Cross != nil:
@@ -67,12 +65,6 @@ func SortInput(input *Input) {
 func InputBranches(input *Input) []*pfs.Branch {
 	var result []*pfs.Branch
 	VisitInput(input, func(input *Input) {
-		if input.Atom != nil {
-			result = append(result, &pfs.Branch{
-				Repo: &pfs.Repo{Name: input.Atom.Repo},
-				Name: input.Atom.Branch,
-			})
-		}
 		if input.Pfs != nil {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{Name: input.Pfs.Repo},
@@ -88,7 +80,7 @@ func InputBranches(input *Input) []*pfs.Branch {
 		if input.Git != nil {
 			result = append(result, &pfs.Branch{
 				Repo: &pfs.Repo{Name: input.Git.Name},
-				Name: input.Atom.Branch,
+				Name: input.Git.Branch,
 			})
 		}
 	})

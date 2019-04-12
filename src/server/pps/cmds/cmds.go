@@ -582,9 +582,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 			}
 			request.Update = true
 			request.Reprocess = reprocess
-			if request.Input != nil && request.Input.Atom != nil {
-				fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
-			}
 			if _, err := client.PpsAPIClient.CreatePipeline(
 				client.Ctx(),
 				request,
@@ -775,9 +772,6 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 			break
 		} else if err != nil {
 			return err
-		}
-		if request.Input != nil && request.Input.Atom != nil {
-			fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
 		}
 		if update {
 			request.Update = true

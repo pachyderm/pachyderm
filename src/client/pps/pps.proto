@@ -63,21 +63,6 @@ message Spout {
   bool overwrite = 1;
 }
 
-// Note: this is deprecated and replaced by `PfsInput`
-message AtomInput {
-  reserved 7;
-  string name = 1;
-  string repo = 2;
-  string branch = 3;
-  string commit = 4;
-  string glob = 5;
-  bool lazy = 6;
-  // EmptyFiles, if true, will cause files from this atom to be presented as
-  // empty files. This is useful in shuffle pipelines where you want to read
-  // the names of files and reorganize them using symlinks.
-  bool empty_files = 8;
-}
-
 message PFSInput {
   string name = 1;
   string repo = 2;
@@ -110,8 +95,6 @@ message GitInput {
 }
 
 message Input {
-  // Note: this is deprecated and replaced by `PfsInput`
-  AtomInput atom = 1;
   PFSInput pfs = 6;
   repeated Input cross = 2;
   repeated Input union = 3;
