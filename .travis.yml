@@ -32,6 +32,7 @@ script:
 after_failure:
 - kubectl version
 - kubectl get all
+- kubectl get all --namespace kafka
 - kubectl describe pod -l app=pachd
 - kubectl describe pod -l suite=pachyderm,app=etcd
 notifications:

@@ -1,14 +1,14 @@
 #!/bin/bash
 # This script generates a self-signed TLS cert to be used by pachd in tests
 
-if [[ -n "${ADDRESS}" ]] || [[ -n "${PACHD_ADDRESS}" ]]; then
-  echo "must run 'unset ADDRESS; unset PACHD_ADDRESS' to use this" >/dev/fd/2
-  echo "script's cert. These variables prevent pachctl from trusting" >/dev/fd/2
-  echo "the cert that this script generates" >/dev/fd/2
+if [[ -n "${PACHD_ADDRESS}" ]]; then
+  echo "must run 'unset PACHD_ADDRESS' to use this script's cert. These" >/dev/fd/2
+  echo "variables prevent pachctl from trusting the cert that this script" >/dev/fd/2
+  echo "generates" >/dev/fd/2
   exit 1
 else
-  echo "Note that \$ADDRESS and \$PACHD_ADDRESS prevent pachctl from trusting "
-  echo "the cert that this script generates--do not set them"
+  echo "Note that \$PACHD_ADDRESS prevents pachctl from trusting the cert that"
+  echo "this script generates--do not set it"
 fi
 
 eval "set -- $( getopt -l "dns:,ip:,port:" -o "o:" "--" "${0}" "${@:-}" )"
