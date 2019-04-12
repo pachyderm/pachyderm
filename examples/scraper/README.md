@@ -1,4 +1,4 @@
-**Note**: This is a Pachyderm pre version 1.4 tutorial.  It needs to be updated for the latest versions of Pachyderm.
+:warning: **Warning**: This is a Pachyderm pre version 1.4 tutorial.  This example is deprecated until it has been updated for the latest versions of Pachyderm.
 
 # Quick Start Guide: Web Scraper
 In this guide you're going to create a Pachyderm pipeline to scrape web pages. 
