@@ -36,6 +36,9 @@ a few options:
   applications written in those languages. Actually, even if you don't use Go,
   Python, or Scala, Pachyderm uses a protobuf API which supports many other
   languages, we just haven’t built the full clients yet.
+
+If you're on Pachyderm Enterprise, you additionally get these options:
+
 - [Via the s3gateway](#the-s3gateway): This is ideal when using existing tools
   or libraries that interact with object stores.
 - [Via the Pachyderm dashboard](#the-pachyderm-dashboard): The Pachyderm Enterprise dashboard provides a
