@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "/Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/build/intermediates/incremental/mergeDebugResources/merged.dir/values-fa/values-fa.xml",
+            "map": [
+                {
+                    "source": "/Users/nick/.gradle/caches/transforms-1/files-1.1/appcompat-v7-25.2.0.aar/1e7cead9c58e1ab0b7ea95d08e500012/res/values-fa/values-fa.xml",
+                    "from": {
+                        "startLines": "2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22",
+                        "startColumns": "4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4",
+                        "startOffsets": "55,165,275,401,504,615,699,802,917,996,1074,1155,1267,1370,1468,1578,1681,1790,1915,2016,2097",
+                        "endColumns": "109,109,125,102,110,83,102,114,78,77,80,111,102,97,109,102,108,124,100,80,100",
+                        "endOffsets": "160,270,396,499,610,694,797,912,991,1069,1150,1262,1365,1463,1573,1676,1785,1910,2011,2092,2193"
+                    }
+                }
+            ]
+        }
+    ]
+}

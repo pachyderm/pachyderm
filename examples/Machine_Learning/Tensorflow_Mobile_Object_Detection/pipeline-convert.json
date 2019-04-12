@@ -1,0 +1,24 @@
+{
+  "pipeline": {
+    "name": "Convert"
+  },
+  "transform": {
+    "image": "pachyderm/pachyderm_tflite_ex:v1",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+      "tflite_convert --graph_def_file=/pfs/Train/retrained_graph.pb --output_file=/pfs/out/optimized_graph.lite --input_format=TENSORFLOW_GRAPHDEF --output_format=TFLITE --input_shape=1,$IMAGE_SIZE,$IMAGE_SIZE,3 --input_array=input --output_array=final_result --inference_type=FLOAT --input_data_type=FLOAT"
+    ],
+    "env": {
+      "IMAGE_SIZE": "224"
+    }
+  },
+  "parallelism_spec": {
+       "constant" : 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "Train",
+      "glob": "/"
+    }
+  }
+}

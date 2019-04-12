@@ -1,0 +1,19 @@
+{
+  "pipeline": {
+    "name": "Android_Deploy2"
+  },
+  "transform": {
+    "image": "nickharvey/detect-tf2-android2:v1",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [ "cd tflite && android-build:android-gradle gradle -PdisablePreDex clean" ]
+  },
+  "parallelism_spec": {
+       "constant" : 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "Mobile_Object_TFlite",
+      "glob": "/"
+    }
+  }
+}

@@ -1,0 +1,4 @@
+#Fri Apr 12 11:05:38 EDT 2019
+base.0=/Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/build/intermediates/transforms/dexMerger/debug/10
+renamed.0=classes.dex
+file.0=/Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/build/intermediates/transforms/dexMerger/debug/10/classes.dex

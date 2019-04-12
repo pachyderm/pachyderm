@@ -1,0 +1,78 @@
+// This file provides basic support for building the TensorFlow demo
+// in Android Studio with Gradle.
+//
+// Note that Bazel is still used by default to compile the native libs,
+// and should be installed at the location noted below. This build file
+// automates the process of calling out to it and copying the compiled
+// libraries back into the appropriate directory.
+//
+// Alternatively, experimental support for Makefile builds is provided by
+// setting buildWithMake below to true. This will allow building the demo
+// on Windows machines, but note that full equivalence with the Bazel
+// build is not yet guaranteed. See comments below for caveats and tips
+// for speeding up the build, such as as enabling ccache.
+
+
+project.buildDir = 'gradleBuild'
+getProject().setBuildDir('gradleBuild')
+
+project.ext.ASSET_DIR = projectDir.toString() + '/assets'
+
+assert file(project.ext.ASSET_DIR + "/graph.pb").exists()
+assert file(project.ext.ASSET_DIR + "/labels.txt").exists()
+
+buildscript {
+    repositories {
+        jcenter()
+        google()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:3.0.0'
+    }
+}
+
+
+apply plugin: 'com.android.application'
+
+android {
+    compileSdkVersion 25
+    buildToolsVersion '27.0.3'
+
+    lintOptions {
+        abortOnError false
+    }
+
+    sourceSets {
+        main {
+            // Android demo app sources.
+            java {
+                srcDir 'src'
+            }
+
+            manifest.srcFile 'AndroidManifest.xml'
+            resources.srcDirs = ['src']
+            aidl.srcDirs = ['src']
+            renderscript.srcDirs = ['src']
+            res.srcDirs = ['res']
+            assets.srcDirs = [project.ext.ASSET_DIR]
+
+            repositories {
+                jcenter()
+            }
+
+            dependencies {
+                compile 'org.tensorflow:tensorflow-android:+'
+            }
+
+        }
+
+        debug.setRoot('build-types/debug')
+        release.setRoot('build-types/release')
+    }
+}
+
+
+repositories {
+    google()
+}

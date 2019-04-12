@@ -1,0 +1,150 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+MERGED from [com.android.support:design:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/design-25.2.0.aar/b1362ab58a538883f8c8f561ddd81e16/AndroidManifest.xml:17:1-27:12
+MERGED from [com.android.support:appcompat-v7:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/appcompat-v7-25.2.0.aar/1e7cead9c58e1ab0b7ea95d08e500012/AndroidManifest.xml:17:1-27:12
+MERGED from [com.android.support.constraint:constraint-layout:1.1.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/constraint-layout-1.1.0.aar/ad0756ea34883e58e2b7add94c393c6d/AndroidManifest.xml:2:1-11:12
+MERGED from [com.android.support:support-v13:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v13-25.2.0.aar/ea96dee31c4272e5ee65052cb34171ab/AndroidManifest.xml:17:1-27:12
+MERGED from [com.android.support:animated-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/animated-vector-drawable-25.2.0.aar/0798184f565fa0148a8699959d26ee48/AndroidManifest.xml:17:1-24:12
+MERGED from [com.android.support:support-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-vector-drawable-25.2.0.aar/49487cbf7aa2cf1bed06046d9b8807f7/AndroidManifest.xml:17:1-25:12
+MERGED from [com.android.support:recyclerview-v7:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/recyclerview-v7-25.2.0.aar/55636756feee88dafea137243e7f8ded/AndroidManifest.xml:17:1-22:12
+MERGED from [com.android.support:transition:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/transition-25.2.0.aar/1a787891f7239c4fbe90470a5c8eec95/AndroidManifest.xml:17:1-24:12
+MERGED from [com.android.support:support-v4:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v4-25.2.0.aar/d973f179e354bdf75dc99ea478d85ee4/AndroidManifest.xml:17:1-27:12
+MERGED from [com.android.support:support-fragment:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-fragment-25.2.0.aar/e2a7302cd55b60b1b9dd5f0e34e1a566/AndroidManifest.xml:17:1-27:12
+MERGED from [com.android.support:support-media-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-media-compat-25.2.0.aar/5b9adab703aab5a99f5007482613c942/AndroidManifest.xml:17:1-27:12
+MERGED from [com.android.support:support-core-utils:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-utils-25.2.0.aar/65347b47f43e8b14b53dd07d914d3c02/AndroidManifest.xml:17:1-27:12
+MERGED from [com.android.support:support-core-ui:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-ui-25.2.0.aar/63b4348eee5d75e1c112f83fb0b3ab4d/AndroidManifest.xml:17:1-27:12
+MERGED from [com.android.support:support-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-compat-25.2.0.aar/bafa7f6cdd1927ba517b92e31ae85bc0/AndroidManifest.xml:17:1-27:12
+MERGED from [org.tensorflow:tensorflow-lite:1.13.1] /Users/nick/.gradle/caches/transforms-1/files-1.1/tensorflow-lite-1.13.1.aar/d8dfd767d49583e5247fadb5e3235587/AndroidManifest.xml:2:1-11:12
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+	package
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:19:5-51
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+	android:versionName
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+	android:versionCode
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:1-40:12
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:18:11-69
+uses-permission#android.permission.CAMERA
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:21:5-65
+	android:name
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:21:22-62
+uses-feature#android.hardware.camera
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:23:5-60
+	android:name
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:23:19-57
+uses-feature#android.hardware.camera.autofocus
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:24:5-70
+	android:name
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:24:19-67
+application
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:26:5-38:19
+MERGED from [com.android.support:design:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/design-25.2.0.aar/b1362ab58a538883f8c8f561ddd81e16/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:design:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/design-25.2.0.aar/b1362ab58a538883f8c8f561ddd81e16/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:appcompat-v7:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/appcompat-v7-25.2.0.aar/1e7cead9c58e1ab0b7ea95d08e500012/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:appcompat-v7:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/appcompat-v7-25.2.0.aar/1e7cead9c58e1ab0b7ea95d08e500012/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support.constraint:constraint-layout:1.1.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/constraint-layout-1.1.0.aar/ad0756ea34883e58e2b7add94c393c6d/AndroidManifest.xml:9:5-20
+MERGED from [com.android.support.constraint:constraint-layout:1.1.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/constraint-layout-1.1.0.aar/ad0756ea34883e58e2b7add94c393c6d/AndroidManifest.xml:9:5-20
+MERGED from [com.android.support:support-v13:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v13-25.2.0.aar/ea96dee31c4272e5ee65052cb34171ab/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-v13:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v13-25.2.0.aar/ea96dee31c4272e5ee65052cb34171ab/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:animated-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/animated-vector-drawable-25.2.0.aar/0798184f565fa0148a8699959d26ee48/AndroidManifest.xml:22:5-20
+MERGED from [com.android.support:animated-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/animated-vector-drawable-25.2.0.aar/0798184f565fa0148a8699959d26ee48/AndroidManifest.xml:22:5-20
+MERGED from [com.android.support:support-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-vector-drawable-25.2.0.aar/49487cbf7aa2cf1bed06046d9b8807f7/AndroidManifest.xml:23:5-20
+MERGED from [com.android.support:support-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-vector-drawable-25.2.0.aar/49487cbf7aa2cf1bed06046d9b8807f7/AndroidManifest.xml:23:5-20
+MERGED from [com.android.support:transition:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/transition-25.2.0.aar/1a787891f7239c4fbe90470a5c8eec95/AndroidManifest.xml:22:5-20
+MERGED from [com.android.support:transition:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/transition-25.2.0.aar/1a787891f7239c4fbe90470a5c8eec95/AndroidManifest.xml:22:5-20
+MERGED from [com.android.support:support-v4:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v4-25.2.0.aar/d973f179e354bdf75dc99ea478d85ee4/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-v4:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v4-25.2.0.aar/d973f179e354bdf75dc99ea478d85ee4/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-fragment:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-fragment-25.2.0.aar/e2a7302cd55b60b1b9dd5f0e34e1a566/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-fragment:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-fragment-25.2.0.aar/e2a7302cd55b60b1b9dd5f0e34e1a566/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-media-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-media-compat-25.2.0.aar/5b9adab703aab5a99f5007482613c942/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-media-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-media-compat-25.2.0.aar/5b9adab703aab5a99f5007482613c942/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-core-utils:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-utils-25.2.0.aar/65347b47f43e8b14b53dd07d914d3c02/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-core-utils:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-utils-25.2.0.aar/65347b47f43e8b14b53dd07d914d3c02/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-core-ui:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-ui-25.2.0.aar/63b4348eee5d75e1c112f83fb0b3ab4d/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-core-ui:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-ui-25.2.0.aar/63b4348eee5d75e1c112f83fb0b3ab4d/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-compat-25.2.0.aar/bafa7f6cdd1927ba517b92e31ae85bc0/AndroidManifest.xml:25:5-20
+MERGED from [com.android.support:support-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-compat-25.2.0.aar/bafa7f6cdd1927ba517b92e31ae85bc0/AndroidManifest.xml:25:5-20
+MERGED from [org.tensorflow:tensorflow-lite:1.13.1] /Users/nick/.gradle/caches/transforms-1/files-1.1/tensorflow-lite-1.13.1.aar/d8dfd767d49583e5247fadb5e3235587/AndroidManifest.xml:9:5-20
+MERGED from [org.tensorflow:tensorflow-lite:1.13.1] /Users/nick/.gradle/caches/transforms-1/files-1.1/tensorflow-lite-1.13.1.aar/d8dfd767d49583e5247fadb5e3235587/AndroidManifest.xml:9:5-20
+	android:label
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:27:9-41
+	android:icon
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:28:9-45
+	android:allowBackup
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:26:18-44
+	android:theme
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:29:9-45
+activity#com.example.android.tflitecamerademo.CameraActivity
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:31:9-37:20
+	android:label
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:32:19-51
+	android:name
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:31:19-85
+intent-filter#android.intent.action.MAIN+android.intent.category.LAUNCHER
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:33:13-36:29
+action#android.intent.action.MAIN
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:34:17-69
+	android:name
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:34:25-66
+category#android.intent.category.LAUNCHER
+ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:35:17-77
+	android:name
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml:35:27-74
+uses-sdk
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+MERGED from [com.android.support:design:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/design-25.2.0.aar/b1362ab58a538883f8c8f561ddd81e16/AndroidManifest.xml:21:5-23:62
+MERGED from [com.android.support:design:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/design-25.2.0.aar/b1362ab58a538883f8c8f561ddd81e16/AndroidManifest.xml:21:5-23:62
+MERGED from [com.android.support:appcompat-v7:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/appcompat-v7-25.2.0.aar/1e7cead9c58e1ab0b7ea95d08e500012/AndroidManifest.xml:21:5-23:78
+MERGED from [com.android.support:appcompat-v7:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/appcompat-v7-25.2.0.aar/1e7cead9c58e1ab0b7ea95d08e500012/AndroidManifest.xml:21:5-23:78
+MERGED from [com.android.support.constraint:constraint-layout:1.1.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/constraint-layout-1.1.0.aar/ad0756ea34883e58e2b7add94c393c6d/AndroidManifest.xml:5:5-7:41
+MERGED from [com.android.support.constraint:constraint-layout:1.1.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/constraint-layout-1.1.0.aar/ad0756ea34883e58e2b7add94c393c6d/AndroidManifest.xml:5:5-7:41
+MERGED from [com.android.support:support-v13:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v13-25.2.0.aar/ea96dee31c4272e5ee65052cb34171ab/AndroidManifest.xml:21:5-23:55
+MERGED from [com.android.support:support-v13:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v13-25.2.0.aar/ea96dee31c4272e5ee65052cb34171ab/AndroidManifest.xml:21:5-23:55
+MERGED from [com.android.support:animated-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/animated-vector-drawable-25.2.0.aar/0798184f565fa0148a8699959d26ee48/AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:animated-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/animated-vector-drawable-25.2.0.aar/0798184f565fa0148a8699959d26ee48/AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-vector-drawable-25.2.0.aar/49487cbf7aa2cf1bed06046d9b8807f7/AndroidManifest.xml:21:5-43
+MERGED from [com.android.support:support-vector-drawable:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-vector-drawable-25.2.0.aar/49487cbf7aa2cf1bed06046d9b8807f7/AndroidManifest.xml:21:5-43
+MERGED from [com.android.support:recyclerview-v7:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/recyclerview-v7-25.2.0.aar/55636756feee88dafea137243e7f8ded/AndroidManifest.xml:20:5-43
+MERGED from [com.android.support:recyclerview-v7:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/recyclerview-v7-25.2.0.aar/55636756feee88dafea137243e7f8ded/AndroidManifest.xml:20:5-43
+MERGED from [com.android.support:transition:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/transition-25.2.0.aar/1a787891f7239c4fbe90470a5c8eec95/AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:transition:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/transition-25.2.0.aar/1a787891f7239c4fbe90470a5c8eec95/AndroidManifest.xml:20:5-44
+MERGED from [com.android.support:support-v4:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v4-25.2.0.aar/d973f179e354bdf75dc99ea478d85ee4/AndroidManifest.xml:21:5-23:54
+MERGED from [com.android.support:support-v4:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-v4-25.2.0.aar/d973f179e354bdf75dc99ea478d85ee4/AndroidManifest.xml:21:5-23:54
+MERGED from [com.android.support:support-fragment:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-fragment-25.2.0.aar/e2a7302cd55b60b1b9dd5f0e34e1a566/AndroidManifest.xml:21:5-23:60
+MERGED from [com.android.support:support-fragment:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-fragment-25.2.0.aar/e2a7302cd55b60b1b9dd5f0e34e1a566/AndroidManifest.xml:21:5-23:60
+MERGED from [com.android.support:support-media-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-media-compat-25.2.0.aar/5b9adab703aab5a99f5007482613c942/AndroidManifest.xml:21:5-23:63
+MERGED from [com.android.support:support-media-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-media-compat-25.2.0.aar/5b9adab703aab5a99f5007482613c942/AndroidManifest.xml:21:5-23:63
+MERGED from [com.android.support:support-core-utils:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-utils-25.2.0.aar/65347b47f43e8b14b53dd07d914d3c02/AndroidManifest.xml:21:5-23:61
+MERGED from [com.android.support:support-core-utils:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-utils-25.2.0.aar/65347b47f43e8b14b53dd07d914d3c02/AndroidManifest.xml:21:5-23:61
+MERGED from [com.android.support:support-core-ui:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-ui-25.2.0.aar/63b4348eee5d75e1c112f83fb0b3ab4d/AndroidManifest.xml:21:5-23:58
+MERGED from [com.android.support:support-core-ui:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-core-ui-25.2.0.aar/63b4348eee5d75e1c112f83fb0b3ab4d/AndroidManifest.xml:21:5-23:58
+MERGED from [com.android.support:support-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-compat-25.2.0.aar/bafa7f6cdd1927ba517b92e31ae85bc0/AndroidManifest.xml:21:5-23:58
+MERGED from [com.android.support:support-compat:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/support-compat-25.2.0.aar/bafa7f6cdd1927ba517b92e31ae85bc0/AndroidManifest.xml:21:5-23:58
+MERGED from [org.tensorflow:tensorflow-lite:1.13.1] /Users/nick/.gradle/caches/transforms-1/files-1.1/tensorflow-lite-1.13.1.aar/d8dfd767d49583e5247fadb5e3235587/AndroidManifest.xml:5:5-7:41
+MERGED from [org.tensorflow:tensorflow-lite:1.13.1] /Users/nick/.gradle/caches/transforms-1/files-1.1/tensorflow-lite-1.13.1.aar/d8dfd767d49583e5247fadb5e3235587/AndroidManifest.xml:5:5-7:41
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+	tools:overrideLibrary
+		ADDED from [com.android.support:design:25.2.0] /Users/nick/.gradle/caches/transforms-1/files-1.1/design-25.2.0.aar/b1362ab58a538883f8c8f561ddd81e16/AndroidManifest.xml:23:9-59
+	android:targetSdkVersion
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+		ADDED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml
+		INJECTED from /Users/nick/Git/Pachyderm/pachyderm/examples/Machine_Learning/Tensorflow_Mobile_Object_Detection/android/tflite/app/src/main/AndroidManifest.xml

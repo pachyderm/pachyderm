@@ -1,0 +1,47 @@
+{
+  "pipeline": {
+    "name": "Train"
+  },
+  "transform": {
+    "image": "pachyderm/pachyderm_tflite_ex:v1",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [
+      "python -m scripts.retrain --bottleneck_dir=/pfs/out/bottlenecks --how_many_training_steps=500 --model_dir=/pfs/out/models/ --summaries_dir=/pfs/out/training_summaries/mobilenet_0.50_$IMAGE_SIZE --output_graph=/pfs/out/retrained_graph.pb --output_labels=/pfs/out/retrained_labels.txt --architecture=mobilenet_0.50_$IMAGE_SIZE --image_dir=/pfs/flower_photos/"
+    ],
+    "env": {
+      "IMAGE_SIZE": "224"
+    }
+  },
+  "parallelism_spec": {
+       "constant" : 1
+  },
+  "input": {
+    "pfs": {
+      "repo": "flower_photos",
+      "glob": "/"
+    }
+  }
+}
+{
+  "pipeline": {
+    "name": "Tensorboard"
+  },
+  "transform": {
+    "image": "pachyderm/pachyderm_tflite_ex:v1",
+    "cmd": [ "/bin/bash" ],
+    "stdin": [ "tensorboard --logdir /pfs/Train/training_summaries" ]
+  },
+  "parallelism_spec": {
+       "constant" : 1
+  },
+  "service": {
+    "internal_port": 6006,
+    "external_port": 30006
+  },
+  "input": {
+    "pfs": {
+      "repo": "Train",
+      "glob": "/"
+    }
+  }
+}
