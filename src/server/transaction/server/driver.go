@@ -186,6 +186,7 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 	}
 
 	// TODO: check that responses match the cached responses in the transaction info
+	info.Responses = responses
 	return info, nil
 }
 
@@ -198,7 +199,11 @@ func (d *driver) finishTransaction(pachClient *client.APIClient, txn *transactio
 			return err
 		}
 		info, err = d.runTransaction(pachClient, stm, info)
+		if err != nil {
+			return err
+		}
 		return err
+		return d.transactions.ReadWrite(stm).Delete(txn.ID)
 	})
 	if err != nil {
 		return nil, err
@@ -232,22 +237,21 @@ func (d *driver) appendTransaction(
 		// We first do a dryrun of the transaction to
 		// 1. make sure the appended request is valid
 		// 2. Capture the result of the request to be returned
-		var transactionLength int
+		var numRequests, numResponses int
 		var dryrunResponses []*transaction.TransactionResponse
 
 		info := &transaction.TransactionInfo{}
 		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			transactions := d.transactions.ReadWrite(stm)
-
 			// Get the existing transaction and append the new requests
-			err := transactions.Get(txn.ID, info)
+			err := d.transactions.ReadWrite(stm).Get(txn.ID, info)
 			if err != nil {
 				return err
 			}
 
 			// Save the length so that we can check that nothing else modifies the
 			// transaction in the meantime
-			transactionLength = len(info.Requests)
+			numRequests = len(info.Requests)
+			numResponses = len(info.Responses)
 			info.Requests = append(info.Requests, items...)
 
 			info, err = d.runTransaction(pachClient, stm, info)
@@ -255,28 +259,32 @@ func (d *driver) appendTransaction(
 				return err
 			}
 
-			dryrunResponses = info.Responses[transactionLength:]
+			dryrunResponses = info.Responses[numResponses:]
 			return &TransactionDryrunError{}
 		})
 
+		if err == nil {
+			return nil, fmt.Errorf("server error, transaction dryrun should have aborted")
+		}
+		switch err.(type) {
+		case *TransactionDryrunError: // pass
+		default:
+			return nil, err
+		}
+
 		info = &transaction.TransactionInfo{}
 		_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			transactions := d.transactions.ReadWrite(stm)
+			// Update the existing transaction with the new requests/responses
+			return d.transactions.ReadWrite(stm).Update(txn.ID, info, func() error {
+				if len(info.Requests) != numRequests || len(info.Responses) != numResponses {
+					// Someone else modified the transaction while we did the dry run
+					return &TransactionConflictError{}
+				}
 
-			// Get the existing transaction, append the new requests, save it back
-			err := transactions.Get(txn.ID, info)
-			if err != nil {
-				return err
-			}
-
-			if len(info.Requests) != transactionLength {
-				return &TransactionConflictError{}
-			}
-
-			info.Requests = append(info.Requests, items...)
-			info.Responses = append(info.Responses, dryrunResponses...)
-
-			return transactions.Put(txn.ID, info)
+				info.Requests = append(info.Requests, items...)
+				info.Responses = append(info.Responses, dryrunResponses...)
+				return nil
+			})
 		})
 
 		if err == nil {

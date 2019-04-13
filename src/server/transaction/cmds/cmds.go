@@ -6,9 +6,8 @@ import (
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	txnclient "github.com/pachyderm/pachyderm/src/client/transaction"
+	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/transaction/pretty"
@@ -67,32 +66,6 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	listTransaction.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(listTransaction, "list transaction"))
 
-	getActiveTransaction := func() (string, error) {
-		cfg, err := config.Read()
-		if err != nil {
-			return "", fmt.Errorf("error reading Pachyderm config: %v", err)
-		}
-		if cfg.V1 == nil || cfg.V1.ActiveTransaction == "" {
-			return "", fmt.Errorf("no active transaction")
-		}
-		return cfg.V1.ActiveTransaction, nil
-	}
-
-	setActiveTransaction := func(id string) error {
-		cfg, err := config.Read()
-		if err != nil {
-			return fmt.Errorf("error reading Pachyderm config: %v", err)
-		}
-		if cfg.V1 == nil {
-			cfg.V1 = &config.ConfigV1{}
-		}
-		cfg.V1.ActiveTransaction = id
-		if err := cfg.Write(); err != nil {
-			return fmt.Errorf("error writing Pachyderm config: %v", err)
-		}
-		return nil
-	}
-
 	startTransaction := &cobra.Command{
 		Short: "Start a new transaction.",
 		Long:  "Start a new transaction.",
@@ -108,7 +81,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			}
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
-			err = setActiveTransaction(transaction.ID)
+			err = setActiveTransaction(transaction)
 			if err != nil {
 				return err
 			}
@@ -124,17 +97,17 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
-			id, err := getActiveTransaction()
+			txn, err := requireActiveTransaction()
 			if err != nil {
 				return err
 			}
 
-			err = setActiveTransaction("")
+			err = setActiveTransaction(nil)
 			if err != nil {
 				return err
 			}
 
-			fmt.Printf("Cleared active transaction: %s\n", id)
+			fmt.Printf("Cleared active transaction: %s\n", txn.ID)
 			return nil
 		}),
 	}
@@ -153,22 +126,22 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
-			var id string
+			var txn *transaction.Transaction
 			if len(args) > 0 {
-				id = args[0]
+				txn = &transaction.Transaction{ID: args[0]}
 			} else {
-				id, err = getActiveTransaction()
+				txn, err = requireActiveTransaction()
 				if err != nil {
 					return err
 				}
 			}
 
-			info, err := c.FinishTransaction(&txnclient.Transaction{ID: id})
+			info, err := c.FinishTransaction(txn)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			err = setActiveTransaction("")
+			err = setActiveTransaction(nil)
 			if err != nil {
 				return err
 			}
@@ -192,31 +165,31 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
-			var id string
+			var txn *transaction.Transaction
 			var isActive bool
 			if len(args) > 0 {
-				id = args[0]
+				txn = &transaction.Transaction{ID: args[0]}
 
 				// Don't check err here, this is just a quality-of-life check to clean
 				// up the config after a successful delete
-				activeTransaction, _ := getActiveTransaction()
-				isActive = id == activeTransaction
+				activeTxn, _ := requireActiveTransaction()
+				isActive = (txn.ID == activeTxn.ID)
 			} else {
-				id, err = getActiveTransaction()
+				txn, err = requireActiveTransaction()
 				if err != nil {
 					return err
 				}
 				isActive = true
 			}
 
-			err = c.DeleteTransaction(&txnclient.Transaction{ID: id})
+			err = c.DeleteTransaction(txn)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			if isActive {
 				// The active transaction was successfully deleted, clean it up so the
 				// user doesn't need to manually 'stop transaction' it.
-				setActiveTransaction("")
+				setActiveTransaction(nil)
 			}
 			return nil
 		}),
@@ -234,22 +207,22 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			}
 			defer c.Close()
 
-			var id string
+			var txn *transaction.Transaction
 			if len(args) > 0 {
-				id = args[0]
+				txn = &transaction.Transaction{ID: args[0]}
 			} else {
-				id, err = getActiveTransaction()
+				txn, err = requireActiveTransaction()
 				if err != nil {
 					return err
 				}
 			}
 
-			info, err := c.InspectTransaction(&txnclient.Transaction{ID: id})
+			info, err := c.InspectTransaction(txn)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			if info == nil {
-				return fmt.Errorf("transaction %s not found", id)
+				return fmt.Errorf("transaction %s not found", txn.ID)
 			}
 			if raw {
 				return marshaller.Marshal(os.Stdout, info)
@@ -273,7 +246,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 				return err
 			}
 			defer c.Close()
-			info, err := c.InspectTransaction(&txnclient.Transaction{ID: args[0]})
+			info, err := c.InspectTransaction(&transaction.Transaction{ID: args[0]})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -281,7 +254,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 				return fmt.Errorf("transaction %s not found", args[0])
 			}
 
-			err = setActiveTransaction(info.Transaction.ID)
+			err = setActiveTransaction(info.Transaction)
 			if err != nil {
 				return err
 			}
