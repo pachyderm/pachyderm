@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "Android_Deploy2"
+    "name": "Android_Deploy"
   },
   "transform": {
     "image": "nickharvey/detect-tf2-android2:v1",
