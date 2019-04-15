@@ -2080,12 +2080,12 @@
 			"versionExact": "v1.10.0"
 		},
 		{
-			"checksumSHA1": "X1BGbIb3xaxiAG4O1Ot5YjPlh4g=",
+			"checksumSHA1": "0OoJw+Wc7+1Ox5nBbwjgqWW8Xpw=",
 			"path": "google.golang.org/grpc/metadata",
-			"revision": "8e4536a86ab602859c20df5ebfd0bd4228d08655",
-			"revisionTime": "2018-02-14T18:40:50Z",
-			"version": "v1.10.0",
-			"versionExact": "v1.10.0"
+			"revision": "236199dd5f8031d698fb64091194aecd1c3895b2",
+			"revisionTime": "2019-04-09T20:00:05Z",
+			"version": "v1.20.0",
+			"versionExact": "v1.20.0"
 		},
 		{
 			"checksumSHA1": "5dwF592DPvhF2Wcex3m7iV6aGRQ=",
