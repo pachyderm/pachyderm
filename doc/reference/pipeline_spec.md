@@ -250,6 +250,9 @@ accomplished with a `USER` directive in your Dockerfile.
 `transform.working_dir` sets the directory that your command will be run from,
 this can also be accomplished with a `WORKDIR` directive in your Dockerfile.
 
+`transform.dockerfile` is the path to the Dockerfile used with the `--build`
+flag. This defaults to `./Dockerfile`.
+
 ### Parallelism Spec (optional)
 
 `parallelism_spec` describes how Pachyderm should parallelize your pipeline.
