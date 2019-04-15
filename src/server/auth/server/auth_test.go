@@ -2487,17 +2487,17 @@ func TestGetJobsBugFix(t *testing.T) {
 	_, err = iter.Next()
 	require.NoError(t, err)
 
-	// alice calls list-job
+	// alice calls 'list job'
 	jobs, err := aliceClient.ListJob("", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
-	// anonClient calls list-job
+	// anonClient calls 'list job'
 	_, err = anonClient.ListJob("", nil, nil)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 
-	// alice calls list-job again, and the existing job must still be present
+	// alice calls 'list job' again, and the existing job must still be present
 	jobs2, err := aliceClient.ListJob("", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))

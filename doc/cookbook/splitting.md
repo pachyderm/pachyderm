@@ -20,16 +20,16 @@ $ head user_data.csv
 
 If we just put this into Pachyderm as a single file, we could not subsequently process each of these user records in parallel as separate "datums" (see [this guide](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html) for more information on datums and distributed computing).  Of course, you could manually separate out each of these user records into separate files before you commit them into the `users` repo or via a pipeline stage dedicated to this splitting task.  This would work, but Pachyderm actually makes it much easier for you.
 
-The `put-file` API includes an option for splitting up the file into separate datums automatically.  You can do this with the `pachctl` CLI tool via the `--split` flag on `put-file`.  For example, to automatically split the `user_data.csv` file up into separate datums for each line, you could execute the following:
+The `put file` API includes an option for splitting up the file into separate datums automatically.  You can do this with the `pachctl` CLI tool via the `--split` flag on `put file`.  For example, to automatically split the `user_data.csv` file up into separate datums for each line, you could execute the following:
 
 ```
-$ pachctl put-file users master -f user_data.csv --split line --target-file-datums 1
+$ pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
 ```  
 
 The `--split line` argument specifies that Pachyderm should split this file on lines, and the `--target-file-datums 1` arguments specifies that each resulting file should include at most one "datum" (or one line).  Note, that Pachyderm will still show the `user_data.csv` entity to you as one entity in the repo:
 
 ```
-$ pachctl list-file users master
+$ pachctl list file users@master
 NAME                 TYPE                SIZE                
 user_data.csv   dir                 5.346 KiB
 ```
@@ -37,7 +37,7 @@ user_data.csv   dir                 5.346 KiB
 But, this entity is now a directory containing all of the split records:
 
 ```
-$ pachctl list-file users master user_data.csv
+$ pachctl list file users@master:user_data.csv
 NAME                             TYPE                SIZE                
 user_data.csv/0000000000000000   file                43 B                
 user_data.csv/0000000000000001   file                39 B                
@@ -56,15 +56,15 @@ This is, of course, just one example.  Right now, Pachyderm supports this type o
 ```
 # Split a json file on json blobs, putting
 # each json blob into it's own file.
-$ pachctl put-file users master -f user_data.json --split json --target-file-datums 1
+$ pachctl put file users@master -f user_data.json --split json --target-file-datums 1
 
 # Split a json file on json blobs, putting
 # 3 json blobs into each split file.
-$ pachctl put-file users master -f user_data.json --split json --target-file-datums 3
+$ pachctl put file users@master -f user_data.json --split json --target-file-datums 3
 
 # Split a file on lines, putting each 100 
 # bytes chunk into the split files.
-$ pachctl put-file users master -f user_data.txt --split line --target-file-bytes 100
+$ pachctl put file users@master -f user_data.txt --split line --target-file-bytes 100
 ```  
 
 ## Specifying Header/Footer
@@ -82,31 +82,31 @@ id,name,email
 7,bob,bbb@place.com
 
 # Take the raw CSV data minus the header and split it into multiple files:
-$ cat users.csv | tail -n +2 | pachctl put-file bar master users --split line
+$ cat users.csv | tail -n +2 | pachctl put file bar@master:users --split line
 Reading from stdin.
-$ pachctl list-file bar master
+$ pachctl list file bar@master
 NAME  TYPE SIZE 
 users dir  42B  
-$ pachctl list-file bar master /users/
+$ pachctl list file bar@master:users/
 NAME                    TYPE SIZE 
 /users/0000000000000000 file 22B  
 /users/0000000000000001 file 20B  
-# Before we set the header, we just see the raw data when we issue a get-file
-$ pachctl get-file bar master /users/0000000000000000
+# Before we set the header, we just see the raw data when we issue a 'get file'
+$ pachctl get file bar@master:users/0000000000000000
 4,alice,aaa@place.com
 
 # Now we take the CSV header and apply it to the directory:
 $ cat users.csv | head -n 1 | pachctl put-header bar master users 
 # Now when we read an individual file, we see the header plus the contents
-$ pachctl get-file bar master /users/0000000000000000
+$ pachctl get file bar@master:users/0000000000000000
 id,name,email
 4,alice,aaa@place.com
 
-# If you issue a get-file on the directory, it returns just the header/footer
-$ pachctl get-file bar master /users
+# If you issue a 'get file' on the directory, it returns just the header/footer
+$ pachctl get file bar@master:users
 id,name,email
 # We can get the entire CSV file back with:
-$ pachctl get-file bar master /users/*
+$ pachctl get file bar@master:users/*
 id,name,email
 4,alice,aaa@place.com
 7,bob,bbb@place.com
@@ -114,7 +114,7 @@ id,name,email
 # Delete the existing header:
 $ echo "" | pachctl put-header repo branch path -f -
 # We've now deleted the header
-pachctl get-file bar master /users/*
+$ pachctl get file bar@master:users/*
 4,alice,aaa@place.com
 7,bob,bbb@place.com
 ```
@@ -181,7 +181,7 @@ COPY public.users (id, name, saying) FROM stdin;
 
 2) Ingest SQL data using split file
 
-When you use `pachctl put-file --split sql ...` your pg dump file is split into
+When you use `pachctl put file --split sql ...` your pg dump file is split into
 three parts - the header, rows, and the footer. The header contains all the SQL
 statements in the pg dump that setup the schema and tables. The rows are split
 into individual files (or if you specify the `--target-file-datums` or 
@@ -189,7 +189,7 @@ into individual files (or if you specify the `--target-file-datums` or
 SQL statements for setting up the tables.
 
 The header and footer are stored on the directory containing the rows. This way,
-if you request a `get-file` on the directory, you'll get just the header and
+if you request a `get file` on the directory, you'll get just the header and
 footer. If you request an individual file, you'll see the header plus the row(s)
 plus the footer. If you request all the files with a glob pattern, e.g.
 `/directoryname/*`, you'll receive the header plus all the rows plus the footer,
@@ -197,12 +197,12 @@ recreating the full pg dump. In this way, you can construct full or partial
 pg dump files so that you can load full or partial data sets.
 
 ```
-$ pachctl put-file data master -f users.pgdump --split sql
-$ pachctl put-file data master users --split sql -f users.pgdump 
-$ pachctl list-file data master
+$ pachctl put file data@master -f users.pgdump --split sql
+$ pachctl put file data@master:users --split sql -f users.pgdump 
+$ pachctl list file data@master
 NAME         TYPE SIZE 
 users        dir  914B 
-$ pachctl list-file data master /users
+$ pachctl list file data@master:users
 NAME                           TYPE SIZE 
 /users/0000000000000000        file 20B  
 /users/0000000000000001        file 18B  

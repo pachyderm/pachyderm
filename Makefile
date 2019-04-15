@@ -6,6 +6,7 @@
 # VENDOR_ALL: do not ignore some vendors when updating vendor directory
 # VENDOR_IGNORE_DIRS: ignore vendor dirs
 # KUBECTLFLAGS: flags for kubectl
+# DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
 
 ifndef TESTPKGS
@@ -21,6 +22,7 @@ COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 GC_FLAGS = "all=-trimpath=${PWD}"
+export DOCKER_BUILD_FLAGS
 
 CLUSTER_NAME?=pachyderm
 CLUSTER_MACHINE_TYPE?=n1-standard-4
@@ -150,7 +152,7 @@ release-worker:
 	@VERSION="$(shell cat VERSION)" ./etc/build/release_worker
 
 docker-build-compile:
-	docker build -t pachyderm_compile .
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_compile .
 
 # To bump this, update the etc/compile/GO_VERSION file
 publish-compile: docker-build-compile
@@ -219,14 +221,17 @@ docker-build:
 	make docker-build-helper
 
 docker-build-proto:
-	docker build -t pachyderm_proto etc/proto
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_proto etc/proto
 
 docker-build-netcat:
-	docker build -t pachyderm_netcat etc/netcat
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_netcat etc/netcat
 
 docker-build-gpu:
-	docker build -t pachyderm_nvidia_driver_install etc/deploy/gpu
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
+
+docker-build-kafka:
+	docker build -t kafka-demo examples/kafka
 
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
@@ -241,7 +246,7 @@ docker-gpu: docker-build-gpu docker-push-gpu
 docker-gpu-dev: docker-build-gpu docker-push-gpu-dev
 
 docker-build-test-entrypoint:
-	docker build -t pachyderm_entrypoint etc/testing/entrypoint
+	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_entrypoint etc/testing/entrypoint
 
 check-kubectl:
 	@# check that kubectl is installed
@@ -416,9 +421,6 @@ clean-pps-storage: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
-example-tests:
-	CGOENABLED=0 go test -v ./src/server/examples $(TESTFLAGS) -timeout $(TIMEOUT)
-
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| grep -v vendor \
@@ -475,7 +477,7 @@ test-pps:
 	@# subset of the tests using the run flag
 	@make RUN= test-pps-helper
 
-test-pps-helper: launch-stats docker-build-test-entrypoint
+test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
@@ -505,9 +507,10 @@ test-vault:
 ./etc/testing/s3gateway/s3-tests:
 	cd ./etc/testing/s3gateway && git clone git@github.com:ceph/s3-tests.git
 	cd ./etc/testing/s3gateway/s3-tests && ./bootstrap
-	cd ./etc/testing/s3gateway.s3-tests && source virtualenv/bin/activate && pip install nose-exclude==0.5.0
+	cd ./etc/testing/s3gateway/s3-tests && source virtualenv/bin/activate && pip install nose-exclude==0.5.0
 
 test-s3gateway-integration:
+	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1 | grep -v 'INFO pfs.'
 
 test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
@@ -520,7 +523,7 @@ test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
-	yes | pachctl delete-all
+	yes | pachctl delete all
 	@# Dont cache these results as they require the pachd cluster
 	go test -v ./src/server/auth/server -count 1 -timeout $(TIMEOUT)
 	go test -v ./src/server/auth/cmds -count 1 -timeout $(TIMEOUT)
@@ -565,12 +568,18 @@ doc-custom: install-doc release-version
 doc:
 	@make VERSION_ADDITIONAL= doc-custom
 
+clean-launch-kafka:
+	kubectl delete -f etc/kubernetes-kafka -R
+	
+launch-kafka:
+	kubectl apply -f etc/kubernetes-kafka -R
+	until timeout 10s ./etc/kube/check_ready.sh app=kafka kafka; do sleep 10; done
 
 clean-launch-stats:
-	kubectl delete --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+	kubectl delete --filename etc/kubernetes-prometheus -R
 
 launch-stats:
-	kubectl apply --filename https://raw.githubusercontent.com/giantswarm/kubernetes-prometheus/f7d1e34c9e8065554921f80fc6166b1d23b524f7/manifests-all.yaml
+	kubectl apply --filename etc/kubernetes-prometheus -R
 
 clean-launch-monitoring:
 	kubectl delete --ignore-not-found -f ./etc/plugin/monitoring

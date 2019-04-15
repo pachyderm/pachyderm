@@ -104,7 +104,7 @@
     pipeline-edges-v1-mshi0   1/1       Running   0          12s
     pipeline-edges-v1-yx2wa   1/1       Running   0          12s
 
-    $ pachctl list-job
+    $ pachctl list job
     ID                                   OUTPUT COMMIT                          STARTED        DURATION   RESTART PROGRESS STATE
     1b2c1b49-f536-484f-b0e3-07b3906572be edges/006f0aecb2b048d5b5edee0cdb766879 55 minutes ago 51 minutes 0       1 / 1    success
     ```

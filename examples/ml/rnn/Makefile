@@ -30,8 +30,8 @@ clean-input-data:
 	rm dataset.tar
 
 load-input-data:
-	pachctl create-repo GoT_scripts
-	pachctl put-file GoT_scripts master -f ./data/ -r
+	pachctl create repo GoT_scripts
+	pachctl put file GoT_scripts@master -f ./data/ -r
 
 gather-input-data: get-input-data extract-input-data clean-input-data
 
@@ -50,8 +50,8 @@ docker-build:
 setup: docker-build input-data
 
 run: verify-pachctl docker-build
-	pachctl create-pipeline -f pipeline-combined.json
+	pachctl create pipeline -f pipeline-combined.json
 
 clean: verify-pachctl
-	pachctl delete-pipeline -f pipeline.json
-	pachctl delete-repo GoT_scripts 
+	pachctl delete pipeline -f pipeline.json
+	pachctl delete repo GoT_scripts 

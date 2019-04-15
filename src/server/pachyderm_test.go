@@ -23,6 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/segmentio/kafka-go"
+
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -178,7 +180,7 @@ func TestRepoSize(t *testing.T) {
 	require.Equal(t, uint64(3), repoInfo.SizeBytes)
 }
 
-func TestAtomPipeline(t *testing.T) {
+func TestPFSPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -186,7 +188,7 @@ func TestAtomPipeline(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestAtomPipeline_data")
+	dataRepo := tu.UniqueString("TestPFSPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -195,7 +197,7 @@ func TestAtomPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	pipeline := tu.UniqueString("TestAtomPipeline")
+	pipeline := tu.UniqueString("TestPFSPipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -206,7 +208,7 @@ func TestAtomPipeline(t *testing.T) {
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
-		client.NewAtomInput(dataRepo, "/*"),
+		client.NewPFSInput(dataRepo, "/*"),
 		"",
 		false,
 	))
@@ -4774,7 +4776,7 @@ func TestPipelineWithStats(t *testing.T) {
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	}
 
-	// Make sure inspect-datum works
+	// Make sure 'inspect datum' works
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
@@ -4838,7 +4840,7 @@ func TestPipelineWithStatsFailedDatums(t *testing.T) {
 	// Last entry should be success
 	require.Equal(t, pps.DatumState_SUCCESS, resp.DatumInfos[len(resp.DatumInfos)-1].State)
 
-	// Make sure inspect-datum works for failed state
+	// Make sure 'inspect datum' works for failed state
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_FAILED, datum.State)
@@ -5075,7 +5077,7 @@ func TestPipelineWithStatsSkippedEdgeCase(t *testing.T) {
 		require.Equal(t, pps.DatumState_SUCCESS, datum.State)
 	}
 
-	// Make sure inspect-datum works
+	// Make sure 'inspect datum' works
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
@@ -6921,13 +6923,13 @@ func TestCommitDescription(t *testing.T) {
 	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Branch:      "master",
 		Parent:      client.NewCommit(dataRepo, ""),
-		Description: "test commit description in start-commit",
+		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
 	c.FinishCommit(dataRepo, commit.ID)
 	commitInfo, err := c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "test commit description in start-commit", commitInfo.Description)
+	require.Equal(t, "test commit description in 'start commit'", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 
 	// Test putting a message in FinishCommit
@@ -6935,27 +6937,27 @@ func TestCommitDescription(t *testing.T) {
 	require.NoError(t, err)
 	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 		Commit:      commit,
-		Description: "test commit description in finish-commit",
+		Description: "test commit description in 'finish commit'",
 	})
 	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "test commit description in finish-commit", commitInfo.Description)
+	require.Equal(t, "test commit description in 'finish commit'", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 
 	// Test overwriting a commit message
 	commit, err = c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Branch:      "master",
 		Parent:      client.NewCommit(dataRepo, ""),
-		Description: "test commit description in start-commit",
+		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
 	c.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 		Commit:      commit,
-		Description: "test commit description in finish-commit that overwrites",
+		Description: "test commit description in 'finish commit' that overwrites",
 	})
 	commitInfo, err = c.InspectCommit(dataRepo, commit.ID)
 	require.NoError(t, err)
-	require.Equal(t, "test commit description in finish-commit that overwrites", commitInfo.Description)
+	require.Equal(t, "test commit description in 'finish commit' that overwrites", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(pfspretty.NewPrintableCommitInfo(commitInfo)))
 }
 
@@ -8361,7 +8363,7 @@ func TestSpout(t *testing.T) {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
 			require.Equal(t, 1, len(commitInfo.Provenance))
-			provenance := commitInfo.Provenance[0]
+			provenance := commitInfo.Provenance[0].Commit
 			if i == 0 {
 				// set first one
 				provenanceID = provenance.ID
@@ -8398,7 +8400,7 @@ func TestSpout(t *testing.T) {
 			commitInfo, err := iter.Next()
 			require.NoError(t, err)
 			require.Equal(t, 1, len(commitInfo.Provenance))
-			provenance := commitInfo.Provenance[0]
+			provenance := commitInfo.Provenance[0].Commit
 			if i == 0 {
 				// this time, we expect our commits to have different provenance from the commits earlier
 				require.NotEqual(t, provenanceID, provenance.ID)
@@ -8409,6 +8411,139 @@ func TestSpout(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestKafka(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	host := "localhost"
+
+	// Open a connection to the kafka cluster
+	conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, 32400))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+
+	// create the topic
+	port := ""
+	topic := tu.UniqueString("demo")
+	// this part is kinda finnicky because sometimes the zookeeper session will timeout for one of the brokers
+	brokers, err := conn.Brokers()
+	// so to deal with that, we try connecting to each broker
+	for i, b := range brokers {
+		conn, err := kafka.Dial("tcp", fmt.Sprintf("%v:%v", host, b.Port))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// we keep track of the port number of brokers
+		brokers, err = conn.Brokers() // this is ok since Go does the for loop over brokers as it was for the initial loop
+		port = fmt.Sprint(b.Port)
+		// and try creating the topic
+		err = conn.CreateTopics(kafka.TopicConfig{
+			Topic:             topic,
+			NumPartitions:     1,
+			ReplicationFactor: len(brokers),
+		})
+		if err != nil {
+			// it's ok if the first n-1 fail
+			if i < len(brokers)-1 {
+				continue
+			}
+			// but if all of them fail, that's bad
+			t.Fatal("Can't create topic", err)
+		}
+		// once we found one that works, we can be done with this part
+		break
+	}
+
+	// now we want to connect to the leader broker with our topic
+	// so we look up the partiton which will have this information
+	part, err := kafka.LookupPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", host, port), topic, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// we grab the host IP and port to pass to the image
+	host = part.Leader.Host
+	port = fmt.Sprint(part.Leader.Port)
+	// since kafka and pachyderm are in the same kubernetes cluster, we need to adjust the host address to "localhost" here
+	part.Leader.Host = "localhost"
+	// and we can now make a connection to the leader
+	conn, err = kafka.DialPartition(context.Background(), "tcp", fmt.Sprintf("%v:%v", "localhost", port), part)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// now we asynchronously write to the kafka topic
+	go func() {
+		i := 0
+		for {
+			if _, err = conn.WriteMessages(
+				kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", i))},
+			); err != nil {
+				t.Fatal(err)
+			}
+			i++
+		}
+	}()
+
+	// create a spout pipeline running the kafka consumer
+	_, err = c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(topic),
+			Transform: &pps.Transform{
+				Image: "kafka-demo:latest",
+				Cmd:   []string{"go", "run", "./main.go"},
+				Env: map[string]string{
+					"HOST":  host,
+					"TOPIC": topic,
+					"PORT":  port,
+				},
+			},
+			Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+		})
+	require.NoError(t, err)
+	// and verify that the spout is consuming it
+	// we'll get 5 succesive commits, and ensure that we find all the kafka messages we wrote
+	// to the first five files.
+	iter, err := c.SubscribeCommit(topic, "master", "", pfs.CommitState_FINISHED)
+	require.NoError(t, err)
+	num := 1
+	for i := 0; i < 5; i++ {
+		num-- // files end in a newline so we need to decrement here inbetween iterations
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+		files, err := c.ListFile(topic, commitInfo.Commit.ID, "")
+		require.NoError(t, err)
+		require.Equal(t, i+1, len(files))
+
+		// get the i'th file
+		var buf bytes.Buffer
+		err = c.GetFile(topic, commitInfo.Commit.ID, files[i].File.Path, 0, 0, &buf)
+		if err != nil {
+			t.Errorf("Could not get file %v", err)
+		}
+
+		// read the lines and verify that we see each line we wrote
+		for err != io.EOF {
+			line := ""
+			line, err = buf.ReadString('\n')
+			if len(line) > 0 && line != fmt.Sprintf("Now it's %v\n", num) {
+				t.Error("Missed a kafka message:", num)
+			}
+			num++
+		}
+	}
+	// we also check that at least 5 kafka messages were consumed
+	if num < 5 {
+		t.Error("Expected to process more than 5 kafka messages:", num)
+	}
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {

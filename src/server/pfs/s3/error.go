@@ -37,6 +37,10 @@ func bucketAlreadyOwnedByYouError(w http.ResponseWriter, r *http.Request) {
 	writeError(w, r, http.StatusConflict, "BucketAlreadyOwnedByYou", "The bucket you tried to create already exists, and you own it.")
 }
 
+func enterpriseDisabledError(w http.ResponseWriter, r *http.Request) {
+	writeError(w, r, http.StatusForbidden, "EnterpriseDisabled", "Enterprise mode must be enabled to use the s3gateway.")
+}
+
 func internalError(w http.ResponseWriter, r *http.Request, err error) {
 	writeError(w, r, http.StatusInternalServerError, "InternalError", err.Error())
 }

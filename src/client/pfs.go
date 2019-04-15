@@ -34,6 +34,14 @@ func NewCommit(repoName string, commitID string) *pfs.Commit {
 	}
 }
 
+// NewCommitProvenance creates a pfs.CommitProvenance.
+func NewCommitProvenance(repoName string, branchName string, commitID string) *pfs.CommitProvenance {
+	return &pfs.CommitProvenance{
+		Commit: NewCommit(repoName, commitID),
+		Branch: NewBranch(repoName, branchName),
+	}
+}
+
 // NewFile creates a pfs.File.
 func NewFile(repoName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
@@ -368,7 +376,6 @@ func (c APIClient) DeleteBranch(repoName string, branch string, force bool) erro
 }
 
 // DeleteCommit deletes a commit.
-// Note it is currently not implemented.
 func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.DeleteCommit(
 		c.Ctx(),

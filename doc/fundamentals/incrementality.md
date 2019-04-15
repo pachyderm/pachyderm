@@ -62,7 +62,7 @@ your perspective. In the above example, you get the
 same result you would have gotten if you committed the same data in a single
 commit. 
 
-As of Pachyderm v1.5.1, `list-job` and `inspect-job` will tell you how many
+As of Pachyderm v1.5.1, `list job` and `inspect job` will tell you how many
 datums the job processed and how many it skipped. Below is an example of
 a job that had 5 datums, 3 that were processed and 2 that were skipped.
 

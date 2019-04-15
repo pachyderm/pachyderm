@@ -72,8 +72,8 @@ class DefaultDriver:
         return True
 
     def clear(self):
-        if run("yes | pachctl delete-all", shell=True, raise_on_error=False).rc != 0:
-            log.error("could not call `pachctl delete-all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
+        if run("yes | pachctl delete all", shell=True, raise_on_error=False).rc != 0:
+            log.error("could not call `pachctl delete all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
 
     def start(self):
         pass
@@ -116,8 +116,8 @@ class MicroK8sDriver(DefaultDriver):
     def clear(self):
         # `microk8s.reset` doesn't clear out cluster pods, so we'll go ahead
         # and do that through pachctl functionality if possible
-        if run("yes | pachctl delete-all --no-port-forwarding", shell=True, raise_on_error=False).rc != 0:
-            log.error("could not call `pachctl delete-all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
+        if run("yes | pachctl delete all --no-port-forwarding", shell=True, raise_on_error=False).rc != 0:
+            log.error("could not call `pachctl delete all`; most likely this just means that a pachyderm cluster hasn't been setup, but may indicate a bad state")
 
         run("microk8s.stop")
 

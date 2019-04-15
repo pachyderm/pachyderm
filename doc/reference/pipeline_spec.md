@@ -2,7 +2,7 @@
 
 This document discusses each of the fields present in a pipeline specification.
 To see how to use a pipeline spec to create a pipeline, refer to the [pachctl
-create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
+create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
 
 ## JSON Manifest Format
 
@@ -15,7 +15,9 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "transform": {
     "image": string,
     "cmd": [ string ],
-    "stdin": [ string ]
+    "stdin": [ string ],
+    "err_cmd": [ string ],
+    "err_stdin": [ string ],
     "env": {
         string: string
     },
@@ -60,7 +62,7 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   "datum_tries": int,
   "job_timeout": string,
   "input": {
-    <"atom", "pfs", "cross", "union", "cron", or "git" see below>
+    <"pfs", "cross", "union", "cron", or "git" see below>
   },
   "output_branch": string,
   "egress": {
@@ -84,19 +86,6 @@ create-pipeline](../pachctl/pachctl_create-pipeline.html) doc.
   },
   "pod_spec": string,
   "pod_patch": string,
-}
-
-------------------------------------
-"atom" input
-------------------------------------
-
-"atom": {
-  "name": string,
-  "repo": string,
-  "branch": string,
-  "glob": string,
-  "lazy" bool,
-  "empty_files": bool
 }
 
 ------------------------------------
@@ -210,6 +199,14 @@ work.  To get that behavior, you can set `cmd` to be a shell of your choice
 (e.g. `sh`) and pass a shell script to stdin.
 
 `transform.stdin` is an array of lines that are sent to your command on stdin.
+Lines need not end in newline characters.
+
+`transform.err_cmd` is an optional command that will only get run on datums which fail.
+If the err_cmd is successful (returns 0 error code), it won't prevent the job from succeeding.
+This means that it can be used to ignore failed datums while still writing successful datums to the output repo,
+instead of failing the whole job when some datums fail. It has the same limitations as `transform.cmd`.
+
+`transform.err_stdin` is an array of lines that are sent to your error command on stdin.
 Lines need not end in newline characters.
 
 `transform.env` is a map from key to value of environment variables that will be
@@ -363,7 +360,6 @@ these fields be set for any instantiation of the object.
 
 ```
 {
-    "atom": atom_input,
     "pfs": pfs_input,
     "union": union_input,
     "cross": cross_input,
@@ -371,13 +367,9 @@ these fields be set for any instantiation of the object.
 }
 ```
 
-#### Atom Input
-
-Atom inputs are deprecated in Pachyderm 1.8.1+. They have been renamed to PFS inputs. The configuration is the same, but all instances of `atom` should be changed to `pfs`.
-
 #### PFS Input
 
-**Note:** PFS inputs are only available in versions of Pachyderm 1.8.1+. If you are using an older version of Pachyderm, see atom inputs instead.
+**Note:** Atom inputs were renamed to PFS inputs in 1.8.1. If you are on an older version of Pachyderm, replace every instance of `pfs` with `atom`, and it will function the same way.
 
 PFS inputs are the simplest inputs, they take input from a single branch on a
 single repo.
@@ -534,7 +526,7 @@ Git inputs also require some additional configuration. In order for new commits 
 
 1. Create your Pachyderm pipeline with the Git Input.
 
-2. To get the URL of the webhook to your cluster, do `pachctl inspect-pipeline` on your pipeline. You should see a `Githook URL` field with a URL set. Note - this will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you see `pending` as the value (and you've deployed on a cloud provider), it's possible that the service is still being provisioned. You can check `kubectl get svc` to make sure you see the `githook` service running.
+2. To get the URL of the webhook to your cluster, do `pachctl inspect pipeline` on your pipeline. You should see a `Githook URL` field with a URL set. Note - this will only work if you've deployed to a cloud provider (e.g. AWS, GKE). If you see `pending` as the value (and you've deployed on a cloud provider), it's possible that the service is still being provisioned. You can check `kubectl get svc` to make sure you see the `githook` service running.
 
 3. To setup the GitHub webhook, navigate to:
 
@@ -583,7 +575,7 @@ repeatedly, then the cache can speed up processing significantly.
 pipeline to commit to a second branch in its output repo called `"stats"`. This
 branch will have information about each datum that is processed including:
 timing information, size information, logs and a `/pfs` snapshot. This
-information can be accessed through the `inspect-datum` and `list-datum`
+information can be accessed through the `inspect datum` and `list datum`
 pachctl commands and through the webUI.
 
 Note: enabling stats will use extra storage for logs and timing information.

@@ -280,9 +280,6 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 	add = func(name string) {
 		if pi, ok := piMap[name]; ok {
 			pps.VisitInput(pi.Input, func(input *pps.Input) {
-				if input.Atom != nil {
-					add(input.Atom.Repo)
-				}
 				if input.Pfs != nil {
 					add(input.Pfs.Repo)
 				}
@@ -514,11 +511,10 @@ func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) er
 
 		// Set op's object to new hashtree & finish building commit
 		newBuildCommitRequest := &pfs.BuildCommitRequest{
-			Parent:     convert1_7Commit(op.Commit.Parent),
-			Branch:     op.Commit.Branch,
-			Provenance: convert1_7Commits(op.Commit.Provenance),
-			Tree:       newTreeObj,
-			ID:         op.Commit.ID,
+			Parent: convert1_7Commit(op.Commit.Parent),
+			Branch: op.Commit.Branch,
+			Tree:   newTreeObj,
+			ID:     op.Commit.ID,
 		}
 		if _, err := pachClient.PfsAPIClient.BuildCommit(
 			pachClient.Ctx(),

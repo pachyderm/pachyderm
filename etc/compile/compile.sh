@@ -28,7 +28,7 @@ then
         cp ./etc/worker/* _tmp/
     fi
     cp /etc/ssl/certs/ca-certificates.crt _tmp/ca-certificates.crt
-    docker build -t pachyderm_${BINARY} _tmp
+    docker build ${DOCKER_BUILD_FLAGS} -t pachyderm_${BINARY} _tmp
     docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:latest
     docker tag pachyderm_${BINARY}:latest pachyderm/${BINARY}:local
 else

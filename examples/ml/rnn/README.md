@@ -37,16 +37,16 @@ This task does 2 things:
 1. It grabs the data set in the form of a tarball from a URL, and extracts the data
 2. It inputs this data into Pachyderm by:
     - creating a new repo `GoT_scripts`
-    - executing a `put-file` recursively via `pachctl put-file GoT_scripts master -f ./data/ -r`
+    - executing a `put file` recursively via `pachctl put file GoT_scripts@master -f ./data/ -r`
 
 The result is a new repo with all the data we need stored inside. To confirm the setup, you can do:
 
 ```shell
-$ pachctl list-repo
+$ pachctl list repo
 NAME                CREATED             SIZE
 GoT_scripts         15 seconds ago      2.625 MiB
 4
-$ pachctl list-commit GoT_scripts
+$ pachctl list commit GoT_scripts
 BRANCH        REPO/ID       PARENT              STARTED             FINISHED            SIZE
               master/0      <none>              24 seconds ago      24 seconds ago      2.625 MiB
 ```
@@ -156,12 +156,12 @@ Notice that we specify the same image as above, just a different entrypoint via 
 
 Now that we have all of the pieces in place, we can run the two pipelines. Do so by running:
 
-`pachctl create-pipeline -f pipeline-train.json`
+`pachctl create pipeline -f pipeline-train.json`
 
 This creates a pipeline from the manifest, and since a commit exists on the very first input repo `GoT_scripts`, the pipeline runs automatically. To see what's happening, you can run:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 ID                                 OUTPUT                                       STARTED             DURATION            STATE
 8225e745ef8e3d0c4dcf550c895634e3   GoT_train/dd2c024a5da041cb89e12e7984c81359   9 seconds ago       -                   running
 ```
@@ -169,32 +169,32 @@ ID                                 OUTPUT                                       
 and once the jobs have completed, you can then deploy the generate pipeline the same way. 
 
 ```
-pachctl create-pipeline -f pipeline-generate.json
+pachctl create pipeline -f pipeline-generate.json
 ``` 
 
 This creates the second pipeline for our project, and since our model is already trained it shouldn't take long to get the new script. To see what's happening, you can run:
 
 ```
-$ pachctl list-job
+$ pachctl list job
 ID                                 OUTPUT                                          STARTED             DURATION            STATE
 8f137e20299c85d1f0326be6e8c1bca6   GoT_generate/dcc8ba9984d442ababc75ddff42a055b   4 minutes ago       16 seconds          success
 8225e745ef8e3d0c4dcf550c895634e3   GoT_train/dd2c024a5da041cb89e12e7984c81359      6 minutes ago       2 minutes           success
 
-$ pachctl list-commit GoT_generate
+$ pachctl list commit GoT_generate
 BRANCH              ID                                 PARENT              STARTED             FINISHED            SIZE
                     dcc8ba9984d442ababc75ddff42a055b   <none>              5 minutes ago       5 minutes ago       4.354 KiB
 ```
 
-For this example we wanted to show each pipeline seperately, but you can just as easily combine the two pipelines into a single manifest file for a more automated approach. See the file `pipeline-combined.json` to see what we mean. You can use the same command `pachctl create-pipeline -f` as from before, except this time you'll see both train and generate jobs get created automatically. 
+For this example we wanted to show each pipeline seperately, but you can just as easily combine the two pipelines into a single manifest file for a more automated approach. See the file `pipeline-combined.json` to see what we mean. You can use the same command `pachctl create pipeline -f` as from before, except this time you'll see both train and generate jobs get created automatically. 
 
 #### Results:
 
 By default, we've set the size of the model to train to `test`. You can see this on each of the entrypoints specified in the `pipeline.json` file. For this size model, the training pipeline should run for a couple minutes, and the generate step much quicker than that. Let's take a look at the output.
 
-Once `pachctl list-commit GoT_generate` shows a single commit, we can take a look at the output. To do so, you can run:
+Once `pachctl list commit GoT_generate` shows a single commit, we can take a look at the output. To do so, you can run:
 
 ```
-pachctl get-file GoT_generate {the commit id from the above command} new_script.txt
+pachctl get file GoT_generate@{the commit id from the above command}:new_script.txt
 ```
 
 And you should see some text!
@@ -204,8 +204,8 @@ Keep in mind, the model we just trained was very simplistic. Doing the 'test' mo
 Actually, you can see how 'dumb' the model is. If you [read through the Tensorflow example](https://www.tensorflow.org/versions/r0.8/tutorials/recurrent/index.html#run-the-code) they describe how 'perplexity' is used to measure how good this model will perform. Let's look at the perplexity of your model.
 
 ```
-$pachctl list-job
-$pachctl get-logs {job ID from GoT_train job}
+$pachctl list job
+$pachctl logs {job ID from GoT_train job}
 0 | Epoch: 1 Learning rate: 1.000
 0 | 0.002 perplexity: 8526.820 speed: 1558 wps
 0 | 0.102 perplexity: 880.494 speed: 1598 wps
@@ -238,7 +238,7 @@ To do this, you'll need to tear down this pipeline and re-create it. Specificall
 1) Delete the existing data / pipeline by running:
 
 ```
-pachctl delete-all
+pachctl delete all
 ```
 
 2) Change the entrypoint commands in `pipeline-train.json` and `pipeline-generate.json` (or in the `pipeline-combined.json`) under the transformation property to use the `small` model not the `test` model. Save your changes.
