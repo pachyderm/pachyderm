@@ -35,7 +35,7 @@ type Writer struct {
 	ctx       context.Context
 	objC      obj.Client
 	prefix    string
-	f         func([]*DataRef) error
+	cbs       []func([]*DataRef) error
 	buf       *bytes.Buffer
 	hash      *buzhash64.Buzhash64
 	splitMask uint64
@@ -45,7 +45,7 @@ type Writer struct {
 }
 
 // newWriter creates a new Writer.
-func newWriter(ctx context.Context, objC obj.Client, prefix string, f func([]*DataRef) error) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, prefix string) *Writer {
 	// Initialize buzhash64 with WindowSize window.
 	hash := buzhash64.New()
 	hash.Write(make([]byte, WindowSize))
@@ -53,7 +53,7 @@ func newWriter(ctx context.Context, objC obj.Client, prefix string, f func([]*Da
 		ctx:       ctx,
 		objC:      objC,
 		prefix:    prefix,
-		f:         f,
+		cbs:       []func([]*DataRef) error{},
 		buf:       &bytes.Buffer{},
 		hash:      hash,
 		splitMask: (1 << uint64(AverageBits)) - 1,
@@ -63,12 +63,13 @@ func newWriter(ctx context.Context, objC obj.Client, prefix string, f func([]*Da
 // RangeStart specifies the start of a range within the byte stream that is meaningful to the caller.
 // When this range has ended (by calling RangeStart again or Close) and all of the necessary chunks are written, the
 // callback given during initialization will be called with DataRefs that can be used for accessing that range.
-func (w *Writer) RangeStart() {
+func (w *Writer) RangeStart(cb func([]*DataRef) error) {
 	// Finish prior range.
 	if w.dataRefs != nil {
 		w.rangeFinish()
 	}
 	// Start new range.
+	w.cbs = append(w.cbs, cb)
 	w.dataRefs = []*DataRef{&DataRef{Offset: uint64(w.buf.Len())}}
 	w.rangeSize = 0
 }
@@ -136,9 +137,10 @@ func (w *Writer) put() error {
 			// Set hash for last DataRef (from current chunk).
 			lastDataRef.Hash = chunkHash
 		}
-		if err := w.f(dataRefs); err != nil {
+		if err := w.cbs[0](dataRefs); err != nil {
 			return err
 		}
+		w.cbs = w.cbs[1:]
 	}
 	w.done = nil
 	// Update hash and sub hash (if at first sub chunk in range)

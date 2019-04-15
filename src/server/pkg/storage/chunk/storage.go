@@ -38,8 +38,8 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) io.ReadClo
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
 // The callback arguments are the chunk hash and content.
-func (s *Storage) NewWriter(ctx context.Context, f func([]*DataRef) error) *Writer {
-	return newWriter(ctx, s.objC, s.prefix, f)
+func (s *Storage) NewWriter(ctx context.Context) *Writer {
+	return newWriter(ctx, s.objC, s.prefix)
 }
 
 // Clear deletes all of the chunks in object storage.

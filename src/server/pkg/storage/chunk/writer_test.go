@@ -42,13 +42,14 @@ func TestWriteThenRead(t *testing.T) {
 		require.NoError(t, objC.Delete(context.Background(), Prefix))
 	}()
 	var finalDataRefs []*DataRef
-	w := s.NewWriter(context.Background(), func(dataRefs []*DataRef) error {
+	w := s.NewWriter(context.Background())
+	cb := func(dataRefs []*DataRef) error {
 		finalDataRefs = append(finalDataRefs, dataRefs...)
 		return nil
-	})
+	}
 	seq := randSeq(100 * MB)
 	for i := 0; i < 100; i++ {
-		w.RangeStart()
+		w.RangeStart(cb)
 		_, err := w.Write(seq[i*MB : (i+1)*MB])
 		require.NoError(t, err)
 	}
@@ -70,11 +71,10 @@ func BenchmarkWriter(b *testing.B) {
 	b.SetBytes(100 * MB)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w := s.NewWriter(context.Background(), func(_ []*DataRef) error {
-			return nil
-		})
+		w := s.NewWriter(context.Background())
+		cb := func(dataRefs []*DataRef) error { return nil }
 		for i := 0; i < 100; i++ {
-			w.RangeStart()
+			w.RangeStart(cb)
 			_, err := w.Write(seq[i*MB : (i+1)*MB])
 			require.NoError(b, err)
 		}
