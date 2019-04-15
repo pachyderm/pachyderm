@@ -340,6 +340,7 @@ BLACKLISTED_BOTO2_FUNCTIONAL_TESTS = [
     "test_s3.test_lifecycle_expiration_header_put",
     "test_s3.test_lifecycle_expiration_header_head",
     "test_s3.test_list_buckets_anonymous",
+    "test_s3.test_versioning_obj_read_not_exist_null",
 
     # These tests are disabled due to our tighter restrictions on bucket
     # naming
@@ -807,19 +808,6 @@ BLACKLISTED_BOTO3_FUNCTIONAL_TESTS = [
     "test_s3.test_atomic_dual_conditional_write_1mb",
 ]
 
-class ClientGateway:
-    def target(self):
-        self.proc = subprocess.Popen(["pachctl", "s3gateway", "-v"])
-
-    def __enter__(self):
-        t = threading.Thread(target=self.target)
-        t.daemon = True
-        t.start()
-
-    def __exit__(self, type, value, traceback):
-        if hasattr(self, "proc"):
-            self.proc.kill()
-
 def compute_stats(filename):
     ran = 0
     skipped = 0
@@ -901,9 +889,21 @@ def print_failures():
 
     return 0
 
-def run(test):
-    if test:
-        print("Running test {}".format(test))
+def main():
+    parser = argparse.ArgumentParser(description="Runs a conformance test suite for PFS' s3gateway.")
+    parser.add_argument("--no-run", default=False, action="store_true", help="Disables a test run, and just prints failure data from the last test run")
+    parser.add_argument("--test", default="", help="Run a specific test")
+    args = parser.parse_args()
+
+    if args.no_run:
+        sys.exit(print_failures())
+
+    proc = subprocess.run("yes | pachctl delete-all", shell=True)
+    if proc.returncode != 0:
+        raise Exception("bad exit code: {}".format(proc.returncode))
+
+    if args.test:
+        print("Running test {}".format(args.test))
 
         # In some places, nose and its plugins expect tests to be
         # specified as testmodule.testname, but here, it's expected to be
@@ -911,7 +911,9 @@ def run(test):
         # the testmodule.testname format can be used everywhere, including
         # here.
         if "." in test and not ":" in test:
-            test = ":".join(test.rsplit(".", 1))
+            test = ":".join(args.test.rsplit(".", 1))
+        else:
+            test = args.test
 
         run_nosetests(test)
     else:
@@ -935,51 +937,6 @@ def run(test):
             run_nosetests(env=extra_env, stderr=f)
 
         sys.exit(print_failures())
-
-def main():
-    parser = argparse.ArgumentParser(description="Runs a conformance test suite for PFS' s3gateway.")
-    parser.add_argument("--no-run", default=False, action="store_true", help="Disables a test run, and just prints failure data from the last test run")
-    parser.add_argument("--no-gateway-start", default=False, action="store_true", help="Disables startup of the s3gateway")
-    parser.add_argument("--test", default="", help="Run a specific test")
-    args = parser.parse_args()
-
-    if args.no_run:
-        sys.exit(print_failures())
-
-    proc = subprocess.run("yes | pachctl delete-all", shell=True)
-    if proc.returncode != 0:
-        raise Exception("bad exit code: {}".format(proc.returncode))
-
-    if args.no_gateway_start:
-        run(args.test)
-    else:
-        output = subprocess.run("ps -ef | grep pachctl | grep -v grep", shell=True, stdout=subprocess.PIPE).stdout
-
-        if len(output.strip()) > 0:
-            print("It looks like `pachctl` is already running. Please kill it before running conformance tests.", file=sys.stderr)
-            sys.exit(1)
-        
-        with ClientGateway():
-            for _ in range(10):
-                conn = http.client.HTTPConnection("localhost:30600")
-
-                try:
-                    conn.request("GET", "/")
-                    response = conn.getresponse()
-                    if response.status == 200:
-                        conn.close()
-                        break
-                except ConnectionRefusedError:
-                    pass
-
-                conn.close()
-                print("Waiting for s3gateway...")
-                time.sleep(1)
-            else:
-                print("s3gateway did not start", file=sys.stderr)
-                sys.exit(1)
-
-            run(args.test)
                 
 if __name__ == "__main__":
     main()
