@@ -98,8 +98,8 @@ func (a *apiServer) master() {
 		)
 		defer func() {
 			// Finish any dangling span
-			// Note: cannot do 'defer tracing.FinishAnySpan(span)' b/c that would
-			// evaluate 'span' before the "for" loop below runs
+			// Note: must wrap 'tracing.FinishAnySpan(span)' in closure so that
+			// 'span' is dereferenced after the "for" loop below runs (it's nil now)
 			tracing.FinishAnySpan(span) // finish any dangling span
 		}()
 		for {
@@ -125,6 +125,7 @@ func (a *apiServer) master() {
 							return err
 						}
 					}
+					log.Infof("PPS master: processing pipeline event for %q: %s -> %s", pipelineName, piplinePtr.State, prevPipelinePtr.State)
 					var prevSpecCommit string
 					if prevPipelinePtr.SpecCommit != nil {
 						prevSpecCommit = prevPipelinePtr.SpecCommit.ID
