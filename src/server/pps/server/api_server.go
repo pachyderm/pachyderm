@@ -104,6 +104,8 @@ type ctxAndCancel struct {
 	cancel context.CancelFunc
 }
 
+// APIServer implements the public interface of the Pachyderm Pipeline System,
+// including all RPCs defined in the protobuf spec.
 type APIServer struct {
 	log.Logger
 	etcdPrefix            string
@@ -467,6 +469,7 @@ func (a *APIServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 	return nil
 }
 
+// CreateJob implements the protobuf pps.CreateJob RPC
 func (a *APIServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest) (response *pps.Job, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -492,6 +495,7 @@ func (a *APIServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	return job, nil
 }
 
+// InspectJob implements the protobuf pps.InspectJob RPC
 func (a *APIServer) InspectJob(ctx context.Context, request *pps.InspectJobRequest) (response *pps.JobInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -752,6 +756,7 @@ func (a *APIServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	return result, nil
 }
 
+// ListJob implements the protobuf pps.ListJob RPC
 func (a *APIServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (response *pps.JobInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
@@ -773,6 +778,7 @@ func (a *APIServer) ListJob(ctx context.Context, request *pps.ListJobRequest) (r
 	return &pps.JobInfos{JobInfo: jobInfos}, nil
 }
 
+// ListJobStream implements the protobuf pps.ListJobStream RPC
 func (a *APIServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_ListJobStreamServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
@@ -789,6 +795,7 @@ func (a *APIServer) ListJobStream(request *pps.ListJobRequest, resp pps.API_List
 	})
 }
 
+// FlushJob implements the protobuf pps.FlushJob RPC
 func (a *APIServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJobServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
@@ -832,6 +839,7 @@ func (a *APIServer) FlushJob(request *pps.FlushJobRequest, resp pps.API_FlushJob
 	})
 }
 
+// DeleteJob implements the protobuf pps.DeleteJob RPC
 func (a *APIServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -849,6 +857,7 @@ func (a *APIServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 	return &types.Empty{}, nil
 }
 
+// StopJob implements the protobuf pps.StopJob RPC
 func (a *APIServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -874,6 +883,7 @@ func (a *APIServer) StopJob(ctx context.Context, request *pps.StopJobRequest) (r
 	return &types.Empty{}, nil
 }
 
+// RestartDatum implements the protobuf pps.RestartDatum RPC
 func (a *APIServer) RestartDatum(ctx context.Context, request *pps.RestartDatumRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -1061,6 +1071,7 @@ func (a *APIServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 	return response, nil
 }
 
+// ListDatum implements the protobuf pps.ListDatum RPC
 func (a *APIServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest) (response *pps.ListDatumResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
@@ -1080,6 +1091,7 @@ func (a *APIServer) ListDatum(ctx context.Context, request *pps.ListDatumRequest
 	return a.listDatum(pachClient, request.Job, request.Page, request.PageSize)
 }
 
+// ListDatumStream implements the protobuf pps.ListDatumStream RPC
 func (a *APIServer) ListDatumStream(req *pps.ListDatumRequest, resp pps.API_ListDatumStreamServer) (retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	sent := 0
@@ -1177,6 +1189,7 @@ func (a *APIServer) getDatum(pachClient *client.APIClient, repo string, commit *
 	return datumInfo, nil
 }
 
+// InspectDatum implements the protobuf pps.InspectDatum RPC
 func (a *APIServer) InspectDatum(ctx context.Context, request *pps.InspectDatumRequest) (response *pps.DatumInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -1214,6 +1227,7 @@ func (a *APIServer) InspectDatum(ctx context.Context, request *pps.InspectDatumR
 	return datumInfo, nil
 }
 
+// GetLogs implements the protobuf pps.GetLogs RPC
 func (a *APIServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
@@ -1746,6 +1760,7 @@ func (a *APIServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 	return nil
 }
 
+// CreatePipeline implements the protobuf pps.CreatePipeline RPC
 func (a *APIServer) CreatePipeline(ctx context.Context, request *pps.CreatePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2022,6 +2037,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	}
 }
 
+// InspectPipeline implements the protobuf pps.InspectPipeline RPC
 func (a *APIServer) InspectPipeline(ctx context.Context, request *pps.InspectPipelineRequest) (response *pps.PipelineInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2096,6 +2112,7 @@ func (a *APIServer) inspectPipeline(pachClient *client.APIClient, name string) (
 	return pipelineInfo, nil
 }
 
+// ListPipeline implements the protobuf pps.ListPipeline RPC
 func (a *APIServer) ListPipeline(ctx context.Context, request *pps.ListPipelineRequest) (response *pps.PipelineInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
@@ -2125,6 +2142,7 @@ func (a *APIServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	return pipelineInfos, nil
 }
 
+// DeletePipeline implements the protobuf pps.DeletePipeline RPC
 func (a *APIServer) DeletePipeline(ctx context.Context, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2269,6 +2287,7 @@ func (a *APIServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	return &types.Empty{}, nil
 }
 
+// StartPipeline implements the protobuf pps.StartPipeline RPC
 func (a *APIServer) StartPipeline(ctx context.Context, request *pps.StartPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2308,6 +2327,7 @@ func (a *APIServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	return &types.Empty{}, nil
 }
 
+// StopPipeline implements the protobuf pps.StopPipeline RPC
 func (a *APIServer) StopPipeline(ctx context.Context, request *pps.StopPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2347,6 +2367,7 @@ func (a *APIServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	return &types.Empty{}, nil
 }
 
+// RerunPipeline implements the protobuf pps.RerunPipeline RPC
 func (a *APIServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2354,6 +2375,7 @@ func (a *APIServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 	return nil, fmt.Errorf("TODO")
 }
 
+// DeleteAll implements the protobuf pps.DeleteAll RPC
 func (a *APIServer) DeleteAll(ctx context.Context, request *pps.DeleteAllRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2510,6 +2532,7 @@ func CollectActiveObjectsAndTags(ctx context.Context, pachClient *client.APIClie
 	return result, nil
 }
 
+// GarbageCollect implements the protobuf pps.GarbageCollect RPC
 func (a *APIServer) GarbageCollect(ctx context.Context, request *pps.GarbageCollectRequest) (response *pps.GarbageCollectResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -2626,6 +2649,7 @@ func (a *APIServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	return &pps.GarbageCollectResponse{}, nil
 }
 
+// ActivateAuth implements the protobuf pps.ActivateAuth RPC
 func (a *APIServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (resp *pps.ActivateAuthResponse, retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(req, resp, retErr, time.Since(start)) }(time.Now())

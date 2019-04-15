@@ -87,6 +87,8 @@ var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
 // though empty values are still stored in etcd)
 var epsilon = &types.BoolValue{Value: true}
 
+// APIServer implements the public interface of the Pachyderm auth system,
+// including all RPCs defined in the protobuf spec.
 type APIServer struct {
 	env        *serviceenv.ServiceEnv
 	pachLogger log.Logger
@@ -413,6 +415,7 @@ func (a *APIServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	return resp.State, nil
 }
 
+// Activate implements the protobuf auth.Activate RPC
 func (a *APIServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // copy auth information
@@ -544,6 +547,7 @@ func (a *APIServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
 
+// Deactivate implements the protobuf auth.Deactivate RPC
 func (a *APIServer) Deactivate(ctx context.Context, req *authclient.DeactivateRequest) (resp *authclient.DeactivateResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -649,6 +653,7 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 	return authclient.GitHubPrefix + verifiedUsername, nil
 }
 
+// GetAdmins implements the protobuf auth.GetAdmins RPC
 func (a *APIServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequest) (resp *authclient.GetAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -705,6 +710,7 @@ func (a *APIServer) validateModifyAdminsRequest(add []string, remove []string) e
 	return nil
 }
 
+// ModifyAdmins implements the protobuf auth.ModifyAdmins RPC
 func (a *APIServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdminsRequest) (resp *authclient.ModifyAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -808,6 +814,7 @@ func (a *APIServer) expiredClusterAdminCheck(ctx context.Context, username strin
 	return nil
 }
 
+// Authenticate implements the protobuf auth.Authenticate RPC
 func (a *APIServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	switch a.activationState() {
 	case none:
@@ -919,6 +926,7 @@ func (a *APIServer) getCallerTTL(ctx context.Context) (int64, error) {
 	return ttl, nil
 }
 
+// GetOneTimePassword implements the protobuf auth.GetOneTimePassword RPC
 func (a *APIServer) GetOneTimePassword(ctx context.Context, req *authclient.GetOneTimePasswordRequest) (resp *authclient.GetOneTimePasswordResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
@@ -1041,6 +1049,7 @@ func (a *APIServer) getOneTimePassword(ctx context.Context, username string, exp
 	return code, nil
 }
 
+// Authorize implements the protobuf auth.Authorize RPC
 func (a *APIServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1098,6 +1107,7 @@ func (a *APIServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequ
 	}, nil
 }
 
+// WhoAmI implements the protobuf auth.WhoAmI RPC
 func (a *APIServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1168,6 +1178,7 @@ func (a *APIServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 	return false, nil
 }
 
+// SetScope implements the protobuf auth.SetScope RPC
 func (a *APIServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1291,6 +1302,7 @@ func (a *APIServer) getScope(ctx context.Context, subject string, acl *authclien
 	return scope, nil
 }
 
+// GetScope implements the protobuf auth.GetScope RPC
 func (a *APIServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1375,6 +1387,7 @@ func (a *APIServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	return resp, nil
 }
 
+// GetACL implements the protobuf auth.GetACL RPC
 func (a *APIServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1415,6 +1428,7 @@ func (a *APIServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	return resp, nil
 }
 
+// SetACL implements the protobuf auth.SetACL RPC
 func (a *APIServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1550,6 +1564,7 @@ func (a *APIServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	return &authclient.SetACLResponse{}, nil
 }
 
+// GetAuthToken implements the protobuf auth.GetAuthToken RPC
 func (a *APIServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTokenRequest) (resp *authclient.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1638,6 +1653,7 @@ func (a *APIServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	}, nil
 }
 
+// ExtendAuthToken implements the protobuf auth.ExtendAuthToken RPC
 func (a *APIServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendAuthTokenRequest) (resp *authclient.ExtendAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1705,6 +1721,7 @@ func (a *APIServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	return &authclient.ExtendAuthTokenResponse{}, nil
 }
 
+// RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *APIServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1799,6 +1816,7 @@ func (a *APIServer) setGroupsForUserInternal(ctx context.Context, subject string
 	return err
 }
 
+// SetGroupsForUser implements the protobuf auth.SetGroupsForUser RPC
 func (a *APIServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGroupsForUserRequest) (resp *authclient.SetGroupsForUserResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1833,6 +1851,7 @@ func (a *APIServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 	return &authclient.SetGroupsForUserResponse{}, nil
 }
 
+// ModifyMembers implements the protobuf auth.ModifyMembers RPC
 func (a *APIServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMembersRequest) (resp *authclient.ModifyMembersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1939,6 +1958,7 @@ func (a *APIServer) getGroups(ctx context.Context, subject string) ([]string, er
 	return setToList(groupsProto.Groups), nil
 }
 
+// GetGroups implements the protobuf auth.GetGroups RPC
 func (a *APIServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequest) (resp *authclient.GetGroupsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1983,6 +2003,7 @@ func (a *APIServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 	return &authclient.GetGroupsResponse{Groups: groups}, nil
 }
 
+// GetUsers implements the protobuf auth.GetUsers RPC
 func (a *APIServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -2185,6 +2206,7 @@ func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error
 	return authclient.GitHubPrefix + u.GetLogin(), nil
 }
 
+// GetConfiguration implements the protobuf auth.GetConfiguration RPC
 func (a *APIServer) GetConfiguration(ctx context.Context, req *authclient.GetConfigurationRequest) (resp *authclient.GetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -2232,6 +2254,7 @@ func (a *APIServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	}, nil
 }
 
+// SetConfiguration implements the protobuf auth.SetConfiguration RPC
 func (a *APIServer) SetConfiguration(ctx context.Context, req *authclient.SetConfigurationRequest) (resp *authclient.SetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())

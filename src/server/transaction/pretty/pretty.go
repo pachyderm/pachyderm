@@ -18,11 +18,15 @@ const (
 	TransactionHeader = "TRANSACTION\tSTARTED\tLENGTH\t\n"
 )
 
+// PrintableTransactionInfo wraps a transaction.TransactionInfo with the
+// information needed to format it when printing.
 type PrintableTransactionInfo struct {
 	*transaction.TransactionInfo
 	FullTimestamps bool
 }
 
+// PrintTransactionInfo prints a short summary of a transaction to the provided
+// device.
 func PrintTransactionInfo(w io.Writer, info *transaction.TransactionInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", info.Transaction.ID)
 	if fullTimestamps {
@@ -33,6 +37,8 @@ func PrintTransactionInfo(w io.Writer, info *transaction.TransactionInfo, fullTi
 	fmt.Fprintf(w, "%d\n", len(info.Requests))
 }
 
+// PrintDetailedTransactionInfo prints detailed information about a transaction
+// to stdout.
 func PrintDetailedTransactionInfo(info *PrintableTransactionInfo) error {
 	template, err := template.New("TransactionInfo").Funcs(funcMap).Parse(
 		`ID: {{.Transaction.ID}}{{if .FullTimestamps}}
@@ -50,9 +56,8 @@ Requests:
 func sprintCreateRepo(request *pfs.CreateRepoRequest) string {
 	if request.Update {
 		return fmt.Sprintf("update repo %s", request.Repo.Name)
-	} else {
-		return fmt.Sprintf("create repo %s", request.Repo.Name)
 	}
+	return fmt.Sprintf("create repo %s", request.Repo.Name)
 }
 
 func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
@@ -62,9 +67,8 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 	}
 	if request.All {
 		return fmt.Sprintf("delete repo --all%s", request.Repo.Name, force)
-	} else {
-		return fmt.Sprintf("delete repo %s%s", request.Repo.Name, force)
 	}
+	return fmt.Sprintf("delete repo %s%s", request.Repo.Name, force)
 }
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {

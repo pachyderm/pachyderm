@@ -15,6 +15,8 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// Cmds returns the set of commands used for managing transactions with the
+// Pachyderm CLI tool pachctl.
 func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 	var commands []*cobra.Command
 

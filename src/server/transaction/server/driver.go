@@ -225,16 +225,16 @@ func (d *driver) finishTransaction(pachClient *client.APIClient, txn *transactio
 }
 
 // Error to be returned when aborting a dryrun transaction (following success)
-type TransactionDryrunError struct{}
+type transactionDryrunError struct{}
 
-func (e *TransactionDryrunError) Error() string {
+func (e *transactionDryrunError) Error() string {
 	return fmt.Sprintf("transaction dry run successful")
 }
 
 // Error to be returned when the transaction has been modified between our two STM calls
-type TransactionConflictError struct{}
+type transactionConflictError struct{}
 
-func (e *TransactionConflictError) Error() string {
+func (e *transactionConflictError) Error() string {
 	return fmt.Sprintf("transaction could not be modified due to concurrent modifications")
 }
 
@@ -273,14 +273,14 @@ func (d *driver) appendTransaction(
 			}
 
 			dryrunResponses = info.Responses[numResponses:]
-			return &TransactionDryrunError{}
+			return &transactionDryrunError{}
 		})
 
 		if err == nil {
 			return nil, fmt.Errorf("server error, transaction dryrun should have aborted")
 		}
 		switch err.(type) {
-		case *TransactionDryrunError: // pass
+		case *transactionDryrunError: // pass
 		default:
 			return nil, err
 		}
@@ -291,7 +291,7 @@ func (d *driver) appendTransaction(
 			return d.transactions.ReadWrite(stm).Update(txn.ID, info, func() error {
 				if len(info.Requests) != numRequests || len(info.Responses) != numResponses {
 					// Someone else modified the transaction while we did the dry run
-					return &TransactionConflictError{}
+					return &transactionConflictError{}
 				}
 
 				info.Requests = append(info.Requests, items...)
@@ -304,10 +304,10 @@ func (d *driver) appendTransaction(
 			return info, nil
 		}
 		switch err.(type) {
-		case *TransactionConflictError: // pass
+		case *transactionConflictError: // pass
 		default:
 			return nil, err
 		}
 	}
-	return nil, &TransactionConflictError{}
+	return nil, &transactionConflictError{}
 }

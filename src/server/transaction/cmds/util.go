@@ -7,6 +7,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 )
 
+// GetActiveTransaction will read the active transaction from the config file
+// (if it exists) and return it.  If the config file is uninitialized or the
+// active transaction is unset, `nil` will be returned.
 func GetActiveTransaction() (*transaction.Transaction, error) {
 	cfg, err := config.Read()
 	if err != nil {

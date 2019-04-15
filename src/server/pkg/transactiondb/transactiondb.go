@@ -1,4 +1,5 @@
-// Package ppsdb contains the database schema that PPS uses.
+// Package transactiondb contains the database schema that Pachyderm
+// transactions use.
 package transactiondb
 
 import (

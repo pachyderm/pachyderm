@@ -10,6 +10,8 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
+// NewEmptyResponse is a helper function to instantiate a TransactionResponse
+// for a transaction item that returns an empty response.
 func NewEmptyResponse() *transaction.TransactionResponse {
 	return &transaction.TransactionResponse{
 		Response: &transaction.TransactionResponse_None{
@@ -18,6 +20,8 @@ func NewEmptyResponse() *transaction.TransactionResponse {
 	}
 }
 
+// NewCommitResponse is a helper function to instantiate a TransactionResponse
+// for a transaction item that returns Commit ID.
 func NewCommitResponse(commit *pfs.Commit) *transaction.TransactionResponse {
 	return &transaction.TransactionResponse{
 		Response: &transaction.TransactionResponse_Commit{
@@ -26,6 +30,8 @@ func NewCommitResponse(commit *pfs.Commit) *transaction.TransactionResponse {
 	}
 }
 
+// ListTransaction is an RPC that fetches a list of all open transactions in the
+// Pachyderm cluster.
 func (c APIClient) ListTransaction() ([]*transaction.TransactionInfo, error) {
 	response, err := c.TransactionAPIClient.ListTransaction(
 		c.Ctx(),
@@ -37,6 +43,8 @@ func (c APIClient) ListTransaction() ([]*transaction.TransactionInfo, error) {
 	return response.TransactionInfo, nil
 }
 
+// StartTransaction is an RPC that registers a new transaction with the
+// Pachyderm cluster and returns the identifier of the new transaction.
 func (c APIClient) StartTransaction() (*transaction.Transaction, error) {
 	response, err := c.TransactionAPIClient.StartTransaction(
 		c.Ctx(),
@@ -48,6 +56,9 @@ func (c APIClient) StartTransaction() (*transaction.Transaction, error) {
 	return response, nil
 }
 
+// FinishTransaction is an RPC that closes an existing transaction in the
+// Pachyderm cluster and commits its changes to the persisted cluster metadata
+// transactionally.
 func (c APIClient) FinishTransaction(txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	response, err := c.TransactionAPIClient.FinishTransaction(
 		c.Ctx(),
@@ -61,6 +72,8 @@ func (c APIClient) FinishTransaction(txn *transaction.Transaction) (*transaction
 	return response, nil
 }
 
+// DeleteTransaction is an RPC that aborts an existing transaction in the
+// Pachyderm cluster and removes it from the cluster.
 func (c APIClient) DeleteTransaction(txn *transaction.Transaction) error {
 	_, err := c.TransactionAPIClient.DeleteTransaction(
 		c.Ctx(),
@@ -71,6 +84,8 @@ func (c APIClient) DeleteTransaction(txn *transaction.Transaction) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// InspectTransaction is an RPC that fetches the detailed information for an
+// existing transaction in the Pachyderm cluster.
 func (c APIClient) InspectTransaction(txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	response, err := c.TransactionAPIClient.InspectTransaction(
 		c.Ctx(),
@@ -84,7 +99,10 @@ func (c APIClient) InspectTransaction(txn *transaction.Transaction) (*transactio
 	return response, nil
 }
 
-// helper function for the most common case,
+// appendTransactionHelper is a helper function for the most common case of
+// appending a transaction, because there's quite a bit of boilerplate here.
+// This is suitable when appending a single request to a transaction when that
+// request type should return an empty response.
 func (c APIClient) appendTransactionHelper(
 	txn *transaction.Transaction,
 	request *transaction.TransactionRequest,
@@ -107,6 +125,9 @@ func (c APIClient) appendTransactionHelper(
 	return nil, fmt.Errorf("added to transaction but received an unexpected response type")
 }
 
+// AppendCreateRepo is a wrapper function for the AppendTransaction RPC which
+// will append a CreateRepoRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response.
 func (c APIClient) AppendCreateRepo(txn *transaction.Transaction, request *pfs.CreateRepoRequest) (*types.Empty, error) {
 	return c.appendTransactionHelper(
 		txn,
@@ -118,6 +139,9 @@ func (c APIClient) AppendCreateRepo(txn *transaction.Transaction, request *pfs.C
 	)
 }
 
+// AppendDeleteRepo is a wrapper function for the AppendTransaction RPC which
+// will append a DeleteRepoRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response.
 func (c APIClient) AppendDeleteRepo(txn *transaction.Transaction, request *pfs.DeleteRepoRequest) (*types.Empty, error) {
 	return c.appendTransactionHelper(
 		txn,
@@ -129,6 +153,9 @@ func (c APIClient) AppendDeleteRepo(txn *transaction.Transaction, request *pfs.D
 	)
 }
 
+// AppendFinishCommit is a wrapper function for the AppendTransaction RPC which
+// will append a FinishCommitRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response.
 func (c APIClient) AppendFinishCommit(txn *transaction.Transaction, request *pfs.FinishCommitRequest) (*types.Empty, error) {
 	return c.appendTransactionHelper(
 		txn,
@@ -140,6 +167,9 @@ func (c APIClient) AppendFinishCommit(txn *transaction.Transaction, request *pfs
 	)
 }
 
+// AppendDeleteCommit is a wrapper function for the AppendTransaction RPC which
+// will append a DeleteCommitRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response.
 func (c APIClient) AppendDeleteCommit(txn *transaction.Transaction, request *pfs.DeleteCommitRequest) (*types.Empty, error) {
 	return c.appendTransactionHelper(
 		txn,
@@ -151,6 +181,9 @@ func (c APIClient) AppendDeleteCommit(txn *transaction.Transaction, request *pfs
 	)
 }
 
+// AppendCreateBranch is a wrapper function for the AppendTransaction RPC which
+// will append a CreateBranchRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response.
 func (c APIClient) AppendCreateBranch(txn *transaction.Transaction, request *pfs.CreateBranchRequest) (*types.Empty, error) {
 	return c.appendTransactionHelper(
 		txn,
@@ -162,6 +195,9 @@ func (c APIClient) AppendCreateBranch(txn *transaction.Transaction, request *pfs
 	)
 }
 
+// AppendDeleteBranch is a wrapper function for the AppendTransaction RPC which
+// will append a DeleteBranchRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response.
 func (c APIClient) AppendDeleteBranch(txn *transaction.Transaction, request *pfs.DeleteBranchRequest) (*types.Empty, error) {
 	return c.appendTransactionHelper(
 		txn,
@@ -173,6 +209,9 @@ func (c APIClient) AppendDeleteBranch(txn *transaction.Transaction, request *pfs
 	)
 }
 
+// AppendCopyFile is a wrapper function for the AppendTransaction RPC which
+// will append a CopyFileRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response.
 func (c APIClient) AppendCopyFile(txn *transaction.Transaction, request *pfs.CopyFileRequest) (*types.Empty, error) {
 	return c.appendTransactionHelper(
 		txn,
@@ -184,6 +223,9 @@ func (c APIClient) AppendCopyFile(txn *transaction.Transaction, request *pfs.Cop
 	)
 }
 
+// AppendDeleteFile is a wrapper function for the AppendTransaction RPC which
+// will append a DeleteFileRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response.
 func (c APIClient) AppendDeleteFile(txn *transaction.Transaction, request *pfs.DeleteFileRequest) (*types.Empty, error) {
 	return c.appendTransactionHelper(
 		txn,
@@ -195,7 +237,10 @@ func (c APIClient) AppendDeleteFile(txn *transaction.Transaction, request *pfs.D
 	)
 }
 
-// This is a rare write operation that actually has a return value
+// AppendStartCommit is a wrapper function for the AppendTransaction RPC which
+// will append a StartCommitRequest to an existing transaction in the Pachyderm
+// cluster and return the expected response. This is a rare write operation that
+// actually has a return value - the ID of the new Commit.
 func (c APIClient) AppendStartCommit(txn *transaction.Transaction, request *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	info, err := c.TransactionAPIClient.AppendTransaction(
 		c.Ctx(),
