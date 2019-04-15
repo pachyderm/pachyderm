@@ -118,12 +118,22 @@ func (a *APIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return &types.Empty{}, nil
 }
 
+// StartCommitInTransaction executes a StartCommitRequest inside a running STM
+// transaction.  The target commit can be specified but is optional.  This is so
+// that the transaction can report the commit ID back to the client before the
+// transaction has finished and it can be used in future commands inside the
+// same transaction.
 func (a *APIServer) StartCommitInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.StartCommitRequest,
+	commit *pfs.Commit,
 ) (*pfs.Commit, error) {
-	return a.driver.startCommit(pachClient, stm, request.Parent, request.Branch, request.Provenance, request.Description)
+	id := ""
+	if commit != nil {
+		id = commit.ID
+	}
+	return a.driver.startCommit(pachClient, stm, id, request.Parent, request.Branch, request.Provenance, request.Description)
 }
 
 func (a *APIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
@@ -133,7 +143,7 @@ func (a *APIServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	var err error
 	commit := &pfs.Commit{}
 	_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-		commit, err = a.StartCommitInTransaction(a.env.GetPachClient(ctx), stm, request)
+		commit, err = a.StartCommitInTransaction(a.env.GetPachClient(ctx), stm, request, nil)
 		return err
 	})
 	if err != nil {

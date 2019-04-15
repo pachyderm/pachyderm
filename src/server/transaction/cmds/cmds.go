@@ -233,6 +233,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			})
 		}),
 	}
+	inspectTransaction.Flags().AddFlagSet(rawFlags)
 	inspectTransaction.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectTransaction, "inspect transaction"))
 

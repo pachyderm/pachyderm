@@ -136,9 +136,22 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 			err = d.pfsServer.DeleteRepoInTransaction(pachClient, stm, x.DeleteRepo)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_StartCommit:
+			// Do a little extra work here so we can make sure the new commit ID is
+			// the same every time.  We store the response the first time and reuse
+			// the commit ID on subsequent runs.
 			var commit *pfs.Commit
-			commit, err = d.pfsServer.StartCommitInTransaction(pachClient, stm, x.StartCommit)
-			response = client.NewCommitResponse(commit)
+			if len(info.Responses) > i {
+				switch commitResponse := info.Responses[i].Response.(type) {
+				case *transaction.TransactionResponse_Commit:
+					commit = commitResponse.Commit
+				default:
+					err = fmt.Errorf("unexpected stored response type")
+				}
+			}
+			if err == nil {
+				commit, err = d.pfsServer.StartCommitInTransaction(pachClient, stm, x.StartCommit, commit)
+				response = client.NewCommitResponse(commit)
+			}
 		case *transaction.TransactionRequest_FinishCommit:
 			err = d.pfsServer.FinishCommitInTransaction(pachClient, stm, x.FinishCommit)
 			response = client.NewEmptyResponse()

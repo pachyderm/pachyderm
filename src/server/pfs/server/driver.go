@@ -403,8 +403,10 @@ func (d *driver) deleteRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 	*/
 }
 
-func (d *driver) startCommit(pachClient *client.APIClient, stm col.STM, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(pachClient, stm, "", parent, branch, provenance, nil, nil, nil, description)
+// ID can be passed in for transactions, which need to ensure the ID doesn't
+// change after the commit ID has been reported to a client.
+func (d *driver) startCommit(pachClient *client.APIClient, stm col.STM, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
+	return d.makeCommit(pachClient, stm, ID, parent, branch, provenance, nil, nil, nil, description)
 }
 
 func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, tree *pfs.Object) (*pfs.Commit, error) {
@@ -1638,7 +1640,7 @@ func (d *driver) createBranch(pachClient *client.APIClient, stm col.STM, branch 
 			// possible that branch exists but has no head commit. This is fine, but
 			// branchInfo.Head must also be nil
 			if !isNoHeadErr(err) {
-				return fmt.Errorf("unable to inspect %s/%s: %v", err, commit.Repo.Name, commit.ID)
+				return fmt.Errorf("unable to inspect %s@%s: %v", commit.Repo.Name, commit.ID, err)
 			}
 			commit = nil
 		}
