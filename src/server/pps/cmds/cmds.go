@@ -132,22 +132,23 @@ $ pachctl list-job -p foo bar/YYY
 			}
 
 			if raw {
-				if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
-					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
-						return err
-					}
-					return nil
-					return nil
-				}); err != nil {
-					return err
-				}
-				return nil
+				if err := client.ListJobF(pipelineName, commits, outputCommit,
+					func(ji *ppsclient.JobInfo) error {
+						if err := marshaller.Marshal(os.Stdout, ji); err != nil {
+							return err
+						}
+						return nil
+  			}); err != nil {
+	  			return err
+	  		}
+		  	return nil
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
-				pretty.PrintJobInfo(writer, ji)
-				return nil
-			}); err != nil {
+			if err := client.ListJobTruncF(pipelineName, commits, outputCommit,
+				func(ji *ppsclient.JobInfo) error {
+					pretty.PrintJobInfo(writer, ji)
+					return nil
+				}); err != nil {
 				return err
 			}
 			return writer.Flush()

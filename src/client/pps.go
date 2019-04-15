@@ -218,6 +218,18 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, f func(*pps.JobInfo) error) error {
+	return c.listJobInternal(pipelineName, inputCommit, outputCommit, true, f)
+}
+
+// ListJobTruncF is like ListJobF, but it requests truncated JobInfos from PPS.
+// This is potentially faster, but also potentially incompatible with users of
+// the existing ListJobF API
+func (c APIClient) ListJobTruncF(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, f func(*pps.JobInfo) error) error {
+	return c.listJobInternal(pipelineName, inputCommit, outputCommit, false, f)
+}
+
+func (c APIClient) listJobInternal(pipelineName string, inputCommit []*pfs.Commit,
+	outputCommit *pfs.Commit, full bool, f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
@@ -228,6 +240,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outp
 			Pipeline:     pipeline,
 			InputCommit:  inputCommit,
 			OutputCommit: outputCommit,
+			Truncate:     !full,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
