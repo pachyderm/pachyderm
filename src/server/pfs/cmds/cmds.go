@@ -612,8 +612,11 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 
 			request := &pfsclient.CreateBranchRequest{
 				Branch:     branch,
-				Head:       client.NewCommit(branch.Repo.Name, head),
 				Provenance: provenance,
+			}
+
+			if head != "" {
+				request.Head = client.NewCommit(branch.Repo.Name, head)
 			}
 
 			txn, err := txncmds.GetActiveTransaction()
