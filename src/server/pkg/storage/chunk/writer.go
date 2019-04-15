@@ -41,6 +41,7 @@ type Writer struct {
 	splitMask uint64
 	dataRefs  []*DataRef
 	done      [][]*DataRef
+	rangeSize uint64
 }
 
 // newWriter creates a new Writer.
@@ -59,24 +60,29 @@ func newWriter(ctx context.Context, objC obj.Client, prefix string, f func([]*Da
 	}
 }
 
-// StartRange specifies the start of a range within the byte stream that is meaningful to the caller.
-// When this range has ended (by calling StartRange again or Close) and all of the necessary chunks are written, the
+// RangeStart specifies the start of a range within the byte stream that is meaningful to the caller.
+// When this range has ended (by calling RangeStart again or Close) and all of the necessary chunks are written, the
 // callback given during initialization will be called with DataRefs that can be used for accessing that range.
-func (w *Writer) StartRange() {
+func (w *Writer) RangeStart() {
 	// Finish prior range.
 	if w.dataRefs != nil {
-		w.finishRange()
+		w.rangeFinish()
 	}
 	// Start new range.
 	w.dataRefs = []*DataRef{&DataRef{Offset: uint64(w.buf.Len())}}
+	w.rangeSize = 0
 }
 
-func (w *Writer) finishRange() {
+func (w *Writer) rangeFinish() {
 	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
 	lastDataRef.Size = uint64(w.buf.Len()) - lastDataRef.Offset
 	data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
 	lastDataRef.SubHash = hash.EncodeHash(hash.Sum(data))
 	w.done = append(w.done, w.dataRefs)
+}
+
+func (w *Writer) RangeSize() uint64 {
+	return w.rangeSize
 }
 
 // Write rolls through the data written, calling c.f when a chunk is found.
@@ -99,6 +105,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 		}
 	}
 	w.buf.Write(data[offset:])
+	w.rangeSize += uint64(len(data))
 	return len(data), nil
 }
 
@@ -151,6 +158,6 @@ func (w *Writer) put() error {
 // Close closes the writer and flushes the remaining bytes to a chunk and finishes
 // the final range.
 func (w *Writer) Close() error {
-	w.finishRange()
+	w.rangeFinish()
 	return w.put()
 }
