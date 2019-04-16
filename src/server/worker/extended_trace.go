@@ -131,7 +131,6 @@ func addStartupSpanToAnyExtendedTrace(ctx context.Context, c *etcd.Client, pipel
 
 	// use key from 'ctx' to read full ExtendedTrace reference from etcd
 	tracesCol := extended.TracesCol(c).ReadOnly(ctx)
-	var extendedTraceID string
 	var extendedTrace extended.TraceProto
 	var spanCtx opentracing.SpanContext
 	if err := tracesCol.GetByIndex(extended.PipelineIndex, pipeline, &extendedTrace, extended.TraceGetOpts,
@@ -140,7 +139,6 @@ func addStartupSpanToAnyExtendedTrace(ctx context.Context, c *etcd.Client, pipel
 				return fmt.Errorf("second, unexpected span associated with pipeline %q: %s",
 					pipeline)
 			}
-			extendedTraceID = key
 
 			// Create new opentracing span from 'extendedTrace'
 			var err error

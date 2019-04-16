@@ -19,7 +19,6 @@ func addPipelineSpanToAnyExtendedTrace(ctx context.Context, c *etcd.Client, pipe
 
 	// use key from 'ctx' to read full ExtendedTrace reference from etcd
 	tracesCol := extended.TracesCol(c).ReadOnly(ctx)
-	var extendedTraceID string
 	var extendedTrace extended.TraceProto
 	var spanCtx opentracing.SpanContext
 	// options can't be nil, but there should only be at most one trace attached
@@ -30,7 +29,6 @@ func addPipelineSpanToAnyExtendedTrace(ctx context.Context, c *etcd.Client, pipe
 				return fmt.Errorf("second, unexpected span associated with pipeline %q: %s",
 					pipeline, key)
 			}
-			extendedTraceID = key
 
 			// Create new opentracing span from 'extendedTrace'
 			var err error
