@@ -8591,23 +8591,20 @@ func TestDeferredProcessing(t *testing.T) {
 	require.NoError(t, err)
 
 	commit := client.NewCommit(dataRepo, "staging")
-	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	commitInfos, err := c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos := collectCommitInfos(t, commitIter)
 	require.Equal(t, 0, len(commitInfos))
 
 	c.CreateBranch(dataRepo, "master", "staging", nil)
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 1, len(commitInfos))
 
 	c.CreateBranch(pipeline1, "master", "staging", nil)
 
-	commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
-	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, 2, len(commitInfos))
 }
 
