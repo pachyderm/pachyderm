@@ -8546,6 +8546,71 @@ func TestKafka(t *testing.T) {
 	}
 }
 
+func TestDeferredProcessing(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestDeferredProcessing_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline1 := tu.UniqueString("TestDeferredProcessing1")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline1),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			OutputBranch: "staging",
+		})
+	require.NoError(t, err)
+
+	pipeline2 := tu.UniqueString("TestDeferredProcessing2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pipeline1, "/*"),
+		"",
+		false,
+	))
+
+	_, err = c.PutFile(dataRepo, "staging", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	commit := client.NewCommit(dataRepo, "staging")
+	commitIter, err := c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 0, len(commitInfos))
+
+	c.CreateBranch(dataRepo, "master", "staging", nil)
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	c.CreateBranch(pipeline1, "master", "staging", nil)
+
+	commitIter, err = c.FlushCommit([]*pfs.Commit{commit}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 2, len(commitInfos))
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
