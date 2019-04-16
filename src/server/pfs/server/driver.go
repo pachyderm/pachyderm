@@ -160,7 +160,7 @@ func newDriver(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtre
 
 // checkIsAuthorized returns an error if the current user (in 'pachClient') has
 // authorization scope 's' for repo 'r'
-func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s auth.Scope) error {
+func (d *driver) checkIsAuthorized(pachClient *client.APIClient, stm *col.STM, r *pfs.Repo, s auth.Scope) error {
 	ctx := pachClient.Ctx()
 	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
@@ -233,7 +233,7 @@ func (d *driver) createRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 		// auth is active, and user is logged in. Make user an owner of the new
 		// repo (and clear any existing ACL under this name that might have been
 		// created by accident)
-		_, err := pachClient.AuthAPIClient.SetACL(ctx, &auth.SetACLRequest{
+		_, err := pachClient.AuthAPIClient.SetACLInTransaction(ctx, &auth.SetACLRequest{
 			Repo: repo.Name,
 			Entries: []*auth.ACLEntry{{
 				Username: whoAmI.Username,
@@ -258,6 +258,32 @@ func (d *driver) createRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 		return repos.Put(repo.Name, repoInfo)
 	}
 	return nil
+}
+
+// TODO: dedupe this with d.inspectRepo - may require some changes to collections
+func (d *driver) inspectRepoInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	repo *pfs.Repo,
+	includeAuth bool,
+) (*pfs.RepoInfo, error) {
+	ctx := pachClient.Ctx()
+	result := &pfs.RepoInfo{}
+	if err := d.repos.ReadWrite(stm).Get(repo.Name, result); err != nil {
+		return nil, err
+	}
+	if includeAuth {
+		accessLevel, err := d.getAccessLevel(pachClient, repo)
+		if err != nil {
+			if auth.IsErrNotActivated(err) {
+				return result, nil
+			}
+			return nil, fmt.Errorf("error getting access level for \"%s\": %v",
+				repo.Name, grpcutil.ScrubGRPC(err))
+		}
+		result.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
+	}
+	return result, nil
 }
 
 func (d *driver) inspectRepo(pachClient *client.APIClient, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
@@ -351,7 +377,7 @@ func (d *driver) deleteRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 	}
 
 	// Check if the caller is authorized to delete this repo
-	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_OWNER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(pachClient, &stm, repo, auth.Scope_OWNER); err != nil {
 		return err
 	}
 
@@ -438,7 +464,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	}
 
 	// Check that caller is authorized
-	if err := d.checkIsAuthorized(pachClient, parent.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(pachClient, &stm, parent.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
 
@@ -650,10 +676,10 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 
 func (d *driver) finishCommit(pachClient *client.APIClient, stm col.STM, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
 	ctx := pachClient.Ctx()
-	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(pachClient, &stm, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	commitInfo, err := d.resolveCommit(pachClient, stm, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -682,7 +708,7 @@ func (d *driver) finishCommit(pachClient *client.APIClient, stm col.STM, commit 
 		// parent of 'commitInfo' is closed, as we use its contents
 		parentCommit := commitInfo.ParentCommit
 		for parentCommit != nil {
-			parentCommitInfo, err := d.inspectCommit(pachClient, parentCommit, pfs.CommitState_STARTED)
+			parentCommitInfo, err := d.resolveCommit(pachClient, stm, parentCommit, pfs.CommitState_STARTED)
 			if err != nil {
 				return err
 			}
@@ -725,10 +751,10 @@ func (d *driver) finishCommit(pachClient *client.APIClient, stm col.STM, commit 
 }
 
 func (d *driver) finishOutputCommit(pachClient *client.APIClient, stm col.STM, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
-	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(pachClient, &stm, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
+	commitInfo, err := d.resolveCommit(pachClient, commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -1317,7 +1343,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 
 func (d *driver) deleteCommit(pachClient *client.APIClient, stm col.STM, userCommit *pfs.Commit) error {
 	ctx := pachClient.Ctx()
-	if err := d.checkIsAuthorized(pachClient, userCommit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, &stm, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
@@ -1569,7 +1595,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, stm col.STM, userCom
 			// Update repo size if this is the master branch
 			if branchInfo.Name == "master" {
 				if branchInfo.Head != nil {
-					headCommitInfo, err := d.inspectCommit(pachClient, branchInfo.Head, pfs.CommitState_STARTED)
+					headCommitInfo, err := d.resolveCommit(pachClient, stm, branchInfo.Head, pfs.CommitState_STARTED)
 					if err != nil {
 						return err
 					}
@@ -1618,7 +1644,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, stm col.STM, userCom
 // for 'branch' itself once 'b.Provenance' has been set.
 func (d *driver) createBranch(pachClient *client.APIClient, stm col.STM, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
 	var err error
-	if err := d.checkIsAuthorized(pachClient, branch.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, &stm, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	// Validate request. The request must do exactly one of:
@@ -1754,7 +1780,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo) ([]*pf
 }
 
 func (d *driver) deleteBranch(pachClient *client.APIClient, stm col.STM, branch *pfs.Branch, force bool) error {
-	if err := d.checkIsAuthorized(pachClient, branch.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, &stm, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	return d.deleteBranchSTM(stm, branch, force)
@@ -1872,7 +1898,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
 	reader io.Reader) (*pfs.PutFileRecords, error) {
-	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, nil, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
 	//  validation -- make sure the various putFileSplit options are coherent
@@ -2131,10 +2157,10 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 }
 
 func (d *driver) copyFile(pachClient *client.APIClient, stm col.STM, src *pfs.File, dst *pfs.File, overwrite bool) error {
-	if err := d.checkIsAuthorized(pachClient, src.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, &stm, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	if err := d.checkIsAuthorized(pachClient, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, &stm, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	if err := hashtree.ValidatePath(dst.Path); err != nil {
@@ -2145,7 +2171,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, stm col.STM, src *pfs.Fi
 		branch = dst.Commit.ID
 	}
 	var dstIsOpenCommit bool
-	if ci, err := d.inspectCommit(pachClient, dst.Commit, pfs.CommitState_STARTED); err != nil {
+	if ci, err := d.resolveCommit(pachClient, stm, dst.Commit, pfs.CommitState_STARTED); err != nil {
 		if !isNoHeadErr(err) {
 			return err
 		}
@@ -3007,7 +3033,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 }
 
 func (d *driver) deleteFile(pachClient *client.APIClient, stm col.STM, file *pfs.File) error {
-	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, &stm, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	branch := ""

@@ -149,6 +149,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			Port:       env.PeerPort,
 			MaxMsgSize: grpcutil.MaxMsgSize,
 			RegisterFunc: func(s *grpc.Server) error {
+				var txnEnv transactionserver.TransactionEnv
 				blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 				if err != nil {
 					return fmt.Errorf("units.RAMInBytes: %v", err)
@@ -163,7 +164,14 @@ func doSidecarMode(config interface{}) (retErr error) {
 				if err != nil {
 					return err
 				}
-				pfsAPIServer, err := pfs_server.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
+				pfsAPIServer, err := pfs_server.NewAPIServer(
+					env,
+					txnEnv,
+					path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+					treeCache,
+					env.StorageRoot,
+					memoryRequestBytes,
+				)
 				if err != nil {
 					return fmt.Errorf("pfs.NewAPIServer: %v", err)
 				}
@@ -185,13 +193,22 @@ func doSidecarMode(config interface{}) (retErr error) {
 				ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
 				authAPIServer, err := authserver.NewAuthServer(
-					env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), false)
+					env,
+					txnEnv,
+					path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+					false,
+				)
 				if err != nil {
 					return fmt.Errorf("NewAuthServer: %v", err)
 				}
 				authclient.RegisterAPIServer(s, authAPIServer)
 
-				transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), pfsAPIServer, ppsAPIServer, authAPIServer, memoryRequestBytes)
+				transactionAPIServer, err := transactionserver.NewAPIServer(
+					env,
+					txnEnv,
+					path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+					memoryRequestBytes,
+				)
 				if err != nil {
 					return fmt.Errorf("transaction.NewAPIServer: %v", err)
 				}
@@ -211,6 +228,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 					path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 					env.PPSWorkerPort,
 				))
+				txnEnv.Initialize(authAPIServer, pfsAPIServer, ppsAPIServer)
 				return nil
 			},
 		},
@@ -340,6 +358,7 @@ func doFullMode(config interface{}) (retErr error) {
 				MaxMsgSize:           grpcutil.MaxMsgSize,
 				PublicPortTLSAllowed: true,
 				RegisterFunc: func(s *grpc.Server) error {
+					var txnEnv transactionserver.TransactionEnv
 					memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 					if err != nil {
 						return err
@@ -352,6 +371,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 					ppsAPIServer, err := pps_server.NewAPIServer(
 						env,
+						txnEnv,
 						path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 						kubeNamespace,
 						env.WorkerImage,
@@ -396,7 +416,12 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
 
-					transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), pfsAPIServer, ppsAPIServer, authAPIServer, memoryRequestBytes)
+					transactionAPIServer, err := transactionserver.NewAPIServer(
+						env,
+						txnEnv,
+						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+						memoryRequestBytes,
+					)
 					if err != nil {
 						return fmt.Errorf("transaction.NewAPIServer: %v", err)
 					}
@@ -419,6 +444,7 @@ func doFullMode(config interface{}) (retErr error) {
 						path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 						env.PPSWorkerPort,
 					))
+					txnEnv.Initialize(authAPIServer, pfsAPIServer, ppsAPIServer)
 					return nil
 				},
 			},
@@ -439,6 +465,7 @@ func doFullMode(config interface{}) (retErr error) {
 				Port:       env.PeerPort,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
+					var txnEnv transactionserver.TransactionEnv
 					cacheServer := cache_server.NewCacheServer(router, env.NumShards)
 					go func() {
 						if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
@@ -468,7 +495,13 @@ func doFullMode(config interface{}) (retErr error) {
 						return err
 					}
 					pfsAPIServer, err := pfs_server.NewAPIServer(
-						env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
+						env,
+						txnEnv,
+						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+						treeCache,
+						env.StorageRoot,
+						memoryRequestBytes,
+					)
 					if err != nil {
 						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
@@ -501,14 +534,22 @@ func doFullMode(config interface{}) (retErr error) {
 					ppsclient.RegisterAPIServer(s, ppsAPIServer)
 
 					authAPIServer, err := authserver.NewAuthServer(
-						env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
-						false)
+						env,
+						txnEnv,
+						path.Join(env.EtcdPrefix, env.AuthEtcdPrefix),
+						false,
+					)
 					if err != nil {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
 
-					transactionAPIServer, err := transactionserver.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), pfsAPIServer, ppsAPIServer, authAPIServer, memoryRequestBytes)
+					transactionAPIServer, err := transactionserver.NewAPIServer(
+						env,
+						txnEnv,
+						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
+						memoryRequestBytes,
+					)
 					if err != nil {
 						return fmt.Errorf("transaction.NewAPIServer: %v", err)
 					}
@@ -525,6 +566,7 @@ func doFullMode(config interface{}) (retErr error) {
 					healthclient.RegisterHealthServer(s, peerHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
+					txnEnv.Initialize(authAPIServer, pfsAPIServer, ppsAPIServer)
 					return nil
 				},
 			},

@@ -23,13 +23,13 @@ import (
 )
 
 type driver struct {
+	// txnEnv stores references to other pachyderm APIServer instances so we can
+	// make calls within the same transaction without serializing through RPCs
+	txnEnv *TransactionEnv
+
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
 	prefix     string
-
-	pfsServer  *pfsserver.APIServer
-	ppsServer  *ppsserver.APIServer
-	authServer *authserver.APIServer
 
 	// collections
 	transactions col.Collection
@@ -41,20 +41,16 @@ type driver struct {
 // newDriver
 func newDriver(
 	env *serviceenv.ServiceEnv,
+	txnEnv *TransactionEnv,
 	etcdPrefix string,
-	pfsServer *pfsserver.APIServer,
-	ppsServer *ppsserver.APIServer,
-	authServer *authserver.APIServer,
 	memoryRequest int64,
 ) (*driver, error) {
 	// Initialize driver
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
+		txnEnv:       txnEnv,
 		etcdClient:   etcdClient,
 		prefix:       etcdPrefix,
-		pfsServer:    pfsServer,
-		ppsServer:    ppsServer,
-		authServer:   authServer,
 		transactions: transactiondb.Transactions(etcdClient, etcdPrefix),
 		// Allow up to a third of the requested memory to be used for memory intensive operations
 		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
@@ -130,10 +126,10 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 		var response *transaction.TransactionResponse
 		switch x := request.Request.(type) {
 		case *transaction.TransactionRequest_CreateRepo:
-			err = d.pfsServer.CreateRepoInTransaction(pachClient, stm, x.CreateRepo)
+			err = d.txnEnv.PfsServer().CreateRepoInTransaction(pachClient, stm, x.CreateRepo)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteRepo:
-			err = d.pfsServer.DeleteRepoInTransaction(pachClient, stm, x.DeleteRepo)
+			err = d.txnEnv.PfsServer().DeleteRepoInTransaction(pachClient, stm, x.DeleteRepo)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_StartCommit:
 			// Do a little extra work here so we can make sure the new commit ID is
@@ -149,44 +145,27 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 				}
 			}
 			if err == nil {
-				commit, err = d.pfsServer.StartCommitInTransaction(pachClient, stm, x.StartCommit, commit)
+				commit, err = d.txnEnv.PfsServer().StartCommitInTransaction(pachClient, stm, x.StartCommit, commit)
 				response = client.NewCommitResponse(commit)
 			}
 		case *transaction.TransactionRequest_FinishCommit:
-			err = d.pfsServer.FinishCommitInTransaction(pachClient, stm, x.FinishCommit)
+			err = d.txnEnv.PfsServer().FinishCommitInTransaction(pachClient, stm, x.FinishCommit)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteCommit:
-			err = d.pfsServer.DeleteCommitInTransaction(pachClient, stm, x.DeleteCommit)
+			err = d.txnEnv.PfsServer().DeleteCommitInTransaction(pachClient, stm, x.DeleteCommit)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_CreateBranch:
-			err = d.pfsServer.CreateBranchInTransaction(pachClient, stm, x.CreateBranch)
+			err = d.txnEnv.PfsServer().CreateBranchInTransaction(pachClient, stm, x.CreateBranch)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteBranch:
-			err = d.pfsServer.DeleteBranchInTransaction(pachClient, stm, x.DeleteBranch)
+			err = d.txnEnv.PfsServer().DeleteBranchInTransaction(pachClient, stm, x.DeleteBranch)
 			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_PutFile:
-			err = fmt.Errorf("not yet implemented")
-			// TODO: we need a different request from PutFile because that is a large
-			// (blocking) operation that we don't want to run transactionally.  Add a
-			// new transaction server rpc that will put the file and capture the
-			// hash tree updates and put that in a separate transaction call.
 		case *transaction.TransactionRequest_CopyFile:
-			err = d.pfsServer.CopyFileInTransaction(pachClient, stm, x.CopyFile)
+			err = d.txnEnv.PfsServer().CopyFileInTransaction(pachClient, stm, x.CopyFile)
 			response = client.NewEmptyResponse()
 		case *transaction.TransactionRequest_DeleteFile:
-			err = d.pfsServer.DeleteFileInTransaction(pachClient, stm, x.DeleteFile)
+			err = d.txnEnv.PfsServer().DeleteFileInTransaction(pachClient, stm, x.DeleteFile)
 			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_DeleteAll:
-			err = fmt.Errorf("not yet implemented")
-			// TODO: add this once PPS APIServer calls have been written to take
-			// advantage of PFS transaction calls.  This should:
-			// * auth.DeactivateRequest
-			// * pfs.DeleteAllRequest
-			// * pps.DeleteAllRequest
-		case *transaction.TransactionRequest_CreatePipeline:
-			err = fmt.Errorf("not yet implemented")
-			// TODO: add this once PPS APIServer calls have been written to take
-			// advantage of PFS transaction calls
 		default:
 			err = fmt.Errorf("unrecognized transaction request type")
 		}

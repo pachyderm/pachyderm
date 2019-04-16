@@ -79,6 +79,16 @@ func (a *APIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	return &types.Empty{}, nil
 }
 
+// InspectRepoInTransaction is identical to InspectRepo except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
+func (a *APIServer) InspectRepoInTransaction(
+	pachClient *client.APIClient,
+	stm col.STM,
+	request *pfs.InspectRepoRequest,
+) (*pfs.RepoInfo, error) {
+	return a.driver.inspectRepoInTransaction(pachClient, stm, request.Repo, true)
+}
+
 // InspectRepo implements the protobuf pfs.InspectRepo RPC
 func (a *APIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()

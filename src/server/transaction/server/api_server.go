@@ -37,13 +37,11 @@ type apiServer struct {
 
 func newAPIServer(
 	env *serviceenv.ServiceEnv,
+	txnEnv *TransactionEnv,
 	etcdPrefix string,
-	pfsServer *pfsserver.APIServer,
-	ppsServer *ppsserver.APIServer,
-	authServer *authserver.APIServer,
 	memoryRequest int64,
 ) (*apiServer, error) {
-	d, err := newDriver(env, etcdPrefix, pfsServer, ppsServer, authServer, memoryRequest)
+	d, err := newDriver(env, txnEnv, etcdPrefix, memoryRequest)
 	if err != nil {
 		return nil, err
 	}

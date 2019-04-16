@@ -27,6 +27,7 @@ import (
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -91,6 +92,7 @@ var epsilon = &types.BoolValue{Value: true}
 // including all RPCs defined in the protobuf spec.
 type APIServer struct {
 	env        *serviceenv.ServiceEnv
+	txnEnv     *transaction.TransactionEnv
 	pachLogger log.Logger
 
 	adminCache map[string]struct{} // cache of current cluster admins
@@ -158,9 +160,15 @@ func (a *APIServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewAuthServer returns an implementation of authclient.APIServer.
-func NewAuthServer(env *serviceenv.ServiceEnv, etcdPrefix string, public bool) (*APIServer, error) {
+func NewAuthServer(
+	env *serviceenv.ServiceEnv,
+	txnEnv *transaction.TransactionEnv,
+	etcdPrefix string,
+	public bool,
+) (*APIServer, error) {
 	s := &APIServer{
 		env:        env,
+		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("authclient.API"),
 		adminCache: make(map[string]struct{}),
 		tokens: col.NewCollection(
@@ -1049,6 +1057,61 @@ func (a *APIServer) getOneTimePassword(ctx context.Context, username string, exp
 	return code, nil
 }
 
+func (a *APIServer) AuthorizeInTransaction(ctx context.Context, stm col.STM, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
+	if a.activationState() == none {
+		return nil, authclient.ErrNotActivated
+	}
+
+	callerInfo, err := a.getAuthenticatedUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	if err != nil {
+		return nil, err
+	}
+
+	// admins are always authorized
+	if isAdmin {
+		return &authclient.AuthorizeResponse{Authorized: true}, nil
+	}
+
+	if req.Repo == ppsconsts.SpecRepo {
+		// All users are authorized to read from the spec repo, but only admins are
+		// authorized to write to it (writing to it may break your cluster)
+		return &authclient.AuthorizeResponse{
+			Authorized: req.Scope == authclient.Scope_READER,
+		}, nil
+	}
+
+	// If the cluster's enterprise token is expired, only admins and pipelines may
+	// authorize (and admins are already handled)
+	state, err := a.getEnterpriseTokenState()
+	if err != nil {
+		return nil, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
+	}
+	if state != enterpriseclient.State_ACTIVE &&
+		!strings.HasPrefix(callerInfo.Subject, authclient.PipelinePrefix) {
+		return nil, errors.New("Pachyderm Enterprise is not active in this " +
+			"cluster (until Pachyderm Enterprise is re-activated or Pachyderm " +
+			"auth is deactivated, only cluster admins can perform any operations)")
+	}
+
+	// Get ACL to check
+	var acl authclient.ACL
+	if err := a.acls.ReadWrite(stm).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
+		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
+	}
+
+	scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+	if err != nil {
+		return nil, err
+	}
+	return &authclient.AuthorizeResponse{
+		Authorized: scope >= req.Scope,
+	}, nil
+}
+
 // Authorize implements the protobuf auth.Authorize RPC
 func (a *APIServer) Authorize(ctx context.Context, req *authclient.AuthorizeRequest) (resp *authclient.AuthorizeResponse, retErr error) {
 	a.LogReq(req)
@@ -1179,13 +1242,14 @@ func (a *APIServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 }
 
 // SetScope implements the protobuf auth.SetScope RPC
-func (a *APIServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+func (a *APIServer) SetScopeInTransaction(
+	ctx context.Context,
+	stm col.STM,
+	req *authclient.SetScopeRequest
+) (resp *authclient.SetScopeResponse, retErr error) {
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := a.env.GetPachClient(ctx)
 
 	// validate request & authenticate user
 	if err := validateSetScopeRequest(ctx, req); err != nil {
@@ -1200,84 +1264,99 @@ func (a *APIServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 		return nil, err
 	}
 
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		acls := a.acls.ReadWrite(stm)
-		var acl authclient.ACL
-		if err := acls.Get(req.Repo, &acl); err != nil {
-			if !col.IsErrNotFound(err) {
-				return err
-			}
-			// ACL not found. Check that repo exists (return error if not). Note that
-			// this is not consistent with the rest of the transaction, but users
-			// should not be able to send a SetScope request that races with
-			// CreateRepo
-			_, err := pachClient.InspectRepo(req.Repo)
-			if err != nil {
-				return err
-			}
-
-			// Repo exists, but has no ACL. Create default (empty) ACL
-			acl.Entries = make(map[string]authclient.Scope)
+	acls := a.acls.ReadWrite(stm)
+	var acl authclient.ACL
+	if err := acls.Get(req.Repo, &acl); err != nil {
+		if !col.IsErrNotFound(err) {
+			return nil, err
 		}
-
-		// Check if the caller is authorized
-		authorized, err := func() (bool, error) {
-			if isAdmin {
-				// admins are automatically authorized
-				return true, nil
-			}
-
-			// Check if the cluster's enterprise token is expired (fail if so)
-			state, err := a.getEnterpriseTokenState()
-			if err != nil {
-				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
-			}
-			if state != enterpriseclient.State_ACTIVE {
-				return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
-					"cluster (only a cluster admin can set a scope)")
-			}
-
-			// Check if the user or one of their groups is on the ACL directly
-			scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
-			if err != nil {
-				return false, err
-			}
-			if scope == authclient.Scope_OWNER {
-				return true, nil
-			}
-			return false, nil
-		}()
+		// ACL not found. Check that repo exists (return error if not).
+		_, err = a.txnEnv.PfsServer().InspectRepoInTransaction(
+			a.env.GetPachClient(ctx),
+			stm,
+			&pfs.InspectRepoRequest{Repo: req.Repo},
+		)
 		if err != nil {
-			return err
-		}
-		if !authorized {
-			return &authclient.ErrNotAuthorized{
-				Subject:  callerInfo.Subject,
-				Repo:     req.Repo,
-				Required: authclient.Scope_OWNER,
-			}
+			return nil, err
 		}
 
-		// Scope change is authorized. Make the change
-		principal, err := a.canonicalizeSubject(ctx, req.Username)
+		// Repo exists, but has no ACL. Create default (empty) ACL
+		acl.Entries = make(map[string]authclient.Scope)
+	}
+
+	// Check if the caller is authorized
+	authorized, err := func() (bool, error) {
+		if isAdmin {
+			// admins are automatically authorized
+			return true, nil
+		}
+
+		// Check if the cluster's enterprise token is expired (fail if so)
+		state, err := a.getEnterpriseTokenState()
 		if err != nil {
-			return err
+			return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 		}
-		if req.Scope != authclient.Scope_NONE {
-			acl.Entries[principal] = req.Scope
-		} else {
-			delete(acl.Entries, principal)
+		if state != enterpriseclient.State_ACTIVE {
+			return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+				"cluster (only a cluster admin can set a scope)")
 		}
-		if len(acl.Entries) == 0 {
-			return acls.Delete(req.Repo)
+
+		// Check if the user or one of their groups is on the ACL directly
+		scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+		if err != nil {
+			return false, err
 		}
-		return acls.Put(req.Repo, &acl)
+		if scope == authclient.Scope_OWNER {
+			return true, nil
+		}
+		return false, nil
+	}()
+	if err != nil {
+		return nil, err
+	}
+	if !authorized {
+		return &authclient.ErrNotAuthorized{
+			Subject:  callerInfo.Subject,
+			Repo:     req.Repo,
+			Required: authclient.Scope_OWNER,
+		}
+	}
+
+	// Scope change is authorized. Make the change
+	principal, err := a.canonicalizeSubject(ctx, req.Username)
+	if err != nil {
+		return nil, err
+	}
+	if req.Scope != authclient.Scope_NONE {
+		acl.Entries[principal] = req.Scope
+	} else {
+		delete(acl.Entries, principal)
+	}
+	if len(acl.Entries) == 0 {
+		err = acls.Delete(req.Repo)
+	} else {
+		err = acls.Put(req.Repo, &acl)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &authclient.SetScopeResponse{}, nil
+}
+
+func (a *APIServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+
+	var response *authclient.SetScopeResponse
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		var err error
+		response, err = a.SetScopeInTransaction(ctx, stm, request)
+		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-
-	return &authclient.SetScopeResponse{}, nil
+	return response, nil
 }
 
 // getScope is a helper function for the GetScope GRPC API, as well is
@@ -1428,10 +1507,7 @@ func (a *APIServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	return resp, nil
 }
 
-// SetACL implements the protobuf auth.SetACL RPC
-func (a *APIServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
-	a.LogReq(req)
-	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
+func (a *APIServer) SetACLInTransaction(ctx context.Context, stm col.STM, req *authclient.SetACLRequest) (*authclient.SetACLResponse, error) {
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
@@ -1481,87 +1557,95 @@ func (a *APIServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	}
 
 	// Read repo ACL from etcd
-	_, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-		acls := a.acls.ReadWrite(stm)
+	acls := a.acls.ReadWrite(stm)
 
-		// determine if the caller is authorized to set this repo's ACL
-		authorized, err := func() (bool, error) {
-			if isAdmin {
-				// admins are automatically authorized
-				return true, nil
-			}
+	// determine if the caller is authorized to set this repo's ACL
+	authorized, err := func() (bool, error) {
+		if isAdmin {
+			// admins are automatically authorized
+			return true, nil
+		}
 
-			// Check if the cluster's enterprise token is expired (fail if so)
-			state, err := a.getEnterpriseTokenState()
-			if err != nil {
-				return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
-			}
-			if state != enterpriseclient.State_ACTIVE {
-				return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
-					"cluster (only a cluster admin can modify an ACL)")
-			}
-
-			// Check if there is an existing ACL, and if the user is on it
-			var acl authclient.ACL
-			if err := acls.Get(req.Repo, &acl); err != nil {
-				// ACL not found -- construct empty ACL proto
-				acl.Entries = make(map[string]authclient.Scope)
-			}
-			if len(acl.Entries) > 0 {
-				// ACL is present; caller must be authorized directly
-				scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
-				if err != nil {
-					return false, err
-				}
-				if scope == authclient.Scope_OWNER {
-					return true, nil
-				}
-				return false, nil
-			}
-
-			// No ACL -- check if the repo being modified exists
-			_, err = a.env.GetPachClient(ctx).InspectRepo(req.Repo)
-			err = grpcutil.ScrubGRPC(err)
-			if err == nil {
-				// Repo exists -- user isn't authorized
-				return false, nil
-			} else if !strings.HasSuffix(err.Error(), "not found") {
-				// Unclear if repo exists -- return error
-				return false, fmt.Errorf("could not inspect \"%s\": %v", req.Repo, err)
-			} else if len(newACL.Entries) == 1 &&
-				newACL.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
-				// Special case: Repo doesn't exist, but user is creating a new Repo, and
-				// making themself the owner, e.g. for CreateRepo or CreatePipeline, then
-				// the request is authorized
-				return true, nil
-			}
-			return false, err
-		}()
+		// Check if the cluster's enterprise token is expired (fail if so)
+		state, err := a.getEnterpriseTokenState()
 		if err != nil {
-			return err
+			return false, fmt.Errorf("error confirming Pachyderm Enterprise token: %v", err)
 		}
-		if !authorized {
-			return &authclient.ErrNotAuthorized{
-				Subject:  callerInfo.Subject,
-				Repo:     req.Repo,
-				Required: authclient.Scope_OWNER,
-			}
+		if state != enterpriseclient.State_ACTIVE {
+			return false, fmt.Errorf("Pachyderm Enterprise is not active in this " +
+				"cluster (only a cluster admin can modify an ACL)")
 		}
 
-		// Set new ACL
-		if len(newACL.Entries) == 0 {
-			err := acls.Delete(req.Repo)
-			if col.IsErrNotFound(err) {
-				return nil
-			}
-			return err
+		// Check if there is an existing ACL, and if the user is on it
+		var acl authclient.ACL
+		if err := acls.Get(req.Repo, &acl); err != nil {
+			// ACL not found -- construct empty ACL proto
+			acl.Entries = make(map[string]authclient.Scope)
 		}
-		return acls.Put(req.Repo, newACL)
-	})
+		if len(acl.Entries) > 0 {
+			// ACL is present; caller must be authorized directly
+			scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+			if err != nil {
+				return false, err
+			}
+			if scope == authclient.Scope_OWNER {
+				return true, nil
+			}
+			return false, nil
+		}
+
+		// No ACL -- check if the repo being modified exists
+		_, err = a.txnEnv.PfsServer().InspectRepoInTransaction(
+			a.env.GetPachClient(ctx),
+			stm,
+			&pfs.InspectRepoRequest{Repo: req.Repo},
+		)
+		err = grpcutil.ScrubGRPC(err)
+		if err == nil {
+			// Repo exists -- user isn't authorized
+			return false, nil
+		} else if !strings.HasSuffix(err.Error(), "not found") {
+			// Unclear if repo exists -- return error
+			return false, fmt.Errorf("could not inspect \"%s\": %v", req.Repo, err)
+		} else if len(newACL.Entries) == 1 &&
+			newACL.Entries[callerInfo.Subject] == authclient.Scope_OWNER {
+			// Special case: Repo doesn't exist, but user is creating a new Repo, and
+			// making themself the owner, e.g. for CreateRepo or CreatePipeline, then
+			// the request is authorized
+			return true, nil
+		}
+		return false, err
+	}()
 	if err != nil {
-		return nil, fmt.Errorf("could not put new ACL: %v", err)
+		return nil, err
+	}
+	if !authorized {
+		return &authclient.ErrNotAuthorized{
+			Subject:  callerInfo.Subject,
+			Repo:     req.Repo,
+			Required: authclient.Scope_OWNER,
+		}
+	}
+
+	// Set new ACL
+	if len(newACL.Entries) == 0 {
+		err := acls.Delete(req.Repo)
+		if !col.IsErrNotFound(err) {
+			return nil, err
+		}
+	} else {
+		err := acls.Put(req.Repo, newACL)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &authclient.SetACLResponse{}, nil
+}
+
+// SetACL implements the protobuf auth.SetACL RPC
+func (a *APIServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
+	a.LogReq(req)
+	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 }
 
 // GetAuthToken implements the protobuf auth.GetAuthToken RPC

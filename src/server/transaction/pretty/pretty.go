@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pretty"
 )
@@ -84,39 +83,44 @@ func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.Tr
 }
 
 func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
-	return ""
+	return fmt.Sprintf("finish commit %s@%s", request.Commit.Repo.Name, request.Commit.ID)
 }
 
 func sprintDeleteCommit(request *pfs.DeleteCommitRequest) string {
-	return ""
+	return fmt.Sprintf("delete commit %s@%s", request.Commit.Repo.Name, request.Commit.ID)
 }
 
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {
-	return ""
+	// provenance
+	return fmt.Sprintf("create branch %s@%s", request.Branch.Repo.Name, request.Branch.Name)
 }
 
 func sprintDeleteBranch(request *pfs.DeleteBranchRequest) string {
-	return ""
-}
-
-func sprintPutFile(request *pfs.PutFileRequest) string {
-	return ""
+	force := ""
+	if request.Force {
+		force = " --force"
+	}
+	return fmt.Sprintf("delete branch %s@%s%s", request.Branch.Repo.Name, request.Branch.Name, force)
 }
 
 func sprintCopyFile(request *pfs.CopyFileRequest) string {
-	return ""
+	overwrite := ""
+	if request.Overwrite {
+		overwrite = " --overwrite"
+	}
+	return fmt.Sprintf(
+		"copy file %s@%s:%s %s@%s:%s%s",
+		request.Src.Commit.Repo.Name, request.Src.Commit.ID, request.Src.Path,
+		request.Dst.Commit.Repo.Name, request.Src.Commit.ID, request.Src.Path,
+		overwrite,
+	)
 }
 
 func sprintDeleteFile(request *pfs.DeleteFileRequest) string {
-	return ""
-}
-
-func sprintDeleteAll() string {
-	return ""
-}
-
-func sprintCreatePipeline(request *pps.CreatePipelineRequest) string {
-	return ""
+	return fmt.Sprintf(
+		"delete file %s@%s:%s",
+		request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path,
+	)
 }
 
 func transactionRequests(
@@ -149,16 +153,10 @@ func transactionRequests(
 			line = sprintCreateBranch(request.CreateBranch)
 		case *transaction.TransactionRequest_DeleteBranch:
 			line = sprintDeleteBranch(request.DeleteBranch)
-		case *transaction.TransactionRequest_PutFile:
-			line = sprintPutFile(request.PutFile)
 		case *transaction.TransactionRequest_CopyFile:
 			line = sprintCopyFile(request.CopyFile)
 		case *transaction.TransactionRequest_DeleteFile:
 			line = sprintDeleteFile(request.DeleteFile)
-		case *transaction.TransactionRequest_DeleteAll:
-			line = sprintDeleteAll()
-		case *transaction.TransactionRequest_CreatePipeline:
-			line = sprintCreatePipeline(request.CreatePipeline)
 		default:
 			line = "ERROR (unknown request type)"
 		}
