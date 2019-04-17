@@ -61,30 +61,37 @@ type stmError struct{ err error }
 
 // NewSTM intiates a new STM operation. It uses a serializable model.
 func NewSTM(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
-	return newSTMSerializable(ctx, c, apply)
+	return newSTMSerializable(ctx, c, apply, false)
+}
+
+// NewDryrunSTM intiates a new STM operation, but the final commit is skipped.
+// It uses a serializable model.
+func NewDryrunSTM(ctx context.Context, c *v3.Client, apply func(STM) error) error {
+	_, err := newSTMSerializable(ctx, c, apply, true)
+	return err
 }
 
 // newSTMRepeatable initiates new repeatable read transaction; reads within
-// the same transaction attempt always return the same data.
+// the same transaction attempt to always return the same data.
 func newSTMRepeatable(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
 	s := &stm{client: c, ctx: ctx, getOpts: []v3.OpOption{v3.WithSerializable()}}
-	return runSTM(s, apply)
+	return runSTM(s, apply, false)
 }
 
 // newSTMSerializable initiates a new serialized transaction; reads within the
-// same transactiona attempt return data from the revision of the first read.
-func newSTMSerializable(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
+// same transaction attempt to return data from the revision of the first read.
+func newSTMSerializable(ctx context.Context, c *v3.Client, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) {
 	s := &stmSerializable{
 		stm:      stm{client: c, ctx: ctx},
 		prefetch: make(map[string]*v3.GetResponse),
 	}
-	return runSTM(s, apply)
+	return runSTM(s, apply, dryrun)
 }
 
 // newSTMReadCommitted initiates a new read committed transaction.
 func newSTMReadCommitted(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnResponse, error) {
 	s := &stmReadCommitted{stm{client: c, ctx: ctx, getOpts: []v3.OpOption{v3.WithSerializable()}}}
-	return runSTM(s, apply)
+	return runSTM(s, apply, true)
 }
 
 type stmResponse struct {
@@ -92,7 +99,7 @@ type stmResponse struct {
 	err  error
 }
 
-func runSTM(s STM, apply func(STM) error) (*v3.TxnResponse, error) {
+func runSTM(s STM, apply func(STM) error, dryrun bool) (*v3.TxnResponse, error) {
 	outc := make(chan stmResponse, 1)
 	go func() {
 		defer func() {
@@ -111,7 +118,9 @@ func runSTM(s STM, apply func(STM) error) (*v3.TxnResponse, error) {
 			if out.err = apply(s); out.err != nil {
 				break
 			}
-			if out.resp = s.commit(); out.resp != nil {
+			if dryrun {
+				break
+			} else if out.resp = s.commit(); out.resp != nil {
 				break
 			}
 		}
