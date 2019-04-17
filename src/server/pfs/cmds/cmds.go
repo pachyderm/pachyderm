@@ -45,8 +45,6 @@ const (
 	// DefaultParallelism is the default parallelism used by get-file
 	// and put-file.
 	DefaultParallelism = 10
-
-	createPipelineTracingEnvVar = "PACH_TRACING_TARGET_REPO"
 )
 
 // Cmds returns a slice containing pfs commands.
@@ -673,7 +671,7 @@ want to consider using commit IDs directly.
 			}
 
 			// Add trace if env var is set
-			if repo, ok := os.LookupEnv(createPipelineTracingEnvVar); ok && tracing.IsActive() {
+			if repo, ok := os.LookupEnv(extended.TargetRepoEnvVar); ok && tracing.IsActive() {
 				// unmarshal extended trace from RPC context
 				clientSpan, ctx := opentracing.StartSpanFromContext(
 					c.Ctx(),
@@ -688,10 +686,7 @@ want to consider using commit IDs directly.
 					opentracing.TextMap,
 					opentracing.TextMapCarrier(extendedTrace.SerializedTrace),
 				)
-				extendedTrace.Branch = &pfsclient.Branch{
-					Repo: &pfsclient.Repo{Name: repo},
-					Name: "master", // TODO(msteffen) look up pipeline
-				}
+				extendedTrace.Branch = client.NewBranch(repo, "master")
 				marshalledTrace, err := extendedTrace.Marshal()
 				if err == nil {
 					ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(

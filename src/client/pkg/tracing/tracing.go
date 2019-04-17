@@ -11,6 +11,7 @@ import (
 
 	otgrpc "github.com/opentracing-contrib/go-grpc"
 	opentracing "github.com/opentracing/opentracing-go"
+	log "github.com/sirupsen/logrus"
 	"github.com/uber/jaeger-client-go"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	"google.golang.org/grpc"
@@ -127,15 +128,16 @@ func InstallJaegerTracerFromEnv() {
 		// (below) and call 'Close()' on it there.
 		tracer, _, err := cfg.New(JaegerServiceName, jaegercfg.Logger(logger))
 		if err != nil {
-			panic(fmt.Sprintf("could not install Jaeger tracer: %v", err))
+			log.Errorf("jaeger-collector service is deployed, but Pachyderm could not install Jaeger tracer: %v", err)
+			return
 		}
 		opentracing.SetGlobalTracer(tracer)
 	})
 }
 
-// addTraceIfTracingEnabled is an otgrpc interceptor option that propagates
+// addTraceIfTracingEnabled is an otgrpc span inclusion func that propagates
 // existing traces, but won't start any new ones
-var addTraceIfTracingEnabled otgrpc.SpanInclusionFunc = func(
+func addTraceIfTracingEnabled(
 	parentSpanCtx opentracing.SpanContext,
 	method string,
 	req, resp interface{}) bool {
@@ -166,25 +168,25 @@ func IsActive() bool {
 // UnaryClientInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer(),
-		otgrpc.IncludingSpans(addTraceIfTracingEnabled))
+		otgrpc.IncludingSpans(otgrpc.SpanInclusionFunc(addTraceIfTracingEnabled)))
 }
 
 // StreamClientInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func StreamClientInterceptor() grpc.StreamClientInterceptor {
 	return otgrpc.OpenTracingStreamClientInterceptor(opentracing.GlobalTracer(),
-		otgrpc.IncludingSpans(addTraceIfTracingEnabled))
+		otgrpc.IncludingSpans(otgrpc.SpanInclusionFunc(addTraceIfTracingEnabled)))
 }
 
 // UnaryServerInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer(),
-		otgrpc.IncludingSpans(addTraceIfTracingEnabled))
+		otgrpc.IncludingSpans(otgrpc.SpanInclusionFunc(addTraceIfTracingEnabled)))
 }
 
 // StreamServerInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return otgrpc.OpenTracingStreamServerInterceptor(opentracing.GlobalTracer(),
-		otgrpc.IncludingSpans(addTraceIfTracingEnabled))
+		otgrpc.IncludingSpans(otgrpc.SpanInclusionFunc(addTraceIfTracingEnabled)))
 }
 
 // CloseAndReportTraces tries to close the global tracer, which, in the case of

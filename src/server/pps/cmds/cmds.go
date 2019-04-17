@@ -452,7 +452,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				}
 
 				// Add trace if env var is set
-				if _, ok := os.LookupEnv("PACH_TRACING_TARGET_REPO"); ok && tracing.IsActive() {
+				if _, ok := os.LookupEnv(extended.TargetRepoEnvVar); ok && tracing.IsActive() {
 					// unmarshal extended trace from RPC context
 					clientSpan, ctx := opentracing.StartSpanFromContext(
 						client.Ctx(),

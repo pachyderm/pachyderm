@@ -18,6 +18,10 @@ const (
 	// TracesCollectionPrefix is the prefix associated with the 'traces'
 	// collection in etcd (which maps pipelines and commits to extended traces)
 	TracesCollectionPrefix = "commit_traces"
+
+	// TargetRepoEnvVar determines how long extended traces are updated until
+	// they're deleted from the cluster
+	TargetRepoEnvVar = "PACH_TRACING_TARGET_REPO"
 )
 
 var (
