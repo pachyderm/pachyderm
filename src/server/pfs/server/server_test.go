@@ -4867,6 +4867,22 @@ func TestUpdateRepo(t *testing.T) {
 	require.Equal(t, desc, ri.Description)
 }
 
+func TestPutObjectAsync(t *testing.T) {
+	client := GetPachClient(t)
+	// Write and tag an object greater than grpc max message size.
+	tag := &pfs.Tag{Name: "tag"}
+	w, err := client.PutObjectAsync([]*pfs.Tag{tag})
+	require.NoError(t, err)
+	expected := []byte(generateRandomString(30 * MB))
+	_, err = w.Write(expected)
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	// Check actual results of write.
+	actual := &bytes.Buffer{}
+	require.NoError(t, client.GetTag(tag.Name, actual))
+	require.Equal(t, expected, actual.Bytes())
+}
+
 func TestDeferredProcessing(t *testing.T) {
 	client := GetPachClient(t)
 	require.NoError(t, client.CreateRepo("input"))

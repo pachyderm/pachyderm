@@ -1447,7 +1447,12 @@ func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
 			return 0, grpcutil.ScrubGRPC(err)
 		}
 	default:
-		if len(w.buf)+len(p) > cap(w.buf) {
+		for len(w.buf)+len(p) > cap(w.buf) {
+			// Write the bytes that fit into w.buf, then
+			// remove those bytes from p.
+			i := cap(w.buf) - len(w.buf)
+			w.buf = append(w.buf, p[:i]...)
+			p = p[i:]
 			w.writeChan <- w.buf
 			w.buf = grpcutil.GetBuffer()[:0]
 		}
