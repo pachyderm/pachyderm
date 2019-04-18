@@ -1,4 +1,4 @@
-## ./pachctl auth set-config
+## pachctl auth set-config
 
 Set Pachyderm's current auth configuration
 
@@ -8,7 +8,7 @@ Set Pachyderm's current auth configuration
 Set Pachyderm's current auth configuration
 
 ```
-./pachctl auth set-config
+pachctl auth set-config
 ```
 
 ### Options

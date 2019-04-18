@@ -1,4 +1,4 @@
-## ./pachctl mount
+## pachctl mount
 
 Mount pfs locally. This command blocks.
 
@@ -8,13 +8,13 @@ Mount pfs locally. This command blocks.
 Mount pfs locally. This command blocks.
 
 ```
-./pachctl mount path/to/mount/point
+pachctl mount <path/to/mount/point>
 ```
 
 ### Options
 
 ```
-  -c, --commits []string   Commits to mount for repos, arguments should be of the form "repo:commit" (default [])
+  -c, --commits []string   Commits to mount for repos, arguments should be of the form "repo@commit" (default [])
   -d, --debug              Turn on debug messages.
 ```
 

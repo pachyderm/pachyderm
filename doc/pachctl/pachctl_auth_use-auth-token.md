@@ -1,4 +1,4 @@
-## ./pachctl auth use-auth-token
+## pachctl auth use-auth-token
 
 Read a Pachyderm auth token from stdin, and write it to the current user's Pachyderm config file
 
@@ -8,7 +8,7 @@ Read a Pachyderm auth token from stdin, and write it to the current user's Pachy
 Read a Pachyderm auth token from stdin, and write it to the current user's Pachyderm config file
 
 ```
-./pachctl auth use-auth-token
+pachctl auth use-auth-token
 ```
 
 ### Options inherited from parent commands

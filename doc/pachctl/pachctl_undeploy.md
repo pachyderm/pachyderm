@@ -1,4 +1,4 @@
-## ./pachctl undeploy
+## pachctl undeploy
 
 Tear down a deployed Pachyderm cluster.
 
@@ -8,7 +8,7 @@ Tear down a deployed Pachyderm cluster.
 Tear down a deployed Pachyderm cluster.
 
 ```
-./pachctl undeploy
+pachctl undeploy
 ```
 
 ### Options

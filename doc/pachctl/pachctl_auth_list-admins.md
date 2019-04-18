@@ -1,4 +1,4 @@
-## ./pachctl auth list-admins
+## pachctl auth list-admins
 
 List the current cluster admins
 
@@ -8,7 +8,7 @@ List the current cluster admins
 List the current cluster admins
 
 ```
-./pachctl auth list-admins
+pachctl auth list-admins
 ```
 
 ### Options inherited from parent commands

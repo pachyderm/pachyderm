@@ -1,4 +1,4 @@
-## ./pachctl update-dash
+## pachctl update-dash
 
 Update and redeploy the Pachyderm Dashboard at the latest compatible version.
 
@@ -8,7 +8,7 @@ Update and redeploy the Pachyderm Dashboard at the latest compatible version.
 Update and redeploy the Pachyderm Dashboard at the latest compatible version.
 
 ```
-./pachctl update-dash
+pachctl update-dash
 ```
 
 ### Options

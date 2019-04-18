@@ -1,4 +1,4 @@
-## ./pachctl enterprise
+## pachctl enterprise
 
 Enterprise commands enable Pachyderm Enterprise features
 
