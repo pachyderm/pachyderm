@@ -1619,10 +1619,11 @@ func (a *apiServer) SetACLInTransaction(
 		if err != nil && !col.IsErrNotFound(err) {
 			return nil, err
 		}
-	}
-	err = acls.Put(req.Repo, newACL)
-	if err != nil {
-		return nil, fmt.Errorf("could not put new ACL: %v", err)
+	} else {
+		err = acls.Put(req.Repo, newACL)
+		if err != nil {
+			return nil, fmt.Errorf("could not put new ACL: %v", err)
+		}
 	}
 	return &authclient.SetACLResponse{}, nil
 }
