@@ -857,9 +857,9 @@ nextSubvBranch:
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
-			// Because of the 'propagateCommit' invariant, we don't need to inspect
-			// provBranchInfo.HEAD's provenance. Every commit in there will be the
-			// HEAD of some other provBranchInfo.
+			// Because provenace is stored as a transitive closure, we don't
+			// need to inspect provBranchInfo.HEAD's provenance. Every commit
+			// in there will be the HEAD of some other provBranchInfo.
 		}
 		if head != nil {
 			for _, commitProv := range head.Provenance {
