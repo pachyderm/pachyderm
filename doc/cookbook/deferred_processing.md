@@ -150,3 +150,16 @@ $ pachctl finish commit data@master
 You can also, of course, issue `delete file` and `put file` while the commit is
 open if you want to remove something from the parent commit or add something
 that isn't stored anywhere else.
+
+### Deferred processing on pipeline outputs
+
+So far this document has focussed on deferred processing of data in input
+repos, however the same techniques apply to output repos. The only real
+difference is that rather than committing to a `staging` branch, you tell your
+pipeline to commit to that branch, by setting the `output_branch` field in your
+pipeline spec. Then when you want to process data you'd do:
+
+```sh
+$ pachctl create-branch pipeline master --head staging
+```
+

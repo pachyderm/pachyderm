@@ -422,7 +422,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 // will be considered, otherwise all repos are considered.
 //
 // Note that it's never necessary to call FlushCommit to run jobs, they'll run
-// no matter what, FlushCommit just allows you to wait for them to complete and
+// no matter what, FlushCommitF just allows you to wait for them to complete and
 // see their output once they do.
 func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
 	stream, err := c.PfsAPIClient.FlushCommit(
@@ -447,6 +447,28 @@ func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f fu
 			return err
 		}
 	}
+}
+
+// FlushCommitAll returns commits that have the specified `commits` as
+// provenance. Note that it can block if jobs have not successfully
+// completed. This in effect waits for all of the jobs that are triggered by a
+// set of commits to complete.
+//
+// If toRepos is not nil then only the commits up to and including those repos
+// will be considered, otherwise all repos are considered.
+//
+// Note that it's never necessary to call FlushCommit to run jobs, they'll run
+// no matter what, FlushCommitAll just allows you to wait for them to complete and
+// see their output once they do.
+func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	var result []*pfs.CommitInfo
+	if err := c.FlushCommitF(commits, toRepos, func(ci *pfs.CommitInfo) error {
+		result = append(result, ci)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // CommitInfoIterator wraps a stream of commits and makes them easy to iterate.

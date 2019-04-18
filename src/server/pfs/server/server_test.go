@@ -4882,3 +4882,30 @@ func TestPutObjectAsync(t *testing.T) {
 	require.NoError(t, client.GetTag(tag.Name, actual))
 	require.Equal(t, expected, actual.Bytes())
 }
+
+func TestDeferredProcessing(t *testing.T) {
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("input"))
+	require.NoError(t, client.CreateRepo("output1"))
+	require.NoError(t, client.CreateRepo("output2"))
+	require.NoError(t, client.CreateBranch("output1", "staging", "", []*pfs.Branch{pclient.NewBranch("input", "master")}))
+	require.NoError(t, client.CreateBranch("output2", "staging", "", []*pfs.Branch{pclient.NewBranch("output1", "master")}))
+	_, err := client.PutFile("input", "staging", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	commits, err := client.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	require.NoError(t, client.CreateBranch("input", "master", "staging", nil))
+	require.NoError(t, client.FinishCommit("output1", "staging"))
+	commits, err = client.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	require.NoError(t, client.CreateBranch("output1", "master", "staging", nil))
+	require.NoError(t, client.FinishCommit("output2", "staging"))
+	commits, err = client.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+}
