@@ -1,7 +1,6 @@
 package server
 
 import (
-	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
@@ -29,8 +28,8 @@ func NewAPIServer(
 	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
-) (ppsclient.APIServer, error) {
-	apiServer := &apiServer{
+) (*APIServer, error) {
+	apiServer := &APIServer{
 		Logger:                log.NewLogger("pps.API"),
 		env:                   env,
 		etcdPrefix:            etcdPrefix,
@@ -72,8 +71,8 @@ func NewSidecarAPIServer(
 	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
-) (ppsclient.APIServer, error) {
-	apiServer := &apiServer{
+) (*APIServer, error) {
+	apiServer := &APIServer{
 		Logger:         log.NewLogger("pps.API"),
 		env:            env,
 		etcdPrefix:     etcdPrefix,

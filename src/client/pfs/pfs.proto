@@ -440,6 +440,8 @@ message DeleteFileRequest {
   File file = 1;
 }
 
+message DeleteAllRequest {}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -513,7 +515,7 @@ service API {
   rpc DeleteFile(DeleteFileRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
-  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc DeleteAll(DeleteAllRequest) returns (google.protobuf.Empty) {}
 }
 
 message PutObjectRequest {
