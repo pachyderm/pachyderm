@@ -1616,7 +1616,7 @@ func (a *apiServer) SetACLInTransaction(
 	// Set new ACL
 	if len(newACL.Entries) == 0 {
 		err := acls.Delete(req.Repo)
-		if !col.IsErrNotFound(err) {
+		if err != nil && !col.IsErrNotFound(err) {
 			return nil, err
 		}
 	}
