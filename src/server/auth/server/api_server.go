@@ -1057,7 +1057,7 @@ func (a *APIServer) getOneTimePassword(ctx context.Context, username string, exp
 	return code, nil
 }
 
-func (a *apiServer) AuthorizeInTransaction(
+func (a *APIServer) AuthorizeInTransaction(
 	ctx context.Context,
 	stm col.STM,
 	req *authclient.AuthorizeRequest,
@@ -1116,7 +1116,7 @@ func (a *apiServer) AuthorizeInTransaction(
 	}, nil
 }
 
-func (a *apiServer) Authorize(
+func (a *APIServer) Authorize(
 	ctx context.Context,
 	req *authclient.AuthorizeRequest,
 ) (resp *authclient.AuthorizeResponse, retErr error) {
@@ -1136,7 +1136,7 @@ func (a *apiServer) Authorize(
 }
 
 // WhoAmI implements the protobuf auth.WhoAmI RPC
-func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
+func (a *APIServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 	if a.activationState() == none {
@@ -1207,7 +1207,7 @@ func (a *APIServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 }
 
 // SetScope implements the protobuf auth.SetScope RPC
-func (a *apiServer) SetScopeInTransaction(
+func (a *APIServer) SetScopeInTransaction(
 	ctx context.Context,
 	stm col.STM,
 	req *authclient.SetScopeRequest,
@@ -1308,7 +1308,7 @@ func (a *apiServer) SetScopeInTransaction(
 	return &authclient.SetScopeResponse{}, nil
 }
 
-func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
+func (a *APIServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
@@ -1346,7 +1346,7 @@ func (a *APIServer) getScope(ctx context.Context, subject string, acl *authclien
 	return scope, nil
 }
 
-func (a *apiServer) GetScopeInTransaction(
+func (a *APIServer) GetScopeInTransaction(
 	ctx context.Context,
 	stm col.STM,
 	req *authclient.GetScopeRequest,
@@ -1433,7 +1433,7 @@ func (a *apiServer) GetScopeInTransaction(
 }
 
 // GetScope implements the protobuf auth.GetScope RPC
-func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
+func (a *APIServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
@@ -1449,7 +1449,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	return response, nil
 }
 
-func (a *apiServer) GetACLInTransaction(
+func (a *APIServer) GetACLInTransaction(
 	ctx context.Context,
 	stm col.STM,
 	req *authclient.GetACLRequest,
@@ -1491,7 +1491,7 @@ func (a *apiServer) GetACLInTransaction(
 	return response, nil
 }
 
-func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
+func (a *APIServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
@@ -1507,7 +1507,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	return response, nil
 }
 
-func (a *apiServer) SetACLInTransaction(
+func (a *APIServer) SetACLInTransaction(
 	ctx context.Context,
 	stm col.STM,
 	req *authclient.SetACLRequest,
@@ -1643,7 +1643,7 @@ func (a *apiServer) SetACLInTransaction(
 }
 
 // SetACL implements the protobuf auth.SetACL RPC
-func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
+func (a *APIServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
