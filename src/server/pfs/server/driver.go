@@ -818,6 +818,14 @@ func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
 		subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
 	}
 
+	var head *pfs.CommitInfo
+	if branchInfo.Head != nil {
+		head = &pfs.CommitInfo{}
+		if err := d.commits(branch.Repo.Name).ReadWrite(stm).Get(branchInfo.Head.ID, head); err != nil {
+			return err
+		}
+	}
+
 	// Sort subvBranchInfos so that upstream branches are processed before their
 	// descendants. This guarantees that if branch B is provenant on branch A, we
 	// create a new commit in A before creating a new commit in B provenant on the
@@ -849,9 +857,14 @@ nextSubvBranch:
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
-			// Because of the 'propagateCommit' invariant, we don't need to inspect
-			// provBranchInfo.HEAD's provenance. Every commit in there will be the
-			// HEAD of some other provBranchInfo.
+			// Because provenace is stored as a transitive closure, we don't
+			// need to inspect provBranchInfo.HEAD's provenance. Every commit
+			// in there will be the HEAD of some other provBranchInfo.
+		}
+		if head != nil {
+			for _, commitProv := range head.Provenance {
+				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
+			}
 		}
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
