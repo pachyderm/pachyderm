@@ -335,9 +335,9 @@ func validateConfig(config *auth.AuthConfig, src configSource) (*canonicalConfig
 }
 
 // updateConfig validates 'config', and if it valides successfully, loads it
-// into the APIServer's config cache. The caller should already hold a.configMu
+// into the apiServer's config cache. The caller should already hold a.configMu
 // and a.samlSPMu (as this updates a.samlSP)
-func (a *APIServer) updateConfig(config *auth.AuthConfig) error {
+func (a *apiServer) updateConfig(config *auth.AuthConfig) error {
 	if config == nil {
 		config = &auth.AuthConfig{}
 	}
@@ -384,7 +384,7 @@ var defaultDashRedirectURL = &url.URL{
 }
 
 // handleSAMLResponseInternal is a helper function called by handleSAMLResponse
-func (a *APIServer) handleSAMLResponseInternal(req *http.Request) (string, string, *errutil.HTTPError) {
+func (a *apiServer) handleSAMLResponseInternal(req *http.Request) (string, string, *errutil.HTTPError) {
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
 	a.samlSPMu.Lock()
@@ -463,7 +463,7 @@ func (a *APIServer) handleSAMLResponseInternal(req *http.Request) (string, strin
 // handleSAMLResponse is the HTTP handler for Pachyderm's ACS, which receives
 // signed SAML assertions from this cluster's SAML ID provider (if one is
 // configured)
-func (a *APIServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
+func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request) {
 	var subject, authCode string
 	var err *errutil.HTTPError
 
@@ -492,7 +492,7 @@ func (a *APIServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 	w.WriteHeader(http.StatusFound) // Send redirect
 }
 
-func (a *APIServer) handleMetadata(w http.ResponseWriter, req *http.Request) {
+func (a *apiServer) handleMetadata(w http.ResponseWriter, req *http.Request) {
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
 	buf, _ := xml.MarshalIndent(a.samlSP.Metadata(), "", "  ")
@@ -501,7 +501,7 @@ func (a *APIServer) handleMetadata(w http.ResponseWriter, req *http.Request) {
 	return
 }
 
-func (a *APIServer) serveSAML() {
+func (a *apiServer) serveSAML() {
 	samlMux := http.NewServeMux()
 	samlMux.HandleFunc("/saml/acs", a.handleSAMLResponse)
 	samlMux.HandleFunc("/saml/metadata", a.handleMetadata)

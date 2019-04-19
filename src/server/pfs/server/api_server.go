@@ -24,11 +24,11 @@ var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
 
-// APIServer implements the public interface of the Pachyderm File System,
+// apiServer implements the public interface of the Pachyderm File System,
 // including all RPCs defined in the protobuf spec.  Implementation details
 // occur in the 'driver' code, and this layer serves to translate the protobuf
 // request structures into normal function calls.
-type APIServer struct {
+type apiServer struct {
 	log.Logger
 	driver *driver
 
@@ -49,12 +49,12 @@ func newAPIServer(
 	treeCache *hashtree.Cache,
 	storageRoot string,
 	memoryRequest int64,
-) (*APIServer, error) {
+) (*apiServer, error) {
 	d, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 	if err != nil {
 		return nil, err
 	}
-	s := &APIServer{
+	s := &apiServer{
 		Logger: log.NewLogger("pfs.API"),
 		driver: d,
 		env:    env,
@@ -65,7 +65,7 @@ func newAPIServer(
 
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) CreateRepoInTransaction(
+func (a *apiServer) CreateRepoInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.CreateRepoRequest,
@@ -74,7 +74,7 @@ func (a *APIServer) CreateRepoInTransaction(
 }
 
 // CreateRepo implements the protobuf pfs.CreateRepo RPC
-func (a *APIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -89,7 +89,7 @@ func (a *APIServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 
 // InspectRepoInTransaction is identical to InspectRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) InspectRepoInTransaction(
+func (a *apiServer) InspectRepoInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.InspectRepoRequest,
@@ -98,7 +98,7 @@ func (a *APIServer) InspectRepoInTransaction(
 }
 
 // InspectRepo implements the protobuf pfs.InspectRepo RPC
-func (a *APIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
+func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoRequest) (response *pfs.RepoInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -106,7 +106,7 @@ func (a *APIServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 }
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
-func (a *APIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
+func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) (response *pfs.ListRepoResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -116,7 +116,7 @@ func (a *APIServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) DeleteRepoInTransaction(
+func (a *apiServer) DeleteRepoInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.DeleteRepoRequest,
@@ -135,7 +135,7 @@ func (a *APIServer) DeleteRepoInTransaction(
 }
 
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
-func (a *APIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -153,7 +153,7 @@ func (a *APIServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 // commit can be specified but is optional.  This is so that the transaction can
 // report the commit ID back to the client before the transaction has finished
 // and it can be used in future commands inside the same transaction.
-func (a *APIServer) StartCommitInTransaction(
+func (a *apiServer) StartCommitInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.StartCommitRequest,
@@ -167,7 +167,7 @@ func (a *APIServer) StartCommitInTransaction(
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
-func (a *APIServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
+func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -184,7 +184,7 @@ func (a *APIServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 }
 
 // BuildCommit implements the protobuf pfs.BuildCommit RPC
-func (a *APIServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
+func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitRequest) (response *pfs.Commit, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -197,7 +197,7 @@ func (a *APIServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) FinishCommitInTransaction(
+func (a *apiServer) FinishCommitInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.FinishCommitRequest,
@@ -209,7 +209,7 @@ func (a *APIServer) FinishCommitInTransaction(
 }
 
 // FinishCommit implements the protobuf pfs.FinishCommit RPC
-func (a *APIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -223,7 +223,7 @@ func (a *APIServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 }
 
 // InspectCommit implements the protobuf pfs.InspectCommit RPC
-func (a *APIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
+func (a *apiServer) InspectCommit(ctx context.Context, request *pfs.InspectCommitRequest) (response *pfs.CommitInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -231,7 +231,7 @@ func (a *APIServer) InspectCommit(ctx context.Context, request *pfs.InspectCommi
 }
 
 // ListCommit implements the protobuf pfs.ListCommit RPC
-func (a *APIServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
+func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitRequest) (response *pfs.CommitInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -245,7 +245,7 @@ func (a *APIServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 }
 
 // ListCommitStream implements the protobuf pfs.ListCommitStream RPC
-func (a *APIServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
+func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
 	func() { a.Log(req, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
@@ -259,7 +259,7 @@ func (a *APIServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) CreateBranchInTransaction(
+func (a *apiServer) CreateBranchInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.CreateBranchRequest,
@@ -268,7 +268,7 @@ func (a *APIServer) CreateBranchInTransaction(
 }
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
-func (a *APIServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -282,14 +282,14 @@ func (a *APIServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 }
 
 // InspectBranch implements the protobuf pfs.InspectBranch RPC
-func (a *APIServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
+func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	return a.driver.inspectBranch(a.env.GetPachClient(ctx), request.Branch)
 }
 
 // ListBranch implements the protobuf pfs.ListBranch RPC
-func (a *APIServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
+func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchRequest) (response *pfs.BranchInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -302,7 +302,7 @@ func (a *APIServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) DeleteBranchInTransaction(
+func (a *apiServer) DeleteBranchInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.DeleteBranchRequest,
@@ -311,7 +311,7 @@ func (a *APIServer) DeleteBranchInTransaction(
 }
 
 // DeleteBranch implements the protobuf pfs.DeleteBranch RPC
-func (a *APIServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -326,7 +326,7 @@ func (a *APIServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 
 // DeleteCommitInTransaction is identical to DeleteCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) DeleteCommitInTransaction(
+func (a *apiServer) DeleteCommitInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.DeleteCommitRequest,
@@ -335,7 +335,7 @@ func (a *APIServer) DeleteCommitInTransaction(
 }
 
 // DeleteCommit implements the protobuf pfs.DeleteCommit RPC
-func (a *APIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -349,7 +349,7 @@ func (a *APIServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 }
 
 // FlushCommit implements the protobuf pfs.FlushCommit RPC
-func (a *APIServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
+func (a *apiServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_FlushCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
@@ -357,7 +357,7 @@ func (a *APIServer) FlushCommit(request *pfs.FlushCommitRequest, stream pfs.API_
 }
 
 // SubscribeCommit implements the protobuf pfs.SubscribeCommit RPC
-func (a *APIServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
+func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream pfs.API_SubscribeCommitServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
@@ -365,7 +365,7 @@ func (a *APIServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 }
 
 // PutFile implements the protobuf pfs.PutFile RPC
-func (a *APIServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
+func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) {
 	s := newPutFileServer(putFileServer)
 	r, err := s.Peek()
 	if err != nil {
@@ -387,7 +387,7 @@ func (a *APIServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 
 // CopyFileInTransaction is identical to CopyFile except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) CopyFileInTransaction(
+func (a *apiServer) CopyFileInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.CopyFileRequest,
@@ -396,7 +396,7 @@ func (a *APIServer) CopyFileInTransaction(
 }
 
 // CopyFile implements the protobuf pfs.CopyFile RPC
-func (a *APIServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -410,7 +410,7 @@ func (a *APIServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 }
 
 // GetFile implements the protobuf pfs.GetFile RPC
-func (a *APIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
+func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
@@ -422,7 +422,7 @@ func (a *APIServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 }
 
 // InspectFile implements the protobuf pfs.InspectFile RPC
-func (a *APIServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
+func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -430,7 +430,7 @@ func (a *APIServer) InspectFile(ctx context.Context, request *pfs.InspectFileReq
 }
 
 // ListFile implements the protobuf pfs.ListFile RPC
-func (a *APIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
+func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
@@ -454,7 +454,7 @@ func (a *APIServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 }
 
 // ListFileStream implements the protobuf pfs.ListFileStream RPC
-func (a *APIServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.API_ListFileStreamServer) (retErr error) {
+func (a *apiServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.API_ListFileStreamServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
@@ -467,7 +467,7 @@ func (a *APIServer) ListFileStream(request *pfs.ListFileRequest, respServer pfs.
 }
 
 // WalkFile implements the protobuf pfs.WalkFile RPC
-func (a *APIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
+func (a *apiServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
@@ -480,7 +480,7 @@ func (a *APIServer) WalkFile(request *pfs.WalkFileRequest, server pfs.API_WalkFi
 }
 
 // GlobFile implements the protobuf pfs.GlobFile RPC
-func (a *APIServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
+func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) (response *pfs.FileInfos, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
@@ -504,7 +504,7 @@ func (a *APIServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 }
 
 // GlobFileStream implements the protobuf pfs.GlobFileStream RPC
-func (a *APIServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileStreamServer) (retErr error) {
+func (a *apiServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.API_GlobFileStreamServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	var sent int
 	defer func(start time.Time) {
@@ -517,7 +517,7 @@ func (a *APIServer) GlobFileStream(request *pfs.GlobFileRequest, respServer pfs.
 }
 
 // DiffFile implements the protobuf pfs.DiffFile RPC
-func (a *APIServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {
+func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) (response *pfs.DiffFileResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) {
 		if response != nil && (len(response.NewFiles) > client.MaxListItemsLog || len(response.OldFiles) > client.MaxListItemsLog) {
@@ -542,7 +542,7 @@ func (a *APIServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 
 // DeleteFileInTransaction is identical to DeleteFile except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) DeleteFileInTransaction(
+func (a *apiServer) DeleteFileInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.DeleteFileRequest,
@@ -551,7 +551,7 @@ func (a *APIServer) DeleteFileInTransaction(
 }
 
 // DeleteFile implements the protobuf pfs.DeleteFile RPC
-func (a *APIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
@@ -566,7 +566,7 @@ func (a *APIServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 
 // DeleteAllInTransaction is identical to DeleteAll except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
-func (a *APIServer) DeleteAllInTransaction(
+func (a *apiServer) DeleteAllInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
 	request *pfs.DeleteAllRequest,
@@ -575,7 +575,7 @@ func (a *APIServer) DeleteAllInTransaction(
 }
 
 // DeleteAll implements the protobuf pfs.DeleteAll RPC
-func (a *APIServer) DeleteAll(ctx context.Context, request *pfs.DeleteAllRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteAll(ctx context.Context, request *pfs.DeleteAllRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 

@@ -46,7 +46,7 @@ type workerOptions struct {
 	service          *pps.Service
 }
 
-func (a *APIServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
+func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	pullPolicy := a.workerImagePullPolicy
 	if pullPolicy == "" {
 		pullPolicy = "IfNotPresent"
@@ -252,7 +252,7 @@ func (a *APIServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	return podSpec, nil
 }
 
-func (a *APIServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
+func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
 	transform *pps.Transform, cacheSize string, service *pps.Service,
 	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string, podPatch string) *workerOptions {
@@ -410,7 +410,7 @@ func (a *APIServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	}
 }
 
-func (a *APIServer) createWorkerRc(options *workerOptions) error {
+func (a *apiServer) createWorkerRc(options *workerOptions) error {
 	podSpec, err := a.workerPodSpec(options)
 	if err != nil {
 		return err

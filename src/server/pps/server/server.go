@@ -1,12 +1,19 @@
 package server
 
 import (
+	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
+
+// APIServer represents a PPS API server
+type APIServer interface {
+	ppsclient.APIServer
+	txnserver.PpsTransactionServer
+}
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
@@ -30,8 +37,8 @@ func NewAPIServer(
 	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
-) (*APIServer, error) {
-	apiServer := &APIServer{
+) (APIServer, error) {
+	apiServer := &apiServer{
 		Logger:                log.NewLogger("pps.API"),
 		env:                   env,
 		txnEnv:                txnEnv,
@@ -74,8 +81,8 @@ func NewSidecarAPIServer(
 	pprofPort uint16,
 	httpPort uint16,
 	peerPort uint16,
-) (*APIServer, error) {
-	apiServer := &APIServer{
+) (APIServer, error) {
+	apiServer := &apiServer{
 		Logger:         log.NewLogger("pps.API"),
 		env:            env,
 		etcdPrefix:     etcdPrefix,

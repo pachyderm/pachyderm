@@ -52,16 +52,16 @@ type PpsTransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
-	authClient authTransactionServer
-	pfsClient  pfsTransactionServer
-	ppsClient  ppsTransactionServer
+	authClient AuthTransactionServer
+	pfsClient  PfsTransactionServer
+	ppsClient  PpsTransactionServer
 }
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
-	authClient authTransactionServer,
-	pfsClient pfsTransactionServer,
-	ppsClient ppsTransactionServer,
+	authClient AuthTransactionServer,
+	pfsClient PfsTransactionServer,
+	ppsClient PpsTransactionServer,
 ) {
 	env.authClient = authClient
 	env.pfsClient = pfsClient
@@ -70,18 +70,18 @@ func (env *TransactionEnv) Initialize(
 
 // AuthServer returns a reference to the interface for making transactional
 // calls through the auth subsystem.
-func (env *TransactionEnv) AuthServer() authTransactionServer {
+func (env *TransactionEnv) AuthServer() AuthTransactionServer {
 	return env.authClient
 }
 
 // PfsServer returns a reference to the interface for making transactional
 // calls through the PFS subsystem.
-func (env *TransactionEnv) PfsServer() pfsTransactionServer {
+func (env *TransactionEnv) PfsServer() PfsTransactionServer {
 	return env.pfsClient
 }
 
 // PpsServer returns a reference to the interface for making transactional
 // calls through the PPS subsystem.
-func (env *TransactionEnv) PpsServer() ppsTransactionServer {
+func (env *TransactionEnv) PpsServer() PpsTransactionServer {
 	return env.ppsClient
 }

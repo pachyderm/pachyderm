@@ -16,6 +16,12 @@ const (
 	LocalBackendEnvVar     = "LOCAL"
 )
 
+// APIServer represents an api server.
+type APIServer interface {
+	pfsclient.APIServer
+	txnserver.PfsTransactionServer
+}
+
 // BlockAPIServer combines BlockAPIServer and ObjectAPIServer.
 type BlockAPIServer interface {
 	pfsclient.ObjectAPIServer
@@ -29,7 +35,7 @@ func NewAPIServer(
 	treeCache *hashtree.Cache,
 	storageRoot string,
 	memoryRequest int64,
-) (*APIServer, error) {
+) (APIServer, error) {
 	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 }
 

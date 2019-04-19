@@ -24,7 +24,7 @@ func (*MyEnterprise) GetState(ctx context.Context, in *enterprise.GetStateReques
 
 func TestIssue3483(t *testing.T) {
 
-	var api *APIServer
+	var api *apiServer
 	{
 		var myOnce sync.Once
 		myOnce = sync.Once{}
@@ -35,7 +35,7 @@ func TestIssue3483(t *testing.T) {
 		pachClient = &client.APIClient{
 			Enterprise: &MyEnterprise{},
 		}
-		api = &APIServer{
+		api = &apiServer{
 			pachClient:     pachClient,
 			pachClientOnce: myOnce,
 			workerImage:    "example.com/nope",

@@ -55,7 +55,7 @@ func generateRandomString(n int) string {
 func runServers(
 	t testing.TB,
 	port int32,
-	apiServer *APIServer,
+	apiServer *apiServer,
 	blockAPIServer BlockAPIServer,
 ) {
 	ready := make(chan bool)
