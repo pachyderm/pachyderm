@@ -674,7 +674,10 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	// We propagate the branch last so propagateCommit can write to the
 	// now-existing commit's subvenance
 	if branch != "" {
-		return nil, d.propagateCommit(stm, client.NewBranch(newCommit.Repo.Name, branch))
+		err := d.propagateCommit(stm, client.NewBranch(newCommit.Repo.Name, branch))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return newCommit, nil

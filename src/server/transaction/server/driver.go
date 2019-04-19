@@ -200,13 +200,6 @@ func (d *driver) finishTransaction(pachClient *client.APIClient, txn *transactio
 	return info, nil
 }
 
-// Error to be returned when aborting a dryrun transaction (following success)
-type transactionDryrunError struct{}
-
-func (e *transactionDryrunError) Error() string {
-	return fmt.Sprintf("transaction dry run successful")
-}
-
 // Error to be returned when the transaction has been modified between our two STM calls
 type transactionConflictError struct{}
 
@@ -230,7 +223,7 @@ func (d *driver) appendTransaction(
 		var dryrunResponses []*transaction.TransactionResponse
 
 		info := &transaction.TransactionInfo{}
-		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
 			// Get the existing transaction and append the new requests
 			err := d.transactions.ReadWrite(stm).Get(txn.ID, info)
 			if err != nil {
@@ -249,15 +242,10 @@ func (d *driver) appendTransaction(
 			}
 
 			dryrunResponses = info.Responses[numResponses:]
-			return &transactionDryrunError{}
+			return nil
 		})
 
-		if err == nil {
-			return nil, fmt.Errorf("server error, transaction dryrun should have aborted")
-		}
-		switch err.(type) {
-		case *transactionDryrunError: // pass
-		default:
+		if err != nil {
 			return nil, err
 		}
 

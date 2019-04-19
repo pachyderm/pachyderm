@@ -79,7 +79,7 @@ func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.Tr
 		commit = "ERROR (unknown response type)"
 	}
 
-	return fmt.Sprintf("start commit %s@%s => %s", request.Parent.Repo.Name, request.Branch, commit)
+	return fmt.Sprintf("start commit %s@%s (%s)", request.Parent.Repo.Name, request.Branch, commit)
 }
 
 func sprintFinishCommit(request *pfs.FinishCommitRequest) string {
