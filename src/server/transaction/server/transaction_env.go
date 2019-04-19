@@ -9,7 +9,21 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
-type pfsTransactionServer interface {
+// AuthTransactionServer is an interface for the transactionally-supported
+// methods that can be called through the auth server.
+type AuthTransactionServer interface {
+	AuthorizeInTransaction(context.Context, col.STM, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
+
+	GetScopeInTransaction(context.Context, col.STM, *auth.GetScopeRequest) (*auth.GetScopeResponse, error)
+	SetScopeInTransaction(context.Context, col.STM, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
+
+	GetACLInTransaction(context.Context, col.STM, *auth.GetACLRequest) (*auth.GetACLResponse, error)
+	SetACLInTransaction(context.Context, col.STM, *auth.SetACLRequest) (*auth.SetACLResponse, error)
+}
+
+// PfsTransactionServer is an interface for the transactionally-supported
+// methods that can be called through the PFS server.
+type PfsTransactionServer interface {
 	CreateRepoInTransaction(*client.APIClient, col.STM, *pfs.CreateRepoRequest) error
 	InspectRepoInTransaction(*client.APIClient, col.STM, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 	DeleteRepoInTransaction(*client.APIClient, col.STM, *pfs.DeleteRepoRequest) error
@@ -27,17 +41,9 @@ type pfsTransactionServer interface {
 	DeleteAllInTransaction(*client.APIClient, col.STM, *pfs.DeleteAllRequest) error
 }
 
-type authTransactionServer interface {
-	AuthorizeInTransaction(context.Context, col.STM, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
-
-	GetScopeInTransaction(context.Context, col.STM, *auth.GetScopeRequest) (*auth.GetScopeResponse, error)
-	SetScopeInTransaction(context.Context, col.STM, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
-
-	GetACLInTransaction(context.Context, col.STM, *auth.GetACLRequest) (*auth.GetACLResponse, error)
-	SetACLInTransaction(context.Context, col.STM, *auth.SetACLRequest) (*auth.SetACLResponse, error)
-}
-
-type ppsTransactionServer interface {
+// PpsTransactionServer is an interface for the transactionally-supported
+// methods that can be called through the PPS server.
+type PpsTransactionServer interface {
 	// TODO: add these once PPS is supported in transactions
 }
 
@@ -62,14 +68,20 @@ func (env *TransactionEnv) Initialize(
 	env.ppsClient = ppsClient
 }
 
+// AuthServer returns a reference to the interface for making transactional
+// calls through the auth subsystem.
 func (env *TransactionEnv) AuthServer() authTransactionServer {
 	return env.authClient
 }
 
+// PfsServer returns a reference to the interface for making transactional
+// calls through the PFS subsystem.
 func (env *TransactionEnv) PfsServer() pfsTransactionServer {
 	return env.pfsClient
 }
 
+// PpsServer returns a reference to the interface for making transactional
+// calls through the PPS subsystem.
 func (env *TransactionEnv) PpsServer() ppsTransactionServer {
 	return env.ppsClient
 }

@@ -1058,6 +1058,8 @@ func (a *APIServer) getOneTimePassword(ctx context.Context, username string, exp
 	return code, nil
 }
 
+// AuthorizeInTransaction is identical to Authorize except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
 func (a *APIServer) AuthorizeInTransaction(
 	ctx context.Context,
 	stm col.STM,
@@ -1117,6 +1119,7 @@ func (a *APIServer) AuthorizeInTransaction(
 	}, nil
 }
 
+// Authorize implements the protobuf auth.Authorize RPC
 func (a *APIServer) Authorize(
 	ctx context.Context,
 	req *authclient.AuthorizeRequest,
@@ -1207,7 +1210,8 @@ func (a *APIServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 	return false, nil
 }
 
-// SetScope implements the protobuf auth.SetScope RPC
+// SetScopeInTransaction is identical to SetScope except that it can run inside
+// an existing etcd STM transaction.  This is not an RPC.
 func (a *APIServer) SetScopeInTransaction(
 	ctx context.Context,
 	stm col.STM,
@@ -1309,6 +1313,7 @@ func (a *APIServer) SetScopeInTransaction(
 	return &authclient.SetScopeResponse{}, nil
 }
 
+// SetScope implements the protobuf auth.SetScope RPC
 func (a *APIServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1347,6 +1352,8 @@ func (a *APIServer) getScope(ctx context.Context, subject string, acl *authclien
 	return scope, nil
 }
 
+// GetScopeInTransaction is identical to GetScope except that it can run inside
+// an existing etcd STM transaction.  This is not an RPC.
 func (a *APIServer) GetScopeInTransaction(
 	ctx context.Context,
 	stm col.STM,
@@ -1450,6 +1457,8 @@ func (a *APIServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	return response, nil
 }
 
+// GetACLInTransaction is identical to GetACL except that it can run inside
+// an existing etcd STM transaction.  This is not an RPC.
 func (a *APIServer) GetACLInTransaction(
 	ctx context.Context,
 	stm col.STM,
@@ -1492,6 +1501,7 @@ func (a *APIServer) GetACLInTransaction(
 	return response, nil
 }
 
+// GetACL implements the protobuf auth.GetACL RPC
 func (a *APIServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1508,6 +1518,8 @@ func (a *APIServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	return response, nil
 }
 
+// SetACLInTransaction is identical to SetACL except that it can run inside
+// an existing etcd STM transaction.  This is not an RPC.
 func (a *APIServer) SetACLInTransaction(
 	ctx context.Context,
 	stm col.STM,
