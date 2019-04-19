@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -176,7 +177,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
-		if span, spanCtx = addJobSpanToAnyExtendedTrace(oldCtx, a.etcdClient, commitInfo); spanCtx != nil {
+		if span, spanCtx = extended.AddJobSpanToAnyTrace(oldCtx, a.etcdClient, commitInfo); spanCtx != nil {
 			pachClient = pachClient.WithCtx(spanCtx)
 		}
 		if commitInfo.Finished != nil {

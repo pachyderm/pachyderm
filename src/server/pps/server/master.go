@@ -133,8 +133,8 @@ func (a *apiServer) master() {
 					var curSpecCommit = pipelinePtr.SpecCommit.ID
 
 					// Handle tracing (pipelineRestarted is used to maybe delete trace)
-					if span, ctx = addPipelineSpanToAnyExtendedTrace(oldCtx,
-						a.etcdClient, pipelineName, "pps/master.LaunchPipeline",
+					if span, ctx = extended.AddPipelineSpanToAnyExtendedTrace(oldCtx,
+						a.etcdClient, pipelineName, "/pps.Master/LaunchPipeline",
 						"key-version", event.Ver,
 						"mod-revision", event.Rev,
 						"prev-key", string(event.PrevKey),
@@ -602,9 +602,9 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		// good reason to do it concurrently.
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				span, ctx := addPipelineSpanToAnyExtendedTrace(pachClient.Ctx(),
-					a.etcdClient, pipelineInfo.Pipeline.Name, "pps/master.MonitorPipeline_noStandby",
-				)
+				span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
+					a.etcdClient, pipelineInfo.Pipeline.Name, "/pps.Master/MonitorPipeline",
+					"standby", "false")
 				if span != nil {
 					pachClient = pachClient.WithCtx(ctx)
 				}
@@ -626,8 +626,9 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 		})
 		eg.Go(func() error {
 			return backoff.RetryNotify(func() error {
-				span, ctx := addPipelineSpanToAnyExtendedTrace(pachClient.Ctx(),
-					a.etcdClient, pipelineInfo.Pipeline.Name, "pps/master.MonitorPipeline_standby")
+				span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
+					a.etcdClient, pipelineInfo.Pipeline.Name, "/pps.Master/MonitorPipeline",
+					"standby", "false")
 				if span != nil {
 					pachClient = pachClient.WithCtx(ctx)
 				}

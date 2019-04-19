@@ -41,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -281,7 +282,8 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
 	initPrometheus()
 
-	span, ctx := addStartupSpanToAnyExtendedTrace(pachClient.Ctx(), etcdClient, pipelineInfo.Pipeline.Name)
+	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
+		etcdClient, pipelineInfo.Pipeline.Name, "/worker/Start")
 	oldPachClient := pachClient
 	if span != nil {
 		pachClient = pachClient.WithCtx(ctx)
