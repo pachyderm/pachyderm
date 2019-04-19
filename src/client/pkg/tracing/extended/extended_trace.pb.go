@@ -161,9 +161,9 @@ func (m *TraceProto) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintExtendedTrace(dAtA, i, uint64(m.Branch.Size()))
-		n1, err := m.Branch.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.Branch.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
