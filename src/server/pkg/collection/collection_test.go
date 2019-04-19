@@ -32,6 +32,28 @@ var (
 	}
 )
 
+func TestDryrun(t *testing.T) {
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
+
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+
+	job := &pps.JobInfo{
+		Job:      client.NewJob("j1"),
+		Pipeline: client.NewPipeline("p1"),
+	}
+	err := NewDryrunSTM(context.Background(), etcdClient, func(stm STM) error {
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(job.Job.ID, job)
+		return nil
+	})
+	require.NoError(t, err)
+
+	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
+	err = jobInfosReadonly.Get("j1", job)
+	require.True(t, IsErrNotFound(err))
+}
+
 func TestIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
