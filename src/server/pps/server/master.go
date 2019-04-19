@@ -355,7 +355,7 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 }
 
 func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "pps.upsertWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/UpsertWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func(span opentracing.Span) {
 		if span != nil {
 			span.SetTag("err", fmt.Sprintf("%v", retErr))
@@ -383,7 +383,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 
 		// Retrieve the current state of the RC.  If the RC is scaled down,
 		// we want to ensure that it remains scaled down.
-		span, _ = tracing.AddSpanToAnyExisting(ctx, "kube.RC.Get", "pipeline", pipelineInfo.Pipeline.Name)
+		span, _ = tracing.AddSpanToAnyExisting(ctx, "/kube.RC/Get", "pipeline", pipelineInfo.Pipeline.Name)
 		rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
 		workerRc, err := rc.Get(
 			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
@@ -421,7 +421,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 				return err
 			}
 		}
-		span, _ = tracing.AddSpanToAnyExisting(ctx, "kube.RC.Create", "pipeline", pipelineInfo.Pipeline.Name)
+		span, _ = tracing.AddSpanToAnyExisting(ctx, "/kube.RC/Create", "pipeline", pipelineInfo.Pipeline.Name)
 		defer tracing.FinishAnySpan(span)
 		return a.createWorkerRc(options)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
@@ -448,7 +448,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 }
 
 func (a *apiServer) deleteWorkersForPipeline(ctx context.Context, pipelineName string) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "pps.deleteWorkersForPipeline", "pipeline", pipelineName)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/DeleteWorkersForPipeline", "pipeline", pipelineName)
 	defer func(span opentracing.Span) {
 		if span != nil {
 			span.SetTag("err", fmt.Sprintf("%v", retErr))
@@ -491,7 +491,7 @@ func (a *apiServer) deleteWorkersForPipeline(ctx context.Context, pipelineName s
 }
 
 func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "pps.scaleDownWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleDownWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func(span opentracing.Span) {
 		if span != nil {
 			span.SetTag("err", fmt.Sprintf("%v", retErr))
@@ -512,7 +512,7 @@ func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInf
 }
 
 func (a *apiServer) scaleUpWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "pps.scaleUpWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleUpWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func(span opentracing.Span) {
 		if span != nil {
 			span.SetTag("err", fmt.Sprintf("%v", retErr))
@@ -550,7 +550,7 @@ func notifyCtx(ctx context.Context, name string) func(error, time.Duration) erro
 }
 
 func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, state pps.PipelineState, reason string) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(), "pps.setPipelineState",
+	span, ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(), "/pps.Master/SetPipelineState",
 		"pipeline", pipelineInfo.Pipeline.Name, "new-state", state)
 	if span != nil {
 		pachClient = pachClient.WithCtx(ctx)
@@ -657,7 +657,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 							continue
 						}
 						childSpan, ctx = tracing.AddSpanToAnyExisting(
-							oldCtx, "pps/master.MonitorPipeline_SpinUp",
+							oldCtx, "/pps.Master/MonitorPipeline_SpinUp",
 							"pipeline", pipelineInfo.Pipeline.Name, "commit", ci.Commit.ID)
 						if childSpan != nil {
 							pachClient = oldPachClient.WithCtx(ctx)

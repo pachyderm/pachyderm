@@ -474,7 +474,7 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
 	logger.Logf("waitJob: %s", jobInfo.Job.ID)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "worker.waitJob")
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/worker.Master/WaitJob")
 	defer tracing.FinishAnySpan(span)
 	pachClient = pachClient.WithCtx(ctx)
 
@@ -646,7 +646,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		var span opentracing.Span
 		for i, high := range chunks.Chunks {
 			tracing.FinishAnySpan(span)
-			span, ctx = tracing.AddSpanToAnyExisting(oldCtx, "worker.watchChunk", "high", high)
+			span, ctx = tracing.AddSpanToAnyExisting(oldCtx, "/worker.Master/WatchChunk", "high", high)
 			locks := a.locks(jobInfo.Job.ID).ReadOnly(ctx)
 			// Watch this chunk's lock and when it's finished, handle the result
 			// (merge chunk output into commit trees, fail if chunk failed, etc)
@@ -676,7 +676,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 							high := high // chunk upper bound
 							// merge results into output tree
 							eg.Go(func() error {
-								span, ctx := tracing.AddSpanToAnyExisting(ctx, "worker.merge", "low", low, "high", high)
+								span, ctx := tracing.AddSpanToAnyExisting(ctx, "/worker.Master/Merge", "low", low, "high", high)
 								defer tracing.FinishAnySpan(span)
 								if span != nil {
 									pachClient = pachClient.WithCtx(ctx)
