@@ -596,6 +596,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(editPipeline, "edit pipeline"))
 
 	var spec bool
+	var history int64
 	listPipeline := &cobra.Command{
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
@@ -605,7 +606,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			defer client.Close()
-			pipelineInfos, err := client.ListPipeline()
+			pipelineInfos, err := client.ListPipelineHistory(history)
 			if err != nil {
 				return err
 			}
@@ -635,6 +636,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output 'create pipeline' compatibility specs.")
 	listPipeline.Flags().AddFlagSet(rawFlags)
 	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
+	listPipeline.Flags().Int64Var(&history, "history", 0, "Return revision history for pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
 	var all bool

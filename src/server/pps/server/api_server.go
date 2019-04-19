@@ -2118,6 +2118,20 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 			return err
 		}
 		pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pipelineInfo)
+		if request.History != 0 {
+			id := pipelinePtr.SpecCommit.ID
+			for i := 1; i <= int(request.History) || request.History == -1; i++ {
+				pipelinePtr.SpecCommit.ID = ancestry.Add(id, i)
+				pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr, true)
+				if err != nil {
+					if isNotFoundErr(err) {
+						break
+					}
+					return err
+				}
+				pipelineInfos.PipelineInfo = append(pipelineInfos.PipelineInfo, pipelineInfo)
+			}
+		}
 		return nil
 	}); err != nil {
 		return nil, err

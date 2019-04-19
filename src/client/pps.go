@@ -553,6 +553,20 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 	return pipelineInfos.PipelineInfo, nil
 }
 
+// ListPipelineHistory returns historical information about pipelines.
+func (c APIClient) ListPipelineHistory(history int64) ([]*pps.PipelineInfo, error) {
+	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
+		c.Ctx(),
+		&pps.ListPipelineRequest{
+			History: history,
+		},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return pipelineInfos.PipelineInfo, nil
+}
+
 // DeletePipeline deletes a pipeline along with its output Repo.
 func (c APIClient) DeletePipeline(name string, force bool) error {
 	_, err := c.PpsAPIClient.DeletePipeline(
