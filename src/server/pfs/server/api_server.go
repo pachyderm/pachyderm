@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
@@ -41,8 +42,15 @@ type APIServer struct {
 	_pachClient *client.APIClient
 }
 
-func newAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*APIServer, error) {
-	d, err := newDriver(env, etcdPrefix, treeCache, storageRoot, memoryRequest)
+func newAPIServer(
+	env *serviceenv.ServiceEnv,
+	txnEnv *txnserver.TransactionEnv,
+	etcdPrefix string,
+	treeCache *hashtree.Cache,
+	storageRoot string,
+	memoryRequest int64,
+) (*APIServer, error) {
+	d, err := newDriver(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 	if err != nil {
 		return nil, err
 	}

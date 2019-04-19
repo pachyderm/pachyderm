@@ -51,7 +51,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	transactionserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
+	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -149,7 +149,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			Port:       env.PeerPort,
 			MaxMsgSize: grpcutil.MaxMsgSize,
 			RegisterFunc: func(s *grpc.Server) error {
-				var txnEnv transactionserver.TransactionEnv
+				txnEnv := &txnserver.TransactionEnv{}
 				blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 				if err != nil {
 					return fmt.Errorf("units.RAMInBytes: %v", err)
@@ -203,7 +203,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 				}
 				authclient.RegisterAPIServer(s, authAPIServer)
 
-				transactionAPIServer, err := transactionserver.NewAPIServer(
+				transactionAPIServer, err := txnserver.NewAPIServer(
 					env,
 					txnEnv,
 					path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
@@ -358,12 +358,12 @@ func doFullMode(config interface{}) (retErr error) {
 				MaxMsgSize:           grpcutil.MaxMsgSize,
 				PublicPortTLSAllowed: true,
 				RegisterFunc: func(s *grpc.Server) error {
-					var txnEnv transactionserver.TransactionEnv
+					txnEnv := &txnserver.TransactionEnv{}
 					memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 					if err != nil {
 						return err
 					}
-					pfsAPIServer, err := pfs_server.NewAPIServer(env, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
+					pfsAPIServer, err := pfs_server.NewAPIServer(env, txnEnv, path.Join(env.EtcdPrefix, env.PFSEtcdPrefix), treeCache, env.StorageRoot, memoryRequestBytes)
 					if err != nil {
 						return fmt.Errorf("pfs.NewAPIServer: %v", err)
 					}
@@ -410,13 +410,13 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 
 					authAPIServer, err := authserver.NewAuthServer(
-						env, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
+						env, txnEnv, path.Join(env.EtcdPrefix, env.AuthEtcdPrefix), true)
 					if err != nil {
 						return fmt.Errorf("NewAuthServer: %v", err)
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
 
-					transactionAPIServer, err := transactionserver.NewAPIServer(
+					transactionAPIServer, err := txnserver.NewAPIServer(
 						env,
 						txnEnv,
 						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
@@ -465,7 +465,7 @@ func doFullMode(config interface{}) (retErr error) {
 				Port:       env.PeerPort,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
-					var txnEnv transactionserver.TransactionEnv
+					txnEnv := &txnserver.TransactionEnv{}
 					cacheServer := cache_server.NewCacheServer(router, env.NumShards)
 					go func() {
 						if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
@@ -509,6 +509,7 @@ func doFullMode(config interface{}) (retErr error) {
 
 					ppsAPIServer, err := pps_server.NewAPIServer(
 						env,
+						txnEnv,
 						path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 						kubeNamespace,
 						env.WorkerImage,
@@ -544,7 +545,7 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					authclient.RegisterAPIServer(s, authAPIServer)
 
-					transactionAPIServer, err := transactionserver.NewAPIServer(
+					transactionAPIServer, err := txnserver.NewAPIServer(
 						env,
 						txnEnv,
 						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),

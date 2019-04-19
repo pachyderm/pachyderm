@@ -4,6 +4,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
 
 // InactiveAPIServer (in the auth/testing package) is an implementation of the
@@ -42,6 +43,12 @@ func (a *InactiveAPIServer) Authorize(context.Context, *auth.AuthorizeRequest) (
 	return nil, auth.ErrNotActivated
 }
 
+// AuthorizeInTransaction is the same as the Authorize RPC but for use inside a
+// running transaction.  It also returns a NotActivatedError.
+func (a *InactiveAPIServer) AuthorizeInTransaction(context.Context, col.STM, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // WhoAmI implements the WhoAmI RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error) {
 	return nil, auth.ErrNotActivated
@@ -52,8 +59,20 @@ func (a *InactiveAPIServer) SetScope(context.Context, *auth.SetScopeRequest) (*a
 	return nil, auth.ErrNotActivated
 }
 
+// SetScopeInTransaction is the same as the SetScope RPC but for use inside a
+// running transaction.  It also returns a NotActivatedError.
+func (a *InactiveAPIServer) SetScopeInTransaction(context.Context, col.STM, *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // GetScope implements the GetScope RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) GetScope(context.Context, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// GetScopeInTransaction is the same as the GetScope RPC but for use inside a
+// running transaction.  It also returns a NotActivatedError.
+func (a *InactiveAPIServer) GetScopeInTransaction(context.Context, col.STM, *auth.GetScopeRequest) (*auth.GetScopeResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 
@@ -62,8 +81,20 @@ func (a *InactiveAPIServer) GetACL(context.Context, *auth.GetACLRequest) (*auth.
 	return nil, auth.ErrNotActivated
 }
 
+// GetACLInTransaction is the same as the GetACL RPC but for use inside a
+// running transaction.  It also returns a NotActivatedError.
+func (a *InactiveAPIServer) GetACLInTransaction(context.Context, col.STM, *auth.GetACLRequest) (*auth.GetACLResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
 // SetACL implements the SetACL RPC, but just returns NotActivatedError
 func (a *InactiveAPIServer) SetACL(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
+	return nil, auth.ErrNotActivated
+}
+
+// SetACLInTransaction is the same as the SetACL RPC but for use inside a
+// running transaction.  It also returns a NotActivatedError.
+func (a *InactiveAPIServer) SetACLInTransaction(context.Context, col.STM, *auth.SetACLRequest) (*auth.SetACLResponse, error) {
 	return nil, auth.ErrNotActivated
 }
 

@@ -25,9 +25,9 @@ import (
 
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -35,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
 
 const (
@@ -92,7 +93,7 @@ var epsilon = &types.BoolValue{Value: true}
 // including all RPCs defined in the protobuf spec.
 type APIServer struct {
 	env        *serviceenv.ServiceEnv
-	txnEnv     *transaction.TransactionEnv
+	txnEnv     *txnserver.TransactionEnv
 	pachLogger log.Logger
 
 	adminCache map[string]struct{} // cache of current cluster admins
@@ -162,7 +163,7 @@ func (a *APIServer) LogResp(request interface{}, response interface{}, err error
 // NewAuthServer returns an implementation of authclient.APIServer.
 func NewAuthServer(
 	env *serviceenv.ServiceEnv,
-	txnEnv *transaction.TransactionEnv,
+	txnEnv *txnserver.TransactionEnv,
 	etcdPrefix string,
 	public bool,
 ) (*APIServer, error) {
@@ -1239,7 +1240,7 @@ func (a *APIServer) SetScopeInTransaction(
 		_, err = a.txnEnv.PfsServer().InspectRepoInTransaction(
 			a.env.GetPachClient(ctx),
 			stm,
-			&pfs.InspectRepoRequest{Repo: req.Repo},
+			&pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}},
 		)
 		if err != nil {
 			return nil, err
@@ -1280,7 +1281,7 @@ func (a *APIServer) SetScopeInTransaction(
 		return nil, err
 	}
 	if !authorized {
-		return &authclient.ErrNotAuthorized{
+		return nil, &authclient.ErrNotAuthorized{
 			Subject:  callerInfo.Subject,
 			Repo:     req.Repo,
 			Required: authclient.Scope_OWNER,

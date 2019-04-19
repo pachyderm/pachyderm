@@ -7,11 +7,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
-	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"

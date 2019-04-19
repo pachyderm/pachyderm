@@ -9,13 +9,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
-	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
-	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs/server"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/transactiondb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-	ppsserver "github.com/pachyderm/pachyderm/src/server/pps/server"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/proto"

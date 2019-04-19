@@ -5,11 +5,13 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
 	env *serviceenv.ServiceEnv,
+	txnEnv *txnserver.TransactionEnv,
 	etcdPrefix string,
 	namespace string,
 	workerImage string,
@@ -32,6 +34,7 @@ func NewAPIServer(
 	apiServer := &APIServer{
 		Logger:                log.NewLogger("pps.API"),
 		env:                   env,
+		txnEnv:                txnEnv,
 		etcdPrefix:            etcdPrefix,
 		namespace:             namespace,
 		workerImage:           workerImage,

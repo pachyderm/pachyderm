@@ -4,6 +4,7 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
 
 // Valid object storage backends
@@ -21,8 +22,15 @@ type BlockAPIServer interface {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(env *serviceenv.ServiceEnv, etcdPrefix string, treeCache *hashtree.Cache, storageRoot string, memoryRequest int64) (*APIServer, error) {
-	return newAPIServer(env, etcdPrefix, treeCache, storageRoot, memoryRequest)
+func NewAPIServer(
+	env *serviceenv.ServiceEnv,
+	txnEnv *txnserver.TransactionEnv,
+	etcdPrefix string,
+	treeCache *hashtree.Cache,
+	storageRoot string,
+	memoryRequest int64,
+) (*APIServer, error) {
+	return newAPIServer(env, txnEnv, etcdPrefix, treeCache, storageRoot, memoryRequest)
 }
 
 // NewBlockAPIServer creates a BlockAPIServer using the credentials it finds in

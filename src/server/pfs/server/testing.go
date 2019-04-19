@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 	"google.golang.org/grpc"
 
 	"golang.org/x/net/context"
@@ -51,8 +52,12 @@ func generateRandomString(n int) string {
 
 // runServers starts serving requests for the given APIServer & blockAPIServer
 // in a separate goroutine. Helper for getPachClient()
-func runServers(t testing.TB, port int32, apiServer *APIServer,
-	blockAPIServer BlockAPIServer) {
+func runServers(
+	t testing.TB,
+	port int32,
+	apiServer *APIServer,
+	blockAPIServer BlockAPIServer,
+) {
 	ready := make(chan bool)
 	go func() {
 		err := grpcutil.Serve(
@@ -111,8 +116,11 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	if err != nil {
 		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
 	}
-	apiServer, err := newAPIServer(env, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
+	txnEnv := &txnserver.TransactionEnv{}
+	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
+	txnEnv.Initialize(&authtesting.InactiveAPIServer{}, apiServer, nil)
+
 	runServers(t, pfsPort, apiServer, blockAPIServer)
 	return env.GetPachClient(context.Background())
 }
