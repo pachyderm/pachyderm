@@ -1,4 +1,4 @@
-## ./pachctl unmount
+## pachctl unmount
 
 Unmount pfs.
 
@@ -8,7 +8,7 @@ Unmount pfs.
 Unmount pfs.
 
 ```
-./pachctl unmount path/to/mount/point
+pachctl unmount <path/to/mount/point>
 ```
 
 ### Options

@@ -1,4 +1,4 @@
-## ./pachctl auth deactivate
+## pachctl auth deactivate
 
 Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth
 
@@ -8,7 +8,7 @@ Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth
 Deactivate Pachyderm's auth system, which will delete ALL auth tokens, ACLs and admins, and expose all data in the cluster to any user with cluster access. Use with caution.
 
 ```
-./pachctl auth deactivate
+pachctl auth deactivate
 ```
 
 ### Options inherited from parent commands

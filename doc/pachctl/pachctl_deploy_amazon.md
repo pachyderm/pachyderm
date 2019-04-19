@@ -1,19 +1,17 @@
-## ./pachctl deploy amazon
+## pachctl deploy amazon
 
 Deploy a Pachyderm cluster running on AWS.
 
 ### Synopsis
 
 
-Deploy a Pachyderm cluster running on AWS. Arguments are:
-  <S3 bucket>: An S3 bucket where Pachyderm will store PFS data.
-
-  <region>: The aws region where pachyderm is being deployed (e.g. us-west-1)
-  <size of volumes>: Size of EBS volumes, in GB (assumed to all be the same).
-
+Deploy a Pachyderm cluster running on AWS.
+  <bucket-name>: An S3 bucket where Pachyderm will store PFS data.
+  <region>: The AWS region where Pachyderm is being deployed (e.g. us-west-1)
+  <disk-size>: Size of EBS volumes, in GB (assumed to all be the same).
 
 ```
-./pachctl deploy amazon <S3 bucket> <region> <size of volumes (in GB)>
+pachctl deploy amazon <bucket-name> <region> <disk-size>
 ```
 
 ### Options

@@ -1,4 +1,4 @@
-## ./pachctl auth get-config
+## pachctl auth get-config
 
 Retrieve Pachyderm's current auth configuration
 
@@ -8,7 +8,7 @@ Retrieve Pachyderm's current auth configuration
 Retrieve Pachyderm's current auth configuration
 
 ```
-./pachctl auth get-config
+pachctl auth get-config
 ```
 
 ### Options
