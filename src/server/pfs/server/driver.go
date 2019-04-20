@@ -301,6 +301,50 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 	return resp.Scopes[0], nil
 }
 
+func (d *driver) fsck(pachClient *client.APIClient) error {
+	ctx := pachClient.Ctx()
+	repos := d.repos.ReadOnly(ctx)
+
+	// collect all the info for the branches and commits in pfs
+	branchInfos := make([]*pfs.BranchInfo, 0, 10)
+	commitInfos := make([]*pfs.CommitInfo, 0, 100)
+	repoInfo := &pfs.RepoInfo{}
+	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
+		commits := d.commits(repoInfo.Repo.Name).ReadOnly(ctx)
+		commitInfo := &pfs.CommitInfo{}
+		if err := commits.List(commitInfo, col.DefaultOptions, func(commitName string) error {
+			commitInfos = append(commitInfos, commitInfo)
+			return nil
+		}); err != nil {
+			return err
+		}
+		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
+		branchInfo := &pfs.BranchInfo{}
+		if err := branches.List(branchInfo, col.DefaultOptions, func(branchName string) error {
+			branchInfos = append(branchInfos, branchInfo)
+			return nil
+		}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// for each branch
+	// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenance
+	// branch.Provenance = union(branch.DirectProvenance.Provenance, branch)
+	// 	if there is a HEAD commit
+	//	 	we expect the branch's provenance to equal the HEAD commit's provenance
+	//		A.Head is not nil and branch.Provenance contains the branch A iff branch.Head.Provenance contains A.Head
+
+	// for each commit
+	// 	we expect that the commit is in the subvenance of another commit iff the other commit is in our commit's provenance
+	//	commit.Provenance contains commit C iff C.Subvenance contains commit or C = commit
+
+	return nil
+}
+
 func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.ListRepoResponse, error) {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
