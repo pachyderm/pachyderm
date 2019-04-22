@@ -39,8 +39,8 @@ type Writer struct {
 	splitMask  uint64
 	dataRefs   []*DataRef
 	done       [][]*DataRef
-	rangeSize  uint64
-	rangeCount uint64
+	rangeSize  int64
+	rangeCount int64
 }
 
 // newWriter creates a new Writer.
@@ -69,27 +69,27 @@ func (w *Writer) RangeStart(cb func([]*DataRef) error) {
 	}
 	// Start new range.
 	w.cbs = append(w.cbs, cb)
-	w.dataRefs = []*DataRef{&DataRef{Offset: uint64(w.buf.Len())}}
+	w.dataRefs = []*DataRef{&DataRef{Offset: int64(w.buf.Len())}}
 	w.rangeSize = 0
 	w.rangeCount++
 }
 
 func (w *Writer) rangeFinish() {
 	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
-	lastDataRef.Size = uint64(w.buf.Len()) - lastDataRef.Offset
+	lastDataRef.Size = int64(w.buf.Len()) - lastDataRef.Offset
 	data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
 	lastDataRef.SubHash = hash.EncodeHash(hash.Sum(data))
 	w.done = append(w.done, w.dataRefs)
 }
 
 // RangeSize returns the size of the current range.
-func (w *Writer) RangeSize() uint64 {
+func (w *Writer) RangeSize() int64 {
 	return w.rangeSize
 }
 
 // RangeCount returns a count of the number of ranges associated with
 // the writer.
-func (w *Writer) RangeCount() uint64 {
+func (w *Writer) RangeCount() int64 {
 	return w.rangeCount
 }
 
@@ -113,7 +113,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 		}
 	}
 	w.buf.Write(data[offset:])
-	w.rangeSize += uint64(len(data))
+	w.rangeSize += int64(len(data))
 	return len(data), nil
 }
 
@@ -158,7 +158,7 @@ func (w *Writer) put() error {
 		data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
 		lastDataRef.SubHash = hash.EncodeHash(hash.Sum(data))
 	}
-	lastDataRef.Size = uint64(w.buf.Len()) - lastDataRef.Offset
+	lastDataRef.Size = int64(w.buf.Len()) - lastDataRef.Offset
 	// Setup DataRef for next chunk.
 	w.dataRefs = append(w.dataRefs, &DataRef{})
 	return nil
