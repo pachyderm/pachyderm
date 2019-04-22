@@ -19,7 +19,6 @@ type Reader struct {
 	dataRefs []*DataRef
 	curr     *DataRef
 	buf      *bytes.Buffer
-	chunk    []byte
 	r        io.Reader
 }
 
@@ -48,20 +47,20 @@ func (r *Reader) Read(data []byte) (int, error) {
 			}
 			// Get next chunk if necessary.
 			if r.curr == nil || r.curr.Hash != r.dataRefs[0].Hash {
-				if err := r.nextChunk(r.dataRefs[0].Hash); err != nil {
+				if err := r.readChunk(r.dataRefs[0].Hash); err != nil {
 					return totalRead, err
 				}
 			}
 			r.curr = r.dataRefs[0]
 			r.dataRefs = r.dataRefs[1:]
-			r.r = bytes.NewReader(r.chunk[r.curr.Offset : r.curr.Offset+r.curr.Size])
+			r.r = bytes.NewReader(r.buf.Bytes()[r.curr.Offset : r.curr.Offset+r.curr.Size])
 		}
 	}
 	return totalRead, nil
 
 }
 
-func (r *Reader) nextChunk(hash string) error {
+func (r *Reader) readChunk(hash string) error {
 	objR, err := r.objC.Reader(r.ctx, path.Join(r.prefix, hash), 0, 0)
 	if err != nil {
 		return err
@@ -78,7 +77,6 @@ func (r *Reader) nextChunk(hash string) error {
 	if _, err := io.CopyBuffer(r.buf, gzipR, buf); err != nil {
 		return err
 	}
-	r.chunk = r.buf.Bytes()
 	return nil
 }
 
