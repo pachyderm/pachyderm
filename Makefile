@@ -454,6 +454,10 @@ test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build
 
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
+	ag --version
+	ag 'enterprise-code-checkin-test:'; echo $$?
+	ag 'this-should-not-exist-anywhere'; echo $$?
+	ag --ignore=Makefile -p .gitignore 'RM2o1Qit6YlZhS1RGdXVac'; echo $$?
 	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
 	if ag --ignore=Makefile -p .gitignore 'RM2o1Qit6YlZhS1RGdXVac'; \
