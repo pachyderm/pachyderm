@@ -29,3 +29,6 @@ cost of having to do more merges for older commits.
   we will write a new merged fileset. If this new fileset is used in a later merge, then we can delete it if no checkpointing is involved.
 - Think about reference counters for chunks when designing this.
 - Maybe get rid of shards and do just a metadata merge at top level worker that farms out merging of data to workers.
+- I think we will still need to encode "/" as a zero value (whatever comes before any of the potential characters in our file paths) to ensure correct sorting/indexing.
+- Tar header with serialized FileInfo significantly bigger than sum of parts (512 bytes tar header and ~300 bytes for index FileInfo, but serialized header is ~1500 bytes).
+  May want to reconsider serializing FileInfo in tar header.

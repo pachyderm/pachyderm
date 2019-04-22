@@ -32,16 +32,17 @@ const (
 //   It doesn't make sense to roll the window over the same data twice.
 // - This does not work with the Max criteria, need to revisit.
 type Writer struct {
-	ctx       context.Context
-	objC      obj.Client
-	prefix    string
-	cbs       []func([]*DataRef) error
-	buf       *bytes.Buffer
-	hash      *buzhash64.Buzhash64
-	splitMask uint64
-	dataRefs  []*DataRef
-	done      [][]*DataRef
-	rangeSize uint64
+	ctx        context.Context
+	objC       obj.Client
+	prefix     string
+	cbs        []func([]*DataRef) error
+	buf        *bytes.Buffer
+	hash       *buzhash64.Buzhash64
+	splitMask  uint64
+	dataRefs   []*DataRef
+	done       [][]*DataRef
+	rangeSize  uint64
+	rangeCount uint64
 }
 
 // newWriter creates a new Writer.
@@ -72,6 +73,7 @@ func (w *Writer) RangeStart(cb func([]*DataRef) error) {
 	w.cbs = append(w.cbs, cb)
 	w.dataRefs = []*DataRef{&DataRef{Offset: uint64(w.buf.Len())}}
 	w.rangeSize = 0
+	w.rangeCount++
 }
 
 func (w *Writer) rangeFinish() {
@@ -84,6 +86,10 @@ func (w *Writer) rangeFinish() {
 
 func (w *Writer) RangeSize() uint64 {
 	return w.rangeSize
+}
+
+func (w *Writer) RangeCount() uint64 {
+	return w.rangeCount
 }
 
 // Write rolls through the data written, calling c.f when a chunk is found.

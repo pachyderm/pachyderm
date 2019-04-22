@@ -25,6 +25,7 @@ type Storage struct {
 
 func New(prefix string, memAvailable, diskAvailable, maxShares int64) *Storage {
 	// Setup obj storage client and shares.
+	// May make sense to instead use ServiceEnv here with obj client.
 }
 
 func (s *Storage) NewFileSet(name string, opts ...fileset.Option) *fileset.FileSet {

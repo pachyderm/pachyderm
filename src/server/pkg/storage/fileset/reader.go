@@ -2,29 +2,46 @@ package fileset
 
 import (
 	"archive/tar"
+	"context"
 	"io"
+
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
-// Reader is a wrapper for a tar reader that interprets
-// Pachyderm specific flags (particularly MergeType).
 type Reader struct {
-	r tar.Reader
+	ctx     context.Context
+	chunks  *chunk.Storage
+	idx     []*tar.Reader
+	hdrs    []*Header
+	content *tar.Reader
+	prefix  string
 }
 
-func NewReader(rs []io.Reader) *Reader {
-	if len(rs) == 1 {
-		// Just a reader
-	} else {
-		// Merge into reader
+func NewReader(ctx context.Context, chunks *chunk.Storage, r io.Reader, prefix string) *Reader {
+	return &Reader{
+		ctx:    ctx,
+		chunks: chunks,
+		trs:    []*tar.Reader{tar.NewReader(r)},
+		prefix: prefix,
 	}
 }
 
 func (r *Reader) Next() (*Header, error) {
-	// Next will interpret and apply Pachyderm
-	// specific flags, then return a header that
-	// should be useable by external programs.
+	lowestLevel := len(r.trs) - 1
+	hdr, err := r.trs[lowestLevel].Next()
+	if err != nil {
+		if err == io.EOF {
+
+		}
+		return nil, err
+	}
+	info, _ := hdr.PAXRecords[MetaKey]
+	for info.IdxRefs != nil {
+		r.trs = append(r.trs, tar.NewReader(r))
+	}
+	r.chunks.NewReader(r.ctx, info.IdxRefs.
 }
 
-func (r *Reader) Read(b []byte) (int, error) {
-	// Reads some content of a file.
+func (r *Reader) Read(data []byte) (int, error) {
+	return r.trs[len(r.trs)-1].Read(data)
 }

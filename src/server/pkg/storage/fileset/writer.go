@@ -1,33 +1,73 @@
-package files
+package fileset
 
 import (
 	"archive/tar"
+	"context"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
-// Writer is a wrapper for a tar writer that writes
-// Pachyderm specific flags.
+var (
+	// pad is used to pad chunk.WindowSize bytes between the prior file content and the next.
+	// The reason this is necessary is because we do not want the chunker to produce new
+	// chunks in the content due to changes in the metadata (this can happen when the window
+	// is sliding across the metadata/data boundary).
+	pad = make([]byte, chunk.WindowSize)
+)
+
+// Writer writes the serialized format of a fileset.
+// The serialized format of a fileset consists of indexes and content which are both realized as compressed tar stream chunks.
+// The headers of the files in the indexes contain additional metadata about the indexed files (offset, hash, etc.).
 type Writer struct {
-	r tar.Writer
-	// Generate index and chunks?
-	// Would need direct access to object storage and be able to page indexes
-	// out to object storage and understand the rolling hash.
+	cw  chunk.Writer
+	tw  tar.Writer
+	idx *IndexWriter
 }
 
-func NewWriter(client *obj.Client, prefix string) *Writer {
-	if len(rs) == 1 {
-		// Just a reader
-	} else {
-		// Merge into reader
-		// This would essentially function as the merge reader.
+// NewWriter creates a new Writer.
+func NewWriter(ctx context.Context, chunks *chunk.Storage) *Writer {
+	cw := chunks.NewWriter(ctx)
+	return &Writer{
+		cw:  cw,
+		tw:  tar.NewWriter(cw),
+		idx: index.NewWriter(ctx, chunks),
 	}
 }
 
-func (w *Writer) WriteHeader() error {
-
+// WriteHeader writes a tar header and prepares to accept the file's contents.
+func (w *Writer) WriteHeader(hdr *Header) error {
+	w.cw.RangeStart(callback(hdr))
+	if err := w.tw.Write(pad); err != nil {
+		return err
+	}
+	if err := w.tw.WriteHeader(hdr.hdr); err != nil {
+		return err
+	}
 }
 
-func (w *Writer) Write(b []byte) (int, error) {
+func (w *Writer) callback(hdr *Header) func([]*chunk.DataRef) error {
+	return func(dataRefs []*chunk.DataRef) error {
+		if hdr.info == nil {
+			hdr.info = &FileInfo{}
+		}
+		for _, dataRef := range dataRefs {
+			hdr.info.DataOps = append(hdr.info.DataOps, &DataOps{DataRef: dataRef})
+		}
+		return w.idx.WriteHeader(hdr)
+	}
+}
 
+// Write writes to the current file in the tar archive.
+func (w *Writer) Write(data []byte) (int, error) {
+	return w.tw.Write(data)
+}
+
+func (w *Writer) Close() (*Header, error) {
+	if err := w.cw.Close(); err != nil {
+		return nil, err
+	}
+	if err := w.tw.Close(); err != nil {
+		return nil, err
+	}
+	return w.idx.Close()
 }
