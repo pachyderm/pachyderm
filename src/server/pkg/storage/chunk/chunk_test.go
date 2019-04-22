@@ -24,7 +24,7 @@ func randSeq(n int) []byte {
 func TestWriteThenRead(t *testing.T) {
 	objC, chunks := LocalStorage(t)
 	defer func() {
-		require.NoError(t, chunks.Clear(context.Background()))
+		require.NoError(t, chunks.DeleteAll(context.Background()))
 		require.NoError(t, objC.Delete(context.Background(), Prefix))
 	}()
 	var finalDataRefs []*DataRef
@@ -50,7 +50,7 @@ func TestWriteThenRead(t *testing.T) {
 func BenchmarkWriter(b *testing.B) {
 	objC, chunks := LocalStorage(b)
 	defer func() {
-		require.NoError(b, chunks.Clear(context.Background()))
+		require.NoError(b, chunks.DeleteAll(context.Background()))
 		require.NoError(b, objC.Delete(context.Background(), Prefix))
 	}()
 	seq := randSeq(100 * MB)
