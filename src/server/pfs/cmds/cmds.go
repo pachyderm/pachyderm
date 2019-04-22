@@ -83,6 +83,9 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendCreateRepo(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.CreateRepo(c.Ctx(), request)
 			}
@@ -114,6 +117,9 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendCreateRepo(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.CreateRepo(c.Ctx(), request)
 			}
@@ -222,6 +228,9 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendDeleteRepo(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
 			}
@@ -289,6 +298,9 @@ $ {{alias}} test -p XXX`,
 				return err
 			} else if txn != nil {
 				commit, err = c.AppendStartCommit(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				commit, err = c.PfsAPIClient.StartCommit(c.Ctx(), request)
 			}
@@ -330,6 +342,9 @@ $ {{alias}} test -p XXX`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendFinishCommit(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), request)
 			}
@@ -567,6 +582,9 @@ $ {{alias}} test@master --new`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendDeleteCommit(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.DeleteCommit(c.Ctx(), request)
 			}
@@ -623,6 +641,9 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendCreateBranch(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.CreateBranch(c.Ctx(), request)
 			}
@@ -688,6 +709,9 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendDeleteBranch(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.DeleteBranch(c.Ctx(), request)
 			}
@@ -898,6 +922,9 @@ $ {{alias}} repo branch -i http://host/path`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendCopyFile(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.CopyFile(c.Ctx(), request)
 			}
@@ -1179,6 +1206,9 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				return err
 			} else if txn != nil {
 				_, err = c.AppendDeleteFile(txn, request)
+				if err == nil {
+					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
+				}
 			} else {
 				_, err = c.PfsAPIClient.DeleteFile(c.Ctx(), request)
 			}
