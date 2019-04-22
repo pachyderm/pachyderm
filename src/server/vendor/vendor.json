@@ -297,6 +297,12 @@
 			"revisionTime": "2016-08-04T10:47:26Z"
 		},
 		{
+			"checksumSHA1": "cPdURLra1Aeu4zuazCwS9yaFfno=",
+			"path": "github.com/chmduquesne/rollinghash",
+			"revision": "a60f8e7142b536ea61bb5d84014171189eeaaa81",
+			"revisionTime": "2018-09-12T15:06:27Z"
+		},
+		{
 			"checksumSHA1": "rdQofJKZ8RJh0DiwSkI2/E7NbSk=",
 			"path": "github.com/chmduquesne/rollinghash/buzhash64",
 			"revision": "a60f8e7142b536ea61bb5d84014171189eeaaa81",
