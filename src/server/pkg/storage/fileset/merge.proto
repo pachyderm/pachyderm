@@ -1,0 +1,11 @@
+// MergeLog is the log of trees that need to be merged
+// to get a full fileset.
+message MergeLog {
+        repeated MergeLogEntry entries
+}
+
+// MergeLogEntry has the path of a fileset and the size.
+message MergeLogEntry {
+        string path 
+	int64 size
+}

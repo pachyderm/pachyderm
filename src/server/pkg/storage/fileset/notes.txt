@@ -1,0 +1,34 @@
+- I am drawing a distinction between parts of a fileset and the merge log because I think it makes sense to require
+the full merging of data within a commit. The merge log will apply across commit boundaries. This also makes the finishing
+step a bit easier because we simply merge everything in memory and in the scratch space, then maybe merge with the parent commits
+based on some heuristics.
+- This should be used primarily for a fileset that requires Put/Overwrite/Delete operations (input repos, uploading datum/chunk data).
+For merging multiple serialized filesets, a Scratch and/or Merge operation should be used.
+- Example structure in object storage:
+/pfs/repo/commit/shard-0/fileset
+/pfs/repo/commit/shard-0/index
+/pfs/repo/commit/shard-0/mergelog
+/pfs/repo/commit/shard-1/fileset
+/pfs/repo/commit/shard-1/index
+/pfs/repo/commit/shard-1/mergelog
+/pfs/chunks/8cfd
+/pfs/chunks/ef7d
+/pfs/chunks/823a
+/pfs/chunks/b54d
+- Handling of shards will happen outside of the storage layer (does not make sense for storage layer to understand
+workers and how to filter chunk data from them)
+- Merging for downstream datums can take advantage of the fact that only the datums modified in the most recent input commit 
+should be getting processed. Some details about file deletions need to be taken into account.  
+- Keep checkpoint around (full merge) separate from output for the particular job. Can delete checkpoint to save space at the
+cost of having to do more merges for older commits.
+- The larger the metadata:data ratio gets, the more value we will get out of chunk compression in terms of metadata storage.
+  - Metadata should in general have highly compressable data (same user id, permissions, chunk references, padding).
+  - If the metadata:data ratio is small, then the value of compression goes down, but the metadata is smaller therefore it is not as valuable anyways.
+  - This is just a general note not to be too concerned with storing repeating metadata for each file.
+- At each commit, store the output of the commit. Merge log will point to prior commits. If merging a set of prior commits (small commits chosen by heuristic),
+  we will write a new merged fileset. If this new fileset is used in a later merge, then we can delete it if no checkpointing is involved.
+- Think about reference counters for chunks when designing this.
+- Maybe get rid of shards and do just a metadata merge at top level worker that farms out merging of data to workers.
+- I think we will still need to encode "/" as a zero value (whatever comes before any of the potential characters in our file paths) to ensure correct sorting/indexing.
+- Tar header with serialized FileInfo significantly bigger than sum of parts (512 bytes tar header and ~300 bytes for index FileInfo, but serialized header is ~1500 bytes).
+  May want to reconsider serializing FileInfo in tar header.
