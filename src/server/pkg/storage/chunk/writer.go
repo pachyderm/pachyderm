@@ -23,14 +23,12 @@ const (
 
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
-// A min/max chunk size is also enforced to avoid creating chunks that are too small/big.
 // (bryce) The chunking/hashing/uploading could be made concurrent by reading ahead a certain amount and splitting the data among chunking/hashing/uploading workers
 // in a circular array where the first identified chunk (or whole chunk if there is no chunk split point) in a worker is appended to the prior workers data. This would
 // handle chunk splits that show up when the rolling hash window is across the data splits. The callback would still be executed sequentially so that the order would be
 // correct for the file index.
 // - An improvement to this would be to just append WindowSize bytes to the prior worker's data, then stitch together the correct chunks.
 //   It doesn't make sense to roll the window over the same data twice.
-// - This does not work with the Max criteria, need to revisit.
 type Writer struct {
 	ctx        context.Context
 	objC       obj.Client
