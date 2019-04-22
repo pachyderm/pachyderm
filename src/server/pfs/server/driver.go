@@ -301,27 +301,37 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 	return resp.Scopes[0], nil
 }
 
+func equalBranchProvenance(a, b []*pfs.Branch) bool {
+	// check nil
+	// check length
+	// sort a and b
+	// dedup
+	// element-wise comparison
+	return true
+}
+
 func (d *driver) fsck(pachClient *client.APIClient) error {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
+	key := path.Join
 
 	// collect all the info for the branches and commits in pfs
-	branchInfos := make([]*pfs.BranchInfo, 0, 10)
-	commitInfos := make([]*pfs.CommitInfo, 0, 100)
+	branchInfos := make(map[string]*pfs.BranchInfo)
+	commitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
-		commits := d.commits(repoInfo.Repo.Name).ReadOnly(ctx)
+		commits := d.commits(repoName).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.List(commitInfo, col.DefaultOptions, func(commitName string) error {
-			commitInfos = append(commitInfos, commitInfo)
+			commitInfos[key(repoName, commitName)] = commitInfo
 			return nil
 		}); err != nil {
 			return err
 		}
-		branches := d.branches(repoInfo.Repo.Name).ReadOnly(ctx)
+		branches := d.branches(repoName).ReadOnly(ctx)
 		branchInfo := &pfs.BranchInfo{}
 		if err := branches.List(branchInfo, col.DefaultOptions, func(branchName string) error {
-			branchInfos = append(branchInfos, branchInfo)
+			branchInfos[key(repoName, branchName)] = branchInfo
 			return nil
 		}); err != nil {
 			return err
@@ -332,15 +342,137 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 	}
 
 	// for each branch
-	// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenance
-	// branch.Provenance = union(branch.DirectProvenance.Provenance, branch)
-	// 	if there is a HEAD commit
-	//	 	we expect the branch's provenance to equal the HEAD commit's provenance
-	//		A.Head is not nil and branch.Provenance contains the branch A iff branch.Head.Provenance contains A.Head
+	for _, bi := range branchInfos {
+		// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenance
+		// i.e. branch.Provenance = union(branch.DirectProvenance.Provenance, branch)
+		direct := bi.DirectProvenance
+		union := []*pfs.Branch{bi.Branch}
+		for _, directProvenance := range direct {
+			directProvenanceInfo := branchInfos[key(directProvenance.Repo.Name, directProvenance.Name)]
+			union = append(union, directProvenanceInfo.Provenance...)
+		}
+
+		if !equalBranchProvenance(bi.Provenance, union) {
+			return fmt.Errorf("")
+		}
+
+		// 	if there is a HEAD commit
+		if bi.Head != nil {
+			// we expect the branch's provenance to equal the HEAD commit's provenance
+			// i.e branch.Provenance contains the branch provBranch and provBranch.Head != nil iff branch.Head.Provenance contains provBranch.Head
+			// =>
+			for _, provBranch := range bi.Provenance {
+				provBranchInfo := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
+				if provBranchInfo.Head != nil {
+					// in this case, the headCommit Provenance should contain provBranch.Head
+					headCommitInfo := commitInfos[key(provBranchInfo.Head.Repo.Name, provBranchInfo.Head.ID)]
+					contains := false
+					for _, headProv := range headCommitInfo.Provenance {
+						if provBranchInfo.Head.Repo.Name == headProv.Commit.Repo.Name &&
+							provBranchInfo.Branch.Repo.Name == headProv.Branch.Repo.Name &&
+							provBranchInfo.Name == headProv.Branch.Name &&
+							provBranchInfo.Head.ID == headProv.Commit.ID {
+							contains = true
+						}
+					}
+					if !contains {
+						return fmt.Errorf("")
+					}
+				}
+			}
+			// <=
+			headCommitInfo := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
+			for _, headProv := range headCommitInfo.Provenance {
+				contains := false
+				for _, provBranch := range bi.Provenance {
+					provBranchInfo := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
+					if headProv.Branch.Repo.Name == provBranchInfo.Branch.Repo.Name &&
+						headProv.Branch.Name == provBranchInfo.Branch.Name {
+						if provBranchInfo.Head == nil {
+							return fmt.Errorf("")
+						}
+						contains = true
+					}
+				}
+				if !contains {
+					return fmt.Errorf("")
+				}
+			}
+		}
+	}
 
 	// for each commit
-	// 	we expect that the commit is in the subvenance of another commit iff the other commit is in our commit's provenance
-	//	commit.Provenance contains commit C iff C.Subvenance contains commit or C = commit
+	for _, ci := range commitInfos {
+		// we expect that the commit is in the subvenance of another commit iff the other commit is in our commit's provenance
+		// i.e. commit.Provenance contains commit C iff C.Subvenance contains commit or C = commit
+		// =>
+		for _, subvRange := range ci.Subvenance {
+			subvCommit := subvRange.Upper
+			// loop through the subvenance range
+			for {
+				contains := false
+				if subvCommit == nil {
+					return fmt.Errorf("")
+				}
+				subvCommitInfo := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
+				if ci.Commit.ID == subvCommit.ID {
+					contains = true
+				}
+				for _, subvProv := range subvCommitInfo.Provenance {
+					if ci.Commit.Repo.Name == subvProv.Commit.Repo.Name &&
+						ci.Commit.ID == subvProv.Commit.ID {
+						contains = true
+					}
+				}
+
+				if !contains {
+					return fmt.Errorf("")
+				}
+
+				if subvCommit.ID == subvRange.Lower.ID {
+					break // check at the end of the loop so we fsck 'lower' too (inclusive range)
+				}
+				subvCommit = subvCommitInfo.ParentCommit
+			}
+		}
+		// <=
+		for _, prov := range ci.Provenance {
+			// not part of the above invariant, but we want to make sure provenance is self-consistent
+			if prov.Commit.Repo.Name != prov.Branch.Repo.Name {
+				return fmt.Errorf("")
+			}
+
+			if prov.Commit.ID == ci.Commit.ID {
+				continue
+			}
+			contains := false
+			provCommitInfo := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
+
+			for _, subvRange := range provCommitInfo.Subvenance {
+				subvCommit := subvRange.Upper
+				// loop through the subvenance range
+				for {
+					if subvCommit == nil {
+						return fmt.Errorf("")
+					}
+					subvCommitInfo := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
+
+					if ci.Commit.ID == subvCommit.ID {
+						contains = true
+					}
+
+					if subvCommit.ID == subvRange.Lower.ID {
+						break // check at the end of the loop so we fsck 'lower' too (inclusive range)
+					}
+					subvCommit = subvCommitInfo.ParentCommit
+				}
+			}
+
+			if !contains {
+				return fmt.Errorf("")
+			}
+		}
+	}
 
 	return nil
 }
@@ -928,7 +1060,7 @@ nextSubvBranch:
 			for _, v := range commitProvMap {
 				matched := false
 				for _, c := range branchHeadInfo.Provenance {
-					if c.Commit.ID == v.Commit.ID {
+					if c.Commit.ID == v.Commit.ID && c.Branch.Name == v.Branch.Name {
 						matched = true
 					}
 				}
