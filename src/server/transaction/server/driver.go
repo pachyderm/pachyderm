@@ -35,14 +35,12 @@ type driver struct {
 	memoryLimiter *semaphore.Weighted
 }
 
-// newDriver
 func newDriver(
 	env *serviceenv.ServiceEnv,
 	txnEnv *TransactionEnv,
 	etcdPrefix string,
 	memoryRequest int64,
 ) (*driver, error) {
-	// Initialize driver
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
 		txnEnv:       txnEnv,
@@ -116,6 +114,26 @@ func (d *driver) listTransaction(pachClient *client.APIClient) ([]*transaction.T
 	return result, nil
 }
 
+// deleteAll deletes all transactions from etcd except the currently running
+// transaction (if any).
+func (d *driver) deleteAll(pachClient *client.APIClient, stm col.STM, running *transaction.Transaction) error {
+	txns, err := d.listTransaction(pachClient)
+	if err != nil {
+		return err
+	}
+
+	transactions := d.transactions.ReadWrite(stm)
+	for _, info := range txns {
+		if running == nil || info.Transaction.ID != running.ID {
+			err := transactions.Delete(info.Transaction.ID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	responses := []*transaction.TransactionResponse{}
 	for i, request := range info.Requests {
@@ -163,6 +181,12 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 		case *transaction.TransactionRequest_DeleteFile:
 			err = d.txnEnv.PfsServer().DeleteFileInTransaction(pachClient, stm, x.DeleteFile)
 			response = client.NewEmptyResponse()
+		case *transaction.TransactionRequest_DeleteAll:
+			// TODO: extend this to delete everything through PFS, PPS, Auth and
+			// update the client DeleteAll call to use only this, then remove unused
+			// RPCs.
+			err = d.deleteAll(pachClient, stm, info.Transaction)
+			response = client.NewEmptyResponse()
 		default:
 			err = fmt.Errorf("unrecognized transaction request type")
 		}
@@ -174,7 +198,6 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 		responses = append(responses, response)
 	}
 
-	// TODO: check that responses match the cached responses in the transaction info
 	info.Responses = responses
 	return info, nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
+	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 
@@ -105,4 +106,18 @@ func (a *apiServer) AppendTransaction(ctx context.Context, request *transaction.
 	}
 
 	return info, nil
+}
+
+func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAllRequest) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		return a.driver.deleteAll(a.env.GetPachClient(ctx), stm, nil)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
 }

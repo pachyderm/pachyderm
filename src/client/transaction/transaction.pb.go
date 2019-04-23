@@ -10,7 +10,6 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
-	pps "github.com/pachyderm/pachyderm/src/client/pps"
 	grpc "google.golang.org/grpc"
 	io "io"
 	math "math"
@@ -27,6 +26,45 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type DeleteAllRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *DeleteAllRequest) Reset()         { *m = DeleteAllRequest{} }
+func (m *DeleteAllRequest) String() string { return proto.CompactTextString(m) }
+func (*DeleteAllRequest) ProtoMessage()    {}
+func (*DeleteAllRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_363f2adee3615c0c, []int{0}
+}
+func (m *DeleteAllRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *DeleteAllRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_DeleteAllRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *DeleteAllRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_DeleteAllRequest.Merge(m, src)
+}
+func (m *DeleteAllRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *DeleteAllRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_DeleteAllRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_DeleteAllRequest proto.InternalMessageInfo
+
 type TransactionRequest struct {
 	// Types that are valid to be assigned to Request:
 	//	*TransactionRequest_CreateRepo
@@ -36,11 +74,9 @@ type TransactionRequest struct {
 	//	*TransactionRequest_DeleteCommit
 	//	*TransactionRequest_CreateBranch
 	//	*TransactionRequest_DeleteBranch
-	//	*TransactionRequest_PutFile
 	//	*TransactionRequest_CopyFile
 	//	*TransactionRequest_DeleteFile
 	//	*TransactionRequest_DeleteAll
-	//	*TransactionRequest_CreatePipeline
 	Request              isTransactionRequest_Request `protobuf_oneof:"request"`
 	XXX_NoUnkeyedLiteral struct{}                     `json:"-"`
 	XXX_unrecognized     []byte                       `json:"-"`
@@ -51,7 +87,7 @@ func (m *TransactionRequest) Reset()         { *m = TransactionRequest{} }
 func (m *TransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*TransactionRequest) ProtoMessage()    {}
 func (*TransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{0}
+	return fileDescriptor_363f2adee3615c0c, []int{1}
 }
 func (m *TransactionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -107,34 +143,26 @@ type TransactionRequest_CreateBranch struct {
 type TransactionRequest_DeleteBranch struct {
 	DeleteBranch *pfs.DeleteBranchRequest `protobuf:"bytes,7,opt,name=delete_branch,json=deleteBranch,proto3,oneof"`
 }
-type TransactionRequest_PutFile struct {
-	PutFile *pfs.PutFileRequest `protobuf:"bytes,8,opt,name=put_file,json=putFile,proto3,oneof"`
-}
 type TransactionRequest_CopyFile struct {
-	CopyFile *pfs.CopyFileRequest `protobuf:"bytes,9,opt,name=copy_file,json=copyFile,proto3,oneof"`
+	CopyFile *pfs.CopyFileRequest `protobuf:"bytes,8,opt,name=copy_file,json=copyFile,proto3,oneof"`
 }
 type TransactionRequest_DeleteFile struct {
-	DeleteFile *pfs.DeleteFileRequest `protobuf:"bytes,10,opt,name=delete_file,json=deleteFile,proto3,oneof"`
+	DeleteFile *pfs.DeleteFileRequest `protobuf:"bytes,9,opt,name=delete_file,json=deleteFile,proto3,oneof"`
 }
 type TransactionRequest_DeleteAll struct {
-	DeleteAll *types.Empty `protobuf:"bytes,11,opt,name=delete_all,json=deleteAll,proto3,oneof"`
-}
-type TransactionRequest_CreatePipeline struct {
-	CreatePipeline *pps.CreatePipelineRequest `protobuf:"bytes,12,opt,name=create_pipeline,json=createPipeline,proto3,oneof"`
+	DeleteAll *DeleteAllRequest `protobuf:"bytes,10,opt,name=delete_all,json=deleteAll,proto3,oneof"`
 }
 
-func (*TransactionRequest_CreateRepo) isTransactionRequest_Request()     {}
-func (*TransactionRequest_DeleteRepo) isTransactionRequest_Request()     {}
-func (*TransactionRequest_StartCommit) isTransactionRequest_Request()    {}
-func (*TransactionRequest_FinishCommit) isTransactionRequest_Request()   {}
-func (*TransactionRequest_DeleteCommit) isTransactionRequest_Request()   {}
-func (*TransactionRequest_CreateBranch) isTransactionRequest_Request()   {}
-func (*TransactionRequest_DeleteBranch) isTransactionRequest_Request()   {}
-func (*TransactionRequest_PutFile) isTransactionRequest_Request()        {}
-func (*TransactionRequest_CopyFile) isTransactionRequest_Request()       {}
-func (*TransactionRequest_DeleteFile) isTransactionRequest_Request()     {}
-func (*TransactionRequest_DeleteAll) isTransactionRequest_Request()      {}
-func (*TransactionRequest_CreatePipeline) isTransactionRequest_Request() {}
+func (*TransactionRequest_CreateRepo) isTransactionRequest_Request()   {}
+func (*TransactionRequest_DeleteRepo) isTransactionRequest_Request()   {}
+func (*TransactionRequest_StartCommit) isTransactionRequest_Request()  {}
+func (*TransactionRequest_FinishCommit) isTransactionRequest_Request() {}
+func (*TransactionRequest_DeleteCommit) isTransactionRequest_Request() {}
+func (*TransactionRequest_CreateBranch) isTransactionRequest_Request() {}
+func (*TransactionRequest_DeleteBranch) isTransactionRequest_Request() {}
+func (*TransactionRequest_CopyFile) isTransactionRequest_Request()     {}
+func (*TransactionRequest_DeleteFile) isTransactionRequest_Request()   {}
+func (*TransactionRequest_DeleteAll) isTransactionRequest_Request()    {}
 
 func (m *TransactionRequest) GetRequest() isTransactionRequest_Request {
 	if m != nil {
@@ -192,13 +220,6 @@ func (m *TransactionRequest) GetDeleteBranch() *pfs.DeleteBranchRequest {
 	return nil
 }
 
-func (m *TransactionRequest) GetPutFile() *pfs.PutFileRequest {
-	if x, ok := m.GetRequest().(*TransactionRequest_PutFile); ok {
-		return x.PutFile
-	}
-	return nil
-}
-
 func (m *TransactionRequest) GetCopyFile() *pfs.CopyFileRequest {
 	if x, ok := m.GetRequest().(*TransactionRequest_CopyFile); ok {
 		return x.CopyFile
@@ -213,16 +234,9 @@ func (m *TransactionRequest) GetDeleteFile() *pfs.DeleteFileRequest {
 	return nil
 }
 
-func (m *TransactionRequest) GetDeleteAll() *types.Empty {
+func (m *TransactionRequest) GetDeleteAll() *DeleteAllRequest {
 	if x, ok := m.GetRequest().(*TransactionRequest_DeleteAll); ok {
 		return x.DeleteAll
-	}
-	return nil
-}
-
-func (m *TransactionRequest) GetCreatePipeline() *pps.CreatePipelineRequest {
-	if x, ok := m.GetRequest().(*TransactionRequest_CreatePipeline); ok {
-		return x.CreatePipeline
 	}
 	return nil
 }
@@ -237,11 +251,9 @@ func (*TransactionRequest) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Bu
 		(*TransactionRequest_DeleteCommit)(nil),
 		(*TransactionRequest_CreateBranch)(nil),
 		(*TransactionRequest_DeleteBranch)(nil),
-		(*TransactionRequest_PutFile)(nil),
 		(*TransactionRequest_CopyFile)(nil),
 		(*TransactionRequest_DeleteFile)(nil),
 		(*TransactionRequest_DeleteAll)(nil),
-		(*TransactionRequest_CreatePipeline)(nil),
 	}
 }
 
@@ -284,29 +296,19 @@ func _TransactionRequest_OneofMarshaler(msg proto.Message, b *proto.Buffer) erro
 		if err := b.EncodeMessage(x.DeleteBranch); err != nil {
 			return err
 		}
-	case *TransactionRequest_PutFile:
-		_ = b.EncodeVarint(8<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.PutFile); err != nil {
-			return err
-		}
 	case *TransactionRequest_CopyFile:
-		_ = b.EncodeVarint(9<<3 | proto.WireBytes)
+		_ = b.EncodeVarint(8<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.CopyFile); err != nil {
 			return err
 		}
 	case *TransactionRequest_DeleteFile:
-		_ = b.EncodeVarint(10<<3 | proto.WireBytes)
+		_ = b.EncodeVarint(9<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.DeleteFile); err != nil {
 			return err
 		}
 	case *TransactionRequest_DeleteAll:
-		_ = b.EncodeVarint(11<<3 | proto.WireBytes)
+		_ = b.EncodeVarint(10<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.DeleteAll); err != nil {
-			return err
-		}
-	case *TransactionRequest_CreatePipeline:
-		_ = b.EncodeVarint(12<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.CreatePipeline); err != nil {
 			return err
 		}
 	case nil:
@@ -375,15 +377,7 @@ func _TransactionRequest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *p
 		err := b.DecodeMessage(msg)
 		m.Request = &TransactionRequest_DeleteBranch{msg}
 		return true, err
-	case 8: // request.put_file
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pfs.PutFileRequest)
-		err := b.DecodeMessage(msg)
-		m.Request = &TransactionRequest_PutFile{msg}
-		return true, err
-	case 9: // request.copy_file
+	case 8: // request.copy_file
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -391,7 +385,7 @@ func _TransactionRequest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *p
 		err := b.DecodeMessage(msg)
 		m.Request = &TransactionRequest_CopyFile{msg}
 		return true, err
-	case 10: // request.delete_file
+	case 9: // request.delete_file
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
@@ -399,21 +393,13 @@ func _TransactionRequest_OneofUnmarshaler(msg proto.Message, tag, wire int, b *p
 		err := b.DecodeMessage(msg)
 		m.Request = &TransactionRequest_DeleteFile{msg}
 		return true, err
-	case 11: // request.delete_all
+	case 10: // request.delete_all
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
-		msg := new(types.Empty)
+		msg := new(DeleteAllRequest)
 		err := b.DecodeMessage(msg)
 		m.Request = &TransactionRequest_DeleteAll{msg}
-		return true, err
-	case 12: // request.create_pipeline
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(pps.CreatePipelineRequest)
-		err := b.DecodeMessage(msg)
-		m.Request = &TransactionRequest_CreatePipeline{msg}
 		return true, err
 	default:
 		return false, nil
@@ -459,11 +445,6 @@ func _TransactionRequest_OneofSizer(msg proto.Message) (n int) {
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *TransactionRequest_PutFile:
-		s := proto.Size(x.PutFile)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
 	case *TransactionRequest_CopyFile:
 		s := proto.Size(x.CopyFile)
 		n += 1 // tag and wire
@@ -476,11 +457,6 @@ func _TransactionRequest_OneofSizer(msg proto.Message) (n int) {
 		n += s
 	case *TransactionRequest_DeleteAll:
 		s := proto.Size(x.DeleteAll)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TransactionRequest_CreatePipeline:
-		s := proto.Size(x.CreatePipeline)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
@@ -505,7 +481,7 @@ func (m *TransactionResponse) Reset()         { *m = TransactionResponse{} }
 func (m *TransactionResponse) String() string { return proto.CompactTextString(m) }
 func (*TransactionResponse) ProtoMessage()    {}
 func (*TransactionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{1}
+	return fileDescriptor_363f2adee3615c0c, []int{2}
 }
 func (m *TransactionResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -656,7 +632,7 @@ func (m *Transaction) Reset()         { *m = Transaction{} }
 func (m *Transaction) String() string { return proto.CompactTextString(m) }
 func (*Transaction) ProtoMessage()    {}
 func (*Transaction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{2}
+	return fileDescriptor_363f2adee3615c0c, []int{3}
 }
 func (m *Transaction) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -706,7 +682,7 @@ func (m *TransactionInfo) Reset()         { *m = TransactionInfo{} }
 func (m *TransactionInfo) String() string { return proto.CompactTextString(m) }
 func (*TransactionInfo) ProtoMessage()    {}
 func (*TransactionInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{3}
+	return fileDescriptor_363f2adee3615c0c, []int{4}
 }
 func (m *TransactionInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -774,7 +750,7 @@ func (m *TransactionInfos) Reset()         { *m = TransactionInfos{} }
 func (m *TransactionInfos) String() string { return proto.CompactTextString(m) }
 func (*TransactionInfos) ProtoMessage()    {}
 func (*TransactionInfos) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{4}
+	return fileDescriptor_363f2adee3615c0c, []int{5}
 }
 func (m *TransactionInfos) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -820,7 +796,7 @@ func (m *StartTransactionRequest) Reset()         { *m = StartTransactionRequest
 func (m *StartTransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*StartTransactionRequest) ProtoMessage()    {}
 func (*StartTransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{5}
+	return fileDescriptor_363f2adee3615c0c, []int{6}
 }
 func (m *StartTransactionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -860,7 +836,7 @@ func (m *InspectTransactionRequest) Reset()         { *m = InspectTransactionReq
 func (m *InspectTransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*InspectTransactionRequest) ProtoMessage()    {}
 func (*InspectTransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{6}
+	return fileDescriptor_363f2adee3615c0c, []int{7}
 }
 func (m *InspectTransactionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -907,7 +883,7 @@ func (m *DeleteTransactionRequest) Reset()         { *m = DeleteTransactionReque
 func (m *DeleteTransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*DeleteTransactionRequest) ProtoMessage()    {}
 func (*DeleteTransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{7}
+	return fileDescriptor_363f2adee3615c0c, []int{8}
 }
 func (m *DeleteTransactionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -953,7 +929,7 @@ func (m *ListTransactionRequest) Reset()         { *m = ListTransactionRequest{}
 func (m *ListTransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*ListTransactionRequest) ProtoMessage()    {}
 func (*ListTransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{8}
+	return fileDescriptor_363f2adee3615c0c, []int{9}
 }
 func (m *ListTransactionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -993,7 +969,7 @@ func (m *FinishTransactionRequest) Reset()         { *m = FinishTransactionReque
 func (m *FinishTransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*FinishTransactionRequest) ProtoMessage()    {}
 func (*FinishTransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{9}
+	return fileDescriptor_363f2adee3615c0c, []int{10}
 }
 func (m *FinishTransactionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1041,7 +1017,7 @@ func (m *AppendTransactionRequest) Reset()         { *m = AppendTransactionReque
 func (m *AppendTransactionRequest) String() string { return proto.CompactTextString(m) }
 func (*AppendTransactionRequest) ProtoMessage()    {}
 func (*AppendTransactionRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_363f2adee3615c0c, []int{10}
+	return fileDescriptor_363f2adee3615c0c, []int{11}
 }
 func (m *AppendTransactionRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1085,6 +1061,7 @@ func (m *AppendTransactionRequest) GetItems() []*TransactionRequest {
 }
 
 func init() {
+	proto.RegisterType((*DeleteAllRequest)(nil), "transaction.DeleteAllRequest")
 	proto.RegisterType((*TransactionRequest)(nil), "transaction.TransactionRequest")
 	proto.RegisterType((*TransactionResponse)(nil), "transaction.TransactionResponse")
 	proto.RegisterType((*Transaction)(nil), "transaction.Transaction")
@@ -1103,60 +1080,58 @@ func init() {
 }
 
 var fileDescriptor_363f2adee3615c0c = []byte{
-	// 848 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0xdd, 0x6e, 0xe3, 0x44,
-	0x18, 0x75, 0xd2, 0x9f, 0x24, 0x9f, 0x0b, 0x69, 0x67, 0x57, 0x5d, 0xaf, 0x81, 0xb4, 0x32, 0x5b,
-	0xb4, 0x17, 0x28, 0x41, 0x5d, 0x56, 0x88, 0x1f, 0x81, 0x9a, 0xfd, 0x6b, 0x24, 0x2e, 0x2a, 0x13,
-	0xed, 0x4a, 0x05, 0x29, 0x72, 0xec, 0x49, 0x32, 0x92, 0xe3, 0x19, 0x3c, 0x13, 0x50, 0xee, 0x78,
-	0x01, 0xee, 0xb9, 0xe4, 0x71, 0xb8, 0xe4, 0x09, 0x10, 0x0a, 0x4f, 0xc1, 0x1d, 0xf2, 0xcc, 0x24,
-	0x19, 0xdb, 0xf5, 0x2e, 0xd2, 0xf6, 0x22, 0x92, 0x7b, 0xbe, 0xef, 0x9c, 0x39, 0xf3, 0xcd, 0x99,
-	0x51, 0xe1, 0x41, 0x18, 0x13, 0x9c, 0x88, 0x9e, 0x48, 0x83, 0x84, 0x07, 0xa1, 0x20, 0x34, 0x31,
-	0xbf, 0xbb, 0x2c, 0xa5, 0x82, 0x22, 0xdb, 0x80, 0xdc, 0xf7, 0xa6, 0x94, 0x4e, 0x63, 0xdc, 0x93,
-	0xa5, 0xf1, 0x62, 0xd2, 0xc3, 0x73, 0x26, 0x96, 0xaa, 0xd3, 0x3d, 0x29, 0x16, 0x05, 0x99, 0x63,
-	0x2e, 0x82, 0x39, 0xd3, 0x0d, 0x9d, 0x62, 0xc3, 0xcf, 0x69, 0xc0, 0x18, 0x4e, 0xb9, 0xae, 0xdf,
-	0x9d, 0xd2, 0x29, 0x95, 0x9f, 0xbd, 0xec, 0x6b, 0x8d, 0x6a, 0x9b, 0x6c, 0xc2, 0xb3, 0x5f, 0x11,
-	0x65, 0x3c, 0xfb, 0x29, 0xd4, 0xfb, 0x77, 0x0f, 0xd0, 0x70, 0xeb, 0xd7, 0xc7, 0x3f, 0x2e, 0x30,
-	0x17, 0xe8, 0x73, 0xb0, 0xc3, 0x14, 0x07, 0x02, 0x8f, 0x52, 0xcc, 0xa8, 0x53, 0x3b, 0xad, 0x3d,
-	0xb4, 0xcf, 0x8f, 0xbb, 0x99, 0xda, 0x13, 0x89, 0xfb, 0x98, 0x51, 0xdd, 0x7c, 0x69, 0xf9, 0x10,
-	0x6e, 0xc0, 0x8c, 0x1a, 0xe1, 0x18, 0xaf, 0xa9, 0x75, 0x83, 0xfa, 0x54, 0xe2, 0x05, 0x6a, 0xb4,
-	0x01, 0xd1, 0x57, 0x70, 0xc0, 0x45, 0x90, 0x8a, 0x51, 0x48, 0xe7, 0x73, 0x22, 0x9c, 0x1d, 0xc9,
-	0xbd, 0x27, 0xb9, 0xdf, 0x65, 0x85, 0x27, 0x12, 0xdf, 0x92, 0x6d, 0xbe, 0x45, 0xd1, 0x37, 0xf0,
-	0xce, 0x84, 0x24, 0x84, 0xcf, 0xd6, 0xf4, 0x5d, 0x49, 0x77, 0x24, 0xfd, 0xb9, 0xac, 0x14, 0xf9,
-	0x07, 0x13, 0x03, 0xce, 0x04, 0xb4, 0x73, 0x2d, 0xb0, 0x67, 0x08, 0x28, 0xef, 0x25, 0x81, 0xc8,
-	0x80, 0x33, 0x01, 0x3d, 0xb5, 0x71, 0x1a, 0x24, 0xe1, 0xcc, 0xd9, 0x37, 0x04, 0xd4, 0xdc, 0xfa,
-	0xb2, 0x60, 0x08, 0x84, 0x06, 0x6c, 0x38, 0xd0, 0x02, 0x8d, 0x92, 0x83, 0x92, 0x40, 0x64, 0xc0,
-	0xe8, 0x13, 0x68, 0xb2, 0x85, 0x18, 0x4d, 0x48, 0x8c, 0x9d, 0xa6, 0xe4, 0xde, 0x91, 0xdc, 0xab,
-	0x85, 0x78, 0x4e, 0x62, 0xbc, 0xa5, 0x35, 0x98, 0x42, 0xd0, 0x23, 0x68, 0x85, 0x94, 0x2d, 0x15,
-	0xa5, 0x25, 0x29, 0x77, 0x95, 0x5f, 0xca, 0x96, 0x79, 0x4e, 0x33, 0xd4, 0x90, 0x71, 0xc6, 0x92,
-	0x06, 0xa5, 0x33, 0xce, 0x13, 0xf5, 0x19, 0x4b, 0xea, 0x67, 0xa0, 0xff, 0x1a, 0x05, 0x71, 0xec,
-	0xd8, 0x9a, 0xa9, 0x72, 0xde, 0x5d, 0xe7, 0xbc, 0xfb, 0x2c, 0xbb, 0x25, 0x97, 0x96, 0xdf, 0x52,
-	0xbd, 0x17, 0x71, 0x8c, 0x9e, 0x41, 0x5b, 0x0f, 0x97, 0x11, 0x86, 0x63, 0x92, 0x60, 0xe7, 0x40,
-	0xb2, 0xdd, 0x6e, 0x16, 0x67, 0x35, 0xde, 0x2b, 0x5d, 0xda, 0xae, 0xfd, 0x6e, 0x98, 0x2b, 0xf4,
-	0x5b, 0xd0, 0x48, 0x55, 0xd1, 0xfb, 0x09, 0xee, 0xe4, 0xa2, 0xcf, 0x19, 0x4d, 0x38, 0x46, 0x1f,
-	0xc3, 0x6e, 0x42, 0x13, 0xbc, 0x09, 0x7d, 0x95, 0x37, 0xd9, 0x85, 0xce, 0x60, 0x5f, 0xa7, 0x45,
-	0x25, 0xdd, 0xd6, 0xc3, 0xcb, 0xa0, 0x4b, 0xcb, 0xd7, 0xc5, 0x3e, 0x40, 0x33, 0xd5, 0x0b, 0x78,
-	0x67, 0x60, 0x1b, 0xeb, 0xa2, 0x63, 0xa8, 0x93, 0x48, 0xae, 0xd6, 0xea, 0xef, 0xaf, 0xfe, 0x3a,
-	0xa9, 0x0f, 0x9e, 0xfa, 0x75, 0x12, 0x79, 0xbf, 0xd4, 0xa1, 0x6d, 0xf4, 0x0d, 0x92, 0x09, 0x45,
-	0x5f, 0x80, 0xf9, 0xba, 0x68, 0x8b, 0x4e, 0xd7, 0x7c, 0x84, 0xcc, 0x2d, 0x99, 0xcd, 0xe8, 0xcb,
-	0xcc, 0x82, 0xdc, 0x39, 0x77, 0xea, 0xa7, 0x3b, 0x0f, 0xed, 0xf3, 0x93, 0x4a, 0xa2, 0xea, 0xf3,
-	0x37, 0x04, 0xf4, 0x35, 0xb4, 0xd6, 0xfe, 0xb9, 0xb3, 0x23, 0xd9, 0xa7, 0xd5, 0x6c, 0xd5, 0xe8,
-	0x6f, 0x29, 0xe8, 0x53, 0x68, 0xc8, 0xbb, 0x8a, 0x23, 0x7d, 0x2d, 0xdd, 0xd2, 0x5c, 0x87, 0xeb,
-	0xc7, 0xcf, 0x5f, 0xb7, 0x7a, 0xdf, 0xc3, 0x61, 0x61, 0x02, 0x1c, 0xbd, 0x80, 0x43, 0x63, 0xdd,
-	0x11, 0x49, 0x26, 0xd9, 0xfb, 0x94, 0x19, 0x7a, 0xbf, 0xca, 0x50, 0x46, 0xf4, 0xdb, 0x22, 0x0f,
-	0x78, 0xf7, 0xe1, 0x9e, 0x7c, 0x54, 0xca, 0xfb, 0xf6, 0x5e, 0xc1, 0xfd, 0x41, 0xc2, 0x19, 0x0e,
-	0x6f, 0x28, 0xbe, 0xcd, 0x19, 0x78, 0x2f, 0xc1, 0x51, 0x17, 0xe4, 0x96, 0x75, 0x1d, 0x38, 0xfe,
-	0x96, 0xf0, 0x9b, 0xb6, 0xf2, 0x12, 0x1c, 0xf5, 0xf6, 0xdd, 0xf2, 0x8a, 0xbf, 0xd6, 0xc0, 0xb9,
-	0x60, 0x0c, 0x27, 0xd1, 0xed, 0x0a, 0xa3, 0xc7, 0xb0, 0x47, 0x04, 0x9e, 0xff, 0xef, 0x8c, 0xaa,
-	0xee, 0xf3, 0xdf, 0x77, 0x61, 0xe7, 0xe2, 0x6a, 0x80, 0x86, 0x70, 0x58, 0x3c, 0x55, 0xf4, 0x20,
-	0xa7, 0x51, 0x71, 0xe8, 0x6e, 0xa5, 0x3f, 0xcf, 0x42, 0x3f, 0x00, 0x2a, 0x07, 0x02, 0x7d, 0x94,
-	0x63, 0x54, 0x26, 0xc6, 0x7d, 0x6d, 0x30, 0x3d, 0x0b, 0x0d, 0xe1, 0xa8, 0x94, 0x0a, 0x74, 0x96,
-	0x23, 0x55, 0xa5, 0xc6, 0xad, 0x78, 0x9f, 0x3c, 0x0b, 0xbd, 0x82, 0x76, 0x21, 0x13, 0xe8, 0xc3,
-	0x9c, 0xe6, 0xcd, 0x89, 0x71, 0x3f, 0x78, 0x9d, 0x5b, 0xee, 0x59, 0xe8, 0x1a, 0x8e, 0x4a, 0x91,
-	0x2a, 0xd8, 0xad, 0x8a, 0xdc, 0x1b, 0x47, 0x71, 0x0d, 0x47, 0xa5, 0x54, 0x15, 0xb4, 0xab, 0x52,
-	0xf7, 0x26, 0xed, 0xfe, 0x8b, 0x3f, 0x56, 0x9d, 0xda, 0x9f, 0xab, 0x4e, 0xed, 0xef, 0x55, 0xa7,
-	0xf6, 0xdb, 0x3f, 0x1d, 0xeb, 0xfa, 0xf1, 0x94, 0x88, 0xd9, 0x62, 0xdc, 0x0d, 0xe9, 0xbc, 0xc7,
-	0x82, 0x70, 0xb6, 0x8c, 0x70, 0x6a, 0x7e, 0xf1, 0x34, 0xec, 0x95, 0xff, 0xe7, 0x1b, 0xef, 0xcb,
-	0x59, 0x3f, 0xfa, 0x2f, 0x00, 0x00, 0xff, 0xff, 0xd4, 0xe0, 0xb7, 0xda, 0x10, 0x0a, 0x00, 0x00,
+	// 805 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xac, 0x56, 0x4f, 0x4f, 0xdb, 0x30,
+	0x1c, 0x4d, 0x5b, 0x28, 0xf4, 0x57, 0x26, 0x8a, 0x87, 0x20, 0x74, 0xa3, 0xa0, 0x0c, 0x26, 0x0e,
+	0x53, 0x2b, 0xc1, 0x38, 0xec, 0x8f, 0x98, 0x28, 0x0c, 0x5a, 0x69, 0x87, 0x29, 0xab, 0x40, 0x62,
+	0x93, 0xaa, 0x34, 0x71, 0xdb, 0x48, 0x69, 0x9c, 0xc5, 0x66, 0x52, 0x6f, 0xbb, 0xed, 0xb4, 0xfb,
+	0x3e, 0xd2, 0x8e, 0xfb, 0x04, 0xd3, 0xd4, 0x49, 0xfb, 0x1c, 0x53, 0x1c, 0xb7, 0x75, 0x92, 0x06,
+	0x26, 0x8d, 0x03, 0x92, 0x79, 0xfe, 0xbd, 0xf7, 0x7b, 0xb6, 0x9f, 0x9d, 0xc2, 0x8e, 0xe9, 0xd8,
+	0xd8, 0x65, 0x35, 0xe6, 0x1b, 0x2e, 0x35, 0x4c, 0x66, 0x13, 0x57, 0x1e, 0x57, 0x3d, 0x9f, 0x30,
+	0x82, 0x8a, 0x12, 0x54, 0x7e, 0xd0, 0x23, 0xa4, 0xe7, 0xe0, 0x1a, 0x9f, 0xea, 0x5c, 0x77, 0x6b,
+	0x78, 0xe0, 0xb1, 0x61, 0x58, 0x59, 0xde, 0x8a, 0x4f, 0x32, 0x7b, 0x80, 0x29, 0x33, 0x06, 0x9e,
+	0x28, 0x58, 0xed, 0x91, 0x1e, 0xe1, 0xc3, 0x5a, 0x30, 0x1a, 0xa3, 0xc2, 0x86, 0xd7, 0xa5, 0xc1,
+	0x5f, 0x88, 0x6a, 0x08, 0x4a, 0xa7, 0xd8, 0xc1, 0x0c, 0x1f, 0x3b, 0x8e, 0x8e, 0x3f, 0x5e, 0x63,
+	0xca, 0xb4, 0x2f, 0xf3, 0x80, 0x5a, 0x53, 0x37, 0x02, 0x46, 0xcf, 0xa0, 0x68, 0xfa, 0xd8, 0x60,
+	0xb8, 0xed, 0x63, 0x8f, 0xa8, 0x99, 0xed, 0xcc, 0x5e, 0x71, 0x7f, 0xad, 0x1a, 0x68, 0x9d, 0x70,
+	0x5c, 0xc7, 0x1e, 0x11, 0xc5, 0x0d, 0x45, 0x07, 0x73, 0x02, 0x06, 0x54, 0x8b, 0x77, 0x09, 0xa9,
+	0x59, 0x89, 0x1a, 0x76, 0x8f, 0x51, 0xad, 0x09, 0x88, 0x5e, 0xc2, 0x12, 0x65, 0x86, 0xcf, 0xda,
+	0x26, 0x19, 0x0c, 0x6c, 0xa6, 0xe6, 0x38, 0x77, 0x9d, 0x73, 0xdf, 0x05, 0x13, 0x27, 0x1c, 0x9f,
+	0x92, 0x8b, 0x74, 0x8a, 0xa2, 0x57, 0x70, 0xaf, 0x6b, 0xbb, 0x36, 0xed, 0x8f, 0xe9, 0x73, 0x9c,
+	0xae, 0x72, 0xfa, 0x19, 0x9f, 0x89, 0xf3, 0x97, 0xba, 0x12, 0x1c, 0x08, 0x08, 0xe7, 0x42, 0x60,
+	0x5e, 0x12, 0x08, 0xbd, 0x27, 0x04, 0x2c, 0x09, 0x0e, 0x04, 0xc4, 0xae, 0x75, 0x7c, 0xc3, 0x35,
+	0xfb, 0x6a, 0x5e, 0x12, 0x08, 0xf7, 0xad, 0xce, 0x27, 0x24, 0x01, 0x53, 0x82, 0x25, 0x07, 0x42,
+	0x60, 0x21, 0xe1, 0x20, 0x21, 0x60, 0x49, 0x30, 0x3a, 0x80, 0x82, 0x49, 0xbc, 0x61, 0xbb, 0x6b,
+	0x3b, 0x58, 0x5d, 0xe4, 0xe4, 0xd5, 0xb0, 0x3b, 0xf1, 0x86, 0x67, 0xb6, 0x83, 0xa7, 0xc4, 0x45,
+	0x53, 0x40, 0xd2, 0x89, 0x71, 0x5a, 0x21, 0x71, 0x62, 0x51, 0xa2, 0x38, 0x31, 0x4e, 0x3d, 0x02,
+	0xf1, 0x5f, 0xdb, 0x70, 0x1c, 0x15, 0x38, 0x73, 0xb3, 0x2a, 0x27, 0x3e, 0x9e, 0xb8, 0x86, 0xa2,
+	0x17, 0xac, 0x31, 0x56, 0x2f, 0xc0, 0x82, 0x2f, 0x92, 0xf8, 0x09, 0xee, 0x47, 0x82, 0x48, 0x3d,
+	0xe2, 0x52, 0x8c, 0x9e, 0xc0, 0x9c, 0x4b, 0x5c, 0x3c, 0x89, 0x60, 0x78, 0x21, 0xaa, 0xe3, 0x0b,
+	0x51, 0x7d, 0x1d, 0xdc, 0x96, 0x86, 0xa2, 0xf3, 0x2a, 0xb4, 0x0b, 0x79, 0x71, 0x76, 0x61, 0xee,
+	0x8a, 0x62, 0xf1, 0x01, 0xd4, 0x50, 0x74, 0x31, 0x59, 0x07, 0x58, 0xf4, 0x45, 0x03, 0x6d, 0x17,
+	0x8a, 0x52, 0x5f, 0xb4, 0x06, 0x59, 0xdb, 0xe2, 0xdd, 0x0a, 0xf5, 0xfc, 0xe8, 0xe7, 0x56, 0xb6,
+	0x79, 0xaa, 0x67, 0x6d, 0x4b, 0xfb, 0x9c, 0x85, 0x65, 0xa9, 0xae, 0xe9, 0x76, 0x09, 0x7a, 0x0e,
+	0xf2, 0x4d, 0x16, 0x16, 0xd5, 0xc8, 0xf2, 0xe5, 0x25, 0xc9, 0xc5, 0xe8, 0x45, 0x60, 0x81, 0xaf,
+	0x9c, 0xaa, 0xd9, 0xed, 0xdc, 0x5e, 0x71, 0x7f, 0x2b, 0x95, 0x18, 0xd6, 0xe9, 0x13, 0x02, 0x3a,
+	0x82, 0xc2, 0xd8, 0x3f, 0x55, 0x73, 0x9c, 0xbd, 0x9d, 0xce, 0x0e, 0x0b, 0xf5, 0x29, 0x05, 0x3d,
+	0x85, 0x05, 0x7e, 0x73, 0xb0, 0x25, 0x2e, 0x49, 0x39, 0xb1, 0xaf, 0xad, 0xf1, 0x43, 0xa3, 0x8f,
+	0x4b, 0xb5, 0xf7, 0x50, 0x8a, 0xed, 0x00, 0x45, 0xe7, 0x50, 0x92, 0xfa, 0xb6, 0x6d, 0xb7, 0x1b,
+	0xbc, 0x16, 0x81, 0xa1, 0x87, 0x69, 0x86, 0x02, 0xa2, 0xbe, 0xcc, 0xa2, 0x80, 0xb6, 0x01, 0xeb,
+	0xfc, 0x8a, 0x27, 0xd7, 0xad, 0x5d, 0xc2, 0x46, 0xd3, 0xa5, 0x1e, 0x36, 0x67, 0x4c, 0xfe, 0xcf,
+	0x19, 0x68, 0x17, 0xa0, 0x86, 0xf1, 0xbc, 0x63, 0x5d, 0x15, 0xd6, 0xde, 0xd8, 0x74, 0xd6, 0x52,
+	0x2e, 0x40, 0x0d, 0x5f, 0xa2, 0x3b, 0xee, 0xf8, 0x35, 0x03, 0xea, 0xb1, 0xe7, 0x61, 0xd7, 0xba,
+	0x5b, 0x61, 0x74, 0x08, 0xf3, 0x36, 0xc3, 0x83, 0x7f, 0xce, 0x68, 0x58, 0xbd, 0xff, 0x67, 0x0e,
+	0x72, 0xc7, 0x6f, 0x9b, 0xa8, 0x05, 0xa5, 0xf8, 0xa9, 0xa2, 0x9d, 0x88, 0x46, 0xca, 0xa1, 0x97,
+	0x53, 0xfd, 0x69, 0x0a, 0xfa, 0x00, 0x28, 0x19, 0x08, 0xf4, 0x38, 0xc2, 0x48, 0x4d, 0x4c, 0xf9,
+	0xc6, 0x60, 0x6a, 0x0a, 0x6a, 0xc1, 0x4a, 0x22, 0x15, 0x68, 0x77, 0xc6, 0xa3, 0x36, 0x43, 0x3b,
+	0xe5, 0x7d, 0xd2, 0x14, 0x74, 0x09, 0xcb, 0xb1, 0x4c, 0xa0, 0x47, 0x11, 0xcd, 0xd9, 0x89, 0x29,
+	0x6f, 0xde, 0xe4, 0x96, 0x6a, 0x0a, 0xba, 0x82, 0x95, 0x44, 0xa4, 0x62, 0x76, 0xd3, 0x22, 0x77,
+	0xeb, 0x56, 0x5c, 0xc1, 0x4a, 0x22, 0x55, 0x31, 0xed, 0xb4, 0xd4, 0xdd, 0xaa, 0x7d, 0x0a, 0x85,
+	0xc9, 0xb7, 0x01, 0xdd, 0xfc, 0xcd, 0x48, 0xdf, 0xd6, 0xfa, 0xf9, 0xf7, 0x51, 0x25, 0xf3, 0x63,
+	0x54, 0xc9, 0xfc, 0x1a, 0x55, 0x32, 0xdf, 0x7e, 0x57, 0x94, 0xab, 0xc3, 0x9e, 0xcd, 0xfa, 0xd7,
+	0x9d, 0xaa, 0x49, 0x06, 0x35, 0xcf, 0x30, 0xfb, 0x43, 0x0b, 0xfb, 0xf2, 0x88, 0xfa, 0x66, 0x2d,
+	0xf9, 0x2b, 0xad, 0x93, 0xe7, 0xd2, 0x07, 0x7f, 0x03, 0x00, 0x00, 0xff, 0xff, 0xb5, 0xb4, 0xfb,
+	0x75, 0xc2, 0x09, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1178,6 +1153,7 @@ type APIClient interface {
 	ListTransaction(ctx context.Context, in *ListTransactionRequest, opts ...grpc.CallOption) (*TransactionInfos, error)
 	FinishTransaction(ctx context.Context, in *FinishTransactionRequest, opts ...grpc.CallOption) (*TransactionInfo, error)
 	AppendTransaction(ctx context.Context, in *AppendTransactionRequest, opts ...grpc.CallOption) (*TransactionInfo, error)
+	DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error)
 }
 
 type aPIClient struct {
@@ -1242,6 +1218,15 @@ func (c *aPIClient) AppendTransaction(ctx context.Context, in *AppendTransaction
 	return out, nil
 }
 
+func (c *aPIClient) DeleteAll(ctx context.Context, in *DeleteAllRequest, opts ...grpc.CallOption) (*types.Empty, error) {
+	out := new(types.Empty)
+	err := c.cc.Invoke(ctx, "/transaction.API/DeleteAll", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 type APIServer interface {
 	// Transaction rpcs
@@ -1251,6 +1236,7 @@ type APIServer interface {
 	ListTransaction(context.Context, *ListTransactionRequest) (*TransactionInfos, error)
 	FinishTransaction(context.Context, *FinishTransactionRequest) (*TransactionInfo, error)
 	AppendTransaction(context.Context, *AppendTransactionRequest) (*TransactionInfo, error)
+	DeleteAll(context.Context, *DeleteAllRequest) (*types.Empty, error)
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -1365,6 +1351,24 @@ func _API_AppendTransaction_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_DeleteAll_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAllRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).DeleteAll(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/transaction.API/DeleteAll",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DeleteAll(ctx, req.(*DeleteAllRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _API_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "transaction.API",
 	HandlerType: (*APIServer)(nil),
@@ -1393,9 +1397,34 @@ var _API_serviceDesc = grpc.ServiceDesc{
 			MethodName: "AppendTransaction",
 			Handler:    _API_AppendTransaction_Handler,
 		},
+		{
+			MethodName: "DeleteAll",
+			Handler:    _API_DeleteAll_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "client/transaction/transaction.proto",
+}
+
+func (m *DeleteAllRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *DeleteAllRequest) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
 }
 
 func (m *TransactionRequest) Marshal() (dAtA []byte, err error) {
@@ -1524,13 +1553,13 @@ func (m *TransactionRequest_DeleteBranch) MarshalTo(dAtA []byte) (int, error) {
 	}
 	return i, nil
 }
-func (m *TransactionRequest_PutFile) MarshalTo(dAtA []byte) (int, error) {
+func (m *TransactionRequest_CopyFile) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	if m.PutFile != nil {
+	if m.CopyFile != nil {
 		dAtA[i] = 0x42
 		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.PutFile.Size()))
-		n9, err9 := m.PutFile.MarshalTo(dAtA[i:])
+		i = encodeVarintTransaction(dAtA, i, uint64(m.CopyFile.Size()))
+		n9, err9 := m.CopyFile.MarshalTo(dAtA[i:])
 		if err9 != nil {
 			return 0, err9
 		}
@@ -1538,13 +1567,13 @@ func (m *TransactionRequest_PutFile) MarshalTo(dAtA []byte) (int, error) {
 	}
 	return i, nil
 }
-func (m *TransactionRequest_CopyFile) MarshalTo(dAtA []byte) (int, error) {
+func (m *TransactionRequest_DeleteFile) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	if m.CopyFile != nil {
+	if m.DeleteFile != nil {
 		dAtA[i] = 0x4a
 		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.CopyFile.Size()))
-		n10, err10 := m.CopyFile.MarshalTo(dAtA[i:])
+		i = encodeVarintTransaction(dAtA, i, uint64(m.DeleteFile.Size()))
+		n10, err10 := m.DeleteFile.MarshalTo(dAtA[i:])
 		if err10 != nil {
 			return 0, err10
 		}
@@ -1552,45 +1581,17 @@ func (m *TransactionRequest_CopyFile) MarshalTo(dAtA []byte) (int, error) {
 	}
 	return i, nil
 }
-func (m *TransactionRequest_DeleteFile) MarshalTo(dAtA []byte) (int, error) {
+func (m *TransactionRequest_DeleteAll) MarshalTo(dAtA []byte) (int, error) {
 	i := 0
-	if m.DeleteFile != nil {
+	if m.DeleteAll != nil {
 		dAtA[i] = 0x52
 		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.DeleteFile.Size()))
-		n11, err11 := m.DeleteFile.MarshalTo(dAtA[i:])
+		i = encodeVarintTransaction(dAtA, i, uint64(m.DeleteAll.Size()))
+		n11, err11 := m.DeleteAll.MarshalTo(dAtA[i:])
 		if err11 != nil {
 			return 0, err11
 		}
 		i += n11
-	}
-	return i, nil
-}
-func (m *TransactionRequest_DeleteAll) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.DeleteAll != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.DeleteAll.Size()))
-		n12, err12 := m.DeleteAll.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
-		}
-		i += n12
-	}
-	return i, nil
-}
-func (m *TransactionRequest_CreatePipeline) MarshalTo(dAtA []byte) (int, error) {
-	i := 0
-	if m.CreatePipeline != nil {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintTransaction(dAtA, i, uint64(m.CreatePipeline.Size()))
-		n13, err13 := m.CreatePipeline.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
-		}
-		i += n13
 	}
 	return i, nil
 }
@@ -1610,11 +1611,11 @@ func (m *TransactionResponse) MarshalTo(dAtA []byte) (int, error) {
 	var l int
 	_ = l
 	if m.Response != nil {
-		nn14, err14 := m.Response.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
+		nn12, err12 := m.Response.MarshalTo(dAtA[i:])
+		if err12 != nil {
+			return 0, err12
 		}
-		i += nn14
+		i += nn12
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1628,11 +1629,11 @@ func (m *TransactionResponse_None) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTransaction(dAtA, i, uint64(m.None.Size()))
-		n15, err15 := m.None.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
+		n13, err13 := m.None.MarshalTo(dAtA[i:])
+		if err13 != nil {
+			return 0, err13
 		}
-		i += n15
+		i += n13
 	}
 	return i, nil
 }
@@ -1642,11 +1643,11 @@ func (m *TransactionResponse_Commit) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintTransaction(dAtA, i, uint64(m.Commit.Size()))
-		n16, err16 := m.Commit.MarshalTo(dAtA[i:])
-		if err16 != nil {
-			return 0, err16
+		n14, err14 := m.Commit.MarshalTo(dAtA[i:])
+		if err14 != nil {
+			return 0, err14
 		}
-		i += n16
+		i += n14
 	}
 	return i, nil
 }
@@ -1696,11 +1697,11 @@ func (m *TransactionInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n17, err17 := m.Transaction.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
+		n15, err15 := m.Transaction.MarshalTo(dAtA[i:])
+		if err15 != nil {
+			return 0, err15
 		}
-		i += n17
+		i += n15
 	}
 	if len(m.Requests) > 0 {
 		for _, msg := range m.Requests {
@@ -1730,11 +1731,11 @@ func (m *TransactionInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintTransaction(dAtA, i, uint64(m.Started.Size()))
-		n18, err18 := m.Started.MarshalTo(dAtA[i:])
-		if err18 != nil {
-			return 0, err18
+		n16, err16 := m.Started.MarshalTo(dAtA[i:])
+		if err16 != nil {
+			return 0, err16
 		}
-		i += n18
+		i += n16
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1815,11 +1816,11 @@ func (m *InspectTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n19, err19 := m.Transaction.MarshalTo(dAtA[i:])
-		if err19 != nil {
-			return 0, err19
+		n17, err17 := m.Transaction.MarshalTo(dAtA[i:])
+		if err17 != nil {
+			return 0, err17
 		}
-		i += n19
+		i += n17
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1846,11 +1847,11 @@ func (m *DeleteTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n20, err20 := m.Transaction.MarshalTo(dAtA[i:])
-		if err20 != nil {
-			return 0, err20
+		n18, err18 := m.Transaction.MarshalTo(dAtA[i:])
+		if err18 != nil {
+			return 0, err18
 		}
-		i += n20
+		i += n18
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1898,11 +1899,11 @@ func (m *FinishTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n21, err21 := m.Transaction.MarshalTo(dAtA[i:])
-		if err21 != nil {
-			return 0, err21
+		n19, err19 := m.Transaction.MarshalTo(dAtA[i:])
+		if err19 != nil {
+			return 0, err19
 		}
-		i += n21
+		i += n19
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -1929,11 +1930,11 @@ func (m *AppendTransactionRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintTransaction(dAtA, i, uint64(m.Transaction.Size()))
-		n22, err22 := m.Transaction.MarshalTo(dAtA[i:])
-		if err22 != nil {
-			return 0, err22
+		n20, err20 := m.Transaction.MarshalTo(dAtA[i:])
+		if err20 != nil {
+			return 0, err20
 		}
-		i += n22
+		i += n20
 	}
 	if len(m.Items) > 0 {
 		for _, msg := range m.Items {
@@ -1962,6 +1963,18 @@ func encodeVarintTransaction(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
+func (m *DeleteAllRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
 func (m *TransactionRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2061,18 +2074,6 @@ func (m *TransactionRequest_DeleteBranch) Size() (n int) {
 	}
 	return n
 }
-func (m *TransactionRequest_PutFile) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.PutFile != nil {
-		l = m.PutFile.Size()
-		n += 1 + l + sovTransaction(uint64(l))
-	}
-	return n
-}
 func (m *TransactionRequest_CopyFile) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2105,18 +2106,6 @@ func (m *TransactionRequest_DeleteAll) Size() (n int) {
 	_ = l
 	if m.DeleteAll != nil {
 		l = m.DeleteAll.Size()
-		n += 1 + l + sovTransaction(uint64(l))
-	}
-	return n
-}
-func (m *TransactionRequest_CreatePipeline) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.CreatePipeline != nil {
-		l = m.CreatePipeline.Size()
 		n += 1 + l + sovTransaction(uint64(l))
 	}
 	return n
@@ -2332,6 +2321,60 @@ func sovTransaction(x uint64) (n int) {
 }
 func sozTransaction(x uint64) (n int) {
 	return sovTransaction(uint64((x << 1) ^ uint64((int64(x) >> 63))))
+}
+func (m *DeleteAllRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTransaction
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: DeleteAllRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: DeleteAllRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTransaction(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTransaction
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTransaction
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *TransactionRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -2609,41 +2652,6 @@ func (m *TransactionRequest) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 8:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PutFile", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransaction
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTransaction
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransaction
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &pfs.PutFileRequest{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.Request = &TransactionRequest_PutFile{v}
-			iNdEx = postIndex
-		case 9:
-			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field CopyFile", wireType)
 			}
 			var msglen int
@@ -2677,7 +2685,7 @@ func (m *TransactionRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.Request = &TransactionRequest_CopyFile{v}
 			iNdEx = postIndex
-		case 10:
+		case 9:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field DeleteFile", wireType)
 			}
@@ -2712,7 +2720,7 @@ func (m *TransactionRequest) Unmarshal(dAtA []byte) error {
 			}
 			m.Request = &TransactionRequest_DeleteFile{v}
 			iNdEx = postIndex
-		case 11:
+		case 10:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field DeleteAll", wireType)
 			}
@@ -2741,46 +2749,11 @@ func (m *TransactionRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			v := &types.Empty{}
+			v := &DeleteAllRequest{}
 			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			m.Request = &TransactionRequest_DeleteAll{v}
-			iNdEx = postIndex
-		case 12:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CreatePipeline", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTransaction
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTransaction
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTransaction
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			v := &pps.CreatePipelineRequest{}
-			if err := v.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			m.Request = &TransactionRequest_CreatePipeline{v}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

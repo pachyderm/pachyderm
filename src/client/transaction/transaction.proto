@@ -9,7 +9,9 @@ import "google/protobuf/timestamp.proto";
 import "gogoproto/gogo.proto";
 
 import "client/pfs/pfs.proto";
-import "client/pps/pps.proto";
+
+message DeleteAllRequest {
+}
 
 message TransactionRequest {
   oneof request {
@@ -22,6 +24,7 @@ message TransactionRequest {
     pfs.DeleteBranchRequest delete_branch = 7;
     pfs.CopyFileRequest copy_file = 8;
     pfs.DeleteFileRequest delete_file = 9;
+    DeleteAllRequest delete_all = 10;
   }
 }
 
@@ -78,4 +81,5 @@ service API {
   rpc ListTransaction(ListTransactionRequest) returns (TransactionInfos) {}
   rpc FinishTransaction(FinishTransactionRequest) returns (TransactionInfo) {}
   rpc AppendTransaction(AppendTransactionRequest) returns (TransactionInfo) {}
+  rpc DeleteAll(DeleteAllRequest) returns (google.protobuf.Empty) {}
 }

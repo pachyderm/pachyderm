@@ -464,6 +464,12 @@ func (c APIClient) DeleteAll() error {
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
+	if _, err := c.TransactionAPIClient.DeleteAll(
+		c.Ctx(),
+		&transaction.DeleteAllRequest{},
+	); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
 	return nil
 }
 

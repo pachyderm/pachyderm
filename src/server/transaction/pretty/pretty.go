@@ -71,14 +71,15 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 }
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {
-	commit := ""
-	switch commitResponse := response.Response.(type) {
-	case *transaction.TransactionResponse_Commit:
-		commit = commitResponse.Commit.ID
-	default:
-		commit = "ERROR (unknown response type)"
+	commit := "unknown"
+	if response != nil {
+		switch commitResponse := response.Response.(type) {
+		case *transaction.TransactionResponse_Commit:
+			commit = commitResponse.Commit.ID
+		default:
+			commit = "ERROR (unknown response type)"
+		}
 	}
-
 	return fmt.Sprintf("start commit %s@%s (%s)", request.Parent.Repo.Name, request.Branch, commit)
 }
 
@@ -91,7 +92,11 @@ func sprintDeleteCommit(request *pfs.DeleteCommitRequest) string {
 }
 
 func sprintCreateBranch(request *pfs.CreateBranchRequest) string {
-	// provenance
+	provenance := ""
+	for _, p := range request.Provenance {
+		provenance = fmt.Sprintf("%s -p %s@%s", provenance, p.Repo.Name, p.Name)
+	}
+
 	return fmt.Sprintf("create branch %s@%s", request.Branch.Repo.Name, request.Branch.Name)
 }
 
