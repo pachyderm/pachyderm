@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 
+	types "github.com/gogo/protobuf/types"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client/admin"
@@ -454,13 +455,13 @@ func (c APIClient) DeleteAll() error {
 	}
 	if _, err := c.PpsAPIClient.DeleteAll(
 		c.Ctx(),
-		&pps.DeleteAllRequest{},
+		&types.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.Ctx(),
-		&pfs.DeleteAllRequest{},
+		&types.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}

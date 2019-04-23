@@ -569,18 +569,17 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 func (a *apiServer) DeleteAllInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.DeleteAllRequest,
 ) error {
 	return a.driver.deleteAll(pachClient, stm)
 }
 
 // DeleteAll implements the protobuf pfs.DeleteAll RPC
-func (a *apiServer) DeleteAll(ctx context.Context, request *pfs.DeleteAllRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-		return a.DeleteAllInTransaction(a.env.GetPachClient(ctx), stm, request)
+		return a.DeleteAllInTransaction(a.env.GetPachClient(ctx), stm)
 	})
 	if err != nil {
 		return nil, err

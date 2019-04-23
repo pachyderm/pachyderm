@@ -38,7 +38,7 @@ type PfsTransactionServer interface {
 	CopyFileInTransaction(*client.APIClient, col.STM, *pfs.CopyFileRequest) error
 	DeleteFileInTransaction(*client.APIClient, col.STM, *pfs.DeleteFileRequest) error
 
-	DeleteAllInTransaction(*client.APIClient, col.STM, *pfs.DeleteAllRequest) error
+	DeleteAllInTransaction(*client.APIClient, col.STM) error
 }
 
 // PpsTransactionServer is an interface for the transactionally-supported

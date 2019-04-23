@@ -2378,7 +2378,7 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 }
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC
-func (a *apiServer) DeleteAll(ctx context.Context, request *pps.DeleteAllRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	pachClient := a.env.GetPachClient(ctx)

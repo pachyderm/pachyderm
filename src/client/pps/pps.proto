@@ -623,8 +623,6 @@ message GarbageCollectResponse {}
 message ActivateAuthRequest {}
 message ActivateAuthResponse {}
 
-message DeleteAllRequest {}
-
 service API {
   rpc CreateJob(CreateJobRequest) returns (Job) {}
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
@@ -653,7 +651,7 @@ service API {
   rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
 
   // DeleteAll deletes everything
-  rpc DeleteAll(DeleteAllRequest) returns (google.protobuf.Empty) {}
+  rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc GetLogs(GetLogsRequest) returns (stream LogMessage) {}
 
   // Garbage collection
