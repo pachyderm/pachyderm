@@ -274,8 +274,7 @@ func (d *driver) createRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 	return nil
 }
 
-// TODO: dedupe this with d.inspectRepo - may require some changes to collections
-func (d *driver) inspectRepoInTransaction(
+func (d *driver) inspectRepo(
 	pachClient *client.APIClient,
 	stm col.STM,
 	repo *pfs.Repo,
@@ -283,26 +282,6 @@ func (d *driver) inspectRepoInTransaction(
 ) (*pfs.RepoInfo, error) {
 	result := &pfs.RepoInfo{}
 	if err := d.repos.ReadWrite(stm).Get(repo.Name, result); err != nil {
-		return nil, err
-	}
-	if includeAuth {
-		accessLevel, err := d.getAccessLevel(pachClient, repo)
-		if err != nil {
-			if auth.IsErrNotActivated(err) {
-				return result, nil
-			}
-			return nil, fmt.Errorf("error getting access level for \"%s\": %v",
-				repo.Name, grpcutil.ScrubGRPC(err))
-		}
-		result.AuthInfo = &pfs.RepoAuthInfo{AccessLevel: accessLevel}
-	}
-	return result, nil
-}
-
-func (d *driver) inspectRepo(pachClient *client.APIClient, repo *pfs.Repo, includeAuth bool) (*pfs.RepoInfo, error) {
-	ctx := pachClient.Ctx()
-	result := &pfs.RepoInfo{}
-	if err := d.repos.ReadOnly(ctx).Get(repo.Name, result); err != nil {
 		return nil, err
 	}
 	if includeAuth {
@@ -1151,7 +1130,10 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 	}
 
 	// Make sure that the repo exists
-	_, err := d.inspectRepo(pachClient, repo, !includeAuth)
+	err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		_, err := d.inspectRepo(pachClient, stm, repo, !includeAuth)
+		return err
+	})
 	if err != nil {
 		return err
 	}

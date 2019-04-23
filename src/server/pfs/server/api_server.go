@@ -94,7 +94,7 @@ func (a *apiServer) InspectRepoInTransaction(
 	stm col.STM,
 	request *pfs.InspectRepoRequest,
 ) (*pfs.RepoInfo, error) {
-	return a.driver.inspectRepoInTransaction(pachClient, stm, request.Repo, true)
+	return a.driver.inspectRepo(pachClient, stm, request.Repo, true)
 }
 
 // InspectRepo implements the protobuf pfs.InspectRepo RPC
@@ -102,7 +102,16 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectRepo(a.env.GetPachClient(ctx), request.Repo, true)
+	var info *pfs.RepoInfo
+	err := col.NewDryrunSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		var err error
+		info, err = a.InspectRepoInTransaction(a.env.GetPachClient(ctx), stm, request)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return info, nil
 }
 
 // ListRepo implements the protobuf pfs.ListRepo RPC
