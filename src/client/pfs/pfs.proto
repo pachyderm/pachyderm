@@ -514,6 +514,8 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+
+  rpc Fsck(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message PutObjectRequest {
