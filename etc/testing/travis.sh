@@ -11,7 +11,7 @@ sudo chown -R `whoami` ~/cached-deps
 # script which executes as `root`. Without `chown`ing `~/cached-deps` (where
 # we store cacheable binaries), any calls to those binaries would fail because
 # they're otherwised owned by `root`.
-# 
+#
 # To further complicate things, we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
@@ -52,6 +52,7 @@ echo "Running test suite based on BUCKET=$BUCKET"
 
 PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
 
+make docker-build-helper
 make install
 make docker-build
 make docker-build-kafka
@@ -82,7 +83,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
     fi
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
-    ./etc/testing/examples.sh    
+    ./etc/testing/examples.sh
 elif [[ $PPS_SUITE -eq 0 ]]; then
     PART=`echo $BUCKET | grep -Po '\d+'`
     NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
