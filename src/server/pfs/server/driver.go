@@ -365,7 +365,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				provBranchInfo := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
 				if provBranchInfo.Head != nil {
 					// in this case, the headCommit Provenance should contain provBranch.Head
-					headCommitInfo := commitInfos[key(provBranchInfo.Head.Repo.Name, provBranchInfo.Head.ID)]
+					headCommitInfo := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
 					contains := false
 					for _, headProv := range headCommitInfo.Provenance {
 						if provBranchInfo.Head.Repo.Name == headProv.Commit.Repo.Name &&
@@ -380,7 +380,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 					}
 				}
 			}
-			// <=
+			// <= (Not necessarily true)
 			headCommitInfo := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
 			for _, headProv := range headCommitInfo.Provenance {
 				contains := false
