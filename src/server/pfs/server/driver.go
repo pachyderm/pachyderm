@@ -322,8 +322,12 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
 		commits := d.commits(repoName).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
-		if err := commits.List(commitInfo, col.DefaultOptions, func(commitName string) error {
-			commitInfos[key(repoName, commitName)] = commitInfo
+		if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
+			fmt.Println("key", key(repoName, commitID))
+			fmt.Println("loaded subv", commitID, commitInfo.Subvenance)
+			commitInfos[key(repoName, commitID)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+			commitInfo = commitInfos[key(repoName, commitID)]
+			fmt.Println("unloaded subv", commitID, commitInfo.Subvenance)
 			return nil
 		}); err != nil {
 			return err
@@ -331,7 +335,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		branches := d.branches(repoName).ReadOnly(ctx)
 		branchInfo := &pfs.BranchInfo{}
 		if err := branches.List(branchInfo, col.DefaultOptions, func(branchName string) error {
-			branchInfos[key(repoName, branchName)] = branchInfo
+			branchInfos[key(repoName, branchName)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
 			return nil
 		}); err != nil {
 			return err
