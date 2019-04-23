@@ -42,7 +42,7 @@ func (s *Storage) NewWriter(ctx context.Context) *Writer {
 	return newWriter(ctx, s.objC, s.prefix)
 }
 
-// Clear deletes all of the chunks in object storage.
+// DeleteAll deletes all of the chunks in object storage.
 func (s *Storage) DeleteAll(ctx context.Context) error {
 	return s.objC.Walk(ctx, s.prefix, func(hash string) error {
 		return s.objC.Delete(ctx, hash)
