@@ -32,11 +32,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
-	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
 	"github.com/robfig/cron"
 	"github.com/willf/bloom"
@@ -112,7 +112,7 @@ type apiServer struct {
 	etcdPrefix            string
 	hasher                *ppsserver.Hasher
 	env                   *serviceenv.ServiceEnv
-	txnEnv                *txnserver.TransactionEnv
+	txnEnv                *txnenv.TransactionEnv
 	namespace             string
 	workerImage           string
 	workerSidecarImage    string

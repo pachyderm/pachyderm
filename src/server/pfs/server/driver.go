@@ -41,9 +41,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 	"github.com/sirupsen/logrus"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -99,7 +99,7 @@ type collectionFactory func(string) col.Collection
 type driver struct {
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
-	txnEnv     *txnserver.TransactionEnv
+	txnEnv     *txnenv.TransactionEnv
 	prefix     string
 
 	// collections
@@ -123,7 +123,7 @@ type driver struct {
 // newDriver is used to create a new Driver instance
 func newDriver(
 	env *serviceenv.ServiceEnv,
-	txnEnv *txnserver.TransactionEnv,
+	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	treeCache *hashtree.Cache,
 	storageRoot string,

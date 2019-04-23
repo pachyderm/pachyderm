@@ -22,7 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
-	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"google.golang.org/grpc"
 
 	"golang.org/x/net/context"
@@ -116,7 +116,7 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	if err != nil {
 		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
 	}
-	txnEnv := &txnserver.TransactionEnv{}
+	txnEnv := &txnenv.TransactionEnv{}
 	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
 	txnEnv.Initialize(&authtesting.InactiveAPIServer{}, apiServer, nil)

@@ -48,6 +48,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/netutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	pps_server "github.com/pachyderm/pachyderm/src/server/pps/server"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
@@ -149,7 +150,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 			Port:       env.PeerPort,
 			MaxMsgSize: grpcutil.MaxMsgSize,
 			RegisterFunc: func(s *grpc.Server) error {
-				txnEnv := &txnserver.TransactionEnv{}
+				txnEnv := &txnenv.TransactionEnv{}
 				blockCacheBytes, err := units.RAMInBytes(env.BlockCacheBytes)
 				if err != nil {
 					return fmt.Errorf("units.RAMInBytes: %v", err)
@@ -207,7 +208,6 @@ func doSidecarMode(config interface{}) (retErr error) {
 					env,
 					txnEnv,
 					path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-					memoryRequestBytes,
 				)
 				if err != nil {
 					return fmt.Errorf("transaction.NewAPIServer: %v", err)
@@ -358,7 +358,7 @@ func doFullMode(config interface{}) (retErr error) {
 				MaxMsgSize:           grpcutil.MaxMsgSize,
 				PublicPortTLSAllowed: true,
 				RegisterFunc: func(s *grpc.Server) error {
-					txnEnv := &txnserver.TransactionEnv{}
+					txnEnv := &txnenv.TransactionEnv{}
 					memoryRequestBytes, err := units.RAMInBytes(env.MemoryRequest)
 					if err != nil {
 						return err
@@ -420,7 +420,6 @@ func doFullMode(config interface{}) (retErr error) {
 						env,
 						txnEnv,
 						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-						memoryRequestBytes,
 					)
 					if err != nil {
 						return fmt.Errorf("transaction.NewAPIServer: %v", err)
@@ -465,7 +464,7 @@ func doFullMode(config interface{}) (retErr error) {
 				Port:       env.PeerPort,
 				MaxMsgSize: grpcutil.MaxMsgSize,
 				RegisterFunc: func(s *grpc.Server) error {
-					txnEnv := &txnserver.TransactionEnv{}
+					txnEnv := &txnenv.TransactionEnv{}
 					cacheServer := cache_server.NewCacheServer(router, env.NumShards)
 					go func() {
 						if err := sharder.RegisterFrontends(nil, address, []shard.Frontend{cacheServer}); err != nil {
@@ -549,7 +548,6 @@ func doFullMode(config interface{}) (retErr error) {
 						env,
 						txnEnv,
 						path.Join(env.EtcdPrefix, env.PFSEtcdPrefix),
-						memoryRequestBytes,
 					)
 					if err != nil {
 						return fmt.Errorf("transaction.NewAPIServer: %v", err)

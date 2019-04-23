@@ -4,14 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	"golang.org/x/sync/semaphore"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/transactiondb"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -22,7 +21,7 @@ import (
 type driver struct {
 	// txnEnv stores references to other pachyderm APIServer instances so we can
 	// make calls within the same transaction without serializing through RPCs
-	txnEnv *TransactionEnv
+	txnEnv *txnenv.TransactionEnv
 
 	// etcdClient and prefix write repo and other metadata to etcd
 	etcdClient *etcd.Client
@@ -30,16 +29,12 @@ type driver struct {
 
 	// collections
 	transactions col.Collection
-
-	// memory limiter (useful for limiting operations that could use a lot of memory)
-	memoryLimiter *semaphore.Weighted
 }
 
 func newDriver(
 	env *serviceenv.ServiceEnv,
-	txnEnv *TransactionEnv,
+	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
-	memoryRequest int64,
 ) (*driver, error) {
 	etcdClient := env.GetEtcdClient()
 	d := &driver{
@@ -47,8 +42,6 @@ func newDriver(
 		etcdClient:   etcdClient,
 		prefix:       etcdPrefix,
 		transactions: transactiondb.Transactions(etcdClient, etcdPrefix),
-		// Allow up to a third of the requested memory to be used for memory intensive operations
-		memoryLimiter: semaphore.NewWeighted(memoryRequest / 3),
 	}
 	return d, nil
 }
@@ -214,7 +207,6 @@ func (d *driver) finishTransaction(pachClient *client.APIClient, txn *transactio
 		if err != nil {
 			return err
 		}
-		return err
 		return d.transactions.ReadWrite(stm).Delete(txn.ID)
 	})
 	if err != nil {

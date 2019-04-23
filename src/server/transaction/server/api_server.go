@@ -10,6 +10,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -35,11 +36,10 @@ type apiServer struct {
 
 func newAPIServer(
 	env *serviceenv.ServiceEnv,
-	txnEnv *TransactionEnv,
+	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
-	memoryRequest int64,
 ) (*apiServer, error) {
-	d, err := newDriver(env, txnEnv, etcdPrefix, memoryRequest)
+	d, err := newDriver(env, txnEnv, etcdPrefix)
 	if err != nil {
 		return nil, err
 	}

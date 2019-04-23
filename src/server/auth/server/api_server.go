@@ -33,9 +33,9 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
-	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 )
 
 const (
@@ -92,14 +92,14 @@ var epsilon = &types.BoolValue{Value: true}
 // APIServer represents an auth api server
 type APIServer interface {
 	authclient.APIServer
-	txnserver.AuthTransactionServer
+	txnenv.AuthTransactionServer
 }
 
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
 	env        *serviceenv.ServiceEnv
-	txnEnv     *txnserver.TransactionEnv
+	txnEnv     *txnenv.TransactionEnv
 	pachLogger log.Logger
 
 	adminCache map[string]struct{} // cache of current cluster admins
@@ -169,7 +169,7 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 // NewAuthServer returns an implementation of authclient.APIServer.
 func NewAuthServer(
 	env *serviceenv.ServiceEnv,
-	txnEnv *txnserver.TransactionEnv,
+	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	public bool,
 ) (APIServer, error) {

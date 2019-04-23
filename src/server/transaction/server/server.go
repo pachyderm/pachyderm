@@ -3,6 +3,7 @@ package server
 import (
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
 
 // APIServer represents an api server.
@@ -13,9 +14,8 @@ type APIServer interface {
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
 	env *serviceenv.ServiceEnv,
-	txnEnv *TransactionEnv,
+	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
-	memoryRequest int64,
 ) (APIServer, error) {
-	return newAPIServer(env, txnEnv, etcdPrefix, memoryRequest)
+	return newAPIServer(env, txnEnv, etcdPrefix)
 }

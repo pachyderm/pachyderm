@@ -6,19 +6,19 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
 
 // APIServer represents a PPS API server
 type APIServer interface {
 	ppsclient.APIServer
-	txnserver.PpsTransactionServer
+	txnenv.PpsTransactionServer
 }
 
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
 	env *serviceenv.ServiceEnv,
-	txnEnv *txnserver.TransactionEnv,
+	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	namespace string,
 	workerImage string,

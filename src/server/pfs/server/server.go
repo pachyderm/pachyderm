@@ -4,7 +4,7 @@ import (
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
-	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
 
 // Valid object storage backends
@@ -19,7 +19,7 @@ const (
 // APIServer represents an api server.
 type APIServer interface {
 	pfsclient.APIServer
-	txnserver.PfsTransactionServer
+	txnenv.PfsTransactionServer
 }
 
 // BlockAPIServer combines BlockAPIServer and ObjectAPIServer.
@@ -30,7 +30,7 @@ type BlockAPIServer interface {
 // NewAPIServer creates an APIServer.
 func NewAPIServer(
 	env *serviceenv.ServiceEnv,
-	txnEnv *txnserver.TransactionEnv,
+	txnEnv *txnenv.TransactionEnv,
 	etcdPrefix string,
 	treeCache *hashtree.Cache,
 	storageRoot string,
