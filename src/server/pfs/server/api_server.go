@@ -92,15 +92,15 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) FSCK(ctx context.Context) (retErr error) {
-	func() { a.Log("fsck", nil, nil, 0) }()
-	defer func(start time.Time) { a.Log("fsck", nil, retErr, time.Since(start)) }(time.Now())
+func (a *apiServer) Fsck(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	err := a.driver.fsck(a.env.GetPachClient(ctx))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return &types.Empty{}, nil
 }
 
 func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitRequest) (response *pfs.Commit, retErr error) {
