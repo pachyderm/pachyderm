@@ -469,6 +469,9 @@ test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
 	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
 
+test-pfs-storage:
+	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
+
 test-deploy-cmds:
 	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
 
