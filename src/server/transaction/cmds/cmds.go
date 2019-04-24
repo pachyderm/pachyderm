@@ -32,7 +32,23 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 	transactionDocs := &cobra.Command{
 		Short: "Docs for transactions.",
-		Long:  "Do a few thing.",
+		Long: `Transactions modify several Pachyderm objects in a single operation.
+
+The following pachctl commands are supported in transactions:
+  create repo
+  delete repo
+  start commit
+  finish commit
+  delete commit
+  create branch
+  delete branch
+  copy file
+  delete file
+
+A transaction can be started with 'start transaction', after which the above
+commands will be stored in the transaction rather than immediately executed.
+The stored commands can be executed as a single operation with 'finish
+transaction' or cancelled with 'delete transaction'.`,
 	}
 	cmdutil.SetDocsUsage(transactionDocs)
 	commands = append(commands, cmdutil.CreateAlias(transactionDocs, "transaction"))
@@ -65,6 +81,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 			return writer.Flush()
 		}),
 	}
+	listTransaction.Flags().AddFlagSet(rawFlags)
 	listTransaction.Flags().AddFlagSet(fullTimestampsFlags)
 	commands = append(commands, cmdutil.CreateAlias(listTransaction, "list transaction"))
 
@@ -95,7 +112,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 	stopTransaction := &cobra.Command{
 		Short: "Stop modifying the current transaction.",
-		Long:  "Start modifying the current transaction.",
+		Long:  "Stop modifying the current transaction.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
@@ -117,8 +134,8 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 	finishTransaction := &cobra.Command{
 		Use:   "{{alias}} [<transaction>]",
-		Short: "Close the currently active transaction and execute it.",
-		Long:  "Close the currently active transaction and execute it.",
+		Short: "Execute and clear the currently active transaction.",
+		Long:  "Execute and clear the currently active transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {

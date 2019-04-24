@@ -3054,7 +3054,6 @@ func (d *driver) deleteFile(pachClient *client.APIClient, stm col.STM, file *pfs
 		_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
 		return err
 	}
-	// TODO: what do with this in STM transaction?
 	return d.upsertPutFileRecords(pachClient, file, &pfs.PutFileRecords{Tombstone: true})
 }
 
