@@ -1000,7 +1000,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 
 	// Check if the commitID is a branch name
 	var commitInfo *pfs.CommitInfo
-	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	if _, err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		var err error
 		commitInfo, err = d.resolveCommit(stm, commit)
 		return err
