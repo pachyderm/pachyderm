@@ -46,8 +46,8 @@ func (r *Reader) Read(data []byte) (int, error) {
 				return totalRead, io.EOF
 			}
 			// Get next chunk if necessary.
-			if r.curr == nil || r.curr.Hash != r.dataRefs[0].Hash {
-				if err := r.readChunk(r.dataRefs[0].Hash); err != nil {
+			if r.curr == nil || r.curr.Chunk.Hash != r.dataRefs[0].Chunk.Hash {
+				if err := r.readChunk(r.dataRefs[0].Chunk); err != nil {
 					return totalRead, err
 				}
 			}
@@ -60,8 +60,8 @@ func (r *Reader) Read(data []byte) (int, error) {
 
 }
 
-func (r *Reader) readChunk(hash string) error {
-	objR, err := r.objC.Reader(r.ctx, path.Join(r.prefix, hash), 0, 0)
+func (r *Reader) readChunk(chunk *Chunk) error {
+	objR, err := r.objC.Reader(r.ctx, path.Join(r.prefix, chunk.Hash), 0, 0)
 	if err != nil {
 		return err
 	}

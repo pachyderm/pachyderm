@@ -78,7 +78,7 @@ func (w *Writer) rangeFinish() {
 	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
 	lastDataRef.Size = int64(w.buf.Len()) - lastDataRef.Offset
 	data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
-	lastDataRef.SubHash = hash.EncodeHash(hash.Sum(data))
+	lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
 	w.done = append(w.done, w.dataRefs)
 }
 
@@ -118,8 +118,8 @@ func (w *Writer) Write(data []byte) (int, error) {
 }
 
 func (w *Writer) put() error {
-	chunkHash := hash.EncodeHash(hash.Sum(w.buf.Bytes()))
-	path := path.Join(w.prefix, chunkHash)
+	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(w.buf.Bytes()))}
+	path := path.Join(w.prefix, chunk.Hash)
 	// If it does not exist, compress and write it.
 	if !w.objC.Exists(w.ctx, path) {
 		objW, err := w.objC.Writer(w.ctx, path)
@@ -134,15 +134,15 @@ func (w *Writer) put() error {
 			return err
 		}
 	}
-	// Update chunk hash and run callback for ranges within the current chunk.
+	// Update chunk and run callback for ranges within the current chunk.
 	for _, dataRefs := range w.done {
 		lastDataRef := dataRefs[len(dataRefs)-1]
 		// Handle edge case where DataRef is size zero.
 		if lastDataRef.Size == 0 {
 			dataRefs = dataRefs[:len(dataRefs)-1]
 		} else {
-			// Set hash for last DataRef (from current chunk).
-			lastDataRef.Hash = chunkHash
+			// Set chunk for last DataRef (from current chunk).
+			lastDataRef.Chunk = chunk
 		}
 		if err := w.cbs[0](dataRefs); err != nil {
 			return err
@@ -150,13 +150,13 @@ func (w *Writer) put() error {
 		w.cbs = w.cbs[1:]
 	}
 	w.done = nil
-	// Update hash and sub hash (if at first sub chunk in range)
+	// Update chunk and hash (if at first DataRef in range)
 	// in last DataRef for current range.
 	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
-	lastDataRef.Hash = chunkHash
+	lastDataRef.Chunk = chunk
 	if lastDataRef.Offset > 0 {
 		data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
-		lastDataRef.SubHash = hash.EncodeHash(hash.Sum(data))
+		lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
 	}
 	lastDataRef.Size = int64(w.buf.Len()) - lastDataRef.Offset
 	// Setup DataRef for next chunk.
