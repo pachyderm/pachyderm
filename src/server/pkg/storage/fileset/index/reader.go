@@ -12,12 +12,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
+// (bryce) this might make more sense as a general abstraction outside of this package (tbd).
 type levelReader struct {
 	cr  io.ReadCloser
 	tr  *tar.Reader
 	hdr *tar.Header
 }
 
+// Peek peeks ahead.
 func (r *levelReader) Peek() (*tar.Header, error) {
 	if r.hdr != nil {
 		return r.hdr, nil
@@ -27,6 +29,7 @@ func (r *levelReader) Peek() (*tar.Header, error) {
 	return r.hdr, err
 }
 
+// Next gets the next header.
 func (r *levelReader) Next() (*tar.Header, error) {
 	if r.hdr != nil {
 		tmp := r.hdr
@@ -44,6 +47,7 @@ func (r *levelReader) next() (*tar.Header, error) {
 	return hdr, err
 }
 
+// Close closes the reader.
 func (r *levelReader) Close() error {
 	return r.cr.Close()
 }
@@ -82,7 +86,7 @@ func (r *Reader) Next() (*Header, error) {
 			return nil, err
 		}
 		// Handle the base level index.
-		if _, ok := hdr.PAXRecords[Base]; ok {
+		if _, ok := hdr.PAXRecords[base]; ok {
 			// Return the header if it has the right prefix.
 			if strings.HasPrefix(hdr.Name, r.prefix) {
 				return deserialize(hdr)
@@ -140,7 +144,7 @@ func (r *Reader) skipAhead(hdr *tar.Header) (*tar.Header, error) {
 }
 
 func deserialize(hdr *tar.Header) (*Header, error) {
-	bytes, err := base64.StdEncoding.DecodeString(hdr.PAXRecords[MetaKey])
+	bytes, err := base64.StdEncoding.DecodeString(hdr.PAXRecords[fileInfo])
 	if err != nil {
 		return nil, err
 	}

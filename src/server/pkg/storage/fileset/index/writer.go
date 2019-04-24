@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	MetaKey          = "fileinfo"
-	Base             = "base"
+	base             = "base"
+	fileInfo         = "fileInfo"
 	defaultRangeSize = int64(chunk.MB)
 )
 
@@ -28,9 +28,9 @@ type levelWriter struct {
 	tw *tar.Writer
 }
 
-// Writer is used for creating a multi-level index into a serialized fileset.
+// Writer is used for creating a multi-level index into a serialized FileSet.
 // Each index level consists of compressed tar stream chunks (specifically just the tar headers for the underlying index/content tar stream).
-// Each tar header in an index has additional metadata stored in a base64 encoding of a serialized FileInfo in a PAXRecords under the key defined by MetaKey.
+// Each tar header in an index has additional metadata stored in a base64 encoding of a serialized FileInfo in a PAXRecords under the key defined by fileInfo.
 type Writer struct {
 	ctx       context.Context
 	chunks    *chunk.Storage
@@ -68,7 +68,7 @@ func (w *Writer) WriteHeader(hdr *Header) error {
 	if hdr.hdr.PAXRecords == nil {
 		hdr.hdr.PAXRecords = make(map[string]string)
 	}
-	hdr.hdr.PAXRecords[Base] = ""
+	hdr.hdr.PAXRecords[base] = ""
 	return w.writeHeader(hdr, 0)
 }
 
@@ -85,8 +85,8 @@ func (w *Writer) writeHeader(hdr *Header, level int) error {
 	if err := l.tw.WriteHeader(hdr.hdr); err != nil {
 		return err
 	}
-	delete(hdr.hdr.PAXRecords, Base)
-	delete(hdr.hdr.PAXRecords, MetaKey)
+	delete(hdr.hdr.PAXRecords, base)
+	delete(hdr.hdr.PAXRecords, fileInfo)
 	return nil
 }
 
@@ -95,7 +95,7 @@ func serialize(hdr *Header) error {
 	if err != nil {
 		return err
 	}
-	hdr.hdr.PAXRecords[MetaKey] = base64.StdEncoding.EncodeToString(bytes)
+	hdr.hdr.PAXRecords[fileInfo] = base64.StdEncoding.EncodeToString(bytes)
 	return nil
 }
 
