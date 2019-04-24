@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -125,7 +126,7 @@ func (a *apiServer) master() {
 							return err
 						}
 					}
-					log.Infof("PPS master: processing pipeline event for %q: %s -> %s", pipelineName, piplinePtr.State, prevPipelinePtr.State)
+					log.Infof("PPS master: processing pipeline event for %q: %s -> %s", pipelineName, pipelinePtr.State, prevPipelinePtr.State)
 					var prevSpecCommit string
 					if prevPipelinePtr.SpecCommit != nil {
 						prevSpecCommit = prevPipelinePtr.SpecCommit.ID
@@ -133,7 +134,7 @@ func (a *apiServer) master() {
 					var curSpecCommit = pipelinePtr.SpecCommit.ID
 
 					// Handle tracing (pipelineRestarted is used to maybe delete trace)
-					if span, ctx = extended.AddPipelineSpanToAnyExtendedTrace(oldCtx,
+					if span, ctx = extended.AddPipelineSpanToAnyTrace(oldCtx,
 						a.etcdClient, pipelineName, "/pps.Master/LaunchPipeline",
 						"key-version", event.Ver,
 						"mod-revision", event.Rev,
