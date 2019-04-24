@@ -408,7 +408,6 @@ func (d *driver) deleteRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
 		return fmt.Errorf("repos.Delete: %v", err)
 	}
-	return nil
 
 	if _, err = d.txnEnv.AuthServer().SetACLInTransaction(pachClient.Ctx(), stm, &auth.SetACLRequest{
 		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
