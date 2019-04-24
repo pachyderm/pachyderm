@@ -67,8 +67,8 @@ var (
 	putObjectLimiter = limit.New(100)
 )
 
-// validateRepoName determines if a repo name is valid
-func validateRepoName(name string) error {
+// validateName determines if a repo name is valid
+func validateName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
 	if !match {
 		return fmt.Errorf("repo name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
@@ -205,7 +205,7 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
 			grpcutil.ScrubGRPC(err))
 	}
-	if err := validateRepoName(repo.Name); err != nil {
+	if err := validateName(repo.Name); err != nil {
 		return err
 	}
 
@@ -470,6 +470,12 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		var err error
 		tree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
 		if err != nil {
+			return nil, err
+		}
+	}
+
+	if branch != "" {
+		if err := validateName(branch); err != nil {
 			return nil, err
 		}
 	}
@@ -1051,7 +1057,11 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
 	// Extract any ancestor tokens from 'commit.ID' (i.e. ~ and ^)
 	var ancestryLength int
-	commit.ID, ancestryLength = ancestry.Parse(commit.ID)
+	var err error
+	commit.ID, ancestryLength, err = ancestry.Parse(commit.ID)
+	if err != nil {
+		return nil, err
+	}
 
 	// Keep track of the commit branch, in case it isn't set in the commitInfo already
 	var commitBranch *pfs.Branch
@@ -1633,6 +1643,9 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 		return err
 	}
 	// Validate request. The request must do exactly one of:
+	if err := validateName(branch.Name); err != nil {
+		return err
+	}
 	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
 	// 2) re-pointing 'branch' at a new commit
 	if commit != nil {

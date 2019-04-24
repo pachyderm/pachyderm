@@ -2037,7 +2037,10 @@ func (a *apiServer) inspectPipeline(pachClient *client.APIClient, name string) (
 		return nil, err
 	}
 	kubeClient := a.env.GetKubeClient()
-	name, ancestors := ancestry.Parse(name)
+	name, ancestors, err := ancestry.Parse(name)
+	if err != nil {
+		return nil, err
+	}
 	pipelinePtr := pps.EtcdPipelineInfo{}
 	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
