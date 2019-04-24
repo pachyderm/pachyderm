@@ -326,7 +326,7 @@ delete-all-launch-bench:
 bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
-	etc/kube/start-minikube.sh -r
+	etc/kube/start-minikube.sh
 
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
@@ -455,9 +455,6 @@ test: clean-launch-dev launch-dev lint enterprise-code-checkin-test docker-build
 enterprise-code-checkin-test:
 	@which ag || { printf "'ag' not found. Run:\n  sudo apt-get install -y silversearcher-ag\n  brew install the_silver_searcher\nto install it\n\n"; exit 1; }
 	ag --version
-	ag 'enterprise-code-checkin-test:'; echo $$?
-	ag 'this-should-not-exist-anywhere'; echo $$?
-	ag --ignore=Makefile -p .gitignore 'RM2o1Qit6YlZhS1RGdXVac'; echo $$?
 	# Check if our test activation code is anywhere in the repo
 	@echo "Files containing test Pachyderm Enterprise activation token:"; \
 	if ag --ignore=Makefile -p .gitignore 'RM2o1Qit6YlZhS1RGdXVac'; \
@@ -511,9 +508,10 @@ test-vault:
 ./etc/testing/s3gateway/s3-tests:
 	cd ./etc/testing/s3gateway && git clone git@github.com:ceph/s3-tests.git
 	cd ./etc/testing/s3gateway/s3-tests && ./bootstrap
-	cd ./etc/testing/s3gateway.s3-tests && source virtualenv/bin/activate && pip install nose-exclude==0.5.0
+	cd ./etc/testing/s3gateway/s3-tests && source virtualenv/bin/activate && pip install nose-exclude==0.5.0
 
 test-s3gateway-integration:
+	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1 | grep -v 'INFO pfs.'
 
 test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
