@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -68,8 +69,9 @@ func newAPIServer(
 func (a *apiServer) CreateRepoInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.CreateRepoRequest,
+	originalRequest *pfs.CreateRepoRequest,
 ) error {
+	request := proto.Clone(originalRequest).(*pfs.CreateRepoRequest)
 	return a.driver.createRepo(pachClient, stm, request.Repo, request.Description, request.Update)
 }
 
@@ -92,8 +94,9 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 func (a *apiServer) InspectRepoInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.InspectRepoRequest,
+	originalRequest *pfs.InspectRepoRequest,
 ) (*pfs.RepoInfo, error) {
+	request := proto.Clone(originalRequest).(*pfs.InspectRepoRequest)
 	return a.driver.inspectRepo(pachClient, stm, request.Repo, true)
 }
 
@@ -128,8 +131,9 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 func (a *apiServer) DeleteRepoInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.DeleteRepoRequest,
+	originalRequest *pfs.DeleteRepoRequest,
 ) error {
+	request := proto.Clone(originalRequest).(*pfs.DeleteRepoRequest)
 	if request.All {
 		if err := a.driver.deleteAll(pachClient, stm); err != nil {
 			return err
@@ -165,9 +169,10 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 func (a *apiServer) StartCommitInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.StartCommitRequest,
+	originalRequest *pfs.StartCommitRequest,
 	commit *pfs.Commit,
 ) (*pfs.Commit, error) {
+	request := proto.Clone(originalRequest).(*pfs.StartCommitRequest)
 	id := ""
 	if commit != nil {
 		id = commit.ID
@@ -209,8 +214,9 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 func (a *apiServer) FinishCommitInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.FinishCommitRequest,
+	originalRequest *pfs.FinishCommitRequest,
 ) error {
+	request := proto.Clone(originalRequest).(*pfs.FinishCommitRequest)
 	if request.Trees != nil {
 		return a.driver.finishOutputCommit(pachClient, stm, request.Commit, request.Trees, request.Datums, request.SizeBytes)
 	}
@@ -271,8 +277,9 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 func (a *apiServer) CreateBranchInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.CreateBranchRequest,
+	originalRequest *pfs.CreateBranchRequest,
 ) error {
+	request := proto.Clone(originalRequest).(*pfs.CreateBranchRequest)
 	return a.driver.createBranch(pachClient, stm, request.Branch, request.Head, request.Provenance)
 }
 
@@ -314,8 +321,9 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 func (a *apiServer) DeleteBranchInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.DeleteBranchRequest,
+	originalRequest *pfs.DeleteBranchRequest,
 ) error {
+	request := proto.Clone(originalRequest).(*pfs.DeleteBranchRequest)
 	return a.driver.deleteBranch(pachClient, stm, request.Branch, request.Force)
 }
 
@@ -338,8 +346,9 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 func (a *apiServer) DeleteCommitInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.DeleteCommitRequest,
+	originalRequest *pfs.DeleteCommitRequest,
 ) error {
+	request := proto.Clone(originalRequest).(*pfs.DeleteCommitRequest)
 	return a.driver.deleteCommit(pachClient, stm, request.Commit)
 }
 
@@ -399,8 +408,9 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 func (a *apiServer) CopyFileInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.CopyFileRequest,
+	originalRequest *pfs.CopyFileRequest,
 ) error {
+	request := proto.Clone(originalRequest).(*pfs.CopyFileRequest)
 	return a.driver.copyFile(pachClient, stm, request.Src, request.Dst, request.Overwrite)
 }
 
@@ -554,8 +564,9 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 func (a *apiServer) DeleteFileInTransaction(
 	pachClient *client.APIClient,
 	stm col.STM,
-	request *pfs.DeleteFileRequest,
+	originalRequest *pfs.DeleteFileRequest,
 ) error {
+	request := proto.Clone(originalRequest).(*pfs.DeleteFileRequest)
 	return a.driver.deleteFile(pachClient, stm, request.File)
 }
 
