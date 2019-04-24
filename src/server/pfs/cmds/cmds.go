@@ -73,22 +73,16 @@ or type (e.g. csv, binary, images, etc).`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.CreateRepoRequest{
-				Repo:        client.NewRepo(args[0]),
-				Description: description,
-			}
-
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
+			err = txncmds.WithTransaction(func(c *APIClient) error {
+				_, err = c.PfsAPIClient.CreateRepo(
+					c.Ctx(),
+					&pfsclient.CreateRepoRequest{
+						Repo:        client.NewRepo(args[0]),
+						Description: description,
+					},
+				)
 				return err
-			} else if txn != nil {
-				_, err = c.AppendCreateRepo(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				_, err = c.PfsAPIClient.CreateRepo(c.Ctx(), request)
-			}
+			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -106,23 +100,17 @@ or type (e.g. csv, binary, images, etc).`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.CreateRepoRequest{
-				Repo:        client.NewRepo(args[0]),
-				Description: description,
-				Update:      true,
-			}
-
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
+			err = txncmds.WithTransaction(func(c *APIClient) error {
+				_, err = c.PfsAPIClient.CreateRepo(
+					c.Ctx(),
+					&pfsclient.CreateRepoRequest{
+						Repo:        client.NewRepo(args[0]),
+						Description: description,
+						Update:      true,
+					},
+				)
 				return err
-			} else if txn != nil {
-				_, err = c.AppendCreateRepo(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				_, err = c.PfsAPIClient.CreateRepo(c.Ctx(), request)
-			}
+			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -223,18 +211,10 @@ or type (e.g. csv, binary, images, etc).`,
 				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
-				return err
-			} else if txn != nil {
-				_, err = c.AppendDeleteRepo(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
+			err = txncmds.WithTransaction(func(c *APIClient) error {
 				_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
-			}
-
+				return err
+			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -286,25 +266,19 @@ $ {{alias}} test -p XXX`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.StartCommitRequest{
-				Branch:      branch.Name,
-				Parent:      client.NewCommit(branch.Repo.Name, parent),
-				Description: description,
-			}
-
 			var commit *pfsclient.Commit
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
+			err = txncmds.WithTransaction(func(c *APIClient) error {
+				var err error
+				commit, err = c.PfsAPIClient.StartCommit(
+					c.Ctx(),
+					&pfsclient.StartCommitRequest{
+						Branch:      branch.Name,
+						Parent:      client.NewCommit(branch.Repo.Name, parent),
+						Description: description,
+					},
+				)
 				return err
-			} else if txn != nil {
-				commit, err = c.AppendStartCommit(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				commit, err = c.PfsAPIClient.StartCommit(c.Ctx(), request)
-			}
-
+			})
 			if err == nil {
 				fmt.Println(commit.ID)
 			}
@@ -332,22 +306,16 @@ $ {{alias}} test -p XXX`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.FinishCommitRequest{
-				Commit:      commit,
-				Description: description,
-			}
-
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
+			err = txncmds.WithTransaction(func(c *APIClient) error {
+				_, err = c.PfsAPIClient.FinishCommit(
+					c.Ctx(),
+					&pfsclient.FinishCommitRequest{
+						Commit:      commit,
+						Description: description,
+					},
+				)
 				return err
-			} else if txn != nil {
-				_, err = c.AppendFinishCommit(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				_, err = c.PfsAPIClient.FinishCommit(c.Ctx(), request)
-			}
+			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -576,19 +544,9 @@ $ {{alias}} test@master --new`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.DeleteCommitRequest{Commit: commit}
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
-				return err
-			} else if txn != nil {
-				_, err = c.AppendDeleteCommit(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				_, err = c.PfsAPIClient.DeleteCommit(c.Ctx(), request)
-			}
-			return grpcutil.ScrubGRPC(err)
+			return txncmds.WithTransaction(func(c *APIClient) error {
+				return c.DeleteCommit(commit.Repo.Name, commit.ID)
+			})
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
@@ -627,27 +585,9 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.CreateBranchRequest{
-				Branch:     branch,
-				Provenance: provenance,
-			}
-
-			if head != "" {
-				request.Head = client.NewCommit(branch.Repo.Name, head)
-			}
-
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
-				return err
-			} else if txn != nil {
-				_, err = c.AppendCreateBranch(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				_, err = c.PfsAPIClient.CreateBranch(c.Ctx(), request)
-			}
-			return grpcutil.ScrubGRPC(err)
+			return txncmds.WithTransaction(func(c *APIClient) error {
+				return c.CreateBranch(branch.Repo.Name, branch.Name, head, provenance)
+			})
 		}),
 	}
 	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch-or-commit>")
@@ -703,19 +643,9 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.DeleteBranchRequest{Branch: branch, Force: force}
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
-				return err
-			} else if txn != nil {
-				_, err = c.AppendDeleteBranch(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				_, err = c.PfsAPIClient.DeleteBranch(c.Ctx(), request)
-			}
-			return grpcutil.ScrubGRPC(err)
+			return txncmds.WithTransaction(func(c *APIClient) error {
+				return c.DeleteBranch(branch.Repo.Name, branch.Name, force)
+			})
 		}),
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
@@ -911,24 +841,13 @@ $ {{alias}} repo branch -i http://host/path`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.CopyFileRequest{
-				Src:       srcFile,
-				Dst:       destFile,
-				Overwrite: overwrite,
-			}
-
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
-				return err
-			} else if txn != nil {
-				_, err = c.AppendCopyFile(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				_, err = c.PfsAPIClient.CopyFile(c.Ctx(), request)
-			}
-			return grpcutil.ScrubGRPC(err)
+			return txncmds.WithTransaction(func(c *APIClient) error {
+				return c.CopyFile(
+					srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
+					destFile.Commit.Repo.Name, destFile.Commit.ID, destFile.Path,
+					overwrite,
+				)
+			})
 		}),
 	}
 	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
@@ -1200,19 +1119,9 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			defer c.Close()
 
-			request := &pfsclient.DeleteFileRequest{File: file}
-			txn, err := txncmds.GetActiveTransaction()
-			if err != nil {
-				return err
-			} else if txn != nil {
-				_, err = c.AppendDeleteFile(txn, request)
-				if err == nil {
-					fmt.Fprintf(os.Stderr, "Appended to transaction: %s\n", txn.ID)
-				}
-			} else {
-				_, err = c.PfsAPIClient.DeleteFile(c.Ctx(), request)
-			}
-			return grpcutil.ScrubGRPC(err)
+			return txncmds.WithTransaction(func(c *APIClient) error {
+				return c.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+			})
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
