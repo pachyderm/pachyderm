@@ -21,7 +21,7 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "NAME\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
+	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
@@ -79,6 +79,7 @@ func PrintPipelineHeader(w io.Writer) {
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+	fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
 	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
