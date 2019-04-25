@@ -3,14 +3,15 @@ package cmds
 import (
 	"fmt"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 )
 
-// GetActiveTransaction will read the active transaction from the config file
+// getActiveTransaction will read the active transaction from the config file
 // (if it exists) and return it.  If the config file is uninitialized or the
 // active transaction is unset, `nil` will be returned.
-func GetActiveTransaction() (*transaction.Transaction, error) {
+func getActiveTransaction() (*transaction.Transaction, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		return nil, fmt.Errorf("error reading Pachyderm config: %v", err)
@@ -22,7 +23,7 @@ func GetActiveTransaction() (*transaction.Transaction, error) {
 }
 
 func requireActiveTransaction() (*transaction.Transaction, error) {
-	txn, err := GetActiveTransaction()
+	txn, err := getActiveTransaction()
 	if err != nil {
 		return nil, err
 	} else if txn == nil {
@@ -48,4 +49,15 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 		return fmt.Errorf("error writing Pachyderm config: %v", err)
 	}
 	return nil
+}
+
+func WithActiveTransaction(c *client.APIClient, callback func(*client.APIClient) error) error {
+	txn, err := getActiveTransaction()
+	if err != nil {
+		return err
+	}
+	if txn != nil {
+		c = c.WithTransaction(txn)
+	}
+	return callback(c)
 }

@@ -73,7 +73,7 @@ or type (e.g. csv, binary, images, etc).`,
 			}
 			defer c.Close()
 
-			err = txncmds.WithTransaction(func(c *APIClient) error {
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfsclient.CreateRepoRequest{
@@ -100,7 +100,7 @@ or type (e.g. csv, binary, images, etc).`,
 			}
 			defer c.Close()
 
-			err = txncmds.WithTransaction(func(c *APIClient) error {
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.CreateRepo(
 					c.Ctx(),
 					&pfsclient.CreateRepoRequest{
@@ -211,7 +211,7 @@ or type (e.g. csv, binary, images, etc).`,
 				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
 			}
 
-			err = txncmds.WithTransaction(func(c *APIClient) error {
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
 				return err
 			})
@@ -267,7 +267,7 @@ $ {{alias}} test -p XXX`,
 			defer c.Close()
 
 			var commit *pfsclient.Commit
-			err = txncmds.WithTransaction(func(c *APIClient) error {
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				var err error
 				commit, err = c.PfsAPIClient.StartCommit(
 					c.Ctx(),
@@ -306,7 +306,7 @@ $ {{alias}} test -p XXX`,
 			}
 			defer c.Close()
 
-			err = txncmds.WithTransaction(func(c *APIClient) error {
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				_, err = c.PfsAPIClient.FinishCommit(
 					c.Ctx(),
 					&pfsclient.FinishCommitRequest{
@@ -544,7 +544,7 @@ $ {{alias}} test@master --new`,
 			}
 			defer c.Close()
 
-			return txncmds.WithTransaction(func(c *APIClient) error {
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				return c.DeleteCommit(commit.Repo.Name, commit.ID)
 			})
 		}),
@@ -585,7 +585,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			defer c.Close()
 
-			return txncmds.WithTransaction(func(c *APIClient) error {
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				return c.CreateBranch(branch.Repo.Name, branch.Name, head, provenance)
 			})
 		}),
@@ -643,7 +643,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			}
 			defer c.Close()
 
-			return txncmds.WithTransaction(func(c *APIClient) error {
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				return c.DeleteBranch(branch.Repo.Name, branch.Name, force)
 			})
 		}),
@@ -841,7 +841,7 @@ $ {{alias}} repo branch -i http://host/path`,
 			}
 			defer c.Close()
 
-			return txncmds.WithTransaction(func(c *APIClient) error {
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				return c.CopyFile(
 					srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
 					destFile.Commit.Repo.Name, destFile.Commit.ID, destFile.Path,
@@ -1119,7 +1119,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			defer c.Close()
 
-			return txncmds.WithTransaction(func(c *APIClient) error {
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
 				return c.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 			})
 		}),

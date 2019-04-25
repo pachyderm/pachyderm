@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -9,6 +10,13 @@ import (
 
 	"github.com/gogo/protobuf/types"
 )
+
+type TransactionContextKey struct{}
+
+func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
+	ctx := context.WithValue(c.Ctx(), TransactionContextKey{}, txn)
+	return c.WithCtx(ctx)
+}
 
 // NewEmptyResponse is a helper function to instantiate a TransactionResponse
 // for a transaction item that returns an empty response.
