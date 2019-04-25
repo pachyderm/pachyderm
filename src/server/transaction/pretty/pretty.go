@@ -14,7 +14,7 @@ import (
 
 const (
 	//TransactionHeader is the header for transactions.
-	TransactionHeader = "TRANSACTION\tSTARTED\tLENGTH\t\n"
+	TransactionHeader = "TRANSACTION\tSTARTED\tOPS\t\n"
 )
 
 // PrintableTransactionInfo wraps a transaction.TransactionInfo with the
