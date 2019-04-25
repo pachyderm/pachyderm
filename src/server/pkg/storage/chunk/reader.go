@@ -22,7 +22,7 @@ type Reader struct {
 	r        io.Reader
 }
 
-func newReader(ctx context.Context, objC obj.Client, prefix string, dataRefs []*DataRef) *Reader {
+func newReader(ctx context.Context, objC obj.Client, prefix string, dataRefs ...*DataRef) *Reader {
 	return &Reader{
 		ctx:      ctx,
 		objC:     objC,
@@ -31,6 +31,11 @@ func newReader(ctx context.Context, objC obj.Client, prefix string, dataRefs []*
 		buf:      &bytes.Buffer{},
 		r:        bytes.NewReader([]byte{}),
 	}
+}
+
+func (r *Reader) RangeSet(dataRefs []*DataRef) {
+	r.dataRefs = dataRefs
+	r.r = bytes.NewReader([]byte{})
 }
 
 // Read reads from the byte stream produced by the set of DataRefs.
