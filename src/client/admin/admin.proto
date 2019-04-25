@@ -22,12 +22,12 @@ message Op1_7 {
 }
 
 message Op1_8 {
-  pfs_1_8.PutObjectRequest object = 2;
-  pfs_1_8.TagObjectRequest tag = 3;
-  pfs_1_8.CreateRepoRequest repo = 4;
+  pfs.PutObjectRequest object = 2;
+  pfs.TagObjectRequest tag = 3;
+  pfs.CreateRepoRequest repo = 4;
   pfs_1_8.BuildCommitRequest commit = 5;
-  pfs_1_8.CreateBranchRequest branch = 6;
-  pps_1_8.CreatePipelineRequest pipeline = 7;
+  pfs.CreateBranchRequest branch = 6;
+  pps.CreatePipelineRequest pipeline = 7;
 }
 
 message Op1_9 {
