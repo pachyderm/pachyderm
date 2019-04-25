@@ -1879,11 +1879,12 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 	if err != nil {
 		return err
 	}
+
+	ctx := pachClient.Ctx()
 	if oneOff {
 		// oneOff puts only work on branches, so we know branch != "". We pass
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
-		ctx := pachClient.Ctx()
 		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 			_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
 			return err
@@ -1891,7 +1892,10 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		return err
 	}
 	for i, file := range files {
-		if err := d.upsertPutFileRecords(pachClient, file, putFileRecords[i]); err != nil {
+		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			return d.upsertPutFileRecords(stm, file, putFileRecords[i])
+		})
+		if err != nil {
 			return err
 		}
 	}
@@ -2246,7 +2250,9 @@ func (d *driver) copyFile(pachClient *client.APIClient, stm col.STM, src *pfs.Fi
 		// to 'records' to be put at the end
 		if dstIsOpenCommit {
 			eg.Go(func() error {
-				return d.upsertPutFileRecords(pachClient, target, record)
+				// TODO: this may create a lot of operations on the STM and large
+				// recursive copies may fail due to too many etcd operations.
+				return d.upsertPutFileRecords(stm, target, record)
 			})
 		} else {
 			paths = append(paths, target.Path)
@@ -3054,7 +3060,8 @@ func (d *driver) deleteFile(pachClient *client.APIClient, stm col.STM, file *pfs
 		_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
 		return err
 	}
-	return d.upsertPutFileRecords(pachClient, file, &pfs.PutFileRecords{Tombstone: true})
+
+	return d.upsertPutFileRecords(stm, file, &pfs.PutFileRecords{Tombstone: true})
 }
 
 func (d *driver) deleteAll(pachClient *client.APIClient, stm col.STM) error {
@@ -3076,44 +3083,40 @@ func (d *driver) deleteAll(pachClient *client.APIClient, stm col.STM) error {
 // Only write the records to etcd if the commit does exist and is open.
 // To check that a key exists in etcd, we assert that its CreateRevision
 // is greater than zero.
-func (d *driver) upsertPutFileRecords(pachClient *client.APIClient, file *pfs.File, newRecords *pfs.PutFileRecords) error {
+func (d *driver) upsertPutFileRecords(
+	stm col.STM,
+	file *pfs.File,
+	newRecords *pfs.PutFileRecords,
+) error {
 	prefix, err := d.scratchFilePrefix(file)
 	if err != nil {
 		return err
 	}
 
-	ctx := pachClient.Ctx()
-	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		commitsCol := d.openCommits.ReadOnly(ctx)
-		var commit pfs.Commit
-		err := commitsCol.Get(file.Commit.ID, &commit)
-		if err != nil {
-			return err
-		}
-		// Dumb check to make sure the unmarshalled value exists (and matches the current ID)
-		// to denote that the current commit is indeed open
-		if commit.ID != file.Commit.ID {
-			return fmt.Errorf("commit %v is not open", file.Commit.ID)
-		}
-		recordsCol := d.putFileRecords.ReadWrite(stm)
-		var existingRecords pfs.PutFileRecords
-		return recordsCol.Upsert(prefix, &existingRecords, func() error {
-			if newRecords.Tombstone {
-				existingRecords.Tombstone = true
-				existingRecords.Records = nil
-			}
-			existingRecords.Split = newRecords.Split
-			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
-			existingRecords.Header = newRecords.Header
-			existingRecords.Footer = newRecords.Footer
-			return nil
-		})
-	})
+	commitsCol := d.openCommits.ReadWrite(stm)
+	var commit pfs.Commit
+	err = commitsCol.Get(file.Commit.ID, &commit)
 	if err != nil {
 		return err
 	}
-
-	return err
+	// Dumb check to make sure the unmarshalled value exists (and matches the current ID)
+	// to denote that the current commit is indeed open
+	if commit.ID != file.Commit.ID {
+		return fmt.Errorf("commit %v is not open", file.Commit.ID)
+	}
+	recordsCol := d.putFileRecords.ReadWrite(stm)
+	var existingRecords pfs.PutFileRecords
+	return recordsCol.Upsert(prefix, &existingRecords, func() error {
+		if newRecords.Tombstone {
+			existingRecords.Tombstone = true
+			existingRecords.Records = nil
+		}
+		existingRecords.Split = newRecords.Split
+		existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
+		existingRecords.Header = newRecords.Header
+		existingRecords.Footer = newRecords.Footer
+		return nil
+	})
 }
 
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.HashTree) error {
