@@ -302,11 +302,24 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 }
 
 func equalBranchProvenance(a, b []*pfs.Branch) bool {
-	// check nil
-	// check length
-	// sort a and b
-	// dedup
-	// element-wise comparison
+	aMap := make(map[string]bool)
+	bMap := make(map[string]bool)
+	key := path.Join
+	for _, branch := range a {
+		aMap[key(branch.Repo.Name, branch.Name)] = true
+	}
+	for _, branch := range b {
+		bMap[key(branch.Repo.Name, branch.Name)] = true
+	}
+	if len(aMap) != len(bMap) {
+		return false
+	}
+
+	for k := range aMap {
+		if !bMap[k] {
+			return false
+		}
+	}
 	return true
 }
 
