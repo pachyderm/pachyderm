@@ -323,11 +323,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		commits := d.commits(repoName).ReadOnly(ctx)
 		commitInfo := &pfs.CommitInfo{}
 		if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
-			fmt.Println("key", key(repoName, commitID))
-			fmt.Println("loaded subv", commitID, commitInfo.Subvenance)
 			commitInfos[key(repoName, commitID)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-			commitInfo = commitInfos[key(repoName, commitID)]
-			fmt.Println("unloaded subv", commitID, commitInfo.Subvenance)
 			return nil
 		}); err != nil {
 			return err
@@ -347,16 +343,17 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 
 	// for each branch
 	for _, bi := range branchInfos {
-		// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenance
-		// i.e. branch.Provenance = union(branch.DirectProvenance.Provenance, branch)
+		// we expect the branch's provenance to equal the union of the provenances of the branch's direct provenances
+		// i.e. union(branch, branch.Provenance) = union(branch, branch.DirectProvenance, branch.DirectProvenance.Provenance)
 		direct := bi.DirectProvenance
 		union := []*pfs.Branch{bi.Branch}
 		for _, directProvenance := range direct {
 			directProvenanceInfo := branchInfos[key(directProvenance.Repo.Name, directProvenance.Name)]
+			union = append(union, directProvenance)
 			union = append(union, directProvenanceInfo.Provenance...)
 		}
 
-		if !equalBranchProvenance(bi.Provenance, union) {
+		if !equalBranchProvenance(append(bi.Provenance, bi.Branch), union) {
 			return fmt.Errorf("")
 		}
 
