@@ -323,6 +323,28 @@ func equalBranchProvenance(a, b []*pfs.Branch) bool {
 	return true
 }
 
+func equalSubvenance(a, b []*pfs.Commit) bool {
+	aMap := make(map[string]bool)
+	bMap := make(map[string]bool)
+	key := path.Join
+	for _, commit := range a {
+		aMap[key(commit.Repo.Name, commit.ID)] = true
+	}
+	for _, commit := range b {
+		bMap[key(commit.Repo.Name, commit.ID)] = true
+	}
+	if len(aMap) != len(bMap) {
+		return false
+	}
+
+	for k := range aMap {
+		if !bMap[k] {
+			return false
+		}
+	}
+	return true
+}
+
 func (d *driver) fsck(pachClient *client.APIClient) error {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
@@ -412,6 +434,55 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 					return fmt.Errorf("")
 				}
 			}
+		}
+	}
+
+	// for each commit
+	for _, ci := range commitInfos {
+		// ensure that the subvenance is transitive
+		directSubvenance := make([]*pfs.Commit, 0, len(ci.Subvenance))
+		transitiveSubvenance := make([]*pfs.Commit, 0, len(ci.Subvenance))
+
+		for _, subvRange := range ci.Subvenance {
+			subvCommit := subvRange.Upper
+			// loop through the subvenance range
+			for {
+				if subvCommit == nil {
+					return fmt.Errorf("")
+				}
+				subvCommitInfo := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
+
+				directSubvenance = append(directSubvenance, subvCommit)
+				transitiveSubvenance = append(transitiveSubvenance, subvCommit)
+				for _, subvSubvRange := range subvCommitInfo.Subvenance {
+					subvSubvCommit := subvSubvRange.Upper
+
+					for {
+						if subvSubvCommit == nil {
+							return fmt.Errorf("")
+						}
+
+						subvSubvCommitInfo := commitInfos[key(subvSubvCommit.Repo.Name, subvSubvCommit.ID)]
+
+						transitiveSubvenance = append(transitiveSubvenance, subvSubvCommit)
+
+						if subvSubvCommit.ID == subvSubvRange.Lower.ID {
+							break // check at the end of the loop so we fsck 'lower' too (inclusive range)
+						}
+						subvSubvCommit = subvSubvCommitInfo.ParentCommit
+					}
+
+				}
+
+				if subvCommit.ID == subvRange.Lower.ID {
+					break // check at the end of the loop so we fsck 'lower' too (inclusive range)
+				}
+				subvCommit = subvCommitInfo.ParentCommit
+			}
+		}
+
+		if !equalSubvenance(directSubvenance, transitiveSubvenance) {
+			return fmt.Errorf("")
 		}
 	}
 
