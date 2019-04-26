@@ -34,6 +34,9 @@ func Parse(s string) (string, int, error) {
 	intAfterSep, err := strconv.Atoi(strAfterSep)
 	// If it works, return
 	if err == nil {
+		if sep == '.' {
+			return s[:sepIndex], -1 * intAfterSep, nil
+		}
 		return s[:sepIndex], intAfterSep, nil
 	}
 
@@ -50,6 +53,9 @@ func Parse(s string) (string, int, error) {
 	// Here we've confirmed that the commit ID ends with a sequence of
 	// (the same) separators and therefore uses the correct ancestry
 	// syntax.
+	if sep == '.' {
+		return s[:sepIndex], -1*len(s) - sepIndex, nil
+	}
 	return s[:sepIndex], len(s) - sepIndex, nil
 }
 

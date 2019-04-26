@@ -680,7 +680,7 @@ func TestAncestrySyntax(t *testing.T) {
 
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFileOverwrite(repo, commit1.ID, "file", strings.NewReader("1"), 0)
+	_, err = client.PutFileOverwrite(repo, "master", "file", strings.NewReader("1"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -728,6 +728,18 @@ func TestAncestrySyntax(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit1, commitInfo.Commit)
 
+	commitInfo, err = client.InspectCommit(repo, "master.1")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.2")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.3")
+	require.NoError(t, err)
+	require.Equal(t, commit3, commitInfo.Commit)
+
 	commitInfo, err = client.InspectCommit(repo, "master^^^")
 	require.YesError(t, err)
 
@@ -754,6 +766,15 @@ func TestAncestrySyntax(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 2), "file", 0, 0, &buffer))
 	require.Equal(t, "1", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -1), "file", 0, 0, &buffer))
+	require.Equal(t, "1", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -2), "file", 0, 0, &buffer))
+	require.Equal(t, "2", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -3), "file", 0, 0, &buffer))
+	require.Equal(t, "3", buffer.String())
 }
 
 // TestProvenance implements the following DAG

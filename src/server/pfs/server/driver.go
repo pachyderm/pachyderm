@@ -1055,7 +1055,7 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 		return nil, fmt.Errorf("cannot resolve commit with no ID or branch")
 	}
 	commit := proto.Clone(userCommit).(*pfs.Commit) // back up user commit, for error reporting
-	// Extract any ancestor tokens from 'commit.ID' (i.e. ~ and ^)
+	// Extract any ancestor tokens from 'commit.ID' (i.e. ~, ^ and .)
 	var ancestryLength int
 	var err error
 	commit.ID, ancestryLength, err = ancestry.Parse(commit.ID)
@@ -1083,21 +1083,42 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	// Traverse commits' parents until you've reached the right ancestor
 	commits := d.commits(commit.Repo.Name).ReadWrite(stm)
 	commitInfo := &pfs.CommitInfo{}
-	for i := 0; i <= ancestryLength; i++ {
-		if commit == nil {
-			return nil, pfsserver.ErrCommitNotFound{userCommit}
-		}
-		childCommit := commit // preserve child for error reporting
-		if err := commits.Get(commit.ID, commitInfo); err != nil {
-			if col.IsErrNotFound(err) {
-				if i == 0 {
-					return nil, pfsserver.ErrCommitNotFound{childCommit}
-				}
-				return nil, pfsserver.ErrParentCommitNotFound{childCommit}
+	if ancestryLength >= 0 {
+		for i := 0; i <= ancestryLength; i++ {
+			if commit == nil {
+				return nil, pfsserver.ErrCommitNotFound{userCommit}
 			}
-			return nil, err
+			if err := commits.Get(commit.ID, commitInfo); err != nil {
+				if col.IsErrNotFound(err) {
+					if i == 0 {
+						return nil, pfsserver.ErrCommitNotFound{userCommit}
+					}
+					return nil, pfsserver.ErrParentCommitNotFound{commit}
+				}
+				return nil, err
+			}
+			commit = commitInfo.ParentCommit
 		}
-		commit = commitInfo.ParentCommit
+	} else {
+		cis := make([]pfs.CommitInfo, ancestryLength*-1)
+		for i := 0; ; i++ {
+			if commit == nil {
+				if i >= len(cis) {
+					commitInfo = &cis[i%len(cis)]
+					break
+				}
+				return nil, pfsserver.ErrCommitNotFound{userCommit}
+			}
+			if err := commits.Get(commit.ID, &cis[i%len(cis)]); err != nil {
+				if col.IsErrNotFound(err) {
+					if i == 0 {
+						return nil, pfsserver.ErrCommitNotFound{userCommit}
+					}
+					return nil, pfsserver.ErrParentCommitNotFound{commit}
+				}
+			}
+			commit = cis[i%len(cis)].ParentCommit
+		}
 	}
 	if commitInfo.Branch == nil {
 		commitInfo.Branch = commitBranch
