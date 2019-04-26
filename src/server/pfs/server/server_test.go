@@ -775,6 +775,24 @@ func TestAncestrySyntax(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -3), "file", 0, 0, &buffer))
 	require.Equal(t, "3", buffer.String())
+
+	// Adding a bunch of commits to the head of the branch shouldn't change the forward reverences.
+	// (It will change backward references.)
+	for i := 0; i < 10; i++ {
+		_, err = client.PutFileOverwrite(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i+4)), 0)
+		require.NoError(t, err)
+	}
+	commitInfo, err = client.InspectCommit(repo, "master.1")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.2")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.3")
+	require.NoError(t, err)
+	require.Equal(t, commit3, commitInfo.Commit)
 }
 
 // TestProvenance implements the following DAG
