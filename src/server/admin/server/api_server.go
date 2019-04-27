@@ -418,7 +418,7 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				extractedReader := &extractedObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
-					version:               v1_8,
+					version:               v1_9,
 				}
 				extractedReader.buf.Write(op.Op1_8.Object.Value)
 				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
@@ -575,11 +575,16 @@ func (r *extractedObjectReader) Read(p []byte) (int, error) {
 				return 0, fmt.Errorf("expected an object, but got: %v", op)
 			}
 			value = op.Op1_7.Object.Value
-		} else {
+		} else if r.version == v1_8 {
 			if op.Op1_8.Object == nil {
 				return 0, fmt.Errorf("expected an object, but got: %v", op)
 			}
 			value = op.Op1_8.Object.Value
+		} else {
+			if op.Op1_9.Object == nil {
+				return 0, fmt.Errorf("expected an object, but got: %v", op)
+			}
+			value = op.Op1_9.Object.Value
 		}
 
 		if len(value) == 0 {
