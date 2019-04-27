@@ -183,6 +183,9 @@ func convert1_8Egress(e *pps1_8.Egress) *pps.Egress {
 }
 
 func convert1_8GPUSpec(g *pps1_8.GPUSpec) *pps.GPUSpec {
+	if g == nil {
+		return nil
+	}
 	return &pps.GPUSpec{
 		Type:   g.Type,
 		Number: g.Number,
@@ -353,6 +356,7 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 				Name: op.Branch.SBranch,
 			}
 		}
+		return newOp, nil
 	case op.Pipeline != nil:
 		return &admin.Op1_9{
 			Pipeline: &pps.CreatePipelineRequest{
@@ -387,5 +391,5 @@ func convert1_8Op(op *admin.Op1_8) (*admin.Op1_9, error) {
 	default:
 		return nil, fmt.Errorf("Unrecognized 1.7 op type:\n%+v", op)
 	}
-	return nil, fmt.Errorf("internal error: convert1.7Op() didn't return a 1.8 op")
+	return nil, fmt.Errorf("internal error: convert1_8Op() didn't return a 1.9 op for:\n%+v", op)
 }

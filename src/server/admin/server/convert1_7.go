@@ -455,5 +455,5 @@ func convert1_7Op(pachClient *client.APIClient, storageRoot string, op *admin.Op
 	default:
 		return nil, fmt.Errorf("Unrecognized 1.7 op type:\n%+v", op)
 	}
-	return nil, fmt.Errorf("internal error: convert1.7Op() didn't return a 1.8 op")
+	return nil, fmt.Errorf("internal error: convert1.7Op() didn't return a 1.8 op for:\n%+v", op)
 }
