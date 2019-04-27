@@ -598,15 +598,20 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	var spec bool
 	var history int64
 	listPipeline := &cobra.Command{
+		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			defer client.Close()
-			pipelineInfos, err := client.ListPipelineHistory(history)
+			var pipeline string
+			if len(args) > 0 {
+				pipeline = args[0]
+			}
+			pipelineInfos, err := client.ListPipelineHistory(pipeline, history)
 			if err != nil {
 				return err
 			}

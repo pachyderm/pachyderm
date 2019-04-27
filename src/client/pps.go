@@ -554,11 +554,24 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 }
 
 // ListPipelineHistory returns historical information about pipelines.
-func (c APIClient) ListPipelineHistory(history int64) ([]*pps.PipelineInfo, error) {
+// `pipeline` specifies which pipeline to return history about, if it's equal
+// to "" then ListPipelineHistory returns historical information about all
+// pipelines.
+// `history` specifies how many historical revisions to return:
+// 0: Return the current version of the pipeline or pipelines.
+// 1: Return the above and the next most recent version
+// 2: etc.
+//-1: Return all historical versions.
+func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.PipelineInfo, error) {
+	var _pipeline *pps.Pipeline
+	if pipeline != "" {
+		_pipeline = NewPipeline(pipeline)
+	}
 	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
 		c.Ctx(),
 		&pps.ListPipelineRequest{
-			History: history,
+			Pipeline: _pipeline,
+			History:  history,
 		},
 	)
 	if err != nil {

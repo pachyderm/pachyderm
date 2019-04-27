@@ -2115,7 +2115,7 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 	}
 	pipelineInfos := &pps.PipelineInfos{}
 	pipelinePtr := &pps.EtcdPipelineInfo{}
-	if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(pipelinePtr, col.DefaultOptions, func(string) error {
+	forEachPipeline := func() error {
 		pipelineInfo, err := ppsutil.GetPipelineInfo(pachClient, pipelinePtr, true)
 		if err != nil {
 			return err
@@ -2136,8 +2136,23 @@ func (a *apiServer) ListPipeline(ctx context.Context, request *pps.ListPipelineR
 			}
 		}
 		return nil
-	}); err != nil {
-		return nil, err
+	}
+	if request.Pipeline == nil {
+		if err := a.pipelines.ReadOnly(pachClient.Ctx()).List(pipelinePtr, col.DefaultOptions, func(string) error {
+			return forEachPipeline()
+		}); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(request.Pipeline.Name, pipelinePtr); err != nil {
+			if col.IsErrNotFound(err) {
+				return nil, fmt.Errorf("pipeline \"%s\" not found", request.Pipeline.Name)
+			}
+			return nil, err
+		}
+		if err := forEachPipeline(); err != nil {
+			return nil, err
+		}
 	}
 	return pipelineInfos, nil
 }

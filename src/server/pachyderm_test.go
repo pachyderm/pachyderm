@@ -2191,8 +2191,7 @@ func TestUpdatePipeline(t *testing.T) {
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "foo\n", buffer.String())
 
-	// Update the pipeline, this will not create a new pipeline as reprocess
-	// isn't set to true.
+	// Update the pipeline
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
 		"",
@@ -8606,6 +8605,103 @@ func TestDeferredProcessing(t *testing.T) {
 	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{commit}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
+}
+
+func TestPipelineHistory(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	// create repos
+	dataRepo := tu.UniqueString("TestPipelineHistory_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipelineName := tu.UniqueString("TestPipelineHistory")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{"echo foo >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("1"))
+	require.NoError(t, err)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	// Update the pipeline
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{"echo bar >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("2"))
+	require.NoError(t, err)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	// Update the pipeline again, this time with Reprocess: true set. Now we
+	// should see a different output file
+	require.NoError(t, c.CreatePipeline(
+		pipelineName,
+		"",
+		[]string{"bash"},
+		[]string{"echo buzz >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	pipelineName2 := tu.UniqueString("TestPipelineHistory2")
+	require.NoError(t, c.CreatePipeline(
+		pipelineName2,
+		"",
+		[]string{"bash"},
+		[]string{"echo foo >/pfs/out/file"},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/*"),
+		"",
+		true,
+	))
+
+	pipelineInfos, err := c.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, 2, len(pipelineInfos))
+
+	pipelineInfos, err = c.ListPipelineHistory("", -1)
+	require.Equal(t, 4, len(pipelineInfos))
+
+	pipelineInfos, err = c.ListPipelineHistory("", 1)
+	require.Equal(t, 3, len(pipelineInfos))
+
+	pipelineInfos, err = c.ListPipelineHistory(pipelineName, -1)
+	require.Equal(t, 3, len(pipelineInfos))
+
+	pipelineInfos, err = c.ListPipelineHistory(pipelineName2, -1)
+	require.Equal(t, 1, len(pipelineInfos))
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
