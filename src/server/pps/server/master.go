@@ -193,7 +193,7 @@ func (a *apiServer) master() {
 					authActivationChanged := (pipelinePtr.AuthToken == "") !=
 						(prevPipelinePtr.AuthToken == "")
 					// True if the pipeline has been created or updated
-					pipelineUpserted := func() bool {
+					pipelineNewSpecCommit := func() bool {
 						var prevSpecCommit string
 						if prevPipelinePtr.SpecCommit != nil {
 							prevSpecCommit = prevPipelinePtr.SpecCommit.ID
@@ -223,21 +223,22 @@ func (a *apiServer) master() {
 						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED, ""); err != nil {
 							return err
 						}
-					} else if pipelineRestarted || authActivationChanged || pipelineUpserted {
-						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
+					} else if pipelineRestarted || authActivationChanged || pipelineNewSpecCommit {
+						if (pipelineNewSpecCommit || authActivationChanged) && event.PrevKey != nil {
 							log.Infof("PPS master: deleting workers for updated pipeline %s (%s)",
 								pipelineName, pipelinePtr.State)
 							if err := a.deletePipelineResources(ctx, prevPipelineInfo.Pipeline.Name); err != nil {
 								return err
 							}
 						}
-						if (pipelineUpserted || pipelineRestarted) && hasGitInput {
+						if (pipelineNewSpecCommit || pipelineRestarted) && hasGitInput {
 							if err := a.checkOrDeployGithookService(ctx); err != nil {
 								return err
 							}
 						}
 						log.Infof("PPS master: creating/updating workers for pipeline %s", pipelineName)
 						if err := a.upsertWorkersForPipeline(ctx, pipelineInfo); err != nil {
+							log.Errorf("error upserting workers for new/restarted pipeline %q: %v", pipelineName, err)
 							if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STARTING, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
 								return err
 							}
@@ -406,7 +407,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 		}
 		newPachVersion := rcFound && workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion()
 
-		// Generate options for hypothetical RC that we might have to create
+		// Generate options for new RC
 		options := a.getWorkerOptions(
 			pipelineInfo.Pipeline.Name,
 			pipelineInfo.Version,

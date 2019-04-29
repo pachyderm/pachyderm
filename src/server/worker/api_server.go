@@ -1159,9 +1159,11 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 						return fmt.Errorf("worker: error unmarshalling while watching job state (%v)", err)
 					}
 					if ppsutil.IsTerminal(jobPtr.State) {
+						logger.Logf("job %q put in terminal state %q; cancelling", jobID, jobPtr.State)
 						jobCancel() // cancel the job
 					}
 				case watch.EventDelete:
+					logger.Logf("job %q deleted; cancelling", jobID)
 					jobCancel() // cancel the job
 				case watch.EventError:
 					return fmt.Errorf("job state watch error: %v", e.Err)
@@ -1253,7 +1255,7 @@ func (a *APIServer) worker() {
 			// Read the chunks laid out by the master and create the datum factory
 			chunks := &Chunks{}
 			if err := a.chunks.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
-				return err
+				return fmt.Errorf("error reading job chunks: %v", err)
 			}
 			df, err := NewDatumFactory(pachClient, jobInfo.Input)
 			if err != nil {
