@@ -4583,7 +4583,9 @@ func TestGarbageCollection(t *testing.T) {
 
 	// Now stop the pipeline  and GC
 	require.NoError(t, c.StopPipeline(pipeline))
-	require.NoError(t, backoff.Retry(func() error { return c.GarbageCollect(0) }, backoff.NewTestingBackOff()))
+	require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
+		return c.GarbageCollect(0)
+	})
 
 	// Check that data still exists in the input repo
 	var buf bytes.Buffer
