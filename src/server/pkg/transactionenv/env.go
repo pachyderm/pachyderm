@@ -6,8 +6,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/transaction"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 )
+
+// TransactionServer is an interface used by other servers to append a request
+// to an existing transaction.
+type TransactionServer interface {
+	AppendRequest(context.Context, *transaction.TransactionRequest) (*transaction.TransactionResponse, error)
+}
 
 // AuthTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the auth server.
@@ -52,36 +59,45 @@ type PpsTransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
-	authClient AuthTransactionServer
-	pfsClient  PfsTransactionServer
-	ppsClient  PpsTransactionServer
+	txnServer  TransactionServer
+	authServer AuthTransactionServer
+	pfsServer  PfsTransactionServer
+	ppsServer  PpsTransactionServer
 }
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
-	authClient AuthTransactionServer,
-	pfsClient PfsTransactionServer,
-	ppsClient PpsTransactionServer,
+	txnServer TransactionServer,
+	authServer AuthTransactionServer,
+	pfsServer PfsTransactionServer,
+	ppsServer PpsTransactionServer,
 ) {
-	env.authClient = authClient
-	env.pfsClient = pfsClient
-	env.ppsClient = ppsClient
+	env.txnServer = txnServer
+	env.authServer = authServer
+	env.pfsServer = pfsServer
+	env.ppsServer = ppsServer
+}
+
+// TransactionServer returns a reference to the interface for modifying
+// transactions from other API servers.
+func (env *TransactionEnv) TransactionServer() TransactionServer {
+	return env.txnServer
 }
 
 // AuthServer returns a reference to the interface for making transactional
 // calls through the auth subsystem.
 func (env *TransactionEnv) AuthServer() AuthTransactionServer {
-	return env.authClient
+	return env.authServer
 }
 
 // PfsServer returns a reference to the interface for making transactional
 // calls through the PFS subsystem.
 func (env *TransactionEnv) PfsServer() PfsTransactionServer {
-	return env.pfsClient
+	return env.pfsServer
 }
 
 // PpsServer returns a reference to the interface for making transactional
 // calls through the PPS subsystem.
 func (env *TransactionEnv) PpsServer() PpsTransactionServer {
-	return env.ppsClient
+	return env.ppsServer
 }

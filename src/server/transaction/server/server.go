@@ -9,6 +9,7 @@ import (
 // APIServer represents an api server.
 type APIServer interface {
 	transaction.APIServer
+	txnenv.TransactionServer
 }
 
 // NewAPIServer creates an APIServer.

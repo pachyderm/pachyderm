@@ -11,11 +11,19 @@ import (
 	"github.com/gogo/protobuf/types"
 )
 
-type TransactionContextKey struct{}
+const transactionContextKey = "pach-transaction"
 
 func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 	ctx := context.WithValue(c.Ctx(), TransactionContextKey{}, txn)
 	return c.WithCtx(ctx)
+}
+
+func (c APIClient) GetTransaction() (*transaction.Transaction, error) {
+	value, ok = c.Ctx().Value(TransactionContextKey{}).(*transaction.Transaction)
+	if !ok {
+		return fmt.Errorf("Transaction in request context has an invalid format.")
+	}
+	return value
 }
 
 // NewEmptyResponse is a helper function to instantiate a TransactionResponse
