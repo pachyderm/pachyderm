@@ -2205,7 +2205,7 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	}
 
 	// Delete pipeline's workers
-	if err := a.deleteWorkersForPipeline(ctx, request.Pipeline.Name); err != nil {
+	if err := a.deletePipelineResources(ctx, request.Pipeline.Name); err != nil {
 		return nil, fmt.Errorf("error deleting workers: %v", err)
 	}
 

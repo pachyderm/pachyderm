@@ -126,7 +126,7 @@ func (a *apiServer) master() {
 							return err
 						}
 					}
-					log.Infof("PPS master: processing pipeline event for %q: %s -> %s", pipelineName, pipelinePtr.State, prevPipelinePtr.State)
+					log.Infof("PPS master: pipeline %q: %s -> %s", pipelineName, prevPipelinePtr.State, pipelinePtr.State)
 					var prevSpecCommit string
 					if prevPipelinePtr.SpecCommit != nil {
 						prevSpecCommit = prevPipelinePtr.SpecCommit.ID
@@ -201,23 +201,33 @@ func (a *apiServer) master() {
 						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
 							!pipelineInfo.Stopped
 					}()
-					if pipelineFailed || pipelinePartiallyStopped {
-						log.Infof("PPS master: deleting workers for stopped/failed pipeline %s (%s)",
-							pipelineName, pipelinePtr.State.String())
-						if err := a.deleteWorkersForPipeline(ctx, pipelineName); err != nil {
+					if pipelineFailed {
+						log.Infof("PPS master: deleting resources for failed pipeline %s (%s)",
+							pipelineName, pipelinePtr.State)
+						if err := a.deletePipelineResources(ctx, pipelineName); err != nil {
 							return err
 						}
-						if pipelinePartiallyStopped {
-							// Mark the pipeline paused, thus fully stopping it
-							if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED, ""); err != nil {
-								return err
+					} else if pipelinePartiallyStopped {
+						log.Infof("PPS master: scaling down workers for paused pipeline %s (%s)",
+							pipelineName, pipelinePtr.State)
+						// Clusters can get into broken state where pipeline exists but
+						// RC is deleted by user--causes master() to crashloop trying to
+						// scale up/down workers repeatedly. Break the cycle here
+						if err := a.scaleDownWorkersForPipeline(ctx, pipelineInfo); err != nil {
+							if failErr := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, err.Error()); failErr != nil {
+								return failErr
 							}
+							return err
+						}
+						// Mark the pipeline paused, thus fully stopping it
+						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED, ""); err != nil {
+							return err
 						}
 					} else if pipelineRestarted || authActivationChanged || pipelineUpserted {
 						if (pipelineUpserted || authActivationChanged) && event.PrevKey != nil {
 							log.Infof("PPS master: deleting workers for updated pipeline %s (%s)",
-								pipelineName, pipelinePtr.State.String())
-							if err := a.deleteWorkersForPipeline(ctx, prevPipelineInfo.Pipeline.Name); err != nil {
+								pipelineName, pipelinePtr.State)
+							if err := a.deletePipelineResources(ctx, prevPipelineInfo.Pipeline.Name); err != nil {
 								return err
 							}
 						}
@@ -243,9 +253,7 @@ func (a *apiServer) master() {
 					if pipelineInfo.State == pps.PipelineState_PIPELINE_RUNNING {
 						if err := a.scaleUpWorkersForPipeline(ctx, pipelineInfo); err != nil {
 							if isNotFoundErr(err) {
-								// Clusters can get into broken state where pipeline exists but
-								// RC is deleted by user--causes master() to crashloop trying to
-								// scale up/down workers repeatedly. Break the cycle here
+								// See note above (under "if pipelinePartiallyStopped")
 								if failErr := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, err.Error()); failErr != nil {
 									return failErr
 								}
@@ -255,7 +263,7 @@ func (a *apiServer) master() {
 					}
 					if pipelineInfo.State == pps.PipelineState_PIPELINE_STANDBY {
 						if err := a.scaleDownWorkersForPipeline(ctx, pipelineInfo); err != nil {
-							// See note above (under scaleUpWorkersForPipeline)
+							// See note above (under "if pipelinePartiallyStopped")
 							if failErr := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, err.Error()); failErr != nil {
 								return failErr
 							}
@@ -418,7 +426,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 		})
 
 		if newPachVersion {
-			if err := a.deleteWorkersForPipeline(ctx, pipelineInfo.Pipeline.Name); err != nil {
+			if err := a.deletePipelineResources(ctx, pipelineInfo.Pipeline.Name); err != nil {
 				return err
 			}
 		}
@@ -448,7 +456,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 	return nil
 }
 
-func (a *apiServer) deleteWorkersForPipeline(ctx context.Context, pipelineName string) (retErr error) {
+func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/DeleteWorkersForPipeline", "pipeline", pipelineName)
 	defer func(span opentracing.Span) {
 		if span != nil {
