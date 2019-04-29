@@ -100,6 +100,7 @@ If the job fails, the output commit will not be populated with data.`,
 	var pipelineName string
 	var outputCommitStr string
 	var inputCommitStrs []string
+	var history int64
 	listJob := &cobra.Command{
 		Short: "Return info about jobs.",
 		Long:  "Return info about jobs.",
@@ -136,7 +137,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			defer client.Close()
 
 			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+				return client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
 					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
 						return err
 					}
@@ -144,7 +145,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+			if err := client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
 				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -161,6 +162,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
 	listJob.Flags().AddFlagSet(rawFlags)
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
+	listJob.Flags().Int64Var(&history, "history", 0, "Return jobs from historical versions of pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -596,7 +598,6 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	commands = append(commands, cmdutil.CreateAlias(editPipeline, "edit pipeline"))
 
 	var spec bool
-	var history int64
 	listPipeline := &cobra.Command{
 		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
