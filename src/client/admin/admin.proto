@@ -7,6 +7,8 @@ import "google/protobuf/empty.proto";
 import "gogoproto/gogo.proto";
 import "client/admin/1_7/pfs/pfs.proto";
 import "client/admin/1_7/pps/pps.proto";
+import "client/admin/1_8/pfs/pfs.proto";
+import "client/admin/1_8/pps/pps.proto";
 import "client/pfs/pfs.proto";
 import "client/pps/pps.proto";
 
@@ -23,6 +25,15 @@ message Op1_8 {
   pfs.PutObjectRequest object = 2;
   pfs.TagObjectRequest tag = 3;
   pfs.CreateRepoRequest repo = 4;
+  pfs_1_8.BuildCommitRequest commit = 5;
+  pfs.CreateBranchRequest branch = 6;
+  pps.CreatePipelineRequest pipeline = 7;
+}
+
+message Op1_9 {
+  pfs.PutObjectRequest object = 2;
+  pfs.TagObjectRequest tag = 3;
+  pfs.CreateRepoRequest repo = 4;
   pfs.BuildCommitRequest commit = 5;
   pfs.CreateBranchRequest branch = 6;
   pps.CreatePipelineRequest pipeline = 7;
@@ -31,6 +42,7 @@ message Op1_8 {
 message Op {
   Op1_7 op1_7 = 1;
   Op1_8 op1_8 = 2;
+  Op1_9 op1_9 = 3;
 }
 
 message ExtractRequest {
