@@ -12,15 +12,12 @@ with PFS through its gRPC interface instead.
 
 ## Connecting to the s3gateway
 
-You can start the s3gateway locally by running `pachctl s3gateway`. Then point
-your browser or favorite s3 tool at `http://localhost:30600`. The s3gateway
-also runs in the background on your pachyderm cluster, which you can reach via
+The s3gateway runs in your cluster, and can be reached via
 `http://<cluster ip>:30600`.
 
-**Note:** A third way to access the s3gateway is using the explicit port
-forwarder (`pachctl port-forward`). However, we don't recommend it, as
-kubernetes' port forwarder incurs overhead, and does not recover well from
-broken connections.
+Alternatively, you can use port forwarding to connect to the cluster.
+However, we don't recommend it, as kubernetes' port forwarder incurs overhead,
+and does not recover well from broken connections.
 
 ## Supported operations
 
