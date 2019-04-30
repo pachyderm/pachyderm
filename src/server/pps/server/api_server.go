@@ -2533,7 +2533,7 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 	}
 
 	for _, pi := range pipelineInfos.PipelineInfo {
-		if pi.State != pps.PipelineState_PIPELINE_PAUSED {
+		if pi.State != pps.PipelineState_PIPELINE_PAUSED && pi.State != pps.PipelineState_PIPELINE_FAILURE {
 			return nil, fmt.Errorf("all pipelines must be stopped to run garbage collection, pipeline: %s is not", pi.Pipeline.Name)
 		}
 		selector := fmt.Sprintf("pipelineName=%s", pi.Pipeline.Name)

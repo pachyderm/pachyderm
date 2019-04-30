@@ -43,6 +43,8 @@ var (
 		"InvalidImageName": true,
 		"ErrImagePull":     true,
 	}
+
+	zero int32 // used to turn down RCs in scaleDownWorkersForPipeline
 )
 
 // The master process is responsible for creating/deleting workers as
@@ -62,7 +64,7 @@ func (a *apiServer) master() {
 		}
 		defer masterLock.Unlock(ctx)
 
-		log.Infof("Launching PPS master process")
+		log.Infof("PPS master: launching master process")
 
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).WatchWithPrev()
 		if err != nil {
@@ -135,7 +137,7 @@ func (a *apiServer) master() {
 
 					// Handle tracing (pipelineRestarted is used to maybe delete trace)
 					if span, ctx = extended.AddPipelineSpanToAnyTrace(oldCtx,
-						a.etcdClient, pipelineName, "/pps.Master/LaunchPipeline",
+						a.etcdClient, pipelineName, "/pps.Master/ProcessPipelineUpdate",
 						"key-version", event.Ver,
 						"mod-revision", event.Rev,
 						"prev-key", string(event.PrevKey),
@@ -177,13 +179,10 @@ func (a *apiServer) master() {
 							hasGitInput = true
 						}
 					})
-					// True if the pipeline has failed (due to e.g. docker image not
-					// found, RC not found, etc)
-					pipelineFailed := pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE
 					// True if the user has called StopPipeline, but the PPS master hasn't
 					// processed the update yet (PPS master sets the pipeline state to
 					// PAUSED)
-					pipelinePartiallyStopped := pipelineInfo.Stopped &&
+					pipelinePartiallyPaused := pipelineInfo.Stopped &&
 						pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED
 					// True if the pipeline has been restarted (regardless of any change
 					// to the pipeline spec)
@@ -201,15 +200,21 @@ func (a *apiServer) master() {
 						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
 							!pipelineInfo.Stopped
 					}()
-					if pipelineFailed {
-						log.Infof("PPS master: deleting resources for failed pipeline %s (%s)",
-							pipelineName, pipelinePtr.State)
+
+					// Handle cases where pipeline isn't running anymore
+					if pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE {
+						// pipeline fails if docker image isn't found OR if pipeline RC is
+						// missing
+						if err := a.finishPipelineOutputCommits(pachClient, pipelineInfo); err != nil {
+							return err
+						}
 						if err := a.deletePipelineResources(ctx, pipelineName); err != nil {
 							return err
 						}
-					} else if pipelinePartiallyStopped {
-						log.Infof("PPS master: scaling down workers for paused pipeline %s (%s)",
-							pipelineName, pipelinePtr.State)
+						continue
+					} else if pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED {
+						continue // pipeline has already been paused -- nothing to do
+					} else if pipelinePartiallyPaused {
 						// Clusters can get into broken state where pipeline exists but
 						// RC is deleted by user--causes master() to crashloop trying to
 						// scale up/down workers repeatedly. Break the cycle here
@@ -219,14 +224,17 @@ func (a *apiServer) master() {
 							}
 							return err
 						}
-						// Mark the pipeline paused, thus fully stopping it
+						// Mark the pipeline paused, thus fully stopping it (Note: this will
+						// generate another etcd event, which is ignored below)
 						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED, ""); err != nil {
 							return err
 						}
-					} else if pipelineRestarted || authActivationChanged || pipelineNewSpecCommit {
+						continue
+					}
+
+					// Handle cases where pipeline is still running
+					if pipelineRestarted || authActivationChanged || pipelineNewSpecCommit {
 						if (pipelineNewSpecCommit || authActivationChanged) && event.PrevKey != nil {
-							log.Infof("PPS master: deleting workers for updated pipeline %s (%s)",
-								pipelineName, pipelinePtr.State)
 							if err := a.deletePipelineResources(ctx, prevPipelineInfo.Pipeline.Name); err != nil {
 								return err
 							}
@@ -236,7 +244,6 @@ func (a *apiServer) master() {
 								return err
 							}
 						}
-						log.Infof("PPS master: creating/updating workers for pipeline %s", pipelineName)
 						if err := a.upsertWorkersForPipeline(ctx, pipelineInfo); err != nil {
 							log.Errorf("error upserting workers for new/restarted pipeline %q: %v", pipelineName, err)
 							if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STARTING, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
@@ -321,6 +328,7 @@ func (a *apiServer) master() {
 		log.Errorf("master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
+	panic("internal error: PPS master has somehow exited. Restarting pod...")
 }
 
 func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string, reason string) error {
@@ -365,6 +373,7 @@ func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Servic
 }
 
 func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
+	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/UpsertWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func(span opentracing.Span) {
 		if span != nil {
@@ -457,8 +466,45 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 	return nil
 }
 
+func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) (retErr error) {
+	pipelineName := pipelineInfo.Pipeline.Name
+	log.Infof("PPS master: finishing output commits for pipeline %q", pipelineName)
+	span, ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(), "/pps.Master/FinishPipelineOutputCommits", "pipeline", pipelineName)
+	if span != nil {
+		pachClient = pachClient.WithCtx(ctx)
+	}
+	defer func(span opentracing.Span) {
+		if span != nil {
+			span.SetTag("err", fmt.Sprintf("%v", retErr))
+		}
+		tracing.FinishAnySpan(span)
+	}(span)
+	cancel, ok := a.monitorCancels[pipelineName]
+	if ok {
+		cancel()
+		delete(a.monitorCancels, pipelineName)
+	}
+
+	commitInfos, err := pachClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
+	if err != nil {
+		return fmt.Errorf("could not list output commits of %q to finish them: %v", pipelineName, err)
+	}
+
+	var finishCommitErr error
+	for _, ci := range commitInfos {
+		if ci.Finished != nil {
+			continue // nothing needs to be done
+		}
+		if err := pachClient.FinishCommit(pipelineName, ci.Commit.ID); err != nil && finishCommitErr == nil {
+			finishCommitErr = err
+		}
+	}
+	return finishCommitErr
+}
+
 func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/DeleteWorkersForPipeline", "pipeline", pipelineName)
+	log.Infof("PPS master: deleting resources for failed pipeline %q", pipelineName)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
 	defer func(span opentracing.Span) {
 		if span != nil {
 			span.SetTag("err", fmt.Sprintf("%v", retErr))
@@ -501,6 +547,7 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 }
 
 func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
+	log.Infof("scaling down workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleDownWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func(span opentracing.Span) {
 		if span != nil {
@@ -510,15 +557,20 @@ func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInf
 	}(span)
 
 	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
+
 	workerRc, err := rc.Get(
 		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
 		metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
-	*workerRc.Spec.Replicas = 0
+	workerRc.Spec.Replicas = &zero
 	_, err = rc.Update(workerRc)
-	return err
+	if err != nil {
+		return fmt.Errorf("could not update scaled-down pipeline (%q) RC: %v",
+			pipelineInfo.Pipeline.Name, err)
+	}
+	return nil
 }
 
 func (a *apiServer) scaleUpWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {

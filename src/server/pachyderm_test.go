@@ -4537,8 +4537,9 @@ func TestGarbageCollection(t *testing.T) {
 	require.Equal(t, 0, len(originalObjects))
 	require.Equal(t, 0, len(originalTags))
 
-	dataRepo := tu.UniqueString("TestGarbageCollection")
-	pipeline := tu.UniqueString("TestGarbageCollectionPipeline")
+	dataRepo := tu.UniqueString(t.Name())
+	pipeline := tu.UniqueString(t.Name() + "Pipeline")
+	failurePipeline := tu.UniqueString(t.Name() + "FailurePipeline")
 
 	var commit *pfs.Commit
 	var err error
@@ -4553,6 +4554,18 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
+		// This pipeline fails immediately (to test that GC succeeds in the
+		// presence of failed pipelines
+		require.NoError(t, c.CreatePipeline(
+			failurePipeline,
+			"nonexistant-image",
+			[]string{"bash"},
+			[]string{"exit 1"},
+			nil,
+			client.NewAtomInput(dataRepo, "/"),
+			"",
+			false,
+		))
 		// This pipeline copies foo and modifies bar
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
@@ -4597,7 +4610,7 @@ func TestGarbageCollection(t *testing.T) {
 
 	pis, err := c.ListPipeline()
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pis))
+	require.Equal(t, 2, len(pis))
 
 	buf.Reset()
 	require.NoError(t, c.GetFile(pipeline, "master", "foo", 0, 0, &buf))
@@ -4620,20 +4633,21 @@ func TestGarbageCollection(t *testing.T) {
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 
-	// Now delete the pipeline and GC
+	// Now delete both pipelines and GC
 	require.NoError(t, c.DeletePipeline(pipeline, false))
+	require.NoError(t, c.DeletePipeline(failurePipeline, false))
 	require.NoError(t, c.GarbageCollect(0))
 
-	// We should've deleted one tag since the pipeline has only processed
+	// We should've deleted one tag since the functioning pipeline only processed
 	// one datum.
-	// We should've deleted 3 objects: the object referenced by
-	// the tag, the modified "bar" file and the pipeline's spec.
+	// We should've deleted 4 objects: the object referenced by
+	// the tag, the modified "bar" file and both pipelines' specs.
 	objectsAfter = getAllObjects(t, c)
 	tagsAfter = getAllTags(t, c)
 
 	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
 	require.True(t, len(objectsAfter) < len(objectsBefore))
-	require.Equal(t, 7, len(objectsAfter))
+	require.Equal(t, 4, len(objectsBefore)-len(objectsAfter))
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
