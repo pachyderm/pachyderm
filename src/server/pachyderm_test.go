@@ -4640,14 +4640,20 @@ func TestGarbageCollection(t *testing.T) {
 
 	// We should've deleted one tag since the functioning pipeline only processed
 	// one datum.
+	tagsAfter = getAllTags(t, c)
+	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
+
 	// We should've deleted 4 objects: the object referenced by
 	// the tag, the modified "bar" file and both pipelines' specs.
 	objectsAfter = getAllObjects(t, c)
-	tagsAfter = getAllTags(t, c)
-
-	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
-	require.True(t, len(objectsAfter) < len(objectsBefore))
-	require.Equal(t, 4, len(objectsBefore)-len(objectsAfter))
+	if (len(objectsBefore) - len(objectsAfter)) != 4 {
+		commitInfos, err := c.ListCommit(ppsconsts.SpecRepo, "", "", 0)
+		for _, ci := range commitInfos {
+			t.Logf("%+v\n", ci)
+		}
+		t.Fatalf("expected GarbageCollect to delete 4 objects, but only %d were",
+			len(objectsBefore)-len(objectsAfter))
+	}
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
@@ -7308,6 +7314,7 @@ func TestExtractRestore(t *testing.T) {
 
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.GarbageCollect(0)) // reduce data to be extracted
 
 	dataRepo := tu.UniqueString("TestExtractRestore_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
@@ -8330,7 +8337,8 @@ func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	require.NoError(t, err)
 	repoInfo, err := pachClient.InspectRepo(repo)
 	require.NoError(t, err)
-	activeStat, err := pps_server.CollectActiveObjectsAndTags(context.Background(), c.PfsAPIClient, c.ObjectAPIClient, []*pfs.RepoInfo{repoInfo}, pipelineInfos, 0)
+	activeStat, err := pps_server.CollectActiveObjectsAndTags(context.Background(),
+		c.PfsAPIClient, c.ObjectAPIClient, []*pfs.RepoInfo{repoInfo}, pipelineInfos, 0)
 	require.NoError(t, err)
 	return activeStat.NObjects
 }
