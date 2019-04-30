@@ -69,15 +69,15 @@ func (w *Writer) RangeStart(cb func([]*DataRef) error) {
 	}
 	// Start new range.
 	w.cbs = append(w.cbs, cb)
-	w.dataRefs = []*DataRef{&DataRef{Offset: int64(w.buf.Len())}}
+	w.dataRefs = []*DataRef{&DataRef{OffsetBytes: int64(w.buf.Len())}}
 	w.rangeSize = 0
 	w.rangeCount++
 }
 
 func (w *Writer) rangeFinish() {
 	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
-	lastDataRef.Size = int64(w.buf.Len()) - lastDataRef.Offset
-	data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
+	lastDataRef.SizeBytes = int64(w.buf.Len()) - lastDataRef.OffsetBytes
+	data := w.buf.Bytes()[lastDataRef.OffsetBytes:w.buf.Len()]
 	lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
 	w.done = append(w.done, w.dataRefs)
 }
@@ -138,7 +138,7 @@ func (w *Writer) put() error {
 	for _, dataRefs := range w.done {
 		lastDataRef := dataRefs[len(dataRefs)-1]
 		// Handle edge case where DataRef is size zero.
-		if lastDataRef.Size == 0 {
+		if lastDataRef.SizeBytes == 0 {
 			dataRefs = dataRefs[:len(dataRefs)-1]
 		} else {
 			// Set chunk for last DataRef (from current chunk).
@@ -154,11 +154,11 @@ func (w *Writer) put() error {
 	// in last DataRef for current range.
 	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
 	lastDataRef.Chunk = chunk
-	if lastDataRef.Offset > 0 {
-		data := w.buf.Bytes()[lastDataRef.Offset:w.buf.Len()]
+	if lastDataRef.OffsetBytes > 0 {
+		data := w.buf.Bytes()[lastDataRef.OffsetBytes:w.buf.Len()]
 		lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
 	}
-	lastDataRef.Size = int64(w.buf.Len()) - lastDataRef.Offset
+	lastDataRef.SizeBytes = int64(w.buf.Len()) - lastDataRef.OffsetBytes
 	// Setup DataRef for next chunk.
 	w.dataRefs = append(w.dataRefs, &DataRef{})
 	return nil
