@@ -52,6 +52,10 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 	return nil
 }
 
+// WithActiveTransaction is a helper function that will attach the given
+// transaction to the given client (resulting in a new client), then run the
+// given callback with the new client.  This is for executing RPCs that can be
+// run inside a transaction - if this isn't supported, it will have no effect.
 func WithActiveTransaction(c *client.APIClient, callback func(*client.APIClient) error) error {
 	txn, err := getActiveTransaction()
 	if err != nil {
