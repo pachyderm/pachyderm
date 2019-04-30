@@ -398,10 +398,16 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 			// i.e branch.Provenance contains the branch provBranch and provBranch.Head != nil iff branch.Head.Provenance contains provBranch.Head
 			// =>
 			for _, provBranch := range bi.Provenance {
-				provBranchInfo := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
+				provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
+				if !ok {
+					return fmt.Errorf("")
+				}
 				if provBranchInfo.Head != nil {
 					// in this case, the headCommit Provenance should contain provBranch.Head
-					headCommitInfo := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
+					headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
+					if !ok {
+						return fmt.Errorf("")
+					}
 					contains := false
 					for _, headProv := range headCommitInfo.Provenance {
 						if provBranchInfo.Head.Repo.Name == headProv.Commit.Repo.Name &&
@@ -417,11 +423,17 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				}
 			}
 			// <= (Not necessarily true)
-			headCommitInfo := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
+			headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
+			if !ok {
+				return fmt.Errorf("")
+			}
 			for _, headProv := range headCommitInfo.Provenance {
 				contains := false
 				for _, provBranch := range bi.Provenance {
-					provBranchInfo := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
+					provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
+					if !ok {
+						return fmt.Errorf("")
+					}
 					if headProv.Branch.Repo.Name == provBranchInfo.Branch.Repo.Name &&
 						headProv.Branch.Name == provBranchInfo.Branch.Name {
 						if provBranchInfo.Head == nil {
@@ -443,9 +455,16 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		directProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
 		transitiveProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
 		for _, prov := range ci.Provenance {
+			// not part of the above invariant, but we want to make sure provenance is self-consistent
+			if prov.Commit.Repo.Name != prov.Branch.Repo.Name {
+				return fmt.Errorf("")
+			}
 			directProvenance = append(directProvenance, prov.Commit)
 			transitiveProvenance = append(transitiveProvenance, prov.Commit)
-			provCommitInfo := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
+			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
+			if !ok {
+				return fmt.Errorf("")
+			}
 			for _, provProv := range provCommitInfo.Provenance {
 				transitiveProvenance = append(transitiveProvenance, provProv.Commit)
 			}
@@ -468,8 +487,10 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				if subvCommit == nil {
 					return fmt.Errorf("")
 				}
-				subvCommitInfo := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
-
+				subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
+				if !ok {
+					return fmt.Errorf("")
+				}
 				directSubvenance = append(directSubvenance, subvCommit)
 				transitiveSubvenance = append(transitiveSubvenance, subvCommit)
 				for _, subvSubvRange := range subvCommitInfo.Subvenance {
@@ -480,8 +501,10 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 							return fmt.Errorf("")
 						}
 
-						subvSubvCommitInfo := commitInfos[key(subvSubvCommit.Repo.Name, subvSubvCommit.ID)]
-
+						subvSubvCommitInfo, ok := commitInfos[key(subvSubvCommit.Repo.Name, subvSubvCommit.ID)]
+						if !ok {
+							return fmt.Errorf("")
+						}
 						transitiveSubvenance = append(transitiveSubvenance, subvSubvCommit)
 
 						if subvSubvCommit.ID == subvSubvRange.Lower.ID {
@@ -489,7 +512,6 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 						}
 						subvSubvCommit = subvSubvCommitInfo.ParentCommit
 					}
-
 				}
 
 				if subvCommit.ID == subvRange.Lower.ID {
@@ -509,6 +531,42 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		// we expect that the commit is in the subvenance of another commit iff the other commit is in our commit's provenance
 		// i.e. commit.Provenance contains commit C iff C.Subvenance contains commit or C = commit
 		// =>
+		for _, prov := range ci.Provenance {
+
+			if prov.Commit.ID == ci.Commit.ID {
+				continue
+			}
+			contains := false
+			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
+			if !ok {
+				return fmt.Errorf("")
+			}
+			for _, subvRange := range provCommitInfo.Subvenance {
+				subvCommit := subvRange.Upper
+				// loop through the subvenance range
+				for {
+					if subvCommit == nil {
+						return fmt.Errorf("")
+					}
+					subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
+					if !ok {
+						return fmt.Errorf("")
+					}
+					if ci.Commit.ID == subvCommit.ID {
+						contains = true
+					}
+
+					if subvCommit.ID == subvRange.Lower.ID {
+						break // check at the end of the loop so we fsck 'lower' too (inclusive range)
+					}
+					subvCommit = subvCommitInfo.ParentCommit
+				}
+			}
+			if !contains {
+				return fmt.Errorf("")
+			}
+		}
+		// <=
 		for _, subvRange := range ci.Subvenance {
 			subvCommit := subvRange.Upper
 			// loop through the subvenance range
@@ -517,7 +575,10 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				if subvCommit == nil {
 					return fmt.Errorf("")
 				}
-				subvCommitInfo := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
+				subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
+				if !ok {
+					return fmt.Errorf("")
+				}
 				if ci.Commit.ID == subvCommit.ID {
 					contains = true
 				}
@@ -538,43 +599,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				subvCommit = subvCommitInfo.ParentCommit
 			}
 		}
-		// <=
-		for _, prov := range ci.Provenance {
-			// not part of the above invariant, but we want to make sure provenance is self-consistent
-			if prov.Commit.Repo.Name != prov.Branch.Repo.Name {
-				return fmt.Errorf("")
-			}
 
-			if prov.Commit.ID == ci.Commit.ID {
-				continue
-			}
-			contains := false
-			provCommitInfo := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
-
-			for _, subvRange := range provCommitInfo.Subvenance {
-				subvCommit := subvRange.Upper
-				// loop through the subvenance range
-				for {
-					if subvCommit == nil {
-						return fmt.Errorf("")
-					}
-					subvCommitInfo := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
-
-					if ci.Commit.ID == subvCommit.ID {
-						contains = true
-					}
-
-					if subvCommit.ID == subvRange.Lower.ID {
-						break // check at the end of the loop so we fsck 'lower' too (inclusive range)
-					}
-					subvCommit = subvCommitInfo.ParentCommit
-				}
-			}
-
-			if !contains {
-				return fmt.Errorf("")
-			}
-		}
 	}
 
 	return nil
