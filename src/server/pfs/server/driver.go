@@ -2249,11 +2249,12 @@ func (d *driver) copyFile(pachClient *client.APIClient, stm col.STM, src *pfs.Fi
 		// Either upsert 'record' to etcd (if 'dst' is in an open commit) or add it
 		// to 'records' to be put at the end
 		if dstIsOpenCommit {
-			eg.Go(func() error {
-				// TODO: this may create a lot of operations on the STM and large
-				// recursive copies may fail due to too many etcd operations.
-				return d.upsertPutFileRecords(stm, target, record)
-			})
+			// TODO: this may create a lot of operations on the STM and large
+			// recursive copies may fail due to too many etcd operations.
+			err = d.upsertPutFileRecords(stm, target, record)
+			if err != nil {
+				return err
+			}
 		} else {
 			paths = append(paths, target.Path)
 			records = append(records, record)
