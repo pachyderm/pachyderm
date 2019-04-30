@@ -260,6 +260,7 @@ message JobInfo {
   Transform transform = 2;
   Pipeline pipeline = 3;
   uint64 pipeline_version = 13;
+  pfs.Commit spec_commit = 47;
   ParallelismSpec parallelism_spec = 12;
   Egress egress = 15;
   Job parent_job = 6;
