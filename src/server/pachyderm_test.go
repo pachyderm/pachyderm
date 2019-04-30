@@ -4648,6 +4648,7 @@ func TestGarbageCollection(t *testing.T) {
 	objectsAfter = getAllObjects(t, c)
 	if (len(objectsBefore) - len(objectsAfter)) != 4 {
 		commitInfos, err := c.ListCommit(ppsconsts.SpecRepo, "", "", 0)
+		require.NoError(t, err)
 		for _, ci := range commitInfos {
 			t.Logf("%+v\n", ci)
 		}
