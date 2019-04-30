@@ -96,18 +96,6 @@ func (a *apiServer) FinishTransaction(ctx context.Context, request *transaction.
 	return a.driver.finishTransaction(a.env.GetPachClient(ctx), request.Transaction)
 }
 
-func (a *apiServer) AppendTransaction(ctx context.Context, request *transaction.AppendTransactionRequest) (response *transaction.TransactionInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	info, err := a.driver.appendTransaction(a.env.GetPachClient(ctx), request.Transaction, request.Items)
-	if err != nil {
-		return nil, err
-	}
-
-	return info, nil
-}
-
 func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAllRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
@@ -120,4 +108,26 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAl
 	}
 
 	return &types.Empty{}, nil
+}
+
+// AppendRequest is not an RPC, but is called from other systems in pachd to
+// add an operation to an existing transaction.
+func (a *apiServer) AppendRequest(ctx context.Context, request *transaction.TransactionRequest) (response *transaction.TransactionResponse, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
+	if err != nil {
+		return nil, err
+	}
+
+	items := []*transaction.TransactionRequest{request}
+
+	info, err := a.driver.appendTransaction(pachClient, txn, items)
+	if err != nil {
+		return nil, err
+	}
+
+	return info.Responses[len(info.Responses)-1], nil
 }

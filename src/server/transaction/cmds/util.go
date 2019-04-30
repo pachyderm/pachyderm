@@ -2,6 +2,7 @@ package cmds
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -59,5 +60,9 @@ func WithActiveTransaction(c *client.APIClient, callback func(*client.APIClient)
 	if txn != nil {
 		c = c.WithTransaction(txn)
 	}
-	return callback(c)
+	err = callback(c)
+	if err == nil && txn != nil {
+		fmt.Fprintf(os.Stderr, "Added to transaction: %s\n", txn.ID)
+	}
+	return err
 }

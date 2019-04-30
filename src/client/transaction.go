@@ -1,48 +1,54 @@
 package client
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 
-	"github.com/gogo/protobuf/types"
+	"google.golang.org/grpc/metadata"
 )
 
-const transactionContextKey = "pach-transaction"
+const transactionMetadataKey = "pach-transaction"
 
+// WithTransaction (client-side) returns a new APIClient that will run supported
+// write operations within the specified transaction.
 func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
-	ctx := context.WithValue(c.Ctx(), TransactionContextKey{}, txn)
+	md, _ := metadata.FromOutgoingContext(c.Ctx())
+	md = md.Copy()
+	if txn != nil {
+		md.Set(transactionMetadataKey, txn.ID)
+	} else {
+		md.Set(transactionMetadataKey)
+	}
+	ctx := metadata.NewOutgoingContext(c.Ctx(), md)
 	return c.WithCtx(ctx)
 }
 
+// GetTransaction (run server-side) loads the active transaction from the grpc
+// metadata and returns the associated transaction object - or `nil` if no
+// transaction is set.
 func (c APIClient) GetTransaction() (*transaction.Transaction, error) {
-	value, ok = c.Ctx().Value(TransactionContextKey{}).(*transaction.Transaction)
+	md, ok := metadata.FromIncomingContext(c.Ctx())
 	if !ok {
-		return fmt.Errorf("Transaction in request context has an invalid format.")
+		return nil, fmt.Errorf("request metadata could not be parsed from context")
 	}
-	return value
-}
 
-// NewEmptyResponse is a helper function to instantiate a TransactionResponse
-// for a transaction item that returns an empty response.
-func NewEmptyResponse() *transaction.TransactionResponse {
-	return &transaction.TransactionResponse{
-		Response: &transaction.TransactionResponse_None{
-			None: &types.Empty{},
-		},
+	txns := md.Get(transactionMetadataKey)
+	if txns == nil || len(txns) == 0 {
+		return nil, nil
+	} else if len(txns) > 1 {
+		return nil, fmt.Errorf("multiple active transactions found in context")
 	}
+	return &transaction.Transaction{ID: txns[0]}, nil
 }
 
 // NewCommitResponse is a helper function to instantiate a TransactionResponse
 // for a transaction item that returns a Commit ID.
 func NewCommitResponse(commit *pfs.Commit) *transaction.TransactionResponse {
 	return &transaction.TransactionResponse{
-		Response: &transaction.TransactionResponse_Commit{
-			Commit: commit,
-		},
+		Commit: commit,
 	}
 }
 
@@ -115,6 +121,7 @@ func (c APIClient) InspectTransaction(txn *transaction.Transaction) (*transactio
 	return response, nil
 }
 
+/*
 // appendTransactionHelper is a helper function for the most common case of
 // appending a transaction, because there's quite a bit of boilerplate here.
 // This is suitable when appending a single request to a transaction when that
@@ -281,3 +288,4 @@ func (c APIClient) AppendStartCommit(txn *transaction.Transaction, request *pfs.
 	}
 	return nil, fmt.Errorf("added to transaction but received an unexpected response type")
 }
+*/

@@ -116,10 +116,13 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	if err != nil {
 		panic(fmt.Sprintf("could not initialize treeCache: %v", err))
 	}
+
 	txnEnv := &txnenv.TransactionEnv{}
+
 	apiServer, err := newAPIServer(env, txnEnv, etcdPrefix, treeCache, "/tmp", 64*1024*1024)
 	require.NoError(t, err)
-	txnEnv.Initialize(&authtesting.InactiveAPIServer{}, apiServer, nil)
+
+	txnEnv.Initialize(nil, &authtesting.InactiveAPIServer{}, apiServer, nil)
 
 	runServers(t, pfsPort, apiServer, blockAPIServer)
 	return env.GetPachClient(context.Background())

@@ -72,13 +72,10 @@ func sprintDeleteRepo(request *pfs.DeleteRepoRequest) string {
 
 func sprintStartCommit(request *pfs.StartCommitRequest, response *transaction.TransactionResponse) string {
 	commit := "unknown"
-	if response != nil {
-		switch commitResponse := response.Response.(type) {
-		case *transaction.TransactionResponse_Commit:
-			commit = commitResponse.Commit.ID
-		default:
-			commit = "ERROR (unknown response type)"
-		}
+	if response == nil || response.Commit == nil {
+		commit = "ERROR (unknown response type)"
+	} else {
+		commit = response.Commit.ID
 	}
 	return fmt.Sprintf("start commit %s@%s (%s)", request.Parent.Repo.Name, request.Branch, commit)
 }
@@ -137,32 +134,31 @@ func transactionRequests(
 	}
 
 	lines := []string{}
-	for i, x := range requests {
+	for i, request := range requests {
 		var line string
-		switch request := x.Request.(type) {
-		case *transaction.TransactionRequest_CreateRepo:
+		if request.CreateRepo != nil {
 			line = sprintCreateRepo(request.CreateRepo)
-		case *transaction.TransactionRequest_DeleteRepo:
+		} else if request.DeleteRepo != nil {
 			line = sprintDeleteRepo(request.DeleteRepo)
-		case *transaction.TransactionRequest_StartCommit:
+		} else if request.StartCommit != nil {
 			if len(responses) > i {
 				line = sprintStartCommit(request.StartCommit, responses[i])
 			} else {
 				line = sprintStartCommit(request.StartCommit, nil)
 			}
-		case *transaction.TransactionRequest_FinishCommit:
+		} else if request.FinishCommit != nil {
 			line = sprintFinishCommit(request.FinishCommit)
-		case *transaction.TransactionRequest_DeleteCommit:
+		} else if request.DeleteCommit != nil {
 			line = sprintDeleteCommit(request.DeleteCommit)
-		case *transaction.TransactionRequest_CreateBranch:
+		} else if request.CreateBranch != nil {
 			line = sprintCreateBranch(request.CreateBranch)
-		case *transaction.TransactionRequest_DeleteBranch:
+		} else if request.DeleteBranch != nil {
 			line = sprintDeleteBranch(request.DeleteBranch)
-		case *transaction.TransactionRequest_CopyFile:
+		} else if request.CopyFile != nil {
 			line = sprintCopyFile(request.CopyFile)
-		case *transaction.TransactionRequest_DeleteFile:
+		} else if request.DeleteFile != nil {
 			line = sprintDeleteFile(request.DeleteFile)
-		default:
+		} else {
 			line = "ERROR (unknown request type)"
 		}
 		lines = append(lines, fmt.Sprintf("  %s", line))

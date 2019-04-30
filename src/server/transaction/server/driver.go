@@ -132,55 +132,53 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 	for i, request := range info.Requests {
 		var err error
 		var response *transaction.TransactionResponse
-		switch x := request.Request.(type) {
-		case *transaction.TransactionRequest_CreateRepo:
-			err = d.txnEnv.PfsServer().CreateRepoInTransaction(pachClient, stm, x.CreateRepo)
-			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_DeleteRepo:
-			err = d.txnEnv.PfsServer().DeleteRepoInTransaction(pachClient, stm, x.DeleteRepo)
-			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_StartCommit:
+
+		if request.CreateRepo != nil {
+			err = d.txnEnv.PfsServer().CreateRepoInTransaction(pachClient, stm, request.CreateRepo)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteRepo != nil {
+			err = d.txnEnv.PfsServer().DeleteRepoInTransaction(pachClient, stm, request.DeleteRepo)
+			response = &transaction.TransactionResponse{}
+		} else if request.StartCommit != nil {
 			// Do a little extra work here so we can make sure the new commit ID is
 			// the same every time.  We store the response the first time and reuse
 			// the commit ID on subsequent runs.
 			var commit *pfs.Commit
 			if len(info.Responses) > i {
-				switch commitResponse := info.Responses[i].Response.(type) {
-				case *transaction.TransactionResponse_Commit:
-					commit = commitResponse.Commit
-				default:
-					err = fmt.Errorf("unexpected stored response type")
+				commit = info.Responses[i].Commit
+				if commit == nil {
+					err = fmt.Errorf("unexpected stored response type for StartCommit")
 				}
 			}
 			if err == nil {
-				commit, err = d.txnEnv.PfsServer().StartCommitInTransaction(pachClient, stm, x.StartCommit, commit)
+				commit, err = d.txnEnv.PfsServer().StartCommitInTransaction(pachClient, stm, request.StartCommit, commit)
 				response = client.NewCommitResponse(commit)
 			}
-		case *transaction.TransactionRequest_FinishCommit:
-			err = d.txnEnv.PfsServer().FinishCommitInTransaction(pachClient, stm, x.FinishCommit)
-			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_DeleteCommit:
-			err = d.txnEnv.PfsServer().DeleteCommitInTransaction(pachClient, stm, x.DeleteCommit)
-			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_CreateBranch:
-			err = d.txnEnv.PfsServer().CreateBranchInTransaction(pachClient, stm, x.CreateBranch)
-			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_DeleteBranch:
-			err = d.txnEnv.PfsServer().DeleteBranchInTransaction(pachClient, stm, x.DeleteBranch)
-			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_CopyFile:
-			err = d.txnEnv.PfsServer().CopyFileInTransaction(pachClient, stm, x.CopyFile)
-			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_DeleteFile:
-			err = d.txnEnv.PfsServer().DeleteFileInTransaction(pachClient, stm, x.DeleteFile)
-			response = client.NewEmptyResponse()
-		case *transaction.TransactionRequest_DeleteAll:
+		} else if request.FinishCommit != nil {
+			err = d.txnEnv.PfsServer().FinishCommitInTransaction(pachClient, stm, request.FinishCommit)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteCommit != nil {
+			err = d.txnEnv.PfsServer().DeleteCommitInTransaction(pachClient, stm, request.DeleteCommit)
+			response = &transaction.TransactionResponse{}
+		} else if request.CreateBranch != nil {
+			err = d.txnEnv.PfsServer().CreateBranchInTransaction(pachClient, stm, request.CreateBranch)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteBranch != nil {
+			err = d.txnEnv.PfsServer().DeleteBranchInTransaction(pachClient, stm, request.DeleteBranch)
+			response = &transaction.TransactionResponse{}
+		} else if request.CopyFile != nil {
+			err = d.txnEnv.PfsServer().CopyFileInTransaction(pachClient, stm, request.CopyFile)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteFile != nil {
+			err = d.txnEnv.PfsServer().DeleteFileInTransaction(pachClient, stm, request.DeleteFile)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteAll != nil {
 			// TODO: extend this to delete everything through PFS, PPS, Auth and
 			// update the client DeleteAll call to use only this, then remove unused
 			// RPCs.
 			err = d.deleteAll(pachClient, stm, info.Transaction)
-			response = client.NewEmptyResponse()
-		default:
+			response = &transaction.TransactionResponse{}
+		} else {
 			err = fmt.Errorf("unrecognized transaction request type")
 		}
 
@@ -192,6 +190,7 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 	}
 
 	info.Responses = responses
+	fmt.Printf("info.Responses: %s\n", info.Responses)
 	return info, nil
 }
 
@@ -273,6 +272,8 @@ func (d *driver) appendTransaction(
 					return &transactionConflictError{}
 				}
 
+				fmt.Printf("appending requests: %s\n", items)
+				fmt.Printf("appending responses: %s\n", dryrunResponses)
 				info.Requests = append(info.Requests, items...)
 				info.Responses = append(info.Responses, dryrunResponses...)
 				return nil

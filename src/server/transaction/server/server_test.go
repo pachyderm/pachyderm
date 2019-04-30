@@ -124,10 +124,10 @@ func GetPachClient(t testing.TB) *client.APIClient {
 
 	authServer := &authtesting.InactiveAPIServer{}
 
-	txnEnv.Initialize(authServer, pfsServer, nil)
-
 	txnServer, err := NewAPIServer(env, txnEnv, etcdPrefix)
 	require.NoError(t, err)
+
+	txnEnv.Initialize(txnServer, authServer, pfsServer, nil)
 
 	runServers(t, testPort, pfsServer, pfsBlockServer, authServer, txnServer)
 	return env.GetPachClient(context.Background())
@@ -164,12 +164,13 @@ func TestInvalidatedTransaction(t *testing.T) {
 	txn, err := c.StartTransaction()
 	require.NoError(t, err)
 
+	ct := c.WithTransaction(txn)
 	createRepo := &pfs.CreateRepoRequest{
 		Repo: client.NewRepo("foo"),
 	}
 
 	// Tell the transaction to create a repo
-	_, err = c.AppendCreateRepo(txn, createRepo)
+	_, err = ct.PfsAPIClient.CreateRepo(ct.Ctx(), createRepo)
 	require.NoError(t, err)
 
 	// Create the same repo outside of the transaction, so it can't run
@@ -182,7 +183,7 @@ func TestInvalidatedTransaction(t *testing.T) {
 	require.Nil(t, info)
 
 	// Appending to the transaction should fail
-	_, err = c.AppendCreateRepo(txn, &pfs.CreateRepoRequest{Repo: client.NewRepo("bar")})
+	_, err = ct.PfsAPIClient.CreateRepo(ct.Ctx(), &pfs.CreateRepoRequest{Repo: client.NewRepo("bar")})
 	require.YesError(t, err)
 }
 
@@ -192,6 +193,7 @@ func TestFailedAppend(t *testing.T) {
 	txn, err := c.StartTransaction()
 	require.NoError(t, err)
 
+	ct := c.WithTransaction(txn)
 	createRepo := &pfs.CreateRepoRequest{
 		Repo: client.NewRepo("foo"),
 	}
@@ -201,7 +203,7 @@ func TestFailedAppend(t *testing.T) {
 	require.NoError(t, err)
 
 	// Tell the transaction to create the same repo, which should fail
-	_, err = c.AppendCreateRepo(txn, createRepo)
+	_, err = ct.PfsAPIClient.CreateRepo(ct.Ctx(), createRepo)
 	require.YesError(t, err)
 
 	info, err := c.InspectTransaction(txn)
@@ -229,24 +231,26 @@ func TestDependency(t *testing.T) {
 	txn, err := c.StartTransaction()
 	require.NoError(t, err)
 
+	ct := c.WithTransaction(txn)
+
 	// Create repo, branch, start commit, finish commit
-	_, err = c.AppendCreateRepo(txn, &pfs.CreateRepoRequest{
+	_, err = ct.PfsAPIClient.CreateRepo(ct.Ctx(), &pfs.CreateRepoRequest{
 		Repo: client.NewRepo("foo"),
 	})
 	require.NoError(t, err)
 
-	_, err = c.AppendCreateBranch(txn, &pfs.CreateBranchRequest{
+	_, err = ct.PfsAPIClient.CreateBranch(ct.Ctx(), &pfs.CreateBranchRequest{
 		Branch: client.NewBranch("foo", "master")},
 	)
 	require.NoError(t, err)
 
-	commit, err := c.AppendStartCommit(txn, &pfs.StartCommitRequest{
+	commit, err := ct.PfsAPIClient.StartCommit(ct.Ctx(), &pfs.StartCommitRequest{
 		Branch: "master",
 		Parent: client.NewCommit("foo", ""),
 	})
 	require.NoError(t, err)
 
-	_, err = c.AppendFinishCommit(txn, &pfs.FinishCommitRequest{
+	_, err = ct.PfsAPIClient.FinishCommit(ct.Ctx(), &pfs.FinishCommitRequest{
 		Commit: client.NewCommit("foo", "master"),
 	})
 	require.NoError(t, err)

@@ -83,8 +83,8 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{CreateRepo: request})
 	} else {
 		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.CreateRepoInTransaction(client, stm, request)
+			return a.CreateRepoInTransaction(pachClient, stm, request)
 		})
 	}
 	if err != nil {
@@ -164,15 +164,15 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
 	if txn != nil {
 		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteRepo: request})
 	} else {
-		_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
 			return a.DeleteRepoInTransaction(a.env.GetPachClient(ctx), stm, request)
 		})
 	}
@@ -209,14 +209,14 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 	var err error
 	commit := &pfs.Commit{}
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
 	if txn != nil {
-		var txnResponse transaction.TransactionResponse
-		txnResponse, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteRepo: request})
+		var txnResponse *transaction.TransactionResponse
+		txnResponse, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{StartCommit: request})
 		commit = txnResponse.Commit
 	} else {
 		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
@@ -261,15 +261,15 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
 	if txn != nil {
 		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{FinishCommit: request})
 	} else {
-		_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
 			return a.FinishCommitInTransaction(a.env.GetPachClient(ctx), stm, request)
 		})
 	}
@@ -330,15 +330,15 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
 	if txn != nil {
 		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{CreateBranch: request})
 	} else {
-		_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
 			return a.CreateBranchInTransaction(a.env.GetPachClient(ctx), stm, request)
 		})
 	}
@@ -383,15 +383,15 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
 	if txn != nil {
 		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteBranch: request})
 	} else {
-		_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
 			return a.DeleteBranchInTransaction(a.env.GetPachClient(ctx), stm, request)
 		})
 	}
@@ -417,15 +417,15 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
 	if txn != nil {
 		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteCommit: request})
 	} else {
-		_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
 			return a.DeleteCommitInTransaction(a.env.GetPachClient(ctx), stm, request)
 		})
 	}
@@ -488,15 +488,15 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
 	if txn != nil {
 		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{CopyFile: request})
 	} else {
-		_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
 			return a.CopyFileInTransaction(a.env.GetPachClient(ctx), stm, request)
 		})
 	}
@@ -653,15 +653,15 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient = a.env.GetPachClient(ctx)
-	txn, err := client.GetTransaction()
+	pachClient := a.env.GetPachClient(ctx)
+	txn, err := pachClient.GetTransaction()
 	if err != nil {
 		return nil, err
 	}
 	if txn != nil {
 		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteFile: request})
 	} else {
-		_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
 			return a.DeleteFileInTransaction(a.env.GetPachClient(ctx), stm, request)
 		})
 	}
