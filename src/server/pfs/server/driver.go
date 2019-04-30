@@ -301,7 +301,7 @@ func (d *driver) getAccessLevel(pachClient *client.APIClient, repo *pfs.Repo) (a
 	return resp.Scopes[0], nil
 }
 
-func equalBranchProvenance(a, b []*pfs.Branch) bool {
+func equalBranches(a, b []*pfs.Branch) bool {
 	aMap := make(map[string]bool)
 	bMap := make(map[string]bool)
 	key := path.Join
@@ -323,7 +323,7 @@ func equalBranchProvenance(a, b []*pfs.Branch) bool {
 	return true
 }
 
-func equalSubvenance(a, b []*pfs.Commit) bool {
+func equalCommits(a, b []*pfs.Commit) bool {
 	aMap := make(map[string]bool)
 	bMap := make(map[string]bool)
 	key := path.Join
@@ -388,7 +388,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 			union = append(union, directProvenanceInfo.Provenance...)
 		}
 
-		if !equalBranchProvenance(append(bi.Provenance, bi.Branch), union) {
+		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
 			return fmt.Errorf("")
 		}
 
@@ -439,6 +439,24 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 
 	// for each commit
 	for _, ci := range commitInfos {
+		// ensure that the provenance is transitive
+		directProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
+		transitiveProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
+		for _, prov := range ci.Provenance {
+			directProvenance = append(directProvenance, prov.Commit)
+			transitiveProvenance = append(transitiveProvenance, prov.Commit)
+			provCommitInfo := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
+			for _, provProv := range provCommitInfo.Provenance {
+				transitiveProvenance = append(transitiveProvenance, provProv.Commit)
+			}
+		}
+		if !equalCommits(directProvenance, transitiveProvenance) {
+			return fmt.Errorf("")
+		}
+	}
+
+	// for each commit
+	for _, ci := range commitInfos {
 		// ensure that the subvenance is transitive
 		directSubvenance := make([]*pfs.Commit, 0, len(ci.Subvenance))
 		transitiveSubvenance := make([]*pfs.Commit, 0, len(ci.Subvenance))
@@ -481,7 +499,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 			}
 		}
 
-		if !equalSubvenance(directSubvenance, transitiveSubvenance) {
+		if !equalCommits(directSubvenance, transitiveSubvenance) {
 			return fmt.Errorf("")
 		}
 	}
