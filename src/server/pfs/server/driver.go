@@ -792,27 +792,30 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 	return nil
 }
 
-// propagateCommit selectively starts commits in or downstream of 'branch' in
+// propagateCommit selectively starts commits in or downstream of 'branches' in
 // order to restore the invariant that branch provenance matches HEAD commit
 // provenance:
 //   B.Head is provenant on A.Head <=>
 //   branch B is provenant on branch A and A.Head != nil
 // The implementation assumes that the invariant already holds for all branches
-// upstream of 'branch', but not necessarily for 'branch' itself. Despite the
-// name, 'branch' does not need a HEAD commit to propagate, though one may be
+// upstream of 'branches', but not necessarily for each 'branch' itself. Despite
+// the name, 'branches' do not need a HEAD commit to propagate, though one may be
 // created.
 //
 // In other words, propagateCommit scans all branches b_downstream that are
-// equal to or downstream of 'branch', and if the HEAD of b_downstream isn't
+// equal to or downstream of 'branches', and if the HEAD of b_downstream isn't
 // provenant on the HEADs of b_downstream's provenance, propagateCommit starts
 // a new HEAD commit in b_downstream that is. For example, propagateCommit
 // starts downstream output commits (which trigger PPS jobs) when new input
-// commits arrive on 'branch', when 'branch's HEAD is deleted, or when 'branch'
-// is newly created (i.e. in CreatePipeline).
+// commits arrive on 'branch', when 'branches's HEAD is deleted, or when
+// 'branches' are newly created (i.e. in CreatePipeline).
 func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
 	if branch == nil {
 		return fmt.Errorf("cannot propagate nil branch")
 	}
+
+	// TODO: dedupe branches
+	// TODO: thread through branches
 
 	// 'subvBranchInfos' is the collection of downstream branches that may get a
 	// new commit. Populate subvBranchInfo

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -26,11 +27,8 @@ func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 	return c.WithCtx(ctx)
 }
 
-// GetTransaction (run server-side) loads the active transaction from the grpc
-// metadata and returns the associated transaction object - or `nil` if no
-// transaction is set.
-func (c APIClient) GetTransaction() (*transaction.Transaction, error) {
-	md, ok := metadata.FromIncomingContext(c.Ctx())
+func GetTransaction(ctx context.Context) (*transaction.Transaction, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("request metadata could not be parsed from context")
 	}
@@ -42,6 +40,13 @@ func (c APIClient) GetTransaction() (*transaction.Transaction, error) {
 		return nil, fmt.Errorf("multiple active transactions found in context")
 	}
 	return &transaction.Transaction{ID: txns[0]}, nil
+}
+
+// GetTransaction (run server-side) loads the active transaction from the grpc
+// metadata and returns the associated transaction object - or `nil` if no
+// transaction is set.
+func (c APIClient) GetTransaction() (*transaction.Transaction, error) {
+	return GetTransaction(c.Ctx())
 }
 
 // NewCommitResponse is a helper function to instantiate a TransactionResponse

@@ -70,7 +70,7 @@ func newAPIServer(
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateRepoInTransaction(
-	pachClient *client.APIClient,
+	ctx context.Context,
 	stm col.STM,
 	originalRequest *pfs.CreateRepoRequest,
 ) error {
@@ -83,18 +83,9 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{CreateRepo: request})
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.CreateRepoInTransaction(pachClient, stm, request)
-		})
-	}
+	err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.Pfs().CreateRepo(request)
+	})
 	if err != nil {
 		return nil, err
 	}
