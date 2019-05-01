@@ -245,7 +245,7 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 		return resp
 	}
 
-	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Get")
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Get", "key", key)
 	defer tracing.FinishAnySpan(span)
 	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
@@ -326,7 +326,7 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 			}
 			keys = append(keys, []byte(k)...)
 		}
-		span.SetTag("updated-keys", keys)
+		span.SetTag("updated-keys", string(keys))
 	}
 
 	keys, getops := s.gets()

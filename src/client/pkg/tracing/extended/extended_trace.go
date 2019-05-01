@@ -115,12 +115,13 @@ func AddPipelineSpanToAnyTrace(ctx context.Context, c *etcd.Client,
 		return nil, ctx // no Jaeger instance to send trace info to
 	}
 
+	var tracesFound int
 	var extendedTrace TraceProto
 	tracesCol := TracesCol(c).ReadOnly(ctx)
 	if err := tracesCol.GetByIndex(PipelineIndex, pipeline, &extendedTrace, TraceGetOpts,
 		func(key string) error {
-			if extendedTrace.isValid() {
-				return fmt.Errorf("second, unexpected span with key %q", key)
+			if tracesFound++; tracesFound > 1 {
+				log.Errorf("found second, unexpected span with key %q (using new key)", key)
 			}
 			return nil
 		}); err != nil {
@@ -163,7 +164,7 @@ func AddPipelineSpanToAnyTrace(ctx context.Context, c *etcd.Client,
 
 	// return new span
 	return opentracing.StartSpanFromContext(ctx,
-		operation, opentracing.FollowsFrom(spanCtx))
+		operation, options...)
 }
 
 // AddJobSpanToAnyTrace is like AddPipelineSpanToAnyTrace but looks for traces

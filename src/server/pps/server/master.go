@@ -667,7 +667,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			return backoff.RetryNotify(func() error {
 				span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
 					a.etcdClient, pipelineInfo.Pipeline.Name, "/pps.Master/MonitorPipeline",
-					"standby", "false")
+					"standby", pipelineInfo.Standby)
 				if span != nil {
 					pachClient = pachClient.WithCtx(ctx)
 				}
@@ -691,7 +691,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			return backoff.RetryNotify(func() error {
 				span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
 					a.etcdClient, pipelineInfo.Pipeline.Name, "/pps.Master/MonitorPipeline",
-					"standby", "false")
+					"standby", pipelineInfo.Standby)
 				if span != nil {
 					pachClient = pachClient.WithCtx(ctx)
 				}
