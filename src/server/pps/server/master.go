@@ -647,6 +647,7 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 }
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
+	log.Printf("PPS master: monitoring pipeline %q", pipelineInfo.Pipeline.Name)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {

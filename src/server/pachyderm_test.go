@@ -1348,7 +1348,20 @@ func TestDeletePipeline(t *testing.T) {
 		))
 		time.Sleep(10 * time.Second)
 		// Wait for the pipeline to start running
-		require.NoError(t, backoff.Retry(func() error {
+		require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
+			pipelineInfos, err := c.ListPipeline()
+			if err != nil {
+				return err
+			}
+			// Check number of pipelines
+			names := make([]string, 0, len(pipelineInfos))
+			for _, pi := range pipelineInfos {
+				names = append(names, fmt.Sprintf("(%s, %s)", pi.Pipeline.Name, pi.State))
+			}
+			if len(pipelineInfos) != 2 {
+				return fmt.Errorf("Expected two pipelines, but got: %+v", names)
+			}
+			// make sure second pipeline is running
 			pipelineInfo, err := c.InspectPipeline(pipelines[1])
 			if err != nil {
 				return err
@@ -1357,7 +1370,7 @@ func TestDeletePipeline(t *testing.T) {
 				return fmt.Errorf("no running pipeline")
 			}
 			return nil
-		}, backoff.NewTestingBackOff()))
+		})
 	}
 
 	createPipelines()
