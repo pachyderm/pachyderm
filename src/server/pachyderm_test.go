@@ -4724,18 +4724,13 @@ func TestGarbageCollection(t *testing.T) {
 	tagsAfter = getAllTags(t, c)
 	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
 
-	// We should've deleted 4 objects: the object referenced by
-	// the tag, the modified "bar" file and both pipelines' specs.
+	// We should've deleted 3 objects:
+	// - the hashtree referenced by the tag (datum hashtree)
+	// - the hashtree for the output commit (commit hashtree, merged from 1 datum)
+	// - the modified "bar" file
+	// Note that deleting a pipeline doesn't delete the spec commits
 	objectsAfter = getAllObjects(t, c)
-	if (len(objectsBefore) - len(objectsAfter)) != 4 {
-		commitInfos, err := c.ListCommit(ppsconsts.SpecRepo, "", "", 0)
-		require.NoError(t, err)
-		for _, ci := range commitInfos {
-			t.Logf("%+v\n", ci)
-		}
-		t.Fatalf("expected GarbageCollect to delete 4 objects, but only %d were",
-			len(objectsBefore)-len(objectsAfter))
-	}
+	require.Equal(t, 3, len(objectsBefore)-len(objectsAfter))
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())

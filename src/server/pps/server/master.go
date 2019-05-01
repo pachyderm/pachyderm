@@ -472,12 +472,17 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 	return nil
 }
 
+// finishPipelineOutputCommits finishes any output commits of
+// 'pipelineInfo.Pipeline' with an empty tree.
+// TODO(msteffen) Note that if the pipeline has any jobs (which can happen if
+// the user manually deletes the pipeline's RC, failing the pipeline, after it
+// has created jobs) those will not be updated. TODO is to mark jobs FAILED
 func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	pipelineName := pipelineInfo.Pipeline.Name
 	log.Infof("PPS master: finishing output commits for pipeline %q", pipelineName)
-	span, ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(), "/pps.Master/FinishPipelineOutputCommits", "pipeline", pipelineName)
+	span, _ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(), "/pps.Master/FinishPipelineOutputCommits", "pipeline", pipelineName)
 	if span != nil {
-		pachClient = pachClient.WithCtx(ctx)
+		pachClient = pachClient.WithCtx(_ctx) // copy auth info from input to output
 	}
 	defer func(span opentracing.Span) {
 		if span != nil {
@@ -496,7 +501,11 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 		if ci.Finished != nil {
 			continue // nothing needs to be done
 		}
-		if err := pachClient.FinishCommit(pipelineName, ci.Commit.ID); err != nil && finishCommitErr == nil {
+		if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
+			&pfs.FinishCommitRequest{
+				Commit: client.NewCommit(pipelineName, ci.Commit.ID),
+				Empty:  true,
+			}); err != nil && finishCommitErr == nil {
 			finishCommitErr = err
 		}
 	}
