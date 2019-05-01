@@ -8678,6 +8678,8 @@ func TestPipelineHistory(t *testing.T) {
 		"",
 		true,
 	))
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
 
 	jis, err = c.ListJob(pipelineName, nil, nil, 0)
 	require.Equal(t, 1, len(jis))
@@ -8688,9 +8690,8 @@ func TestPipelineHistory(t *testing.T) {
 	jis, err = c.ListJob(pipelineName, nil, nil, -1)
 	require.Equal(t, 4, len(jis))
 
-	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
-	require.NoError(t, err)
-
+	// Add another pipeline, this shouldn't change the results of the above
+	// commands.
 	pipelineName2 := tu.UniqueString("TestPipelineHistory2")
 	require.NoError(t, c.CreatePipeline(
 		pipelineName2,
@@ -8704,15 +8705,17 @@ func TestPipelineHistory(t *testing.T) {
 		"",
 		true,
 	))
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
 
 	jis, err = c.ListJob(pipelineName, nil, nil, 0)
-	require.Equal(t, 2, len(jis))
+	require.Equal(t, 1, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, nil, 1)
-	require.Equal(t, 4, len(jis))
+	require.Equal(t, 3, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, nil, 2)
-	require.Equal(t, 5, len(jis))
+	require.Equal(t, 4, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, nil, -1)
-	require.Equal(t, 5, len(jis))
+	require.Equal(t, 4, len(jis))
 
 	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
