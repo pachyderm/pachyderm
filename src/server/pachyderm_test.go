@@ -1367,7 +1367,7 @@ func TestDeletePipeline(t *testing.T) {
 				return err
 			}
 			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-				return fmt.Errorf("no running pipeline")
+				return fmt.Errorf("no running pipeline (only %+v)", names)
 			}
 			return nil
 		})
