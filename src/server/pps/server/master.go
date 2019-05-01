@@ -321,6 +321,8 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		a.monitorCancelsMu.Lock()
+		defer a.monitorCancelsMu.Unlock()
 		for _, c := range a.monitorCancels {
 			c()
 		}
@@ -453,6 +455,10 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 	}); err != nil {
 		return err
 	}
+
+	// Start monitorPipeline() for this pipeline, which controls the new workers
+	a.monitorCancelsMu.Lock()
+	defer a.monitorCancelsMu.Unlock()
 	if _, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]; !ok {
 		ctx, cancel := context.WithCancel(a.pachClient.Ctx())
 		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
@@ -479,11 +485,6 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 		}
 		tracing.FinishAnySpan(span)
 	}(span)
-	cancel, ok := a.monitorCancels[pipelineName]
-	if ok {
-		cancel()
-		delete(a.monitorCancels, pipelineName)
-	}
 
 	commitInfos, err := pachClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
 	if err != nil {
@@ -511,11 +512,15 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 		}
 		tracing.FinishAnySpan(span)
 	}(span)
-	cancel, ok := a.monitorCancels[pipelineName]
-	if ok {
+
+	// Cancel any running monitorPipeline call
+	a.monitorCancelsMu.Lock()
+	if cancel, ok := a.monitorCancels[pipelineName]; ok {
 		cancel()
 		delete(a.monitorCancels, pipelineName)
 	}
+	a.monitorCancelsMu.Unlock()
+
 	selector := fmt.Sprintf("pipelineName=%s", pipelineName)
 	falseVal := false
 	opts := &metav1.DeleteOptions{
@@ -648,6 +653,18 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	log.Printf("PPS master: monitoring pipeline %q", pipelineInfo.Pipeline.Name)
+	defer func(pipelineName string) {
+		// If this exits (e.g. b/c Standby is false), remove this fn's cancel() call
+		// from a.monitorCancels (if it hasn't already been removed, e.g. by
+		// deletePipelineResources cancelling this call), so that it can be called
+		// again
+		a.monitorCancelsMu.Lock()
+		if cancel, ok := a.monitorCancels[pipelineName]; ok {
+			cancel()
+			delete(a.monitorCancels, pipelineName)
+		}
+		a.monitorCancelsMu.Unlock()
+	}(pipelineInfo.Pipeline.Name)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {

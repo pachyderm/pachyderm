@@ -123,6 +123,7 @@ type apiServer struct {
 	imagePullSecret       string
 	noExposeDockerSocket  bool
 	reporter              *metrics.Reporter
+	monitorCancelsMu      sync.Mutex
 	monitorCancels        map[string]func()
 	// collections
 	pipelines col.Collection
