@@ -245,6 +245,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 			Pipeline:     pipeline,
 			InputCommit:  inputCommit,
 			OutputCommit: outputCommit,
+			History:      history,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
