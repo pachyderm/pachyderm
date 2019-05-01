@@ -248,7 +248,7 @@ and writing it to a spout
 in a server.
 
 ### Create the container for the server
-Once you containerized your server,
+Once you have containerized your server,
 you can place it in a Pachyderm spout
 by writing an appropriate pipeline specification.
 
