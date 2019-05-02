@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
+	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 )
 
 // PfsWrapper is an interface providing a wrapper for each operation that
@@ -93,6 +94,7 @@ type PfsTransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
+	serviceEnv *serviceenv.ServiceEnv
 	etcdClient *etcd.Client
 	txnServer  TransactionServer
 	authServer AuthTransactionServer
@@ -101,27 +103,51 @@ type TransactionEnv struct {
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
+	serviceEnv *serviceenv.ServiceEnv,
 	etcdClient *etcd.Client,
 	txnServer TransactionServer,
 	authServer AuthTransactionServer,
 	pfsServer PfsTransactionServer,
 ) {
+	env.serviceEnv = serviceEnv
 	env.etcdClient = etcdClient
 	env.txnServer = txnServer
 	env.authServer = authServer
 	env.pfsServer = pfsServer
 }
 
-// transactionServer returns a reference to the interface for modifying
-// transactions from other API servers.
-func (env *TransactionEnv) transactionServer() TransactionServer {
-	return env.txnServer
+func (env *TransactionEnv) NewContext(ctx context.Context, stm col.STM) {
+	return &TransactionContext{
+		pachClient: txnEnv.serviceEnv.GetPachClient(ctx),
+		ctx:      ctx,
+		stm:      stm,
+		txnEnv:   env,
+		pfsDefer: txnEnv.PfsServer().NewTransactionDefer(stm),
+	}
 }
 
-// PfsServer returns a reference to the interface for making transactional
-// calls through the PFS subsystem.
-func (env *TransactionEnv) PfsServer() PfsTransactionServer {
-	return env.pfsServer
+func (t *TransactionContext) Auth() AuthTransactionServer {
+	return t.txnEnv.authServer
+}
+
+func (t *TransactionContext) Pfs() PfsTransactionServer {
+	return t.txnEnv.pfsServer
+}
+
+func (t *TransactionContext) Client() *client.APIClient {
+	return t.pachClient
+}
+
+func (t *TransactionContext) ClientContext() context.Context {
+	return t.ctx
+}
+
+func (t *TransactionContext) Stm() col.STM {
+	return t.stm
+}
+
+func (t *TransactionContext) PfsDefer() *PfsTransactionDefer {
+	return t.pfsDefer
 }
 
 type Transaction interface {
@@ -134,12 +160,7 @@ type DirectTransaction struct {
 
 func NewDirectTransaction(ctx context.Context, stm col.STM, txnEnv *TransactionEnv) *DirectTransaction {
 	return &DirectTransaction{
-		txnCtx: &TransactionContext{
-			ctx:      ctx,
-			stm:      stm,
-			txnEnv:   txnEnv,
-			pfsDefer: txnEnv.PfsServer().NewTransactionDefer(stm),
-		},
+		txnCtx: txnEnv.NewContext(ctx, stm)
 	}
 }
 
@@ -282,15 +303,10 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 	return err
 }
 
-// ReadTransaction will call the given callback with a col.STM object which
-// can be used to perform reads of the current cluster state.  If the client
-// context passed in has an active transaction, it will be run in dryrun mode
-// first so that reads may be performed on the latest state of the transaction.
-//
-// If the col.STM is used to perform any writes, they will be silently
-// discarded.
-/*
-func (env *TransactionEnv) ReadTransaction(ctx context.Context, cb func(col.STM) error) error {
+// EmptyReadTransaction will call the given callback with a TransactionContext
+// which can be used to perform reads of the current cluster state. If the
+// transaction is used to perform any writes, they will be silently discarded.
+func (env *TransactionEnv) EmptyReadTransaction(ctx context.Context, cb func(col.STM) error) error {
 	activeTxn, err := client.GetTransaction(ctx)
 	if err != nil {
 		return err
@@ -306,4 +322,4 @@ func (env *TransactionEnv) ReadTransaction(ctx context.Context, cb func(col.STM)
 		return cb(stm)
 	})
 	return err
-}*/
+}

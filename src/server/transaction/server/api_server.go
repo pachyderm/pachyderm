@@ -116,19 +116,3 @@ func (a *apiServer) AppendRequest(ctx context.Context, txn *transaction.Transact
 
 	return info.Responses[len(info.Responses)-1], nil
 }
-
-// DryrunTransaction is not an RPC, but is called from other systems in pachd to
-// perform reads on what the state of the cluster will look like after the
-// transaction has run.
-/*
-func (a *apiServer) DryrunTransaction(ctx context.Context, stm col.STM, txn *transaction.Transaction) (response *transaction.TransactionInfo, retErr error) {
-	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	info := &transaction.TransactionInfo{}
-	err := d.transactions.ReadWrite(stm).Get(txn.ID, info)
-	if err != nil {
-		return nil, err
-	}
-	return a.driver.runTransaction(ctx, stm, info)
-}*/
