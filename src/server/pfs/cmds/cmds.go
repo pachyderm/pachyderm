@@ -365,17 +365,18 @@ $ {{alias}} foo@master --from XXX`,
 			}
 			defer c.Close()
 
-			var to string
-			if len(args) == 2 {
-				to = args[1]
+			branch, err := cmdutil.ParseBranch(args[0])
+			if err != nil {
+				return err
 			}
+
 			if raw {
-				return c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+				return c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+			if err := c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
