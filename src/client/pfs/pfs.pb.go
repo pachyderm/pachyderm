@@ -6,13 +6,14 @@ package pfs
 import (
 	context "context"
 	fmt "fmt"
+	io "io"
+	math "math"
+
 	_ "github.com/gogo/protobuf/gogoproto"
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	auth "github.com/pachyderm/pachyderm/src/client/auth"
 	grpc "google.golang.org/grpc"
-	io "io"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -4425,6 +4426,7 @@ type APIClient interface {
 	DeleteFile(ctx context.Context, in *DeleteFileRequest, opts ...grpc.CallOption) (*types.Empty, error)
 	// DeleteAll deletes everything
 	DeleteAll(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.Empty, error)
+	// Fsck does a file system consistency check for pfs
 	Fsck(ctx context.Context, in *types.Empty, opts ...grpc.CallOption) (*types.Empty, error)
 }
 

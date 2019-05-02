@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -1140,6 +1141,30 @@ Tags are a low-level resource and should not be accessed directly by most users.
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
+
+	fsck := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Run a file system consistency check on pfs.",
+		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.Fsck(
+				c.Ctx(),
+				&types.Empty{},
+			)
+			if err != nil {
+				fmt.Println(grpcutil.ScrubGRPC(err))
+				return nil
+			}
+			fmt.Println("No errors found.")
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
