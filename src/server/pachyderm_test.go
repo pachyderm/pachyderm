@@ -8658,6 +8658,10 @@ func TestPipelineHistory(t *testing.T) {
 	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
 	require.NoError(t, err)
 
+	cis, err := c.ListCommit(pipelineName, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(cis))
+
 	jis, err = c.ListJob(pipelineName, nil, nil, 0)
 	require.Equal(t, 2, len(jis))
 	jis, err = c.ListJob(pipelineName, nil, nil, 1)
