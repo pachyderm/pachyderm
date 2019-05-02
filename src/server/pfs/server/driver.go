@@ -599,33 +599,6 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 					}
 				}
 			}
-			// <= (Not necessarily true)
-			// headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
-			// if !ok {
-			// 	return ErrCommitInfoNotFound{
-			// 		Location: "head commit provenance (<=)",
-			// 		Commit:   bi.Head,
-			// 	}
-			// }
-			// for _, headProv := range headCommitInfo.Provenance {
-			// 	contains := false
-			// 	for _, provBranch := range bi.Provenance {
-			// 		provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
-			// 		if !ok {
-			// 			return ErrBranchInfoNotFound{Branch: provBranch}
-			// 		}
-			// 		if headProv.Branch.Repo.Name == provBranchInfo.Branch.Repo.Name &&
-			// 			headProv.Branch.Name == provBranchInfo.Branch.Name {
-			// 			if provBranchInfo.Head == nil {
-			// 				return fmt.Errorf("")
-			// 			}
-			// 			contains = true
-			// 		}
-			// 	}
-			// 	if !contains {
-			// 		return fmt.Errorf("")
-			// 	}
-			// }
 		}
 	}
 
