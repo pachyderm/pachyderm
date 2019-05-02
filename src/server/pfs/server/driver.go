@@ -345,6 +345,173 @@ func equalCommits(a, b []*pfs.Commit) bool {
 	return true
 }
 
+// ErrBranchProvenanceTransitivity Branch provenance is not transitively closed.
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrBranchProvenanceTransitivity struct {
+	BranchInfo     *pfs.BranchInfo
+	FullProvenance []*pfs.Branch
+}
+
+func (e ErrBranchProvenanceTransitivity) Error() string {
+	var msg strings.Builder
+	msg.WriteString("consistency error: branch provenance was not transitive\n")
+	msg.WriteString("on branch " + e.BranchInfo.Name + " in repo " + e.BranchInfo.Branch.Repo.Name + "\n")
+	fullMap := make(map[string]*pfs.Branch)
+	provMap := make(map[string]*pfs.Branch)
+	key := path.Join
+	for _, branch := range e.FullProvenance {
+		fullMap[key(branch.Repo.Name, branch.Name)] = branch
+	}
+	provMap[key(e.BranchInfo.Branch.Repo.Name, e.BranchInfo.Name)] = e.BranchInfo.Branch
+	for _, branch := range e.BranchInfo.Provenance {
+		provMap[key(branch.Repo.Name, branch.Name)] = branch
+	}
+	msg.WriteString("the following branches are missing from the provenance:\n")
+	for k, v := range fullMap {
+		if _, ok := provMap[k]; !ok {
+			msg.WriteString(v.Name + " in repo " + v.Repo.Name + "\n")
+		}
+	}
+	return msg.String()
+}
+
+// ErrBranchInfoNotFound Branch info could not be found. Typically because of an incomplete deletion of a branch.
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrBranchInfoNotFound struct {
+	Branch *pfs.Branch
+}
+
+func (e ErrBranchInfoNotFound) Error() string {
+	return fmt.Sprintf("consistency error: the branch %v on repo %v could not be found\n", e.Branch.Name, e.Branch.Repo.Name)
+}
+
+// ErrCommitInfoNotFound Commit info could not be found. Typically because of an incomplete deletion of a commit.
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrCommitInfoNotFound struct {
+	Location string
+	Commit   *pfs.Commit
+}
+
+func (e ErrCommitInfoNotFound) Error() string {
+	return fmt.Sprintf("consistency error: the commit %v in repo %v could not be found while checking %v",
+		e.Commit.ID, e.Commit.Repo.Name, e.Location)
+}
+
+// ErrInconsistentCommitProvenance Commit provenance somehow has a branch and commit from different repos.
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrInconsistentCommitProvenance struct {
+	CommitProvenance *pfs.CommitProvenance
+}
+
+func (e ErrInconsistentCommitProvenance) Error() string {
+	return fmt.Sprintf("consistency error: the commit provenance has repo %v for the branch but repo %v for the commit",
+		e.CommitProvenance.Branch.Repo.Name, e.CommitProvenance.Commit.Repo.Name)
+}
+
+// ErrHeadProvenanceInconsistentWithBranch The head provenance of a branch does not match the branch's provenance
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrHeadProvenanceInconsistentWithBranch struct {
+	BranchInfo     *pfs.BranchInfo
+	ProvBranchInfo *pfs.BranchInfo
+	HeadCommitInfo *pfs.CommitInfo
+}
+
+func (e ErrHeadProvenanceInconsistentWithBranch) Error() string {
+	var msg strings.Builder
+	msg.WriteString("consistency error: head provenance is not consistent with branch provenance\n")
+	msg.WriteString("on branch " + e.BranchInfo.Name + " in repo " + e.BranchInfo.Branch.Repo.Name + "\n")
+	msg.WriteString("which has head commit " + e.HeadCommitInfo.Commit.ID + "\n")
+	msg.WriteString("this branch is provenant on the branch " +
+		e.ProvBranchInfo.Name + " in repo " + e.ProvBranchInfo.Branch.Repo.Name + "\n")
+	msg.WriteString("which has head commit " + e.ProvBranchInfo.Head.ID + "\n")
+	msg.WriteString("but this commit is missing from the head commit provenance\n")
+	return msg.String()
+}
+
+// ErrProvenanceTransitivity Commit provenance is not transitively closed.
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrProvenanceTransitivity struct {
+	CommitInfo     *pfs.CommitInfo
+	FullProvenance []*pfs.Commit
+}
+
+func (e ErrProvenanceTransitivity) Error() string {
+	var msg strings.Builder
+	msg.WriteString("consistency error: commit provenance was not transitive\n")
+	msg.WriteString("on commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Repo.Name + "\n")
+	fullMap := make(map[string]*pfs.Commit)
+	provMap := make(map[string]*pfs.Commit)
+	key := path.Join
+	for _, prov := range e.FullProvenance {
+		fullMap[key(prov.Repo.Name, prov.ID)] = prov
+	}
+	for _, prov := range e.CommitInfo.Provenance {
+		provMap[key(prov.Commit.Repo.Name, prov.Commit.ID)] = prov.Commit
+	}
+	msg.WriteString("the following commit provenances are missing from the full provenance:\n")
+	for k, v := range fullMap {
+		if _, ok := provMap[k]; !ok {
+			msg.WriteString(v.ID + " in repo " + v.Repo.Name + "\n")
+		}
+	}
+	return msg.String()
+}
+
+// ErrNilCommitInSubvenance Commit provenance somehow has a branch and commit from different repos.
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrNilCommitInSubvenance struct {
+	CommitInfo      *pfs.CommitInfo
+	SubvenanceRange *pfs.CommitRange
+}
+
+func (e ErrNilCommitInSubvenance) Error() string {
+	upper := "<nil>"
+	if e.SubvenanceRange.Upper != nil {
+		upper = e.SubvenanceRange.Upper.ID
+	}
+	lower := "<nil>"
+	if e.SubvenanceRange.Lower != nil {
+		lower = e.SubvenanceRange.Lower.ID
+	}
+	return fmt.Sprintf("consistency error: the commit %v has nil subvenance in the %v - %v range",
+		e.CommitInfo.Commit.ID, lower, upper)
+}
+
+// ErrSubvenanceOfProvenance The commit was not found in its provenance's subvenance
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrSubvenanceOfProvenance struct {
+	CommitInfo     *pfs.CommitInfo
+	ProvCommitInfo *pfs.CommitInfo
+}
+
+func (e ErrSubvenanceOfProvenance) Error() string {
+	var msg strings.Builder
+	msg.WriteString("consistency error: the commit was not in its provenance's subvenance\n")
+	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Repo.Name + "\n")
+	msg.WriteString("provenance commit " + e.ProvCommitInfo.Commit.ID + " in repo " + e.ProvCommitInfo.Commit.Repo.Name + "\n")
+	return msg.String()
+}
+
+// ErrProvenanceOfSubvenance The commit was not found in its subvenance's provenance
+// This struct contains all the information that was used to demonstrate that this invariant is not being satisfied.
+type ErrProvenanceOfSubvenance struct {
+	CommitInfo     *pfs.CommitInfo
+	SubvCommitInfo *pfs.CommitInfo
+}
+
+func (e ErrProvenanceOfSubvenance) Error() string {
+	var msg strings.Builder
+	msg.WriteString("consistency error: the commit was not in its subvenance's provenance\n")
+	msg.WriteString("commit " + e.CommitInfo.Commit.ID + " in repo " + e.CommitInfo.Commit.Repo.Name + "\n")
+	msg.WriteString("subvenance commit " + e.SubvCommitInfo.Commit.ID + " in repo " + e.SubvCommitInfo.Commit.Repo.Name + "\n")
+	return msg.String()
+}
+
+// fsck verifies that pfs satisfies the following invariants:
+// 1. Branch provenance is transitive
+// 2. Head commit provenance has heads of branch's branch provenance
+// 3. Commit provenance is transitive
+// 4. Commit provenance and commit subvenance are dual relations
 func (d *driver) fsck(pachClient *client.APIClient) error {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
@@ -389,24 +556,30 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		}
 
 		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
-			return fmt.Errorf("")
+			return ErrBranchProvenanceTransitivity{
+				BranchInfo:     bi,
+				FullProvenance: union,
+			}
 		}
 
 		// 	if there is a HEAD commit
 		if bi.Head != nil {
 			// we expect the branch's provenance to equal the HEAD commit's provenance
-			// i.e branch.Provenance contains the branch provBranch and provBranch.Head != nil iff branch.Head.Provenance contains provBranch.Head
+			// i.e branch.Provenance contains the branch provBranch and provBranch.Head != nil implies branch.Head.Provenance contains provBranch.Head
 			// =>
 			for _, provBranch := range bi.Provenance {
 				provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
 				if !ok {
-					return fmt.Errorf("")
+					return ErrBranchInfoNotFound{Branch: provBranch}
 				}
 				if provBranchInfo.Head != nil {
 					// in this case, the headCommit Provenance should contain provBranch.Head
 					headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
 					if !ok {
-						return fmt.Errorf("")
+						return ErrCommitInfoNotFound{
+							Location: "head commit provenance (=>)",
+							Commit:   bi.Head,
+						}
 					}
 					contains := false
 					for _, headProv := range headCommitInfo.Provenance {
@@ -418,34 +591,41 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 						}
 					}
 					if !contains {
-						return fmt.Errorf("")
+						return ErrHeadProvenanceInconsistentWithBranch{
+							BranchInfo:     bi,
+							ProvBranchInfo: provBranchInfo,
+							HeadCommitInfo: headCommitInfo,
+						}
 					}
 				}
 			}
 			// <= (Not necessarily true)
-			headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
-			if !ok {
-				return fmt.Errorf("")
-			}
-			for _, headProv := range headCommitInfo.Provenance {
-				contains := false
-				for _, provBranch := range bi.Provenance {
-					provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
-					if !ok {
-						return fmt.Errorf("")
-					}
-					if headProv.Branch.Repo.Name == provBranchInfo.Branch.Repo.Name &&
-						headProv.Branch.Name == provBranchInfo.Branch.Name {
-						if provBranchInfo.Head == nil {
-							return fmt.Errorf("")
-						}
-						contains = true
-					}
-				}
-				if !contains {
-					return fmt.Errorf("")
-				}
-			}
+			// headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
+			// if !ok {
+			// 	return ErrCommitInfoNotFound{
+			// 		Location: "head commit provenance (<=)",
+			// 		Commit:   bi.Head,
+			// 	}
+			// }
+			// for _, headProv := range headCommitInfo.Provenance {
+			// 	contains := false
+			// 	for _, provBranch := range bi.Provenance {
+			// 		provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
+			// 		if !ok {
+			// 			return ErrBranchInfoNotFound{Branch: provBranch}
+			// 		}
+			// 		if headProv.Branch.Repo.Name == provBranchInfo.Branch.Repo.Name &&
+			// 			headProv.Branch.Name == provBranchInfo.Branch.Name {
+			// 			if provBranchInfo.Head == nil {
+			// 				return fmt.Errorf("")
+			// 			}
+			// 			contains = true
+			// 		}
+			// 	}
+			// 	if !contains {
+			// 		return fmt.Errorf("")
+			// 	}
+			// }
 		}
 	}
 
@@ -457,72 +637,26 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		for _, prov := range ci.Provenance {
 			// not part of the above invariant, but we want to make sure provenance is self-consistent
 			if prov.Commit.Repo.Name != prov.Branch.Repo.Name {
-				return fmt.Errorf("")
+				return ErrInconsistentCommitProvenance{CommitProvenance: prov}
 			}
 			directProvenance = append(directProvenance, prov.Commit)
 			transitiveProvenance = append(transitiveProvenance, prov.Commit)
 			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
 			if !ok {
-				return fmt.Errorf("")
+				return ErrCommitInfoNotFound{
+					Location: "provenance transitivity",
+					Commit:   prov.Commit,
+				}
 			}
 			for _, provProv := range provCommitInfo.Provenance {
 				transitiveProvenance = append(transitiveProvenance, provProv.Commit)
 			}
 		}
 		if !equalCommits(directProvenance, transitiveProvenance) {
-			return fmt.Errorf("")
-		}
-	}
-
-	// for each commit
-	for _, ci := range commitInfos {
-		// ensure that the subvenance is transitive
-		directSubvenance := make([]*pfs.Commit, 0, len(ci.Subvenance))
-		transitiveSubvenance := make([]*pfs.Commit, 0, len(ci.Subvenance))
-
-		for _, subvRange := range ci.Subvenance {
-			subvCommit := subvRange.Upper
-			// loop through the subvenance range
-			for {
-				if subvCommit == nil {
-					return fmt.Errorf("")
-				}
-				subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
-				if !ok {
-					return fmt.Errorf("")
-				}
-				directSubvenance = append(directSubvenance, subvCommit)
-				transitiveSubvenance = append(transitiveSubvenance, subvCommit)
-				for _, subvSubvRange := range subvCommitInfo.Subvenance {
-					subvSubvCommit := subvSubvRange.Upper
-
-					for {
-						if subvSubvCommit == nil {
-							return fmt.Errorf("")
-						}
-
-						subvSubvCommitInfo, ok := commitInfos[key(subvSubvCommit.Repo.Name, subvSubvCommit.ID)]
-						if !ok {
-							return fmt.Errorf("")
-						}
-						transitiveSubvenance = append(transitiveSubvenance, subvSubvCommit)
-
-						if subvSubvCommit.ID == subvSubvRange.Lower.ID {
-							break // check at the end of the loop so we fsck 'lower' too (inclusive range)
-						}
-						subvSubvCommit = subvSubvCommitInfo.ParentCommit
-					}
-				}
-
-				if subvCommit.ID == subvRange.Lower.ID {
-					break // check at the end of the loop so we fsck 'lower' too (inclusive range)
-				}
-				subvCommit = subvCommitInfo.ParentCommit
+			return ErrProvenanceTransitivity{
+				CommitInfo:     ci,
+				FullProvenance: transitiveProvenance,
 			}
-		}
-
-		if !equalCommits(directSubvenance, transitiveSubvenance) {
-			return fmt.Errorf("")
 		}
 	}
 
@@ -532,25 +666,33 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		// i.e. commit.Provenance contains commit C iff C.Subvenance contains commit or C = commit
 		// =>
 		for _, prov := range ci.Provenance {
-
 			if prov.Commit.ID == ci.Commit.ID {
 				continue
 			}
 			contains := false
 			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
 			if !ok {
-				return fmt.Errorf("")
+				return ErrCommitInfoNotFound{
+					Location: "provenance for provenance-subvenance duality (=>)",
+					Commit:   prov.Commit,
+				}
 			}
 			for _, subvRange := range provCommitInfo.Subvenance {
 				subvCommit := subvRange.Upper
 				// loop through the subvenance range
 				for {
 					if subvCommit == nil {
-						return fmt.Errorf("")
+						return ErrNilCommitInSubvenance{
+							CommitInfo:      provCommitInfo,
+							SubvenanceRange: subvRange,
+						}
 					}
 					subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
 					if !ok {
-						return fmt.Errorf("")
+						return ErrCommitInfoNotFound{
+							Location: "subvenance for provenance-subvenance duality (=>)",
+							Commit:   subvCommit,
+						}
 					}
 					if ci.Commit.ID == subvCommit.ID {
 						contains = true
@@ -563,7 +705,10 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				}
 			}
 			if !contains {
-				return fmt.Errorf("")
+				return ErrSubvenanceOfProvenance{
+					CommitInfo:     ci,
+					ProvCommitInfo: provCommitInfo,
+				}
 			}
 		}
 		// <=
@@ -573,11 +718,17 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 			for {
 				contains := false
 				if subvCommit == nil {
-					return fmt.Errorf("")
+					return ErrNilCommitInSubvenance{
+						CommitInfo:      ci,
+						SubvenanceRange: subvRange,
+					}
 				}
 				subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
 				if !ok {
-					return fmt.Errorf("")
+					return ErrCommitInfoNotFound{
+						Location: "subvenance for provenance-subvenance duality (<=)",
+						Commit:   subvCommit,
+					}
 				}
 				if ci.Commit.ID == subvCommit.ID {
 					contains = true
@@ -590,7 +741,10 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				}
 
 				if !contains {
-					return fmt.Errorf("")
+					return ErrProvenanceOfSubvenance{
+						CommitInfo:     ci,
+						SubvCommitInfo: subvCommitInfo,
+					}
 				}
 
 				if subvCommit.ID == subvRange.Lower.ID {
@@ -599,9 +753,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 				subvCommit = subvCommitInfo.ParentCommit
 			}
 		}
-
 	}
-
 	return nil
 }
 
