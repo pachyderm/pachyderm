@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -54,8 +55,7 @@ func now() *types.Timestamp {
 	return t
 }
 
-func (d *driver) startTransaction(pachClient *client.APIClient) (*transaction.Transaction, error) {
-	ctx := pachClient.Ctx()
+func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	info := &transaction.TransactionInfo{
 		Transaction: &transaction.Transaction{
 			ID: uuid.New(),
@@ -76,8 +76,7 @@ func (d *driver) startTransaction(pachClient *client.APIClient) (*transaction.Tr
 	return info.Transaction, nil
 }
 
-func (d *driver) inspectTransaction(pachClient *client.APIClient, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
-	ctx := pachClient.Ctx()
+func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
 	err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
 	if err != nil {
@@ -86,18 +85,17 @@ func (d *driver) inspectTransaction(pachClient *client.APIClient, txn *transacti
 	return info, nil
 }
 
-func (d *driver) deleteTransaction(pachClient *client.APIClient, txn *transaction.Transaction) error {
-	ctx := pachClient.Ctx()
+func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		return d.transactions.ReadWrite(stm).Delete(txn.ID)
 	})
 	return err
 }
 
-func (d *driver) listTransaction(pachClient *client.APIClient) ([]*transaction.TransactionInfo, error) {
+func (d *driver) listTransaction(ctx context.Context) ([]*transaction.TransactionInfo, error) {
 	var result []*transaction.TransactionInfo
 	transactionInfo := &transaction.TransactionInfo{}
-	transactions := d.transactions.ReadOnly(pachClient.Ctx())
+	transactions := d.transactions.ReadOnly(ctx)
 	if err := transactions.List(transactionInfo, col.DefaultOptions, func(string) error {
 		result = append(result, proto.Clone(transactionInfo).(*transaction.TransactionInfo))
 		return nil
@@ -109,8 +107,8 @@ func (d *driver) listTransaction(pachClient *client.APIClient) ([]*transaction.T
 
 // deleteAll deletes all transactions from etcd except the currently running
 // transaction (if any).
-func (d *driver) deleteAll(pachClient *client.APIClient, stm col.STM, running *transaction.Transaction) error {
-	txns, err := d.listTransaction(pachClient)
+func (d *driver) deleteAll(ctx context.Context, stm col.STM, running *transaction.Transaction) error {
+	txns, err := d.listTransaction(ctx)
 	if err != nil {
 		return err
 	}
@@ -127,17 +125,18 @@ func (d *driver) deleteAll(pachClient *client.APIClient, stm col.STM, running *t
 	return nil
 }
 
-func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+func (d *driver) runTransaction(ctx context.Context, stm col.STM, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+	directTxn := txnenv.NewDirectTransaction(ctx, stm, d.txnEnv)
 	responses := []*transaction.TransactionResponse{}
 	for i, request := range info.Requests {
 		var err error
 		var response *transaction.TransactionResponse
 
 		if request.CreateRepo != nil {
-			err = d.txnEnv.PfsServer().CreateRepoInTransaction(pachClient, stm, request.CreateRepo)
+			err = directTxn.CreateRepo(request.CreateRepo)
 			response = &transaction.TransactionResponse{}
 		} else if request.DeleteRepo != nil {
-			err = d.txnEnv.PfsServer().DeleteRepoInTransaction(pachClient, stm, request.DeleteRepo)
+			err = directTxn.DeleteRepo(request.DeleteRepo)
 			response = &transaction.TransactionResponse{}
 		} else if request.StartCommit != nil {
 			// Do a little extra work here so we can make sure the new commit ID is
@@ -151,32 +150,32 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 				}
 			}
 			if err == nil {
-				commit, err = d.txnEnv.PfsServer().StartCommitInTransaction(pachClient, stm, request.StartCommit, commit)
+				commit, err = directTxn.StartCommit(request.StartCommit, commit)
 				response = client.NewCommitResponse(commit)
 			}
 		} else if request.FinishCommit != nil {
-			err = d.txnEnv.PfsServer().FinishCommitInTransaction(pachClient, stm, request.FinishCommit)
+			err = directTxn.FinishCommit(request.FinishCommit)
 			response = &transaction.TransactionResponse{}
 		} else if request.DeleteCommit != nil {
-			err = d.txnEnv.PfsServer().DeleteCommitInTransaction(pachClient, stm, request.DeleteCommit)
+			err = directTxn.DeleteCommit(request.DeleteCommit)
 			response = &transaction.TransactionResponse{}
 		} else if request.CreateBranch != nil {
-			err = d.txnEnv.PfsServer().CreateBranchInTransaction(pachClient, stm, request.CreateBranch)
+			err = directTxn.CreateBranch(request.CreateBranch)
 			response = &transaction.TransactionResponse{}
 		} else if request.DeleteBranch != nil {
-			err = d.txnEnv.PfsServer().DeleteBranchInTransaction(pachClient, stm, request.DeleteBranch)
+			err = directTxn.DeleteBranch(request.DeleteBranch)
 			response = &transaction.TransactionResponse{}
 		} else if request.CopyFile != nil {
-			err = d.txnEnv.PfsServer().CopyFileInTransaction(pachClient, stm, request.CopyFile)
+			err = directTxn.CopyFile(request.CopyFile)
 			response = &transaction.TransactionResponse{}
 		} else if request.DeleteFile != nil {
-			err = d.txnEnv.PfsServer().DeleteFileInTransaction(pachClient, stm, request.DeleteFile)
+			err = directTxn.DeleteFile(request.DeleteFile)
 			response = &transaction.TransactionResponse{}
 		} else if request.DeleteAll != nil {
 			// TODO: extend this to delete everything through PFS, PPS, Auth and
 			// update the client DeleteAll call to use only this, then remove unused
 			// RPCs.
-			err = d.deleteAll(pachClient, stm, info.Transaction)
+			err = d.deleteAll(ctx, stm, info.Transaction)
 			response = &transaction.TransactionResponse{}
 		} else {
 			err = fmt.Errorf("unrecognized transaction request type")
@@ -190,19 +189,24 @@ func (d *driver) runTransaction(pachClient *client.APIClient, stm col.STM, info 
 	}
 
 	info.Responses = responses
-	fmt.Printf("info.Responses: %s\n", info.Responses)
+
+	// Perform any cleanup tasks at the end of the transaction
+	err := directTxn.Finish()
+	if err != nil {
+		return nil, err
+	}
+
 	return info, nil
 }
 
-func (d *driver) finishTransaction(pachClient *client.APIClient, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
-	ctx := pachClient.Ctx()
+func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
 	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
 		if err != nil {
 			return err
 		}
-		info, err = d.runTransaction(pachClient, stm, info)
+		info, err = d.runTransaction(ctx, stm, info)
 		if err != nil {
 			return err
 		}
@@ -222,12 +226,10 @@ func (e *transactionConflictError) Error() string {
 }
 
 func (d *driver) appendTransaction(
-	pachClient *client.APIClient,
+	ctx context.Context,
 	txn *transaction.Transaction,
 	items []*transaction.TransactionRequest,
 ) (*transaction.TransactionInfo, error) {
-	ctx := pachClient.Ctx()
-
 	// Run this thing in a loop in case we get a conflict, time out after some tries
 	for i := 0; i < 10; i++ {
 		// We first do a dryrun of the transaction to
@@ -250,7 +252,7 @@ func (d *driver) appendTransaction(
 			numResponses = len(info.Responses)
 			info.Requests = append(info.Requests, items...)
 
-			info, err = d.runTransaction(pachClient, stm, info)
+			info, err = d.runTransaction(ctx, stm, info)
 			if err != nil {
 				return err
 			}

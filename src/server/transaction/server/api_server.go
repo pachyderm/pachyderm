@@ -1,11 +1,9 @@
 package server
 
 import (
-	"sync"
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -26,12 +24,6 @@ type apiServer struct {
 
 	// env generates clients for pachyderm's downstream services
 	env *serviceenv.ServiceEnv
-	// pachClientOnce ensures that _pachClient is only initialized once
-	pachClientOnce sync.Once
-	// pachClient is a cached Pachd client that connects to Pachyderm's object
-	// store API and auth API. Instead of accessing it directly, functions should
-	// call a.env.GetPachClient()
-	_pachClient *client.APIClient
 }
 
 func newAPIServer(
@@ -56,21 +48,21 @@ func (a *apiServer) StartTransaction(ctx context.Context, request *transaction.S
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.startTransaction(a.env.GetPachClient(ctx))
+	return a.driver.startTransaction(ctx)
 }
 
 func (a *apiServer) InspectTransaction(ctx context.Context, request *transaction.InspectTransactionRequest) (response *transaction.TransactionInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.inspectTransaction(a.env.GetPachClient(ctx), request.Transaction)
+	return a.driver.inspectTransaction(ctx, request.Transaction)
 }
 
 func (a *apiServer) DeleteTransaction(ctx context.Context, request *transaction.DeleteTransactionRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err := a.driver.deleteTransaction(a.env.GetPachClient(ctx), request.Transaction)
+	err := a.driver.deleteTransaction(ctx, request.Transaction)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +74,7 @@ func (a *apiServer) ListTransaction(ctx context.Context, request *transaction.Li
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	transactions, err := a.driver.listTransaction(a.env.GetPachClient(ctx))
+	transactions, err := a.driver.listTransaction(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +85,7 @@ func (a *apiServer) FinishTransaction(ctx context.Context, request *transaction.
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.finishTransaction(a.env.GetPachClient(ctx), request.Transaction)
+	return a.driver.finishTransaction(ctx, request.Transaction)
 }
 
 func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAllRequest) (response *types.Empty, retErr error) {
@@ -101,7 +93,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAl
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-		return a.driver.deleteAll(a.env.GetPachClient(ctx), stm, nil)
+		return a.driver.deleteAll(ctx, stm, nil)
 	})
 	if err != nil {
 		return nil, err
@@ -112,22 +104,31 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *transaction.DeleteAl
 
 // AppendRequest is not an RPC, but is called from other systems in pachd to
 // add an operation to an existing transaction.
-func (a *apiServer) AppendRequest(ctx context.Context, request *transaction.TransactionRequest) (response *transaction.TransactionResponse, retErr error) {
+func (a *apiServer) AppendRequest(ctx context.Context, txn *transaction.Transaction, request *transaction.TransactionRequest) (response *transaction.TransactionResponse, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-
 	items := []*transaction.TransactionRequest{request}
-
-	info, err := a.driver.appendTransaction(pachClient, txn, items)
+	info, err := a.driver.appendTransaction(ctx, txn, items)
 	if err != nil {
 		return nil, err
 	}
 
 	return info.Responses[len(info.Responses)-1], nil
 }
+
+// DryrunTransaction is not an RPC, but is called from other systems in pachd to
+// perform reads on what the state of the cluster will look like after the
+// transaction has run.
+/*
+func (a *apiServer) DryrunTransaction(ctx context.Context, stm col.STM, txn *transaction.Transaction) (response *transaction.TransactionInfo, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	info := &transaction.TransactionInfo{}
+	err := d.transactions.ReadWrite(stm).Get(txn.ID, info)
+	if err != nil {
+		return nil, err
+	}
+	return a.driver.runTransaction(ctx, stm, info)
+}*/

@@ -210,11 +210,10 @@ func absent(key string) etcd.Cmp {
 	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
-func (d *driver) createRepo(pachClient *client.APIClient, stm col.STM, repo *pfs.Repo, description string, update bool) error {
-	ctx := pachClient.Ctx()
+func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
-	whoAmI, err := pachClient.AuthAPIClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
+	whoAmI, err := txnCtx.Client().AuthAPIClient.WhoAmI(txnCtx.Ctx(), &auth.WhoAmIRequest{})
 	authIsActivated := !auth.IsErrNotActivated(err)
 	if authIsActivated && err != nil {
 		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
@@ -224,7 +223,7 @@ func (d *driver) createRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 		return err
 	}
 
-	repos := d.repos.ReadWrite(stm)
+	repos := d.repos.ReadWrite(txnCtx.Stm())
 
 	// check if 'repo' already exists. If so, return that error. Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
@@ -247,7 +246,7 @@ func (d *driver) createRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 		// auth is active, and user is logged in. Make user an owner of the new
 		// repo (and clear any existing ACL under this name that might have been
 		// created by accident)
-		_, err := d.txnEnv.AuthServer().SetACLInTransaction(ctx, stm, &auth.SetACLRequest{
+		_, err := d.txnEnv.AuthServer().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
 			Repo: repo.Name,
 			Entries: []*auth.ACLEntry{{
 				Username: whoAmI.Username,
@@ -346,7 +345,7 @@ func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.
 	return result, nil
 }
 
-func (d *driver) deleteRepo(pachClient *client.APIClient, stm col.STM, repo *pfs.Repo, force bool) error {
+func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, force bool) error {
 	// TODO(msteffen): Fix d.deleteAll() so that it doesn't need to delete and
 	// recreate the PPS spec repo, then uncomment this block to prevent users from
 	// deleting it and breaking their cluster
@@ -419,7 +418,7 @@ func (d *driver) deleteRepo(pachClient *client.APIClient, stm col.STM, repo *pfs
 
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
-func (d *driver) startCommit(pachClient *client.APIClient, stm col.STM, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
+func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
 	return d.makeCommit(pachClient, stm, ID, parent, branch, provenance, nil, nil, nil, description)
 }
 
@@ -661,7 +660,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	return newCommit, nil
 }
 
-func (d *driver) finishCommit(pachClient *client.APIClient, stm col.STM, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
+func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, &stm, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
@@ -1347,7 +1346,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	return nil
 }
 
-func (d *driver) deleteCommit(pachClient *client.APIClient, stm col.STM, userCommit *pfs.Commit) error {
+func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, &stm, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
@@ -1648,7 +1647,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, stm col.STM, userCom
 //
 // This invariant is assumed to hold for all branches upstream of 'branch', but not
 // for 'branch' itself once 'b.Provenance' has been set.
-func (d *driver) createBranch(pachClient *client.APIClient, stm col.STM, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
+func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
 	var err error
 	if err := d.checkIsAuthorized(pachClient, &stm, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
@@ -1785,7 +1784,7 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo) ([]*pf
 	return result, nil
 }
 
-func (d *driver) deleteBranch(pachClient *client.APIClient, stm col.STM, branch *pfs.Branch, force bool) error {
+func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, force bool) error {
 	if err := d.checkIsAuthorized(pachClient, &stm, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -2166,7 +2165,7 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 	return pfr, nil // TODO(msteffen) put something real here
 }
 
-func (d *driver) copyFile(pachClient *client.APIClient, stm col.STM, src *pfs.File, dst *pfs.File, overwrite bool) error {
+func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst *pfs.File, overwrite bool) error {
 	if err := d.checkIsAuthorized(pachClient, &stm, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
@@ -3045,7 +3044,7 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	return newFileInfos, oldFileInfos, nil
 }
 
-func (d *driver) deleteFile(pachClient *client.APIClient, stm col.STM, file *pfs.File) error {
+func (d *driver) deleteFile(txnCtx *txnenv.TransactionContext, file *pfs.File) error {
 	if err := d.checkIsAuthorized(pachClient, &stm, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -3068,7 +3067,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, stm col.STM, file *pfs
 	return d.upsertPutFileRecords(stm, file, &pfs.PutFileRecords{Tombstone: true})
 }
 
-func (d *driver) deleteAll(pachClient *client.APIClient, stm col.STM) error {
+func (d *driver) deleteAll(txnCtx *transaction.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
 	repoInfos, err := d.listRepo(pachClient, !includeAuth)

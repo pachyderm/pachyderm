@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/transaction"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
@@ -70,12 +69,10 @@ func newAPIServer(
 // CreateRepoInTransaction is identical to CreateRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateRepoInTransaction(
-	ctx context.Context,
-	stm col.STM,
-	originalRequest *pfs.CreateRepoRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.CreateRepoRequest,
 ) error {
-	request := proto.Clone(originalRequest).(*pfs.CreateRepoRequest)
-	return a.driver.createRepo(pachClient, stm, request.Repo, request.Description, request.Update)
+	return a.driver.createRepo(txnCtx, request.Repo, request.Description, request.Update)
 }
 
 // CreateRepo implements the protobuf pfs.CreateRepo RPC
@@ -83,10 +80,9 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.Pfs().CreateRepo(request)
-	})
-	if err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.CreateRepo(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -132,22 +128,13 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 // DeleteRepoInTransaction is identical to DeleteRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) DeleteRepoInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-	originalRequest *pfs.DeleteRepoRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteRepoRequest,
 ) error {
-	request := proto.Clone(originalRequest).(*pfs.DeleteRepoRequest)
 	if request.All {
-		if err := a.driver.deleteAll(pachClient, stm); err != nil {
-			return err
-		}
-	} else {
-		if err := a.driver.deleteRepo(pachClient, stm, request.Repo, request.Force); err != nil {
-			return err
-		}
+		return a.driver.deleteAll(txnCtx)
 	}
-
-	return nil
+	return a.driver.deleteRepo(txnCtx, request.Repo, request.Force)
 }
 
 // DeleteRepo implements the protobuf pfs.DeleteRepo RPC
@@ -155,19 +142,9 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteRepo: request})
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.DeleteRepoInTransaction(a.env.GetPachClient(ctx), stm, request)
-		})
-	}
-	if err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.DeleteRepo(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -179,17 +156,15 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 // report the commit ID back to the client before the transaction has finished
 // and it can be used in future commands inside the same transaction.
 func (a *apiServer) StartCommitInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-	originalRequest *pfs.StartCommitRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.StartCommitRequest,
 	commit *pfs.Commit,
 ) (*pfs.Commit, error) {
-	request := proto.Clone(originalRequest).(*pfs.StartCommitRequest)
 	id := ""
 	if commit != nil {
 		id = commit.ID
 	}
-	return a.driver.startCommit(pachClient, stm, id, request.Parent, request.Branch, request.Provenance, request.Description)
+	return a.driver.startCommit(txnCtx, id, request.Parent, request.Branch, request.Provenance, request.Description)
 }
 
 // StartCommit implements the protobuf pfs.StartCommit RPC
@@ -199,23 +174,10 @@ func (a *apiServer) StartCommit(ctx context.Context, request *pfs.StartCommitReq
 
 	var err error
 	commit := &pfs.Commit{}
-
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		var txnResponse *transaction.TransactionResponse
-		txnResponse, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{StartCommit: request})
-		commit = txnResponse.Commit
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			commit, err = a.StartCommitInTransaction(a.env.GetPachClient(ctx), stm, request, nil)
-			return err
-		})
-	}
-	if err != nil {
+	if err = a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		commit, err = txn.StartCommit(request, nil)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	return commit, nil
@@ -236,15 +198,13 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 // FinishCommitInTransaction is identical to FinishCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) FinishCommitInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-	originalRequest *pfs.FinishCommitRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.FinishCommitRequest,
 ) error {
-	request := proto.Clone(originalRequest).(*pfs.FinishCommitRequest)
 	if request.Trees != nil {
-		return a.driver.finishOutputCommit(pachClient, stm, request.Commit, request.Trees, request.Datums, request.SizeBytes)
+		return a.driver.finishOutputCommit(txnCtx, request.Commit, request.Trees, request.Datums, request.SizeBytes)
 	}
-	return a.driver.finishCommit(pachClient, stm, request.Commit, request.Tree, request.Empty, request.Description)
+	return a.driver.finishCommit(txnCtx, request.Commit, request.Tree, request.Empty, request.Description)
 }
 
 // FinishCommit implements the protobuf pfs.FinishCommit RPC
@@ -252,19 +212,9 @@ func (a *apiServer) FinishCommit(ctx context.Context, request *pfs.FinishCommitR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{FinishCommit: request})
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.FinishCommitInTransaction(a.env.GetPachClient(ctx), stm, request)
-		})
-	}
-	if err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.FinishCommit(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -308,12 +258,10 @@ func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CreateBranchInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-	originalRequest *pfs.CreateBranchRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.CreateBranchRequest,
 ) error {
-	request := proto.Clone(originalRequest).(*pfs.CreateBranchRequest)
-	return a.driver.createBranch(pachClient, stm, request.Branch, request.Head, request.Provenance)
+	return a.driver.createBranch(txnCtx, request.Branch, request.Head, request.Provenance)
 }
 
 // CreateBranch implements the protobuf pfs.CreateBranch RPC
@@ -321,19 +269,9 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{CreateBranch: request})
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.CreateBranchInTransaction(a.env.GetPachClient(ctx), stm, request)
-		})
-	}
-	if err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.CreateBranch(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -361,12 +299,10 @@ func (a *apiServer) ListBranch(ctx context.Context, request *pfs.ListBranchReque
 // DeleteBranchInTransaction is identical to DeleteBranch except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) DeleteBranchInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-	originalRequest *pfs.DeleteBranchRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteBranchRequest,
 ) error {
-	request := proto.Clone(originalRequest).(*pfs.DeleteBranchRequest)
-	return a.driver.deleteBranch(pachClient, stm, request.Branch, request.Force)
+	return a.driver.deleteBranch(txnCtx, request.Branch, request.Force)
 }
 
 // DeleteBranch implements the protobuf pfs.DeleteBranch RPC
@@ -374,19 +310,9 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteBranch: request})
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.DeleteBranchInTransaction(a.env.GetPachClient(ctx), stm, request)
-		})
-	}
-	if err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.DeleteBranch(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -395,12 +321,10 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 // DeleteCommitInTransaction is identical to DeleteCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) DeleteCommitInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-	originalRequest *pfs.DeleteCommitRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteCommitRequest,
 ) error {
-	request := proto.Clone(originalRequest).(*pfs.DeleteCommitRequest)
-	return a.driver.deleteCommit(pachClient, stm, request.Commit)
+	return a.driver.deleteCommit(txnCtx, request.Commit)
 }
 
 // DeleteCommit implements the protobuf pfs.DeleteCommit RPC
@@ -408,19 +332,9 @@ func (a *apiServer) DeleteCommit(ctx context.Context, request *pfs.DeleteCommitR
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteCommit: request})
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.DeleteCommitInTransaction(a.env.GetPachClient(ctx), stm, request)
-		})
-	}
-	if err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.DeleteCommit(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -466,12 +380,10 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 // CopyFileInTransaction is identical to CopyFile except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) CopyFileInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-	originalRequest *pfs.CopyFileRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.CopyFileRequest,
 ) error {
-	request := proto.Clone(originalRequest).(*pfs.CopyFileRequest)
-	return a.driver.copyFile(pachClient, stm, request.Src, request.Dst, request.Overwrite)
+	return a.driver.copyFile(txnCtx, request.Src, request.Dst, request.Overwrite)
 }
 
 // CopyFile implements the protobuf pfs.CopyFile RPC
@@ -479,19 +391,9 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{CopyFile: request})
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.CopyFileInTransaction(a.env.GetPachClient(ctx), stm, request)
-		})
-	}
-	if err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.CopyFile(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -631,12 +533,10 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 // DeleteFileInTransaction is identical to DeleteFile except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) DeleteFileInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-	originalRequest *pfs.DeleteFileRequest,
+	txnCtx *txnenv.TransactionContext,
+	request *pfs.DeleteFileRequest,
 ) error {
-	request := proto.Clone(originalRequest).(*pfs.DeleteFileRequest)
-	return a.driver.deleteFile(pachClient, stm, request.File)
+	return a.driver.deleteFile(txnCtx, request.File)
 }
 
 // DeleteFile implements the protobuf pfs.DeleteFile RPC
@@ -644,31 +544,12 @@ func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	pachClient := a.env.GetPachClient(ctx)
-	txn, err := pachClient.GetTransaction()
-	if err != nil {
-		return nil, err
-	}
-	if txn != nil {
-		_, err = a.txnEnv.TransactionServer().AppendRequest(ctx, &transaction.TransactionRequest{DeleteFile: request})
-	} else {
-		_, err = col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-			return a.DeleteFileInTransaction(a.env.GetPachClient(ctx), stm, request)
-		})
-	}
-	if err != nil {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return txn.DeleteFile(request)
+	}); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
-}
-
-// DeleteAllInTransaction is identical to DeleteAll except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) DeleteAllInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
-) error {
-	return a.driver.deleteAll(pachClient, stm)
 }
 
 // DeleteAll implements the protobuf pfs.DeleteAll RPC
@@ -677,7 +558,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-		return a.DeleteAllInTransaction(a.env.GetPachClient(ctx), stm)
+		return a.driver.deleteAll()
 	})
 	if err != nil {
 		return nil, err

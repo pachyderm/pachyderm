@@ -1067,8 +1067,7 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, exp
 // AuthorizeInTransaction is identical to Authorize except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) AuthorizeInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.AuthorizeRequest,
 ) (resp *authclient.AuthorizeResponse, retErr error) {
 	if a.activationState() == none {
@@ -1219,8 +1218,7 @@ func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 // SetScopeInTransaction is identical to SetScope except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) SetScopeInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.SetScopeRequest,
 ) (*authclient.SetScopeResponse, error) {
 	if a.activationState() == none {
@@ -1361,8 +1359,7 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *authclien
 // GetScopeInTransaction is identical to GetScope except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) GetScopeInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.GetScopeRequest,
 ) (*authclient.GetScopeResponse, error) {
 	if a.activationState() == none {
@@ -1466,8 +1463,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 // GetACLInTransaction is identical to GetACL except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) GetACLInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.GetACLRequest,
 ) (*authclient.GetACLResponse, error) {
 	if a.activationState() == none {
@@ -1527,8 +1523,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 // SetACLInTransaction is identical to SetACL except that it can run inside
 // an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) SetACLInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.SetACLRequest,
 ) (*authclient.SetACLResponse, error) {
 	if a.activationState() == none {

@@ -228,7 +228,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 					path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 					env.PPSWorkerPort,
 				))
-				txnEnv.Initialize(transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+				txnEnv.Initialize(env.GetEtcdClient(), transactionAPIServer, authAPIServer, pfsAPIServer)
 				return nil
 			},
 		},
@@ -443,7 +443,7 @@ func doFullMode(config interface{}) (retErr error) {
 						path.Join(env.EtcdPrefix, env.PPSEtcdPrefix),
 						env.PPSWorkerPort,
 					))
-					txnEnv.Initialize(transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+					txnEnv.Initialize(env.GetEtcdClient(), transactionAPIServer, authAPIServer, pfsAPIServer)
 					return nil
 				},
 			},
@@ -565,7 +565,7 @@ func doFullMode(config interface{}) (retErr error) {
 					healthclient.RegisterHealthServer(s, peerHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
-					txnEnv.Initialize(transactionAPIServer, authAPIServer, pfsAPIServer, ppsAPIServer)
+					txnEnv.Initialize(env.GetEtcdClient(), transactionAPIServer, authAPIServer, pfsAPIServer)
 					return nil
 				},
 			},

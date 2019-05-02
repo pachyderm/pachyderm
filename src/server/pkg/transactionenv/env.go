@@ -3,6 +3,10 @@ package transactionenv
 import (
 	"context"
 
+	etcd "github.com/coreos/etcd/clientv3"
+
+	"github.com/gogo/protobuf/proto"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -16,7 +20,6 @@ import (
 // depending on if there is an active transaction in the client context.
 type PfsWrapper interface {
 	CreateRepo(*pfs.CreateRepoRequest) error
-	InspectRepo(*pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
 	DeleteRepo(*pfs.DeleteRepoRequest) error
 
 	StartCommit(*pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
@@ -28,50 +31,61 @@ type PfsWrapper interface {
 
 	CopyFile(*pfs.CopyFileRequest) error
 	DeleteFile(*pfs.DeleteFileRequest) error
+}
 
-	DeleteAll() error
+type PfsTransactionDefer interface {
+	PropagateBranch(branch *pfs.Branch)
+	DeleteScratch(commit *pfs.Commit)
+	Run() error
+}
+
+type TransactionContext struct {
+	stm      col.STM
+	ctx      context.Context
+	txnEnv   *TransactionEnv
+	pfsDefer PfsTransactionDefer
 }
 
 // TransactionServer is an interface used by other servers to append a request
 // to an existing transaction.
 type TransactionServer interface {
-	AppendRequest(context.Context, *transaction.TransactionRequest) (*transaction.TransactionResponse, error)
+	AppendRequest(
+		context.Context,
+		*transaction.Transaction,
+		*transaction.TransactionRequest,
+	) (*transaction.TransactionResponse, error)
 }
 
 // AuthTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the auth server.
 type AuthTransactionServer interface {
-	NewTransactionDefer(context.Context, col.STM) (TxnDefer, error)
+	AuthorizeInTransaction(*TransactionContext, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
 
-	AuthorizeInTransaction(context.Context, *auth.AuthorizeRequest) (*auth.AuthorizeResponse, error)
+	GetScopeInTransaction(*TransactionContext, *auth.GetScopeRequest) (*auth.GetScopeResponse, error)
+	SetScopeInTransaction(*TransactionContext, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
 
-	GetScopeInTransaction(context.Context, *auth.GetScopeRequest) (*auth.GetScopeResponse, error)
-	SetScopeInTransaction(context.Context, *auth.SetScopeRequest) (*auth.SetScopeResponse, error)
-
-	GetACLInTransaction(context.Context, *auth.GetACLRequest) (*auth.GetACLResponse, error)
-	SetACLInTransaction(context.Context, *auth.SetACLRequest) (*auth.SetACLResponse, error)
+	GetACLInTransaction(*TransactionContext, *auth.GetACLRequest) (*auth.GetACLResponse, error)
+	SetACLInTransaction(*TransactionContext, *auth.SetACLRequest) (*auth.SetACLResponse, error)
 }
 
 // PfsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
-	NewTransaction(context.Context, col.STM) (PfsTransaction, error)
+	NewTransactionDefer(col.STM) PfsTransactionDefer
 
-	CreateRepoInTransaction(context.Context, *pfs.CreateRepoRequest) error
-	InspectRepoInTransaction(context.Context, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
-	DeleteRepoInTransaction(context.Context, *pfs.DeleteRepoRequest) error
+	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
+	InspectRepoInTransaction(*TransactionContext, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
+	DeleteRepoInTransaction(*TransactionContext, *pfs.DeleteRepoRequest) error
 
-	StartCommitInTransaction(context.Context, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
-	FinishCommitInTransaction(context.Context, *pfs.FinishCommitRequest) error
-	DeleteCommitInTransaction(context.Context, *pfs.DeleteCommitRequest) error
+	StartCommitInTransaction(*TransactionContext, *pfs.StartCommitRequest, *pfs.Commit) (*pfs.Commit, error)
+	FinishCommitInTransaction(*TransactionContext, *pfs.FinishCommitRequest) error
+	DeleteCommitInTransaction(*TransactionContext, *pfs.DeleteCommitRequest) error
 
-	CreateBranchInTransaction(context.Context, *pfs.CreateBranchRequest) error
-	DeleteBranchInTransaction(context.Context, *pfs.DeleteBranchRequest) error
+	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
+	DeleteBranchInTransaction(*TransactionContext, *pfs.DeleteBranchRequest) error
 
-	CopyFileInTransaction(context.Context, *pfs.CopyFileRequest) error
-	DeleteFileInTransaction(context.Context, *pfs.DeleteFileRequest) error
-
-	DeleteAllInTransaction(context.Context) error
+	CopyFileInTransaction(*TransactionContext, *pfs.CopyFileRequest) error
+	DeleteFileInTransaction(*TransactionContext, *pfs.DeleteFileRequest) error
 }
 
 // TransactionEnv contains the APIServer instances for each subsystem that may
@@ -79,6 +93,7 @@ type PfsTransactionServer interface {
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
+	etcdClient *etcd.Client
 	txnServer  TransactionServer
 	authServer AuthTransactionServer
 	pfsServer  PfsTransactionServer
@@ -86,10 +101,12 @@ type TransactionEnv struct {
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
+	etcdClient *etcd.Client,
 	txnServer TransactionServer,
 	authServer AuthTransactionServer,
 	pfsServer PfsTransactionServer,
 ) {
+	env.etcdClient = etcdClient
 	env.txnServer = txnServer
 	env.authServer = authServer
 	env.pfsServer = pfsServer
@@ -107,108 +124,134 @@ func (env *TransactionEnv) PfsServer() PfsTransactionServer {
 	return env.pfsServer
 }
 
-type TransactionWrapper interface {
-	txnContext TransactionContext
-}
-
-type TransactionContext interface {
-	ctx context.Context
-	finish() error
+type Transaction interface {
+	PfsWrapper
 }
 
 type DirectTransaction struct {
-	ctx    context.Context
-	stm    col.STM
-	txnEnv TransactionEnv
-	pfsTxn PfsTransaction
+	txnCtx *TransactionContext
 }
 
-func newDirectTransaction(ctx context.Context, stm col.STM, txnEnv *txnEnv) Transaction {
-	return &DirectTransaction{ctx: ctx, stm: stm, txnEnv: txnEnv}
-}
-
-func (t *DirectTransaction) Pfs() PfsWrapper {
-	if t.pfsTxn == nil {
-		t.pfsTxn = t.txnEnv.PfsServer().NewTransaction()
-	}
-	return t
-}
-
-func (t *DirectTransaction) finish() error {
-	if t.pfs != nil {
-		return t.pfs.finish()
+func NewDirectTransaction(ctx context.Context, stm col.STM, txnEnv *TransactionEnv) *DirectTransaction {
+	return &DirectTransaction{
+		txnCtx: &TransactionContext{
+			ctx:      ctx,
+			stm:      stm,
+			txnEnv:   txnEnv,
+			pfsDefer: txnEnv.PfsServer().NewTransactionDefer(stm),
+		},
 	}
 }
 
-func (t *DirectTransaction) CreateRepo(req *pfs.CreateRepoRequest) error {
-	res, err := t.txnEnv.PfsServer().CreateRepoInTransaction(t.ctx, t.stm, req)
+func (t *DirectTransaction) Finish() error {
+	return t.txnCtx.pfsDefer.Run()
+}
+
+func (t *DirectTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
+	req := proto.Clone(original).(*pfs.CreateRepoRequest)
+	return t.txnCtx.txnEnv.PfsServer().CreateRepoInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
+	req := proto.Clone(original).(*pfs.DeleteRepoRequest)
+	return t.txnCtx.txnEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) StartCommit(original *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
+	req := proto.Clone(original).(*pfs.StartCommitRequest)
+	return t.txnCtx.txnEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req, commit)
+}
+
+func (t *DirectTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
+	req := proto.Clone(original).(*pfs.FinishCommitRequest)
+	return t.txnCtx.txnEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) DeleteCommit(original *pfs.DeleteCommitRequest) error {
+	req := proto.Clone(original).(*pfs.DeleteCommitRequest)
+	return t.txnCtx.txnEnv.PfsServer().DeleteCommitInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
+	req := proto.Clone(original).(*pfs.CreateBranchRequest)
+	return t.txnCtx.txnEnv.PfsServer().CreateBranchInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) error {
+	req := proto.Clone(original).(*pfs.DeleteBranchRequest)
+	return t.txnCtx.txnEnv.PfsServer().DeleteBranchInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) CopyFile(original *pfs.CopyFileRequest) error {
+	req := proto.Clone(original).(*pfs.CopyFileRequest)
+	return t.txnCtx.txnEnv.PfsServer().CopyFileInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) DeleteFile(original *pfs.DeleteFileRequest) error {
+	req := proto.Clone(original).(*pfs.DeleteFileRequest)
+	return t.txnCtx.txnEnv.PfsServer().DeleteFileInTransaction(t.txnCtx, req)
+}
+
+type AppendTransaction struct {
+	ctx       context.Context
+	activeTxn *transaction.Transaction
+	txnEnv    *TransactionEnv
+}
+
+func newAppendTransaction(ctx context.Context, activeTxn *transaction.Transaction, txnEnv *TransactionEnv) *AppendTransaction {
+	return &AppendTransaction{
+		ctx:       ctx,
+		activeTxn: activeTxn,
+		txnEnv:    txnEnv,
+	}
+}
+
+func (t *AppendTransaction) CreateRepo(req *pfs.CreateRepoRequest) error {
+	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreateRepo: req})
 	return err
 }
 
-func (t *DirectTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
-	res, err := t.txnEnv.PfsServer().DeleteRepoInTransaction(t.ctx, t.stm, req)
+func (t *AppendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
+	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteRepo: req})
 	return err
 }
 
-func (t *DirectTransaction) StartCommit(req *pfs.StartCommitRequest) (*pfs.Commit, error) {
-	res, err := t.txnEnv.PfsServer().StartCommitInTransaction(t.ctx, t.stm, req)
+func (t *AppendTransaction) StartCommit(req *pfs.StartCommitRequest, _ *pfs.Commit) (*pfs.Commit, error) {
+	res, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StartCommit: req})
 	if err != nil {
 		return nil, err
 	}
 	return res.Commit, nil
 }
 
-func (t *DirectTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
-	res, err := t.txnEnv.PfsServer().FinishCommitInTransaction(t.ctx, t.stm, req)
+func (t *AppendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
+	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{FinishCommit: req})
 	return err
 }
 
-func (t *DirectTransaction) DeleteCommit(req *pfs.DeleteCommitRequest) error {
-	res, err := t.txnEnv.PfsServer().DeleteCommitInTransaction(t.ctx, t.stm, req)
+func (t *AppendTransaction) DeleteCommit(req *pfs.DeleteCommitRequest) error {
+	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteCommit: req})
 	return err
 }
 
-func (t *DirectTransaction) CreateBranch(req *pfs.CreateBranchRequest) error {
-	res, err := t.txnEnv.PfsServer().CreateBranchInTransaction(t.ctx, t.stm, req)
+func (t *AppendTransaction) CreateBranch(req *pfs.CreateBranchRequest) error {
+	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreateBranch: req})
 	return err
 }
 
-func (t *DirectTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
-	res, err := t.txnEnv.PfsServer().DeleteBranchInTransaction(t.ctx, t.stm, req)
+func (t *AppendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
+	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteBranch: req})
 	return err
 }
 
-func (t *DirectTransaction) CopyFile(req *pfs.CopyFileRequest) error {
-	res, err := t.txnEnv.PfsServer().CopyFileInTransaction(t.ctx, t.stm, req)
+func (t *AppendTransaction) CopyFile(req *pfs.CopyFileRequest) error {
+	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CopyFile: req})
 	return err
 }
 
-func (t *DirectTransaction) DeleteFile(req *pfs.DeleteFileRequest) error {
-	res, err := t.txnEnv.PfsServer().DeleteFileInTransaction(t.ctx, t.stm, req)
+func (t *AppendTransaction) DeleteFile(req *pfs.DeleteFileRequest) error {
+	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteFile: req})
 	return err
-}
-
-type AppendTransaction struct {
-	ctx       context.Context
-	activeTxn *transaction.Transaction
-	txnEnv    TransactionEnv
-}
-
-func newAppendTransaction(ctx context.Context, activeTxn *transaction.Transaction, txnEnv *txnEnv) Transaction {
-	return &AppendTransaction{
-		ctx:       ctx,
-		activeTxn: activeTxn,
-		txnEnv:    txnEnv,
-		pfs:       newPfsAppendTransaction(ctx, txnEnv.transactionServer()),
-	}
-}
-
-func (t *AppendTransaction) Pfs() PfsTransaction {
-	return t
-}
-
-func (t *AppendTransaction) finish() error {
-	return t.pfs.finish()
 }
 
 // WithTransaction will call the given callback with a txnenv.Transaction
@@ -220,82 +263,47 @@ func (t *AppendTransaction) finish() error {
 func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transaction) error) error {
 	activeTxn, err := client.GetTransaction(ctx)
 	if err != nil {
-		return nil, err
-	}
-
-	run := func(txn Transaction) error {
-		err = cb(txn)
-		if err != nil {
-			return err
-		}
-		return txn.finish()
+		return err
 	}
 
 	if activeTxn != nil {
 		appendTxn := newAppendTransaction(ctx, activeTxn, env)
-		return run(appendTxn)
+		return cb(appendTxn)
 	}
 
 	_, err = col.NewSTM(ctx, env.etcdClient, func(stm col.STM) error {
-		directTxn := newDirectTransaction(ctx, stm, env)
-		return run(directTxn)
+		directTxn := NewDirectTransaction(ctx, stm, env)
+		err = cb(directTxn)
+		if err != nil {
+			return err
+		}
+		return directTxn.Finish()
 	})
 	return err
 }
 
-type pfsAppendTransaction struct {
-	ctx    context.Context
-	txnEnv TransactionEnv
-}
-
-func newPfsAppendTransaction(ctx context.Context, txnEnv TransactionEnv) PfsTransaction {
-	return &pfsAppendTransaction{ctx: ctx, txnEnv: txnEnv}
-}
-
-func (t *pfsAppendTransaction) CreateRepo(req *pfs.CreateRepoRequest) error {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{CreateRepo: req})
-	return err
-}
-
-func (t *pfsAppendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{DeleteRepo: req})
-	return err
-}
-
-func (t *pfsAppendTransaction) StartCommit(req *pfs.StartCommitRequest) (*pfs.Commit, error) {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{StartCommit: req})
+// ReadTransaction will call the given callback with a col.STM object which
+// can be used to perform reads of the current cluster state.  If the client
+// context passed in has an active transaction, it will be run in dryrun mode
+// first so that reads may be performed on the latest state of the transaction.
+//
+// If the col.STM is used to perform any writes, they will be silently
+// discarded.
+/*
+func (env *TransactionEnv) ReadTransaction(ctx context.Context, cb func(col.STM) error) error {
+	activeTxn, err := client.GetTransaction(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return res.Commit, nil
-}
 
-func (t *pfsAppendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{FinishCommit: req})
+	_, err = col.NewDryrunSTM(ctx, env.etcdClient, func(stm col.STM) error {
+		if activeTxn != nil {
+			_, err := env.TransactionServer().DryrunTransaction(ctx, stm, activeTxn)
+			if err != nil {
+				return nil
+			}
+		}
+		return cb(stm)
+	})
 	return err
-}
-
-func (t *pfsAppendTransaction) DeleteCommit(req *pfs.DeleteCommitRequest) error {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{DeleteCommit: req})
-	return err
-}
-
-func (t *pfsAppendTransaction) CreateBranch(req *pfs.CreateBranchRequest) error {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{CreateBranch: req})
-	return err
-}
-
-func (t *pfsAppendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{DeleteBranch: req})
-	return err
-}
-
-func (t *pfsAppendTransaction) CopyFile(req *pfs.CopyFileRequest) error {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{CopyFile: req})
-	return err
-}
-
-func (t *pfsAppendTransaction) DeleteFile(req *pfs.DeleteFileRequest) error {
-	res, err := t.txnEnv.TransactionServer().AppendRequest(t.ctx, &transaction.TransactionRequest{DeleteFile: req})
-	return err
-}
+}*/
