@@ -124,7 +124,7 @@ about these clients [here](../reference/clients.html).
 
 We support an HTTP API that offers a subset of S3's functionality. With this,
 you can use existing tools or libraries that work with object stores, such as
-minio. [See the s3gateway docs for more information](./s3gateway.html).
+minio. [See the s3gateway docs for more information](../enterprise/s3gateway.html).
 
 ### The Pachyderm Dashboard
 
