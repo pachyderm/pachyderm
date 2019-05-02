@@ -1,5 +1,8 @@
 syntax = "proto3";
 
+package metrics;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/metrics";
+
 import "gogoproto/gogo.proto";
 
 message Metrics {

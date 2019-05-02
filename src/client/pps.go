@@ -218,6 +218,18 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, f func(*pps.JobInfo) error) error {
+	return c.listJobInternal(pipelineName, inputCommit, outputCommit, true, f)
+}
+
+// ListJobTruncF is like ListJobF, but it requests truncated JobInfos from PPS.
+// This is potentially faster, but also potentially incompatible with users of
+// the existing ListJobF API
+func (c APIClient) ListJobTruncF(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, f func(*pps.JobInfo) error) error {
+	return c.listJobInternal(pipelineName, inputCommit, outputCommit, false, f)
+}
+
+func (c APIClient) listJobInternal(pipelineName string, inputCommit []*pfs.Commit,
+	outputCommit *pfs.Commit, full bool, f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
@@ -228,6 +240,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outp
 			Pipeline:     pipeline,
 			InputCommit:  inputCommit,
 			OutputCommit: outputCommit,
+			Truncate:     !full,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -331,7 +344,7 @@ func (c APIClient) ListDatum(jobID string, pageSize int64, page int64) (*pps.Lis
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job:      &pps.Job{jobID},
+			Job:      &pps.Job{ID: jobID},
 			PageSize: pageSize,
 			Page:     page,
 		},
@@ -363,7 +376,7 @@ func (c APIClient) ListDatumF(jobID string, pageSize int64, page int64, f func(d
 	client, err := c.PpsAPIClient.ListDatumStream(
 		c.Ctx(),
 		&pps.ListDatumRequest{
-			Job:      &pps.Job{jobID},
+			Job:      &pps.Job{ID: jobID},
 			PageSize: pageSize,
 			Page:     page,
 		},
@@ -394,7 +407,7 @@ func (c APIClient) InspectDatum(jobID string, datumID string) (*pps.DatumInfo, e
 		&pps.InspectDatumRequest{
 			Datum: &pps.Datum{
 				ID:  datumID,
-				Job: &pps.Job{jobID},
+				Job: &pps.Job{ID: jobID},
 			},
 		},
 	)
@@ -460,15 +473,15 @@ func (c APIClient) GetLogs(
 	}
 	resp := &LogsIter{}
 	if pipelineName != "" {
-		request.Pipeline = &pps.Pipeline{pipelineName}
+		request.Pipeline = &pps.Pipeline{Name: pipelineName}
 	}
 	if jobID != "" {
-		request.Job = &pps.Job{jobID}
+		request.Job = &pps.Job{ID: jobID}
 	}
 	request.DataFilters = data
 	if datumID != "" {
 		request.Datum = &pps.Datum{
-			Job: &pps.Job{jobID},
+			Job: &pps.Job{ID: jobID},
 			ID:  datumID,
 		}
 	}

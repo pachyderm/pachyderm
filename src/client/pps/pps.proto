@@ -1,5 +1,7 @@
 syntax = "proto3";
+
 package pps;
+option go_package = "github.com/pachyderm/pachyderm/src/client/pps";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -403,6 +405,12 @@ message ListJobRequest {
   Pipeline pipeline = 1; // nil means all pipelines
   repeated pfs.Commit input_commit = 2; // nil means all inputs
   pfs.Commit output_commit = 3;
+
+  // Truncate indicates whether the result should include all pipeline details
+  // in each JobInfo, or limited information including name and status. Setting
+  // this to "true" can make the call significantly faster in clusters with a
+  // large number of pipelines and jobs
+  bool truncate = 4;
 }
 
 message FlushJobRequest {

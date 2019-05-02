@@ -31,6 +31,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
@@ -397,6 +398,10 @@ func (c *APIClient) connect() error {
 			grpc.WithTransportCredentials(tlsCreds),
 			keepaliveOpt)
 	}
+	dialOptions = append(dialOptions,
+		grpc.WithUnaryInterceptor(tracing.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(tracing.StreamClientInterceptor()),
+	)
 	clientConn, err := grpc.Dial(c.addr, dialOptions...)
 	if err != nil {
 		return err

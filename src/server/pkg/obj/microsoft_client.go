@@ -2,11 +2,13 @@ package obj
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 
 	"github.com/Azure/azure-sdk-for-go/storage"
 )
@@ -31,15 +33,15 @@ func newMicrosoftClient(container string, accountName string, accountKey string)
 	}, nil
 }
 
-func (c *microsoftClient) Writer(name string) (io.WriteCloser, error) {
-	writer, err := newMicrosoftWriter(c, name)
+func (c *microsoftClient) Writer(ctx context.Context, name string) (io.WriteCloser, error) {
+	writer, err := newMicrosoftWriter(ctx, c, name)
 	if err != nil {
 		return nil, err
 	}
-	return newBackoffWriteCloser(c, writer), nil
+	return newBackoffWriteCloser(ctx, c, writer), nil
 }
 
-func (c *microsoftClient) Reader(name string, offset uint64, size uint64) (io.ReadCloser, error) {
+func (c *microsoftClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
 	byteRange := byteRange(offset, size)
 	var reader io.ReadCloser
 	var err error
@@ -52,14 +54,14 @@ func (c *microsoftClient) Reader(name string, offset uint64, size uint64) (io.Re
 	if err != nil {
 		return nil, err
 	}
-	return newBackoffReadCloser(c, reader), nil
+	return newBackoffReadCloser(ctx, c, reader), nil
 }
 
-func (c *microsoftClient) Delete(name string) error {
+func (c *microsoftClient) Delete(_ context.Context, name string) error {
 	return c.blobClient.DeleteBlob(c.container, name, nil)
 }
 
-func (c *microsoftClient) Walk(name string, fn func(name string) error) error {
+func (c *microsoftClient) Walk(_ context.Context, name string, fn func(name string) error) error {
 	// See Azure docs for what `marker` does:
 	// https://docs.microsoft.com/en-us/rest/api/storageservices/List-Blobs?redirectedfrom=MSDN
 	var marker string
@@ -87,7 +89,7 @@ func (c *microsoftClient) Walk(name string, fn func(name string) error) error {
 	return nil
 }
 
-func (c *microsoftClient) Exists(name string) bool {
+func (c *microsoftClient) Exists(_ context.Context, name string) bool {
 	exists, _ := c.blobClient.BlobExists(c.container, name)
 	return exists
 }
@@ -113,12 +115,13 @@ func (c *microsoftClient) IsIgnorable(err error) bool {
 }
 
 type microsoftWriter struct {
+	ctx        context.Context
 	container  string
 	blob       string
 	blobClient storage.BlobStorageClient
 }
 
-func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter, error) {
+func newMicrosoftWriter(ctx context.Context, client *microsoftClient, name string) (*microsoftWriter, error) {
 	// create container
 	_, err := client.blobClient.CreateContainerIfNotExists(client.container, storage.ContainerAccessTypePrivate)
 	if err != nil {
@@ -132,6 +135,7 @@ func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter,
 	}
 
 	return &microsoftWriter{
+		ctx:        ctx,
 		container:  client.container,
 		blob:       name,
 		blobClient: client.blobClient,
@@ -139,6 +143,8 @@ func newMicrosoftWriter(client *microsoftClient, name string) (*microsoftWriter,
 }
 
 func (w *microsoftWriter) Write(b []byte) (int, error) {
+	span, _ := tracing.AddSpanToAnyExisting(w.ctx, "microsoftWriter.Write")
+	defer tracing.FinishAnySpan(span)
 	blockList, err := w.blobClient.GetBlockList(w.container, w.blob, storage.BlockListTypeAll)
 	if err != nil {
 		return 0, err

@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
@@ -149,6 +150,7 @@ func do(appEnvObj interface{}) error {
 		log.Println(http.ListenAndServe(":651", nil))
 	}()
 
+	tracing.InstallJaegerTracerFromEnv()
 	appEnv := appEnvObj.(*appEnv)
 
 	// Construct a client that connects to the sidecar.

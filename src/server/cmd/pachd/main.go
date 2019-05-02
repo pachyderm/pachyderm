@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/shard"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
@@ -138,6 +139,7 @@ func doSidecarMode(appEnvObj interface{}) (retErr error) {
 		}
 	}()
 	appEnv := appEnvObj.(*appEnv)
+	tracing.InstallJaegerTracerFromEnv()
 	debug.SetGCPercent(50)
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", appEnv.PProfPort), nil))
@@ -265,6 +267,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 		}
 	}()
 	appEnv := appEnvObj.(*appEnv)
+	tracing.InstallJaegerTracerFromEnv()
 	go func() {
 		log.Println(http.ListenAndServe(fmt.Sprintf(":%d", appEnv.PProfPort), nil))
 	}()
@@ -435,7 +438,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
 					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(kubeClient, kubeNamespace))
-					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID}))
+					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{ID: clusterID}))
 					healthclient.RegisterHealthServer(s, publicHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 					debugclient.RegisterDebugServer(s, debugserver.NewDebugServer(
@@ -534,7 +537,7 @@ func doFullMode(appEnvObj interface{}) (retErr error) {
 					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(kubeClient, kubeNamespace))
 					healthclient.RegisterHealthServer(s, peerHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{clusterID}))
+					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, &adminclient.ClusterInfo{ID: clusterID}))
 					return nil
 				},
 			},

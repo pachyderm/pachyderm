@@ -3,6 +3,9 @@
 
 syntax = "proto3";
 
+package hashtree;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/hashtree";
+
 import "client/pfs/pfs.proto";
 
 // FileNodeProto is a node corresponding to a file (which is also a leaf node).

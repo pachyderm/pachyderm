@@ -815,7 +815,7 @@ nextSubvBranch:
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
-		commitProvMap := make(map[string]*branchCommit)
+		newCommitProvMap := make(map[string]*branchCommit)
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil && !col.IsErrNotFound(err) {
@@ -824,7 +824,7 @@ nextSubvBranch:
 			if provBranchInfo.Head == nil {
 				continue
 			}
-			commitProvMap[provBranchInfo.Head.ID] = &branchCommit{
+			newCommitProvMap[provBranchInfo.Head.ID] = &branchCommit{
 				commit: provBranchInfo.Head,
 				branch: provBranchInfo.Branch,
 			}
@@ -832,30 +832,28 @@ nextSubvBranch:
 			// provBranchInfo.HEAD's provenance. Every commit in there will be the
 			// HEAD of some other provBranchInfo.
 		}
-		if len(commitProvMap) == 0 {
+		if len(newCommitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
 			continue nextSubvBranch
 		}
 
 		// 'branch' may already have a HEAD commit, so compute whether the new
-		// output commit would have the same provenance as the existing HEAD
-		// commit. If so, a new output commit would be a duplicate, so don't create
-		// it.
+		// output commit's provenance would be a subset of the existing HEAD
+		// commit's provenance. If so, a new output commit would be a duplicate, so
+		// don't create it.
 		if branchInfo.Head != nil {
 			branchHeadInfo := &pfs.CommitInfo{}
 			if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
 			}
-			headIsSubset := true
+			matchingCommits := make(map[string]struct{})
 			for _, c := range branchHeadInfo.Provenance {
-				if _, ok := commitProvMap[c.ID]; !ok {
-					headIsSubset = false
-					break
+				if _, ok := newCommitProvMap[c.ID]; ok {
+					matchingCommits[c.ID] = struct{}{}
 				}
 			}
-			if len(branchHeadInfo.Provenance) == len(commitProvMap) && headIsSubset {
-				// existing HEAD commit is the same new output commit would be; don't
-				// create new commit
+			if len(newCommitProvMap) == len(matchingCommits) {
+				// newCommit's provenance is subset of existing HEAD's provenance
 				continue nextSubvBranch
 			}
 		}
@@ -865,7 +863,7 @@ nextSubvBranch:
 		// "dummy" job with no non-spec input data. If this is the case, don't
 		// create a new output commit
 		allSpec := true
-		for _, b := range commitProvMap {
+		for _, b := range newCommitProvMap {
 			if b.branch.Repo.Name != ppsconsts.SpecRepo {
 				allSpec = false
 				break
@@ -906,7 +904,7 @@ nextSubvBranch:
 
 		// Set provenance and upstream subvenance (appendSubvenance needs
 		// newCommitInfo.ParentCommit to extend the correct subvenance range)
-		for _, prov := range commitProvMap {
+		for _, prov := range newCommitProvMap {
 			// set provenance of 'newCommit'
 			newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov.commit)
 			newCommitInfo.BranchProvenance = append(newCommitInfo.BranchProvenance, prov.branch)
@@ -929,6 +927,8 @@ nextSubvBranch:
 			return err
 		}
 	}
+	// associate new commits above with any extended traces that are running
+	attachNewCommitsToAnyExtendedTrace(d.etcdClient, d.prefix, stm)
 	return nil
 }
 
@@ -2653,9 +2653,8 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 		var header *pfs.Object
 		var footer *pfs.Object
 		headerFooterSize := int64(0)
-		emptyRecord := pfs.PutFileRecord{}
 		if records.Header != nil {
-			if *records.Header == emptyRecord {
+			if records.Header.ObjectHash == "" || records.Header.SizeBytes == 0 {
 				header = &pfs.Object{}
 			} else {
 				header = &pfs.Object{Hash: records.Header.ObjectHash}
@@ -2663,7 +2662,7 @@ func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtr
 			}
 		}
 		if records.Footer != nil {
-			if *records.Footer == emptyRecord {
+			if records.Footer.ObjectHash == "" || records.Footer.SizeBytes == 0 {
 				footer = &pfs.Object{}
 			} else {
 				footer = &pfs.Object{Hash: records.Footer.ObjectHash}
@@ -2910,13 +2909,13 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 					if err != nil {
 						return fmt.Errorf("error parsing url %v: %v", req.Url, err)
 					}
-					objClient, err := obj.NewClientFromURLAndSecret(server.Context(), url)
+					objClient, err := obj.NewClientFromURLAndSecret(url)
 					if err != nil {
 						return err
 					}
 					if req.Recursive {
 						path := strings.TrimPrefix(url.Object, "/")
-						if err := objClient.Walk(path, func(name string) error {
+						if err := objClient.Walk(server.Context(), path, func(name string) error {
 							if strings.HasSuffix(name, "/") {
 								// Creating a file with a "/" suffix breaks
 								// pfs' directory model, so we don't
@@ -2924,7 +2923,7 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
-							r, err := objClient.Reader(name, 0, 0)
+							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
@@ -2943,7 +2942,7 @@ func forEachPutFile(server pfs.API_PutFileServer, f func(*pfs.PutFileRequest, io
 							return err
 						}
 					} else {
-						r, err := objClient.Reader(url.Object, 0, 0)
+						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return err
 						}

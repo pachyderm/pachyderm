@@ -40,6 +40,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -279,6 +281,15 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string) (*APIServer, error) {
 	initPrometheus()
+
+	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
+		etcdClient, pipelineInfo.Pipeline.Name, "/worker/Start")
+	oldPachClient := pachClient
+	if span != nil {
+		pachClient = pachClient.WithCtx(ctx)
+	}
+	defer tracing.FinishAnySpan(span)
+
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -292,7 +303,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, fmt.Errorf("error creating datum cache: %v", err)
 	}
 	server := &APIServer{
-		pachClient:   pachClient,
+		pachClient:   oldPachClient,
 		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
@@ -1148,9 +1159,11 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 						return fmt.Errorf("worker: error unmarshalling while watching job state (%v)", err)
 					}
 					if ppsutil.IsTerminal(jobPtr.State) {
+						logger.Logf("job %q put in terminal state %q; cancelling", jobID, jobPtr.State)
 						jobCancel() // cancel the job
 					}
 				case watch.EventDelete:
+					logger.Logf("job %q deleted; cancelling", jobID)
 					jobCancel() // cancel the job
 				case watch.EventError:
 					return fmt.Errorf("job state watch error: %v", e.Err)
@@ -1242,7 +1255,7 @@ func (a *APIServer) worker() {
 			// Read the chunks laid out by the master and create the datum factory
 			chunks := &Chunks{}
 			if err := a.chunks.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, chunks); err != nil {
-				return err
+				return fmt.Errorf("error reading job chunks: %v", err)
 			}
 			df, err := NewDatumFactory(pachClient, jobInfo.Input)
 			if err != nil {
@@ -1302,14 +1315,14 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			}
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
-			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{tag}); err == nil {
+			if _, err := pachClient.InspectTag(ctx, &pfs.Tag{Name: tag}); err == nil {
 				atomic.AddInt64(&result.datumsSkipped, 1)
 				logger.Logf("skipping datum")
 				return nil
 			}
 			var statsTag *pfs.Tag
 			if a.pipelineInfo.EnableStats {
-				statsTag = &pfs.Tag{tag + statsTagSuffix}
+				statsTag = &pfs.Tag{Name: tag + statsTagSuffix}
 			}
 			subStats := &pps.ProcessStats{}
 			statsPath := path.Join("/", logger.template.DatumID)

@@ -22,6 +22,7 @@ import (
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"golang.org/x/net/context"
 )
 
@@ -180,7 +181,9 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 	if ttl > 0 {
 		lease, ok := s.newLeases[ttl]
 		if !ok {
-			leaseResp, err := s.client.Grant(context.Background(), ttl)
+			span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Grant")
+			defer tracing.FinishAnySpan(span)
+			leaseResp, err := s.client.Grant(ctx, ttl)
 			if err != nil {
 				return fmt.Errorf("error granting lease: %v", err)
 			}
@@ -206,9 +209,12 @@ func (s *stm) Rev(key string) int64 {
 }
 
 func (s *stm) commit() *v3.TxnResponse {
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
+	tracing.FinishAnySpan(span)
+
 	cmps := s.cmps()
 	puts := s.puts()
-	txnresp, err := s.client.Txn(s.ctx).If(cmps...).Then(puts...).Commit()
+	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(puts...).Commit()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
 			fmt.Errorf(
@@ -238,7 +244,10 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	if resp, ok := s.rset[key]; ok {
 		return resp
 	}
-	resp, err := s.client.Get(s.ctx, key, s.getOpts...)
+
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Get", "key", key)
+	defer tracing.FinishAnySpan(span)
+	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
 		panic(stmError{err})
 	}
@@ -307,10 +316,23 @@ func (s *stmSerializable) gets() ([]string, []v3.Op) {
 }
 
 func (s *stmSerializable) commit() *v3.TxnResponse {
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
+	defer tracing.FinishAnySpan(span)
+	if span != nil {
+		keys := make([]byte, 0, 512)
+		for k := range s.wset {
+			if len(keys) > 0 {
+				keys = append(keys, ',')
+			}
+			keys = append(keys, []byte(k)...)
+		}
+		span.SetTag("updated-keys", string(keys))
+	}
+
 	keys, getops := s.gets()
 	cmps := s.cmps()
 	puts := s.puts()
-	txn := s.client.Txn(s.ctx).If(cmps...).Then(puts...)
+	txn := s.client.Txn(ctx).If(cmps...).Then(puts...)
 	// use Else to prefetch keys in case of conflict to save a round trip
 	txnresp, err := txn.Else(getops...).Commit()
 	if err == rpctypes.ErrTooManyOps {
@@ -322,6 +344,10 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 		})
 	} else if err != nil {
 		panic(stmError{err})
+	}
+
+	if span != nil {
+		span.SetTag("applied-at-revision", txnresp.Header.Revision)
 	}
 	if txnresp.Succeeded {
 		return txnresp
@@ -386,7 +412,9 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 		s.ttlset[key] = 0 // 0 is default value, but now 'ok' will be true on check
 		return 0, nil
 	}
-	leaseResp, err := s.client.TimeToLive(s.ctx, leaseID)
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/TimeToLive")
+	defer tracing.FinishAnySpan(span)
+	leaseResp, err := s.client.TimeToLive(ctx, leaseID)
 	if err != nil {
 		panic(stmError{err})
 	}

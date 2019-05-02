@@ -16,6 +16,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+import (
+	opentracing "github.com/opentracing/opentracing-go"
+)
+
 var (
 	grpcErrorf = grpc.Errorf // needed to get passed govet
 )
@@ -237,6 +241,13 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	ctx := apiGetFileServer.Context()
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	span := opentracing.SpanFromContext(ctx)
+	if span != nil {
+		span.SetTag("file", fmt.Sprintf("%s@%s:%s", request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path))
+		defer func() {
+			span.SetTag("err", retErr)
+		}()
+	}
 
 	file, err := a.driver.getFile(ctx, request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
@@ -257,7 +268,7 @@ func (a *apiServer) ListFile(ctx context.Context, request *pfs.ListFileRequest) 
 	defer func(start time.Time) {
 		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
 			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), client.MaxListItemsLog)
-			a.Log(request, &pfs.FileInfos{response.FileInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+			a.Log(request, &pfs.FileInfos{FileInfo: response.FileInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
 		}
@@ -296,7 +307,7 @@ func (a *apiServer) GlobFile(ctx context.Context, request *pfs.GlobFileRequest) 
 	defer func(start time.Time) {
 		if response != nil && len(response.FileInfo) > client.MaxListItemsLog {
 			logrus.Infof("Response contains %d objects; logging the first %d", len(response.FileInfo), client.MaxListItemsLog)
-			a.Log(request, &pfs.FileInfos{response.FileInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
+			a.Log(request, &pfs.FileInfos{FileInfo: response.FileInfo[:client.MaxListItemsLog]}, retErr, time.Since(start))
 		} else {
 			a.Log(request, response, retErr, time.Since(start))
 		}

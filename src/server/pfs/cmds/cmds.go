@@ -3,6 +3,7 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +16,10 @@ import (
 	gosync "sync"
 	"syscall"
 
+	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
@@ -23,6 +27,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -663,6 +669,37 @@ want to consider using commit IDs directly.
 			if err != nil {
 				return err
 			}
+
+			// Add trace if env var is set
+			if repo, ok := os.LookupEnv(extended.TargetRepoEnvVar); ok && tracing.IsActive() {
+				// unmarshal extended trace from RPC context
+				clientSpan, ctx := opentracing.StartSpanFromContext(
+					c.Ctx(),
+					"/pfs.API/PutFile",
+					ext.SpanKindRPCClient,
+					opentracing.Tag{string(ext.Component), "gRPC"},
+				)
+				defer clientSpan.Finish()
+				extendedTrace := extended.TraceProto{SerializedTrace: map[string]string{}} // init map
+				opentracing.GlobalTracer().Inject(
+					clientSpan.Context(),
+					opentracing.TextMap,
+					opentracing.TextMapCarrier(extendedTrace.SerializedTrace),
+				)
+				extendedTrace.Branch = client.NewBranch(repo, "master")
+				marshalledTrace, err := extendedTrace.Marshal()
+				if err == nil {
+					ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
+						extended.TraceCtxKey,
+						base64.URLEncoding.EncodeToString(marshalledTrace),
+					))
+					c = c.WithCtx(ctx)
+				} else {
+					fmt.Printf("ERROR marshalling extended trace proto: %v", err)
+				}
+			}
+
+			// load data into Pachyderm
 			pfc, err := c.NewPutFileClient()
 			if err != nil {
 				return err
