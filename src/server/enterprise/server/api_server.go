@@ -82,7 +82,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 			nil,
 		),
 	}
-	s.enterpriseExpiration.Store(time.Time{})
+	s.enterpriseExpiration.Store(&ec.EnterpriseRecord{})
 	go s.watchEnterpriseToken(etcdPrefix)
 	return s, nil
 }
@@ -105,17 +105,15 @@ func (a *apiServer) watchEnterpriseToken(etcdPrefix string) {
 			switch ev.Type {
 			case watch.EventPut:
 				var key string
-				var record ec.EnterpriseRecord
-				ev.Unmarshal(&key, &record)
-				expiration, err := types.TimestampFromProto(record.Expires)
-				if err != nil {
-					return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
+				record := &ec.EnterpriseRecord{}
+				if err := ev.Unmarshal(&key, record); err != nil {
+					return err
 				}
-				a.enterpriseExpiration.Store(expiration)
+				a.enterpriseExpiration.Store(record)
 			case watch.EventDelete:
 				// This should only occur if the etcd value is deleted via the etcd API,
 				// but that does occur during testing
-				a.enterpriseExpiration.Store(time.Time{})
+				a.enterpriseExpiration.Store(&ec.EnterpriseRecord{})
 			case watch.EventError:
 				return ev.Err
 			}
@@ -235,7 +233,15 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 
 	// Wait until watcher observes the write
 	if err := backoff.Retry(func() error {
-		if t := a.enterpriseExpiration.Load().(time.Time); t.IsZero() {
+		record, ok := a.enterpriseExpiration.Load().(*ec.EnterpriseRecord)
+		if !ok {
+			return fmt.Errorf("could not retrieve enterprise expiration time")
+		}
+		expiration, err := types.TimestampFromProto(record.Expires)
+		if err != nil {
+			return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
+		}
+		if expiration.IsZero() {
 			return fmt.Errorf("enterprise not activated")
 		}
 		return nil
@@ -256,21 +262,22 @@ func (a *apiServer) GetState(ctx context.Context, req *ec.GetStateRequest) (resp
 	a.LogReq(req)
 	defer func(start time.Time) { a.pachLogger.Log(req, resp, retErr, time.Since(start)) }(time.Now())
 
-	expiration, ok := a.enterpriseExpiration.Load().(time.Time)
+	record, ok := a.enterpriseExpiration.Load().(*ec.EnterpriseRecord)
 	if !ok {
 		return nil, fmt.Errorf("could not retrieve enterprise expiration time")
+	}
+	expiration, err := types.TimestampFromProto(record.Expires)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
 	}
 	if expiration.IsZero() {
 		return &ec.GetStateResponse{State: ec.State_NONE}, nil
 	}
-	expirationProto, err := types.TimestampProto(expiration)
-	if err != nil {
-		return nil, fmt.Errorf("could not convert expiration time \"%s\" to response proto: %s", expiration.String(), err.Error())
-	}
 	resp = &ec.GetStateResponse{
 		Info: &ec.TokenInfo{
-			Expires: expirationProto,
+			Expires: record.Expires,
 		},
+		ActivationCode: record.ActivationCode,
 	}
 	if time.Now().After(expiration) {
 		resp.State = ec.State_EXPIRED
