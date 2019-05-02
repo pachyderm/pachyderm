@@ -1968,9 +1968,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	provenance := append(branchProvenance(pipelineInfo.Input),
 		client.NewBranch(ppsconsts.SpecRepo, pipelineName))
 	outputBranch := client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
+	var head *pfs.Commit
+	// If this is an update without reprocess then we don't want to break the output chain.
+	if request.Update && !request.Reprocess {
+		// First make sure that the branch exists
+		_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
+		if err != nil && !isNotFoundErr(err) {
+			return nil, err
+		}
+		if err == nil {
+			// Make the new head of the branch the current head (don't change the head)
+			head = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
+		}
+	}
 	if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
 		Branch:     outputBranch,
 		Provenance: provenance,
+		Head:       head,
 	}); err != nil {
 		return nil, fmt.Errorf("could not create/update output branch: %v", err)
 	}
