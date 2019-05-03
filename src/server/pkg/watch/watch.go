@@ -27,15 +27,13 @@ const (
 
 // Event is an event that occurred to an item in etcd.
 type Event struct {
-	Key       []byte
-	Value     []byte
-	PrevKey   []byte
-	PrevValue []byte
-	Type      EventType
-	Rev       int64
-	Ver       int64
-	Err       error
-	Template  proto.Message
+	Key      []byte
+	Value    []byte
+	Type     EventType
+	Rev      int64
+	Ver      int64
+	Err      error
+	Template proto.Message
 }
 
 // Unmarshal unmarshals the item in an event into a protobuf message.
@@ -45,16 +43,6 @@ func (e *Event) Unmarshal(key *string, val proto.Message) error {
 	}
 	*key = string(e.Key)
 	return proto.Unmarshal(e.Value, val)
-}
-
-// UnmarshalPrev unmarshals the prev item in an event into a protobuf
-// message.
-func (e *Event) UnmarshalPrev(key *string, val proto.Message) error {
-	if err := CheckType(e.Template, val); err != nil {
-		return err
-	}
-	*key = string(e.PrevKey)
-	return proto.Unmarshal(e.PrevValue, val)
 }
 
 // Watcher ...
@@ -95,16 +83,10 @@ func (s byModRev) Less(i, j int) bool {
 
 // NewWatcher watches a given etcd prefix for events.
 func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message) (Watcher, error) {
-	return newWatcher(ctx, client, []byte(trimPrefix), prefix, false, template)
+	return newWatcher(ctx, client, []byte(trimPrefix), prefix, template)
 }
 
-// NewWatcherWithPrev is like NewWatcher, except that the returned events
-// include the previous version of the values.
-func NewWatcherWithPrev(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message) (Watcher, error) {
-	return newWatcher(ctx, client, []byte(trimPrefix), prefix, true, template)
-}
-
-func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, prefix string, withPrev bool, template proto.Message) (Watcher, error) {
+func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, prefix string, template proto.Message) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
 	// First list the collection to get the current items
@@ -122,9 +104,6 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 	// when we list the collection and when we start watching the collection,
 	// we won't miss any items.
 	options := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
-	if withPrev {
-		options = append(options, etcd.WithPrevKV())
-	}
 	rch := etcdWatcher.Watch(ctx, prefix, options...)
 
 	go func() (retErr error) {
@@ -166,9 +145,6 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 				etcdWatcher = etcd.NewWatcher(client)
 				// regenerate options to use new revision
 				options := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
-				if withPrev {
-					options = append(options, etcd.WithPrevKV())
-				}
 				rch = etcdWatcher.Watch(ctx, prefix, options...)
 				continue
 			}
@@ -182,10 +158,6 @@ func newWatcher(ctx context.Context, client *etcd.Client, trimPrefix []byte, pre
 					Rev:      etcdEv.Kv.ModRevision,
 					Ver:      etcdEv.Kv.Version,
 					Template: template,
-				}
-				if etcdEv.PrevKv != nil {
-					ev.PrevKey = bytes.TrimPrefix(etcdEv.PrevKv.Key, trimPrefix)
-					ev.PrevValue = etcdEv.PrevKv.Value
 				}
 				if etcdEv.Type == etcd.EventTypePut {
 					ev.Type = EventPut

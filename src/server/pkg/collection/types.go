@@ -108,7 +108,6 @@ type ReadonlyCollection interface {
 	Watch() (watch.Watcher, error)
 	// WatchWithPrev is like Watch, but the events will include the previous
 	// versions of the key/value.
-	WatchWithPrev() (watch.Watcher, error)
 	WatchOne(key string) (watch.Watcher, error)
 	WatchByIndex(index *Index, val interface{}) (watch.Watcher, error)
 }
