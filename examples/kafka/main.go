@@ -45,7 +45,7 @@ func main() {
 				defer cancel()
 				m, err := reader.ReadMessage(ctx)
 				if err != nil {
-					return nil
+					return err
 				}
 				// give it a unique name
 				name := topic + time.Now().Format(time.RFC3339Nano)
