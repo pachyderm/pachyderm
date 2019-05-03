@@ -81,7 +81,7 @@ full history of a file by passing `-1` to the history flag.
 ## Pipelines
 
 Pipelines are the main processing primitive in Pachyderm, however they
-expose a version-control and history semantics similar to filesystem
+expose version-control and history semantics similar to filesystem
 objects, this is largely because, under the hood, they are implemented in
 terms of filesystem objects. You can access previous versions of
 a pipeline using the same ancestry syntax that works for commits and
