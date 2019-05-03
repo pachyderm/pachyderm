@@ -85,13 +85,14 @@ func (t *TransactionContext) Pfs() PfsTransactionServer {
 	return t.txnEnv.pfsServer
 }
 
-// Client returns the APIClient object associated with the initiating request
+// Client returns an APIClient object for making downstream requests to API
+// servers
 func (t *TransactionContext) Client() *client.APIClient {
 	return t.pachClient
 }
 
 // ClientContext returns the client context object associated with the
-// initiating request
+// client from Client()
 func (t *TransactionContext) ClientContext() context.Context {
 	return t.ctx
 }
@@ -177,9 +178,10 @@ func (env *TransactionEnv) Initialize(
 // using `WithTransaction` or `EmptyReadTransaction`.  In the future, we may be
 // able to unexport this once other APIs has been migrated to use the above.
 func (env *TransactionEnv) NewContext(ctx context.Context, stm col.STM) *TransactionContext {
+	pachClient := env.serviceEnv.GetPachClient(ctx)
 	return &TransactionContext{
-		pachClient: env.serviceEnv.GetPachClient(ctx),
-		ctx:        ctx,
+		pachClient: pachClient,
+		ctx:        pachClient.Ctx(),
 		stm:        stm,
 		txnEnv:     env,
 		pfsDefer:   env.pfsServer.NewTransactionDefer(stm),
