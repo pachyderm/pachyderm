@@ -1,20 +1,17 @@
-## ./pachctl deploy google
+## pachctl deploy google
 
-Deploy a Pachyderm cluster running on GCP.
+Deploy a Pachyderm cluster running on Google Cloud Platform.
 
 ### Synopsis
 
 
-Deploy a Pachyderm cluster running on GCP.
-Arguments are:
-  <GCS bucket>: A GCS bucket where Pachyderm will store PFS data.
-  <GCE persistent disks>: A comma-separated list of GCE persistent disks, one per etcd node (see --etcd-nodes).
-  <size of disks>: Size of GCE persistent disks in GB (assumed to all be the same).
-  <service account creds file>: a file contain a private key for a service account (downloaded from GCE).
-
+Deploy a Pachyderm cluster running on Google Cloud Platform.
+  <bucket-name>: A Google Cloud Storage bucket where Pachyderm will store PFS data.
+  <disk-size>: Size of Google Compute Engine persistent disks in GB (assumed to all be the same).
+  <credentials-file>: A file containing the private key for the account (downloaded from Google Compute Engine).
 
 ```
-./pachctl deploy google <GCS bucket> <size of disk(s) (in GB)> [<service account creds file>]
+pachctl deploy google <bucket-name> <disk-size> [<credentials-file>]
 ```
 
 ### Options inherited from parent commands

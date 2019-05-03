@@ -268,8 +268,7 @@ Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm
 will start five workers. If you set it to 2.0, Pachyderm will start 20 workers
 (two per Kubernetes node).
 
-By default, we use the parallelism spec "coefficient=1", which means that
-we spawn one worker per node for this pipeline.
+The default if left unset is "constant=1".
 
 ### Resource Requests (optional)
 

@@ -1,17 +1,16 @@
-## ./pachctl deploy custom
+## pachctl deploy custom
 
-(in progress) Deploy a custom Pachyderm cluster configuration
+Deploy a custom Pachyderm cluster configuration
 
 ### Synopsis
 
 
-(in progress) Deploy a custom Pachyderm cluster configuration.
-If <object store backend> is "s3", then the arguments are:
+Deploy a custom Pachyderm cluster configuration.
+If <object store backend> is \"s3\", then the arguments are:
     <volumes> <size of volumes (in GB)> <bucket> <id> <secret> <endpoint>
 
-
 ```
-./pachctl deploy custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>
+pachctl deploy custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args>
 ```
 
 ### Options

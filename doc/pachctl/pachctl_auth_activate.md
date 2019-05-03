@@ -1,4 +1,4 @@
-## ./pachctl auth activate
+## pachctl auth activate
 
 Activate Pachyderm's auth system
 
@@ -10,7 +10,7 @@ user running the command (or the argument to --initial-admin), who will be the
 first cluster admin
 
 ```
-./pachctl auth activate
+pachctl auth activate
 ```
 
 ### Options

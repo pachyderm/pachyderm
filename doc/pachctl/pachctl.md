@@ -1,4 +1,4 @@
-## ./pachctl
+## pachctl
 
 
 

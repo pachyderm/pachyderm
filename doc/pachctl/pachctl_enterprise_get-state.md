@@ -1,4 +1,4 @@
-## ./pachctl enterprise get-state
+## pachctl enterprise get-state
 
 Check whether the Pachyderm cluster has enterprise features activated
 
@@ -8,7 +8,7 @@ Check whether the Pachyderm cluster has enterprise features activated
 Check whether the Pachyderm cluster has enterprise features activated
 
 ```
-./pachctl enterprise get-state
+pachctl enterprise get-state
 ```
 
 ### Options inherited from parent commands

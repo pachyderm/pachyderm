@@ -1,4 +1,4 @@
-## ./pachctl auth whoami
+## pachctl auth whoami
 
 Print your Pachyderm identity
 
@@ -8,7 +8,7 @@ Print your Pachyderm identity
 Print your Pachyderm identity.
 
 ```
-./pachctl auth whoami
+pachctl auth whoami
 ```
 
 ### Options inherited from parent commands

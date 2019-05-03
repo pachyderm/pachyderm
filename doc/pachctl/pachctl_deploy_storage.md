@@ -1,19 +1,11 @@
-## ./pachctl deploy storage
+## pachctl deploy storage
 
 Deploy credentials for a particular storage provider.
 
 ### Synopsis
 
 
-
-Deploy credentials for a particular storage provider, so that Pachyderm can
-ingress data from and egress data to it.  Currently three backends are
-supported: aws, google, and azure.  To see the required arguments for a
-particular backend, run "pachctl deploy storage <backend>"
-
-```
-./pachctl deploy storage <backend> ...
-```
+Deploy credentials for a particular storage provider, so that Pachyderm can ingress data from and egress data to it.
 
 ### Options inherited from parent commands
 
