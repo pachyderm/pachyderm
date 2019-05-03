@@ -177,7 +177,7 @@ func deployCmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 
 				// we turn metrics off this is a dev cluster. The default is set by
 				// deploy.PersistentPreRun, below.
-				opts.Metrics = false
+				opts.Metrics = true
 
 				// Disable authentication, for tests
 				opts.DisableAuthentication = true

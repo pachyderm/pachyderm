@@ -90,7 +90,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 		),
 		defaultEnterpriseRecord: &ec.EnterpriseRecord{Expires: defaultExpires},
 	}
-	s.enterpriseExpiration.Store(&ec.EnterpriseRecord{})
+	s.enterpriseExpiration.Store(s.defaultEnterpriseRecord)
 	go s.watchEnterpriseToken(etcdPrefix)
 	return s, nil
 }
