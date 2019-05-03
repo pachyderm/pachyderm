@@ -6,27 +6,23 @@ Spouts are a way to get streaming data from any source into Pachyderm.
 To create a spout, you need three things
 
 1. A source of streaming data, such as Kafka, nifi, rabbitMQ, etc.
-2. A containerized server.
-3. A spout pipeline specification file that uses the container.
+1. A containerized client for the streaming data that will pass it on to the spout.
+1. A spout pipeline specification file that uses the container.
 
-The containerized server will do four things:
+The containerized client will do four things:
 
 - connect to your source of streaming data
 - read the data
-- package it into files 
-  in a `tar` stream
-- write that `tar` stream
-  to the named pipe `/pfs/out`
+- package it into files in a `tar` stream
+- write that `tar` stream to the named pipe `/pfs/out`
 
 
 In this document, 
-we'll take you through writing the server 
-with an example using Go code
-and writing the spout pipeline specification.
+we'll take you through writing the client with an example using Go code and writing the spout pipeline specification.
 
-## Creating the containerized server
+## Creating the containerized client
 
-To create the server,
+To create the client,
 you'll need access to client libraries
 for your streaming data source,
 a library that can write the `tar` archive format
@@ -93,15 +89,14 @@ that can be used to read from our data source.
 
 That `defer` statement is the Go way to guarantee
 that the open file will be closed
-after `main()` returns.
+after the code in `main()` runs, 
+but before it returns.
 That is, 
 `reader.Close()` won't be executed
-until after `main()` is finished.
+until after `main()` is finished with everything else.
 (This is a common idiom in Go;
 to `defer` the close of a resource
 right after you open it.)
-
-
 ```Go
 	// And create a new kafka reader
 	reader := kafka.NewReader(kafka.ReaderConfig{
@@ -121,10 +116,8 @@ with the file
 we want to output.
 Note that the named pipe has to be opened
 with write-only permissions.
-
-
 ```Go
-    // Open the /pfs/out pipe with write only permissons (the pachyderm spout will be reading at the other end of this)
+	// Open the /pfs/out pipe with write only permissons (the pachyderm spout will be reading at the other end of this)
 	// Note: it won't work if you try to open this with read, or read/write permissions
 	out, err := os.OpenFile("/pfs/out", os.O_WRONLY, 0644)
 	if err != nil {
@@ -134,24 +127,19 @@ with write-only permissions.
 ```
 
 ### Write the outer file loop
-Here we open a tar stream 
-into the directory we opened above,
-so that Pachyderm can place files
-into the output repo.
+Here we open a tar stream into the directory we opened above,
+so that Pachyderm can place files into the output repo.
 For clarity's sake,
-we'll omit the message-processing loop
-inside this file loop.
-The `err` variable is used
-in the message-processing loop
-for errors reading from the stream
-and writing to the directory.
-The stream is opened 
-at the top of the loop
-and should be closed 
-at the bottom.
+we'll omit the message-processing loop inside this file loop.
+The `err` variable is used in the message-processing loop for errors reading from the stream and writing to the directory.
+The stream is opened at the top of the loop and should be closed at the bottom.
 In this case, 
-it'll be closed 
-after a message is processed.
+it'll be closed after a message is processed.
+The commit is finished after the file stream closes.
+(The `defer tw.Close()` is wrapped in an anonymous function to control when it gets run; 
+it'll run after all the code in the anonymous function is finished,
+but before it returns.)
+Think of the `tw.Close()` as a `FinishCommit()`.
 
 ```Go
 	// this is the file loop
@@ -162,8 +150,8 @@ after a message is processed.
 			// this is the message loop
 			for {
 
-            // ...omitted
-            
+				// ...omitted
+
 			}
 		}(); err != nil {
 			panic(err)
@@ -174,36 +162,43 @@ after a message is processed.
 ### Create the message processing loop
 
 If you have trouble following this Go code,
-just read the text
-to get an idea of what you need to do.
+just read the text to get an idea of what you need to do.
 
-First, 
-we read a message
-from our Kafka queue.
-Note the use of a 5-second timeout
-on the read.
+First,
+we read a message from our Kafka queue.
+Note the use of a 5-second backgrounded timeout on the read.
+That's so if the data source,
+Kafka,
+hangs for some reason, 
+the spout itself doesn't hang,
+but gives a hopefully useful error message in the logs after crashing.
 
 ```Go
 			// this is the message loop
-            for {
+			for {
 				// read a message
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				m, err := reader.ReadMessage(ctx)
 				if err != nil {
-					return nil
-                }
+					return err
+				}
 ```
 
 Then we create a filename
-and write that to the `tar` stream
+and write it, 
+along with the file size
+in a file header, 
+to the `tar` stream
 we opened at the beginning
 of the file loop.
+This tar stream will be used by Pachyderm
+to create the file
+in the output repo.
 ```Go
-                // give it a unique name
+				// give it a unique name
 				name := topic + time.Now().Format(time.RFC3339Nano)
-
-                // write the header
+				// write the header
 				for err = tw.WriteHeader(&tar.Header{
 					Name: name,
 					Mode: 0600,
@@ -217,20 +212,23 @@ of the file loop.
 				}
 ```
 
-Then we write the actual message 
-as the contents of the file.
-Note the use of a timeout
-in case the named pipe is broken 
-for some reason.
-In this example,
-we're simply moving on to the next message.
-A production system would likely have logging
-and queue operations
-so no messages get missed!
+Then we write the actual message as the contents of the file.
+Note the use of a timeout in case the named pipe is broken.
+The reason for this is that the other end of the spout
+(Pachyderm's code)
+has closed the named pipe at the end of the previous read. 
+Pachyderm may not have reopened the named pipe yet,
+so our code should back off if it gets an error writing to the named pipe.
+If you're batching the messages with longer time intervals between writes,
+this may not be necessary,
+but it is a good practice to establish for ruggedizing your code.
+Note: 
+If a more serious error occurs on the named pipe,
+it may be that a crash has occurred that will be visible in the logs for the pipeline.
+Any of these errors will be visible in the pipeline's user logs,
+accessible with `pachctl logs --pipeline=<your pipeline name>`.
 ```Go
-                
 				// and the message
-                              
 				for _, err = tw.Write(m.Value); err != nil; {
 					if !strings.Contains(err.Error(), "broken pipe") {
 						return err
@@ -242,15 +240,11 @@ so no messages get missed!
 			}
 ```
 
-That's the rough outline of operations
-for processing data in queues
-and writing it to a spout
-in a server.
+That's the rough outline of operations for processing data in queues and writing it to a spout from a client.
 
 ### Create the container for the server
 Once you have containerized your server,
-you can place it in a Pachyderm spout
-by writing an appropriate pipeline specification.
+you can place it in a Pachyderm spout by writing an appropriate pipeline specification.
 
 ## Writing the spout pipeline specification
 
@@ -264,9 +258,9 @@ The Dockerfile for creating a container
 with that server in it is in the [kafka example](https://github.com/pachyderm/pachyderm/tree/master/examples/kafka).
 
 Assuming that's been done,
-we might define the specification 
-for the spout
-something like this.
+we might define the specification for the spout something like this.
+The `overwrite` property on the spout is `false` by default;
+setting it to `true` would be like having the `--overwrite` flag specified on every `pachctl put file`.
 
 ```json
 {
@@ -282,7 +276,9 @@ something like this.
     "TOPIC": "mytopic",
     "PORT": "9092"
   },
-  "spout": true
+  "spout": {
+    "overwrite": false
+  }
 }
 ```
 
