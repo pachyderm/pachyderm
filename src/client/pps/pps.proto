@@ -317,7 +317,8 @@ enum PipelineState {
   // We have retried too many times and we have given up on this pipeline (or
   // the pipeline image doesn't exist)
   PIPELINE_FAILURE = 3;
-  // The pipeline has been explicitly paused by the user.
+  // The pipeline has been explicitly paused by the user (the pipeline spec's
+  // Stopped field should be true if the pipeline is in this state)
   PIPELINE_PAUSED = 4;
   // The pipeline is fully functional, but there are no commits to process.
   PIPELINE_STANDBY = 5;

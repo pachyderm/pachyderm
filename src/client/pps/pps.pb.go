@@ -137,7 +137,8 @@ const (
 	// We have retried too many times and we have given up on this pipeline (or
 	// the pipeline image doesn't exist)
 	PipelineState_PIPELINE_FAILURE PipelineState = 3
-	// The pipeline has been explicitly paused by the user.
+	// The pipeline has been explicitly paused by the user (the pipeline spec's
+	// Stopped field should be true if the pipeline is in this state)
 	PipelineState_PIPELINE_PAUSED PipelineState = 4
 	// The pipeline is fully functional, but there are no commits to process.
 	PipelineState_PIPELINE_STANDBY PipelineState = 5
