@@ -59,6 +59,9 @@ type apiServer struct {
 	// Enterprise token
 	enterpriseExpiration atomic.Value
 
+	// A default record that expired long, long ago (in this galaxy).
+	defaultEnterpriseRecord *ec.EnterpriseRecord
+
 	// enterpriseToken is a collection containing at most one Pachyderm enterprise
 	// token
 	enterpriseToken col.Collection
@@ -70,6 +73,10 @@ func (a *apiServer) LogReq(request interface{}) {
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
 func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIServer, error) {
+	defaultExpires, err := types.TimestampProto(time.Time{})
+	if err != nil {
+		return nil, err
+	}
 	s := &apiServer{
 		pachLogger: log.NewLogger("enterprise.API"),
 		env:        env,
@@ -81,6 +88,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 			nil,
 			nil,
 		),
+		defaultEnterpriseRecord: &ec.EnterpriseRecord{Expires: defaultExpires},
 	}
 	s.enterpriseExpiration.Store(&ec.EnterpriseRecord{})
 	go s.watchEnterpriseToken(etcdPrefix)
@@ -113,7 +121,7 @@ func (a *apiServer) watchEnterpriseToken(etcdPrefix string) {
 			case watch.EventDelete:
 				// This should only occur if the etcd value is deleted via the etcd API,
 				// but that does occur during testing
-				a.enterpriseExpiration.Store(&ec.EnterpriseRecord{})
+				a.enterpriseExpiration.Store(a.defaultEnterpriseRecord)
 			case watch.EventError:
 				return ev.Err
 			}
@@ -309,7 +317,15 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 
 	// Wait until watcher observes the write
 	if err := backoff.Retry(func() error {
-		if t := a.enterpriseExpiration.Load().(time.Time); !t.IsZero() {
+		record, ok := a.enterpriseExpiration.Load().(*ec.EnterpriseRecord)
+		if !ok {
+			return fmt.Errorf("could not retrieve enterprise expiration time")
+		}
+		expiration, err := types.TimestampFromProto(record.Expires)
+		if err != nil {
+			return fmt.Errorf("could not parse expiration timestamp: %s", err.Error())
+		}
+		if !expiration.IsZero() {
 			return fmt.Errorf("enterprise still activated")
 		}
 		return nil
