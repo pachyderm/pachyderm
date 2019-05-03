@@ -89,7 +89,7 @@ branches, for example `pachctl inspect pipeline foo^` will give you the
 previous version of the pipeline `foo`, `pachctl inspect pipeline foo.1`
 will give you the first ever version of that same pipeline. This syntax
 can be used wherever pipeline names are accepted. A common workflow is
-reverting a pipeline to a previous version, this can be accomplished with:
+reverting a pipeline to a previous version, which can be accomplished with:
 
 ```sh
 $ pachctl extract pipeline pipeline^ | pachctl create pipeline
