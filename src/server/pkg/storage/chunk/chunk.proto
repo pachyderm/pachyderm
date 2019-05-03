@@ -15,6 +15,6 @@ message DataRef {
   // This field is empty when it is equal to the chunk hash (the ref is the whole chunk).
   string hash = 2;
   // The offset and size used for accessing the data within the chunk.
-  int64 offset = 3;
-  int64 size = 4;
+  int64 offset_bytes = 3;
+  int64 size_bytes = 4;
 }

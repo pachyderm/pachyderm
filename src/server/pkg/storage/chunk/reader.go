@@ -53,7 +53,7 @@ func (r *Reader) Read(data []byte) (int, error) {
 			}
 			r.curr = r.dataRefs[0]
 			r.dataRefs = r.dataRefs[1:]
-			r.r = bytes.NewReader(r.buf.Bytes()[r.curr.Offset : r.curr.Offset+r.curr.Size])
+			r.r = bytes.NewReader(r.buf.Bytes()[r.curr.OffsetBytes : r.curr.OffsetBytes+r.curr.SizeBytes])
 		}
 	}
 	return totalRead, nil
