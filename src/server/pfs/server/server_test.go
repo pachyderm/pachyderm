@@ -776,7 +776,7 @@ func TestAncestrySyntax(t *testing.T) {
 	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -3), "file", 0, 0, &buffer))
 	require.Equal(t, "3", buffer.String())
 
-	// Adding a bunch of commits to the head of the branch shouldn't change the forward reverences.
+	// Adding a bunch of commits to the head of the branch shouldn't change the forward references.
 	// (It will change backward references.)
 	for i := 0; i < 10; i++ {
 		_, err = client.PutFileOverwrite(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i+4)), 0)

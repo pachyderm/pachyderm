@@ -67,7 +67,7 @@ var (
 	putObjectLimiter = limit.New(100)
 )
 
-// validateName determines if a repo name is valid
+// validateName determines if a repo or branch name is valid
 func validateName(name string) error {
 	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
 	if !match {

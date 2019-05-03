@@ -26,20 +26,20 @@ referred to as the branches "head," and the head's ancestors are referred
 to as "on the branch." Branches can be substituted for commits in
 Pachyderm's API and will behave as if the head of the branch were passed.
 This allows you to deal with semantic meaningful names for commits that
-can be update, rather than static opaque identifiers.
+can be updated, rather than static opaque identifiers.
 
 ## Ancestry Syntax
 
 Pachyderm's commits and branches support a familiar git syntax for
 referencing their history. A commit or branch's parent can be referenced
 by adding a `^` to the end of the commit or branch. Similar to how
-`master` will resolves to the head commit of `master`, `master^` resolves
+`master` resolves to the head commit of `master`, `master^` resolves
 to the parent of the head commit. You can add multiple `^`s, for example
 `master^^` resolves to the parent of the parent of the head commit of
 `master`, and so on. This gets unwieldy quickly so it can also be written
 as `master^3`, which has the same meaning as `master^^^`. Git supports two
 characters for ancestor references, `^` and `~` with slightly different
-meanings, Pachyderm supports both characters as well, for familiarity
+meanings, Pachyderm supports both characters as well, for familiarity's
 sake, but their meaning is identical.
 
 Pachyderm also supports a type of ancestor reference that git doesn't:
@@ -81,7 +81,7 @@ full history of a file by passing `-1` to the history flag.
 ## Pipelines
 
 Pipelines are the main processing primitive in Pachyderm, however they
-expose a version-control and history semantics similar to filesystem
+expose version-control and history semantics similar to filesystem
 objects, this is largely because, under the hood, they are implemented in
 terms of filesystem objects. You can access previous versions of
 a pipeline using the same ancestry syntax that works for commits and
@@ -89,7 +89,7 @@ branches, for example `pachctl inspect pipeline foo^` will give you the
 previous version of the pipeline `foo`, `pachctl inspect pipeline foo.1`
 will give you the first ever version of that same pipeline. This syntax
 can be used wherever pipeline names are accepted. A common workflow is
-reverting a pipeline to a previous version, this can be accomplished with:
+reverting a pipeline to a previous version, which can be accomplished with:
 
 ```sh
 $ pachctl extract pipeline pipeline^ | pachctl create pipeline
