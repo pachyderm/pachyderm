@@ -39,7 +39,7 @@ to the parent of the head commit. You can add multiple `^`s, for example
 `master`, and so on. This gets unwieldy quickly so it can also be written
 as `master^3`, which has the same meaning as `master^^^`. Git supports two
 characters for ancestor references, `^` and `~` with slightly different
-meanings, Pachyderm supports both characters as well, for familiarity
+meanings, Pachyderm supports both characters as well, for familiarity's
 sake, but their meaning is identical.
 
 Pachyderm also supports a type of ancestor reference that git doesn't:
