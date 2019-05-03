@@ -857,9 +857,28 @@ nextSubvBranch:
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
-			// Because provenace is stored as a transitive closure, we don't
-			// need to inspect provBranchInfo.HEAD's provenance. Every commit
-			// in there will be the HEAD of some other provBranchInfo.
+			// Since we want the provennce to be a transitive closure, we
+			// need to inspect provBranchInfo.HEAD's provenance. In most cases,
+			// Every commit in there will be the HEAD of some other provBranchInfo.
+			// But there are a few exceptional scenarios where this is not the case.
+			branchHeadInfo := &pfs.CommitInfo{}
+			if err := d.commits(provBranchInfo.Branch.Repo.Name).ReadWrite(stm).Get(provBranchInfo.Head.ID, branchHeadInfo); err != nil {
+				return err
+			}
+			for _, provProv := range branchHeadInfo.Provenance {
+				provProvInfo := &pfs.CommitInfo{}
+				if err := d.commits(provProv.Commit.Repo.Name).ReadWrite(stm).Get(provProv.Commit.ID, provProvInfo); err != nil && !col.IsErrNotFound(err) {
+					return fmt.Errorf("could not read provenance %s/%s: %v", provProv.Commit.Repo.Name, provProv.Commit.ID, err)
+				}
+				provProvBranchInfo := &pfs.BranchInfo{}
+				if err := d.branches(provProv.Branch.Repo.Name).ReadWrite(stm).Get(provProv.Branch.Name, provProvBranchInfo); err != nil && !col.IsErrNotFound(err) {
+					return fmt.Errorf("could not read branch %s/%s: %v", provProv.Branch.Repo.Name, provProv.Branch.Name, err)
+				}
+				commitProvMap[key(provProvInfo.Commit.ID, provProvInfo.Branch.Name)] = &pfs.CommitProvenance{
+					Commit: provProvInfo.Commit,
+					Branch: provProvInfo.Branch,
+				}
+			}
 		}
 		if head != nil {
 			for _, commitProv := range head.Provenance {
