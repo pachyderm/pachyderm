@@ -1663,10 +1663,11 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 	if err := d.checkIsAuthorized(pachClient, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	// Validate request. The request must do exactly one of:
+	// Validate request
 	if err := validateName(branch.Name); err != nil {
 		return err
 	}
+	// The request must do exactly one of:
 	// 1) updating 'branch's provenance (commit is nil OR commit == branch)
 	// 2) re-pointing 'branch' at a new commit
 	if commit != nil {
