@@ -12,9 +12,12 @@ type TransactionDefer struct {
 
 	// Branches to propagate when the transaction completes
 	propagateBranches []*pfs.Branch
+
+	// Scratch spaces in etcd that need to be deleted
+	scratches []*pfs.Commit
 }
 
-func (a *apiServer) NewTransactionDefer(stm col.STM) {
+func (a *apiServer) NewTransactionDefer(stm col.STM) txnenv.PfsTransactionDefer {
 	return &TransactionDefer{
 		pfsServer: a,
 		stm:       stm,

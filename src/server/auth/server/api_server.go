@@ -1074,11 +1074,11 @@ func (a *apiServer) AuthorizeInTransaction(
 		return nil, authclient.ErrNotActivated
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext(), callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1111,11 +1111,11 @@ func (a *apiServer) AuthorizeInTransaction(
 
 	// Get ACL to check
 	var acl authclient.ACL
-	if err := a.acls.ReadWrite(stm).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
+	if err := a.acls.ReadWrite(txnCtx.Stm()).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
 	}
 
-	scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+	scope, err := a.getScope(txnCtx.ClientContext(), callerInfo.Subject, &acl)
 	if err != nil {
 		return nil, err
 	}
@@ -1133,12 +1133,11 @@ func (a *apiServer) Authorize(
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.AuthorizeResponse
-	err := col.NewDryrunSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		response, err = a.AuthorizeInTransaction(ctx, stm, req)
+		response, err = a.AuthorizeInTransaction(txnCtx, req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
@@ -1226,28 +1225,27 @@ func (a *apiServer) SetScopeInTransaction(
 	}
 
 	// validate request & authenticate user
-	if err := validateSetScopeRequest(ctx, req); err != nil {
+	if err := validateSetScopeRequest(txnCtx.ClientContext(), req); err != nil {
 		return nil, err
 	}
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext(), callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
 
-	acls := a.acls.ReadWrite(stm)
+	acls := a.acls.ReadWrite(txnCtx.Stm())
 	var acl authclient.ACL
 	if err := acls.Get(req.Repo, &acl); err != nil {
 		if !col.IsErrNotFound(err) {
 			return nil, err
 		}
 		// ACL not found. Check that repo exists (return error if not).
-		_, err = a.txnEnv.PfsServer().InspectRepoInTransaction(
-			a.env.GetPachClient(ctx),
-			stm,
+		_, err = txnCtx.Pfs().InspectRepoInTransaction(
+			txnCtx,
 			&pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}},
 		)
 		if err != nil {
@@ -1276,7 +1274,7 @@ func (a *apiServer) SetScopeInTransaction(
 		}
 
 		// Check if the user or one of their groups is on the ACL directly
-		scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+		scope, err := a.getScope(txnCtx.ClientContext(), callerInfo.Subject, &acl)
 		if err != nil {
 			return false, err
 		}
@@ -1297,7 +1295,7 @@ func (a *apiServer) SetScopeInTransaction(
 	}
 
 	// Scope change is authorized. Make the change
-	principal, err := a.canonicalizeSubject(ctx, req.Username)
+	principal, err := a.canonicalizeSubject(txnCtx.ClientContext(), req.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -1323,12 +1321,11 @@ func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeReques
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.SetScopeResponse
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		var err error
-		response, err = a.SetScopeInTransaction(ctx, stm, req)
+		response, err = txn.SetScope(req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
@@ -1366,11 +1363,11 @@ func (a *apiServer) GetScopeInTransaction(
 		return nil, authclient.ErrNotActivated
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
 	if err != nil {
 		return nil, err
 	}
-	callerIsAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	callerIsAdmin, err := a.isAdmin(txnCtx.ClientContext(), callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1393,7 +1390,7 @@ func (a *apiServer) GetScopeInTransaction(
 	targetSubject := callerInfo.Subject
 	mustHaveReadAccess := false
 	if req.Username != "" {
-		targetSubject, err = a.canonicalizeSubject(ctx, req.Username)
+		targetSubject, err = a.canonicalizeSubject(txnCtx.ClientContext(), req.Username)
 		if err != nil {
 			return nil, err
 		}
@@ -1407,7 +1404,7 @@ func (a *apiServer) GetScopeInTransaction(
 	// that pfs.ListRepo overrides this logic—the auth info it returns for a
 	// listed repo indicates that a user is OWNER of all repos if they are an
 	// admin
-	acls := a.acls.ReadWrite(stm)
+	acls := a.acls.ReadWrite(txnCtx.Stm())
 	response := new(authclient.GetScopeResponse)
 	for _, repo := range req.Repos {
 		var acl authclient.ACL
@@ -1419,7 +1416,7 @@ func (a *apiServer) GetScopeInTransaction(
 		if mustHaveReadAccess && !callerIsAdmin {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
-			callerScope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+			callerScope, err := a.getScope(txnCtx.ClientContext(), callerInfo.Subject, &acl)
 			if err != nil {
 				return nil, err
 			}
@@ -1433,7 +1430,7 @@ func (a *apiServer) GetScopeInTransaction(
 		}
 
 		// compute target's access scope to this repo
-		targetScope, err := a.getScope(ctx, targetSubject, &acl)
+		targetScope, err := a.getScope(txnCtx.ClientContext(), targetSubject, &acl)
 		if err != nil {
 			return nil, err
 		}
@@ -1449,12 +1446,11 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.GetScopeResponse
-	err := col.NewDryrunSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		response, err = a.GetScopeInTransaction(ctx, stm, req)
+		response, err = a.GetScopeInTransaction(txnCtx, req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
@@ -1476,17 +1472,17 @@ func (a *apiServer) GetACLInTransaction(
 	}
 
 	// Get calling user
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
 	if err != nil {
 		return nil, err
 	}
-	if err := a.expiredClusterAdminCheck(ctx, callerInfo.Subject); err != nil {
+	if err := a.expiredClusterAdminCheck(txnCtx.ClientContext(), callerInfo.Subject); err != nil {
 		return nil, err
 	}
 
 	// Read repo ACL from etcd
 	acl := &authclient.ACL{}
-	if err = a.acls.ReadWrite(stm).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
+	if err = a.acls.ReadWrite(txnCtx.Stm()).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
 	response := &authclient.GetACLResponse{
@@ -1509,12 +1505,11 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.GetACLResponse
-	err := col.NewDryrunSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		response, err = a.GetACLInTransaction(ctx, stm, req)
+		response, err = a.GetACLInTransaction(txnCtx, req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
@@ -1536,11 +1531,11 @@ func (a *apiServer) SetACLInTransaction(
 	}
 
 	// Get calling user
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext(), callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1560,7 +1555,7 @@ func (a *apiServer) SetACLInTransaction(
 			continue
 		}
 		eg.Go(func() error {
-			principal, err := a.canonicalizeSubject(ctx, user)
+			principal, err := a.canonicalizeSubject(txnCtx.ClientContext(), user)
 			if err != nil {
 				return err
 			}
@@ -1575,7 +1570,7 @@ func (a *apiServer) SetACLInTransaction(
 	}
 
 	// Read repo ACL from etcd
-	acls := a.acls.ReadWrite(stm)
+	acls := a.acls.ReadWrite(txnCtx.Stm())
 
 	// determine if the caller is authorized to set this repo's ACL
 	authorized, err := func() (bool, error) {
@@ -1602,7 +1597,7 @@ func (a *apiServer) SetACLInTransaction(
 		}
 		if len(acl.Entries) > 0 {
 			// ACL is present; caller must be authorized directly
-			scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+			scope, err := a.getScope(txnCtx.ClientContext(), callerInfo.Subject, &acl)
 			if err != nil {
 				return false, err
 			}
@@ -1613,8 +1608,7 @@ func (a *apiServer) SetACLInTransaction(
 		}
 
 		// No ACL -- check if the repo being modified exists
-		_, err = a.env.GetPachClient(ctx).InspectRepo(req.Repo)
-		err = grpcutil.ScrubGRPC(err)
+		_, err = txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}})
 		if err == nil {
 			// Repo exists -- user isn't authorized
 			return false, nil
@@ -1662,12 +1656,11 @@ func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.SetACLResponse
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		var err error
-		response, err = a.SetACLInTransaction(ctx, stm, req)
+		response, err = txn.SetACL(req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil

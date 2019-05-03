@@ -168,9 +168,30 @@ func newDriver(
 	return d, nil
 }
 
+// checkIsAuthorizedInTransaction is identicalto checkIsAuthorized except that
+// it performs reads consistent with the latest state of the STM transaction.
+func (d *driver) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, s auth.Scope) error {
+	me, err := txnCtx.Client().WhoAmI(txnCtx.ClientContext(), &auth.WhoAmIRequest{})
+	if auth.IsErrNotActivated(err) {
+		return nil
+	}
+
+	resp := &auth.AuthorizeResponse{}
+	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
+	resp, err = txnCtx.Auth().AuthorizeInTransaction(txnCtx, req)
+	if err != nil {
+		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
+			r.Name, grpcutil.ScrubGRPC(err))
+	}
+	if !resp.Authorized {
+		return &auth.ErrNotAuthorized{Subject: me.Username, Repo: r.Name, Required: s}
+	}
+	return nil
+}
+
 // checkIsAuthorized returns an error if the current user (in 'pachClient') has
 // authorization scope 's' for repo 'r'
-func (d *driver) checkIsAuthorized(pachClient *client.APIClient, stm *col.STM, r *pfs.Repo, s auth.Scope) error {
+func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s auth.Scope) error {
 	ctx := pachClient.Ctx()
 	me, err := pachClient.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
@@ -179,11 +200,7 @@ func (d *driver) checkIsAuthorized(pachClient *client.APIClient, stm *col.STM, r
 
 	resp := &auth.AuthorizeResponse{}
 	req := &auth.AuthorizeRequest{Repo: r.Name, Scope: s}
-	if stm != nil {
-		resp, err = d.txnEnv.AuthServer().AuthorizeInTransaction(ctx, *stm, req)
-	} else {
-		resp, err = pachClient.AuthAPIClient.Authorize(ctx, req)
-	}
+	resp, err = pachClient.AuthAPIClient.Authorize(ctx, req)
 	if err != nil {
 		return fmt.Errorf("error during authorization check for operation on \"%s\": %v",
 			r.Name, grpcutil.ScrubGRPC(err))
@@ -213,7 +230,7 @@ func absent(key string) etcd.Cmp {
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
-	whoAmI, err := txnCtx.Client().AuthAPIClient.WhoAmI(txnCtx.Ctx(), &auth.WhoAmIRequest{})
+	whoAmI, err := txnCtx.Client().WhoAmI(txnCtx.ClientContext(), &auth.WhoAmIRequest{})
 	authIsActivated := !auth.IsErrNotActivated(err)
 	if authIsActivated && err != nil {
 		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
@@ -246,7 +263,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		// auth is active, and user is logged in. Make user an owner of the new
 		// repo (and clear any existing ACL under this name that might have been
 		// created by accident)
-		_, err := d.txnEnv.AuthServer().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
+		_, err := txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
 			Repo: repo.Name,
 			Entries: []*auth.ACLEntry{{
 				Username: whoAmI.Username,
@@ -274,17 +291,16 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 }
 
 func (d *driver) inspectRepo(
-	pachClient *client.APIClient,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	repo *pfs.Repo,
 	includeAuth bool,
 ) (*pfs.RepoInfo, error) {
 	result := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(stm).Get(repo.Name, result); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.Stm()).Get(repo.Name, result); err != nil {
 		return nil, err
 	}
 	if includeAuth {
-		accessLevel, err := d.getAccessLevel(pachClient, repo)
+		accessLevel, err := d.getAccessLevel(txnCtx.Client(), repo)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return result, nil
@@ -352,8 +368,8 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// if repo.Name == ppsconsts.SpecRepo {
 	// 	return fmt.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
 	// }
-	repos := d.repos.ReadWrite(stm)
-	commits := d.commits(repo.Name).ReadWrite(stm)
+	repos := d.repos.ReadWrite(txnCtx.Stm())
+	commits := d.commits(repo.Name).ReadWrite(txnCtx.Stm())
 
 	// check if 'repo' is already gone. If so, return that error. Otherwise,
 	// proceed with auth check (avoids awkward "access denied" error when calling
@@ -368,7 +384,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	}
 
 	// Check if the caller is authorized to delete this repo
-	if err := d.checkIsAuthorized(pachClient, &stm, repo, auth.Scope_OWNER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, repo, auth.Scope_OWNER); err != nil {
 		return err
 	}
 
@@ -381,7 +397,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	commits.DeleteAll()
 	var branchInfos []*pfs.BranchInfo
 	for _, branch := range repoInfo.Branches {
-		bi, err := d.inspectBranch(pachClient, branch)
+		bi, err := d.inspectBranch(txnCtx, branch)
 		if err != nil {
 			return fmt.Errorf("error inspecting branch %s: %v", branch, err)
 		}
@@ -394,21 +410,21 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		// branch is provenant on another (such as with stats branches) we
 		// delete them in the right order.
 		branch := branchInfos[len(branchInfos)-1-i].Branch
-		if err := d.deleteBranchSTM(stm, branch, force); err != nil {
+		if err := d.deleteBranch(txnCtx, branch, force); err != nil {
 			return fmt.Errorf("delete branch %s: %v", branch, err)
 		}
 	}
 	// Despite the fact that we already deleted each branch with
-	// deleteBranchSTM we also do branches.DeleteAll(), this insulates us
+	// deleteBranch, we also do branches.DeleteAll(), this insulates us
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in etcd but branches do.
-	branches := d.branches(repo.Name).ReadWrite(stm)
+	branches := d.branches(repo.Name).ReadWrite(txnCtx.Stm())
 	branches.DeleteAll()
 	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
 		return fmt.Errorf("repos.Delete: %v", err)
 	}
 
-	if _, err = d.txnEnv.AuthServer().SetACLInTransaction(pachClient.Ctx(), stm, &auth.SetACLRequest{
+	if _, err = txnCtx.Auth().SetACLInTransaction(txnCtx, &auth.SetACLRequest{
 		Repo: repo.Name, // NewACL is unset, so this will clear the acl for 'repo'
 	}); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
@@ -419,14 +435,14 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(pachClient, stm, ID, parent, branch, provenance, nil, nil, nil, description)
+	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, description)
 }
 
-func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, tree *pfs.Object) (*pfs.Commit, error) {
+func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, tree *pfs.Object) (*pfs.Commit, error) {
 	commit := &pfs.Commit{}
-	_, err := col.NewSTM(pachClient.Ctx(), d.etcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
 		var err error
-		commit, err = d.makeCommit(pachClient, stm, ID, parent, branch, provenance, tree, nil, nil, "")
+		commit, err = d.makeCommit(d.txnEnv.NewContext(ctx, stm), ID, parent, branch, provenance, tree, nil, nil, "")
 		return err
 	})
 	return commit, err
@@ -444,14 +460,24 @@ func (d *driver) buildCommit(pachClient *client.APIClient, ID string, parent *pf
 //   parent
 // - If only 'parent.ID' is set, and it contains a branch, then the new commit's
 //   parent will be the HEAD of that branch, but the branch will not be moved
-func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, treeRef *pfs.Object, recordFiles []string, records []*pfs.PutFileRecords, description string) (*pfs.Commit, error) {
+func (d *driver) makeCommit(
+	txnCtx *txnenv.TransactionContext,
+	ID string,
+	parent *pfs.Commit,
+	branch string,
+	provenance []*pfs.CommitProvenance,
+	treeRef *pfs.Object,
+	recordFiles []string,
+	records []*pfs.PutFileRecords,
+	description string,
+) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
 		return nil, fmt.Errorf("parent cannot be nil")
 	}
 
 	// Check that caller is authorized
-	if err := d.checkIsAuthorized(pachClient, &stm, parent.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, parent.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
 
@@ -484,7 +510,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
-		tree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
+		tree, err = hashtree.GetHashTreeObject(txnCtx.Client(), d.storageRoot, treeRef)
 		if err != nil {
 			return nil, err
 		}
@@ -494,9 +520,9 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	// Clone the parent, as this stm modifies it and might wind up getting
 	// run more than once (if there's a conflict.)
 	parent = proto.Clone(parent).(*pfs.Commit)
-	repos := d.repos.ReadWrite(stm)
-	commits := d.commits(parent.Repo.Name).ReadWrite(stm)
-	branches := d.branches(parent.Repo.Name).ReadWrite(stm)
+	repos := d.repos.ReadWrite(txnCtx.Stm())
+	commits := d.commits(parent.Repo.Name).ReadWrite(txnCtx.Stm())
+	branches := d.branches(parent.Repo.Name).ReadWrite(txnCtx.Stm())
 
 	// Check if repo exists
 	repoInfo := new(pfs.RepoInfo)
@@ -545,7 +571,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
 		// happen if 'branch' is new and diverges from the existing branch in
 		// 'parent.ID')
-		parentCommitInfo, err := d.resolveCommit(stm, parent)
+		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm(), parent)
 		if err != nil {
 			return nil, fmt.Errorf("parent commit not found: %v", err)
 		}
@@ -573,7 +599,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	//    "FinishCommit case" above)
 	if treeRef != nil || records != nil {
 		if records != nil {
-			parentTree, err := d.getTreeForCommit(pachClient, parent)
+			parentTree, err := d.getTreeForCommit(txnCtx.Client(), parent)
 			if err != nil {
 				return nil, err
 			}
@@ -589,7 +615,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 			if err := tree.Hash(); err != nil {
 				return nil, err
 			}
-			treeRef, err = hashtree.PutHashTree(pachClient, tree)
+			treeRef, err = hashtree.PutHashTree(txnCtx.Client(), tree)
 			if err != nil {
 				return nil, err
 			}
@@ -606,7 +632,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 			repoInfo.SizeBytes = newCommitInfo.SizeBytes
 		}
 	} else {
-		if err := d.openCommits.ReadWrite(stm).Put(newCommit.ID, newCommit); err != nil {
+		if err := d.openCommits.ReadWrite(txnCtx.Stm()).Put(newCommit.ID, newCommit); err != nil {
 			return nil, err
 		}
 	}
@@ -624,7 +650,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	for _, prov := range provenance {
 		newCommitProv[prov.Commit.ID] = prov
 		provCommitInfo := &pfs.CommitInfo{}
-		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(stm).Get(prov.Commit.ID, provCommitInfo); err != nil {
+		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm()).Get(prov.Commit.ID, provCommitInfo); err != nil {
 			return nil, err
 		}
 		for _, c := range provCommitInfo.Provenance {
@@ -636,7 +662,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	for _, prov := range newCommitProv {
 		newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 		provCommitInfo := &pfs.CommitInfo{}
-		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(stm).Update(prov.Commit.ID, provCommitInfo, func() error {
+		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm()).Update(prov.Commit.ID, provCommitInfo, func() error {
 			appendSubvenance(provCommitInfo, newCommitInfo)
 			return nil
 		}); err != nil {
@@ -651,7 +677,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 	// We propagate the branch last so propagateCommit can write to the
 	// now-existing commit's subvenance
 	if branch != "" {
-		err := d.propagateCommit(stm, client.NewBranch(newCommit.Repo.Name, branch))
+		err := d.propagateCommit(txnCtx.Stm(), client.NewBranch(newCommit.Repo.Name, branch))
 		if err != nil {
 			return nil, err
 		}
@@ -661,11 +687,10 @@ func (d *driver) makeCommit(pachClient *client.APIClient, stm col.STM, ID string
 }
 
 func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, tree *pfs.Object, empty bool, description string) (retErr error) {
-	ctx := pachClient.Ctx()
-	if err := d.checkIsAuthorized(pachClient, &stm, commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.resolveCommit(stm, commit)
+	commitInfo, err := d.resolveCommit(txnCtx.Stm(), commit)
 	if err != nil {
 		return err
 	}
@@ -683,7 +708,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		}
 		// only delete the scratch space if finishCommit() ran successfully and
 		// won't need to be retried
-		_, retErr = d.etcdClient.Delete(ctx, scratchPrefix, etcd.WithPrefix())
+		_, retErr = d.etcdClient.Delete(txnCtx.ClientContext(), scratchPrefix, etcd.WithPrefix())
 	}()
 
 	var parentTree, finishedTree hashtree.HashTree
@@ -694,7 +719,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		// parent of 'commitInfo' is closed, as we use its contents
 		parentCommit := commitInfo.ParentCommit
 		for parentCommit != nil {
-			parentCommitInfo, err := d.resolveCommit(stm, parentCommit)
+			parentCommitInfo, err := d.resolveCommit(txnCtx.Stm(), parentCommit)
 			if err != nil {
 				return err
 			}
@@ -703,26 +728,26 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 			}
 			parentCommit = parentCommitInfo.ParentCommit
 		}
-		parentTree, err = d.getTreeForCommit(pachClient, parentCommit) // result is empty if parentCommit == nil
+		parentTree, err = d.getTreeForCommit(txnCtx.Client(), parentCommit) // result is empty if parentCommit == nil
 		if err != nil {
 			return err
 		}
 
 		if tree == nil {
 			var err error
-			finishedTree, err = d.getTreeForOpenCommit(pachClient, &pfs.File{Commit: commit}, parentTree)
+			finishedTree, err = d.getTreeForOpenCommit(txnCtx.Client(), &pfs.File{Commit: commit}, parentTree)
 			if err != nil {
 				return err
 			}
 			// Put the tree to object storage.
-			treeRef, err := hashtree.PutHashTree(pachClient, finishedTree)
+			treeRef, err := hashtree.PutHashTree(txnCtx.Client(), finishedTree)
 			if err != nil {
 				return err
 			}
 			commitInfo.Tree = treeRef
 		} else {
 			var err error
-			finishedTree, err = hashtree.GetHashTreeObject(pachClient, d.storageRoot, tree)
+			finishedTree, err = hashtree.GetHashTreeObject(txnCtx.Client(), d.storageRoot, tree)
 			if err != nil {
 				return err
 			}
@@ -733,14 +758,14 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	}
 
 	commitInfo.Finished = now()
-	return d.writeFinishedCommit(stm, commit, commitInfo)
+	return d.writeFinishedCommit(txnCtx.Stm(), commit, commitInfo)
 }
 
-func (d *driver) finishOutputCommit(pachClient *client.APIClient, stm col.STM, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
-	if err := d.checkIsAuthorized(pachClient, &stm, commit.Repo, auth.Scope_WRITER); err != nil {
+func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.resolveCommit(stm, commit)
+	commitInfo, err := d.resolveCommit(txnCtx.Stm(), commit)
 	if err != nil {
 		return err
 	}
@@ -751,7 +776,7 @@ func (d *driver) finishOutputCommit(pachClient *client.APIClient, stm col.STM, c
 	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
 	commitInfo.Finished = now()
-	return d.writeFinishedCommit(stm, commit, commitInfo)
+	return d.writeFinishedCommit(txnCtx.Stm(), commit, commitInfo)
 }
 
 // writeFinishedCommit writes these changes to etcd:
@@ -995,7 +1020,7 @@ func (d *driver) inspectCommit(pachClient *client.APIClient, commit *pfs.Commit,
 	if commit == nil {
 		return nil, fmt.Errorf("cannot inspect nil commit")
 	}
-	if err := d.checkIsAuthorized(pachClient, nil, commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 
@@ -1123,7 +1148,7 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 
 func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, f func(*pfs.CommitInfo) error) error {
 	ctx := pachClient.Ctx()
-	if err := d.checkIsAuthorized(pachClient, nil, repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return err
 	}
 	if from != nil && from.Repo.Name != repo.Name || to != nil && to.Repo.Name != repo.Name {
@@ -1132,7 +1157,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 
 	// Make sure that the repo exists
 	err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		_, err := d.inspectRepo(pachClient, stm, repo, !includeAuth)
+		_, err := d.inspectRepo(d.txnEnv.NewContext(ctx, stm), repo, !includeAuth)
 		return err
 	})
 	if err != nil {
@@ -1347,8 +1372,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 }
 
 func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
-	ctx := pachClient.Ctx()
-	if err := d.checkIsAuthorized(pachClient, &stm, userCommit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	// Main txn: Delete all downstream commits, and update subvenance of upstream commits
@@ -1359,7 +1383,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	deleteScratch := false                      // only delete scratch if txn succeeds
 
 	// 1) re-read CommitInfo inside txn
-	userCommitInfo, err := d.resolveCommit(stm, userCommit)
+	userCommitInfo, err := d.resolveCommit(txnCtx.Stm(), userCommit)
 	if err != nil {
 		return fmt.Errorf("resolveCommit: %v", err)
 	}
@@ -1373,7 +1397,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			return fmt.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
 		}
 		affectedRepos[lower.Repo.Name] = struct{}{}
-		commits := d.commits(lower.Repo.Name).ReadWrite(stm)
+		commits := d.commits(lower.Repo.Name).ReadWrite(txnCtx.Stm())
 
 		// delete commits on path upper -> ... -> lower (traverse ParentCommits)
 		commit := upper
@@ -1429,7 +1453,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 			// fix provCommit's subvenance
 			provCI := &pfs.CommitInfo{}
-			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(stm).Update(prov.Commit.ID, provCI, func() error {
+			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm()).Update(prov.Commit.ID, provCI, func() error {
 				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
 			nextSubvRange:
 				for subvFrom, subv := range provCI.Subvenance {
@@ -1442,7 +1466,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 						curInfo, ok := deleted[cur]
 						if !ok {
 							curInfo = &pfs.CommitInfo{}
-							if err := d.commits(subv.Lower.Repo.Name).ReadWrite(stm).Get(cur, curInfo); err != nil {
+							if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm()).Get(cur, curInfo); err != nil {
 								return fmt.Errorf("error reading commitInfo for subvenant \"%s/%s\": %v", subv.Lower.Repo.Name, cur, err)
 							}
 						}
@@ -1528,7 +1552,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 		// Point all non-deleted children at the first valid parent (or nil),
 		// and point first non-deleted parent at all non-deleted children
-		commits := d.commits(deletedInfo.Commit.Repo.Name).ReadWrite(stm)
+		commits := d.commits(deletedInfo.Commit.Repo.Name).ReadWrite(txnCtx.Stm())
 		parent := lowestCommitInfo.ParentCommit
 		for child := range liveChildren {
 			commitInfo := &pfs.CommitInfo{}
@@ -1566,7 +1590,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// points to a deleted commit
 	var shortestBranch *pfs.Branch
 	var shortestBranchLen = maxInt
-	repos := d.repos.ReadWrite(stm)
+	repos := d.repos.ReadWrite(txnCtx.Stm())
 	for repo := range affectedRepos {
 		repoInfo := &pfs.RepoInfo{}
 		if err := repos.Get(repo, repoInfo); err != nil {
@@ -1576,7 +1600,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			// Traverse HEAD commit until we find a non-deleted parent or nil;
 			// rewrite branch
 			var branchInfo pfs.BranchInfo
-			if err := d.branches(brokenBranch.Repo.Name).ReadWrite(stm).Update(brokenBranch.Name, &branchInfo, func() error {
+			if err := d.branches(brokenBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Update(brokenBranch.Name, &branchInfo, func() error {
 				if len(branchInfo.Provenance) < shortestBranchLen {
 					shortestBranchLen = len(branchInfo.Provenance)
 					shortestBranch = branchInfo.Branch
@@ -1600,7 +1624,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			// Update repo size if this is the master branch
 			if branchInfo.Name == "master" {
 				if branchInfo.Head != nil {
-					headCommitInfo, err := d.resolveCommit(stm, branchInfo.Head)
+					headCommitInfo, err := d.resolveCommit(txnCtx.Stm(), branchInfo.Head)
 					if err != nil {
 						return err
 					}
@@ -1622,7 +1646,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// processed yet
 	// TODO(msteffen) propagate all changed branches? Use heap to topologically
 	// sort them?
-	err = d.propagateCommit(stm, shortestBranch)
+	err = d.propagateCommit(txnCtx.Stm(), shortestBranch)
 	if err != nil {
 		return err
 	}
@@ -1633,7 +1657,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// TODO: do this in a defer because otherwise this probably leaks, also probably
 	// not safe to do this inside of an stm transaction
 	if deleteScratch {
-		if _, err := d.etcdClient.Delete(ctx, d.scratchCommitPrefix(userCommit), etcd.WithPrefix()); err != nil {
+		if _, err := d.etcdClient.Delete(txnCtx.ClientContext(), d.scratchCommitPrefix(userCommit), etcd.WithPrefix()); err != nil {
 			return err
 		}
 	}
@@ -1649,7 +1673,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 // for 'branch' itself once 'b.Provenance' has been set.
 func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, commit *pfs.Commit, provenance []*pfs.Branch) error {
 	var err error
-	if err := d.checkIsAuthorized(pachClient, &stm, branch.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	// Validate request. The request must do exactly one of:
@@ -1666,7 +1690,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 
 	// if 'commit' is a branch, resolve it
 	if commit != nil {
-		_, err = d.resolveCommit(stm, commit) // if 'commit' is a branch, resolve it
+		_, err = d.resolveCommit(txnCtx.Stm(), commit) // if 'commit' is a branch, resolve it
 		if err != nil {
 			// possible that branch exists but has no head commit. This is fine, but
 			// branchInfo.Head must also be nil
@@ -1678,7 +1702,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}
 
 	// Retrieve (and create, if necessary) the current version of this branch
-	branches := d.branches(branch.Repo.Name).ReadWrite(stm)
+	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm())
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Upsert(branch.Name, branchInfo, func() error {
 		branchInfo.Name = branch.Name // set in case 'branch' is new
@@ -1692,7 +1716,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}); err != nil {
 		return err
 	}
-	repos := d.repos.ReadWrite(stm)
+	repos := d.repos.ReadWrite(txnCtx.Stm())
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
@@ -1708,7 +1732,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	toUpdate := []*pfs.BranchInfo{branchInfo}
 	for _, subvBranch := range branchInfo.Subvenance {
 		subvBranchInfo := &pfs.BranchInfo{}
-		if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvBranchInfo); err != nil {
+		if err := d.branches(subvBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Get(subvBranch.Name, subvBranchInfo); err != nil {
 			return err
 		}
 		toUpdate = append(toUpdate, subvBranchInfo)
@@ -1723,20 +1747,20 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		branchInfo.Provenance = nil
 		// Re-compute Provenance
 		for _, provBranch := range branchInfo.DirectProvenance {
-			if err := d.addBranchProvenance(branchInfo, provBranch, stm); err != nil {
+			if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm()); err != nil {
 				return err
 			}
 			provBranchInfo := &pfs.BranchInfo{}
-			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil {
+			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Get(provBranch.Name, provBranchInfo); err != nil {
 				return err
 			}
 			for _, provBranch := range provBranchInfo.Provenance {
-				if err := d.addBranchProvenance(branchInfo, provBranch, stm); err != nil {
+				if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm()); err != nil {
 					return err
 				}
 			}
 		}
-		if err := d.branches(branchInfo.Branch.Repo.Name).ReadWrite(stm).Put(branchInfo.Branch.Name, branchInfo); err != nil {
+		if err := d.branches(branchInfo.Branch.Repo.Name).ReadWrite(txnCtx.Stm()).Put(branchInfo.Branch.Name, branchInfo); err != nil {
 			return err
 		}
 		// Update Subvenance of 'branchInfo's Provenance (incl. all Subvenance)
@@ -1744,7 +1768,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			if !has(&branchInfo.Provenance, oldProvBranch) {
 				// Provenance was deleted, so we delete ourselves from their subvenance
 				oldProvBranchInfo := &pfs.BranchInfo{}
-				if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(stm).Update(oldProvBranch.Name, oldProvBranchInfo, func() error {
+				if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Update(oldProvBranch.Name, oldProvBranchInfo, func() error {
 					del(&oldProvBranchInfo.Subvenance, branchInfo.Branch)
 					return nil
 				}); err != nil {
@@ -1757,19 +1781,19 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	return d.propagateCommit(stm, branch)
+	return d.propagateCommit(txnCtx.Stm(), branch)
 }
 
-func (d *driver) inspectBranch(pachClient *client.APIClient, branch *pfs.Branch) (*pfs.BranchInfo, error) {
+func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
 	result := &pfs.BranchInfo{}
-	if err := d.branches(branch.Repo.Name).ReadOnly(pachClient.Ctx()).Get(branch.Name, result); err != nil {
+	if err := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm()).Get(branch.Name, result); err != nil {
 		return nil, err
 	}
 	return result, nil
 }
 
 func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo) ([]*pfs.BranchInfo, error) {
-	if err := d.checkIsAuthorized(pachClient, nil, repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 	var result []*pfs.BranchInfo
@@ -1785,14 +1809,11 @@ func (d *driver) listBranch(pachClient *client.APIClient, repo *pfs.Repo) ([]*pf
 }
 
 func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch, force bool) error {
-	if err := d.checkIsAuthorized(pachClient, &stm, branch.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	return d.deleteBranchSTM(stm, branch, force)
-}
 
-func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) error {
-	branches := d.branches(branch.Repo.Name).ReadWrite(stm)
+	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm())
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, branchInfo); err != nil {
 		if !col.IsErrNotFound(err) {
@@ -1810,7 +1831,7 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 		}
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
-			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Update(provBranch.Name, provBranchInfo, func() error {
+			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Update(provBranch.Name, provBranchInfo, func() error {
 				del(&provBranchInfo.Subvenance, branch)
 				return nil
 			}); err != nil && !isNotFoundErr(err) {
@@ -1819,7 +1840,7 @@ func (d *driver) deleteBranchSTM(stm col.STM, branch *pfs.Branch, force bool) er
 		}
 	}
 	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(stm).Update(branch.Repo.Name, repoInfo, func() error {
+	if err := d.repos.ReadWrite(txnCtx.Stm()).Update(branch.Repo.Name, repoInfo, func() error {
 		del(&repoInfo.Branches, branch)
 		return nil
 	}); err != nil {
@@ -1888,7 +1909,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
 		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
+			_, err := d.makeCommit(d.txnEnv.NewContext(ctx, stm), "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
 			return err
 		})
 		return err
@@ -1907,7 +1928,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter pfs.Delimiter,
 	targetFileDatums, targetFileBytes, headerRecords int64, overwriteIndex *pfs.OverwriteIndex,
 	reader io.Reader) (*pfs.PutFileRecords, error) {
-	if err := d.checkIsAuthorized(pachClient, nil, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return nil, err
 	}
 	//  validation -- make sure the various putFileSplit options are coherent
@@ -2166,10 +2187,10 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 }
 
 func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst *pfs.File, overwrite bool) error {
-	if err := d.checkIsAuthorized(pachClient, &stm, src.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	if err := d.checkIsAuthorized(pachClient, &stm, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	if err := hashtree.ValidatePath(dst.Path); err != nil {
@@ -2180,7 +2201,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 		branch = dst.Commit.ID
 	}
 	var dstIsOpenCommit bool
-	if ci, err := d.resolveCommit(stm, dst.Commit); err != nil {
+	if ci, err := d.resolveCommit(txnCtx.Stm(), dst.Commit); err != nil {
 		if !isNoHeadErr(err) {
 			return err
 		}
@@ -2194,7 +2215,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 	var records []*pfs.PutFileRecords // used if 'dst' is finished (atomic 'put file')
 	if overwrite {
 		if dstIsOpenCommit {
-			if err := d.deleteFile(pachClient, stm, dst); err != nil {
+			if err := d.deleteFile(txnCtx, dst); err != nil {
 				return err
 			}
 		} else {
@@ -2202,7 +2223,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 			records = append(records, &pfs.PutFileRecords{Tombstone: true})
 		}
 	}
-	srcTree, err := d.getTreeForFile(pachClient, src)
+	srcTree, err := d.getTreeForFile(txnCtx.Client(), src)
 	if err != nil {
 		return err
 	}
@@ -2253,7 +2274,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 		if dstIsOpenCommit {
 			// TODO: this may create a lot of operations on the STM and large
 			// recursive copies may fail due to too many etcd operations.
-			err = d.upsertPutFileRecords(stm, target, record)
+			err = d.upsertPutFileRecords(txnCtx.Stm(), target, record)
 			if err != nil {
 				return err
 			}
@@ -2270,7 +2291,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 	}
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
-		_, err = d.makeCommit(pachClient, stm, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
+		_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
 		return err
 	}
 	return nil
@@ -2494,7 +2515,7 @@ func provenantOnInput(provenance []*pfs.CommitProvenance) bool {
 
 func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset int64, size int64) (r io.Reader, retErr error) {
 	ctx := pachClient.Ctx()
-	if err := d.checkIsAuthorized(pachClient, nil, file.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
@@ -2720,7 +2741,7 @@ func nodeToFileInfoHeaderFooter(ci *pfs.CommitInfo, filePath string,
 }
 
 func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *pfs.FileInfo, retErr error) {
-	if err := d.checkIsAuthorized(pachClient, nil, file.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return nil, err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
@@ -2765,7 +2786,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 }
 
 func (d *driver) listFile(pachClient *client.APIClient, file *pfs.File, full bool, history int64, f func(*pfs.FileInfo) error) (retErr error) {
-	if err := d.checkIsAuthorized(pachClient, nil, file.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
@@ -2874,7 +2895,7 @@ func (d *driver) fileHistory(pachClient *client.APIClient, file *pfs.File, histo
 }
 
 func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*pfs.FileInfo) error) (retErr error) {
-	if err := d.checkIsAuthorized(pachClient, nil, file.Commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
@@ -2919,7 +2940,7 @@ func (d *driver) walkFile(pachClient *client.APIClient, file *pfs.File, f func(*
 }
 
 func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, pattern string, f func(*pfs.FileInfo) error) (retErr error) {
-	if err := d.checkIsAuthorized(pachClient, nil, commit.Repo, auth.Scope_READER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
 	commitInfo, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED)
@@ -2977,12 +2998,12 @@ func (d *driver) globFile(pachClient *client.APIClient, commit *pfs.Commit, patt
 func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFile *pfs.File, shallow bool) ([]*pfs.FileInfo, []*pfs.FileInfo, error) {
 	// Do READER authorization check for both newFile and oldFile
 	if oldFile != nil && oldFile.Commit != nil {
-		if err := d.checkIsAuthorized(pachClient, nil, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := d.checkIsAuthorized(pachClient, oldFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
 	}
 	if newFile != nil && newFile.Commit != nil {
-		if err := d.checkIsAuthorized(pachClient, nil, newFile.Commit.Repo, auth.Scope_READER); err != nil {
+		if err := d.checkIsAuthorized(pachClient, newFile.Commit.Repo, auth.Scope_READER); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -3045,14 +3066,14 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 }
 
 func (d *driver) deleteFile(txnCtx *txnenv.TransactionContext, file *pfs.File) error {
-	if err := d.checkIsAuthorized(pachClient, &stm, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorizedInTransaction(txnCtx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	branch := ""
 	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
 		branch = file.Commit.ID
 	}
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
+	commitInfo, err := d.inspectCommit(txnCtx.Client(), file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -3060,22 +3081,22 @@ func (d *driver) deleteFile(txnCtx *txnenv.TransactionContext, file *pfs.File) e
 		if branch == "" {
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
-		_, err := d.makeCommit(pachClient, stm, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
+		_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
 		return err
 	}
 
-	return d.upsertPutFileRecords(stm, file, &pfs.PutFileRecords{Tombstone: true})
+	return d.upsertPutFileRecords(txnCtx.Stm(), file, &pfs.PutFileRecords{Tombstone: true})
 }
 
-func (d *driver) deleteAll(txnCtx *transaction.TransactionContext) error {
+func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(pachClient, !includeAuth)
+	repoInfos, err := d.listRepo(txnCtx.Client(), !includeAuth)
 	if err != nil {
 		return err
 	}
 	for _, repoInfo := range repoInfos.RepoInfo {
-		if err := d.deleteRepo(pachClient, stm, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
+		if err := d.deleteRepo(txnCtx, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
 			return err
 		}
 	}

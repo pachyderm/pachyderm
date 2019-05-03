@@ -91,12 +91,11 @@ func (a *apiServer) CreateRepo(ctx context.Context, request *pfs.CreateRepoReque
 // InspectRepoInTransaction is identical to InspectRepo except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) InspectRepoInTransaction(
-	pachClient *client.APIClient,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	originalRequest *pfs.InspectRepoRequest,
 ) (*pfs.RepoInfo, error) {
 	request := proto.Clone(originalRequest).(*pfs.InspectRepoRequest)
-	return a.driver.inspectRepo(pachClient, stm, request.Repo, true)
+	return a.driver.inspectRepo(txnCtx, request.Repo, true)
 }
 
 // InspectRepo implements the protobuf pfs.InspectRepo RPC
@@ -107,7 +106,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	var info *pfs.RepoInfo
 	err := col.NewDryrunSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
 		var err error
-		info, err = a.InspectRepoInTransaction(a.env.GetPachClient(ctx), stm, request)
+		info, err = a.InspectRepoInTransaction(a.txnEnv.NewContext(ctx, stm), request)
 		return err
 	})
 	if err != nil {
@@ -188,7 +187,7 @@ func (a *apiServer) BuildCommit(ctx context.Context, request *pfs.BuildCommitReq
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commit, err := a.driver.buildCommit(a.env.GetPachClient(ctx), request.ID, request.Parent, request.Branch, request.Provenance, request.Tree)
+	commit, err := a.driver.buildCommit(ctx, request.ID, request.Parent, request.Branch, request.Provenance, request.Tree)
 	if err != nil {
 		return nil, err
 	}
@@ -281,7 +280,16 @@ func (a *apiServer) CreateBranch(ctx context.Context, request *pfs.CreateBranchR
 func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranchRequest) (response *pfs.BranchInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-	return a.driver.inspectBranch(a.env.GetPachClient(ctx), request.Branch)
+
+	branchInfo := &pfs.BranchInfo{}
+	if err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		var err error
+		branchInfo, err = a.driver.inspectBranch(txnCtx, request.Branch)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return branchInfo, nil
 }
 
 // ListBranch implements the protobuf pfs.ListBranch RPC
@@ -558,7 +566,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-		return a.driver.deleteAll()
+		return a.driver.deleteAll(a.txnEnv.NewContext(ctx, stm))
 	})
 	if err != nil {
 		return nil, err

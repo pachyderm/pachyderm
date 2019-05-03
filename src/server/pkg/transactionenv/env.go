@@ -3,8 +3,6 @@ package transactionenv
 import (
 	"context"
 
-	etcd "github.com/coreos/etcd/clientv3"
-
 	"github.com/gogo/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -15,11 +13,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
 )
 
-// PfsWrapper is an interface providing a wrapper for each operation that
+// PfsWrites is an interface providing a wrapper for each operation that
 // may be appended to a transaction through PFS.  Each call may either
 // directly run the request through PFS or append it to the active transaction,
 // depending on if there is an active transaction in the client context.
-type PfsWrapper interface {
+type PfsWrites interface {
 	CreateRepo(*pfs.CreateRepoRequest) error
 	DeleteRepo(*pfs.DeleteRepoRequest) error
 
@@ -34,6 +32,16 @@ type PfsWrapper interface {
 	DeleteFile(*pfs.DeleteFileRequest) error
 }
 
+// AuthWrites is an interface providing a wrapper for each operation that
+// may be appended to a transaction through the Auth server.  Each call may
+// either directly run the request through Auth or append it to the active
+// transaction, depending on if there is an active transaction in the client
+// context.
+type AuthWrites interface {
+	SetScope(*auth.SetScopeRequest) (*auth.SetScopeResponse, error)
+	SetACL(*auth.SetACLRequest) (*auth.SetACLResponse, error)
+}
+
 type PfsTransactionDefer interface {
 	PropagateBranch(branch *pfs.Branch)
 	DeleteScratch(commit *pfs.Commit)
@@ -41,10 +49,11 @@ type PfsTransactionDefer interface {
 }
 
 type TransactionContext struct {
-	stm      col.STM
-	ctx      context.Context
-	txnEnv   *TransactionEnv
-	pfsDefer PfsTransactionDefer
+	pachClient *client.APIClient
+	stm        col.STM
+	ctx        context.Context
+	txnEnv     *TransactionEnv
+	pfsDefer   PfsTransactionDefer
 }
 
 // TransactionServer is an interface used by other servers to append a request
@@ -95,7 +104,6 @@ type PfsTransactionServer interface {
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
 	serviceEnv *serviceenv.ServiceEnv
-	etcdClient *etcd.Client
 	txnServer  TransactionServer
 	authServer AuthTransactionServer
 	pfsServer  PfsTransactionServer
@@ -104,25 +112,23 @@ type TransactionEnv struct {
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (env *TransactionEnv) Initialize(
 	serviceEnv *serviceenv.ServiceEnv,
-	etcdClient *etcd.Client,
 	txnServer TransactionServer,
 	authServer AuthTransactionServer,
 	pfsServer PfsTransactionServer,
 ) {
 	env.serviceEnv = serviceEnv
-	env.etcdClient = etcdClient
 	env.txnServer = txnServer
 	env.authServer = authServer
 	env.pfsServer = pfsServer
 }
 
-func (env *TransactionEnv) NewContext(ctx context.Context, stm col.STM) {
+func (env *TransactionEnv) NewContext(ctx context.Context, stm col.STM) *TransactionContext {
 	return &TransactionContext{
-		pachClient: txnEnv.serviceEnv.GetPachClient(ctx),
-		ctx:      ctx,
-		stm:      stm,
-		txnEnv:   env,
-		pfsDefer: txnEnv.PfsServer().NewTransactionDefer(stm),
+		pachClient: env.serviceEnv.GetPachClient(ctx),
+		ctx:        ctx,
+		stm:        stm,
+		txnEnv:     env,
+		pfsDefer:   env.pfsServer.NewTransactionDefer(stm),
 	}
 }
 
@@ -146,12 +152,13 @@ func (t *TransactionContext) Stm() col.STM {
 	return t.stm
 }
 
-func (t *TransactionContext) PfsDefer() *PfsTransactionDefer {
+func (t *TransactionContext) PfsDefer() PfsTransactionDefer {
 	return t.pfsDefer
 }
 
 type Transaction interface {
-	PfsWrapper
+	PfsWrites
+	AuthWrites
 }
 
 type DirectTransaction struct {
@@ -160,7 +167,7 @@ type DirectTransaction struct {
 
 func NewDirectTransaction(ctx context.Context, stm col.STM, txnEnv *TransactionEnv) *DirectTransaction {
 	return &DirectTransaction{
-		txnCtx: txnEnv.NewContext(ctx, stm)
+		txnCtx: txnEnv.NewContext(ctx, stm),
 	}
 }
 
@@ -170,47 +177,57 @@ func (t *DirectTransaction) Finish() error {
 
 func (t *DirectTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
 	req := proto.Clone(original).(*pfs.CreateRepoRequest)
-	return t.txnCtx.txnEnv.PfsServer().CreateRepoInTransaction(t.txnCtx, req)
+	return t.txnCtx.txnEnv.pfsServer.CreateRepoInTransaction(t.txnCtx, req)
 }
 
 func (t *DirectTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteRepoRequest)
-	return t.txnCtx.txnEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req)
+	return t.txnCtx.txnEnv.pfsServer.DeleteRepoInTransaction(t.txnCtx, req)
 }
 
 func (t *DirectTransaction) StartCommit(original *pfs.StartCommitRequest, commit *pfs.Commit) (*pfs.Commit, error) {
 	req := proto.Clone(original).(*pfs.StartCommitRequest)
-	return t.txnCtx.txnEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req, commit)
+	return t.txnCtx.txnEnv.pfsServer.StartCommitInTransaction(t.txnCtx, req, commit)
 }
 
 func (t *DirectTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
 	req := proto.Clone(original).(*pfs.FinishCommitRequest)
-	return t.txnCtx.txnEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req)
+	return t.txnCtx.txnEnv.pfsServer.FinishCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *DirectTransaction) DeleteCommit(original *pfs.DeleteCommitRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteCommitRequest)
-	return t.txnCtx.txnEnv.PfsServer().DeleteCommitInTransaction(t.txnCtx, req)
+	return t.txnCtx.txnEnv.pfsServer.DeleteCommitInTransaction(t.txnCtx, req)
 }
 
 func (t *DirectTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
 	req := proto.Clone(original).(*pfs.CreateBranchRequest)
-	return t.txnCtx.txnEnv.PfsServer().CreateBranchInTransaction(t.txnCtx, req)
+	return t.txnCtx.txnEnv.pfsServer.CreateBranchInTransaction(t.txnCtx, req)
 }
 
 func (t *DirectTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteBranchRequest)
-	return t.txnCtx.txnEnv.PfsServer().DeleteBranchInTransaction(t.txnCtx, req)
+	return t.txnCtx.txnEnv.pfsServer.DeleteBranchInTransaction(t.txnCtx, req)
 }
 
 func (t *DirectTransaction) CopyFile(original *pfs.CopyFileRequest) error {
 	req := proto.Clone(original).(*pfs.CopyFileRequest)
-	return t.txnCtx.txnEnv.PfsServer().CopyFileInTransaction(t.txnCtx, req)
+	return t.txnCtx.txnEnv.pfsServer.CopyFileInTransaction(t.txnCtx, req)
 }
 
 func (t *DirectTransaction) DeleteFile(original *pfs.DeleteFileRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteFileRequest)
-	return t.txnCtx.txnEnv.PfsServer().DeleteFileInTransaction(t.txnCtx, req)
+	return t.txnCtx.txnEnv.pfsServer.DeleteFileInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
+	req := proto.Clone(original).(*auth.SetScopeRequest)
+	return t.txnCtx.txnEnv.authServer.SetScopeInTransaction(t.txnCtx, req)
+}
+
+func (t *DirectTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLResponse, error) {
+	req := proto.Clone(original).(*auth.SetACLRequest)
+	return t.txnCtx.txnEnv.authServer.SetACLInTransaction(t.txnCtx, req)
 }
 
 type AppendTransaction struct {
@@ -228,17 +245,17 @@ func newAppendTransaction(ctx context.Context, activeTxn *transaction.Transactio
 }
 
 func (t *AppendTransaction) CreateRepo(req *pfs.CreateRepoRequest) error {
-	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreateRepo: req})
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreateRepo: req})
 	return err
 }
 
 func (t *AppendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
-	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteRepo: req})
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteRepo: req})
 	return err
 }
 
 func (t *AppendTransaction) StartCommit(req *pfs.StartCommitRequest, _ *pfs.Commit) (*pfs.Commit, error) {
-	res, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StartCommit: req})
+	res, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{StartCommit: req})
 	if err != nil {
 		return nil, err
 	}
@@ -246,33 +263,41 @@ func (t *AppendTransaction) StartCommit(req *pfs.StartCommitRequest, _ *pfs.Comm
 }
 
 func (t *AppendTransaction) FinishCommit(req *pfs.FinishCommitRequest) error {
-	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{FinishCommit: req})
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{FinishCommit: req})
 	return err
 }
 
 func (t *AppendTransaction) DeleteCommit(req *pfs.DeleteCommitRequest) error {
-	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteCommit: req})
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteCommit: req})
 	return err
 }
 
 func (t *AppendTransaction) CreateBranch(req *pfs.CreateBranchRequest) error {
-	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreateBranch: req})
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreateBranch: req})
 	return err
 }
 
 func (t *AppendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
-	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteBranch: req})
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteBranch: req})
 	return err
 }
 
 func (t *AppendTransaction) CopyFile(req *pfs.CopyFileRequest) error {
-	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CopyFile: req})
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CopyFile: req})
 	return err
 }
 
 func (t *AppendTransaction) DeleteFile(req *pfs.DeleteFileRequest) error {
-	_, err := t.txnEnv.transactionServer().AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteFile: req})
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteFile: req})
 	return err
+}
+
+func (t *AppendTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
+	panic("SetScope not yet implemented in transactions")
+}
+
+func (t *AppendTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLResponse, error) {
+	panic("SetACL not yet implemented in transactions")
 }
 
 // WithTransaction will call the given callback with a txnenv.Transaction
@@ -292,7 +317,7 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		return cb(appendTxn)
 	}
 
-	_, err = col.NewSTM(ctx, env.etcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
 		directTxn := NewDirectTransaction(ctx, stm, env)
 		err = cb(directTxn)
 		if err != nil {
@@ -306,20 +331,9 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 // EmptyReadTransaction will call the given callback with a TransactionContext
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
-func (env *TransactionEnv) EmptyReadTransaction(ctx context.Context, cb func(col.STM) error) error {
-	activeTxn, err := client.GetTransaction(ctx)
-	if err != nil {
-		return err
-	}
-
-	_, err = col.NewDryrunSTM(ctx, env.etcdClient, func(stm col.STM) error {
-		if activeTxn != nil {
-			_, err := env.TransactionServer().DryrunTransaction(ctx, stm, activeTxn)
-			if err != nil {
-				return nil
-			}
-		}
-		return cb(stm)
+func (env *TransactionEnv) EmptyReadTransaction(ctx context.Context, cb func(*TransactionContext) error) error {
+	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
+		txnCtx := env.NewContext(ctx, stm)
+		return cb(txnCtx)
 	})
-	return err
 }
