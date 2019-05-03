@@ -674,13 +674,10 @@ func (d *driver) makeCommit(
 	if err := commits.Create(newCommit.ID, newCommitInfo); err != nil {
 		return nil, err
 	}
-	// We propagate the branch last so propagateCommit can write to the
-	// now-existing commit's subvenance
+	// Defer propagation of the commit until the end of the transaction so we can
+	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
-		err := d.propagateCommit(txnCtx.Stm(), client.NewBranch(newCommit.Repo.Name, branch))
-		if err != nil {
-			return nil, err
-		}
+		txnCtx.PfsDefer().PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch))
 	}
 
 	return newCommit, nil
@@ -701,15 +698,8 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		commitInfo.Description = description
 	}
 
-	scratchPrefix := d.scratchCommitPrefix(commit)
-	defer func() {
-		if retErr != nil {
-			return
-		}
-		// only delete the scratch space if finishCommit() ran successfully and
-		// won't need to be retried
-		_, retErr = d.etcdClient.Delete(txnCtx.ClientContext(), scratchPrefix, etcd.WithPrefix())
-	}()
+	// Clean up the scratch space at the end of the transaction
+	txnCtx.PfsDefer().DeleteScratch(commit)
 
 	var parentTree, finishedTree hashtree.HashTree
 	if !empty {
@@ -1009,6 +999,9 @@ nextSubvBranch:
 		}
 	}
 	return nil
+}
+
+func (d *driver) deleteScratches(stm col.STM, commits []*pfs.Commit) error {
 }
 
 // inspectCommit takes a Commit and returns the corresponding CommitInfo.
@@ -1646,20 +1639,11 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// processed yet
 	// TODO(msteffen) propagate all changed branches? Use heap to topologically
 	// sort them?
-	err = d.propagateCommit(txnCtx.Stm(), shortestBranch)
-	if err != nil {
-		return err
-	}
+	txnCtx.PfsDefer().PropagateCommit(shortestBranch)
 
 	// Delete the scratch space for this commit
-	// TODO put scratch spaces in a collection and do this in the txn above
-	// TODO: probably have to do that before merging this
-	// TODO: do this in a defer because otherwise this probably leaks, also probably
-	// not safe to do this inside of an stm transaction
 	if deleteScratch {
-		if _, err := d.etcdClient.Delete(txnCtx.ClientContext(), d.scratchCommitPrefix(userCommit), etcd.WithPrefix()); err != nil {
-			return err
-		}
+		txnCtx.PfsDefer().DeleteScratch(userCommit)
 	}
 	return nil
 }
@@ -1781,7 +1765,8 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	return d.propagateCommit(txnCtx.Stm(), branch)
+	txnCtx.PfsDefer().PropagateCommit(branch)
+	return nil
 }
 
 func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
