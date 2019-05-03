@@ -127,7 +127,7 @@ func GetPachClient(t testing.TB) *client.APIClient {
 	txnServer, err := NewAPIServer(env, txnEnv, etcdPrefix)
 	require.NoError(t, err)
 
-	txnEnv.Initialize(txnServer, authServer, pfsServer, nil)
+	txnEnv.Initialize(env, txnServer, authServer, pfsServer)
 
 	runServers(t, testPort, pfsServer, pfsBlockServer, authServer, txnServer)
 	return env.GetPachClient(context.Background())

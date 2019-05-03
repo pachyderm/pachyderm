@@ -27,6 +27,9 @@ func (c APIClient) WithTransaction(txn *transaction.Transaction) *APIClient {
 	return c.WithCtx(ctx)
 }
 
+// GetTransaction (should be run from the server-side) loads the active
+// transaction from the grpc metadata and returns the associated transaction
+// object - or `nil` if no transaction is set.
 func GetTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
@@ -42,9 +45,8 @@ func GetTransaction(ctx context.Context) (*transaction.Transaction, error) {
 	return &transaction.Transaction{ID: txns[0]}, nil
 }
 
-// GetTransaction (run server-side) loads the active transaction from the grpc
-// metadata and returns the associated transaction object - or `nil` if no
-// transaction is set.
+// GetTransaction is a helper function to get the active transaction from the
+// client's context metadata.
 func (c APIClient) GetTransaction() (*transaction.Transaction, error) {
 	return GetTransaction(c.Ctx())
 }
