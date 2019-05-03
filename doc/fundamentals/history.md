@@ -26,7 +26,7 @@ referred to as the branches "head," and the head's ancestors are referred
 to as "on the branch." Branches can be substituted for commits in
 Pachyderm's API and will behave as if the head of the branch were passed.
 This allows you to deal with semantic meaningful names for commits that
-can be update, rather than static opaque identifiers.
+can be updated, rather than static opaque identifiers.
 
 ## Ancestry Syntax
 
