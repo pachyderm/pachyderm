@@ -2,21 +2,36 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strconv"
 
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 
+	opentracing "github.com/opentracing/opentracing-go"
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	kube "k8s.io/client-go/kubernetes"
+)
+
+const (
+	pipelineNameLabel    = "pipelineName"
+	pachVersionLabel     = "version"
+	specCommitLabel      = "specCommit"
+	hashedAuthTokenLabel = "authTokenHash"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -185,14 +200,60 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	return podSpec, nil
 }
 
-func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
-	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
-	transform *pps.Transform, cacheSize string, service *pps.Service,
-	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string) *workerOptions {
+// we don't want to expose pipeline auth tokens, so we hash them before
+// returning them to use as a label
+func hashAuthToken(token string) string {
+	hashBytes := sha256.Sum256([]byte(token))
+	return base64.RawURLEncoding.EncodeToString(hashBytes[:])
+}
+
+// commitiDToB64 converts 'id' from a hex string to a base64-string (to shorten
+// it, so that it fits in the RC label)
+func commitIDToB64(id string) (string, error) {
+	bts, err := hex.DecodeString(id)
+	if err != nil {
+		return "", fmt.Errorf("couldn't decode commit ID %q as hex: %v", id, err)
+	}
+	return string(base64.RawURLEncoding.EncodeToString(bts)), nil
+}
+
+func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+	pipelineName := pipelineInfo.Pipeline.Name
+	pipelineVersion := pipelineInfo.Version
+	parallelism := 0
+	var resourceRequests *v1.ResourceList
+	var resourceLimits *v1.ResourceList
+	if pipelineInfo.ResourceRequests != nil {
+		var err error
+		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if pipelineInfo.ResourceLimits != nil {
+		var err error
+		resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	transform := pipelineInfo.Transform
+	cacheSize := pipelineInfo.CacheSize
+	service := pipelineInfo.Service
+	schedulingSpec := pipelineInfo.SchedulingSpec
+	podSpec := pipelineInfo.PodSpec
+	specCommitB64, err := commitIDToB64(ptr.SpecCommit.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
-	labels["version"] = version.PrettyVersion()
-	labels["pipelineName"] = pipelineName
+	labels[pipelineNameLabel] = pipelineName
+	labels[pachVersionLabel] = version.PrettyVersion()
+	labels[specCommitLabel] = specCommitB64
+	labels[hashedAuthTokenLabel] = hashAuthToken(ptr.AuthToken)
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -241,7 +302,11 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSSpecCommitEnv,
-		Value: specCommitID,
+		Value: ptr.SpecCommit.ID,
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
 	})
 
 	var volumes []v1.Volume
@@ -340,10 +405,23 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		service:          service,
 		schedulingSpec:   schedulingSpec,
 		podSpec:          podSpec,
-	}
+	}, nil
 }
 
-func (a *apiServer) createWorkerRc(options *workerOptions) error {
+func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
+	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC", "pipeline", pipelineInfo.Pipeline.Name)
+	defer func(span opentracing.Span) {
+		if span != nil {
+			span.SetTag("err", fmt.Sprintf("%v", retErr))
+		}
+		tracing.FinishAnySpan(span)
+	}(span)
+	options, err := a.getWorkerOptions(ptr, pipelineInfo)
+
+	if err != nil {
+		return err
+	}
 	podSpec, err := a.workerPodSpec(options)
 	if err != nil {
 		return err
@@ -440,5 +518,55 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			}
 		}
 	}
+
+	// True if the pipeline has a git input
+	var hasGitInput bool
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Git != nil {
+			hasGitInput = true
+		}
+	})
+	if hasGitInput {
+		if err := a.checkOrDeployGithookService(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (a *apiServer) checkOrDeployGithookService(ctx context.Context) error {
+	_, err := getGithookService(a.kubeClient, a.namespace)
+	if err != nil {
+		if _, ok := err.(*errGithookServiceNotFound); ok {
+			svc := assets.GithookService(a.namespace)
+			_, err = a.kubeClient.CoreV1().Services(a.namespace).Create(svc)
+			return err
+		}
+		return err
+	}
+	// service already exists
+	return nil
+}
+
+func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Service, error) {
+	labels := map[string]string{
+		"app":   "githook",
+		"suite": suite,
+	}
+	serviceList, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(serviceList.Items) != 1 {
+		return nil, &errGithookServiceNotFound{
+			fmt.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
+		}
+	}
+	return &serviceList.Items[0], nil
 }

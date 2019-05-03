@@ -2315,6 +2315,8 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
 		return nil, err
 	}
+	// TODO(msteffen): can I get rid of this and have the PPS master make the
+	// change?
 	if err := a.markPipelineRunning(pachClient, request.Pipeline.Name); err != nil {
 		return nil, err
 	}
