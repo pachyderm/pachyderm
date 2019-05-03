@@ -33,7 +33,7 @@ can be updated, rather than static opaque identifiers.
 Pachyderm's commits and branches support a familiar git syntax for
 referencing their history. A commit or branch's parent can be referenced
 by adding a `^` to the end of the commit or branch. Similar to how
-`master` will resolves to the head commit of `master`, `master^` resolves
+`master` resolves to the head commit of `master`, `master^` resolves
 to the parent of the head commit. You can add multiple `^`s, for example
 `master^^` resolves to the parent of the parent of the head commit of
 `master`, and so on. This gets unwieldy quickly so it can also be written
