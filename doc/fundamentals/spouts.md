@@ -45,6 +45,9 @@ and taken from the [kafka example](https://github.com/pachyderm/pachyderm/tree/m
 in the Pachyderm repo, 
 we'll go through every step you need to take.
 
+If you have trouble following this Go code,
+just read the text to get an idea of what you need to do.
+
 ### Import necessary libraries
 
 We'll import the libraries necessary for creating a `tar` archive data stream
@@ -110,12 +113,9 @@ right after you open it.)
 
 ### Open /pfs/out for writing
 
-We're opening the named pipe`/pfs/out` for writing
-so we can send it a `tar` archive stream
-with the file
-we want to output.
-Note that the named pipe has to be opened
-with write-only permissions.
+We're opening the named pipe `/pfs/out` for writing,
+so we can send it a `tar` archive stream with the files we want to output.
+Note that the named pipe has to be opened with write-only permissions.
 ```Go
 	// Open the /pfs/out pipe with write only permissons (the pachyderm spout will be reading at the other end of this)
 	// Note: it won't work if you try to open this with read, or read/write permissions
@@ -137,8 +137,7 @@ In this case,
 it'll be closed after a message is processed.
 The commit is finished after the file stream closes.
 (The `defer tw.Close()` is wrapped in an anonymous function to control when it gets run; 
-it'll run after all the code in the anonymous function is finished,
-but before it returns.)
+it'll run right before the anonymous function is finished.)
 Think of the `tw.Close()` as a `FinishCommit()`.
 
 ```Go
@@ -161,12 +160,12 @@ Think of the `tw.Close()` as a `FinishCommit()`.
 
 ### Create the message processing loop
 
-If you have trouble following this Go code,
+Once again, if you have trouble following this Go code,
 just read the text to get an idea of what you need to do.
 
 First,
 we read a message from our Kafka queue.
-Note the use of a 5-second backgrounded timeout on the read.
+Note the use of a 5-second timeout on the read.
 That's so if the data source,
 Kafka,
 hangs for some reason, 
@@ -185,16 +184,8 @@ but gives a hopefully useful error message in the logs after crashing.
 				}
 ```
 
-Then we create a filename
-and write it, 
-along with the file size
-in a file header, 
-to the `tar` stream
-we opened at the beginning
-of the file loop.
-This tar stream will be used by Pachyderm
-to create the file
-in the output repo.
+Then we write a filename and the size of the file in a file header to the `tar` stream we opened at the beginning of the file loop.
+This tar stream will be used by Pachyderm to create files in the output repo.
 ```Go
 				// give it a unique name
 				name := topic + time.Now().Format(time.RFC3339Nano)
@@ -217,8 +208,10 @@ Note the use of a timeout in case the named pipe is broken.
 The reason for this is that the other end of the spout
 (Pachyderm's code)
 has closed the named pipe at the end of the previous read. 
-Pachyderm may not have reopened the named pipe yet,
-so our code should back off if it gets an error writing to the named pipe.
+If it gets an error writing to the named pipe,
+our code should back off,
+because Pachyderm may not have reopened the named pipe yet.
+
 If you're batching the messages with longer time intervals between writes,
 this may not be necessary,
 but it is a good practice to establish for ruggedizing your code.
