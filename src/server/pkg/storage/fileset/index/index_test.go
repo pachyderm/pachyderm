@@ -45,8 +45,7 @@ func Write(tb testing.TB, chunks *chunk.Storage, rangeSize int64, fileNames []st
 	iw := NewWriter(context.Background(), chunks, rangeSize)
 	for _, fileName := range fileNames {
 		hdr := &Header{
-			hdr:  &tar.Header{Name: fileName},
-			info: &FileInfo{},
+			hdr: &tar.Header{Name: fileName},
 		}
 		require.NoError(tb, iw.WriteHeader(hdr))
 	}

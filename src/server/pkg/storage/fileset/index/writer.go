@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
-	"encoding/base64"
 	"io"
 
 	"github.com/gogo/protobuf/proto"
@@ -12,15 +11,15 @@ import (
 )
 
 const (
-	base             = "base"
-	fileInfo         = "fileInfo"
+	indexType        = 'i'
+	rangeType        = 'r'
 	defaultRangeSize = int64(chunk.MB)
 )
 
-// Header is a wrapper for a tar header with additional metadata in the form of a FileInfo.
+// Header is a wrapper for a tar header and index.
 type Header struct {
-	hdr  *tar.Header
-	info *FileInfo
+	hdr *tar.Header
+	idx *Index
 }
 
 type levelWriter struct {
@@ -29,8 +28,8 @@ type levelWriter struct {
 }
 
 // Writer is used for creating a multi-level index into a serialized FileSet.
-// Each index level consists of compressed tar stream chunks (specifically just the tar headers for the underlying index/content tar stream).
-// Each tar header in an index has additional metadata stored in a base64 encoding of a serialized FileInfo in a PAXRecords under the key defined by fileInfo.
+// Each index level consists of compressed tar stream chunks.
+// Each index tar entry has the full index in the content section.
 type Writer struct {
 	ctx       context.Context
 	chunks    *chunk.Storage
@@ -38,6 +37,7 @@ type Writer struct {
 	levels    []*levelWriter
 	rangeSize int64
 	closed    bool
+	lastPath  string
 }
 
 // NewWriter create a new Writer.
@@ -65,45 +65,50 @@ func (w *Writer) WriteHeader(hdr *Header) error {
 			tw: tar.NewWriter(cw),
 		})
 	}
-	if hdr.hdr.PAXRecords == nil {
-		hdr.hdr.PAXRecords = make(map[string]string)
+	w.lastPath = hdr.hdr.Name
+	if hdr.idx == nil {
+		hdr.idx = &Index{}
 	}
-	hdr.hdr.PAXRecords[base] = ""
+	hdr.hdr.Typeflag = indexType
 	return w.writeHeader(hdr, 0)
 }
 
 func (w *Writer) writeHeader(hdr *Header, level int) error {
 	l := w.levels[level]
-	// Start new range if past range size, and propagate header up index levels.
+	// Start new range if past range size, and propagate first header up index levels.
 	if l.cw.RangeSize() > w.rangeSize {
 		l.cw.RangeStart(w.callback(hdr, level))
 	}
-	// Serialize, write, then clear the keys that correspond to this write.
-	if err := serialize(hdr); err != nil {
-		return err
-	}
-	if err := l.tw.WriteHeader(hdr.hdr); err != nil {
-		return err
-	}
-	delete(hdr.hdr.PAXRecords, base)
-	delete(hdr.hdr.PAXRecords, fileInfo)
-	return nil
+	return w.serialize(l.tw, hdr, level)
 }
 
-func serialize(hdr *Header) error {
-	bytes, err := proto.Marshal(hdr.info)
+func (w *Writer) serialize(tw *tar.Writer, hdr *Header, level int) error {
+	// Create file range if above lowest index level.
+	if level > 0 {
+		hdr.idx.Range = &Range{}
+		hdr.idx.Range.LastPath = w.lastPath
+	}
+	// Serialize and write additional metadata.
+	idx, err := proto.Marshal(hdr.idx)
 	if err != nil {
 		return err
 	}
-	hdr.hdr.PAXRecords[fileInfo] = base64.StdEncoding.EncodeToString(bytes)
-	return nil
+	hdr.hdr.Size = int64(len(idx))
+	if err := tw.WriteHeader(hdr.hdr); err != nil {
+		return err
+	}
+	if _, err = tw.Write(idx); err != nil {
+		return err
+	}
+	return tw.Flush()
 }
 
 func (w *Writer) callback(hdr *Header, level int) func([]*chunk.DataRef) error {
 	return func(dataRefs []*chunk.DataRef) error {
+		hdr.hdr.Typeflag = rangeType
 		// Used to communicate data refs for final index level to Close function.
 		if w.closed && w.levels[level].cw.RangeCount() == 1 {
-			w.root.info.DataOps = refsToOps(dataRefs)
+			w.root.idx.DataOp = &DataOp{DataRefs: dataRefs}
 			return nil
 		}
 		// Create next index level if it does not exist.
@@ -116,7 +121,7 @@ func (w *Writer) callback(hdr *Header, level int) func([]*chunk.DataRef) error {
 			})
 		}
 		// Write index entry in next level index.
-		hdr.info.DataOps = refsToOps(dataRefs)
+		hdr.idx.DataOp = &DataOp{DataRefs: dataRefs}
 		return w.writeHeader(hdr, level+1)
 	}
 }
@@ -130,16 +135,13 @@ func (w *Writer) Close() (r io.Reader, retErr error) {
 	// a serialized header. Levels stop getting created when the top level chunk
 	// writer has been closed and the number of ranges it has is one.
 	for i := 0; i < len(w.levels); i++ {
-		level := w.levels[i]
-		if err := level.tw.Close(); err != nil {
+		l := w.levels[i]
+		if err := l.tw.Close(); err != nil {
 			return nil, err
 		}
-		if err := level.cw.Close(); err != nil {
+		if err := l.cw.Close(); err != nil {
 			return nil, err
 		}
-	}
-	if err := serialize(w.root); err != nil {
-		return nil, err
 	}
 	// Write the final index level that will be readable
 	// by the caller.
@@ -150,7 +152,7 @@ func (w *Writer) Close() (r io.Reader, retErr error) {
 			retErr = err
 		}
 	}()
-	if err := tw.WriteHeader(w.root.hdr); err != nil {
+	if err := w.serialize(tw, w.root, len(w.levels)); err != nil {
 		return nil, err
 	}
 	return buf, nil
