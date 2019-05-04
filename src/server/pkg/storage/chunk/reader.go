@@ -33,7 +33,7 @@ func newReader(ctx context.Context, objC obj.Client, prefix string, dataRefs ...
 	}
 }
 
-func (r *Reader) RangeSet(dataRefs []*DataRef) {
+func (r *Reader) NextRange(dataRefs []*DataRef) {
 	r.dataRefs = dataRefs
 	r.r = bytes.NewReader([]byte{})
 }

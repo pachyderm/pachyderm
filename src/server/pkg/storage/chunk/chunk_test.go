@@ -37,7 +37,7 @@ func TestWriteThenRead(t *testing.T) {
 		}
 		seq = randSeq(100 * MB)
 		for i := 0; i < 100; i++ {
-			w.RangeStart(cb)
+			w.StartRange(cb)
 			_, err := w.Write(seq[i*MB : (i+1)*MB])
 			require.NoError(t, err)
 		}
@@ -57,7 +57,7 @@ func TestWriteThenRead(t *testing.T) {
 	buf.Reset()
 	t.Run("ReadStream", func(t *testing.T) {
 		for _, ref := range streamRefs {
-			r.RangeSet([]*DataRef{ref})
+			r.NextRange([]*DataRef{ref})
 			_, err := io.Copy(buf, r)
 			require.NoError(t, err)
 		}
@@ -78,7 +78,7 @@ func BenchmarkWriter(b *testing.B) {
 		w := chunks.NewWriter(context.Background())
 		cb := func(dataRefs []*DataRef) error { return nil }
 		for i := 0; i < 100; i++ {
-			w.RangeStart(cb)
+			w.StartRange(cb)
 			_, err := w.Write(seq[i*MB : (i+1)*MB])
 			require.NoError(b, err)
 		}
