@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/pachyderm/pachyderm/src/client"
 	"strings"
@@ -14,14 +15,17 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 )
 
-const maxErrCount = 3
+const maxErrCount = 3 // gives all retried operations ~4.5s total to finish
 
+// pipelineOp contains all of the relevent current state for a pipeline. It's
+// used by step() to take any necessary actions
 type pipelineOp struct {
 	apiServer    *apiServer
 	pachClient   *client.APIClient
@@ -31,55 +35,62 @@ type pipelineOp struct {
 	rc           *v1.ReplicationController
 }
 
+var (
+	errRCNotFound = errors.New("RC not found")
+	errTooManyRCs = errors.New("multiple RCs found for pipeline")
+	errStaleRC    = errors.New("RC is doesn't match pipeline version")
+)
+
 // step takes 'ptr', a newly-changed pipeline pointer in etcd, and
-// 1. converts it into the full pipeline spec and RC
+// 1. retrieves its full pipeline spec and RC
 // 2. makes whatever changes are needed to bring the RC in line with the (new) spec
 // 3. updates 'ptr', if needed, to reflect the action it just took
-func (a *apiServer) step(pachClient *client.APIClient, pipelineName string, ptr *pps.EtcdPipelineInfo) error {
-	// Retrieve pipelineInfo from the spec repo
-	op := &pipelineOp{
-		apiServer:  a,
-		pachClient: pachClient,
-		ptr:        ptr,
-		name:       pipelineName,
-	}
-	if ptr.SpecCommit == nil || ptr.SpecCommit.ID == "" {
-		op.setPipelineFailure("no spec commit")
-	}
+func (a *apiServer) step(pachClient *client.APIClient, pipelineName string, keyVer, keyRev int64) error {
+	// Handle tracing (pipelineRestarted is used to maybe delete trace)
+	log.Infof("PPS master: processing event for %q", pipelineName)
 
-	// set op.ppelineInfo
-	if err := op.getPipelineInfo(); err != nil {
-		return err
+	// Retrieve pipelineInfo from the spec repo
+	op, err := a.newPipelineOp(pachClient, pipelineName)
+	if err != nil {
+		return op.setPipelineFailure(fmt.Sprintf("couldn't initialize pipeline op: %v", err))
 	}
-	// set op.rc
-	if err := op.getRC(); err != nil && !isNotFoundErr(err) {
-		return fmt.Errorf("error reading RC for %q: %v", op.name, err)
+	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
+		a.etcdClient, pipelineName, "/pps.Master/ProcessPipelineUpdate",
+		"key-version", keyVer,
+		"mod-revision", keyRev,
+		"state", op.ptr.State.String(),
+		"spec-commit", op.ptr.SpecCommit,
+	)
+	defer tracing.FinishAnySpan(span)
+	if span != nil {
+		pachClient = pachClient.WithCtx(ctx)
 	}
 
 	// Take whatever actions are needed
-	switch ptr.State {
+	switch op.ptr.State {
 	case pps.PipelineState_PIPELINE_STARTING, pps.PipelineState_PIPELINE_RESTARTING:
-		if op.rc != nil {
-			// overwrite etcdPipelineInfo with itself so that we re-process
-			// the pipeline after the RC is gone
+		if op.rc != nil && !op.rcIsFresh() {
+			// old RC is not down yet
+			log.Errorf("PPS master: restarting %q as it has an out-of-date RC", op.name)
 			return op.restartPipeline()
-		}
-		if err := op.createPipelineResources(); err != nil {
-			return err
+		} else if op.rc == nil {
+			// default: old RC (if any) is down but new RC is not up yet
+			if err := op.createPipelineResources(); err != nil {
+				return err
+			}
 		}
 		// trigger another event--once pipeline is RUNNING, step() will scale it up
-		if err := op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
-			return err
+		if op.pipelineInfo.Stopped {
+			if err := op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED); err != nil {
+				return err
+			}
+		} else {
+			if err := op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING); err != nil {
+				return err
+			}
 		}
 	case pps.PipelineState_PIPELINE_RUNNING:
-		specCommitB64, err := commitIDToB64(ptr.SpecCommit.ID)
-		if err != nil {
-			return err
-		}
-		if op.rc == nil ||
-			op.rc.ObjectMeta.Labels[hashedAuthTokenLabel] != hashAuthToken(ptr.AuthToken) ||
-			op.rc.ObjectMeta.Labels[specCommitLabel] != specCommitB64 ||
-			op.rc.ObjectMeta.Labels[pachVersionLabel] != version.PrettyVersion() {
+		if !op.rcIsFresh() {
 			return op.restartPipeline()
 		}
 		op.startPipelineMonitor()
@@ -91,12 +102,14 @@ func (a *apiServer) step(pachClient *client.APIClient, pipelineName string, ptr 
 			}
 			return op.setPipelineState(pps.PipelineState_PIPELINE_PAUSED)
 		}
-		// pipeline has been unpaused or taken out of standby--scale up
+		// default: scale up if pipeline start hasn't propagated to etcd yet
+		// Note: mostly this should do nothing, as this runs several times per job
 		if err := op.scaleUpPipeline(); err != nil {
 			return err
 		}
 	case pps.PipelineState_PIPELINE_STANDBY, pps.PipelineState_PIPELINE_PAUSED:
-		if op.rc == nil {
+		if !op.rcIsFresh() {
+			log.Errorf("PPS master: restarting %q as it has no RC", op.name)
 			if err := op.restartPipeline(); err != nil {
 				return err
 			}
@@ -104,7 +117,14 @@ func (a *apiServer) step(pachClient *client.APIClient, pipelineName string, ptr 
 		}
 		op.startPipelineMonitor()
 
-		// scale down is pause/standby hasn't been propagated to etcd yet
+		if op.ptr.State == pps.PipelineState_PIPELINE_PAUSED && !op.pipelineInfo.Stopped {
+			// StartPipeline has been called, but pipeline hasn't been started yet
+			if err := op.scaleUpPipeline(); err != nil {
+				return err
+			}
+			return op.setPipelineState(pps.PipelineState_PIPELINE_RUNNING)
+		}
+		// default: scale down if pause/standby hasn't propagated to etcd yet
 		if err := op.scaleDownPipeline(); err != nil {
 			return err
 		}
@@ -116,6 +136,29 @@ func (a *apiServer) step(pachClient *client.APIClient, pipelineName string, ptr 
 		return op.deletePipelineResources()
 	}
 	return nil
+}
+
+func (a *apiServer) newPipelineOp(pachClient *client.APIClient, pipelineName string) (*pipelineOp, error) {
+	op := &pipelineOp{
+		apiServer:  a,
+		pachClient: pachClient,
+		ptr:        &pps.EtcdPipelineInfo{},
+		name:       pipelineName,
+	}
+	// get latest EtcdPipelineInfo (events can pile up, so that the current state
+	// doesn't match the event being processed)
+	if err := a.pipelines.ReadOnly(pachClient.Ctx()).Get(pipelineName, op.ptr); err != nil {
+		return nil, fmt.Errorf("could not retrieve etcd pipeline info for %q: %v", pipelineName, err)
+	}
+	// set op.pipelineInfo
+	if err := op.getPipelineInfo(); err != nil {
+		return nil, err
+	}
+	// set op.rc
+	if err := op.getRC(); err != nil && err != errRCNotFound {
+		return nil, fmt.Errorf("error reading RC for %q: %v", op.name, err)
+	}
+	return op, nil
 }
 
 // getPipelineInfo reads the pipelineInfo associated with 'op's pipeline. This
@@ -145,20 +188,87 @@ func (op *pipelineOp) getPipelineInfo() error {
 
 // getRC reads the RC associated with 'op's pipeline. op.pipelineInfo must be
 // set already
-func (op *pipelineOp) getRC() error {
+func (op *pipelineOp) getRC() (retErr error) {
+	defer func() {
+		if retErr != nil {
+			log.Infof("PPS master: could not retrieve RC for %q: %v", op.name, retErr)
+		}
+	}()
+
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.name)
+	rcName := ppsutil.PipelineRcName(op.name, op.pipelineInfo.Version)
 	kubeClient := op.apiServer.kubeClient
 	namespace := op.apiServer.namespace
-	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(), "/kube.RC/Get",
-		"pipeline", op.name)
-	defer tracing.FinishAnySpan(span)
-	var err error
-	op.rc, err = kubeClient.CoreV1().ReplicationControllers(namespace).Get(
-		ppsutil.PipelineRcName(op.name, op.pipelineInfo.Version),
-		metav1.GetOptions{})
-	if err != nil {
-		op.rc = nil // unset; even with non-nil error Get() returns default RC
+	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
+		"/pps.Master/GetRC", "pipeline", op.name)
+	defer func(span opentracing.Span) {
+		if span != nil {
+			span.SetTag("err", fmt.Sprintf("%v", retErr))
+		}
+		tracing.FinishAnySpan(span)
+	}(span)
+
+	var errCount int
+	backoff.RetryNotify(func() error {
+		// List all RCs, so stale RCs from old pipelines are noticed and deleted
+		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
+		if err != nil && !isNotFoundErr(err) {
+			return err
+		}
+		if len(rcs.Items) == 0 {
+			return errRCNotFound
+		} else if len(rcs.Items) > 1 {
+			return errTooManyRCs
+		} else if rcs.Items[0].ObjectMeta.Name != rcName {
+			return errStaleRC
+		}
+		op.rc = &rcs.Items[0]
+		return nil
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		if err != errRCNotFound {
+			return err
+		} else if errCount++; errCount >= maxErrCount {
+			return err
+		}
+		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.name, err, d)
+		return nil
+	})
+	// definitely don't restart master--sometimes we expect to not find an RC!
+	// (e.g. when pipeline is in STARTING)
+	return nil
+}
+
+// rcIsFresh returns a boolean indicating whether op.rc has the right labels
+// corresponding to op.ptr. If this returns false, it likely means the current
+// RC is using e.g. an old spec commit or something.
+func (op *pipelineOp) rcIsFresh() bool {
+	if op.rc == nil {
+		log.Errorf("PPS master: RC for %q is nil", op.name)
+		return false
 	}
-	return err
+	rcPachVersion := op.rc.ObjectMeta.Labels[pachVersionLabel]
+	rcAuthTokenHash := op.rc.ObjectMeta.Labels[hashedAuthTokenLabel]
+	rcSpecCommit, err := commitIDFromB64(op.rc.ObjectMeta.Labels[specCommitLabel])
+	if err != nil {
+		// should never happen, since worker_rc.go sets the label. If it does,
+		// pipeline will be restarted and new label will be created
+		return false
+	}
+	switch {
+	case rcAuthTokenHash != hashAuthToken(op.ptr.AuthToken):
+		log.Infof("PPS master: auth token in %q is stale %s != %s",
+			op.name, op.rc.ObjectMeta.Labels[hashedAuthTokenLabel], hashAuthToken(op.ptr.AuthToken))
+		return false
+	case rcSpecCommit != op.ptr.SpecCommit.ID:
+		log.Infof("PPS master: spec commit in %q looks stale %s != %s",
+			op.name, rcSpecCommit, op.ptr.SpecCommit.ID)
+		return false
+	case rcPachVersion != version.PrettyVersion():
+		log.Infof("PPS master: %q is using stale pachd v%s != current v%s",
+			op.name, op.rc.ObjectMeta.Labels[pachVersionLabel], version.PrettyVersion())
+		return false
+	}
+	return true
 }
 
 func (op *pipelineOp) setPipelineState(state pps.PipelineState) error {
@@ -315,7 +425,8 @@ func (op *pipelineOp) scaleUpPipeline() (retErr error) {
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if strings.Contains(err.Error(), "try again") {
-			if err := op.getRC(); err != nil && !isNotFoundErr(err) {
+			// refresh RC--sometimes kubernetes complains that the RC is stale
+			if err := op.getRC(); err != nil && err != errRCNotFound {
 				return fmt.Errorf("error reading RC for %q: %v", op.name, err)
 			}
 		} else if errCount++; errCount >= maxErrCount {
@@ -358,7 +469,8 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if strings.Contains(err.Error(), "try again") {
-			if err := op.getRC(); err != nil && !isNotFoundErr(err) {
+			// refresh RC--sometimes kubernetes complains that the RC is stale
+			if err := op.getRC(); err != nil && err != errRCNotFound {
 				return fmt.Errorf("error reading RC for %q: %v", op.name, err)
 			}
 		} else if errCount++; errCount >= maxErrCount {

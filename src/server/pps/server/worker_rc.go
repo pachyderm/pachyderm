@@ -207,14 +207,24 @@ func hashAuthToken(token string) string {
 	return base64.RawURLEncoding.EncodeToString(hashBytes[:])
 }
 
-// commitiDToB64 converts 'id' from a hex string to a base64-string (to shorten
+// commitIDFromB64 converts 'id' from a base64-string (in the RC label) to a hex
+// string that can be compared with its stored format
+func commitIDFromB64(label string) (string, error) {
+	bts, err := base64.RawURLEncoding.DecodeString(label)
+	if err != nil {
+		return "", fmt.Errorf("couldn't decode commit ID %q as hex: %v", label, err)
+	}
+	return hex.EncodeToString(bts), nil
+}
+
+// commitIDToB64 converts 'id' from a hex string to a base64-string (to shorten
 // it, so that it fits in the RC label)
 func commitIDToB64(id string) (string, error) {
 	bts, err := hex.DecodeString(id)
 	if err != nil {
 		return "", fmt.Errorf("couldn't decode commit ID %q as hex: %v", id, err)
 	}
-	return string(base64.RawURLEncoding.EncodeToString(bts)), nil
+	return base64.RawURLEncoding.EncodeToString(bts), nil
 }
 
 func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {

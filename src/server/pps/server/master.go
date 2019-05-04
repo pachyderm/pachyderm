@@ -63,6 +63,8 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 
+		// TODO(msteffen) requestly only keys, since pipeline_controller.go reads
+		// fresh values for each event anyway
 		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch()
 		if err != nil {
 			return fmt.Errorf("error creating watch: %+v", err)
@@ -90,23 +92,7 @@ func (a *apiServer) master() {
 			defer kubePipelineWatch.Stop()
 		}
 
-		// Watch for new pipeline creates/updates
-		var (
-			span          opentracing.Span
-			oldCtx        = ctx
-			oldPachClient = pachClient
-		)
-		defer func() {
-			// Finish any dangling span
-			// Note: must wrap 'tracing.FinishAnySpan(span)' in closure so that
-			// 'span' is dereferenced after the "for" loop below runs (it's nil now)
-			tracing.FinishAnySpan(span) // finish any dangling span
-		}()
 		for {
-			// finish span from previous pipeline operation
-			tracing.FinishAnySpan(span)
-			span = nil
-
 			select {
 			case event := <-pipelineWatcher.Watch():
 				if event.Err != nil {
@@ -114,28 +100,8 @@ func (a *apiServer) master() {
 				}
 				switch event.Type {
 				case watch.EventPut:
-					var pipelineName string
-					var pipelinePtr pps.EtcdPipelineInfo
-					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
-						return err
-					}
-					log.Infof("PPS master: pipeline %q: -> %s", pipelineName, pipelinePtr.State)
-
-					// Handle tracing (pipelineRestarted is used to maybe delete trace)
-					if span, ctx = extended.AddPipelineSpanToAnyTrace(oldCtx,
-						a.etcdClient, pipelineName, "/pps.Master/ProcessPipelineUpdate",
-						"key-version", event.Ver,
-						"mod-revision", event.Rev,
-						"new-state", pipelinePtr.State.String(),
-						"new-spec-commit", pipelinePtr.SpecCommit,
-					); span != nil {
-						pachClient = oldPachClient.WithCtx(ctx)
-					} else {
-						pachClient = oldPachClient
-					}
-
 					// Create/Modify/Delete pipeline resources as needed per new state
-					if err := a.step(pachClient, pipelineName, &pipelinePtr); err != nil {
+					if err := a.step(pachClient, string(event.Key), event.Ver, event.Rev); err != nil {
 						return err
 					}
 				}
