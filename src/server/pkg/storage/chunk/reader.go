@@ -33,6 +33,7 @@ func newReader(ctx context.Context, objC obj.Client, prefix string, dataRefs ...
 	}
 }
 
+// NextRange sets the next range for the reader.
 func (r *Reader) NextRange(dataRefs []*DataRef) {
 	r.dataRefs = dataRefs
 	r.r = bytes.NewReader([]byte{})
