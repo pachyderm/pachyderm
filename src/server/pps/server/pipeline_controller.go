@@ -52,7 +52,8 @@ func (a *apiServer) step(pachClient *client.APIClient, pipelineName string, keyV
 	// Retrieve pipelineInfo from the spec repo
 	op, err := a.newPipelineOp(pachClient, pipelineName)
 	if err != nil {
-		return op.setPipelineFailure(fmt.Sprintf("couldn't initialize pipeline op: %v", err))
+		return a.setPipelineFailure(pachClient.Ctx(), pipelineName,
+			fmt.Sprintf("couldn't initialize pipeline op: %v", err))
 	}
 	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
 		a.etcdClient, pipelineName, "/pps.Master/ProcessPipelineUpdate",
