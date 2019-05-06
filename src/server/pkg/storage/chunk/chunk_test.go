@@ -4,22 +4,10 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"math/rand"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
-
-var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-// generates random sequence of data (n is number of bytes)
-func randSeq(n int) []byte {
-	b := make([]rune, n)
-	for i := range b {
-		b[i] = letters[rand.Intn(len(letters))]
-	}
-	return []byte(string(b))
-}
 
 func TestWriteThenRead(t *testing.T) {
 	objC, chunks := LocalStorage(t)
@@ -35,7 +23,7 @@ func TestWriteThenRead(t *testing.T) {
 			finalDataRefs = append(finalDataRefs, dataRefs...)
 			return nil
 		}
-		seq = randSeq(100 * MB)
+		seq = RandSeq(100 * MB)
 		for i := 0; i < 100; i++ {
 			w.StartRange(cb)
 			_, err := w.Write(seq[i*MB : (i+1)*MB])
@@ -71,7 +59,7 @@ func BenchmarkWriter(b *testing.B) {
 		require.NoError(b, chunks.DeleteAll(context.Background()))
 		require.NoError(b, objC.Delete(context.Background(), Prefix))
 	}()
-	seq := randSeq(100 * MB)
+	seq := RandSeq(100 * MB)
 	b.SetBytes(100 * MB)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
