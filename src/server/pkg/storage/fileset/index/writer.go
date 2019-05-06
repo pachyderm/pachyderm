@@ -59,7 +59,7 @@ func (w *Writer) WriteHeader(hdr *Header) error {
 	if w.root == nil {
 		w.root = hdr
 		cw := w.chunks.NewWriter(w.ctx)
-		cw.RangeStart(w.callback(hdr, 0))
+		cw.StartRange(w.callback(hdr, 0))
 		w.levels = append(w.levels, &levelWriter{
 			cw: cw,
 			tw: tar.NewWriter(cw),
@@ -77,7 +77,7 @@ func (w *Writer) writeHeader(hdr *Header, level int) error {
 	l := w.levels[level]
 	// Start new range if past range size, and propagate first header up index levels.
 	if l.cw.RangeSize() > w.rangeSize {
-		l.cw.RangeStart(w.callback(hdr, level))
+		l.cw.StartRange(w.callback(hdr, level))
 	}
 	return w.serialize(l.tw, hdr, level)
 }
@@ -114,7 +114,7 @@ func (w *Writer) callback(hdr *Header, level int) func([]*chunk.DataRef) error {
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
 			cw := w.chunks.NewWriter(w.ctx)
-			cw.RangeStart(w.callback(hdr, level+1))
+			cw.StartRange(w.callback(hdr, level+1))
 			w.levels = append(w.levels, &levelWriter{
 				cw: cw,
 				tw: tar.NewWriter(cw),

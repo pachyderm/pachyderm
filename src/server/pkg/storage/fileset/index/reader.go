@@ -14,16 +14,17 @@ import (
 )
 
 type levelReader struct {
-	cr io.ReadCloser
+	cr *chunk.Reader
 	tr *tar.Reader
 }
 
 // Reader is used for reading a multi-level index.
 type Reader struct {
-	ctx    context.Context
-	chunks *chunk.Storage
-	prefix string
-	levels []*levelReader
+	ctx       context.Context
+	chunks    *chunk.Storage
+	prefix    string
+	levels    []*levelReader
+	currLevel int
 }
 
 // NewReader create a new Reader.
@@ -39,15 +40,19 @@ func NewReader(ctx context.Context, chunks *chunk.Storage, r io.Reader, prefix s
 // Next gets the next header in the index.
 func (r *Reader) Next() (*Header, error) {
 	for {
-		l := r.levels[len(r.levels)-1]
+		l := r.levels[r.currLevel]
 		hdr, err := l.tr.Next()
 		if err != nil {
-			if err == io.EOF && len(r.levels) > 1 {
-				if err := l.cr.Close(); err != nil {
+			if err == io.EOF {
+				// Potentially not done, return to the index level above.
+				if r.currLevel > 0 {
+					r.currLevel--
+					continue
+				}
+				// We are done, so we should close our reader.
+				if err := r.Close(); err != nil {
 					return nil, err
 				}
-				r.levels = r.levels[:len(r.levels)-1]
-				continue
 			}
 			return nil, err
 		}
@@ -71,21 +76,35 @@ func (r *Reader) Next() (*Header, error) {
 		// then we are done.
 		cmpSize := int64(math.Min(float64(len(hdr.Name)), float64(len(r.prefix))))
 		if strings.Compare(hdr.Name[:cmpSize], r.prefix[:cmpSize]) > 0 {
-			for i := 1; i < len(r.levels); i++ {
-				if err := l.cr.Close(); err != nil {
-					return nil, err
-				}
+			if err := r.Close(); err != nil {
+				return nil, err
 			}
-			r.levels = r.levels[:1]
 			return nil, io.EOF
 		}
-		// Setup next level.
-		cr := r.chunks.NewReader(r.ctx, fullHdr.idx.DataOp.DataRefs)
-		r.levels = append(r.levels, &levelReader{
-			cr: cr,
-			tr: tar.NewReader(cr),
-		})
+		// Traverse into indexed tar stream.
+		r.currLevel++
+		// Create next level reader if it does not exist.
+		if r.currLevel == len(r.levels) {
+			r.levels = append(r.levels, &levelReader{
+				cr: r.chunks.NewReader(r.ctx),
+			})
+		}
+		// Set the next range.
+		r.levels[r.currLevel].cr.NextRange(fullHdr.idx.DataOp.DataRefs)
+		r.levels[r.currLevel].tr = tar.NewReader(r.levels[r.currLevel].cr)
 	}
+}
+
+// Close closes the reader.
+func (r *Reader) Close() error {
+	for i := 1; i < len(r.levels); i++ {
+		if err := r.levels[i].cr.Close(); err != nil {
+			return err
+		}
+	}
+	r.levels = r.levels[:1]
+	r.currLevel = 0
+	return nil
 }
 
 func deserialize(tr *tar.Reader, hdr *tar.Header) (*Header, error) {
