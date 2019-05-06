@@ -1,7 +1,7 @@
 syntax = "proto3";
 
-package pfs;
-option go_package = "github.com/pachyderm/pachyderm/src/client/pfs";
+package pfs_1_8;
+option go_package = "github.com/pachyderm/pachyderm/src/client/admin/1_8/pfs";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -9,7 +9,7 @@ import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
 
-import "client/auth/auth.proto";
+import "client/admin/1_8/auth/auth.proto";
 
 ////  PFS Data structures (stored in etcd)
 
@@ -65,18 +65,18 @@ message RepoInfo {
 
   // Set by ListRepo and InspectRepo if Pachyderm's auth system is active, but
   // not stored in etcd. To set a user's auth scope for a repo, use the
-  // Pachyderm Auth API (in src/client/auth/auth.proto)
+  // Pachyderm Auth API (in src/client/admin/1_8/auth/auth.proto)
   RepoAuthInfo auth_info = 6;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
 // by ListRepo and InspectRepo but not persisted in etcd. It's used by the
 // Pachyderm dashboard to render repo access appropriately. To set a user's auth
-// scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto)
+// scope for a repo, use the Pachyderm Auth API (in src/client/admin/1_8/auth/auth.proto)
 message RepoAuthInfo {
   // The callers access level to the relevant repo (e.g. may be OWNER even if
   // the user isn't an OWNER of the repo, if they're an admin for the cluster)
-  auth.Scope access_level = 1;
+  auth_1_8.Scope access_level = 1;
 }
 
 // Commit is a reference to a commit (e.g. the collection of branches and the
@@ -94,19 +94,9 @@ message CommitRange {
   Commit upper = 2;
 }
 
-// CommitProvenance keeps track of where (i.e. which branch) a certain commit
-// originated from. A commit's provenance consists of the commits of
-// the commits which are in its causal history.
-message CommitProvenance {
-  Commit commit = 1;
-  Branch branch = 2;
-}
-
 // CommitInfo is the main data structure representing a commit in etcd
 message CommitInfo {
-  reserved 6, 10;
   Commit commit = 1;
-  Branch branch = 15;
   // description is a user-provided script describing this commit
   string description = 8;
   Commit parent_commit = 2;
@@ -115,8 +105,11 @@ message CommitInfo {
   google.protobuf.Timestamp finished = 4;
   uint64 size_bytes = 5;
 
-  // the commits and their original branches on which this commit is provenant
-  repeated CommitProvenance provenance = 16;
+  // Commits on which this commit is provenant. provenance[i] is a commit in
+  // branch_provenance[i] (a branch name, and one of the branches on which this
+  // commit's branch is provenant)
+  repeated Commit provenance = 6;
+  repeated Branch branch_provenance = 10;
 
   // ReadyProvenance is the number of provenant commits which have been
   // finished, if ReadyProvenance == len(Provenance) then the commit is ready
@@ -204,21 +197,19 @@ enum CommitState {
 }
 
 message StartCommitRequest {
-  reserved 2;
   // Parent.ID may be empty in which case the commit that Branch points to will be used as the parent.
   // If branch is empty, or if branch does not exist, the commit will have no parent.
   Commit parent = 1;
   // description is a user-provided string describing this commit
   string description = 4;
   string branch = 3;
-  repeated CommitProvenance provenance = 5;
+  repeated Commit provenance = 2;
 }
 
 message BuildCommitRequest {
-  reserved 2;
   Commit parent = 1;
   string branch = 4;
-  repeated CommitProvenance provenance = 6;
+  repeated Commit provenance = 2;
   Object tree = 3;
   // ID sets the ID of the created commit.
   string ID = 5;
@@ -514,8 +505,6 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  // Fsck does a file system consistency check for pfs
-  rpc Fsck(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message PutObjectRequest {
