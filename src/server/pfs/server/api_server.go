@@ -149,6 +149,17 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return &types.Empty{}, nil
 }
 
+func (a *apiServer) Fsck(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+
+	err := a.driver.fsck(a.env.GetPachClient(ctx))
+	if err != nil {
+		return nil, err
+	}
+	return &types.Empty{}, nil
+}
+
 // StartCommitInTransaction is identical to StartCommit except that it can run
 // inside an existing etcd STM transaction.  This is not an RPC.  The target
 // commit can be specified but is optional.  This is so that the transaction can

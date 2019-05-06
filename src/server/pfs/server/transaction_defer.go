@@ -16,9 +16,6 @@ type TransactionDefer struct {
 
 	// Branches to propagate when the transaction completes
 	propagateBranches []*pfs.Branch
-
-	// Scratch spaces in etcd that need to be deleted
-	scratchCommits []*pfs.Commit
 }
 
 func (a *apiServer) NewTransactionDefer(stm col.STM) txnenv.PfsTransactionDefer {
@@ -29,24 +26,13 @@ func (a *apiServer) NewTransactionDefer(stm col.STM) txnenv.PfsTransactionDefer 
 }
 
 // Run performs any final tasks and cleanup tasks in the STM, such as
-// propagating branches or deleting scratch space
+// propagating branches
 func (t *TransactionDefer) Run() error {
-	err := t.d.propagateCommits(t.stm, t.propagateBranches)
-	if err != nil {
-		return err
-	}
-
-	return t.d.deleteScratches(t.stm, t.scratchCommits)
+	return t.d.propagateCommits(t.stm, t.propagateBranches)
 }
 
 // PropagateBranch marks a branch as needing propagation once the transaction
 // successfully ends.  This will be performed by the Run function.
-func (t *TransactionDefer) PropagateBranch(branch *pfs.Branch) {
+func (t *TransactionDefer) PropagateCommit(branch *pfs.Branch) {
 	t.propagateBranches = append(t.propagateBranches, commit)
-}
-
-// DeleteScratch marks the commit scratch space as needing deletion once the
-// transaction successfully ends.  This will be performed by the Run function.
-func (t *TransactionDefer) DeleteScratch(commit *pfs.Commit) {
-	t.scratchCommits = append(t.scratchCommits, commit)
 }
