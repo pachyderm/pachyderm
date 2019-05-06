@@ -75,7 +75,7 @@ repo@master^:/file`, because the history flag actually looks for changes
 to the file, and the file need not change in every commit. Similar to the
 ancestry syntax above, the history flag requires traversing through
 a linked list of commits, and thus can be expensive. You can get back the
-full history of a file by passing `-1` to the history flag.
+full history of a file by passing `all` to the history flag.
 
 
 ## Pipelines
@@ -99,7 +99,7 @@ Historical versions of pipelines can also be returned with a `--history`
 flag passed to `pachctl list pipeline` for example:
 
 ```sh
-$ pachctl list pipeline --history -1
+$ pachctl list pipeline --history all
 NAME      VERSION INPUT     CREATED     STATE / LAST JOB
 Pipeline2 1       input2:/* 4 hours ago running / success
 Pipeline1 3       input1:/* 4 hours ago running / success
@@ -117,4 +117,4 @@ versions of all pipelines. You can focus it on a single pipeline by passing `-p
 pipeline` and you can focus it on a previous version of that pipeline by
 passing `-p pipeline^`. Furthermore you can get jobs from multiple versions of
 pipelines by passing the `--history` flag, for example: `pachctl list job
---history -1` will get you all jobs from all versions of all pipelines.
+--history all` will get you all jobs from all versions of all pipelines.

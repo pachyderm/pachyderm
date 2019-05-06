@@ -100,7 +100,7 @@ If the job fails, the output commit will not be populated with data.`,
 	var pipelineName string
 	var outputCommitStr string
 	var inputCommitStrs []string
-	var history int64
+	var history string
 	listJob := &cobra.Command{
 		Short: "Return info about jobs.",
 		Long:  "Return info about jobs.",
@@ -108,8 +108,11 @@ If the job fails, the output commit will not be populated with data.`,
 # Return all jobs
 $ {{alias}}
 
-# Return all jobs in pipeline foo
+# Return all jobs from the most recent version of pipeline foo
 $ {{alias}} -p foo
+
+# Retrun all jobs from all version of pipeline foo
+$ {{alias}} -p foo --history all
 
 # Return all jobs whose input commits include foo@XXX and bar@YYY
 $ {{alias}} -i foo@XXX -i bar@YYY
@@ -121,7 +124,10 @@ $ {{alias}} -p foo -i bar@YYY`,
 			if err != nil {
 				return err
 			}
-
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
+			}
 			var outputCommit *pfs.Commit
 			if outputCommitStr != "" {
 				outputCommit, err = cmdutil.ParseCommit(outputCommitStr)
@@ -162,7 +168,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
 	listJob.Flags().AddFlagSet(rawFlags)
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
-	listJob.Flags().Int64Var(&history, "history", 0, "Return jobs from historical versions of pipelines.")
+	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -603,6 +609,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
+			}
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
@@ -642,7 +652,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output 'create pipeline' compatibility specs.")
 	listPipeline.Flags().AddFlagSet(rawFlags)
 	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
-	listPipeline.Flags().Int64Var(&history, "history", 0, "Return revision history for pipelines.")
+	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
 	var all bool
