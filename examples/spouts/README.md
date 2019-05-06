@@ -29,5 +29,5 @@ It would show an experienced Go programmer the basic process of using a spout.
 collects all the incoming mail and analyzes it for positive or negative sentiment,
 sorting the emails into repos with scoring information attached.
 
-It is based on the [email sentiment analysis bot](https://github.com/shanglun/SentimentAnalyzer) documented in [this article](https://www.toptal.com/java/email-sentiment-analysis-bot) by [Shanglung Wang](https://www.linkedin.com/in/shanglun/).
+It is based on the [email sentiment analysis bot](https://github.com/shanglun/SentimentAnalyzer) documented in [this article](https://www.toptal.com/java/email-sentiment-analysis-bot) by Shanglung Wang.
 
