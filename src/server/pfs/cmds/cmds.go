@@ -1247,12 +1247,10 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	filesPut *gosync.Map) (retErr error) {
 	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
 	// to the server
-	path = filepath.Join(path)
+	path = filepath.Clean(path)
 	for strings.HasPrefix(path, "../") {
 		path = strings.TrimPrefix(path, "../")
 	}
-
-	fmt.Printf("path: %s\n", path)
 
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
