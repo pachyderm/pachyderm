@@ -1995,8 +1995,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 
 		// 7) Traverse affected repos and rewrite all branches so that no branch
 		// points to a deleted commit
-		var shortestBranch *pfs.Branch
-		var shortestBranchLen = maxInt
+		var affectedBranches []*pfs.BranchInfo
 		repos := d.repos.ReadWrite(stm)
 		for repo := range affectedRepos {
 			repoInfo := &pfs.RepoInfo{}
@@ -2008,10 +2007,7 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 				// rewrite branch
 				var branchInfo pfs.BranchInfo
 				if err := d.branches(brokenBranch.Repo.Name).ReadWrite(stm).Update(brokenBranch.Name, &branchInfo, func() error {
-					if len(branchInfo.Provenance) < shortestBranchLen {
-						shortestBranchLen = len(branchInfo.Provenance)
-						shortestBranch = branchInfo.Branch
-					}
+					prevHead := branchInfo.Head
 					for {
 						if branchInfo.Head == nil {
 							return nil // no commits left in branch
@@ -2021,6 +2017,9 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 							break
 						}
 						branchInfo.Head = headCommitInfo.ParentCommit
+					}
+					if prevHead != nil && prevHead.ID != branchInfo.Head.ID {
+						affectedBranches = append(affectedBranches, &branchInfo)
 					}
 					return err
 				}); err != nil && !col.IsErrNotFound(err) {
@@ -2051,9 +2050,14 @@ func (d *driver) deleteCommit(pachClient *client.APIClient, userCommit *pfs.Comm
 		// 8) propagate the changes to 'branch' and its subvenance. This may start
 		// new HEAD commits downstream, if the new branch heads haven't been
 		// processed yet
-		// TODO(msteffen) propagate all changed branches? Use heap to topologically
-		// sort them?
-		return d.propagateCommit(stm, shortestBranch)
+		sort.Slice(affectedBranches, func(i, j int) bool { return len(affectedBranches[i].Provenance) < len(affectedBranches[j].Provenance) })
+		for _, afBranch := range affectedBranches {
+			err = d.propagateCommit(stm, afBranch.Branch)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	}); err != nil {
 		return fmt.Errorf("error rewriting commit graph: %v", err)
 	}
