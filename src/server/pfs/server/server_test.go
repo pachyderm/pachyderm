@@ -354,6 +354,51 @@ func TestRegressionPutFileIntoOpenCommit(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPutFileDirectoryTraversal(t *testing.T) {
+	var fileInfos []*pfs.FileInfo
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("repo"))
+
+	_, err := client.StartCommit("repo", "master")
+	require.NoError(t, err)
+
+	writer, err := client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "../foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.YesError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	writer, err = client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "foo/../../bar", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.YesError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	writer, err = client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "foo/../bar", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.NoError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	err = client.Close()
+	require.NoError(t, err)
+}
+
 func TestCreateInvalidBranchName(t *testing.T) {
 
 	client := GetPachClient(t)
