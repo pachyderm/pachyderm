@@ -491,25 +491,27 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	commitInfos, err := pachClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
-	if err != nil {
-		return fmt.Errorf("could not list output commits of %q to finish them: %v", pipelineName, err)
-	}
+	return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+		commitInfos, err := superUserClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
+		if err != nil {
+			return fmt.Errorf("could not list output commits of %q to finish them: %v", pipelineName, err)
+		}
 
-	var finishCommitErr error
-	for _, ci := range commitInfos {
-		if ci.Finished != nil {
-			continue // nothing needs to be done
+		var finishCommitErr error
+		for _, ci := range commitInfos {
+			if ci.Finished != nil {
+				continue // nothing needs to be done
+			}
+			if _, err := superUserClient.PfsAPIClient.FinishCommit(superUserClient.Ctx(),
+				&pfs.FinishCommitRequest{
+					Commit: client.NewCommit(pipelineName, ci.Commit.ID),
+					Empty:  true,
+				}); err != nil && finishCommitErr == nil {
+				finishCommitErr = err
+			}
 		}
-		if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
-			&pfs.FinishCommitRequest{
-				Commit: client.NewCommit(pipelineName, ci.Commit.ID),
-				Empty:  true,
-			}); err != nil && finishCommitErr == nil {
-			finishCommitErr = err
-		}
-	}
-	return finishCommitErr
+		return finishCommitErr
+	})
 }
 
 func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
