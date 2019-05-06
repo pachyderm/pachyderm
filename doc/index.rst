@@ -36,7 +36,6 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     fundamentals/distributed_computing
     fundamentals/incrementality
     fundamentals/spouts
-    fundamentals/s3gateway
 
 .. toctree::
     :maxdepth: 1
