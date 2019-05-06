@@ -59,13 +59,13 @@ func newWriter(ctx context.Context, objC obj.Client, prefix string) *Writer {
 	}
 }
 
-// RangeStart specifies the start of a range within the byte stream that is meaningful to the caller.
-// When this range has ended (by calling RangeStart again or Close) and all of the necessary chunks are written, the
+// StartRange specifies the start of a range within the byte stream that is meaningful to the caller.
+// When this range has ended (by calling StartRange again or Close) and all of the necessary chunks are written, the
 // callback given during initialization will be called with DataRefs that can be used for accessing that range.
-func (w *Writer) RangeStart(cb func([]*DataRef) error) {
+func (w *Writer) StartRange(cb func([]*DataRef) error) {
 	// Finish prior range.
 	if w.dataRefs != nil {
-		w.rangeFinish()
+		w.finishRange()
 	}
 	// Start new range.
 	w.cbs = append(w.cbs, cb)
@@ -74,7 +74,7 @@ func (w *Writer) RangeStart(cb func([]*DataRef) error) {
 	w.rangeCount++
 }
 
-func (w *Writer) rangeFinish() {
+func (w *Writer) finishRange() {
 	lastDataRef := w.dataRefs[len(w.dataRefs)-1]
 	lastDataRef.SizeBytes = int64(w.buf.Len()) - lastDataRef.OffsetBytes
 	data := w.buf.Bytes()[lastDataRef.OffsetBytes:w.buf.Len()]
@@ -167,6 +167,6 @@ func (w *Writer) put() error {
 // Close closes the writer and flushes the remaining bytes to a chunk and finishes
 // the final range.
 func (w *Writer) Close() error {
-	w.rangeFinish()
+	w.finishRange()
 	return w.put()
 }
