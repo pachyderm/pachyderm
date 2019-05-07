@@ -600,7 +600,65 @@ func TestMultipleInputsFromTheSameRepoDifferentBranches(t *testing.T) {
 	require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
 	require.Equal(t, "data A\ndata B\n", buffer.String())
 }
+func TestRunPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
 
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestRunPipeline_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	branchA := "branchA"
+	branchB := "branchB"
+
+	pipeline := tu.UniqueString("pipeline")
+	// Creating this pipeline should error, because the two inputs are
+	// from the same repo but they don't specify different names.
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			"cat /pfs/branch-a/file >> /pfs/out/file",
+			"cat /pfs/branch-b/file >> /pfs/out/file",
+			"echo ran-pipeline",
+		},
+		nil,
+		client.NewCrossInput(
+			client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", false),
+			client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", false),
+		),
+		"",
+		false,
+	))
+
+	commitA, err := c.StartCommit(dataRepo, branchA)
+	require.NoError(t, err)
+	c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
+	c.FinishCommit(dataRepo, commitA.ID)
+
+	commitB, err := c.StartCommit(dataRepo, branchB)
+	require.NoError(t, err)
+	c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
+	c.FinishCommit(dataRepo, commitB.ID)
+
+	iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
+	require.NoError(t, err)
+	commits := collectCommitInfos(t, iter)
+	require.Equal(t, 1, len(commits))
+	buffer := bytes.Buffer{}
+	require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
+	require.Equal(t, "data A\ndata B\n", buffer.String())
+
+	commitM, err := c.StartCommit(dataRepo, "master")
+	require.NoError(t, err)
+	c.FinishCommit(dataRepo, commitM.ID)
+
+	require.NoError(t, c.RunPipeline(pipeline, nil))
+}
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

@@ -974,7 +974,7 @@ func (d *driver) makeCommit(
 				}
 			}
 			if provenanceCount > 0 && treeRef == nil {
-				return fmt.Errorf("cannot start a commit on an output branch")
+				// return fmt.Errorf("cannot start a commit on an output branch")
 			}
 			// Point 'branch' at the new commit
 			branchInfo.Name = branch // set in case 'branch' is new
@@ -1017,6 +1017,7 @@ func (d *driver) makeCommit(
 			// missing/invalid commit ID
 			return nil, fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
 		}
+<<<<<<< HEAD
 	}
 
 	// 1. Write 'newCommit' to 'openCommits' collection OR
@@ -1035,6 +1036,32 @@ func (d *driver) makeCommit(
 			for i, record := range records {
 				if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
 					return nil, err
+=======
+		// 1. Write 'newCommit' to 'openCommits' collection OR
+		// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
+		//    "FinishCommit case" above)
+		if treeRef != nil || records != nil {
+			if records != nil {
+				parentTree, err := d.getTreeForCommit(pachClient, parent)
+				if err != nil {
+					return err
+				}
+				tree, err = parentTree.Copy()
+				if err != nil {
+					return err
+				}
+				for i, record := range records {
+					if err := d.applyWrite(recordFiles[i], record, tree); err != nil {
+						return err
+					}
+				}
+				if err := tree.Hash(); err != nil {
+					return err
+				}
+				treeRef, err = hashtree.PutHashTree(pachClient, tree)
+				if err != nil {
+					return err
+>>>>>>> allow creating commits on output branches
 				}
 			}
 			if err := tree.Hash(); err != nil {
@@ -1309,17 +1336,23 @@ func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch, provenanc
 
 	// Iterate through downstream branches and determine which need a new commit.
 nextSubvBranch:
+<<<<<<< HEAD
 	for _, branchData := range subvBranchData {
 		branchInfo := branchData.branchInfo
 		branch := branchInfo.Branch
 		repo := branch.Repo
+=======
+	for _, subvBranchInfo := range subvBranchInfos {
+		subvBranch := subvBranchInfo.Branch
+		repo := subvBranch.Repo
+>>>>>>> allow creating commits on output branches
 		commits := d.commits(repo.Name).ReadWrite(stm)
 		branches := d.branches(repo.Name).ReadWrite(stm)
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
 		commitProvMap := make(map[string]*pfs.CommitProvenance)
-		for _, provBranch := range branchInfo.Provenance {
+		for _, provBranch := range subvBranchInfo.Provenance {
 			// get the branch info from the provenance branch
 			provBranchInfo := &pfs.BranchInfo{}
 			if err := d.branches(provBranch.Repo.Name).ReadWrite(stm).Get(provBranch.Name, provBranchInfo); err != nil && !col.IsErrNotFound(err) {
@@ -1391,16 +1424,16 @@ nextSubvBranch:
 		// output commit would have the same provenance as the existing HEAD
 		// commit. If so, a new output commit would be a duplicate, so don't create
 		// it.
-		if branchInfo.Head != nil {
+		if subvBranchInfo.Head != nil {
 			// get the info for the branch's HEAD commit
-			branchHeadInfo := &pfs.CommitInfo{}
-			if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
-				return pfsserver.ErrCommitNotFound{branchInfo.Head}
+			subvBranchHeadInfo := &pfs.CommitInfo{}
+			if err := commits.Get(subvBranchInfo.Head.ID, subvBranchHeadInfo); err != nil {
+				return pfsserver.ErrCommitNotFound{subvBranchInfo.Head}
 			}
 			headIsSubset := false
 			for _, v := range commitProvMap {
 				matched := false
-				for _, c := range branchHeadInfo.Provenance {
+				for _, c := range subvBranchHeadInfo.Provenance {
 					if c.Commit.ID == v.Commit.ID && c.Branch.Name == v.Branch.Name {
 						matched = true
 					}
@@ -1410,9 +1443,36 @@ nextSubvBranch:
 					break
 				}
 			}
-			if len(branchHeadInfo.Provenance) >= len(commitProvMap) && headIsSubset {
+			if len(subvBranchHeadInfo.Provenance) >= len(commitProvMap) && headIsSubset {
 				// existing HEAD commit is the same new output commit would be; don't
 				// create new commit
+				continue nextSubvBranch
+			}
+
+			// in the case that this is the same branch that is being propagated, we can simply update the head of the branch with the correct provenance
+			if subvBranch.Repo.Name == branch.Repo.Name && subvBranch.Name == branch.Name {
+				// Set provenance and upstream subvenance (appendSubvenance needs
+				// newCommitInfo.ParentCommit to extend the correct subvenance range)
+				newProvenance := make([]*pfs.CommitProvenance, 0, len(commitProvMap))
+				for _, prov := range commitProvMap {
+					// set provenance of 'newCommit'
+					newProvenance = append(newProvenance, prov)
+					// update subvenance of 'prov'
+					provCommitInfo := &pfs.CommitInfo{}
+					if err := d.commits(prov.Commit.Repo.Name).ReadWrite(stm).Update(prov.Commit.ID, provCommitInfo, func() error {
+						appendSubvenance(provCommitInfo, subvBranchHeadInfo)
+						return nil
+					}); err != nil {
+						return err
+					}
+				}
+				// finally create open 'commit'
+				if err := d.commits(subvBranch.Repo.Name).ReadWrite(stm).Update(subvBranchInfo.Head.ID, subvBranchHeadInfo, func() error {
+					subvBranchHeadInfo.Provenance = newProvenance
+					return nil
+				}); err != nil {
+					return err
+				}
 				continue nextSubvBranch
 			}
 		}
@@ -1435,7 +1495,7 @@ nextSubvBranch:
 
 		// *All checks passed* start a new output commit in 'subvBranch'
 		newCommit := &pfs.Commit{
-			Repo: branch.Repo,
+			Repo: subvBranch.Repo,
 			ID:   uuid.NewWithoutDashes(),
 		}
 		newCommitInfo := &pfs.CommitInfo{
@@ -1444,8 +1504,8 @@ nextSubvBranch:
 		}
 
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
-		newCommitInfo.ParentCommit = branchInfo.Head
-		if branchInfo.Head != nil {
+		newCommitInfo.ParentCommit = subvBranchInfo.Head
+		if subvBranchInfo.Head != nil {
 			parentCommitInfo := &pfs.CommitInfo{}
 			if err := commits.Update(newCommitInfo.ParentCommit.ID, parentCommitInfo, func() error {
 				parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
@@ -1454,11 +1514,11 @@ nextSubvBranch:
 				return err
 			}
 		}
-		branchInfo.Head = newCommit
-		branchInfo.Name = branch.Name // set in case 'branch' is new
-		branchInfo.Branch = branch    // set in case 'branch' is new
-		newCommitInfo.Branch = branch
-		if err := branches.Put(branch.Name, branchInfo); err != nil {
+		subvBranchInfo.Head = newCommit
+		subvBranchInfo.Name = subvBranch.Name // set in case 'branch' is new
+		subvBranchInfo.Branch = subvBranch    // set in case 'branch' is new
+		newCommitInfo.Branch = subvBranch
+		if err := branches.Put(subvBranch.Name, subvBranchInfo); err != nil {
 			return err
 		}
 
