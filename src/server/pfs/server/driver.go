@@ -1085,6 +1085,12 @@ func (d *driver) makeCommit(
 
 	// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
 	for _, prov := range newCommitProv {
+		// resolve the provenance
+		var err error
+		prov, err = d.resolveCommitProvenance(stm, prov)
+		if err != nil {
+			return err
+		}
 		newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 		provCommitInfo := &pfs.CommitInfo{}
 		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCommitInfo, func() error {
@@ -1396,12 +1402,8 @@ nextSubvBranch:
 			headIsSubset := false
 			for _, v := range commitProvMap {
 				matched := false
-				for _, p := range subvBranchHeadInfo.Provenance {
-					prov, err := d.resolveCommitProvenance(stm, p)
-					if err != nil {
-						return err
-					}
-					if prov.Commit.ID == v.Commit.ID && prov.Branch.Name == v.Branch.Name {
+				for _, c := range subvBranchHeadInfo.Provenance {
+					if c.Commit.ID == v.Commit.ID && c.Branch.Name == v.Branch.Name {
 						matched = true
 					}
 				}
