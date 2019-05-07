@@ -1804,22 +1804,12 @@ func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
 	return path.Join(commit.Repo.Name, commit.ID)
 }
 
-func (d *driver) checkFilePath(path string) error {
-	path = filepath.Clean(path)
-	if strings.HasPrefix(path, "../") {
-		return fmt.Errorf("path (%s) invalid: traverses above root", path)
-	}
-	return nil
-}
-
 // scratchFilePrefix returns an etcd prefix that's used to temporarily
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchFilePrefix(file *pfs.File) (string, error) {
-	if err := d.checkFilePath(file.Path); err != nil {
-		return "", err
-	}
-	return path.Join(d.scratchCommitPrefix(file.Commit), file.Path), nil
+	cleanedPath := path.Clean("/" + file.Path)
+	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
 }
 
 func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error {
@@ -1872,9 +1862,6 @@ func (d *driver) putFile(pachClient *client.APIClient, file *pfs.File, delimiter
 	records := &pfs.PutFileRecords{}
 	if overwriteIndex != nil && overwriteIndex.Index == 0 {
 		records.Tombstone = true
-	}
-	if err := d.checkFilePath(file.Path); err != nil {
-		return nil, err
 	}
 	if err := hashtree.ValidatePath(file.Path); err != nil {
 		return nil, err
@@ -2127,9 +2114,6 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 		return err
 	}
 	if err := d.checkIsAuthorized(pachClient, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
-		return err
-	}
-	if err := d.checkFilePath(dst.Path); err != nil {
 		return err
 	}
 	if err := hashtree.ValidatePath(dst.Path); err != nil {

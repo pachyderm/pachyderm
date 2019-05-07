@@ -359,6 +359,11 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 	client := GetPachClient(t)
 	require.NoError(t, client.CreateRepo("repo"))
 
+	fileInfoPath := func(f interface{}) interface{} {
+		fileInfo := f.(*pfs.FileInfo)
+		return fileInfo.File.Path
+	}
+
 	_, err := client.StartCommit("repo", "master")
 	require.NoError(t, err)
 
@@ -367,22 +372,22 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 	_, err = writer.PutFile("repo", "master", "../foo", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	err = writer.Close()
-	require.YesError(t, err)
+	require.NoError(t, err)
 
 	fileInfos, err = client.ListFile("repo", "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 0, len(fileInfos))
+	require.ElementsEqualUnderFn(t, []string{"/foo"}, fileInfos, fileInfoPath)
 
 	writer, err = client.NewPutFileClient()
 	require.NoError(t, err)
 	_, err = writer.PutFile("repo", "master", "foo/../../bar", strings.NewReader("foo\n"))
 	require.NoError(t, err)
 	err = writer.Close()
-	require.YesError(t, err)
+	require.NoError(t, err)
 
 	fileInfos, err = client.ListFile("repo", "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 0, len(fileInfos))
+	require.ElementsEqualUnderFn(t, []string{"/foo", "/bar"}, fileInfos, fileInfoPath)
 
 	writer, err = client.NewPutFileClient()
 	require.NoError(t, err)
@@ -393,7 +398,7 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 
 	fileInfos, err = client.ListFile("repo", "master", "")
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fileInfos))
+	require.ElementsEqualUnderFn(t, []string{"/foo", "/bar"}, fileInfos, fileInfoPath)
 
 	err = client.Close()
 	require.NoError(t, err)
