@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -28,10 +27,10 @@ import (
 )
 
 const (
-	pipelineNameLabel    = "pipelineName"
-	pachVersionLabel     = "version"
-	specCommitLabel      = "specCommit"
-	hashedAuthTokenLabel = "authTokenHash"
+	pipelineNameLabel         = "pipelineName"
+	pachVersionAnnotation     = "version"
+	specCommitAnnotation      = "specCommit"
+	hashedAuthTokenAnnotation = "authTokenHash"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -200,31 +199,15 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	return podSpec, nil
 }
 
-// we don't want to expose pipeline auth tokens, so we hash them before
-// returning them to use as a label
+// We don't want to expose pipeline auth tokens, so we hash it. This will be
+// visible to any user with k8s cluster access
+// Note: This hash shouldn't be used for authentication in any way. We just use
+// this to detect if an auth token has been added/changed
+// Note: ptr.AuthToken is a pachyderm-generated UUID, and wouldn't appear in any
+// rainbow tables
 func hashAuthToken(token string) string {
-	hashBytes := sha256.Sum256([]byte(token))
-	return base64.RawURLEncoding.EncodeToString(hashBytes[:])
-}
-
-// commitIDFromB64 converts 'id' from a base64-string (in the RC label) to a hex
-// string that can be compared with its stored format
-func commitIDFromB64(label string) (string, error) {
-	bts, err := base64.RawURLEncoding.DecodeString(label)
-	if err != nil {
-		return "", fmt.Errorf("couldn't decode commit ID %q as hex: %v", label, err)
-	}
-	return hex.EncodeToString(bts), nil
-}
-
-// commitIDToB64 converts 'id' from a hex string to a base64-string (to shorten
-// it, so that it fits in the RC label)
-func commitIDToB64(id string) (string, error) {
-	bts, err := hex.DecodeString(id)
-	if err != nil {
-		return "", fmt.Errorf("couldn't decode commit ID %q as hex: %v", id, err)
-	}
-	return base64.RawURLEncoding.EncodeToString(bts), nil
+	h := sha256.Sum256([]byte(token))
+	return base64.RawURLEncoding.EncodeToString(h[:])
 }
 
 func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
@@ -253,17 +236,10 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 	service := pipelineInfo.Service
 	schedulingSpec := pipelineInfo.SchedulingSpec
 	podSpec := pipelineInfo.PodSpec
-	specCommitB64, err := commitIDToB64(ptr.SpecCommit.ID)
-	if err != nil {
-		return nil, err
-	}
 
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels[pipelineNameLabel] = pipelineName
-	labels[pachVersionLabel] = version.PrettyVersion()
-	labels[specCommitLabel] = specCommitB64
-	labels[hashedAuthTokenLabel] = hashAuthToken(ptr.AuthToken)
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -394,7 +370,12 @@ func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pp
 		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: a.imagePullSecret})
 	}
 
-	annotations := map[string]string{"pipelineName": pipelineName}
+	annotations := map[string]string{
+		pipelineNameLabel:         pipelineName,
+		pachVersionAnnotation:     version.PrettyVersion(),
+		specCommitAnnotation:      ptr.SpecCommit.ID,
+		hashedAuthTokenAnnotation: hashAuthToken(ptr.AuthToken),
+	}
 	if a.iamRole != "" {
 		annotations["iam.amazonaws.com/role"] = a.iamRole
 	}

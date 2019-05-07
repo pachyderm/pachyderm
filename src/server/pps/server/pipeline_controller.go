@@ -247,18 +247,13 @@ func (op *pipelineOp) rcIsFresh() bool {
 		log.Errorf("PPS master: RC for %q is nil", op.name)
 		return false
 	}
-	rcPachVersion := op.rc.ObjectMeta.Labels[pachVersionLabel]
-	rcAuthTokenHash := op.rc.ObjectMeta.Labels[hashedAuthTokenLabel]
-	rcSpecCommit, err := commitIDFromB64(op.rc.ObjectMeta.Labels[specCommitLabel])
-	if err != nil {
-		// should never happen, since worker_rc.go sets the label. If it does,
-		// pipeline will be restarted and new label will be created
-		return false
-	}
+	rcPachVersion := op.rc.ObjectMeta.Annotations[pachVersionAnnotation]
+	rcAuthTokenHash := op.rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
+	rcSpecCommit := op.rc.ObjectMeta.Annotations[specCommitAnnotation]
 	switch {
 	case rcAuthTokenHash != hashAuthToken(op.ptr.AuthToken):
 		log.Infof("PPS master: auth token in %q is stale %s != %s",
-			op.name, op.rc.ObjectMeta.Labels[hashedAuthTokenLabel], hashAuthToken(op.ptr.AuthToken))
+			op.name, rcAuthTokenHash, hashAuthToken(op.ptr.AuthToken))
 		return false
 	case rcSpecCommit != op.ptr.SpecCommit.ID:
 		log.Infof("PPS master: spec commit in %q looks stale %s != %s",
@@ -266,7 +261,7 @@ func (op *pipelineOp) rcIsFresh() bool {
 		return false
 	case rcPachVersion != version.PrettyVersion():
 		log.Infof("PPS master: %q is using stale pachd v%s != current v%s",
-			op.name, op.rc.ObjectMeta.Labels[pachVersionLabel], version.PrettyVersion())
+			op.name, rcPachVersion, version.PrettyVersion())
 		return false
 	}
 	return true
@@ -361,10 +356,10 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		commitInfos, err := superUserClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
+	return op.apiServer.sudo(pachClient, func(superUserClient *client.APIClient) error {
+		commitInfos, err := superUserClient.ListCommit(op.name, op.pipelineInfo.OutputBranch, "", 0)
 		if err != nil {
-			return fmt.Errorf("could not list output commits of %q to finish them: %v", pipelineName, err)
+			return fmt.Errorf("could not list output commits of %q to finish them: %v", op.name, err)
 		}
 
 		var finishCommitErr error
@@ -374,7 +369,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 			}
 			if _, err := superUserClient.PfsAPIClient.FinishCommit(superUserClient.Ctx(),
 				&pfs.FinishCommitRequest{
-					Commit: client.NewCommit(pipelineName, ci.Commit.ID),
+					Commit: client.NewCommit(op.name, ci.Commit.ID),
 					Empty:  true,
 				}); err != nil && finishCommitErr == nil {
 				finishCommitErr = err
