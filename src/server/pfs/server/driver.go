@@ -2053,23 +2053,23 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 				// doesn't exist yet--nothing to update
 				return fmt.Errorf("error updating branch %v/%v: %v", brokenBranch.Repo.Name, brokenBranch.Name, err)
 			}
-			return err
-		}
-		// Update repo size if this is the master branch
-		if branchInfo.Name == "master" {
-			if branchInfo.Head != nil {
-				headCommitInfo, err := d.resolveCommit(txnCtx.Stm(), branchInfo.Head)
-				if err != nil {
+
+			// Update repo size if this is the master branch
+			if branchInfo.Name == "master" {
+				if branchInfo.Head != nil {
+					headCommitInfo, err := d.resolveCommit(txnCtx.Stm(), branchInfo.Head)
+					if err != nil {
+						return err
+					}
+					repoInfo.SizeBytes = headCommitInfo.SizeBytes
+				} else {
+					// No HEAD commit, set the repo size to 0
+					repoInfo.SizeBytes = 0
+				}
+
+				if err := repos.Put(repo, repoInfo); err != nil {
 					return err
 				}
-				repoInfo.SizeBytes = headCommitInfo.SizeBytes
-			} else {
-				// No HEAD commit, set the repo size to 0
-				repoInfo.SizeBytes = 0
-			}
-
-			if err := repos.Put(repo, repoInfo); err != nil {
-				return err
 			}
 		}
 	}
@@ -2079,18 +2079,9 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// processed yet
 	sort.Slice(affectedBranches, func(i, j int) bool { return len(affectedBranches[i].Provenance) < len(affectedBranches[j].Provenance) })
 	for _, afBranch := range affectedBranches {
-		err = d.propagateCommit(txnCtx.Stm(), afBranch.Branch)
-		if err != nil {
-			return err
-		}
+		txnCtx.PfsDefer().PropagateCommit(afBranch.Branch)
 	}
 
-	// 8) propagate the changes to 'branch' and its subvenance. This may start
-	// new HEAD commits downstream, if the new branch heads haven't been
-	// processed yet
-	// TODO(msteffen) propagate all changed branches? Use heap to topologically
-	// sort them?
-	txnCtx.PfsDefer().PropagateCommit(shortestBranch)
 	return nil
 }
 
