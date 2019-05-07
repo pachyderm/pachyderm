@@ -1396,8 +1396,12 @@ nextSubvBranch:
 			headIsSubset := false
 			for _, v := range commitProvMap {
 				matched := false
-				for _, c := range subvBranchHeadInfo.Provenance {
-					if c.Commit.ID == v.Commit.ID && c.Branch.Name == v.Branch.Name {
+				for _, p := range subvBranchHeadInfo.Provenance {
+					prov, err := d.resolveCommitProvenance(stm, p)
+					if err != nil {
+						return err
+					}
+					if prov.Commit.ID == v.Commit.ID && prov.Branch.Name == v.Branch.Name {
 						matched = true
 					}
 				}

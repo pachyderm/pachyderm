@@ -2456,7 +2456,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 
-	_, err := pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
+	commit, err := pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Parent: &pfs.Commit{
 			Repo: &pfs.Repo{
 				Name: request.Pipeline.Name,
@@ -2464,6 +2464,13 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		},
 		Branch:     "master",
 		Provenance: request.Provenance,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = pfsClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
+		Commit: commit,
 	})
 	if err != nil {
 		return nil, err

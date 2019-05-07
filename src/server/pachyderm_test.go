@@ -615,8 +615,6 @@ func TestRunPipeline(t *testing.T) {
 	branchB := "branchB"
 
 	pipeline := tu.UniqueString("pipeline")
-	// Creating this pipeline should error, because the two inputs are
-	// from the same repo but they don't specify different names.
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
@@ -658,7 +656,21 @@ func TestRunPipeline(t *testing.T) {
 	err = c.FinishCommit(dataRepo, commitM.ID)
 	require.NoError(t, err)
 
+	// we should have two jobs
+	ji, err := c.ListJob(pipeline, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(ji))
+	// now run the pipeline
 	require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{&pfs.CommitProvenance{Commit: commitM}}))
+	// running the pipeline should create a new job
+	require.NoError(t, backoff.Retry(func() error {
+		jobInfos, err := c.ListJob(pipeline, nil, nil)
+		require.NoError(t, err)
+		if len(jobInfos) != 3 {
+			return fmt.Errorf("expected 3 jobs, got %d", len(jobInfos))
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
 }
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
