@@ -1789,7 +1789,8 @@ func (d *driver) scratchCommitPrefix(commit *pfs.Commit) string {
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchFilePrefix(ctx context.Context, file *pfs.File) (string, error) {
-	return path.Join(d.scratchCommitPrefix(file.Commit), file.Path), nil
+	cleanedPath := path.Clean("/" + file.Path)
+	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
 }
 
 func (d *driver) filePathFromEtcdPath(etcdPath string) string {
