@@ -34,5 +34,5 @@ func (t *TransactionDefer) Run() error {
 // PropagateBranch marks a branch as needing propagation once the transaction
 // successfully ends.  This will be performed by the Run function.
 func (t *TransactionDefer) PropagateCommit(branch *pfs.Branch) {
-	t.propagateBranches = append(t.propagateBranches, commit)
+	t.propagateBranches = append(t.propagateBranches, branch)
 }

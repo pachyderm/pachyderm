@@ -1249,47 +1249,75 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 // starts downstream output commits (which trigger PPS jobs) when new input
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
-func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch) error {
-	if branch == nil {
-		return fmt.Errorf("cannot propagate nil branch")
+func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch) error {
+
+	type BranchKey struct {
+		repo   string
+		branch string
 	}
 
-	// TODO: dedupe branches
-	// TODO: thread through branches
-
-	// 'subvBranchInfos' is the collection of downstream branches that may get a
-	// new commit. Populate subvBranchInfo
-	var subvBranchInfos []*pfs.BranchInfo
-	branchInfo := &pfs.BranchInfo{}
-	if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
-		return err
+	type BranchData struct {
+		branchInfo *pfs.BranchInfo
+		head       *pfs.CommitInfo
 	}
-	subvBranchInfos = append(subvBranchInfos, branchInfo) // add 'branch' itself
-	for _, subvBranch := range branchInfo.Subvenance {
-		subvBranchInfo := &pfs.BranchInfo{}
-		if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvBranchInfo); err != nil {
+
+	branchMap := map[BranchKey]*BranchData{}
+	addBranch := func(b *pfs.Branch, head *pfs.CommitInfo) (*BranchData, error) {
+		key := BranchKey{repo: b.Repo.Name, branch: b.Name}
+		if branchData, ok := branchMap[key]; ok {
+			return branchData, nil
+		}
+		branchData := &BranchData{head: head, branchInfo: &pfs.BranchInfo{}}
+		if err := d.branches(b.Repo.Name).ReadWrite(stm).Get(b.Name, branchData.branchInfo); err != nil {
+			return nil, err
+		}
+		if head == nil && branchData.branchInfo.Head != nil {
+			branchData.head = &pfs.CommitInfo{}
+			if err := d.commits(b.Repo.Name).ReadWrite(stm).Get(branchData.branchInfo.Head.ID, branchData.head); err != nil {
+				return nil, err
+			}
+		}
+		branchMap[key] = branchData
+		return branchData, nil
+	}
+
+	for _, branch := range branches {
+		if branch == nil {
+			return fmt.Errorf("cannot propagate nil branch")
+		}
+		branchData, err := addBranch(branch, nil)
+		if err != nil {
 			return err
 		}
-		subvBranchInfos = append(subvBranchInfos, subvBranchInfo)
-	}
-
-	var head *pfs.CommitInfo
-	if branchInfo.Head != nil {
-		head = &pfs.CommitInfo{}
-		if err := d.commits(branch.Repo.Name).ReadWrite(stm).Get(branchInfo.Head.ID, head); err != nil {
-			return err
+		for _, subvBranch := range branchData.branchInfo.Subvenance {
+			// TODO: we might need multiple HEADs for a subv branch, does it matter?
+			_, err = addBranch(subvBranch, branchData.head)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	// Sort subvBranchInfos so that upstream branches are processed before their
+	// 'subvBranchData' is the collection of downstream branches that may get a
+	// new commit. Populate subvBranchData
+	var subvBranchData []*BranchData
+	for _, branchData := range branchMap {
+		subvBranchData = append(subvBranchData, branchData)
+	}
+
+	// Sort subvBranchData so that upstream branches are processed before their
 	// descendants. This guarantees that if branch B is provenant on branch A, we
 	// create a new commit in A before creating a new commit in B provenant on the
 	// (new) HEAD of A.
-	sort.Slice(subvBranchInfos, func(i, j int) bool { return len(subvBranchInfos[i].Provenance) < len(subvBranchInfos[j].Provenance) })
+	sort.Slice(subvBranchData, func(i, j int) bool {
+		return len(subvBranchData[i].branchInfo.Provenance) < len(subvBranchData[j].branchInfo.Provenance)
+	})
 
 	// Iterate through downstream branches and determine which need a new commit.
 nextSubvBranch:
-	for _, branchInfo := range subvBranchInfos {
+	for _, branchData := range subvBranchData {
+		head := branchData.head
+		branchInfo := branchData.branchInfo
 		branch := branchInfo.Branch
 		repo := branch.Repo
 		commits := d.commits(repo.Name).ReadWrite(stm)
