@@ -655,9 +655,10 @@ func TestRunPipeline(t *testing.T) {
 
 	commitM, err := c.StartCommit(dataRepo, "master")
 	require.NoError(t, err)
-	c.FinishCommit(dataRepo, commitM.ID)
+	err = c.FinishCommit(dataRepo, commitM.ID)
+	require.NoError(t, err)
 
-	require.NoError(t, c.RunPipeline(pipeline, nil))
+	require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{&pfs.CommitProvenance{Commit: commitM}}))
 }
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
