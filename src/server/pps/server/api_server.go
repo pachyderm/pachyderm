@@ -2236,6 +2236,9 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	if err := a.jobs.ReadOnly(ctx).GetByIndex(ppsdb.JobsPipelineIndex, request.Pipeline, jobPtr, col.DefaultOptions, func(jobID string) error {
 		eg.Go(func() error {
 			_, err := a.DeleteJob(ctx, &pps.DeleteJobRequest{Job: &pps.Job{ID: jobID}})
+			if isNotFoundErr(err) {
+				return nil
+			}
 			return err
 		})
 		return nil
