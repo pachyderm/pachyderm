@@ -5,7 +5,7 @@ gpt2.download_gpt2(model_name=model_name)   # model is saved into current direct
 
 sess = gpt2.start_tf_sess()
 gpt2.finetune(sess,
-              'shakespeare.txt',
+              'got.txt',
               model_name=model_name,
               steps=1000)   # steps is max number of training steps
 
