@@ -1340,7 +1340,7 @@ nextSubvBranch:
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
-			// Since we want the provennce to be a transitive closure, we
+			// Since we want the provenance to be a transitive closure, we
 			// need to inspect provBranchInfo.HEAD's provenance. In most cases,
 			// Every commit in there will be the HEAD of some other provBranchInfo.
 			// But there are a few exceptional scenarios where this is not the case.
