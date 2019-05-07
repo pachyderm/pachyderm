@@ -1258,43 +1258,47 @@ func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch) error {
 
 	type BranchData struct {
 		branchInfo *pfs.BranchInfo
-		head       *pfs.CommitInfo
+		heads      []*pfs.CommitInfo // List of head commits being propagated that this branch is provenant on
 	}
 
 	branchMap := map[BranchKey]*BranchData{}
-	addBranch := func(b *pfs.Branch, head *pfs.CommitInfo) (*BranchData, error) {
-		key := BranchKey{repo: b.Repo.Name, branch: b.Name}
-		if branchData, ok := branchMap[key]; ok {
-			return branchData, nil
+	addBranch := func(bi *pfs.BranchInfo, head *pfs.CommitInfo) {
+		key := BranchKey{repo: bi.Branch.Repo.Name, branch: bi.Branch.Name}
+		branchData, ok := branchMap[key]
+		if !ok {
+			branchData = &BranchData{branchInfo: bi}
+			branchMap[key] = branchData
 		}
-		branchData := &BranchData{head: head, branchInfo: &pfs.BranchInfo{}}
-		if err := d.branches(b.Repo.Name).ReadWrite(stm).Get(b.Name, branchData.branchInfo); err != nil {
-			return nil, err
+		if head != nil {
+			branchData.heads = append(branchData.heads, head)
 		}
-		if head == nil && branchData.branchInfo.Head != nil {
-			branchData.head = &pfs.CommitInfo{}
-			if err := d.commits(b.Repo.Name).ReadWrite(stm).Get(branchData.branchInfo.Head.ID, branchData.head); err != nil {
-				return nil, err
-			}
-		}
-		branchMap[key] = branchData
-		return branchData, nil
 	}
 
 	for _, branch := range branches {
 		if branch == nil {
 			return fmt.Errorf("cannot propagate nil branch")
 		}
-		branchData, err := addBranch(branch, nil)
-		if err != nil {
+
+		branchInfo := &pfs.BranchInfo{}
+		if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
 			return err
 		}
-		for _, subvBranch := range branchData.branchInfo.Subvenance {
-			// TODO: we might need multiple HEADs for a subv branch, does it matter?
-			_, err = addBranch(subvBranch, branchData.head)
-			if err != nil {
+
+		var head *pfs.CommitInfo
+		if branchInfo.Head != nil {
+			head = &pfs.CommitInfo{}
+			if err := d.commits(branch.Repo.Name).ReadWrite(stm).Get(branchInfo.Head.ID, head); err != nil {
 				return err
 			}
+		}
+
+		addBranch(branchInfo, head)
+		for _, subvBranch := range branchInfo.Subvenance {
+			subvInfo := &pfs.BranchInfo{}
+			if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvInfo); err != nil {
+				return err
+			}
+			addBranch(subvInfo, head)
 		}
 	}
 
@@ -1316,7 +1320,6 @@ func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch) error {
 	// Iterate through downstream branches and determine which need a new commit.
 nextSubvBranch:
 	for _, branchData := range subvBranchData {
-		head := branchData.head
 		branchInfo := branchData.branchInfo
 		branch := branchInfo.Branch
 		repo := branch.Repo
@@ -1363,7 +1366,7 @@ nextSubvBranch:
 				}
 			}
 		}
-		if head != nil {
+		for _, head := range branchData.heads {
 			for _, commitProv := range head.Provenance {
 				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
 			}
