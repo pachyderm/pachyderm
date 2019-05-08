@@ -27,9 +27,6 @@ type PfsWrites interface {
 
 	CreateBranch(*pfs.CreateBranchRequest) error
 	DeleteBranch(*pfs.DeleteBranchRequest) error
-
-	CopyFile(*pfs.CopyFileRequest) error
-	DeleteFile(*pfs.DeleteFileRequest) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -144,9 +141,6 @@ type PfsTransactionServer interface {
 
 	CreateBranchInTransaction(*TransactionContext, *pfs.CreateBranchRequest) error
 	DeleteBranchInTransaction(*TransactionContext, *pfs.DeleteBranchRequest) error
-
-	CopyFileInTransaction(*TransactionContext, *pfs.CopyFileRequest) error
-	DeleteFileInTransaction(*TransactionContext, *pfs.DeleteFileRequest) error
 }
 
 // TransactionEnv contains the APIServer instances for each subsystem that may
@@ -257,16 +251,6 @@ func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) erro
 	return t.txnCtx.txnEnv.pfsServer.DeleteBranchInTransaction(t.txnCtx, req)
 }
 
-func (t *directTransaction) CopyFile(original *pfs.CopyFileRequest) error {
-	req := proto.Clone(original).(*pfs.CopyFileRequest)
-	return t.txnCtx.txnEnv.pfsServer.CopyFileInTransaction(t.txnCtx, req)
-}
-
-func (t *directTransaction) DeleteFile(original *pfs.DeleteFileRequest) error {
-	req := proto.Clone(original).(*pfs.DeleteFileRequest)
-	return t.txnCtx.txnEnv.pfsServer.DeleteFileInTransaction(t.txnCtx, req)
-}
-
 func (t *directTransaction) SetScope(original *auth.SetScopeRequest) (*auth.SetScopeResponse, error) {
 	req := proto.Clone(original).(*auth.SetScopeRequest)
 	return t.txnCtx.txnEnv.authServer.SetScopeInTransaction(t.txnCtx, req)
@@ -326,16 +310,6 @@ func (t *appendTransaction) CreateBranch(req *pfs.CreateBranchRequest) error {
 
 func (t *appendTransaction) DeleteBranch(req *pfs.DeleteBranchRequest) error {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteBranch: req})
-	return err
-}
-
-func (t *appendTransaction) CopyFile(req *pfs.CopyFileRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CopyFile: req})
-	return err
-}
-
-func (t *appendTransaction) DeleteFile(req *pfs.DeleteFileRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteFile: req})
 	return err
 }
 

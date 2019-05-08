@@ -154,10 +154,6 @@ func transactionRequests(
 			line = sprintCreateBranch(request.CreateBranch)
 		} else if request.DeleteBranch != nil {
 			line = sprintDeleteBranch(request.DeleteBranch)
-		} else if request.CopyFile != nil {
-			line = sprintCopyFile(request.CopyFile)
-		} else if request.DeleteFile != nil {
-			line = sprintDeleteFile(request.DeleteFile)
 		} else {
 			line = "ERROR (unknown request type)"
 		}

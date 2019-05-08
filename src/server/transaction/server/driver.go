@@ -165,12 +165,6 @@ func (d *driver) runTransaction(ctx context.Context, stm col.STM, info *transact
 		} else if request.DeleteBranch != nil {
 			err = directTxn.DeleteBranch(request.DeleteBranch)
 			response = &transaction.TransactionResponse{}
-		} else if request.CopyFile != nil {
-			err = directTxn.CopyFile(request.CopyFile)
-			response = &transaction.TransactionResponse{}
-		} else if request.DeleteFile != nil {
-			err = directTxn.DeleteFile(request.DeleteFile)
-			response = &transaction.TransactionResponse{}
 		} else if request.DeleteAll != nil {
 			// TODO: extend this to delete everything through PFS, PPS, Auth and
 			// update the client DeleteAll call to use only this, then remove unused

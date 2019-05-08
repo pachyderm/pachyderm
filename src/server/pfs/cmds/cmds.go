@@ -843,13 +843,11 @@ $ {{alias}} repo branch -i http://host/path`,
 			}
 			defer c.Close()
 
-			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.CopyFile(
-					srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
-					destFile.Commit.Repo.Name, destFile.Commit.ID, destFile.Path,
-					overwrite,
-				)
-			})
+			return c.CopyFile(
+				srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
+				destFile.Commit.Repo.Name, destFile.Commit.ID, destFile.Path,
+				overwrite,
+			)
 		}),
 	}
 	copyFile.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite the existing content of the file, either from previous commits or previous calls to 'put file' within this commit.")
@@ -1121,9 +1119,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			defer c.Close()
 
-			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				return c.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
-			})
+			return c.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))

@@ -42,8 +42,6 @@ The following pachctl commands are supported in transactions:
   delete commit
   create branch
   delete branch
-  copy file
-  delete file
 
 A transaction can be started with 'start transaction', after which the above
 commands will be stored in the transaction rather than immediately executed.

@@ -396,23 +396,11 @@ func (a *apiServer) PutFile(putFileServer pfs.API_PutFileServer) (retErr error) 
 	return a.driver.putFiles(pachClient, s)
 }
 
-// CopyFileInTransaction is identical to CopyFile except that it can run inside
-// an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) CopyFileInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.CopyFileRequest,
-) error {
-	return a.driver.copyFile(txnCtx, request.Src, request.Dst, request.Overwrite)
-}
-
 // CopyFile implements the protobuf pfs.CopyFile RPC
 func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
-
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.CopyFile(request)
-	}); err != nil {
+	if err := a.driver.copyFile(a.env.GetPachClient(ctx), request.Src, request.Dst, request.Overwrite); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
@@ -549,23 +537,13 @@ func (a *apiServer) DiffFile(ctx context.Context, request *pfs.DiffFileRequest) 
 	}, nil
 }
 
-// DeleteFileInTransaction is identical to DeleteFile except that it can run
-// inside an existing etcd STM transaction.  This is not an RPC.
-func (a *apiServer) DeleteFileInTransaction(
-	txnCtx *txnenv.TransactionContext,
-	request *pfs.DeleteFileRequest,
-) error {
-	return a.driver.deleteFile(txnCtx, request.File)
-}
-
 // DeleteFile implements the protobuf pfs.DeleteFile RPC
 func (a *apiServer) DeleteFile(ctx context.Context, request *pfs.DeleteFileRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return txn.DeleteFile(request)
-	}); err != nil {
+	err := a.driver.deleteFile(a.env.GetPachClient(ctx), request.File)
+	if err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

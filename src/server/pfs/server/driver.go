@@ -2363,10 +2363,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		return err
 	}
 	for i, file := range files {
-		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-			return d.upsertPutFileRecords(stm, file, putFileRecords[i])
-		})
-		if err != nil {
+		if err := d.upsertPutFileRecords(pachClient, file, putFileRecords[i]); err != nil {
 			return err
 		}
 	}
@@ -2637,11 +2634,11 @@ func headerDirToPutFileRecords(tree hashtree.HashTree, path string, node *hashtr
 	return pfr, nil // TODO(msteffen) put something real here
 }
 
-func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst *pfs.File, overwrite bool) error {
-	if err := d.checkIsAuthorizedInTransaction(txnCtx, src.Commit.Repo, auth.Scope_READER); err != nil {
+func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.File, overwrite bool) error {
+	if err := d.checkIsAuthorized(pachClient, src.Commit.Repo, auth.Scope_READER); err != nil {
 		return err
 	}
-	if err := d.checkIsAuthorizedInTransaction(txnCtx, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
+	if err := d.checkIsAuthorized(pachClient, dst.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	if err := d.checkFilePath(dst.Path); err != nil {
@@ -2655,7 +2652,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 		branch = dst.Commit.ID
 	}
 	var dstIsOpenCommit bool
-	if ci, err := d.resolveCommit(txnCtx.Stm(), dst.Commit); err != nil {
+	if ci, err := d.inspectCommit(pachClient, dst.Commit, pfs.CommitState_STARTED); err != nil {
 		if !isNoHeadErr(err) {
 			return err
 		}
@@ -2669,7 +2666,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 	var records []*pfs.PutFileRecords // used if 'dst' is finished (atomic 'put file')
 	if overwrite {
 		if dstIsOpenCommit {
-			if err := d.deleteFile(txnCtx, dst); err != nil {
+			if err := d.deleteFile(pachClient, dst); err != nil {
 				return err
 			}
 		} else {
@@ -2677,8 +2674,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 			records = append(records, &pfs.PutFileRecords{Tombstone: true})
 		}
 	}
-	// TODO: do a consistent read within the STM here
-	srcTree, err := d.getTreeForFile(txnCtx.Client(), src)
+	srcTree, err := d.getTreeForFile(pachClient, src)
 	if err != nil {
 		return err
 	}
@@ -2727,12 +2723,9 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 		// Either upsert 'record' to etcd (if 'dst' is in an open commit) or add it
 		// to 'records' to be put at the end
 		if dstIsOpenCommit {
-			// TODO: this may create a lot of operations on the STM and large
-			// recursive copies may fail due to too many etcd operations.
-			err = d.upsertPutFileRecords(txnCtx.Stm(), target, record)
-			if err != nil {
-				return err
-			}
+			eg.Go(func() error {
+				return d.upsertPutFileRecords(pachClient, target, record)
+			})
 		} else {
 			paths = append(paths, target.Path)
 			records = append(records, record)
@@ -2746,7 +2739,12 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 	}
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
-		_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
+		ctx := pachClient.Ctx()
+		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			txnCtx := d.txnEnv.NewContext(ctx, stm)
+			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
+			return err
+		})
 		return err
 	}
 	return nil
@@ -3528,15 +3526,15 @@ func (d *driver) diffFile(pachClient *client.APIClient, newFile *pfs.File, oldFi
 	return newFileInfos, oldFileInfos, nil
 }
 
-func (d *driver) deleteFile(txnCtx *txnenv.TransactionContext, file *pfs.File) error {
-	if err := d.checkIsAuthorizedInTransaction(txnCtx, file.Commit.Repo, auth.Scope_WRITER); err != nil {
+func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error {
+	if err := d.checkIsAuthorized(pachClient, file.Commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
 	branch := ""
 	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
 		branch = file.Commit.ID
 	}
-	commitInfo, err := d.resolveCommit(txnCtx.Stm(), file.Commit)
+	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
 	if err != nil {
 		return err
 	}
@@ -3544,11 +3542,16 @@ func (d *driver) deleteFile(txnCtx *txnenv.TransactionContext, file *pfs.File) e
 		if branch == "" {
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
-		_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
+		ctx := pachClient.Ctx()
+		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			txnCtx := d.txnEnv.NewContext(ctx, stm)
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
+			return err
+		})
 		return err
 	}
 
-	return d.upsertPutFileRecords(txnCtx.Stm(), file, &pfs.PutFileRecords{Tombstone: true})
+	return d.upsertPutFileRecords(pachClient, file, &pfs.PutFileRecords{Tombstone: true})
 }
 
 func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
@@ -3571,7 +3574,7 @@ func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 // To check that a key exists in etcd, we assert that its CreateRevision
 // is greater than zero.
 func (d *driver) upsertPutFileRecords(
-	stm col.STM,
+	pachClient *client.APIClient,
 	file *pfs.File,
 	newRecords *pfs.PutFileRecords,
 ) error {
@@ -3580,30 +3583,34 @@ func (d *driver) upsertPutFileRecords(
 		return err
 	}
 
-	commitsCol := d.openCommits.ReadWrite(stm)
-	var commit pfs.Commit
-	err = commitsCol.Get(file.Commit.ID, &commit)
-	if err != nil {
-		return err
-	}
-	// Dumb check to make sure the unmarshalled value exists (and matches the current ID)
-	// to denote that the current commit is indeed open
-	if commit.ID != file.Commit.ID {
-		return fmt.Errorf("commit %v is not open", file.Commit.ID)
-	}
-	recordsCol := d.putFileRecords.ReadWrite(stm)
-	var existingRecords pfs.PutFileRecords
-	return recordsCol.Upsert(prefix, &existingRecords, func() error {
-		if newRecords.Tombstone {
-			existingRecords.Tombstone = true
-			existingRecords.Records = nil
+	ctx := pachClient.Ctx()
+	_, err = col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		commitsCol := d.openCommits.ReadWrite(stm)
+		var commit pfs.Commit
+		err := commitsCol.Get(file.Commit.ID, &commit)
+		if err != nil {
+			return err
 		}
-		existingRecords.Split = newRecords.Split
-		existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
-		existingRecords.Header = newRecords.Header
-		existingRecords.Footer = newRecords.Footer
-		return nil
+		// Dumb check to make sure the unmarshalled value exists (and matches the current ID)
+		// to denote that the current commit is indeed open
+		if commit.ID != file.Commit.ID {
+			return fmt.Errorf("commit %v is not open", file.Commit.ID)
+		}
+		recordsCol := d.putFileRecords.ReadWrite(stm)
+		var existingRecords pfs.PutFileRecords
+		return recordsCol.Upsert(prefix, &existingRecords, func() error {
+			if newRecords.Tombstone {
+				existingRecords.Tombstone = true
+				existingRecords.Records = nil
+			}
+			existingRecords.Split = newRecords.Split
+			existingRecords.Records = append(existingRecords.Records, newRecords.Records...)
+			existingRecords.Header = newRecords.Header
+			existingRecords.Footer = newRecords.Footer
+			return nil
+		})
 	})
+	return err
 }
 
 func (d *driver) applyWrite(key string, records *pfs.PutFileRecords, tree hashtree.HashTree) error {

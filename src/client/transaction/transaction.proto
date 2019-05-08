@@ -23,8 +23,6 @@ message TransactionRequest {
   pfs.DeleteCommitRequest delete_commit = 5;
   pfs.CreateBranchRequest create_branch = 6;
   pfs.DeleteBranchRequest delete_branch = 7;
-  pfs.CopyFileRequest copy_file = 8;
-  pfs.DeleteFileRequest delete_file = 9;
   DeleteAllRequest delete_all = 10;
 }
 
