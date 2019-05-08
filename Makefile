@@ -421,6 +421,9 @@ clean-pps-storage: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
+test-proto-static:
+	./etc/proto/test_no_changes.sh
+
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| grep -v vendor \
