@@ -15,7 +15,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -66,15 +65,6 @@ var (
 	// Limit the number of outstanding put object requests
 	putObjectLimiter = limit.New(100)
 )
-
-// validateName determines if a repo or branch name is valid
-func validateName(name string) error {
-	match, _ := regexp.MatchString("^[a-zA-Z0-9_-]+$", name)
-	if !match {
-		return fmt.Errorf("repo name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
-	}
-	return nil
-}
 
 // IsPermissionError returns true if a given error is a permission error.
 func IsPermissionError(err error) bool {
@@ -205,7 +195,7 @@ func (d *driver) createRepo(pachClient *client.APIClient, repo *pfs.Repo, descri
 		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
 			grpcutil.ScrubGRPC(err))
 	}
-	if err := validateName(repo.Name); err != nil {
+	if err := ancestry.ValidateName(repo.Name); err != nil {
 		return err
 	}
 
@@ -475,7 +465,7 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 	}
 
 	if branch != "" {
-		if err := validateName(branch); err != nil {
+		if err := ancestry.ValidateName(branch); err != nil {
 			return nil, err
 		}
 	}
@@ -1664,7 +1654,7 @@ func (d *driver) createBranch(pachClient *client.APIClient, branch *pfs.Branch, 
 		return err
 	}
 	// Validate request
-	if err := validateName(branch.Name); err != nil {
+	if err := ancestry.ValidateName(branch.Name); err != nil {
 		return err
 	}
 	// The request must do exactly one of:

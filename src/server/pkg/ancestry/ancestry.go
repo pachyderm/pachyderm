@@ -2,6 +2,7 @@ package ancestry
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -46,7 +47,7 @@ func Parse(s string) (string, int, error) {
 		if s[i] != sep {
 			// If we find a character that's not the separator, as in
 			// "master~whatever", then we return an error
-			return "", 0, fmt.Errorf("invalid ancestry syntax %q, cannot mix %c and %c characters", sep, s[i])
+			return "", 0, fmt.Errorf("invalid ancestry syntax %q, cannot mix %c and %c characters", s, sep, s[i])
 		}
 	}
 
@@ -67,4 +68,25 @@ func Add(s string, ancestors int) string {
 		return fmt.Sprintf("%s.%d", s, ancestors*-1)
 	}
 	return s
+}
+
+var (
+	valid   = regexp.MustCompile("^[a-zA-Z0-9_-]+$") // Matches a valid name
+	invalid = regexp.MustCompile("[^a-zA-Z0-9_-]")   // matches an invalid character
+	repl    = []byte("_")
+)
+
+// ValidateName validates a name to make sure that it can be used unambiguously
+// with Ancestry syntax.
+func ValidateName(name string) error {
+	if !valid.MatchString(name) {
+		return fmt.Errorf("name (%v) invalid: only alphanumeric characters, underscores, and dashes are allowed", name)
+	}
+	return nil
+}
+
+// SanitizeName forces a name to pass ValidateName, by replacing offending
+// characters with _s
+func SanitizeName(name string) string {
+	return invalid.ReplaceAllString(name, "_")
 }
