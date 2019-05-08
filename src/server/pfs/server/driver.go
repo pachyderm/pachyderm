@@ -1028,7 +1028,7 @@ func (d *driver) makeCommit(
 	//    "FinishCommit case" above)
 	if treeRef != nil || records != nil {
 		if records != nil {
-			parentTree, err := d.getTreeForCommit(txnCtx.Client(), parent)
+			parentTree, err := d.getTreeForCommit(txnCtx, parent)
 			if err != nil {
 				return nil, err
 			}
@@ -1144,14 +1144,14 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 			}
 			parentCommit = parentCommitInfo.ParentCommit
 		}
-		parentTree, err = d.getTreeForCommit(txnCtx.Client(), parentCommit) // result is empty if parentCommit == nil
+		parentTree, err = d.getTreeForCommit(txnCtx, parentCommit) // result is empty if parentCommit == nil
 		if err != nil {
 			return err
 		}
 
 		if tree == nil {
 			var err error
-			finishedTree, err = d.getTreeForOpenCommit(txnCtx.Client(), &pfs.File{Commit: commit}, parentTree)
+			finishedTree, err = d.getTreeForOpenCommit(txnCtx, &pfs.File{Commit: commit}, parentTree)
 			if err != nil {
 				return err
 			}
@@ -2677,6 +2677,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 			records = append(records, &pfs.PutFileRecords{Tombstone: true})
 		}
 	}
+	// TODO: do a consistent read within the STM here
 	srcTree, err := d.getTreeForFile(txnCtx.Client(), src)
 	if err != nil {
 		return err
@@ -2751,7 +2752,7 @@ func (d *driver) copyFile(txnCtx *txnenv.TransactionContext, src *pfs.File, dst 
 	return nil
 }
 
-func (d *driver) getTreeForCommit(pachClient *client.APIClient, commit *pfs.Commit) (hashtree.HashTree, error) {
+func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit) (hashtree.HashTree, error) {
 	if commit == nil || commit.ID == "" {
 		t, err := hashtree.NewDBHashTree(d.storageRoot)
 		if err != nil {
@@ -2769,11 +2770,11 @@ func (d *driver) getTreeForCommit(pachClient *client.APIClient, commit *pfs.Comm
 		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
 	}
 
-	if _, err := d.inspectCommit(pachClient, commit, pfs.CommitState_STARTED); err != nil {
+	if _, err := d.resolveCommit(txnCtx.Stm(), commit); err != nil {
 		return nil, err
 	}
 
-	commits := d.commits(commit.Repo.Name).ReadOnly(pachClient.Ctx())
+	commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm())
 	commitInfo := &pfs.CommitInfo{}
 	if err := commits.Get(commit.ID, commitInfo); err != nil {
 		return nil, err
@@ -2792,7 +2793,7 @@ func (d *driver) getTreeForCommit(pachClient *client.APIClient, commit *pfs.Comm
 	}
 
 	// read the tree from the block store
-	h, err := hashtree.GetHashTreeObject(pachClient, d.storageRoot, treeRef)
+	h, err := hashtree.GetHashTreeObject(txnCtx.Client(), d.storageRoot, treeRef)
 	if err != nil {
 		return nil, err
 	}
@@ -2902,6 +2903,7 @@ func getTreeRange(ctx context.Context, objClient obj.Client, path string, prefix
 // It takes a file instead of a commit so that it can apply the changes for
 // that path to the tree before it returns it.
 func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (hashtree.HashTree, error) {
+	ctx := pachClient.Ctx()
 	if file.Commit == nil {
 		t, err := hashtree.NewDBHashTree(d.storageRoot)
 		if err != nil {
@@ -2909,43 +2911,50 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 		}
 		return t, nil
 	}
-	commitInfo, err := d.inspectCommit(pachClient, file.Commit, pfs.CommitState_STARTED)
-	if err != nil {
-		return nil, err
-	}
-	if commitInfo.Finished != nil {
-		tree, err := d.getTreeForCommit(pachClient, file.Commit)
+
+	var result hashtree.HashTree
+	err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		txnCtx := d.txnEnv.NewContext(ctx, stm)
+		commitInfo, err := d.resolveCommit(stm, file.Commit)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return tree, nil
-	}
-	parentTree, err := d.getTreeForCommit(pachClient, commitInfo.ParentCommit)
+		if commitInfo.Finished != nil {
+			result, err = d.getTreeForCommit(txnCtx, file.Commit)
+			return err
+		}
+		return nil
+
+		parentTree, err := d.getTreeForCommit(txnCtx, commitInfo.ParentCommit)
+		if err != nil {
+			return err
+		}
+		result, err = d.getTreeForOpenCommit(txnCtx, file, parentTree)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
-	return d.getTreeForOpenCommit(pachClient, file, parentTree)
+	return result, nil
 }
 
-func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.File, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
-	ctx := pachClient.Ctx()
+func (d *driver) getTreeForOpenCommit(txnCtx *txnenv.TransactionContext, file *pfs.File, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
 	prefix, err := d.scratchFilePrefix(file)
 	if err != nil {
 		return nil, err
 	}
-	var tree hashtree.HashTree
-	if _, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
-		tree, err = parentTree.Copy()
-		if err != nil {
-			return err
-		}
-		recordsCol := d.putFileRecords.ReadOnly(ctx)
-		putFileRecords := &pfs.PutFileRecords{}
-		opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
-		return recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
-			return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
-		})
-	}); err != nil {
+	tree, err := parentTree.Copy()
+	if err != nil {
+		return nil, err
+	}
+	// TODO: make this read consistent with any changes in the current transaction
+	recordsCol := d.putFileRecords.ReadOnly(txnCtx.ClientContext())
+	putFileRecords := &pfs.PutFileRecords{}
+	opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
+	err = recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
+		return d.applyWrite(path.Join(file.Path, key), putFileRecords, tree)
+	})
+	if err != nil {
 		return nil, err
 	}
 	if err := tree.Hash(); err != nil {
@@ -3527,7 +3536,7 @@ func (d *driver) deleteFile(txnCtx *txnenv.TransactionContext, file *pfs.File) e
 	if !uuid.IsUUIDWithoutDashes(file.Commit.ID) {
 		branch = file.Commit.ID
 	}
-	commitInfo, err := d.inspectCommit(txnCtx.Client(), file.Commit, pfs.CommitState_STARTED)
+	commitInfo, err := d.resolveCommit(txnCtx.Stm(), file.Commit)
 	if err != nil {
 		return err
 	}
