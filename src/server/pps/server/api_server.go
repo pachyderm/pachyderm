@@ -727,6 +727,7 @@ func (a *apiServer) jobInfoFromPtr(pachClient *client.APIClient, jobPtr *pps.Etc
 	}
 	var specCommit *pfs.Commit
 	for _, prov := range commitInfo.Provenance {
+		fmt.Println("is spec??", prov)
 		if prov.Commit.Repo.Name == ppsconsts.SpecRepo && prov.Branch.Name == jobPtr.Pipeline.Name {
 			specCommit = prov.Commit
 			break
@@ -2456,21 +2457,27 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	ctx = pachClient.Ctx() // pachClient will propagate auth info
 	pfsClient := pachClient.PfsAPIClient
 
-	commit, err := pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
+	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	if err != nil {
+		return nil, err
+	}
+	// we need to inspect the commit in order to resolve the commit ID, which may have an ancestry tag
+	specCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit: pipelineInfo.SpecCommit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
+	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
+	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Parent: &pfs.Commit{
 			Repo: &pfs.Repo{
 				Name: request.Pipeline.Name,
 			},
 		},
-		Branch:     "master",
-		Provenance: request.Provenance,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = pfsClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-		Commit: commit,
+		Branch:     pipelineInfo.OutputBranch,
+		Provenance: append(request.Provenance, specProvenance),
 	})
 	if err != nil {
 		return nil, err

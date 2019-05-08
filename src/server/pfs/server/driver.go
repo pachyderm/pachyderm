@@ -1435,6 +1435,11 @@ nextSubvBranch:
 			continue nextSubvBranch
 		}
 
+		// if this is the same branch as the one being propagated, we don't need to do anything
+		if subvBranch.Repo.Name == branch.Repo.Name && subvBranch.Name == branch.Name {
+			continue nextSubvBranch
+		}
+
 		// *All checks passed* start a new output commit in 'subvBranch'
 		newCommit := &pfs.Commit{
 			Repo: subvBranch.Repo,
