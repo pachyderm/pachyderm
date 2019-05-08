@@ -33,7 +33,7 @@ import (
 	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
-	transactioncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
+	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 
 	log "github.com/sirupsen/logrus"
@@ -489,7 +489,11 @@ This resets the cluster to its initial state.`,
 				return err
 			}
 			if bytes[0] == 'y' || bytes[0] == 'Y' {
-				return client.DeleteAll()
+				err = client.DeleteAll()
+				if err != nil {
+					return err
+				}
+				return txncmds.ClearActiveTransaction()
 			}
 			return nil
 		}),
@@ -735,7 +739,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, enterprisecmds.Cmds(&noMetrics, &noPortForwarding)...)
 	subcommands = append(subcommands, admincmds.Cmds(&noMetrics, &noPortForwarding)...)
 	subcommands = append(subcommands, debugcmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, transactioncmds.Cmds(&noMetrics, &noPortForwarding)...)
+	subcommands = append(subcommands, txncmds.Cmds(&noMetrics, &noPortForwarding)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

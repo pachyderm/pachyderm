@@ -119,7 +119,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return err
 			}
 
-			err = setActiveTransaction(nil)
+			err = ClearActiveTransaction()
 			if err != nil {
 				return err
 			}
@@ -158,7 +158,7 @@ transaction' or cancelled with 'delete transaction'.`,
 				return grpcutil.ScrubGRPC(err)
 			}
 
-			err = setActiveTransaction(nil)
+			err = ClearActiveTransaction()
 			if err != nil {
 				return err
 			}
@@ -206,7 +206,7 @@ transaction' or cancelled with 'delete transaction'.`,
 			if isActive {
 				// The active transaction was successfully deleted, clean it up so the
 				// user doesn't need to manually 'stop transaction' it.
-				setActiveTransaction(nil)
+				ClearActiveTransaction()
 			}
 			return nil
 		}),
