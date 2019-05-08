@@ -21,6 +21,7 @@ func perm(a []rune, f func([]rune), i int) {
 	}
 }
 
+// Generate generates the permutations of the passed in string and returns them sorted.
 func Generate(s string) []string {
 	fileNames := []string{}
 	Perm([]rune(s), func(fileName []rune) {
