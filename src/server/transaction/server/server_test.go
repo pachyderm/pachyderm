@@ -220,9 +220,11 @@ func TestFailedAppend(t *testing.T) {
 }
 
 func requireEmptyResponse(t *testing.T, response *transaction.TransactionResponse) {
+	require.Nil(t, response.Commit)
 }
 
 func requireCommitResponse(t *testing.T, response *transaction.TransactionResponse, commit *pfs.Commit) {
+	require.Equal(t, commit, response.Commit)
 }
 
 func TestDependency(t *testing.T) {
@@ -303,4 +305,38 @@ func TestDeleteAllTransactions(t *testing.T) {
 	txns, err = c.ListTransaction()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(txns))
+}
+
+func TestMultiCommit(t *testing.T) {
+	c := GetPachClient(t)
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+
+	ct := c.WithTransaction(txn)
+
+	err = ct.CreateRepo("foo")
+	require.NoError(t, err)
+
+	commit1, err := ct.StartCommit("foo", "master")
+	require.NoError(t, err)
+	err = ct.FinishCommit("foo", "master")
+	require.NoError(t, err)
+
+	commit2, err := ct.StartCommit("foo", "master")
+	require.NoError(t, err)
+	err = ct.FinishCommit("foo", "master")
+	require.NoError(t, err)
+
+	require.NotEqual(t, commit1, commit2)
+
+	info, err := ct.FinishTransaction(txn)
+	require.NoError(t, err)
+
+	// Double-check each response value
+	requireEmptyResponse(t, info.Responses[0])
+	requireCommitResponse(t, info.Responses[1], commit1)
+	requireEmptyResponse(t, info.Responses[2])
+	requireCommitResponse(t, info.Responses[3], commit2)
+	requireEmptyResponse(t, info.Responses[4])
 }
