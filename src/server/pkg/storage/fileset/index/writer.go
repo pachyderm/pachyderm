@@ -41,6 +41,8 @@ type Writer struct {
 }
 
 // NewWriter create a new Writer.
+// rangeSize should not be used except for testing purposes, the defaultRangeSize will
+// be used in a real deployment.
 func NewWriter(ctx context.Context, chunks *chunk.Storage, rangeSize ...int64) *Writer {
 	rSize := defaultRangeSize
 	if len(rangeSize) > 0 {
