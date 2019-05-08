@@ -1151,7 +1151,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 
 		if tree == nil {
 			var err error
-			finishedTree, err = d.getTreeForOpenCommit(txnCtx, &pfs.File{Commit: commit}, parentTree)
+			finishedTree, err = d.getTreeForOpenCommit(txnCtx.Client(), &pfs.File{Commit: commit}, parentTree)
 			if err != nil {
 				return err
 			}
@@ -2921,13 +2921,12 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 			result, err = d.getTreeForCommit(txnCtx, file.Commit)
 			return err
 		}
-		return nil
 
 		parentTree, err := d.getTreeForCommit(txnCtx, commitInfo.ParentCommit)
 		if err != nil {
 			return err
 		}
-		result, err = d.getTreeForOpenCommit(txnCtx, file, parentTree)
+		result, err = d.getTreeForOpenCommit(txnCtx.Client(), file, parentTree)
 		return err
 	})
 	if err != nil {
@@ -2936,7 +2935,7 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 	return result, nil
 }
 
-func (d *driver) getTreeForOpenCommit(txnCtx *txnenv.TransactionContext, file *pfs.File, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
+func (d *driver) getTreeForOpenCommit(pachClient *client.APIClient, file *pfs.File, parentTree hashtree.HashTree) (hashtree.HashTree, error) {
 	prefix, err := d.scratchFilePrefix(file)
 	if err != nil {
 		return nil, err
@@ -2945,8 +2944,7 @@ func (d *driver) getTreeForOpenCommit(txnCtx *txnenv.TransactionContext, file *p
 	if err != nil {
 		return nil, err
 	}
-	// TODO: make this read consistent with any changes in the current transaction
-	recordsCol := d.putFileRecords.ReadOnly(txnCtx.ClientContext())
+	recordsCol := d.putFileRecords.ReadOnly(pachClient.Ctx())
 	putFileRecords := &pfs.PutFileRecords{}
 	opts := &col.Options{etcd.SortByModRevision, etcd.SortAscend, true}
 	err = recordsCol.ListPrefix(prefix, putFileRecords, opts, func(key string) error {
