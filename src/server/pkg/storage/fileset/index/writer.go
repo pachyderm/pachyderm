@@ -18,8 +18,8 @@ const (
 
 // Header is a wrapper for a tar header and index.
 type Header struct {
-	hdr *tar.Header
-	idx *Index
+	Hdr *tar.Header
+	Idx *Index
 }
 
 type levelWriter struct {
@@ -41,6 +41,8 @@ type Writer struct {
 }
 
 // NewWriter create a new Writer.
+// rangeSize should not be used except for testing purposes, the defaultRangeSize will
+// be used in a real deployment.
 func NewWriter(ctx context.Context, chunks *chunk.Storage, rangeSize ...int64) *Writer {
 	rSize := defaultRangeSize
 	if len(rangeSize) > 0 {
@@ -65,11 +67,11 @@ func (w *Writer) WriteHeader(hdr *Header) error {
 			tw: tar.NewWriter(cw),
 		})
 	}
-	w.lastPath = hdr.hdr.Name
-	if hdr.idx == nil {
-		hdr.idx = &Index{}
+	w.lastPath = hdr.Hdr.Name
+	if hdr.Idx == nil {
+		hdr.Idx = &Index{}
 	}
-	hdr.hdr.Typeflag = indexType
+	hdr.Hdr.Typeflag = indexType
 	return w.writeHeader(hdr, 0)
 }
 
@@ -85,16 +87,16 @@ func (w *Writer) writeHeader(hdr *Header, level int) error {
 func (w *Writer) serialize(tw *tar.Writer, hdr *Header, level int) error {
 	// Create file range if above lowest index level.
 	if level > 0 {
-		hdr.idx.Range = &Range{}
-		hdr.idx.Range.LastPath = w.lastPath
+		hdr.Idx.Range = &Range{}
+		hdr.Idx.Range.LastPath = w.lastPath
 	}
 	// Serialize and write additional metadata.
-	idx, err := proto.Marshal(hdr.idx)
+	idx, err := proto.Marshal(hdr.Idx)
 	if err != nil {
 		return err
 	}
-	hdr.hdr.Size = int64(len(idx))
-	if err := tw.WriteHeader(hdr.hdr); err != nil {
+	hdr.Hdr.Size = int64(len(idx))
+	if err := tw.WriteHeader(hdr.Hdr); err != nil {
 		return err
 	}
 	if _, err = tw.Write(idx); err != nil {
@@ -105,10 +107,10 @@ func (w *Writer) serialize(tw *tar.Writer, hdr *Header, level int) error {
 
 func (w *Writer) callback(hdr *Header, level int) func([]*chunk.DataRef) error {
 	return func(dataRefs []*chunk.DataRef) error {
-		hdr.hdr.Typeflag = rangeType
+		hdr.Hdr.Typeflag = rangeType
 		// Used to communicate data refs for final index level to Close function.
 		if w.closed && w.levels[level].cw.RangeCount() == 1 {
-			w.root.idx.DataOp = &DataOp{DataRefs: dataRefs}
+			w.root.Idx.DataOp = &DataOp{DataRefs: dataRefs}
 			return nil
 		}
 		// Create next index level if it does not exist.
@@ -121,7 +123,7 @@ func (w *Writer) callback(hdr *Header, level int) func([]*chunk.DataRef) error {
 			})
 		}
 		// Write index entry in next level index.
-		hdr.idx.DataOp = &DataOp{DataRefs: dataRefs}
+		hdr.Idx.DataOp = &DataOp{DataRefs: dataRefs}
 		return w.writeHeader(hdr, level+1)
 	}
 }

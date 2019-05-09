@@ -21,6 +21,8 @@ const (
 	WindowSize = 64
 )
 
+var initialWindow = make([]byte, WindowSize)
+
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 // (bryce) The chunking/hashing/uploading could be made concurrent by reading ahead a certain amount and splitting the data among chunking/hashing/uploading workers
@@ -47,7 +49,7 @@ type Writer struct {
 func newWriter(ctx context.Context, objC obj.Client, prefix string) *Writer {
 	// Initialize buzhash64 with WindowSize window.
 	hash := buzhash64.New()
-	hash.Write(make([]byte, WindowSize))
+	hash.Write(initialWindow)
 	return &Writer{
 		ctx:       ctx,
 		objC:      objC,
@@ -80,6 +82,9 @@ func (w *Writer) finishRange() {
 	data := w.buf.Bytes()[lastDataRef.OffsetBytes:w.buf.Len()]
 	lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
 	w.done = append(w.done, w.dataRefs)
+	// Reset hash between ranges.
+	w.hash.Reset()
+	w.hash.Write(initialWindow)
 }
 
 // RangeSize returns the size of the current range.

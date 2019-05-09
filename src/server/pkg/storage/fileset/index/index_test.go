@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"sort"
 	"strings"
 	"testing"
 
@@ -13,39 +12,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
-// Perm calls f with each permutation of a.
-func Perm(a []rune, f func([]rune)) {
-	perm(a, f, 0)
-}
-
-// Permute the values at index i to len(a)-1.
-func perm(a []rune, f func([]rune), i int) {
-	if i > len(a) {
-		f(a)
-		return
-	}
-	perm(a, f, i+1)
-	for j := i + 1; j < len(a); j++ {
-		a[i], a[j] = a[j], a[i]
-		perm(a, f, i+1)
-		a[i], a[j] = a[j], a[i]
-	}
-}
-
-func Generate(s string) []string {
-	fileNames := []string{}
-	Perm([]rune(s), func(fileName []rune) {
-		fileNames = append(fileNames, string(fileName))
-	})
-	sort.Strings(fileNames)
-	return fileNames
-}
-
 func Write(tb testing.TB, chunks *chunk.Storage, rangeSize int64, fileNames []string) io.Reader {
 	iw := NewWriter(context.Background(), chunks, rangeSize)
 	for _, fileName := range fileNames {
 		hdr := &Header{
-			hdr: &tar.Header{Name: fileName},
+			Hdr: &tar.Header{Name: fileName},
 		}
 		require.NoError(tb, iw.WriteHeader(hdr))
 	}
@@ -63,7 +34,7 @@ func Actual(tb testing.TB, chunks *chunk.Storage, r io.Reader, prefix string) []
 			return result
 		}
 		require.NoError(tb, err)
-		result = append(result, hdr.hdr.Name)
+		result = append(result, hdr.Hdr.Name)
 	}
 }
 

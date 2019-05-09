@@ -69,7 +69,7 @@ func (r *Reader) Next() (*Header, error) {
 			return nil, err
 		}
 		// Skip to the starting header.
-		if strings.Compare(fullHdr.idx.Range.LastPath, r.prefix) < 0 {
+		if strings.Compare(fullHdr.Idx.Range.LastPath, r.prefix) < 0 {
 			continue
 		}
 		// If a header with the prefix cannot show up after the current header,
@@ -90,7 +90,7 @@ func (r *Reader) Next() (*Header, error) {
 			})
 		}
 		// Set the next range.
-		r.levels[r.currLevel].cr.NextRange(fullHdr.idx.DataOp.DataRefs)
+		r.levels[r.currLevel].cr.NextRange(fullHdr.Idx.DataOp.DataRefs)
 		r.levels[r.currLevel].tr = tar.NewReader(r.levels[r.currLevel].cr)
 	}
 }
@@ -119,7 +119,7 @@ func deserialize(tr *tar.Reader, hdr *tar.Header) (*Header, error) {
 		return nil, err
 	}
 	return &Header{
-		hdr: hdr,
-		idx: idx,
+		Hdr: hdr,
+		Idx: idx,
 	}, nil
 }
