@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
@@ -33,6 +35,10 @@ func (t *TransactionDefer) Run() error {
 
 // PropagateCommit marks a branch as needing propagation once the transaction
 // successfully ends.  This will be performed by the Run function.
-func (t *TransactionDefer) PropagateCommit(branch *pfs.Branch) {
+func (t *TransactionDefer) PropagateCommit(branch *pfs.Branch) error {
+	if branch == nil {
+		return fmt.Errorf("cannot propagate nil branch")
+	}
 	t.propagateBranches = append(t.propagateBranches, branch)
+	return nil
 }

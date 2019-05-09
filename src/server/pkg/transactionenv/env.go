@@ -43,7 +43,7 @@ type AuthWrites interface {
 // tasks until the end of a transaction.  It is defined here to avoid a circular
 // dependency.
 type PfsTransactionDefer interface {
-	PropagateCommit(branch *pfs.Branch)
+	PropagateCommit(branch *pfs.Branch) error
 	Run() error
 }
 

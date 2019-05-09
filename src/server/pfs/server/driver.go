@@ -1106,7 +1106,9 @@ func (d *driver) makeCommit(
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
-		txnCtx.PfsDefer().PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch))
+		if err := txnCtx.PfsDefer().PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch)); err != nil {
+			return nil, err
+		}
 	}
 
 	return newCommit, nil
@@ -2109,7 +2111,9 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// new HEAD commits downstream, if the new branch heads haven't been
 	// processed yet
 	for _, afBranch := range affectedBranches {
-		txnCtx.PfsDefer().PropagateCommit(afBranch.Branch)
+		if err := txnCtx.PfsDefer().PropagateCommit(afBranch.Branch); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -2232,7 +2236,9 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	txnCtx.PfsDefer().PropagateCommit(branch)
+	if err := txnCtx.PfsDefer().PropagateCommit(branch); err != nil {
+		return err
+	}
 	return nil
 }
 
