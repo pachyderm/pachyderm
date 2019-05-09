@@ -1,0 +1,15 @@
+{
+    "pipeline": {
+        "name": "train"
+    },
+    "transform": {
+        "image": "gpt-2-example",
+        "cmd": ["/train.py"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "tweets",
+            "glob": "/*"
+        }
+    }
+}
