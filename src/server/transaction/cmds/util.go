@@ -52,6 +52,8 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 	return nil
 }
 
+// ClearActiveTransaction will remove the active transaction from the pachctl
+// config file - used by the 'delete all' command.
 func ClearActiveTransaction() error {
 	return setActiveTransaction(nil)
 }
