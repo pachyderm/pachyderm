@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -434,11 +432,24 @@ If <object store backend> is \"s3\", then the arguments are:
 		}
 		defer c.Close()
 
-		_, err = c.DeployStorageSecret(context.Background(), &deployclient.DeployStorageSecretRequest{
-			Secrets: data,
-		})
+		manifest := getEncoder(outputFormat)
+		err = assets.WriteSecret(manifest, data, opts)
 		if err != nil {
-			return fmt.Errorf("error deploying storage secret to pachd: %v", err)
+			return err
+		}
+		if dryRun {
+			_, err := os.Stdout.Write(manifest.Buffer().Bytes())
+			return err
+		}
+
+		io := cmdutil.IO{
+			Stdin:  manifest.Buffer(),
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+		}
+		// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
+		if err := cmdutil.RunIO(io, "kubectl", "patch", "-f", "-", "--validate=false"); err != nil {
+			return err
 		}
 		return nil
 	}
