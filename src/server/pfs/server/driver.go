@@ -1287,7 +1287,7 @@ func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch) error {
 					return err
 				}
 				subvData = &BranchData{branchInfo: subvInfo}
-				branchMap[key(branch.Repo.Name, branch.Name)] = branchData
+				branchMap[key(subvBranch.Repo.Name, subvBranch.Name)] = subvData
 			}
 
 			if head != nil {
