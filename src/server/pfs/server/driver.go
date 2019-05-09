@@ -1343,10 +1343,10 @@ nextSubvBranch:
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
-			// Since we want the provenance to be a transitive closure, we
-			// need to inspect provBranchInfo.HEAD's provenance. In most cases,
-			// Every commit in there will be the HEAD of some other provBranchInfo.
-			// But there are a few exceptional scenarios where this is not the case.
+			// Since we want the provenance to be a transitive closure, we need to
+			// inspect provBranchInfo.HEAD's provenance. In most cases, every commit
+			// in there will be the HEAD of some other provBranchInfo, but there are
+			// a few exceptional scenarios where this is not the case.
 			branchHeadInfo := &pfs.CommitInfo{}
 			if err := d.commits(provBranchInfo.Branch.Repo.Name).ReadWrite(stm).Get(provBranchInfo.Head.ID, branchHeadInfo); err != nil {
 				return err
@@ -2108,7 +2108,6 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// 8) propagate the changes to 'branch' and its subvenance. This may start
 	// new HEAD commits downstream, if the new branch heads haven't been
 	// processed yet
-	sort.Slice(affectedBranches, func(i, j int) bool { return len(affectedBranches[i].Provenance) < len(affectedBranches[j].Provenance) })
 	for _, afBranch := range affectedBranches {
 		txnCtx.PfsDefer().PropagateCommit(afBranch.Branch)
 	}
