@@ -1252,55 +1252,47 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
 func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch) error {
-
-	type BranchKey struct {
-		repo   string
-		branch string
-	}
-
 	type BranchData struct {
 		branchInfo *pfs.BranchInfo
 		heads      []*pfs.CommitInfo // List of head commits being propagated that this branch is provenant on
 	}
 
-	branchMap := map[BranchKey]*BranchData{}
-	addBranch := func(bi *pfs.BranchInfo, head *pfs.CommitInfo) {
-		key := BranchKey{repo: bi.Branch.Repo.Name, branch: bi.Branch.Name}
-		branchData, ok := branchMap[key]
-		if !ok {
-			branchData = &BranchData{branchInfo: bi}
-			branchMap[key] = branchData
-		}
-		if head != nil {
-			branchData.heads = append(branchData.heads, head)
-		}
-	}
-
+	key := path.Join
+	branchMap := map[string]*BranchData{}
 	for _, branch := range branches {
-		if branch == nil {
-			return fmt.Errorf("cannot propagate nil branch")
-		}
-
-		branchInfo := &pfs.BranchInfo{}
-		if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
-			return err
-		}
-
 		var head *pfs.CommitInfo
-		if branchInfo.Head != nil {
-			head = &pfs.CommitInfo{}
-			if err := d.commits(branch.Repo.Name).ReadWrite(stm).Get(branchInfo.Head.ID, head); err != nil {
+		branchData, exists := branchMap[key(branch.Repo.Name, branch.Name)]
+		if !exists {
+			branchInfo := &pfs.BranchInfo{}
+			if err := d.branches(branch.Repo.Name).ReadWrite(stm).Get(branch.Name, branchInfo); err != nil {
 				return err
 			}
+			branchData = &BranchData{branchInfo: branchInfo}
+
+			if branchInfo.Head != nil {
+				head = &pfs.CommitInfo{}
+				if err := d.commits(branch.Repo.Name).ReadWrite(stm).Get(branchInfo.Head.ID, head); err != nil {
+					return err
+				}
+				branchData.heads = append(branchData.heads, head)
+			}
+			branchMap[key(branch.Repo.Name, branch.Name)] = branchData
 		}
 
-		addBranch(branchInfo, head)
-		for _, subvBranch := range branchInfo.Subvenance {
-			subvInfo := &pfs.BranchInfo{}
-			if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvInfo); err != nil {
-				return err
+		for _, subvBranch := range branchData.branchInfo.Subvenance {
+			subvData, exists := branchMap[key(subvBranch.Repo.Name, subvBranch.Name)]
+			if !exists {
+				subvInfo := &pfs.BranchInfo{}
+				if err := d.branches(subvBranch.Repo.Name).ReadWrite(stm).Get(subvBranch.Name, subvInfo); err != nil {
+					return err
+				}
+				subvData = &BranchData{branchInfo: subvInfo}
+				branchMap[key(branch.Repo.Name, branch.Name)] = branchData
 			}
-			addBranch(subvInfo, head)
+
+			if head != nil {
+				subvData.heads = append(subvData.heads, head)
+			}
 		}
 	}
 
@@ -1330,7 +1322,6 @@ nextSubvBranch:
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
-		key := path.Join
 		commitProvMap := make(map[string]*pfs.CommitProvenance)
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
