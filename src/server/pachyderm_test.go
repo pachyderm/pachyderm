@@ -661,7 +661,7 @@ func TestRunPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(ji))
 	// now run the pipeline
-	require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{&pfs.CommitProvenance{Commit: commitM}}))
+	require.NoError(t, c.RunPipeline(pipeline, nil))
 	// running the pipeline should create a new job
 	require.NoError(t, backoff.Retry(func() error {
 		jobInfos, err := c.ListJob(pipeline, nil, nil)

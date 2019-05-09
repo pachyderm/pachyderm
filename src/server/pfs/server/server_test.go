@@ -4712,18 +4712,11 @@ func TestPutFileCommitOverwrite(t *testing.T) {
 
 func TestStartCommitOutputBranch(t *testing.T) {
 	c := GetPachClient(t)
-	var err error
 	require.NoError(t, c.CreateRepo("in"))
 	require.NoError(t, c.CreateRepo("out"))
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
-	_, err = c.PutFile("in", "master", "file", strings.NewReader("file"))
-	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit("out", "master"))
-	_, err = c.StartCommit("out", "master")
-	require.NoError(t, err)
-
-	_, err = c.Fsck(context.Background(), &types.Empty{})
-	require.NoError(t, err)
+	_, err := c.StartCommit("out", "master")
+	require.YesError(t, err)
 }
 
 func TestWalk(t *testing.T) {

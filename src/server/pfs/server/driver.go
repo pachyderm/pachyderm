@@ -1445,8 +1445,9 @@ nextSubvBranch:
 			continue nextSubvBranch
 		}
 
-		// if this is the same branch as the one being propagated, we don't need to do anything
-		if subvBranch.Repo.Name == branch.Repo.Name && subvBranch.Name == branch.Name {
+		// if a commit was just created (provenance != nil only when called by makeCommit)
+		// and this is the same branch as the one being propagated, we don't need to do anything
+		if subvBranch.Repo.Name == branch.Repo.Name && subvBranch.Name == branch.Name && provenance != nil {
 			continue nextSubvBranch
 		}
 
