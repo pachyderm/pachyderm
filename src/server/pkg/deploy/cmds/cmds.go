@@ -119,7 +119,7 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts, m
 		Stderr: os.Stderr,
 	}
 	// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false"); err != nil {
+	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
 		return err
 	}
 
@@ -448,7 +448,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			Stderr: os.Stderr,
 		}
 		// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-		if err := cmdutil.RunIO(io, "kubectl", "patch", "-f", "-", "--validate=false"); err != nil {
+		if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
 			return err
 		}
 		return nil
