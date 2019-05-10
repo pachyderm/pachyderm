@@ -15,18 +15,16 @@ import (
 type Reader struct {
 	ctx      context.Context
 	objC     obj.Client
-	prefix   string
 	dataRefs []*DataRef
 	curr     *DataRef
 	buf      *bytes.Buffer
 	r        io.Reader
 }
 
-func newReader(ctx context.Context, objC obj.Client, prefix string, dataRefs ...*DataRef) *Reader {
+func newReader(ctx context.Context, objC obj.Client, dataRefs ...*DataRef) *Reader {
 	return &Reader{
 		ctx:      ctx,
 		objC:     objC,
-		prefix:   prefix,
 		dataRefs: dataRefs,
 		buf:      &bytes.Buffer{},
 		r:        bytes.NewReader([]byte{}),
@@ -67,7 +65,7 @@ func (r *Reader) Read(data []byte) (int, error) {
 }
 
 func (r *Reader) readChunk(chunk *Chunk) error {
-	objR, err := r.objC.Reader(r.ctx, path.Join(r.prefix, chunk.Hash), 0, 0)
+	objR, err := r.objC.Reader(r.ctx, path.Join(Prefix, chunk.Hash), 0, 0)
 	if err != nil {
 		return err
 	}
