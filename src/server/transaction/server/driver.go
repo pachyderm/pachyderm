@@ -127,7 +127,7 @@ func (d *driver) deleteAll(ctx context.Context, stm col.STM, running *transactio
 
 func (d *driver) runTransaction(ctx context.Context, stm col.STM, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	responses := []*transaction.TransactionResponse{}
-	err := d.txnEnv.WithTransactionContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		directTxn := txnenv.NewDirectTransaction(txnCtx)
 		for i, request := range info.Requests {
 			var err error

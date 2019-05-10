@@ -322,13 +322,15 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		return cb(appendTxn)
 	}
 
-	return env.WithTransactionContext(ctx, func(txnCtx *TransactionContext) error {
+	return env.WithWriteContext(ctx, func(txnCtx *TransactionContext) error {
 		directTxn := NewDirectTransaction(txnCtx)
 		return cb(directTxn)
 	})
 }
 
-func (env *TransactionEnv) WithTransactionContext(ctx context.Context, cb func(*TransactionContext) error) error {
+// WithWriteContext will call the given callback with a TransactionContext
+// which can be used to perform reads and writes on the current cluster state.
+func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*TransactionContext) error) error {
 	_, err := col.NewSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
@@ -348,10 +350,10 @@ func (env *TransactionEnv) WithTransactionContext(ctx context.Context, cb func(*
 	return err
 }
 
-// EmptyReadTransaction will call the given callback with a TransactionContext
+// WithReadContext will call the given callback with a TransactionContext
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
-func (env *TransactionEnv) EmptyReadTransaction(ctx context.Context, cb func(*TransactionContext) error) error {
+func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*TransactionContext) error) error {
 	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{

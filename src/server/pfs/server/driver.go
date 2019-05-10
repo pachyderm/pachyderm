@@ -869,7 +869,7 @@ func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, paren
 
 func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, tree *pfs.Object) (*pfs.Commit, error) {
 	commit := &pfs.Commit{}
-	err := d.txnEnv.WithTransactionContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, nil, nil, "")
 		return err
@@ -1618,7 +1618,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 	}
 
 	// Make sure that the repo exists
-	err := d.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		_, err := d.inspectRepo(txnCtx, repo, !includeAuth)
 		return err
 	})
@@ -2355,7 +2355,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// oneOff puts only work on branches, so we know branch != "". We pass
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
-		return d.txnEnv.WithTransactionContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
 			return err
 		})
@@ -2737,7 +2737,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	}
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
-		return d.txnEnv.WithTransactionContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
+		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
 			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
 			return err
 		})
@@ -2906,7 +2906,7 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 	}
 
 	var result hashtree.HashTree
-	err := d.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		commitInfo, err := d.resolveCommit(txnCtx.Stm(), file.Commit)
 		if err != nil {
 			return err
@@ -3534,7 +3534,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 		if branch == "" {
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
-		return d.txnEnv.WithTransactionContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
+		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
 			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
 			return err
 		})

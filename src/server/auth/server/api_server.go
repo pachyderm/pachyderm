@@ -1133,7 +1133,7 @@ func (a *apiServer) Authorize(
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.AuthorizeResponse
-	if err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		response, err = a.AuthorizeInTransaction(txnCtx, req)
 		return err
@@ -1446,7 +1446,7 @@ func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeReques
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.GetScopeResponse
-	if err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		response, err = a.GetScopeInTransaction(txnCtx, req)
 		return err
@@ -1505,7 +1505,7 @@ func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.GetACLResponse
-	if err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		response, err = a.GetACLInTransaction(txnCtx, req)
 		return err

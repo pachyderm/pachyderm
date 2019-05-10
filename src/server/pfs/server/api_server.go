@@ -103,7 +103,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	var info *pfs.RepoInfo
-	err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		info, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
@@ -292,7 +292,7 @@ func (a *apiServer) InspectBranch(ctx context.Context, request *pfs.InspectBranc
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	branchInfo := &pfs.BranchInfo{}
-	if err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
 		branchInfo, err = a.driver.inspectBranch(txnCtx, request.Branch)
 		return err
@@ -553,7 +553,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err := a.txnEnv.WithTransactionContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+	err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		return a.driver.deleteAll(txnCtx)
 	})
 	if err != nil {
