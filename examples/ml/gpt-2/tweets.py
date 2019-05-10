@@ -10,4 +10,3 @@ for name in os.listdir("/pfs/users/users"):
                 for tweet in get_tweets(user, pages=1):
                     out.write("<|begintweet|> ")
                     out.write(tweet['text'])
-                    out.write(" <|endtweet|> ")
