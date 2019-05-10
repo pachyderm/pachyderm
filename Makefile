@@ -474,6 +474,8 @@ test-pfs-cmds:
 
 test-pfs-storage:
 	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
 
 test-deploy-cmds:
 	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)

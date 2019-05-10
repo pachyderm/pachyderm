@@ -5,24 +5,24 @@
 Spouts are a way to get streaming data from any source into Pachyderm.
 To create a spout, you need three things
 
-1. A source of streaming data, such as Kafka, nifi, rabbitMQ, etc.
-1. A containerized client for the streaming data that will pass it on to the spout.
+1. A source of streaming data: a message queue (Kafka, nifi, rabbitMQ, etc.), a database's change feed, the stream of [Event Notifications on an S3 bucket (via Amazon SQS)](https://docs.aws.amazon.com/AmazonS3/latest/dev/NotificationHowTo.html), etc.
+1. A Docker container holding your spout code that reads from the data source.
 1. A spout pipeline specification file that uses the container.
 
-The containerized client will do four things:
+Your spout code will do four things:
 
-- connect to your source of streaming data
-- read the data
-- package it into files in a `tar` stream
-- write that `tar` stream to the named pipe `/pfs/out`
+1. connect to your source of streaming data
+1. read the data
+1. package it into files in a `tar` stream
+1. write that `tar` stream to the named pipe `/pfs/out`
 
 
 In this document, 
-we'll take you through writing the client with an example using Go code and writing the spout pipeline specification.
+we'll take you through writing the spout code (with example code in Golang) and writing the spout pipeline specification.
 
-## Creating the containerized client
+## Creating your containerized spout code
 
-To create the client,
+To create the spout process,
 you'll need access to client libraries
 for your streaming data source,
 a library that can write the `tar` archive format
@@ -233,27 +233,28 @@ accessible with `pachctl logs --pipeline=<your pipeline name>`.
 			}
 ```
 
-That's the rough outline of operations for processing data in queues and writing it to a spout from a client.
+That's the rough outline of operations for processing data in queues and writing it to Pachyderm via a spout.
 
-### Create the container for the server
-Once you have containerized your server,
-you can place it in a Pachyderm spout by writing an appropriate pipeline specification.
+### Create the container for the code
 
-## Writing the spout pipeline specification
-
-A spout is defined using a similar spec
-to a pipeline, 
-and created using the `pachctl create pipeline` command.
-
+To start, you'll need to [create a Dockerfile](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
 In our example above,
 we created a server using Go.
 The Dockerfile for creating a container
 with that server in it is in the [kafka example](https://github.com/pachyderm/pachyderm/tree/master/examples/kafka).
 
-Assuming that's been done,
-we might define the specification for the spout something like this.
-The `overwrite` property on the spout is `false` by default;
-setting it to `true` would be like having the `--overwrite` flag specified on every `pachctl put file`.
+With your Dockerfile written, you can build your container by running `docker build -t myaccount/myimage:0.1 .` and push it to Docker Hub (or any other registry) with `docker push myaccount/myimage:0.1`.
+
+Once you have containerized your code,
+you can place it in a Pachyderm spout by writing an appropriate pipeline specification.
+
+## Writing the spout pipeline specification
+
+A spout is defined using [a pipeline spec](../reference/pipeline_spec.html) with a `spout` field, 
+and created using the `pachctl create pipeline` command.
+
+Continuing with our example Docker container from above,
+we might define the specification for the spout as something like this:
 
 ```json
 {
@@ -262,7 +263,7 @@ setting it to `true` would be like having the `--overwrite` flag specified on ev
   },
   "transform": {
     "cmd": [ "go", "run", "./main.go" ],
-    "image": "myaccount/myimage"
+    "image": "myaccount/myimage:0.1"
   },
   "env": {
     "HOST": "kafkahost",
@@ -275,6 +276,9 @@ setting it to `true` would be like having the `--overwrite` flag specified on ev
 }
 ```
 
-We would then use `pachctl create pipeline -f my-spout.json` to install the spout.
+Note that the `overwrite` property on the spout is `false` by default;
+setting it to `true` would be like having the `--overwrite` flag specified on every `pachctl put file`.
+
+With the spec written, we would then use `pachctl create pipeline -f my-spout.json` to install the spout.
 It would begin processing messages
 and placing them in the `my-spout` repo.

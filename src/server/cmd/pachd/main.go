@@ -128,7 +128,7 @@ func doSidecarMode(config interface{}) (retErr error) {
 	}
 	var reporter *metrics.Reporter
 	if env.Metrics {
-		reporter = metrics.NewReporter(clusterID, env.GetKubeClient())
+		reporter = metrics.NewReporter(clusterID, env)
 	}
 
 	pfsCacheSize, err := strconv.Atoi(env.PFSCacheSize)
@@ -267,7 +267,7 @@ func doFullMode(config interface{}) (retErr error) {
 	}
 	var reporter *metrics.Reporter
 	if env.Metrics {
-		reporter = metrics.NewReporter(clusterID, env.GetKubeClient())
+		reporter = metrics.NewReporter(clusterID, env)
 	}
 	// (bryce) Do we have to use etcd client v2 here for sharder? Might want to re-visit this later.
 	etcdAddress := fmt.Sprintf("http://%s", net.JoinHostPort(env.EtcdHost, env.EtcdPort))
