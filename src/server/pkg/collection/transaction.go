@@ -19,6 +19,7 @@ package collection
 
 import (
 	"fmt"
+	"strings"
 
 	v3 "github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/etcdserver/api/v3rpc/rpctypes"
@@ -138,6 +139,8 @@ type stm struct {
 	rset map[string]*v3.GetResponse
 	// wset holds overwritten keys and their values
 	wset map[string]stmPut
+	// deletedPrefixes holds the set of prefixes that have been deleted
+	deletedPrefixes []string
 	// getOpts are the opts used for gets. Includes revision of first read for
 	// stmSerializable
 	getOpts []v3.OpOption
@@ -168,6 +171,9 @@ func (s *stm) Get(key string) (string, error) {
 	if wv, ok := s.wset[key]; ok {
 		return wv.val, nil
 	}
+	if s.isKeyRangeDeleted(key) {
+		return "", ErrNotFound{Key: key}
+	}
 	return respToValue(key, s.fetch(key))
 }
 
@@ -183,6 +189,15 @@ func (s *stm) IsSafePut(key string, ptr uintptr) bool {
 		return false
 	}
 	return true
+}
+
+func (s *stm) isKeyRangeDeleted(key string) bool {
+	for _, prefix := range s.deletedPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
@@ -206,9 +221,27 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 	return nil
 }
 
-func (s *stm) Del(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key), 0} }
+func (s *stm) Del(key string) {
+	s.wset[key] = stmPut{"", 0, v3.OpDelete(key), 0}
+}
 
-func (s *stm) DelAll(key string) { s.wset[key] = stmPut{"", 0, v3.OpDelete(key, v3.WithPrefix()), 0} }
+func (s *stm) DelAll(prefix string) {
+	// Remove any eclipsed deletes then add the new delete
+	i := 0
+	for _, deletedPrefix := range s.deletedPrefixes {
+		if !strings.HasPrefix(deletedPrefix, prefix) {
+			s.deletedPrefixes[i] = deletedPrefix
+		}
+	}
+	s.deletedPrefixes = s.deletedPrefixes[:i]
+	s.deletedPrefixes = append(s.deletedPrefixes, prefix)
+
+	for k, _ := range s.wset {
+		if strings.HasPrefix(k, prefix) {
+			delete(s.wset, k)
+		}
+	}
+}
 
 func (s *stm) Rev(key string) int64 {
 	if resp := s.fetch(key); resp != nil && len(resp.Kvs) != 0 {
@@ -264,7 +297,11 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 
 // puts is the list of ops for all pending writes
 func (s *stm) puts() []v3.Op {
-	puts := make([]v3.Op, 0, len(s.wset))
+	puts := make([]v3.Op, 0, len(s.wset)+len(s.deletedPrefixes))
+	for _, prefix := range s.deletedPrefixes {
+		puts = append(puts, v3.OpDelete(prefix, v3.WithPrefix()))
+	}
+
 	for _, v := range s.wset {
 		puts = append(puts, v.op)
 	}
@@ -274,6 +311,7 @@ func (s *stm) puts() []v3.Op {
 func (s *stm) reset() {
 	s.rset = make(map[string]*v3.GetResponse)
 	s.wset = make(map[string]stmPut)
+	s.deletedPrefixes = []string{}
 	s.ttlset = make(map[string]int64)
 	s.newLeases = make(map[int64]v3.LeaseID)
 }
@@ -286,6 +324,9 @@ type stmSerializable struct {
 func (s *stmSerializable) Get(key string) (string, error) {
 	if wv, ok := s.wset[key]; ok {
 		return wv.val, nil
+	}
+	if s.isKeyRangeDeleted(key) {
+		return "", ErrNotFound{Key: key}
 	}
 	return respToValue(key, s.fetch(key))
 }
@@ -387,6 +428,9 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 	// check wset cache
 	if wv, ok := s.wset[key]; ok {
 		return wv.ttl, nil
+	}
+	if s.isKeyRangeDeleted(key) {
+		return 0, ErrNotFound{Key: key}
 	}
 
 	// Read ttl through s.ttlset cache
