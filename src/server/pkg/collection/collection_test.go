@@ -145,10 +145,12 @@ func TestDeletePrefix(t *testing.T) {
 		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
 			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
 		}
-		require.NoError(t, jobInfos.Get(j2.Job.ID, job))
-		require.Equal(t, j2, job)
-		require.NoError(t, jobInfos.Get(j3.Job.ID, job))
-		require.Equal(t, j3, job)
+		if err := jobInfos.Get(j2.Job.ID, job); err != nil {
+			return err
+		}
+		if err := jobInfos.Get(j3.Job.ID, job); err != nil {
+			return err
+		}
 
 		jobInfos.DeleteAllPrefix("prefix")
 		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
@@ -157,12 +159,14 @@ func TestDeletePrefix(t *testing.T) {
 		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
 			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j2.Job.ID, err)
 		}
-		require.NoError(t, jobInfos.Get(j3.Job.ID, job))
-		require.Equal(t, j3, job)
+		if err := jobInfos.Get(j3.Job.ID, job); err != nil {
+			return err
+		}
 
 		jobInfos.Put(j1.Job.ID, j1)
-		require.NoError(t, jobInfos.Get(j1.Job.ID, job))
-		require.Equal(t, j1, job)
+		if err := jobInfos.Get(j1.Job.ID, job); err != nil {
+			return err
+		}
 		return nil
 	})
 	require.NoError(t, err)
