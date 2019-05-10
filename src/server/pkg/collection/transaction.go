@@ -232,6 +232,7 @@ func (s *stm) DelAll(prefix string) {
 	for _, deletedPrefix := range s.deletedPrefixes {
 		if !strings.HasPrefix(deletedPrefix, prefix) {
 			s.deletedPrefixes[i] = deletedPrefix
+			i++
 		}
 	}
 	s.deletedPrefixes = s.deletedPrefixes[:i]
