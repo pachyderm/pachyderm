@@ -36,6 +36,7 @@ func (t *TransactionDefer) Run() error {
 // PropagateCommit marks a branch as needing propagation once the transaction
 // successfully ends.  This will be performed by the Run function.
 func (t *TransactionDefer) PropagateCommit(branch *pfs.Branch) error {
+	fmt.Printf("PropagateCommit: %s@%s\n", branch.Repo.Name, branch.Name)
 	if branch == nil {
 		return fmt.Errorf("cannot propagate nil branch")
 	}

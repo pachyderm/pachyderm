@@ -104,6 +104,12 @@ func (t *TransactionContext) PfsDefer() PfsTransactionDefer {
 	return t.pfsDefer
 }
 
+// PfsDefer returns a reference to the object for deferring PFS cleanup tasks to
+// the end of the transaction
+func (t *TransactionContext) finish() error {
+	return t.pfsDefer.Run()
+}
+
 // TransactionServer is an interface used by other servers to append a request
 // to an existing transaction.
 type TransactionServer interface {
@@ -167,20 +173,6 @@ func (env *TransactionEnv) Initialize(
 	env.pfsServer = pfsServer
 }
 
-// NewContext is a helper function to instantiate a transaction context without
-// using `WithTransaction` or `EmptyReadTransaction`.  In the future, we may be
-// able to unexport this once other APIs has been migrated to use the above.
-func (env *TransactionEnv) NewContext(ctx context.Context, stm col.STM) *TransactionContext {
-	pachClient := env.serviceEnv.GetPachClient(ctx)
-	return &TransactionContext{
-		pachClient: pachClient,
-		ctx:        pachClient.Ctx(),
-		stm:        stm,
-		txnEnv:     env,
-		pfsDefer:   env.pfsServer.NewTransactionDefer(stm),
-	}
-}
-
 // Transaction is an interface to unify the code that may either perform an
 // action directly or append an action to an existing transaction (depending on
 // if there is an active transaction in the client context metadata).  There
@@ -194,8 +186,6 @@ func (env *TransactionEnv) NewContext(ctx context.Context, stm col.STM) *Transac
 type Transaction interface {
 	PfsWrites
 	AuthWrites
-
-	Finish() error
 }
 
 type directTransaction struct {
@@ -206,14 +196,8 @@ type directTransaction struct {
 // object.  It is exposed so that the transaction API server can run a direct
 // transaction even though there is an active transaction in the context (which
 // is why it cannot use `WithTransaction`).
-func NewDirectTransaction(ctx context.Context, stm col.STM, txnEnv *TransactionEnv) Transaction {
-	return &directTransaction{
-		txnCtx: txnEnv.NewContext(ctx, stm),
-	}
-}
-
-func (t *directTransaction) Finish() error {
-	return t.txnCtx.pfsDefer.Run()
+func NewDirectTransaction(txnCtx *TransactionContext) Transaction {
+	return &directTransaction{txnCtx: txnCtx}
 }
 
 func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
@@ -321,10 +305,6 @@ func (t *appendTransaction) SetACL(original *auth.SetACLRequest) (*auth.SetACLRe
 	panic("SetACL not yet implemented in transactions")
 }
 
-func (t *appendTransaction) Finish() error {
-	return nil
-}
-
 // WithTransaction will call the given callback with a txnenv.Transaction
 // object, which is instantiated differently based on if an active
 // transaction is present in the RPC context.  If an active transaction is
@@ -342,13 +322,28 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		return cb(appendTxn)
 	}
 
-	_, err = col.NewSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
-		directTxn := NewDirectTransaction(ctx, stm, env)
-		err = cb(directTxn)
+	return env.WithTransactionContext(ctx, func(txnCtx *TransactionContext) error {
+		directTxn := NewDirectTransaction(txnCtx)
+		return cb(directTxn)
+	})
+}
+
+func (env *TransactionEnv) WithTransactionContext(ctx context.Context, cb func(*TransactionContext) error) error {
+	_, err := col.NewSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
+		pachClient := env.serviceEnv.GetPachClient(ctx)
+		txnCtx := &TransactionContext{
+			pachClient: pachClient,
+			ctx:        pachClient.Ctx(),
+			stm:        stm,
+			txnEnv:     env,
+			pfsDefer:   env.pfsServer.NewTransactionDefer(stm),
+		}
+
+		err := cb(txnCtx)
 		if err != nil {
 			return err
 		}
-		return directTxn.Finish()
+		return txnCtx.finish()
 	})
 	return err
 }
@@ -358,7 +353,19 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 // transaction is used to perform any writes, they will be silently discarded.
 func (env *TransactionEnv) EmptyReadTransaction(ctx context.Context, cb func(*TransactionContext) error) error {
 	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
-		txnCtx := env.NewContext(ctx, stm)
-		return cb(txnCtx)
+		pachClient := env.serviceEnv.GetPachClient(ctx)
+		txnCtx := &TransactionContext{
+			pachClient: pachClient,
+			ctx:        pachClient.Ctx(),
+			stm:        stm,
+			txnEnv:     env,
+			pfsDefer:   env.pfsServer.NewTransactionDefer(stm),
+		}
+
+		err := cb(txnCtx)
+		if err != nil {
+			return err
+		}
+		return txnCtx.finish()
 	})
 }

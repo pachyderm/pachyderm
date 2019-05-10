@@ -126,70 +126,69 @@ func (d *driver) deleteAll(ctx context.Context, stm col.STM, running *transactio
 }
 
 func (d *driver) runTransaction(ctx context.Context, stm col.STM, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
-	directTxn := txnenv.NewDirectTransaction(ctx, stm, d.txnEnv)
 	responses := []*transaction.TransactionResponse{}
-	for i, request := range info.Requests {
-		var err error
-		var response *transaction.TransactionResponse
+	err := d.txnEnv.WithTransactionContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		directTxn := txnenv.NewDirectTransaction(txnCtx)
+		for i, request := range info.Requests {
+			var err error
+			var response *transaction.TransactionResponse
 
-		if request.CreateRepo != nil {
-			err = directTxn.CreateRepo(request.CreateRepo)
-			response = &transaction.TransactionResponse{}
-		} else if request.DeleteRepo != nil {
-			err = directTxn.DeleteRepo(request.DeleteRepo)
-			response = &transaction.TransactionResponse{}
-		} else if request.StartCommit != nil {
-			// Do a little extra work here so we can make sure the new commit ID is
-			// the same every time.  We store the response the first time and reuse
-			// the commit ID on subsequent runs.
-			var commit *pfs.Commit
-			if len(info.Responses) > i {
-				commit = info.Responses[i].Commit
-				if commit == nil {
-					err = fmt.Errorf("unexpected stored response type for StartCommit")
+			if request.CreateRepo != nil {
+				err = directTxn.CreateRepo(request.CreateRepo)
+				response = &transaction.TransactionResponse{}
+			} else if request.DeleteRepo != nil {
+				err = directTxn.DeleteRepo(request.DeleteRepo)
+				response = &transaction.TransactionResponse{}
+			} else if request.StartCommit != nil {
+				// Do a little extra work here so we can make sure the new commit ID is
+				// the same every time.  We store the response the first time and reuse
+				// the commit ID on subsequent runs.
+				var commit *pfs.Commit
+				if len(info.Responses) > i {
+					commit = info.Responses[i].Commit
+					if commit == nil {
+						err = fmt.Errorf("unexpected stored response type for StartCommit")
+					}
 				}
+				if err == nil {
+					commit, err = directTxn.StartCommit(request.StartCommit, commit)
+					response = client.NewCommitResponse(commit)
+				}
+			} else if request.FinishCommit != nil {
+				err = directTxn.FinishCommit(request.FinishCommit)
+				response = &transaction.TransactionResponse{}
+			} else if request.DeleteCommit != nil {
+				err = directTxn.DeleteCommit(request.DeleteCommit)
+				response = &transaction.TransactionResponse{}
+			} else if request.CreateBranch != nil {
+				err = directTxn.CreateBranch(request.CreateBranch)
+				response = &transaction.TransactionResponse{}
+			} else if request.DeleteBranch != nil {
+				err = directTxn.DeleteBranch(request.DeleteBranch)
+				response = &transaction.TransactionResponse{}
+			} else if request.DeleteAll != nil {
+				// TODO: extend this to delete everything through PFS, PPS, Auth and
+				// update the client DeleteAll call to use only this, then remove unused
+				// RPCs.
+				err = d.deleteAll(ctx, stm, info.Transaction)
+				response = &transaction.TransactionResponse{}
+			} else {
+				err = fmt.Errorf("unrecognized transaction request type")
 			}
-			if err == nil {
-				commit, err = directTxn.StartCommit(request.StartCommit, commit)
-				response = client.NewCommitResponse(commit)
+
+			if err != nil {
+				return fmt.Errorf("error running request %d of %d: %v", i+1, len(info.Requests), err)
 			}
-		} else if request.FinishCommit != nil {
-			err = directTxn.FinishCommit(request.FinishCommit)
-			response = &transaction.TransactionResponse{}
-		} else if request.DeleteCommit != nil {
-			err = directTxn.DeleteCommit(request.DeleteCommit)
-			response = &transaction.TransactionResponse{}
-		} else if request.CreateBranch != nil {
-			err = directTxn.CreateBranch(request.CreateBranch)
-			response = &transaction.TransactionResponse{}
-		} else if request.DeleteBranch != nil {
-			err = directTxn.DeleteBranch(request.DeleteBranch)
-			response = &transaction.TransactionResponse{}
-		} else if request.DeleteAll != nil {
-			// TODO: extend this to delete everything through PFS, PPS, Auth and
-			// update the client DeleteAll call to use only this, then remove unused
-			// RPCs.
-			err = d.deleteAll(ctx, stm, info.Transaction)
-			response = &transaction.TransactionResponse{}
-		} else {
-			err = fmt.Errorf("unrecognized transaction request type")
+
+			responses = append(responses, response)
 		}
-
-		if err != nil {
-			return nil, fmt.Errorf("error running request %d of %d: %v", i+1, len(info.Requests), err)
-		}
-
-		responses = append(responses, response)
-	}
-
-	info.Responses = responses
-
-	// Perform any cleanup tasks at the end of the transaction
-	err := directTxn.Finish()
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
 
+	info.Responses = responses
 	return info, nil
 }
 

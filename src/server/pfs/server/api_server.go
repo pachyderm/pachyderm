@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -104,9 +103,9 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
 	var info *pfs.RepoInfo
-	err := col.NewDryrunSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
+	err := a.txnEnv.EmptyReadTransaction(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		info, err = a.InspectRepoInTransaction(a.txnEnv.NewContext(ctx, stm), request)
+		info, err = a.InspectRepoInTransaction(txnCtx, request)
 		return err
 	})
 	if err != nil {
@@ -554,8 +553,8 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	_, err := col.NewSTM(ctx, a.driver.etcdClient, func(stm col.STM) error {
-		return a.driver.deleteAll(a.txnEnv.NewContext(ctx, stm))
+	err := a.txnEnv.WithTransactionContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+		return a.driver.deleteAll(txnCtx)
 	})
 	if err != nil {
 		return nil, err
