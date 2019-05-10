@@ -237,7 +237,7 @@ func (s *stm) DelAll(prefix string) {
 	s.deletedPrefixes = s.deletedPrefixes[:i]
 	s.deletedPrefixes = append(s.deletedPrefixes, prefix)
 
-	for k, _ := range s.wset {
+	for k := range s.wset {
 		if strings.HasPrefix(k, prefix) {
 			delete(s.wset, k)
 		}
@@ -300,7 +300,7 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 func (s *stm) writes() []v3.Op {
 	prefixes := s.deletedPrefixes
 	puts := make([]string, 0, len(s.wset))
-	for key, _ := range s.wset {
+	for key := range s.wset {
 		puts = append(puts, key)
 	}
 	sort.Strings(puts)
@@ -317,14 +317,14 @@ func (s *stm) writes() []v3.Op {
 		} else {
 			// There may be puts within a deleted range, but we can't have two
 			// overlapping writes - break up the deleted range into multiple deletes.
-			lastKey := prefixes[j]
+			start := prefixes[j]
 			for i < len(puts) && strings.HasPrefix(puts[i], prefixes[j]) {
-				writes = append(writes, v3.OpDelete(lastKey, v3.WithRange(puts[i])))
+				writes = append(writes, v3.OpDelete(start, v3.WithRange(puts[i])))
 				writes = append(writes, s.wset[puts[i]].op)
-				lastKey = puts[i] + "\x00"
+				start = puts[i] + "\x00"
 				i++
 			}
-			writes = append(writes, v3.OpDelete(lastKey, v3.WithRange(v3.GetPrefixRangeEnd(prefixes[j]))))
+			writes = append(writes, v3.OpDelete(start, v3.WithRange(v3.GetPrefixRangeEnd(prefixes[j]))))
 			j++
 		}
 	}
