@@ -1260,7 +1260,6 @@ func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch) error {
 	key := path.Join
 	branchMap := map[string]*BranchData{}
 	for _, branch := range branches {
-		fmt.Printf("propagateCommits: %s@%s\n", branch.Repo.Name, branch.Name)
 		var head *pfs.CommitInfo
 		branchData, exists := branchMap[key(branch.Repo.Name, branch.Name)]
 		if !exists {
@@ -1320,7 +1319,6 @@ nextSubvBranch:
 		repo := branch.Repo
 		commits := d.commits(repo.Name).ReadWrite(stm)
 		branches := d.branches(repo.Name).ReadWrite(stm)
-		fmt.Printf("subvBranch iteration: %s@%s\n", branch.Repo.Name, branch.Name)
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
@@ -1366,7 +1364,6 @@ nextSubvBranch:
 				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
 			}
 		}
-		fmt.Printf("Branch %s@%s commitProvMap: %s\n", branch.Repo.Name, branch.Name, commitProvMap)
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
 			continue nextSubvBranch
