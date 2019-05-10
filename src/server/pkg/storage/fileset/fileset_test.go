@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"path"
 	"strconv"
 	"testing"
 	"time"
@@ -17,7 +18,8 @@ import (
 )
 
 const (
-	max = 20 * chunk.MB
+	max      = 20 * chunk.MB
+	testPath = "test"
 )
 
 type file struct {
@@ -46,7 +48,10 @@ func TestWriteThenRead(t *testing.T) {
 	defer func() {
 		chunks.DeleteAll(context.Background())
 		objC.Delete(context.Background(), chunk.Prefix)
+		objC.Delete(context.Background(), path.Join(Prefix, testPath))
+		objC.Delete(context.Background(), Prefix)
 	}()
+	fileSets := NewStorage(objC, chunks)
 	fileNames := index.Generate("abc")
 	files := make(map[string]*file)
 	seed := time.Now().UTC().UnixNano()
@@ -62,7 +67,7 @@ func TestWriteThenRead(t *testing.T) {
 	// storage layer (probably in the chunk storage layer).
 	for i := 0; i < 10; i++ {
 		// Write files to file set.
-		w := NewWriter(context.Background(), chunks)
+		w := fileSets.NewWriter(context.Background(), testPath)
 		for _, fileName := range fileNames {
 			hdr := &index.Header{
 				Hdr: &tar.Header{
@@ -74,10 +79,9 @@ func TestWriteThenRead(t *testing.T) {
 			_, err := w.Write(files[fileName].data)
 			require.NoError(t, err, seedStr(seed))
 		}
-		idx, err := w.Close()
-		require.NoError(t, err, seedStr(seed))
+		require.NoError(t, w.Close(), seedStr(seed))
 		// Read files from file set, checking against recorded data and hashes.
-		r := NewReader(context.Background(), chunks, idx, "")
+		r := fileSets.NewReader(context.Background(), testPath, "")
 		for _, fileName := range fileNames {
 			hdr, err := r.Next()
 			require.NoError(t, err, seedStr(seed))
