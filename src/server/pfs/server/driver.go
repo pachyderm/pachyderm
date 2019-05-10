@@ -1234,7 +1234,7 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 	return nil
 }
 
-// propagateCommit selectively starts commits in or downstream of 'branches' in
+// propagateCommits selectively starts commits in or downstream of 'branches' in
 // order to restore the invariant that branch provenance matches HEAD commit
 // provenance:
 //   B.Head is provenant on A.Head <=>
@@ -1244,10 +1244,10 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 // the name, 'branches' do not need a HEAD commit to propagate, though one may be
 // created.
 //
-// In other words, propagateCommit scans all branches b_downstream that are
+// In other words, propagateCommits scans all branches b_downstream that are
 // equal to or downstream of 'branches', and if the HEAD of b_downstream isn't
-// provenant on the HEADs of b_downstream's provenance, propagateCommit starts
-// a new HEAD commit in b_downstream that is. For example, propagateCommit
+// provenant on the HEADs of b_downstream's provenance, propagateCommits starts
+// a new HEAD commit in b_downstream that is. For example, propagateCommits
 // starts downstream output commits (which trigger PPS jobs) when new input
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
