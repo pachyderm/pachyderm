@@ -84,8 +84,9 @@ func TestGetAfterDel(t *testing.T) {
 	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		job := &pps.JobInfo{}
 		jobInfos := jobInfos.ReadWrite(stm)
-		require.NoError(t, jobInfos.Get(j1.Job.ID, job))
-		require.Equal(t, j1, job)
+		if err := jobInfos.Get(j1.Job.ID, job); err != nil {
+			return err
+		}
 
 		if err := jobInfos.Get("j4", job); !IsErrNotFound(err) {
 			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", "j4", err)
@@ -170,7 +171,7 @@ func TestDeletePrefix(t *testing.T) {
 	jobs := jobInfos.ReadOnly(context.Background())
 	require.NoError(t, jobs.Get(j1.Job.ID, job))
 	require.Equal(t, j1, job)
-	require.True(t, IsErrNotFound(jobs.Get(j1.Job.ID, job)))
+	require.True(t, IsErrNotFound(jobs.Get(j2.Job.ID, job)))
 	require.NoError(t, jobs.Get(j3.Job.ID, job))
 	require.Equal(t, j3, job)
 }

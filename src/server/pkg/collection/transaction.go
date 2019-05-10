@@ -19,6 +19,7 @@ package collection
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	v3 "github.com/coreos/etcd/clientv3"
@@ -252,16 +253,16 @@ func (s *stm) Rev(key string) int64 {
 
 func (s *stm) commit() *v3.TxnResponse {
 	cmps := s.cmps()
-	puts := s.puts()
+	writes := s.writes()
 	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Txn")
 	defer tracing.FinishAnySpan(span)
-	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(puts...).Commit()
+	txnresp, err := s.client.Txn(ctx).If(cmps...).Then(writes...).Commit()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
 			fmt.Errorf(
-				"%v (%d comparisons, %d puts: hint: set --max-txn-ops on the "+
+				"%v (%d comparisons, %d writes: hint: set --max-txn-ops on the "+
 					"ETCD cluster to at least the largest of those values)",
-				err, len(cmps), len(puts)),
+				err, len(cmps), len(writes)),
 		})
 	} else if err != nil {
 		panic(stmError{err})
@@ -295,17 +296,47 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 	return resp
 }
 
-// puts is the list of ops for all pending writes
-func (s *stm) puts() []v3.Op {
-	puts := make([]v3.Op, 0, len(s.wset)+len(s.deletedPrefixes))
-	for _, prefix := range s.deletedPrefixes {
-		puts = append(puts, v3.OpDelete(prefix, v3.WithPrefix()))
+// writes is the list of ops for all pending writes
+func (s *stm) writes() []v3.Op {
+	prefixes := s.deletedPrefixes
+	puts := make([]string, 0, len(s.wset))
+	for key, _ := range s.wset {
+		puts = append(puts, key)
 	}
+	sort.Strings(puts)
+	sort.Strings(s.deletedPrefixes)
 
-	for _, v := range s.wset {
-		puts = append(puts, v.op)
+	writes := make([]v3.Op, 0, 2*len(s.wset)+len(s.deletedPrefixes))
+	i := 0 // index into puts
+	j := 0 // index into prefixes
+	for i < len(puts) && j < len(prefixes) {
+		if puts[i] < prefixes[j] {
+			// This is a standalone put, nothing fancy here
+			writes = append(writes, s.wset[puts[i]].op)
+			i++
+		} else {
+			// There may be puts within a deleted range, but we can't have two
+			// overlapping writes - break up the deleted range into multiple deletes.
+			lastKey := prefixes[j]
+			for i < len(puts) && strings.HasPrefix(puts[i], prefixes[j]) {
+				writes = append(writes, v3.OpDelete(lastKey, v3.WithRange(puts[i])))
+				writes = append(writes, s.wset[puts[i]].op)
+				lastKey = puts[i] + "\x00"
+				i++
+			}
+			writes = append(writes, v3.OpDelete(lastKey, v3.WithRange(v3.GetPrefixRangeEnd(prefixes[j]))))
+			j++
+		}
 	}
-	return puts
+	for i < len(puts) {
+		writes = append(writes, s.wset[puts[i]].op)
+		i++
+	}
+	for j < len(prefixes) {
+		writes = append(writes, v3.OpDelete(prefixes[j], v3.WithPrefix()))
+		j++
+	}
+	return writes
 }
 
 func (s *stm) reset() {
@@ -366,18 +397,18 @@ func (s *stmSerializable) gets() ([]string, []v3.Op) {
 func (s *stmSerializable) commit() *v3.TxnResponse {
 	keys, getops := s.gets()
 	cmps := s.cmps()
-	puts := s.puts()
+	writes := s.writes()
 	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "etcd.Txn")
 	defer tracing.FinishAnySpan(span)
-	txn := s.client.Txn(ctx).If(cmps...).Then(puts...)
+	txn := s.client.Txn(ctx).If(cmps...).Then(writes...)
 	// use Else to prefetch keys in case of conflict to save a round trip
 	txnresp, err := txn.Else(getops...).Commit()
 	if err == rpctypes.ErrTooManyOps {
 		panic(stmError{
 			fmt.Errorf(
-				"%v (%d comparisons, %d puts: hint: set --max-txn-ops on the "+
+				"%v (%d comparisons, %d writes: hint: set --max-txn-ops on the "+
 					"ETCD cluster to at least the largest of those values)",
-				err, len(cmps), len(puts)),
+				err, len(cmps), len(writes)),
 		})
 	} else if err != nil {
 		panic(stmError{err})
