@@ -125,67 +125,61 @@ func (d *driver) deleteAll(ctx context.Context, stm col.STM, running *transactio
 	return nil
 }
 
-func (d *driver) runTransaction(ctx context.Context, stm col.STM, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
+func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transaction.TransactionInfo) (*transaction.TransactionInfo, error) {
 	responses := []*transaction.TransactionResponse{}
-	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		directTxn := txnenv.NewDirectTransaction(txnCtx)
-		for i, request := range info.Requests {
-			var err error
-			var response *transaction.TransactionResponse
+	directTxn := txnenv.NewDirectTransaction(txnCtx)
+	for i, request := range info.Requests {
+		var err error
+		var response *transaction.TransactionResponse
 
-			if request.CreateRepo != nil {
-				err = directTxn.CreateRepo(request.CreateRepo)
-				response = &transaction.TransactionResponse{}
-			} else if request.DeleteRepo != nil {
-				err = directTxn.DeleteRepo(request.DeleteRepo)
-				response = &transaction.TransactionResponse{}
-			} else if request.StartCommit != nil {
-				// Do a little extra work here so we can make sure the new commit ID is
-				// the same every time.  We store the response the first time and reuse
-				// the commit ID on subsequent runs.
-				var commit *pfs.Commit
-				if len(info.Responses) > i {
-					commit = info.Responses[i].Commit
-					if commit == nil {
-						err = fmt.Errorf("unexpected stored response type for StartCommit")
-					}
+		if request.CreateRepo != nil {
+			err = directTxn.CreateRepo(request.CreateRepo)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteRepo != nil {
+			err = directTxn.DeleteRepo(request.DeleteRepo)
+			response = &transaction.TransactionResponse{}
+		} else if request.StartCommit != nil {
+			// Do a little extra work here so we can make sure the new commit ID is
+			// the same every time.  We store the response the first time and reuse
+			// the commit ID on subsequent runs.
+			var commit *pfs.Commit
+			if len(info.Responses) > i {
+				commit = info.Responses[i].Commit
+				if commit == nil {
+					err = fmt.Errorf("unexpected stored response type for StartCommit")
 				}
-				if err == nil {
-					commit, err = directTxn.StartCommit(request.StartCommit, commit)
-					response = client.NewCommitResponse(commit)
-				}
-			} else if request.FinishCommit != nil {
-				err = directTxn.FinishCommit(request.FinishCommit)
-				response = &transaction.TransactionResponse{}
-			} else if request.DeleteCommit != nil {
-				err = directTxn.DeleteCommit(request.DeleteCommit)
-				response = &transaction.TransactionResponse{}
-			} else if request.CreateBranch != nil {
-				err = directTxn.CreateBranch(request.CreateBranch)
-				response = &transaction.TransactionResponse{}
-			} else if request.DeleteBranch != nil {
-				err = directTxn.DeleteBranch(request.DeleteBranch)
-				response = &transaction.TransactionResponse{}
-			} else if request.DeleteAll != nil {
-				// TODO: extend this to delete everything through PFS, PPS, Auth and
-				// update the client DeleteAll call to use only this, then remove unused
-				// RPCs.
-				err = d.deleteAll(ctx, stm, info.Transaction)
-				response = &transaction.TransactionResponse{}
-			} else {
-				err = fmt.Errorf("unrecognized transaction request type")
 			}
-
-			if err != nil {
-				return fmt.Errorf("error running request %d of %d: %v", i+1, len(info.Requests), err)
+			if err == nil {
+				commit, err = directTxn.StartCommit(request.StartCommit, commit)
+				response = client.NewCommitResponse(commit)
 			}
-
-			responses = append(responses, response)
+		} else if request.FinishCommit != nil {
+			err = directTxn.FinishCommit(request.FinishCommit)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteCommit != nil {
+			err = directTxn.DeleteCommit(request.DeleteCommit)
+			response = &transaction.TransactionResponse{}
+		} else if request.CreateBranch != nil {
+			err = directTxn.CreateBranch(request.CreateBranch)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteBranch != nil {
+			err = directTxn.DeleteBranch(request.DeleteBranch)
+			response = &transaction.TransactionResponse{}
+		} else if request.DeleteAll != nil {
+			// TODO: extend this to delete everything through PFS, PPS, Auth and
+			// update the client DeleteAll call to use only this, then remove unused
+			// RPCs.
+			err = d.deleteAll(txnCtx.ClientContext(), txnCtx.Stm(), info.Transaction)
+			response = &transaction.TransactionResponse{}
+		} else {
+			err = fmt.Errorf("unrecognized transaction request type")
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+
+		if err != nil {
+			return nil, fmt.Errorf("error running request %d of %d: %v", i+1, len(info.Requests), err)
+		}
+
+		responses = append(responses, response)
 	}
 
 	info.Responses = responses
@@ -194,16 +188,16 @@ func (d *driver) runTransaction(ctx context.Context, stm col.STM, info *transact
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		err := d.transactions.ReadOnly(ctx).Get(txn.ID, info)
 		if err != nil {
 			return err
 		}
-		info, err = d.runTransaction(ctx, stm, info)
+		info, err = d.runTransaction(txnCtx, info)
 		if err != nil {
 			return err
 		}
-		return d.transactions.ReadWrite(stm).Delete(txn.ID)
+		return d.transactions.ReadWrite(txnCtx.Stm()).Delete(txn.ID)
 	})
 	if err != nil {
 		return nil, err
@@ -232,9 +226,9 @@ func (d *driver) appendTransaction(
 		var dryrunResponses []*transaction.TransactionResponse
 
 		info := &transaction.TransactionInfo{}
-		err := col.NewDryrunSTM(ctx, d.etcdClient, func(stm col.STM) error {
+		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 			// Get the existing transaction and append the new requests
-			err := d.transactions.ReadWrite(stm).Get(txn.ID, info)
+			err := d.transactions.ReadWrite(txnCtx.Stm()).Get(txn.ID, info)
 			if err != nil {
 				return err
 			}
@@ -245,7 +239,7 @@ func (d *driver) appendTransaction(
 			numResponses = len(info.Responses)
 			info.Requests = append(info.Requests, items...)
 
-			info, err = d.runTransaction(ctx, stm, info)
+			info, err = d.runTransaction(txnCtx, info)
 			if err != nil {
 				return err
 			}
