@@ -3,10 +3,6 @@
 set -ex
 
 # Make sure cache dirs exist and are writable
-mkdir -p ~/.cache/go-build
-sudo chown -R `whoami` ~/.cache/go-build
-sudo chown -R `whoami` ~/cached-deps
-
 # Note that this script executes as the user `travis`, vs the pre-install
 # script which executes as `root`. Without `chown`ing `~/cached-deps` (where
 # we store cacheable binaries), any calls to those binaries would fail because
@@ -19,6 +15,10 @@ sudo chown -R `whoami` ~/cached-deps
 #
 #     sudo env "PATH=$PATH" minikube foo
 #
+mkdir -p ~/.cache/go-build
+sudo chown -R `whoami` ~/.cache/go-build
+sudo chown -R `whoami` ~/cached-deps
+
 kubectl version --client
 etcdctl --version
 
