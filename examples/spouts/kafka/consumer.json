@@ -1,0 +1,10 @@
+{
+  "pipeline": {
+    "name": "kafka-example"
+  },
+  "transform": {
+    "image": "pachyderm/kafka-example-consumer:latest",
+    "cmd": [ "python3", "./consumer.py" ]
+  },
+  "spout": {},
+}

@@ -1,0 +1,1 @@
+kafka-python==1.4.6
