@@ -46,10 +46,9 @@ func seedStr(seed int64) string {
 func TestWriteThenRead(t *testing.T) {
 	objC, chunks := chunk.LocalStorage(t)
 	defer func() {
-		chunks.DeleteAll(context.Background())
-		objC.Delete(context.Background(), chunk.Prefix)
-		objC.Delete(context.Background(), path.Join(Prefix, testPath))
-		objC.Delete(context.Background(), Prefix)
+		chunk.Cleanup(objC, chunks)
+		objC.Delete(context.Background(), path.Join(prefix, testPath))
+		objC.Delete(context.Background(), prefix)
 	}()
 	fileSets := NewStorage(objC, chunks)
 	fileNames := index.Generate("abc")

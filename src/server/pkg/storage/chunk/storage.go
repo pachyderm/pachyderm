@@ -7,13 +7,11 @@ import (
 )
 
 const (
-	// Prefix is the chunk storage prefix.
-	Prefix = "chunks"
+	prefix = "chunks"
 )
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
-	// (bryce) should we have a ctx here?
 	objC obj.Client
 }
 
@@ -42,7 +40,7 @@ func (s *Storage) NewWriter(ctx context.Context) *Writer {
 
 // DeleteAll deletes all of the chunks in object storage.
 func (s *Storage) DeleteAll(ctx context.Context) error {
-	return s.objC.Walk(ctx, Prefix, func(hash string) error {
+	return s.objC.Walk(ctx, prefix, func(hash string) error {
 		return s.objC.Delete(ctx, hash)
 	})
 }

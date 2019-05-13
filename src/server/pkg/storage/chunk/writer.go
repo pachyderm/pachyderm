@@ -122,7 +122,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 
 func (w *Writer) put() error {
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(w.buf.Bytes()))}
-	path := path.Join(Prefix, chunk.Hash)
+	path := path.Join(prefix, chunk.Hash)
 	// If it does not exist, compress and write it.
 	if !w.objC.Exists(w.ctx, path) {
 		objW, err := w.objC.Writer(w.ctx, path)

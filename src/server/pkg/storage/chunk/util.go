@@ -1,6 +1,7 @@
 package chunk
 
 import (
+	"context"
 	"math/rand"
 	"os"
 	"testing"
@@ -17,6 +18,11 @@ func LocalStorage(tb testing.TB) (obj.Client, *Storage) {
 	objC, err := obj.NewLocalClient(wd)
 	require.NoError(tb, err)
 	return objC, NewStorage(objC)
+}
+
+func Cleanup(objC obj.Client, chunks *Storage) {
+	chunks.DeleteAll(context.Background())
+	objC.Delete(context.Background(), prefix)
 }
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

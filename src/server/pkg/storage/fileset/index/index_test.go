@@ -53,8 +53,7 @@ func Expected(fileNames []string, prefix string) []string {
 func Check(t *testing.T, permString string) {
 	objC, chunks := chunk.LocalStorage(t)
 	defer func() {
-		chunks.DeleteAll(context.Background())
-		objC.Delete(context.Background(), chunk.Prefix)
+		chunk.Cleanup(objC, chunks)
 		objC.Delete(context.Background(), testPath)
 	}()
 	fileNames := Generate(permString)

@@ -65,7 +65,7 @@ func (r *Reader) Read(data []byte) (int, error) {
 }
 
 func (r *Reader) readChunk(chunk *Chunk) error {
-	objR, err := r.objC.Reader(r.ctx, path.Join(Prefix, chunk.Hash), 0, 0)
+	objR, err := r.objC.Reader(r.ctx, path.Join(prefix, chunk.Hash), 0, 0)
 	if err != nil {
 		return err
 	}
