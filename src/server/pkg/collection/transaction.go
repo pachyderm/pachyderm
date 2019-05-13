@@ -228,15 +228,24 @@ func (s *stm) Del(key string) {
 
 func (s *stm) DelAll(prefix string) {
 	// Remove any eclipsed deletes then add the new delete
+	isEclipsed := false
 	i := 0
 	for _, deletedPrefix := range s.deletedPrefixes {
+		if strings.HasPrefix(prefix, deletedPrefix) {
+			isEclipsed = true
+		}
 		if !strings.HasPrefix(deletedPrefix, prefix) {
 			s.deletedPrefixes[i] = deletedPrefix
 			i++
 		}
 	}
 	s.deletedPrefixes = s.deletedPrefixes[:i]
-	s.deletedPrefixes = append(s.deletedPrefixes, prefix)
+
+	// If the new DelAll prefix is eclipsed by an already-deleted prefix, don't
+	// add it to the set, but still clean up any eclipsed writes.
+	if !isEclipsed {
+		s.deletedPrefixes = append(s.deletedPrefixes, prefix)
+	}
 
 	for k := range s.wset {
 		if strings.HasPrefix(k, prefix) {
