@@ -20,6 +20,7 @@ func LocalStorage(tb testing.TB) (obj.Client, *Storage) {
 	return objC, NewStorage(objC)
 }
 
+// Cleanup cleans up a local chunk storage instance.
 func Cleanup(objC obj.Client, chunks *Storage) {
 	chunks.DeleteAll(context.Background())
 	objC.Delete(context.Background(), prefix)
