@@ -1118,7 +1118,7 @@ func (d *driver) makeCommit(
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
-		if err := txnCtx.PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch)); err != nil {
+		if err := txnCtx.PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch, true)); err != nil {
 			return nil, err
 		}
 	}
@@ -1261,12 +1261,20 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 // provenant on the HEADs of b_downstream's provenance, propagateCommits starts
 // a new HEAD commit in b_downstream that is. For example, propagateCommits
 // starts downstream output commits (which trigger PPS jobs) when new input
+<<<<<<< HEAD
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
 func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch, provenance []*pfs.CommitProvenance) error {
 	type BranchData struct {
 		branchInfo *pfs.BranchInfo
 		heads      []*pfs.CommitInfo // List of head commits being propagated that this branch is provenant on
+=======
+// commits arrive on 'branch', when 'branch's HEAD is deleted, or when 'branch'
+// is newly created (i.e. in CreatePipeline).
+func (d *driver) propagateCommit(stm col.STM, branch *pfs.Branch, newCommit bool) error {
+	if branch == nil {
+		return fmt.Errorf("cannot propagate nil branch")
+>>>>>>> propagate commit doesn't need provenance, just whether it's a new commit
 	}
 	var err error
 
@@ -1384,15 +1392,6 @@ nextSubvBranch:
 				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
 			}
 		}
-		// fill it with the passed in provenance
-		for _, prov := range provenance {
-			// resolve the commit provenance in case it is specified as a branch name
-			prov, err = d.resolveCommitProvenance(stm, prov)
-			if err != nil {
-				return err
-			}
-			commitProvMap[key(prov.Commit.ID, prov.Branch.Name)] = prov
-		}
 
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
@@ -1445,9 +1444,8 @@ nextSubvBranch:
 			continue nextSubvBranch
 		}
 
-		// if a commit was just created (provenance != nil only when called by makeCommit)
-		// and this is the same branch as the one being propagated, we don't need to do anything
-		if subvBranch.Repo.Name == branch.Repo.Name && subvBranch.Name == branch.Name && provenance != nil {
+		// if a commit was just created and this is the same branch as the one being propagated, we don't need to do anything
+		if subvBranch.Repo.Name == branch.Repo.Name && subvBranch.Name == branch.Name && newCommit {
 			continue nextSubvBranch
 		}
 
@@ -2153,9 +2151,20 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 					repoInfo.SizeBytes = 0
 				}
 
+<<<<<<< HEAD
 				if err := repos.Put(repo, repoInfo); err != nil {
 					return err
 				}
+=======
+		// 8) propagate the changes to 'branch' and its subvenance. This may start
+		// new HEAD commits downstream, if the new branch heads haven't been
+		// processed yet
+		sort.Slice(affectedBranches, func(i, j int) bool { return len(affectedBranches[i].Provenance) < len(affectedBranches[j].Provenance) })
+		for _, afBranch := range affectedBranches {
+			err = d.propagateCommit(stm, afBranch.Branch, false)
+			if err != nil {
+				return err
+>>>>>>> propagate commit doesn't need provenance, just whether it's a new commit
 			}
 		}
 	}
@@ -2317,6 +2326,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		}
 	}
 
+<<<<<<< HEAD
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
@@ -2324,6 +2334,14 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		return err
 	}
 	return nil
+=======
+		// propagate the head commit to 'branch'. This may also modify 'branch', by
+		// creating a new HEAD commit if 'branch's provenance was changed and its
+		// current HEAD commit has old provenance
+		return d.propagateCommit(stm, branch, false)
+	})
+	return err
+>>>>>>> propagate commit doesn't need provenance, just whether it's a new commit
 }
 
 func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
