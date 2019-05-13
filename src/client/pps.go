@@ -627,7 +627,7 @@ func (c APIClient) StopPipeline(name string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-// RunPipeline runs a pipeline over a given set of commits.
+// RunPipeline runs a pipeline. It can be passed a list of commit provenance. This will
 func (c APIClient) RunPipeline(name string, provenance []*pfs.CommitProvenance) error {
 	_, err := c.PpsAPIClient.RunPipeline(
 		c.Ctx(),

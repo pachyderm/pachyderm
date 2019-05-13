@@ -2461,6 +2461,17 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if err != nil {
 		return nil, err
 	}
+	// make sure the user isn't trying to run pipeline on an empty branch
+	branch, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
+		Branch: client.NewBranch(request.Pipeline.Name, pipelineInfo.OutputBranch),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if branch.Head == nil {
+		return nil, fmt.Errorf("Run pipeline needs a pipeline with existing data to run. New commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or torerun an job.")
+	}
+
 	// we need to inspect the commit in order to resolve the commit ID, which may have an ancestry tag
 	specCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
 		Commit: pipelineInfo.SpecCommit,

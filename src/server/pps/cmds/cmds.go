@@ -489,7 +489,16 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	runPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline> [commits...]",
 		Short: "Run an existing Pachyderm pipeline on the specified commits or branches.",
-		Long:  "Run a Pachyderm pipeline on the datums from specific commits. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commits. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline.",
+		Example: `
+		# Return logs emitted by recent jobs in the "filter" pipeline
+		$ {{alias}} --pipeline=filter
+		
+		# Return logs emitted by the job aedfa12aedf
+		$ {{alias}} --job=aedfa12aedf
+		
+		# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+		$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
