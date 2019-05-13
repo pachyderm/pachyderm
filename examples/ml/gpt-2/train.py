@@ -18,4 +18,4 @@ sess = gpt2.start_tf_sess()
 gpt2.finetune(sess,
               os.path.join("/pfs/tweets", tweets[0]),
               model_name=model_name,
-              steps=1)   # steps is max number of training steps
+              steps=25)   # steps is max number of training steps
