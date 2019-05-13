@@ -34,7 +34,6 @@ var initialWindow = make([]byte, WindowSize)
 type Writer struct {
 	ctx        context.Context
 	objC       obj.Client
-	prefix     string
 	cbs        []func([]*DataRef) error
 	buf        *bytes.Buffer
 	hash       *buzhash64.Buzhash64
@@ -46,14 +45,13 @@ type Writer struct {
 }
 
 // newWriter creates a new Writer.
-func newWriter(ctx context.Context, objC obj.Client, prefix string) *Writer {
+func newWriter(ctx context.Context, objC obj.Client) *Writer {
 	// Initialize buzhash64 with WindowSize window.
 	hash := buzhash64.New()
 	hash.Write(initialWindow)
 	return &Writer{
 		ctx:       ctx,
 		objC:      objC,
-		prefix:    prefix,
 		cbs:       []func([]*DataRef) error{},
 		buf:       &bytes.Buffer{},
 		hash:      hash,
@@ -124,7 +122,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 
 func (w *Writer) put() error {
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(w.buf.Bytes()))}
-	path := path.Join(w.prefix, chunk.Hash)
+	path := path.Join(prefix, chunk.Hash)
 	// If it does not exist, compress and write it.
 	if !w.objC.Exists(w.ctx, path) {
 		objW, err := w.objC.Writer(w.ctx, path)
