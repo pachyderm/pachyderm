@@ -5,4 +5,5 @@ docker-build:
 deploy:
 	pachctl update repo users
 	pachctl update pipeline -f tweets.json
-	pachctl update pipeline -f train.json --reprocess
+	pachctl update pipeline -f train.json
+	pachctl update pipeline -f generate.json

@@ -1,0 +1,16 @@
+
+{
+    "pipeline": {
+        "name": "generate"
+    },
+    "transform": {
+        "image": "gpt-2-example",
+        "cmd": ["/generate.py"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "train",
+            "glob": "/*"
+        }
+    }
+}

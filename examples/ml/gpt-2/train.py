@@ -2,9 +2,13 @@
 import gpt_2_simple as gpt2
 import os
 
-os.chdir("/pfs/out")
 
 tweets = [f for f in os.listdir("/pfs/tweets")]
+
+# chdir so that the training process outputs to the right place
+out = os.path.join("/pfs/out", tweets[0])
+os.mkdir(out)
+os.chdir(out)
 
 model_name = "117M"
 gpt2.download_gpt2(model_name=model_name)
@@ -15,5 +19,3 @@ gpt2.finetune(sess,
               os.path.join("/pfs/tweets", tweets[0]),
               model_name=model_name,
               steps=1)   # steps is max number of training steps
-
-gpt2.generate(sess)
