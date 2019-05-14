@@ -9,6 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -563,6 +565,20 @@ type APIServer interface {
 	// its cluster). This is to avoid dealing with invalid, intermediate states
 	// (e.g. auth is activated but enterprise state is NONE)
 	Deactivate(context.Context, *DeactivateRequest) (*DeactivateResponse, error)
+}
+
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) Activate(ctx context.Context, req *ActivateRequest) (*ActivateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Activate not implemented")
+}
+func (*UnimplementedAPIServer) GetState(ctx context.Context, req *GetStateRequest) (*GetStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetState not implemented")
+}
+func (*UnimplementedAPIServer) Deactivate(ctx context.Context, req *DeactivateRequest) (*DeactivateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Deactivate not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
