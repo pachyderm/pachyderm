@@ -10,7 +10,7 @@ os.chdir(model_dir)
 sess = gpt2.start_tf_sess()
 gpt2.load_gpt2(sess)
 
-for temp in [0.7 + (x * 0.2) for x in range(7)]:
+for temp in [0.7 + (x * 0.5) for x in range(3)]:
     out = os.path.join("/pfs/out", models[0]+str(temp))
     gpt2.generate_to_file(sess, destination_path=out,
                           prefix="<|startoftext|>",  truncate="<|endoftext|>",
