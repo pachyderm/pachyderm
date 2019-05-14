@@ -14,4 +14,4 @@ for temp in [0.7 + (x * 0.5) for x in range(3)]:
     out = os.path.join("/pfs/out", models[0]+str(temp))
     gpt2.generate_to_file(sess, destination_path=out,
                           prefix="<|startoftext|>",  truncate="<|endoftext|>",
-                          length=280, nsamples=10)
+                          length=280, nsamples=30, include_prefix=False)
