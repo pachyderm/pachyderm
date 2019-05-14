@@ -11,6 +11,8 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	auth "github.com/pachyderm/pachyderm/src/client/admin/1_8/auth"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -4898,6 +4900,98 @@ type APIServer interface {
 	DeleteAll(context.Context, *types.Empty) (*types.Empty, error)
 }
 
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) CreateRepo(ctx context.Context, req *CreateRepoRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateRepo not implemented")
+}
+func (*UnimplementedAPIServer) InspectRepo(ctx context.Context, req *InspectRepoRequest) (*RepoInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectRepo not implemented")
+}
+func (*UnimplementedAPIServer) ListRepo(ctx context.Context, req *ListRepoRequest) (*ListRepoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListRepo not implemented")
+}
+func (*UnimplementedAPIServer) DeleteRepo(ctx context.Context, req *DeleteRepoRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteRepo not implemented")
+}
+func (*UnimplementedAPIServer) StartCommit(ctx context.Context, req *StartCommitRequest) (*Commit, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartCommit not implemented")
+}
+func (*UnimplementedAPIServer) FinishCommit(ctx context.Context, req *FinishCommitRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FinishCommit not implemented")
+}
+func (*UnimplementedAPIServer) InspectCommit(ctx context.Context, req *InspectCommitRequest) (*CommitInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectCommit not implemented")
+}
+func (*UnimplementedAPIServer) ListCommit(ctx context.Context, req *ListCommitRequest) (*CommitInfos, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCommit not implemented")
+}
+func (*UnimplementedAPIServer) ListCommitStream(req *ListCommitRequest, srv API_ListCommitStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListCommitStream not implemented")
+}
+func (*UnimplementedAPIServer) DeleteCommit(ctx context.Context, req *DeleteCommitRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteCommit not implemented")
+}
+func (*UnimplementedAPIServer) FlushCommit(req *FlushCommitRequest, srv API_FlushCommitServer) error {
+	return status.Errorf(codes.Unimplemented, "method FlushCommit not implemented")
+}
+func (*UnimplementedAPIServer) SubscribeCommit(req *SubscribeCommitRequest, srv API_SubscribeCommitServer) error {
+	return status.Errorf(codes.Unimplemented, "method SubscribeCommit not implemented")
+}
+func (*UnimplementedAPIServer) BuildCommit(ctx context.Context, req *BuildCommitRequest) (*Commit, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BuildCommit not implemented")
+}
+func (*UnimplementedAPIServer) CreateBranch(ctx context.Context, req *CreateBranchRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateBranch not implemented")
+}
+func (*UnimplementedAPIServer) InspectBranch(ctx context.Context, req *InspectBranchRequest) (*BranchInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectBranch not implemented")
+}
+func (*UnimplementedAPIServer) ListBranch(ctx context.Context, req *ListBranchRequest) (*BranchInfos, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListBranch not implemented")
+}
+func (*UnimplementedAPIServer) DeleteBranch(ctx context.Context, req *DeleteBranchRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteBranch not implemented")
+}
+func (*UnimplementedAPIServer) PutFile(srv API_PutFileServer) error {
+	return status.Errorf(codes.Unimplemented, "method PutFile not implemented")
+}
+func (*UnimplementedAPIServer) CopyFile(ctx context.Context, req *CopyFileRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CopyFile not implemented")
+}
+func (*UnimplementedAPIServer) GetFile(req *GetFileRequest, srv API_GetFileServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetFile not implemented")
+}
+func (*UnimplementedAPIServer) InspectFile(ctx context.Context, req *InspectFileRequest) (*FileInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectFile not implemented")
+}
+func (*UnimplementedAPIServer) ListFile(ctx context.Context, req *ListFileRequest) (*FileInfos, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListFile not implemented")
+}
+func (*UnimplementedAPIServer) ListFileStream(req *ListFileRequest, srv API_ListFileStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListFileStream not implemented")
+}
+func (*UnimplementedAPIServer) WalkFile(req *WalkFileRequest, srv API_WalkFileServer) error {
+	return status.Errorf(codes.Unimplemented, "method WalkFile not implemented")
+}
+func (*UnimplementedAPIServer) GlobFile(ctx context.Context, req *GlobFileRequest) (*FileInfos, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GlobFile not implemented")
+}
+func (*UnimplementedAPIServer) GlobFileStream(req *GlobFileRequest, srv API_GlobFileStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method GlobFileStream not implemented")
+}
+func (*UnimplementedAPIServer) DiffFile(ctx context.Context, req *DiffFileRequest) (*DiffFileResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DiffFile not implemented")
+}
+func (*UnimplementedAPIServer) DeleteFile(ctx context.Context, req *DeleteFileRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteFile not implemented")
+}
+func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
+}
+
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
@@ -5996,6 +6090,59 @@ type ObjectAPIServer interface {
 	ListTags(*ListTagsRequest, ObjectAPI_ListTagsServer) error
 	DeleteTags(context.Context, *DeleteTagsRequest) (*DeleteTagsResponse, error)
 	Compact(context.Context, *types.Empty) (*types.Empty, error)
+}
+
+// UnimplementedObjectAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedObjectAPIServer struct {
+}
+
+func (*UnimplementedObjectAPIServer) PutObject(srv ObjectAPI_PutObjectServer) error {
+	return status.Errorf(codes.Unimplemented, "method PutObject not implemented")
+}
+func (*UnimplementedObjectAPIServer) PutObjectSplit(srv ObjectAPI_PutObjectSplitServer) error {
+	return status.Errorf(codes.Unimplemented, "method PutObjectSplit not implemented")
+}
+func (*UnimplementedObjectAPIServer) PutObjects(srv ObjectAPI_PutObjectsServer) error {
+	return status.Errorf(codes.Unimplemented, "method PutObjects not implemented")
+}
+func (*UnimplementedObjectAPIServer) GetObject(req *Object, srv ObjectAPI_GetObjectServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetObject not implemented")
+}
+func (*UnimplementedObjectAPIServer) GetObjects(req *GetObjectsRequest, srv ObjectAPI_GetObjectsServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetObjects not implemented")
+}
+func (*UnimplementedObjectAPIServer) GetBlocks(req *GetBlocksRequest, srv ObjectAPI_GetBlocksServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetBlocks not implemented")
+}
+func (*UnimplementedObjectAPIServer) TagObject(ctx context.Context, req *TagObjectRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TagObject not implemented")
+}
+func (*UnimplementedObjectAPIServer) InspectObject(ctx context.Context, req *Object) (*ObjectInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectObject not implemented")
+}
+func (*UnimplementedObjectAPIServer) CheckObject(ctx context.Context, req *CheckObjectRequest) (*CheckObjectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckObject not implemented")
+}
+func (*UnimplementedObjectAPIServer) ListObjects(req *ListObjectsRequest, srv ObjectAPI_ListObjectsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListObjects not implemented")
+}
+func (*UnimplementedObjectAPIServer) DeleteObjects(ctx context.Context, req *DeleteObjectsRequest) (*DeleteObjectsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteObjects not implemented")
+}
+func (*UnimplementedObjectAPIServer) GetTag(req *Tag, srv ObjectAPI_GetTagServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetTag not implemented")
+}
+func (*UnimplementedObjectAPIServer) InspectTag(ctx context.Context, req *Tag) (*ObjectInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectTag not implemented")
+}
+func (*UnimplementedObjectAPIServer) ListTags(req *ListTagsRequest, srv ObjectAPI_ListTagsServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListTags not implemented")
+}
+func (*UnimplementedObjectAPIServer) DeleteTags(ctx context.Context, req *DeleteTagsRequest) (*DeleteTagsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteTags not implemented")
+}
+func (*UnimplementedObjectAPIServer) Compact(ctx context.Context, req *types.Empty) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Compact not implemented")
 }
 
 func RegisterObjectAPIServer(s *grpc.Server, srv ObjectAPIServer) {

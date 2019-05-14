@@ -12,6 +12,8 @@ import (
 	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 	pps "github.com/pachyderm/pachyderm/src/client/pps"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -698,6 +700,20 @@ type WorkerServer interface {
 	Status(context.Context, *types.Empty) (*pps.WorkerStatus, error)
 	Cancel(context.Context, *CancelRequest) (*CancelResponse, error)
 	GetChunk(*GetChunkRequest, Worker_GetChunkServer) error
+}
+
+// UnimplementedWorkerServer can be embedded to have forward compatible implementations.
+type UnimplementedWorkerServer struct {
+}
+
+func (*UnimplementedWorkerServer) Status(ctx context.Context, req *types.Empty) (*pps.WorkerStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
+}
+func (*UnimplementedWorkerServer) Cancel(ctx context.Context, req *CancelRequest) (*CancelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Cancel not implemented")
+}
+func (*UnimplementedWorkerServer) GetChunk(req *GetChunkRequest, srv Worker_GetChunkServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetChunk not implemented")
 }
 
 func RegisterWorkerServer(s *grpc.Server, srv WorkerServer) {

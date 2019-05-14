@@ -10,6 +10,8 @@ import (
 	github_com_golang_protobuf_proto "github.com/golang/protobuf/proto"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -199,6 +201,14 @@ func (c *groupCacheClient) Get(ctx context.Context, in *GetRequest, opts ...grpc
 // GroupCacheServer is the server API for GroupCache service.
 type GroupCacheServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
+}
+
+// UnimplementedGroupCacheServer can be embedded to have forward compatible implementations.
+type UnimplementedGroupCacheServer struct {
+}
+
+func (*UnimplementedGroupCacheServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
 
 func RegisterGroupCacheServer(s *grpc.Server, srv GroupCacheServer) {
