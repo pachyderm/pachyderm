@@ -111,7 +111,7 @@ $ {{alias}}
 # Return all jobs from the most recent version of pipeline foo
 $ {{alias}} -p foo
 
-# Retrun all jobs from all version of pipeline foo
+# Return all jobs from all versions of pipeline "foo"
 $ {{alias}} -p foo --history all
 
 # Return all jobs whose input commits include foo@XXX and bar@YYY
