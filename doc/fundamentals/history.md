@@ -17,16 +17,16 @@ limited, and you'll mostly deal with branches instead.
 
 ## Branches
 
-Branches are tags that point to commits, again similar to git, branches
-have semantically meaningful names such as `master` and `staging`.
-Branches are mutable, they move along a growing chain of commits as you
-commit to the branch, and can even be reassigned to any commit within the
-repo (with `create branch`). The commit that a branch points to is
-referred to as the branches "head," and the head's ancestors are referred
-to as "on the branch." Branches can be substituted for commits in
-Pachyderm's API and will behave as if the head of the branch were passed.
-This allows you to deal with semantic meaningful names for commits that
-can be updated, rather than static opaque identifiers.
+Branches are pointers to commits, again similar to git, branches have
+semantically meaningful names such as `master` and `staging`.  Branches
+are mutable, they move along a growing chain of commits as you commit to
+the branch, and can even be reassigned to any commit within the repo (with
+`create branch`). The commit that a branch points to is referred to as the
+branches "head," and the head's ancestors are referred to as "on the
+branch." Branches can be substituted for commits in Pachyderm's API and
+will behave as if the head of the branch were passed.  This allows you to
+deal with semantic meaningful names for commits that can be updated,
+rather than static opaque identifiers.
 
 ## Ancestry Syntax
 
