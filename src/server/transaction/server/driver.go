@@ -50,7 +50,7 @@ func newDriver(
 func now() *types.Timestamp {
 	t, err := types.TimestampProto(time.Now())
 	if err != nil {
-		panic(err)
+		return &types.Timestamp{}
 	}
 	return t
 }
@@ -169,7 +169,7 @@ func (d *driver) runTransaction(txnCtx *txnenv.TransactionContext, info *transac
 			// TODO: extend this to delete everything through PFS, PPS, Auth and
 			// update the client DeleteAll call to use only this, then remove unused
 			// RPCs.
-			err = d.deleteAll(txnCtx.ClientContext(), txnCtx.Stm(), info.Transaction)
+			err = d.deleteAll(txnCtx.ClientContext, txnCtx.Stm, info.Transaction)
 			response = &transaction.TransactionResponse{}
 		} else {
 			err = fmt.Errorf("unrecognized transaction request type")
@@ -197,7 +197,7 @@ func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transac
 		if err != nil {
 			return err
 		}
-		return d.transactions.ReadWrite(txnCtx.Stm()).Delete(txn.ID)
+		return d.transactions.ReadWrite(txnCtx.Stm).Delete(txn.ID)
 	})
 	if err != nil {
 		return nil, err
@@ -228,7 +228,7 @@ func (d *driver) appendTransaction(
 		info := &transaction.TransactionInfo{}
 		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 			// Get the existing transaction and append the new requests
-			err := d.transactions.ReadWrite(txnCtx.Stm()).Get(txn.ID, info)
+			err := d.transactions.ReadWrite(txnCtx.Stm).Get(txn.ID, info)
 			if err != nil {
 				return err
 			}

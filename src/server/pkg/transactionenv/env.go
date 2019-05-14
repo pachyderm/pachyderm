@@ -39,10 +39,9 @@ type AuthWrites interface {
 	SetACL(*auth.SetACLRequest) (*auth.SetACLResponse, error)
 }
 
-// PfsTransactionDefer is the interface that PFS provides for deferring certain
-// tasks until the end of a transaction.  It is defined here to avoid a circular
-// dependency.
-type PfsTransactionDefer interface {
+// PfsPropagater is the interface that PFS implements to propagate commits at
+// the end of a transaction.  It is defined here to avoid a circular dependency.
+type PfsPropagater interface {
 	PropagateCommit(branch *pfs.Branch) error
 	Run() error
 }
@@ -60,11 +59,11 @@ type PfsTransactionDefer interface {
 //   pfsDefer: an interface for ensuring certain PFS cleanup tasks are performed
 //     properly (and deduped) at the end of the transaction.
 type TransactionContext struct {
-	ctx        context.Context
-	pachClient *client.APIClient
-	stm        col.STM
-	txnEnv     *TransactionEnv
-	pfsDefer   PfsTransactionDefer
+	ClientContext context.Context
+	Client        *client.APIClient
+	Stm           col.STM
+	pfsPropagater PfsPropagater
+	txnEnv        *TransactionEnv
 }
 
 // Auth returns a reference to the Auth API Server so that transactionally-
@@ -81,33 +80,15 @@ func (t *TransactionContext) Pfs() PfsTransactionServer {
 	return t.txnEnv.pfsServer
 }
 
-// Client returns an APIClient object for making downstream requests to API
-// servers
-func (t *TransactionContext) Client() *client.APIClient {
-	return t.pachClient
+// PropagateCommit saves a branch to be propagated at the end of the transaction
+// (if all operations complete successfully).  This is used to batch together
+// propagations and dedupe downstream commits in PFS.
+func (t *TransactionContext) PropagateCommit(branch *pfs.Branch) error {
+	return t.pfsPropagater.PropagateCommit(branch)
 }
 
-// ClientContext returns the client context object associated with the
-// client from Client()
-func (t *TransactionContext) ClientContext() context.Context {
-	return t.ctx
-}
-
-// Stm returns the STM object for transactionality with etcd
-func (t *TransactionContext) Stm() col.STM {
-	return t.stm
-}
-
-// PfsDefer returns a reference to the object for deferring PFS cleanup tasks to
-// the end of the transaction
-func (t *TransactionContext) PfsDefer() PfsTransactionDefer {
-	return t.pfsDefer
-}
-
-// PfsDefer returns a reference to the object for deferring PFS cleanup tasks to
-// the end of the transaction
 func (t *TransactionContext) finish() error {
-	return t.pfsDefer.Run()
+	return t.pfsPropagater.Run()
 }
 
 // TransactionServer is an interface used by other servers to append a request
@@ -135,7 +116,7 @@ type AuthTransactionServer interface {
 // PfsTransactionServer is an interface for the transactionally-supported
 // methods that can be called through the PFS server.
 type PfsTransactionServer interface {
-	NewTransactionDefer(col.STM) PfsTransactionDefer
+	NewPropagater(col.STM) PfsPropagater
 
 	CreateRepoInTransaction(*TransactionContext, *pfs.CreateRepoRequest) error
 	InspectRepoInTransaction(*TransactionContext, *pfs.InspectRepoRequest) (*pfs.RepoInfo, error)
@@ -334,11 +315,11 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*Transa
 	_, err := col.NewSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
-			pachClient: pachClient,
-			ctx:        pachClient.Ctx(),
-			stm:        stm,
-			txnEnv:     env,
-			pfsDefer:   env.pfsServer.NewTransactionDefer(stm),
+			Client:        pachClient,
+			ClientContext: pachClient.Ctx(),
+			Stm:           stm,
+			pfsPropagater: env.pfsServer.NewPropagater(stm),
+			txnEnv:        env,
 		}
 
 		err := cb(txnCtx)
@@ -357,11 +338,11 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*Transac
 	return col.NewDryrunSTM(ctx, env.serviceEnv.GetEtcdClient(), func(stm col.STM) error {
 		pachClient := env.serviceEnv.GetPachClient(ctx)
 		txnCtx := &TransactionContext{
-			pachClient: pachClient,
-			ctx:        pachClient.Ctx(),
-			stm:        stm,
-			txnEnv:     env,
-			pfsDefer:   env.pfsServer.NewTransactionDefer(stm),
+			Client:        pachClient,
+			ClientContext: pachClient.Ctx(),
+			Stm:           stm,
+			pfsPropagater: env.pfsServer.NewPropagater(stm),
+			txnEnv:        env,
 		}
 
 		err := cb(txnCtx)

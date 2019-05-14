@@ -1074,11 +1074,11 @@ func (a *apiServer) AuthorizeInTransaction(
 		return nil, authclient.ErrNotActivated
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(txnCtx.ClientContext(), callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1111,11 +1111,11 @@ func (a *apiServer) AuthorizeInTransaction(
 
 	// Get ACL to check
 	var acl authclient.ACL
-	if err := a.acls.ReadWrite(txnCtx.Stm()).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
+	if err := a.acls.ReadWrite(txnCtx.Stm).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
 	}
 
-	scope, err := a.getScope(txnCtx.ClientContext(), callerInfo.Subject, &acl)
+	scope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
 	if err != nil {
 		return nil, err
 	}
@@ -1225,19 +1225,19 @@ func (a *apiServer) SetScopeInTransaction(
 	}
 
 	// validate request & authenticate user
-	if err := validateSetScopeRequest(txnCtx.ClientContext(), req); err != nil {
+	if err := validateSetScopeRequest(txnCtx.ClientContext, req); err != nil {
 		return nil, err
 	}
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(txnCtx.ClientContext(), callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
 
-	acls := a.acls.ReadWrite(txnCtx.Stm())
+	acls := a.acls.ReadWrite(txnCtx.Stm)
 	var acl authclient.ACL
 	if err := acls.Get(req.Repo, &acl); err != nil {
 		if !col.IsErrNotFound(err) {
@@ -1274,7 +1274,7 @@ func (a *apiServer) SetScopeInTransaction(
 		}
 
 		// Check if the user or one of their groups is on the ACL directly
-		scope, err := a.getScope(txnCtx.ClientContext(), callerInfo.Subject, &acl)
+		scope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
 		if err != nil {
 			return false, err
 		}
@@ -1295,7 +1295,7 @@ func (a *apiServer) SetScopeInTransaction(
 	}
 
 	// Scope change is authorized. Make the change
-	principal, err := a.canonicalizeSubject(txnCtx.ClientContext(), req.Username)
+	principal, err := a.canonicalizeSubject(txnCtx.ClientContext, req.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -1363,11 +1363,11 @@ func (a *apiServer) GetScopeInTransaction(
 		return nil, authclient.ErrNotActivated
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	callerIsAdmin, err := a.isAdmin(txnCtx.ClientContext(), callerInfo.Subject)
+	callerIsAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1390,7 +1390,7 @@ func (a *apiServer) GetScopeInTransaction(
 	targetSubject := callerInfo.Subject
 	mustHaveReadAccess := false
 	if req.Username != "" {
-		targetSubject, err = a.canonicalizeSubject(txnCtx.ClientContext(), req.Username)
+		targetSubject, err = a.canonicalizeSubject(txnCtx.ClientContext, req.Username)
 		if err != nil {
 			return nil, err
 		}
@@ -1404,7 +1404,7 @@ func (a *apiServer) GetScopeInTransaction(
 	// that pfs.ListRepo overrides this logic—the auth info it returns for a
 	// listed repo indicates that a user is OWNER of all repos if they are an
 	// admin
-	acls := a.acls.ReadWrite(txnCtx.Stm())
+	acls := a.acls.ReadWrite(txnCtx.Stm)
 	response := new(authclient.GetScopeResponse)
 	for _, repo := range req.Repos {
 		var acl authclient.ACL
@@ -1416,7 +1416,7 @@ func (a *apiServer) GetScopeInTransaction(
 		if mustHaveReadAccess && !callerIsAdmin {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
-			callerScope, err := a.getScope(txnCtx.ClientContext(), callerInfo.Subject, &acl)
+			callerScope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
 			if err != nil {
 				return nil, err
 			}
@@ -1430,7 +1430,7 @@ func (a *apiServer) GetScopeInTransaction(
 		}
 
 		// compute target's access scope to this repo
-		targetScope, err := a.getScope(txnCtx.ClientContext(), targetSubject, &acl)
+		targetScope, err := a.getScope(txnCtx.ClientContext, targetSubject, &acl)
 		if err != nil {
 			return nil, err
 		}
@@ -1472,17 +1472,17 @@ func (a *apiServer) GetACLInTransaction(
 	}
 
 	// Get calling user
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	if err := a.expiredClusterAdminCheck(txnCtx.ClientContext(), callerInfo.Subject); err != nil {
+	if err := a.expiredClusterAdminCheck(txnCtx.ClientContext, callerInfo.Subject); err != nil {
 		return nil, err
 	}
 
 	// Read repo ACL from etcd
 	acl := &authclient.ACL{}
-	if err = a.acls.ReadWrite(txnCtx.Stm()).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
+	if err = a.acls.ReadWrite(txnCtx.Stm).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
 	response := &authclient.GetACLResponse{
@@ -1531,11 +1531,11 @@ func (a *apiServer) SetACLInTransaction(
 	}
 
 	// Get calling user
-	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext())
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(txnCtx.ClientContext(), callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1555,7 +1555,7 @@ func (a *apiServer) SetACLInTransaction(
 			continue
 		}
 		eg.Go(func() error {
-			principal, err := a.canonicalizeSubject(txnCtx.ClientContext(), user)
+			principal, err := a.canonicalizeSubject(txnCtx.ClientContext, user)
 			if err != nil {
 				return err
 			}
@@ -1570,7 +1570,7 @@ func (a *apiServer) SetACLInTransaction(
 	}
 
 	// Read repo ACL from etcd
-	acls := a.acls.ReadWrite(txnCtx.Stm())
+	acls := a.acls.ReadWrite(txnCtx.Stm)
 
 	// determine if the caller is authorized to set this repo's ACL
 	authorized, err := func() (bool, error) {
@@ -1597,7 +1597,7 @@ func (a *apiServer) SetACLInTransaction(
 		}
 		if len(acl.Entries) > 0 {
 			// ACL is present; caller must be authorized directly
-			scope, err := a.getScope(txnCtx.ClientContext(), callerInfo.Subject, &acl)
+			scope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
 			if err != nil {
 				return false, err
 			}

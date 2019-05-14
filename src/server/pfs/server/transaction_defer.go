@@ -8,37 +8,36 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 )
 
-// TransactionDefer is an object that is used to defer certain cleanup tasks
-// until the end of a transaction.  The transactionenv package provides the
-// interface for this and will call the Run function at the end of a
-// transaction.
-type TransactionDefer struct {
+// Propagater is an object that is used to propagate PFS branches at the end of
+// a transaction.  The transactionenv package provides the interface for this
+// and will call the Run function at the end of a transaction.
+type Propagater struct {
 	d   *driver
 	stm col.STM
 
 	// Branches to propagate when the transaction completes
-	propagateBranches []*pfs.Branch
+	branches []*pfs.Branch
 }
 
-func (a *apiServer) NewTransactionDefer(stm col.STM) txnenv.PfsTransactionDefer {
-	return &TransactionDefer{
+func (a *apiServer) NewPropagater(stm col.STM) txnenv.PfsPropagater {
+	return &Propagater{
 		d:   a.driver,
 		stm: stm,
 	}
 }
 
-// Run performs any final tasks and cleanup tasks in the STM, such as
-// propagating branches
-func (t *TransactionDefer) Run() error {
-	return t.d.propagateCommits(t.stm, t.propagateBranches)
-}
-
 // PropagateCommit marks a branch as needing propagation once the transaction
 // successfully ends.  This will be performed by the Run function.
-func (t *TransactionDefer) PropagateCommit(branch *pfs.Branch) error {
+func (t *Propagater) PropagateCommit(branch *pfs.Branch) error {
 	if branch == nil {
 		return fmt.Errorf("cannot propagate nil branch")
 	}
-	t.propagateBranches = append(t.propagateBranches, branch)
+	t.branches = append(t.branches, branch)
 	return nil
+}
+
+// Run performs any final tasks and cleanup tasks in the STM, such as
+// propagating branches
+func (t *Propagater) Run() error {
+	return t.d.propagateCommits(t.stm, t.branches)
 }

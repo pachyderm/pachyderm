@@ -171,7 +171,7 @@ func newDriver(
 // checkIsAuthorizedInTransaction is identicalto checkIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 func (d *driver) checkIsAuthorizedInTransaction(txnCtx *txnenv.TransactionContext, r *pfs.Repo, s auth.Scope) error {
-	me, err := txnCtx.Client().WhoAmI(txnCtx.ClientContext(), &auth.WhoAmIRequest{})
+	me, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	if auth.IsErrNotActivated(err) {
 		return nil
 	}
@@ -214,7 +214,7 @@ func (d *driver) checkIsAuthorized(pachClient *client.APIClient, r *pfs.Repo, s 
 func now() *types.Timestamp {
 	t, err := types.TimestampProto(time.Now())
 	if err != nil {
-		panic(err)
+		return &types.Timestamp{}
 	}
 	return t
 }
@@ -230,7 +230,7 @@ func absent(key string) etcd.Cmp {
 func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
-	whoAmI, err := txnCtx.Client().WhoAmI(txnCtx.ClientContext(), &auth.WhoAmIRequest{})
+	whoAmI, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
 	authIsActivated := !auth.IsErrNotActivated(err)
 	if authIsActivated && err != nil {
 		return fmt.Errorf("error authenticating (must log in to create a repo): %v",
@@ -240,7 +240,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		return err
 	}
 
-	repos := d.repos.ReadWrite(txnCtx.Stm())
+	repos := d.repos.ReadWrite(txnCtx.Stm)
 
 	// check if 'repo' already exists. If so, return that error. Otherwise,
 	// proceed with ACL creation (avoids awkward "access denied" error when
@@ -296,11 +296,11 @@ func (d *driver) inspectRepo(
 	includeAuth bool,
 ) (*pfs.RepoInfo, error) {
 	result := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.Stm()).Get(repo.Name, result); err != nil {
+	if err := d.repos.ReadWrite(txnCtx.Stm).Get(repo.Name, result); err != nil {
 		return nil, err
 	}
 	if includeAuth {
-		accessLevel, err := d.getAccessLevel(txnCtx.Client(), repo)
+		accessLevel, err := d.getAccessLevel(txnCtx.Client, repo)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return result, nil
@@ -797,8 +797,8 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// if repo.Name == ppsconsts.SpecRepo {
 	// 	return fmt.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
 	// }
-	repos := d.repos.ReadWrite(txnCtx.Stm())
-	commits := d.commits(repo.Name).ReadWrite(txnCtx.Stm())
+	repos := d.repos.ReadWrite(txnCtx.Stm)
+	commits := d.commits(repo.Name).ReadWrite(txnCtx.Stm)
 
 	// check if 'repo' is already gone. If so, return that error. Otherwise,
 	// proceed with auth check (avoids awkward "access denied" error when calling
@@ -847,7 +847,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// deleteBranch, we also do branches.DeleteAll(), this insulates us
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in etcd but branches do.
-	branches := d.branches(repo.Name).ReadWrite(txnCtx.Stm())
+	branches := d.branches(repo.Name).ReadWrite(txnCtx.Stm)
 	branches.DeleteAll()
 	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
 		return fmt.Errorf("repos.Delete: %v", err)
@@ -939,7 +939,7 @@ func (d *driver) makeCommit(
 	var tree hashtree.HashTree
 	if treeRef != nil {
 		var err error
-		tree, err = hashtree.GetHashTreeObject(txnCtx.Client(), d.storageRoot, treeRef)
+		tree, err = hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
 		if err != nil {
 			return nil, err
 		}
@@ -949,9 +949,9 @@ func (d *driver) makeCommit(
 	// Clone the parent, as this stm modifies it and might wind up getting
 	// run more than once (if there's a conflict.)
 	parent = proto.Clone(parent).(*pfs.Commit)
-	repos := d.repos.ReadWrite(txnCtx.Stm())
-	commits := d.commits(parent.Repo.Name).ReadWrite(txnCtx.Stm())
-	branches := d.branches(parent.Repo.Name).ReadWrite(txnCtx.Stm())
+	repos := d.repos.ReadWrite(txnCtx.Stm)
+	commits := d.commits(parent.Repo.Name).ReadWrite(txnCtx.Stm)
+	branches := d.branches(parent.Repo.Name).ReadWrite(txnCtx.Stm)
 
 	// Check if repo exists
 	repoInfo := new(pfs.RepoInfo)
@@ -1000,7 +1000,7 @@ func (d *driver) makeCommit(
 		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
 		// happen if 'branch' is new and diverges from the existing branch in
 		// 'parent.ID')
-		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm(), parent)
+		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
 		if err != nil {
 			return nil, fmt.Errorf("parent commit not found: %v", err)
 		}
@@ -1044,7 +1044,7 @@ func (d *driver) makeCommit(
 			if err := tree.Hash(); err != nil {
 				return nil, err
 			}
-			treeRef, err = hashtree.PutHashTree(txnCtx.Client(), tree)
+			treeRef, err = hashtree.PutHashTree(txnCtx.Client, tree)
 			if err != nil {
 				return nil, err
 			}
@@ -1061,7 +1061,7 @@ func (d *driver) makeCommit(
 			repoInfo.SizeBytes = newCommitInfo.SizeBytes
 		}
 	} else {
-		if err := d.openCommits.ReadWrite(txnCtx.Stm()).Put(newCommit.ID, newCommit); err != nil {
+		if err := d.openCommits.ReadWrite(txnCtx.Stm).Put(newCommit.ID, newCommit); err != nil {
 			return nil, err
 		}
 	}
@@ -1079,7 +1079,7 @@ func (d *driver) makeCommit(
 	for _, prov := range provenance {
 		newCommitProv[prov.Commit.ID] = prov
 		provCommitInfo := &pfs.CommitInfo{}
-		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm()).Get(prov.Commit.ID, provCommitInfo); err != nil {
+		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Get(prov.Commit.ID, provCommitInfo); err != nil {
 			return nil, err
 		}
 		for _, c := range provCommitInfo.Provenance {
@@ -1091,7 +1091,7 @@ func (d *driver) makeCommit(
 	for _, prov := range newCommitProv {
 		newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 		provCommitInfo := &pfs.CommitInfo{}
-		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm()).Update(prov.Commit.ID, provCommitInfo, func() error {
+		if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCommitInfo, func() error {
 			appendSubvenance(provCommitInfo, newCommitInfo)
 			return nil
 		}); err != nil {
@@ -1106,7 +1106,7 @@ func (d *driver) makeCommit(
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
-		if err := txnCtx.PfsDefer().PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch)); err != nil {
+		if err := txnCtx.PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch)); err != nil {
 			return nil, err
 		}
 	}
@@ -1118,7 +1118,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.resolveCommit(txnCtx.Stm(), commit)
+	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
 	}
@@ -1137,7 +1137,7 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 		// parent of 'commitInfo' is closed, as we use its contents
 		parentCommit := commitInfo.ParentCommit
 		for parentCommit != nil {
-			parentCommitInfo, err := d.resolveCommit(txnCtx.Stm(), parentCommit)
+			parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parentCommit)
 			if err != nil {
 				return err
 			}
@@ -1153,19 +1153,19 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 
 		if tree == nil {
 			var err error
-			finishedTree, err = d.getTreeForOpenCommit(txnCtx.Client(), &pfs.File{Commit: commit}, parentTree)
+			finishedTree, err = d.getTreeForOpenCommit(txnCtx.Client, &pfs.File{Commit: commit}, parentTree)
 			if err != nil {
 				return err
 			}
 			// Put the tree to object storage.
-			treeRef, err := hashtree.PutHashTree(txnCtx.Client(), finishedTree)
+			treeRef, err := hashtree.PutHashTree(txnCtx.Client, finishedTree)
 			if err != nil {
 				return err
 			}
 			commitInfo.Tree = treeRef
 		} else {
 			var err error
-			finishedTree, err = hashtree.GetHashTreeObject(txnCtx.Client(), d.storageRoot, tree)
+			finishedTree, err = hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, tree)
 			if err != nil {
 				return err
 			}
@@ -1176,14 +1176,14 @@ func (d *driver) finishCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Com
 	}
 
 	commitInfo.Finished = now()
-	return d.writeFinishedCommit(txnCtx.Stm(), commit, commitInfo)
+	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 }
 
 func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *pfs.Commit, trees []*pfs.Object, datums *pfs.Object, size uint64) (retErr error) {
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, commit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
-	commitInfo, err := d.resolveCommit(txnCtx.Stm(), commit)
+	commitInfo, err := d.resolveCommit(txnCtx.Stm, commit)
 	if err != nil {
 		return err
 	}
@@ -1194,7 +1194,7 @@ func (d *driver) finishOutputCommit(txnCtx *txnenv.TransactionContext, commit *p
 	commitInfo.Datums = datums
 	commitInfo.SizeBytes = size
 	commitInfo.Finished = now()
-	return d.writeFinishedCommit(txnCtx.Stm(), commit, commitInfo)
+	return d.writeFinishedCommit(txnCtx.Stm, commit, commitInfo)
 }
 
 // writeFinishedCommit writes these changes to etcd:
@@ -1841,7 +1841,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	affectedRepos := make(map[string]struct{})  // repos containing deleted commits
 
 	// 1) re-read CommitInfo inside txn
-	userCommitInfo, err := d.resolveCommit(txnCtx.Stm(), userCommit)
+	userCommitInfo, err := d.resolveCommit(txnCtx.Stm, userCommit)
 	if err != nil {
 		return fmt.Errorf("resolveCommit: %v", err)
 	}
@@ -1854,7 +1854,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			return fmt.Errorf("cannot delete commit range with mismatched repos \"%s\" and \"%s\"", lower.Repo.Name, upper.Repo.Name)
 		}
 		affectedRepos[lower.Repo.Name] = struct{}{}
-		commits := d.commits(lower.Repo.Name).ReadWrite(txnCtx.Stm())
+		commits := d.commits(lower.Repo.Name).ReadWrite(txnCtx.Stm)
 
 		// delete commits on path upper -> ... -> lower (traverse ParentCommits)
 		commit := upper
@@ -1910,7 +1910,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 			// fix provCommit's subvenance
 			provCI := &pfs.CommitInfo{}
-			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm()).Update(prov.Commit.ID, provCI, func() error {
+			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
 				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
 			nextSubvRange:
 				for subvFrom, subv := range provCI.Subvenance {
@@ -1923,7 +1923,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 						curInfo, ok := deleted[cur]
 						if !ok {
 							curInfo = &pfs.CommitInfo{}
-							if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm()).Get(cur, curInfo); err != nil {
+							if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
 								return fmt.Errorf("error reading commitInfo for subvenant \"%s/%s\": %v", subv.Lower.Repo.Name, cur, err)
 							}
 						}
@@ -2009,7 +2009,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 
 		// Point all non-deleted children at the first valid parent (or nil),
 		// and point first non-deleted parent at all non-deleted children
-		commits := d.commits(deletedInfo.Commit.Repo.Name).ReadWrite(txnCtx.Stm())
+		commits := d.commits(deletedInfo.Commit.Repo.Name).ReadWrite(txnCtx.Stm)
 		parent := lowestCommitInfo.ParentCommit
 		for child := range liveChildren {
 			commitInfo := &pfs.CommitInfo{}
@@ -2046,7 +2046,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// 7) Traverse affected repos and rewrite all branches so that no branch
 	// points to a deleted commit
 	var affectedBranches []*pfs.BranchInfo
-	repos := d.repos.ReadWrite(txnCtx.Stm())
+	repos := d.repos.ReadWrite(txnCtx.Stm)
 	for repo := range affectedRepos {
 		repoInfo := &pfs.RepoInfo{}
 		if err := repos.Get(repo, repoInfo); err != nil {
@@ -2056,7 +2056,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			// Traverse HEAD commit until we find a non-deleted parent or nil;
 			// rewrite branch
 			var branchInfo pfs.BranchInfo
-			if err := d.branches(brokenBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Update(brokenBranch.Name, &branchInfo, func() error {
+			if err := d.branches(brokenBranch.Repo.Name).ReadWrite(txnCtx.Stm).Update(brokenBranch.Name, &branchInfo, func() error {
 				prevHead := branchInfo.Head
 				for {
 					if branchInfo.Head == nil {
@@ -2081,7 +2081,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 			// Update repo size if this is the master branch
 			if branchInfo.Name == "master" {
 				if branchInfo.Head != nil {
-					headCommitInfo, err := d.resolveCommit(txnCtx.Stm(), branchInfo.Head)
+					headCommitInfo, err := d.resolveCommit(txnCtx.Stm, branchInfo.Head)
 					if err != nil {
 						return err
 					}
@@ -2102,7 +2102,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	// new HEAD commits downstream, if the new branch heads haven't been
 	// processed yet
 	for _, afBranch := range affectedBranches {
-		if err := txnCtx.PfsDefer().PropagateCommit(afBranch.Branch); err != nil {
+		if err := txnCtx.PropagateCommit(afBranch.Branch); err != nil {
 			return err
 		}
 	}
@@ -2136,7 +2136,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 
 	// if 'commit' is a branch, resolve it
 	if commit != nil {
-		_, err = d.resolveCommit(txnCtx.Stm(), commit) // if 'commit' is a branch, resolve it
+		_, err = d.resolveCommit(txnCtx.Stm, commit) // if 'commit' is a branch, resolve it
 		if err != nil {
 			// possible that branch exists but has no head commit. This is fine, but
 			// branchInfo.Head must also be nil
@@ -2148,7 +2148,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}
 
 	// Retrieve (and create, if necessary) the current version of this branch
-	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm())
+	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Upsert(branch.Name, branchInfo, func() error {
 		branchInfo.Name = branch.Name // set in case 'branch' is new
@@ -2162,7 +2162,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	}); err != nil {
 		return err
 	}
-	repos := d.repos.ReadWrite(txnCtx.Stm())
+	repos := d.repos.ReadWrite(txnCtx.Stm)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
@@ -2178,7 +2178,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	toUpdate := []*pfs.BranchInfo{branchInfo}
 	for _, subvBranch := range branchInfo.Subvenance {
 		subvBranchInfo := &pfs.BranchInfo{}
-		if err := d.branches(subvBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Get(subvBranch.Name, subvBranchInfo); err != nil {
+		if err := d.branches(subvBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(subvBranch.Name, subvBranchInfo); err != nil {
 			return err
 		}
 		toUpdate = append(toUpdate, subvBranchInfo)
@@ -2193,20 +2193,20 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		branchInfo.Provenance = nil
 		// Re-compute Provenance
 		for _, provBranch := range branchInfo.DirectProvenance {
-			if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm()); err != nil {
+			if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm); err != nil {
 				return err
 			}
 			provBranchInfo := &pfs.BranchInfo{}
-			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Get(provBranch.Name, provBranchInfo); err != nil {
+			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provBranch.Name, provBranchInfo); err != nil {
 				return err
 			}
 			for _, provBranch := range provBranchInfo.Provenance {
-				if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm()); err != nil {
+				if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm); err != nil {
 					return err
 				}
 			}
 		}
-		if err := d.branches(branchInfo.Branch.Repo.Name).ReadWrite(txnCtx.Stm()).Put(branchInfo.Branch.Name, branchInfo); err != nil {
+		if err := d.branches(branchInfo.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Put(branchInfo.Branch.Name, branchInfo); err != nil {
 			return err
 		}
 		// Update Subvenance of 'branchInfo's Provenance (incl. all Subvenance)
@@ -2214,7 +2214,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 			if !has(&branchInfo.Provenance, oldProvBranch) {
 				// Provenance was deleted, so we delete ourselves from their subvenance
 				oldProvBranchInfo := &pfs.BranchInfo{}
-				if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Update(oldProvBranch.Name, oldProvBranchInfo, func() error {
+				if err := d.branches(oldProvBranch.Repo.Name).ReadWrite(txnCtx.Stm).Update(oldProvBranch.Name, oldProvBranchInfo, func() error {
 					del(&oldProvBranchInfo.Subvenance, branchInfo.Branch)
 					return nil
 				}); err != nil {
@@ -2227,7 +2227,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance
-	if err := txnCtx.PfsDefer().PropagateCommit(branch); err != nil {
+	if err := txnCtx.PropagateCommit(branch); err != nil {
 		return err
 	}
 	return nil
@@ -2235,7 +2235,7 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 
 func (d *driver) inspectBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Branch) (*pfs.BranchInfo, error) {
 	result := &pfs.BranchInfo{}
-	if err := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm()).Get(branch.Name, result); err != nil {
+	if err := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm).Get(branch.Name, result); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -2262,7 +2262,7 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		return err
 	}
 
-	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm())
+	branches := d.branches(branch.Repo.Name).ReadWrite(txnCtx.Stm)
 	branchInfo := &pfs.BranchInfo{}
 	if err := branches.Get(branch.Name, branchInfo); err != nil {
 		if !col.IsErrNotFound(err) {
@@ -2280,7 +2280,7 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		}
 		for _, provBranch := range branchInfo.Provenance {
 			provBranchInfo := &pfs.BranchInfo{}
-			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm()).Update(provBranch.Name, provBranchInfo, func() error {
+			if err := d.branches(provBranch.Repo.Name).ReadWrite(txnCtx.Stm).Update(provBranch.Name, provBranchInfo, func() error {
 				del(&provBranchInfo.Subvenance, branch)
 				return nil
 			}); err != nil && !isNotFoundErr(err) {
@@ -2289,7 +2289,7 @@ func (d *driver) deleteBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		}
 	}
 	repoInfo := &pfs.RepoInfo{}
-	if err := d.repos.ReadWrite(txnCtx.Stm()).Update(branch.Repo.Name, repoInfo, func() error {
+	if err := d.repos.ReadWrite(txnCtx.Stm).Update(branch.Repo.Name, repoInfo, func() error {
 		del(&repoInfo.Branches, branch)
 		return nil
 	}); err != nil {
@@ -2760,11 +2760,11 @@ func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs
 		return nil, fmt.Errorf("corrupted cache: expected hashtree.Hashtree, found %v", tree)
 	}
 
-	if _, err := d.resolveCommit(txnCtx.Stm(), commit); err != nil {
+	if _, err := d.resolveCommit(txnCtx.Stm, commit); err != nil {
 		return nil, err
 	}
 
-	commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm())
+	commits := d.commits(commit.Repo.Name).ReadWrite(txnCtx.Stm)
 	commitInfo := &pfs.CommitInfo{}
 	if err := commits.Get(commit.ID, commitInfo); err != nil {
 		return nil, err
@@ -2783,7 +2783,7 @@ func (d *driver) getTreeForCommit(txnCtx *txnenv.TransactionContext, commit *pfs
 	}
 
 	// read the tree from the block store
-	h, err := hashtree.GetHashTreeObject(txnCtx.Client(), d.storageRoot, treeRef)
+	h, err := hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
 	if err != nil {
 		return nil, err
 	}
@@ -2904,7 +2904,7 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 
 	var result hashtree.HashTree
 	err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		commitInfo, err := d.resolveCommit(txnCtx.Stm(), file.Commit)
+		commitInfo, err := d.resolveCommit(txnCtx.Stm, file.Commit)
 		if err != nil {
 			return err
 		}
@@ -2917,7 +2917,7 @@ func (d *driver) getTreeForFile(pachClient *client.APIClient, file *pfs.File) (h
 		if err != nil {
 			return err
 		}
-		result, err = d.getTreeForOpenCommit(txnCtx.Client(), file, parentTree)
+		result, err = d.getTreeForOpenCommit(txnCtx.Client, file, parentTree)
 		return err
 	})
 	if err != nil {
@@ -3543,7 +3543,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(txnCtx.Client(), !includeAuth)
+	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
 	if err != nil {
 		return err
 	}
