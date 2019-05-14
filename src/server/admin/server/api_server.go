@@ -445,7 +445,7 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 			return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 		}
 	case op.Pipeline != nil:
-		santizePipeline(op.Pipeline)
+		sanitizePipeline(op.Pipeline)
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 		}
