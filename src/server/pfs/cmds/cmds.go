@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -365,17 +366,18 @@ $ {{alias}} foo@master --from XXX`,
 			}
 			defer c.Close()
 
-			var to string
-			if len(args) == 2 {
-				to = args[1]
+			branch, err := cmdutil.ParseBranch(args[0])
+			if err != nil {
+				return err
 			}
+
 			if raw {
-				return c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+				return c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
 					return marshaller.Marshal(os.Stdout, ci)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.CommitHeader)
-			if err := c.ListCommitF(args[0], to, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
+			if err := c.ListCommitF(branch.Repo.Name, branch.Name, from, uint64(number), func(ci *pfsclient.CommitInfo) error {
 				pretty.PrintCommitInfo(writer, ci, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -1144,6 +1146,30 @@ Tags are a low-level resource and should not be accessed directly by most users.
 	}
 	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
 
+	fsck := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Run a file system consistency check on pfs.",
+		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.Fsck(
+				c.Ctx(),
+				&types.Empty{},
+			)
+			if err != nil {
+				fmt.Println(grpcutil.ScrubGRPC(err))
+				return nil
+			}
+			fmt.Println("No errors found.")
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
+
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
 	mount := &cobra.Command{
@@ -1248,6 +1274,13 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	limiter limit.ConcurrencyLimiter,
 	split string, targetFileDatums, targetFileBytes, headerRecords uint, // split
 	filesPut *gosync.Map) (retErr error) {
+	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
+	// to the server
+	path = filepath.Clean(path)
+	for strings.HasPrefix(path, "../") {
+		path = strings.TrimPrefix(path, "../")
+	}
+
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
 			"some files may already have been put and should be cleaned up with "+

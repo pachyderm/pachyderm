@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package index;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index";
+
+import "server/pkg/storage/chunk/chunk.proto";
+
+message Range {
+  string last_path = 1;
+  // bloom filter, stats, etc.
+}
+
+// DataOp is a sequence of data references and an operation associated with the referenced data.
+// Tags map identifiers to data in the resulting byte stream. 
+message DataOp {
+  repeated chunk.DataRef data_refs = 1;
+  Op op = 2;
+  repeated Tag tags = 3;
+}
+
+// Op is the set of operations that can be associated with data.
+enum Op {
+  APPEND = 0;
+  OVERWRITE = 1;
+  DELETE = 2;
+}
+
+message Tag {
+  int64 id = 1;
+  int64 size_bytes = 2;
+}
+
+// Index stores an index to and metadata about a tar stream. 
+message Index {
+  Range range = 1;
+  DataOp data_op = 2;
+}

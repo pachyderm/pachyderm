@@ -53,12 +53,12 @@ The ID provider (IdP) that this example uses is Okta. Here is an example
 configuration for an Okta test app that authenticates Okta users
 with Pachyderm:
 
-![Okta test app config](https://github.com/pachyderm/pachyderm/blob/handle_requests_crewjam/doc/auth/okta_form.png)
+![Okta test app config](https://raw.githubusercontent.com/pachyderm/pachyderm/handle_requests_crewjam/doc/auth/okta_form.png)
 
 Once created, you can get the IdP Metadata URL associated with the test Okta
 app here:
 
-![Metadata image](https://github.com/pachyderm/pachyderm/blob/handle_requests_crewjam/doc/auth/IdPMetadata_highlight.png)
+![Metadata image](https://raw.githubusercontent.com/pachyderm/pachyderm/handle_requests_crewjam/doc/auth/IdPMetadata_highlight.png)
 
 ## Write Pachyderm config
 Broadly, setting an auth config is what enables SAML in Pachyderm

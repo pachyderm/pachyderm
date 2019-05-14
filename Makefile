@@ -421,6 +421,9 @@ clean-pps-storage: check-kubectl
 integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
+test-proto-static:
+	./etc/proto/test_no_changes.sh
+
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| grep -v vendor \
@@ -468,6 +471,11 @@ test-pfs-server:
 test-pfs-cmds:
 	@# Unlike test-pfs-server, this target requires a running cluster
 	go test ./src/server/pfs/cmds -count 1 -timeout $(TIMEOUT)
+
+test-pfs-storage:
+	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
 
 test-deploy-cmds:
 	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)

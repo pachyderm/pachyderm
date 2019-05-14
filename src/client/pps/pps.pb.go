@@ -12,6 +12,8 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -5490,6 +5492,77 @@ type APIServer interface {
 	// An internal call that causes PPS to put itself into an auth-enabled state
 	// (all pipeline have tokens, correct permissions, etcd)
 	ActivateAuth(context.Context, *ActivateAuthRequest) (*ActivateAuthResponse, error)
+}
+
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) CreateJob(ctx context.Context, req *CreateJobRequest) (*Job, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateJob not implemented")
+}
+func (*UnimplementedAPIServer) InspectJob(ctx context.Context, req *InspectJobRequest) (*JobInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectJob not implemented")
+}
+func (*UnimplementedAPIServer) ListJob(ctx context.Context, req *ListJobRequest) (*JobInfos, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListJob not implemented")
+}
+func (*UnimplementedAPIServer) ListJobStream(req *ListJobRequest, srv API_ListJobStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListJobStream not implemented")
+}
+func (*UnimplementedAPIServer) FlushJob(req *FlushJobRequest, srv API_FlushJobServer) error {
+	return status.Errorf(codes.Unimplemented, "method FlushJob not implemented")
+}
+func (*UnimplementedAPIServer) DeleteJob(ctx context.Context, req *DeleteJobRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteJob not implemented")
+}
+func (*UnimplementedAPIServer) StopJob(ctx context.Context, req *StopJobRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopJob not implemented")
+}
+func (*UnimplementedAPIServer) InspectDatum(ctx context.Context, req *InspectDatumRequest) (*DatumInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectDatum not implemented")
+}
+func (*UnimplementedAPIServer) ListDatum(ctx context.Context, req *ListDatumRequest) (*ListDatumResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListDatum not implemented")
+}
+func (*UnimplementedAPIServer) ListDatumStream(req *ListDatumRequest, srv API_ListDatumStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method ListDatumStream not implemented")
+}
+func (*UnimplementedAPIServer) RestartDatum(ctx context.Context, req *RestartDatumRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RestartDatum not implemented")
+}
+func (*UnimplementedAPIServer) CreatePipeline(ctx context.Context, req *CreatePipelineRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreatePipeline not implemented")
+}
+func (*UnimplementedAPIServer) InspectPipeline(ctx context.Context, req *InspectPipelineRequest) (*PipelineInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectPipeline not implemented")
+}
+func (*UnimplementedAPIServer) ListPipeline(ctx context.Context, req *ListPipelineRequest) (*PipelineInfos, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListPipeline not implemented")
+}
+func (*UnimplementedAPIServer) DeletePipeline(ctx context.Context, req *DeletePipelineRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeletePipeline not implemented")
+}
+func (*UnimplementedAPIServer) StartPipeline(ctx context.Context, req *StartPipelineRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StartPipeline not implemented")
+}
+func (*UnimplementedAPIServer) StopPipeline(ctx context.Context, req *StopPipelineRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method StopPipeline not implemented")
+}
+func (*UnimplementedAPIServer) RerunPipeline(ctx context.Context, req *RerunPipelineRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RerunPipeline not implemented")
+}
+func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *types.Empty) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
+}
+func (*UnimplementedAPIServer) GetLogs(req *GetLogsRequest, srv API_GetLogsServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetLogs not implemented")
+}
+func (*UnimplementedAPIServer) GarbageCollect(ctx context.Context, req *GarbageCollectRequest) (*GarbageCollectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GarbageCollect not implemented")
+}
+func (*UnimplementedAPIServer) ActivateAuth(ctx context.Context, req *ActivateAuthRequest) (*ActivateAuthResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ActivateAuth not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {

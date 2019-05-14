@@ -354,6 +354,51 @@ func TestRegressionPutFileIntoOpenCommit(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPutFileDirectoryTraversal(t *testing.T) {
+	var fileInfos []*pfs.FileInfo
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("repo"))
+
+	_, err := client.StartCommit("repo", "master")
+	require.NoError(t, err)
+
+	writer, err := client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "../foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.YesError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	writer, err = client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "foo/../../bar", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.YesError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	writer, err = client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "foo/../bar", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.NoError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	err = client.Close()
+	require.NoError(t, err)
+}
+
 func TestCreateInvalidBranchName(t *testing.T) {
 
 	client := GetPachClient(t)
@@ -3960,18 +4005,14 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	// - reset bigSubvCommit to be the head of 'schema/master' (the only commit)
 	// - commit to 'logs' 10 more times
 	// - delete bigSubvCommit
-	// - Now there should be one commit in 'pipeline' (started by DeleteCommit, to
-	//   process 'logs/master' alone) and its parent should be nil
-	//   (makes sure that the branch pipeline/master is rewritten back to nil)
+	// - Now there shouldn't be any commits in 'pipeline'
 	// - Further test: delete all commits in schema and logs, and make sure that
-	//   'pipeline/master' actually points to nil, as there are no input commits
+	//   'pipeline/master' still points to nil, as there are no input commits
 	commits, err = c.ListCommit("schema", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
 	bigSubvCommit = commits[0].Commit
-	// bigSubvCommitInfo, err = c.InspectCommit(schema, "master")
-	// require.NoError(t, err)
-	// bigSubvCommit = bigSubvCommitInfo.Commit
+
 	for i := 0; i < 10; i++ {
 		commit, err = c.StartCommit("logs", "master")
 		require.NoError(t, err)
@@ -3982,11 +4023,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 
 	commits, err = c.ListCommit("pipeline", "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commits))
-	pipelineMaster, err = c.InspectCommit("pipeline", "master")
-	require.NoError(t, err)
-	require.Equal(t, pipelineMaster.Commit.ID, commits[0].Commit.ID)
-	require.Nil(t, pipelineMaster.ParentCommit)
+	require.Equal(t, 0, len(commits))
 
 	// Delete all input commits--DeleteCommit should reset 'pipeline/master' to
 	// nil, and should not create a new output commit this time
@@ -4243,8 +4280,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 
 	// Make sure child/parent relationships are as shown in second diagram
 	commits, err = cli.ListCommit("repo", "", "", 0)
-	// Delete commit does start an additional output commit, but we're ignoring it
-	require.Equal(t, 4, len(commits))
+	require.Equal(t, 3, len(commits))
 	require.Nil(t, eInfo.ParentCommit)
 	require.Nil(t, fInfo.ParentCommit)
 	require.Nil(t, dInfo.ChildCommits)
@@ -4491,19 +4527,12 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 
 	// Case 4
 	// - Delete the remaining commits in "logs" and make sure that the subvenance
-	//   of the single commit in "schema" has a single, new commit (started by
-	//   DeleteCommit), which is only provenant on the commit in "schema"
+	//   of the single commit in "schema" is now empty
 	for _, i := range []int{1, 2, 3, 4, 6, 7, 8} {
 		require.NoError(t, c.DeleteCommit("logs", logsCommit[i].ID))
 	}
 	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
-	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
-	require.Equal(t, schemaCommitInfo.Subvenance[0].Lower.ID,
-		schemaCommitInfo.Subvenance[0].Upper.ID)
-	outputCommitInfo, err := c.InspectCommit("pipeline", "master")
-	require.NoError(t, err)
-	require.Equal(t, 1, len(outputCommitInfo.Provenance))
-	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].Commit.ID)
+	require.Equal(t, 0, len(schemaCommitInfo.Subvenance))
 }
 
 func TestCommitState(t *testing.T) {

@@ -70,7 +70,10 @@ func TestGetState(t *testing.T) {
 			return err
 		}
 		if expires.Sub(time.Now()) <= year {
-			return fmt.Errorf("Expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
+			return fmt.Errorf("expected test token to expire >1yr in the future, but expires at %v (congratulations on making it to 2026!)", expires)
+		}
+		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
+			return fmt.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
@@ -99,6 +102,9 @@ func TestGetState(t *testing.T) {
 		}
 		if expires.Unix() != respExpires.Unix() {
 			return fmt.Errorf("expected enterprise expiration to be %v, but was %v", expires, respExpires)
+		}
+		if resp.ActivationCode != testutil.GetTestEnterpriseCode() {
+			return fmt.Errorf("incorrect activation code, got: %s, expected: %s", resp.ActivationCode, testutil.GetTestEnterpriseCode())
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))

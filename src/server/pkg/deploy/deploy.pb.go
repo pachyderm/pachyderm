@@ -9,6 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -587,6 +589,26 @@ type APIServer interface {
 	InspectCluster(context.Context, *InspectClusterRequest) (*ClusterInfo, error)
 	ListCluster(context.Context, *ListClusterRequest) (*ClusterInfos, error)
 	DeleteCluster(context.Context, *DeleteClusterRequest) (*types.Empty, error)
+}
+
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) CreateCluster(ctx context.Context, req *CreateClusterRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateCluster not implemented")
+}
+func (*UnimplementedAPIServer) UpdateCluster(ctx context.Context, req *UpdateClusterRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateCluster not implemented")
+}
+func (*UnimplementedAPIServer) InspectCluster(ctx context.Context, req *InspectClusterRequest) (*ClusterInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectCluster not implemented")
+}
+func (*UnimplementedAPIServer) ListCluster(ctx context.Context, req *ListClusterRequest) (*ClusterInfos, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCluster not implemented")
+}
+func (*UnimplementedAPIServer) DeleteCluster(ctx context.Context, req *DeleteClusterRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteCluster not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
