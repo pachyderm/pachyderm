@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package extended;
+option go_package =
+"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended";
+
+import "client/pfs/pfs.proto";
+import "gogoproto/gogo.proto";
+
+// TraceProto contains information identifying a Jaeger trace. It's used to
+// propagate traces that follow the lifetime of a long operation (e.g. creating
+// a pipeline or running a job), and which live longer than any single RPC.
+message TraceProto {
+  // branch specifies a target branch of this trace; this would be set for a
+  // trace created by 'pachctl finish-commit' (or some other call that would
+  // spawn jobs) and if that new commit spawns a downstream commit in 'branch',
+  // then this trace will cover RPCs util that downstream commit is finished
+  pfs.Branch branch = 1;
+
+  // pipeline specifies the target pipeline of this trace; this would be set for
+  // a trace created by 'pachctl create-pipeline' or 'pachctl update-pipeline'
+  // and would include the kubernetes RPCs involved in creating a pipeline
+  string pipeline = 4;
+
+  // commit_ids are the new commits on which this trace's target commit is
+  // provenant (which will be covered by this trace)
+  repeated string commit_ids = 3 [(gogoproto.customname) = "CommitIDs"];
+
+  // serialized_trace contains the info identifying a trace in Jaeger (a
+  // (trace ID, span ID, sampled) tuple, basically)
+  map<string, string> serialized_trace = 2;
+}

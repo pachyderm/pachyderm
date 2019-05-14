@@ -8,12 +8,14 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -417,7 +419,15 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	}
 }
 
-func (a *apiServer) createWorkerRc(options *workerOptions) error {
+func (a *apiServer) createWorkerRc(ctx context.Context, options *workerOptions) (retErr error) {
+	log.Infof("PPS master: upserting workers for %q", options.rcName)
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC",
+		"pipeline", options.rcName)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr.Error())
+		tracing.FinishAnySpan(span)
+	}()
+
 	podSpec, err := a.workerPodSpec(options)
 	if err != nil {
 		return err

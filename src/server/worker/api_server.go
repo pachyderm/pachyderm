@@ -42,6 +42,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -313,6 +315,15 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreeStorage string) (*APIServer, error) {
 	initPrometheus()
+
+	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
+		etcdClient, pipelineInfo.Pipeline.Name, "/worker/Start")
+	oldPachClient := pachClient // don't use tracing in apiServer.pachClient
+	if span != nil {
+		pachClient = pachClient.WithCtx(ctx)
+	}
+	defer tracing.FinishAnySpan(span)
+
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -322,7 +333,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, err
 	}
 	server := &APIServer{
-		pachClient:   pachClient,
+		pachClient:   oldPachClient,
 		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
@@ -1655,9 +1666,11 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 						return fmt.Errorf("worker: error unmarshalling while watching job state (%v)", err)
 					}
 					if ppsutil.IsTerminal(jobPtr.State) {
+						logger.Logf("job %q put in terminal state %q; cancelling", jobID, jobPtr.State)
 						jobCancel() // cancel the job
 					}
 				case watch.EventDelete:
+					logger.Logf("job %q deleted; cancelling", jobID)
 					jobCancel() // cancel the job
 				case watch.EventError:
 					return fmt.Errorf("job state watch error: %v", e.Err)
@@ -1763,7 +1776,7 @@ func (a *APIServer) worker() {
 			// Read the chunks laid out by the master and create the datum factory
 			plan := &Plan{}
 			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
-				return err
+				return fmt.Errorf("error reading job chunks: %v", err)
 			}
 			df, err := NewDatumFactory(pachClient, jobInfo.Input)
 			if err != nil {

@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -727,6 +728,37 @@ $ {{alias}} repo@branch -i http://host/path`,
 				return err
 			}
 			defer c.Close()
+
+			// Add trace if env var is set
+			if repo, ok := os.LookupEnv(extended.TargetRepoEnvVar); ok && tracing.IsActive() {
+				// unmarshal extended trace from RPC context
+				clientSpan, ctx := opentracing.StartSpanFromContext(
+					c.Ctx(),
+					"/pfs.API/PutFile",
+					ext.SpanKindRPCClient,
+					opentracing.Tag{string(ext.Component), "gRPC"},
+				)
+				defer clientSpan.Finish()
+				commitTrace := pfsclient.CommitTrace{Value: map[string]string{}} // init map
+				opentracing.GlobalTracer().Inject(
+					clientSpan.Context(),
+					opentracing.TextMap,
+					opentracing.TextMapCarrier(commitTrace.Value),
+				)
+				// TODO(msteffen) lookup pipeline output instead of assuming "master"
+				extendedTrace.Branch = client.NewBranch(repo, "master")
+				marshalledTrace, err := extendedTrace.Marshal()
+				if err == nil {
+					ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
+						pfsclient.CommitTraceCtxKey,
+						base64.URLEncoding.EncodeToString(marshalledTrace),
+					))
+					c = c.WithCtx(ctx)
+				} else {
+					fmt.Printf("ERROR marshalling commit trace proto: %v", err)
+				}
+			}
+
 			pfc, err := c.NewPutFileClient()
 			if err != nil {
 				return err
