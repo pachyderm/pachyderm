@@ -3,8 +3,8 @@ package fileset
 import (
 	"archive/tar"
 	"context"
-	"io"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
@@ -18,13 +18,12 @@ type Reader struct {
 	tr     *tar.Reader
 }
 
-// NewReader creates a new Reader.
-func NewReader(ctx context.Context, chunks *chunk.Storage, r io.Reader, prefix string) *Reader {
+func newReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path, prefix string) *Reader {
 	cr := chunks.NewReader(ctx)
 	return &Reader{
 		ctx:    ctx,
 		chunks: chunks,
-		ir:     index.NewReader(ctx, chunks, r, prefix),
+		ir:     index.NewReader(ctx, objC, chunks, path, prefix),
 		cr:     cr,
 	}
 }

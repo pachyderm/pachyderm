@@ -3,8 +3,8 @@ package fileset
 import (
 	"archive/tar"
 	"context"
-	"io"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
 )
@@ -18,13 +18,12 @@ type Writer struct {
 	first bool
 }
 
-// NewWriter creates a new Writer.
-func NewWriter(ctx context.Context, chunks *chunk.Storage) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string) *Writer {
 	cw := chunks.NewWriter(ctx)
 	return &Writer{
 		tw:    tar.NewWriter(cw),
 		cw:    cw,
-		iw:    index.NewWriter(ctx, chunks),
+		iw:    index.NewWriter(ctx, objC, chunks, path),
 		first: true,
 	}
 }
@@ -63,14 +62,14 @@ func (w *Writer) Write(data []byte) (int, error) {
 // effect the hash.
 // Our indexing is what will exit the reading of the tar stream,
 // not the end of tar entry (two empty 512 bytes).
-func (w *Writer) Close() (io.Reader, error) {
+func (w *Writer) Close() error {
 	// Flush the last file's content.
 	if err := w.tw.Flush(); err != nil {
-		return nil, err
+		return err
 	}
 	// Close chunk and index writer.
 	if err := w.cw.Close(); err != nil {
-		return nil, err
+		return err
 	}
 	return w.iw.Close()
 }

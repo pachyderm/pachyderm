@@ -9,6 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -157,6 +159,14 @@ func (c *aPIClient) GetVersion(ctx context.Context, in *types.Empty, opts ...grp
 // APIServer is the server API for API service.
 type APIServer interface {
 	GetVersion(context.Context, *types.Empty) (*Version, error)
+}
+
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) GetVersion(ctx context.Context, req *types.Empty) (*Version, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {

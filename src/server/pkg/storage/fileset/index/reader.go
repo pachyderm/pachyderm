@@ -10,6 +10,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
@@ -21,24 +22,39 @@ type levelReader struct {
 // Reader is used for reading a multi-level index.
 type Reader struct {
 	ctx       context.Context
+	objC      obj.Client
 	chunks    *chunk.Storage
+	path      string
 	prefix    string
 	levels    []*levelReader
 	currLevel int
 }
 
 // NewReader create a new Reader.
-func NewReader(ctx context.Context, chunks *chunk.Storage, r io.Reader, prefix string) *Reader {
+func NewReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path, prefix string) *Reader {
 	return &Reader{
 		ctx:    ctx,
+		objC:   objC,
 		chunks: chunks,
+		path:   path,
 		prefix: prefix,
-		levels: []*levelReader{&levelReader{tr: tar.NewReader(r)}},
 	}
 }
 
 // Next gets the next header in the index.
 func (r *Reader) Next() (*Header, error) {
+	// Setup first level if it has not been setup.
+	if r.levels == nil {
+		objR, err := r.objC.Reader(r.ctx, r.path, 0, 0)
+		if err != nil {
+			return nil, err
+		}
+		buf := &bytes.Buffer{}
+		if _, err := io.Copy(buf, objR); err != nil {
+			return nil, err
+		}
+		r.levels = []*levelReader{&levelReader{tr: tar.NewReader(buf)}}
+	}
 	for {
 		l := r.levels[r.currLevel]
 		hdr, err := l.tr.Next()
