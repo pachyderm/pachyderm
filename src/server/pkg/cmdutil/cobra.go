@@ -161,7 +161,7 @@ func ParseFiles(args []string) ([]*pfs.File, error) {
 }
 
 // ParseHistory parses a --history flag argument. Permissable values are "all"
-// and numbers greater than or equal to -1 (as strings.
+// "none", and integers greater than or equal to -1 (as strings).
 func ParseHistory(history string) (int64, error) {
 	if history == "all" {
 		return -1, nil
