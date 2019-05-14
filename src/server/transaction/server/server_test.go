@@ -341,6 +341,33 @@ func TestMultiCommit(t *testing.T) {
 	requireEmptyResponse(t, info.Responses[4])
 }
 
+// Helper functions for tests below
+func provStr(i interface{}) interface{} {
+	cp := i.(*pfs.CommitProvenance)
+	return fmt.Sprintf("%s@%s (%s)", cp.Commit.Repo.Name, cp.Commit.ID, cp.Branch.Name)
+}
+
+func subvStr(i interface{}) interface{} {
+	cr := i.(*pfs.CommitRange)
+	return fmt.Sprintf("%s@%s:%s@%s", cr.Lower.Repo.Name, cr.Lower.ID, cr.Upper.Repo.Name, cr.Upper.ID)
+}
+
+func expectProv(commits ...*pfs.Commit) []interface{} {
+	result := []interface{}{}
+	for _, commit := range commits {
+		result = append(result, provStr(client.NewCommitProvenance(commit.Repo.Name, "master", commit.ID)))
+	}
+	return result
+}
+
+func expectSubv(commits ...*pfs.Commit) []interface{} {
+	result := []interface{}{}
+	for _, commit := range commits {
+		result = append(result, subvStr(&pfs.CommitRange{Lower: commit, Upper: commit}))
+	}
+	return result
+}
+
 // Test that a transactional change to multiple repos will only propagate a
 // single commit into a downstream repo. This mimics the pfs.TestProvenance test
 // using the following DAG:
@@ -375,6 +402,7 @@ func TestPropagateCommit(t *testing.T) {
 	info, err := ct.FinishTransaction(txn)
 	require.NoError(t, err)
 
+	require.Equal(t, 4, len(info.Responses))
 	requireCommitResponse(t, info.Responses[0], commitA)
 	requireEmptyResponse(t, info.Responses[1])
 	requireCommitResponse(t, info.Responses[2], commitE)
@@ -411,29 +439,88 @@ func TestPropagateCommit(t *testing.T) {
 	commitD := commitInfoD.Commit
 	require.Equal(t, commitE, commitInfoE.Commit)
 
-	// Helper functions for assertions below
-	provStr := func(i interface{}) interface{} {
-		cp := i.(*pfs.CommitProvenance)
-		return fmt.Sprintf("%s@%s (%s)", cp.Commit.Repo.Name, cp.Commit.ID, cp.Branch.Name)
-	}
-	subvStr := func(i interface{}) interface{} {
-		cr := i.(*pfs.CommitRange)
-		return fmt.Sprintf("%s@%s:%s@%s", cr.Lower.Repo.Name, cr.Lower.ID, cr.Upper.Repo.Name, cr.Upper.ID)
-	}
-	expectProv := func(commits ...*pfs.Commit) []interface{} {
-		result := []interface{}{}
-		for _, commit := range commits {
-			result = append(result, provStr(client.NewCommitProvenance(commit.Repo.Name, "master", commit.ID)))
-		}
-		return result
-	}
-	expectSubv := func(commits ...*pfs.Commit) []interface{} {
-		result := []interface{}{}
-		for _, commit := range commits {
-			result = append(result, subvStr(&pfs.CommitRange{Lower: commit, Upper: commit}))
-		}
-		return result
-	}
+	require.ElementsEqualUnderFn(t, expectProv(), commitInfoA.Provenance, provStr)
+	require.ElementsEqualUnderFn(t, expectSubv(commitB, commitC, commitD), commitInfoA.Subvenance, subvStr)
+
+	require.ElementsEqualUnderFn(t, expectProv(commitA), commitInfoB.Provenance, provStr)
+	require.ElementsEqualUnderFn(t, expectSubv(commitC, commitD), commitInfoB.Subvenance, subvStr)
+
+	require.ElementsEqualUnderFn(t, expectProv(commitA, commitB, commitE), commitInfoC.Provenance, provStr)
+	require.ElementsEqualUnderFn(t, expectSubv(commitD), commitInfoC.Subvenance, subvStr)
+
+	require.ElementsEqualUnderFn(t, expectProv(commitA, commitB, commitC, commitE), commitInfoD.Provenance, provStr)
+	require.ElementsEqualUnderFn(t, expectSubv(), commitInfoD.Subvenance, subvStr)
+
+	require.ElementsEqualUnderFn(t, expectProv(), commitInfoE.Provenance, provStr)
+	require.ElementsEqualUnderFn(t, expectSubv(commitC, commitD), commitInfoE.Subvenance, subvStr)
+}
+
+// This test is the same as PropagateCommit except more of the operations are
+// performed within the transaction.
+func TestPropagateCommitRedux(t *testing.T) {
+	c := GetPachClient(t)
+
+	txn, err := c.StartTransaction()
+	require.NoError(t, err)
+
+	ct := c.WithTransaction(txn)
+
+	require.NoError(t, ct.CreateRepo("A"))
+	require.NoError(t, ct.CreateRepo("B"))
+	require.NoError(t, ct.CreateRepo("C"))
+	require.NoError(t, ct.CreateRepo("D"))
+	require.NoError(t, ct.CreateRepo("E"))
+
+	require.NoError(t, ct.CreateBranch("B", "master", "", []*pfs.Branch{client.NewBranch("A", "master")}))
+	require.NoError(t, ct.CreateBranch("C", "master", "", []*pfs.Branch{client.NewBranch("B", "master"), client.NewBranch("E", "master")}))
+	require.NoError(t, ct.CreateBranch("D", "master", "", []*pfs.Branch{client.NewBranch("C", "master")}))
+
+	commitA, err := ct.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, ct.FinishCommit("A", "master"))
+	commitE, err := ct.StartCommit("E", "master")
+	require.NoError(t, err)
+	require.NoError(t, ct.FinishCommit("E", "master"))
+
+	info, err := ct.FinishTransaction(txn)
+	require.NoError(t, err)
+
+	require.Equal(t, 12, len(info.Responses))
+	requireCommitResponse(t, info.Responses[8], commitA)
+	requireEmptyResponse(t, info.Responses[9])
+	requireCommitResponse(t, info.Responses[10], commitE)
+	requireEmptyResponse(t, info.Responses[11])
+
+	commitInfos, err := c.ListCommit("A", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	commitInfoA := commitInfos[0]
+
+	commitInfos, err = c.ListCommit("B", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	commitInfoB := commitInfos[0]
+
+	commitInfos, err = c.ListCommit("C", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	commitInfoC := commitInfos[0]
+
+	commitInfos, err = c.ListCommit("D", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	commitInfoD := commitInfos[0]
+
+	commitInfos, err = c.ListCommit("E", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commitInfos))
+	commitInfoE := commitInfos[0]
+
+	require.Equal(t, commitA, commitInfoA.Commit)
+	commitB := commitInfoB.Commit
+	commitC := commitInfoC.Commit
+	commitD := commitInfoD.Commit
+	require.Equal(t, commitE, commitInfoE.Commit)
 
 	require.ElementsEqualUnderFn(t, expectProv(), commitInfoA.Provenance, provStr)
 	require.ElementsEqualUnderFn(t, expectSubv(commitB, commitC, commitD), commitInfoA.Subvenance, subvStr)
