@@ -453,7 +453,7 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 	return nil
 }
 
-func santizePipeline(req *pps.CreatePipelineRequest) {
+func sanitizePipeline(req *pps.CreatePipelineRequest) {
 	req.Pipeline.Name = ancestry.SanitizeName(req.Pipeline.Name)
 	pps.VisitInput(req.Input, func(input *pps.Input) {
 		if input.Pfs != nil {
