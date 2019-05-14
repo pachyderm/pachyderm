@@ -37,7 +37,7 @@ func Read() (*Config, error) {
 		}
 	} else if os.IsNotExist(err) {
 		// File doesn't exist, so create a new config
-		fmt.Println("no config detected at %q. Generating new config...", p)
+		fmt.Printf("no config detected at %q. Generating new config...\n", p)
 		c = &Config{}
 	} else {
 		return nil, fmt.Errorf("fatal: could not read config at %q: %v", p, err)
