@@ -108,7 +108,7 @@ If the job fails, the output commit will not be populated with data.`,
 # Return all jobs
 $ {{alias}}
 
-# Return all jobs from the most recent version of pipeline foo
+# Return all jobs from the most recent version of pipeline "foo"
 $ {{alias}} -p foo
 
 # Return all jobs from all versions of pipeline "foo"
