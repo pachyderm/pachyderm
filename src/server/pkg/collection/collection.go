@@ -200,6 +200,9 @@ func (c *readWriteCollection) Get(key string, val proto.Message) error {
 	}
 	valStr, err := c.stm.Get(c.Path(key))
 	if err != nil {
+		if IsErrNotFound(err) {
+			return ErrNotFound{c.prefix, key}
+		}
 		return err
 	}
 	c.stm.SetSafePutCheck(c.Path(key), reflect.ValueOf(val).Pointer())
@@ -238,7 +241,11 @@ func (c *readWriteCollection) Put(key string, val proto.Message) error {
 }
 
 func (c *readWriteCollection) TTL(key string) (int64, error) {
-	return c.stm.TTL(c.Path(key))
+	ttl, err := c.stm.TTL(c.Path(key))
+	if IsErrNotFound(err) {
+		return ttl, ErrNotFound{c.prefix, key}
+	}
+	return ttl, err
 }
 
 func (c *readWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
@@ -329,6 +336,9 @@ func (c *readWriteCollection) Update(key string, val proto.Message, f func() err
 		return err
 	}
 	if err := c.Get(key, val); err != nil {
+		if IsErrNotFound(err) {
+			return ErrNotFound{c.prefix, key}
+		}
 		return err
 	}
 	if err := f(); err != nil {
