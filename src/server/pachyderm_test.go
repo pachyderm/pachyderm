@@ -677,7 +677,7 @@ func TestRunPipeline(t *testing.T) {
 		// now run the pipeline with non-empty provenance
 		require.NoError(t, backoff.Retry(func() error {
 			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-				client.NewCommitProvenance(dataRepo, "master", commitM.ID),
+				client.NewCommitProvenance(dataRepo, "branchA", commitA.ID),
 			})
 		}, backoff.NewTestingBackOff()))
 
@@ -804,11 +804,8 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, err)
 
 		// now run the pipeline with unrelated provenance
-		require.NoError(t, backoff.Retry(func() error {
-			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-				client.NewCommitProvenance(dataRepo, "unrelated", commitU.ID),
-			})
-		}, backoff.NewTestingBackOff()))
+		require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+			client.NewCommitProvenance(dataRepo, "unrelated", commitU.ID)}))
 	})
 
 	// Test with downstream pipeline
@@ -856,11 +853,6 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
 		require.Equal(t, "data A\ndata B\n", buffer.String())
 
-		commitM, err := c.StartCommit(dataRepo, "master")
-		require.NoError(t, err)
-		err = c.FinishCommit(dataRepo, commitM.ID)
-		require.NoError(t, err)
-
 		// and make sure we can attatch a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinedownstream")
 		require.NoError(t, c.CreatePipeline(
@@ -874,25 +866,25 @@ func TestRunPipeline(t *testing.T) {
 			false,
 		))
 
-		commitM2, err := c.StartCommit(dataRepo, "master")
+		commitA2, err := c.StartCommit(dataRepo, branchA)
 		require.NoError(t, err)
-		err = c.FinishCommit(dataRepo, commitM2.ID)
+		err = c.FinishCommit(dataRepo, commitA2.ID)
 		require.NoError(t, err)
 
-		// there shouldn't be a job on the old commit for downstreamPipeline
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitM}, []string{downstreamPipeline})
+		// there should be one job on the old commit for downstreamPipeline
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 		require.NoError(t, err)
-		require.Equal(t, 0, len(jobInfos))
+		require.Equal(t, 1, len(jobInfos))
 
 		// now run the pipeline
 		require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-			client.NewCommitProvenance(dataRepo, "master", commitM.ID),
+			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
 		}))
 
-		// now we should have a job on the old commit for downstreamPipeline
-		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitM}, []string{downstreamPipeline})
+		// now we should have two jobs on the old commit for downstreamPipeline
+		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
+		require.Equal(t, 2, len(jobInfos))
 	})
 }
 func TestPipelineFailure(t *testing.T) {
