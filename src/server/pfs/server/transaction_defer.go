@@ -16,7 +16,8 @@ type Propagater struct {
 	stm col.STM
 
 	// Branches to propagate when the transaction completes
-	branches []*pfs.Branch
+	branches    []*pfs.Branch
+	isNewCommit bool
 }
 
 func (a *apiServer) NewPropagater(stm col.STM) txnenv.PfsPropagater {
@@ -28,16 +29,17 @@ func (a *apiServer) NewPropagater(stm col.STM) txnenv.PfsPropagater {
 
 // PropagateCommit marks a branch as needing propagation once the transaction
 // successfully ends.  This will be performed by the Run function.
-func (t *Propagater) PropagateCommit(branch *pfs.Branch) error {
+func (t *Propagater) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error {
 	if branch == nil {
 		return fmt.Errorf("cannot propagate nil branch")
 	}
 	t.branches = append(t.branches, branch)
+	t.isNewCommit = isNewCommit
 	return nil
 }
 
 // Run performs any final tasks and cleanup tasks in the STM, such as
 // propagating branches
 func (t *Propagater) Run() error {
-	return t.d.propagateCommits(t.stm, t.branches)
+	return t.d.propagateCommits(t.stm, t.branches, t.isNewCommit)
 }
