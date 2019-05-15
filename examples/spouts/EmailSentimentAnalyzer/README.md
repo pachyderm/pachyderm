@@ -24,13 +24,13 @@ $ echo -n "your-password" > IMAP_PASSWORD
 $ echo -n "account-name" > IMAP_LOGIN
 $ kubectl create secret generic imap-credentials --from-file=./IMAP_LOGIN --from-file=./IMAP_PASSWORD
 ```
-1. Build the docker image for the imap_spout. Put your own docker account name in for <docker-account-name>.
+1. Build the docker image for the imap_spout. Put your own docker account name in for`<docker-account-name>`.
 ```
 $ docker login
 $ docker build -t <docker-account-name>/imap_spout:1.9 -f ./Dockerfile.imap-spout .
 $ docker push <docker-account-name>/imap_spout:1.9
 ```
-1. Build the docker image for the sentimentalist. Put your own docker account name in for <docker-account-name>.
+1. Build the docker image for the sentimentalist. Put your own docker account name in for`<docker-account-name>`.
 ```
 $ docker build -t <docker-account-name>/sentimentalist:1.9 -f ./Dockerfile.sentimentalist .
 $ docker push <docker-account-name>/sentimentalist:1.9
@@ -55,7 +55,7 @@ Try emojis!
 
 ## Pipelines
 
-## imap_spout
+### imap_spout
 
 The imap_spout pipeline is an implementation of a [Pachyderm spout](http://docs.pachyderm.com/en/latest/fundamentals/spouts.html) in Python. 
 It's configurable with environment variables that can be populated by [Kubernetes secrets](https://kubernetes.io/docs/concepts/configuration/secret/).
@@ -70,7 +70,7 @@ A couple of things to note, to expand on the [Pachyderm spout](http://docs.pachy
 
 1. The function `open_pipe` opens `/pfs/out`, 
 the named pipe that's the gateway to the spout's output repo. 
-Note that it must open that pipe as _write only_ and as in _binary_ mode. 
+Note that it must open that pipe as _write only_ and in _binary_ mode. 
 If you omit this, you're likely to see errors like `TypeError: a bytes-like object is required, not 'str'` in your `pachctl logs` for the pipeline.
 1. The files are not written directly to the `/pfs/out`; 
 they're written as part of a `tarfile` object.  
