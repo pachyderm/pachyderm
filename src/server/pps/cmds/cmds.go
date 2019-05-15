@@ -491,14 +491,14 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Short: "Run an existing Pachyderm pipeline on the specified commits or branches.",
 		Long:  "Run a Pachyderm pipeline on the datums from specific commits. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline.",
 		Example: `
-		# Return logs emitted by recent jobs in the "filter" pipeline
-		$ {{alias}} --pipeline=filter
+		# Rerun the latest job for the "filter" pipeline
+		$ {{alias}} filter
 		
-		# Return logs emitted by the job aedfa12aedf
-		$ {{alias}} --job=aedfa12aedf
+		# Reprocess the pipeline "filter" on the data from commits a23e4 and bf363
+		$ {{alias}} filter a23e4 and bf363
 		
-		# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
-		$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
+		# Run the pipeline "filter" on the data from the "staging" branch
+		$ {{alias}} filter staging`,
 		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
