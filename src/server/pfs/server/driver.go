@@ -851,9 +851,34 @@ nextSubvBranch:
 				commit: provBranchInfo.Head,
 				branch: provBranchInfo.Branch,
 			}
-			// Because of the 'propagateCommit' invariant, we don't need to inspect
-			// provBranchInfo.HEAD's provenance. Every commit in there will be the
-			// HEAD of some other provBranchInfo.
+			// Since we want the provennce to be a transitive closure, we
+			// need to inspect provBranchInfo.HEAD's provenance. Every commit
+			// need to inspect provBranchInfo.HEAD's provenance. In most cases,
+			// in there will be the HEAD of some other provBranchInfo.
+			// Every commit in there will be the HEAD of some other provBranchInfo.
+			// But there are a few exceptional scenarios where this is not the case.
+			branchHeadInfo := &pfs.CommitInfo{}
+			if err := d.commits(provBranchInfo.Branch.Repo.Name).ReadWrite(stm).Get(provBranchInfo.Head.ID, branchHeadInfo); err != nil {
+				return err
+			}
+			if len(branchHeadInfo.Provenance) != len(branchHeadInfo.BranchProvenance) {
+				return fmt.Errorf("provenance and branch provenance were not of equal length for commit %v", branchHeadInfo.Commit.ID)
+			}
+			for i, provProv := range branchHeadInfo.Provenance {
+				provProvInfo := &pfs.CommitInfo{}
+				if err := d.commits(provProv.Repo.Name).ReadWrite(stm).Get(provProv.ID, provProvInfo); err != nil && !col.IsErrNotFound(err) {
+					return fmt.Errorf("could not read provenance %s/%s: %v", provProv.Repo.Name, provProv.ID, err)
+				}
+				branchProvProv := branchHeadInfo.BranchProvenance[i]
+				provProvBranchInfo := &pfs.BranchInfo{}
+				if err := d.branches(branchProvProv.Repo.Name).ReadWrite(stm).Get(branchProvProv.Name, provProvBranchInfo); err != nil && !col.IsErrNotFound(err) {
+					return fmt.Errorf("could not read branch %s/%s: %v", branchProvProv.Repo.Name, branchProvProv.Name, err)
+				}
+				commitProvMap[provProvInfo.Commit.ID] = &branchCommit{
+					commit: provProvInfo.Commit,
+					branch: provProvBranchInfo.Branch,
+				}
+			}
 		}
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
