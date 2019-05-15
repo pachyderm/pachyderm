@@ -4958,7 +4958,7 @@ func TestFuzzProvenance(t *testing.T) {
 	client := GetPachClient(t)
 	_, err := client.PfsAPIClient.DeleteAll(client.Ctx(), &types.Empty{})
 	require.NoError(t, err)
-	nOps := 1000
+	nOps := 300
 	opShares := []int{
 		1, // inputRepo
 		1, // inputBranch
@@ -4982,7 +4982,7 @@ func TestFuzzProvenance(t *testing.T) {
 	)
 OpLoop:
 	for i := 0; i < nOps; i++ {
-		t.Log("\niter", i)
+		println("\niter", i)
 		roll := r.Intn(total)
 		if i < 0 {
 			roll = inputRepo
@@ -4997,14 +4997,14 @@ OpLoop:
 		}
 		switch op {
 		case inputRepo:
-			t.Log("inputRepo")
+			println("inputRepo")
 			repo := tu.UniqueString("repo")
 			require.NoError(t, client.CreateRepo(repo))
 			inputRepos = append(inputRepos, repo)
 			require.NoError(t, client.CreateBranch(repo, "master", "", nil))
 			inputBranches = append(inputBranches, pclient.NewBranch(repo, "master"))
 		case inputBranch:
-			t.Log("inputBranch")
+			println("inputBranch")
 			if len(inputRepos) == 0 {
 				continue OpLoop
 			}
@@ -5013,7 +5013,7 @@ OpLoop:
 			require.NoError(t, client.CreateBranch(repo, branch, "", nil))
 			inputBranches = append(inputBranches, pclient.NewBranch(repo, branch))
 		case deleteInputBranch:
-			t.Log("deleteInputBranch")
+			println("deleteInputBranch")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5021,11 +5021,12 @@ OpLoop:
 			branch := inputBranches[i]
 			inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
 			err = client.DeleteBranch(branch.Repo.Name, branch.Name, false)
+			// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
 			if err != nil && !strings.Contains(err.Error(), "break") {
 				require.NoError(t, err)
 			}
 		case commit:
-			t.Log("commit")
+			println("commit")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5035,7 +5036,7 @@ OpLoop:
 			require.NoError(t, client.FinishCommit(branch.Repo.Name, branch.Name))
 			commits = append(commits, commit)
 		case deleteCommit:
-			t.Log("deleteCommit")
+			println("deleteCommit")
 			if len(commits) == 0 {
 				continue OpLoop
 			}
@@ -5044,7 +5045,7 @@ OpLoop:
 			commits = append(commits[:i], commits[i+1:]...)
 			require.NoError(t, client.DeleteCommit(commit.Repo.Name, commit.ID))
 		case outputRepo:
-			t.Log("outputRepo")
+			println("outputRepo")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5062,7 +5063,7 @@ OpLoop:
 			require.NoError(t, client.CreateBranch(repo, "master", "", provBranches))
 			outputBranches = append(outputBranches, pclient.NewBranch(repo, "master"))
 		case outputBranch:
-			t.Log("outputBranch")
+			println("outputBranch")
 			if len(outputRepos) == 0 {
 				continue OpLoop
 			}
@@ -5078,16 +5079,19 @@ OpLoop:
 					break
 				}
 			}
-			for num, i := range r.Perm(len(outputBranches))[:r.Intn(len(outputBranches))] {
-				provBranches = append(provBranches, outputBranches[i])
-				if num > 1 {
-					break
+
+			if len(outputBranches) > 0 {
+				for num, i := range r.Perm(len(outputBranches))[:r.Intn(len(outputBranches))] {
+					provBranches = append(provBranches, outputBranches[i])
+					if num > 1 {
+						break
+					}
 				}
 			}
 			require.NoError(t, client.CreateBranch(repo, branch, "", provBranches))
 			outputBranches = append(outputBranches, pclient.NewBranch(repo, branch))
 		case deleteOutputBranch:
-			t.Log("deleteOutputBranch")
+			println("deleteOutputBranch")
 			if len(outputBranches) == 0 {
 				continue OpLoop
 			}
@@ -5095,6 +5099,7 @@ OpLoop:
 			branch := outputBranches[i]
 			outputBranches = append(outputBranches[:i], outputBranches[i+1:]...)
 			err = client.DeleteBranch(branch.Repo.Name, branch.Name, false)
+			// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
 			if err != nil && !strings.Contains(err.Error(), "break") {
 				require.NoError(t, err)
 			}
