@@ -2,11 +2,10 @@ package index
 
 import (
 	"archive/tar"
-	"bytes"
 	"context"
-	"io"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
@@ -32,7 +31,9 @@ type levelWriter struct {
 // Each index tar entry has the full index in the content section.
 type Writer struct {
 	ctx       context.Context
+	objC      obj.Client
 	chunks    *chunk.Storage
+	path      string
 	root      *Header
 	levels    []*levelWriter
 	rangeSize int64
@@ -43,14 +44,16 @@ type Writer struct {
 // NewWriter create a new Writer.
 // rangeSize should not be used except for testing purposes, the defaultRangeSize will
 // be used in a real deployment.
-func NewWriter(ctx context.Context, chunks *chunk.Storage, rangeSize ...int64) *Writer {
+func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string, rangeSize ...int64) *Writer {
 	rSize := defaultRangeSize
 	if len(rangeSize) > 0 {
 		rSize = rangeSize[0]
 	}
 	return &Writer{
 		ctx:       ctx,
+		objC:      objC,
 		chunks:    chunks,
+		path:      path,
 		rangeSize: rSize,
 	}
 }
@@ -129,7 +132,7 @@ func (w *Writer) callback(hdr *Header, level int) func([]*chunk.DataRef) error {
 }
 
 // Close finishes the index, and returns the serialized top level index.
-func (w *Writer) Close() (r io.Reader, retErr error) {
+func (w *Writer) Close() error {
 	w.closed = true
 	// Note: new levels can be created while closing, so the number of iterations
 	// necessary can increase as the levels are being closed. The number of ranges
@@ -139,23 +142,23 @@ func (w *Writer) Close() (r io.Reader, retErr error) {
 	for i := 0; i < len(w.levels); i++ {
 		l := w.levels[i]
 		if err := l.tw.Close(); err != nil {
-			return nil, err
+			return err
 		}
 		if err := l.cw.Close(); err != nil {
-			return nil, err
+			return err
 		}
 	}
-	// Write the final index level that will be readable
-	// by the caller.
-	buf := &bytes.Buffer{}
-	tw := tar.NewWriter(buf)
-	defer func() {
-		if err := tw.Close(); err != nil && retErr != nil {
-			retErr = err
-		}
-	}()
+	// Write the final index level to the path.
+	objW, err := w.objC.Writer(w.ctx, w.path)
+	if err != nil {
+		return err
+	}
+	tw := tar.NewWriter(objW)
 	if err := w.serialize(tw, w.root, len(w.levels)); err != nil {
-		return nil, err
+		return err
 	}
-	return buf, nil
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	return objW.Close()
 }

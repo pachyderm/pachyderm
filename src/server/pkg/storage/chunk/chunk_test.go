@@ -11,10 +11,7 @@ import (
 
 func TestWriteThenRead(t *testing.T) {
 	objC, chunks := LocalStorage(t)
-	defer func() {
-		require.NoError(t, chunks.DeleteAll(context.Background()))
-		require.NoError(t, objC.Delete(context.Background(), Prefix))
-	}()
+	defer Cleanup(objC, chunks)
 	var finalDataRefs []*DataRef
 	var seq []byte
 	t.Run("Write", func(t *testing.T) {
@@ -55,10 +52,7 @@ func TestWriteThenRead(t *testing.T) {
 
 func BenchmarkWriter(b *testing.B) {
 	objC, chunks := LocalStorage(b)
-	defer func() {
-		require.NoError(b, chunks.DeleteAll(context.Background()))
-		require.NoError(b, objC.Delete(context.Background(), Prefix))
-	}()
+	defer Cleanup(objC, chunks)
 	seq := RandSeq(100 * MB)
 	b.SetBytes(100 * MB)
 	b.ResetTimer()

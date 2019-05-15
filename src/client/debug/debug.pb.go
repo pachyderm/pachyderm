@@ -9,6 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -326,6 +328,20 @@ type DebugServer interface {
 	Dump(*DumpRequest, Debug_DumpServer) error
 	Profile(*ProfileRequest, Debug_ProfileServer) error
 	Binary(*BinaryRequest, Debug_BinaryServer) error
+}
+
+// UnimplementedDebugServer can be embedded to have forward compatible implementations.
+type UnimplementedDebugServer struct {
+}
+
+func (*UnimplementedDebugServer) Dump(req *DumpRequest, srv Debug_DumpServer) error {
+	return status.Errorf(codes.Unimplemented, "method Dump not implemented")
+}
+func (*UnimplementedDebugServer) Profile(req *ProfileRequest, srv Debug_ProfileServer) error {
+	return status.Errorf(codes.Unimplemented, "method Profile not implemented")
+}
+func (*UnimplementedDebugServer) Binary(req *BinaryRequest, srv Debug_BinaryServer) error {
+	return status.Errorf(codes.Unimplemented, "method Binary not implemented")
 }
 
 func RegisterDebugServer(s *grpc.Server, srv DebugServer) {
