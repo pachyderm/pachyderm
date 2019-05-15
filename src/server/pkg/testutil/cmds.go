@@ -78,7 +78,7 @@ func Cmd(name string, args ...string) *exec.Cmd {
 
 // BashCmd is a convenience function that:
 // 1. Performs a Go template substitution on 'cmd' using the strings in 'subs'
-// 2. Ruturns a command that runs the result string from 1 as a Bash script
+// 2. Returns a command that runs the result string from 1 as a Bash script
 func BashCmd(cmd string, subs ...string) *TestCmd {
 	if len(subs)%2 == 1 {
 		panic("some variable does not have a corresponding value")

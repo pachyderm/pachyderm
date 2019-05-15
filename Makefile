@@ -491,6 +491,9 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
 	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
+test-transaction:
+	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
+
 test-client:
 	rm -rf src/client/vendor
 	rm -rf src/server/vendor/github.com/pachyderm
