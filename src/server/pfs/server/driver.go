@@ -24,7 +24,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 
-	"github.com/davecgh/go-spew/spew"
 	globlib "github.com/gobwas/glob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -976,7 +975,7 @@ func (d *driver) makeCommit(
 					headCommitInfo := &pfs.CommitInfo{}
 					if err := d.commits(newCommit.Repo.Name).ReadWrite(stm).Get(branchInfo.Head.ID, headCommitInfo); err != nil {
 						return err
-					}
+					} 
 					for _, prov := range headCommitInfo.Provenance {
 						branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
 					}
@@ -992,8 +991,8 @@ func (d *driver) makeCommit(
 				}
 			}
 
-			// if the passed in provenance for the commit itself (note the difference from the prev condition)
-			// includes a spec commit, then it was created by pps, and so we want to allow it to commit to output branches
+			// if the passed in provenance for the commit itself includes a spec commit, (note the difference from the prev condition)
+			// then it was created by pps, and so we want to allow it to commit to output branches
 			hasSpec := false
 			for _, prov := range provenance {
 				if prov.Commit.Repo.Name == ppsconsts.SpecRepo {
@@ -1121,10 +1120,8 @@ func (d *driver) makeCommit(
 		}
 
 		// ensure the commit provenance is consistent with the branch provenance
-			fmt.Println(key(prov.Branch.Repo.Name, prov.Branch.Name))
 			if len(branchProvMap) != 0 {
 				if !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
-					spew.Dump(branchProvMap)
 					return fmt.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 				}
 			}
@@ -1146,7 +1143,7 @@ func (d *driver) makeCommit(
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
 	if branch != "" {
-		if err := txnCtx.PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch, true)); err != nil {
+		if err := txnCtx.PropagateCommit(client.NewBranch(newCommit.Repo.Name, branch),true); err != nil {
 			return nil, err
 		}
 	}
@@ -1291,13 +1288,14 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 // starts downstream output commits (which trigger PPS jobs) when new input
 // commits arrive on 'branch', when 'branches's HEAD is deleted, or when
 // 'branches' are newly created (i.e. in CreatePipeline).
+//
+// The newCommit flag indicates whether propagateCommits was called during the creation of a new commit.
 func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch, newCommit bool) error {
 	type BranchData struct {
 		branchInfo *pfs.BranchInfo
 		heads      []*pfs.CommitInfo // List of head commits being propagated that this branch is provenant on
 	}
 	var err error
-
 	key := path.Join
 	branchMap := map[string]*BranchData{}
 	for _, branch := range branches {
@@ -1403,6 +1401,7 @@ nextSubvBranch:
 			}
 		}
 		for _, head := range branchData.heads {
+			// make sure the head commit's provenance is included in the new commit provenance (used for deferred downstream)
 			for _, commitProv := range head.Provenance {
 				// resolve the commit provenance in case it is specified as a branch name
 				prov, err = d.resolveCommitProvenance(stm, prov)
@@ -1412,7 +1411,6 @@ nextSubvBranch:
 				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
 			}
 		}
-
 		if len(commitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
 			continue nextSubvBranch
@@ -1422,16 +1420,16 @@ nextSubvBranch:
 		// output commit would have the same provenance as the existing HEAD
 		// commit. If so, a new output commit would be a duplicate, so don't create
 		// it.
-		if subvBranchInfo.Head != nil {
+		if branchInfo.Head != nil {
 			// get the info for the branch's HEAD commit
-			subvBranchHeadInfo := &pfs.CommitInfo{}
-			if err := commits.Get(subvBranchInfo.Head.ID, subvBranchHeadInfo); err != nil {
-				return pfsserver.ErrCommitNotFound{subvBranchInfo.Head}
+			branchHeadInfo := &pfs.CommitInfo{}
+			if err := commits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
+				return pfsserver.ErrCommitNotFound{branchInfo.Head}
 			}
 			headIsSubset := false
 			for _, v := range commitProvMap {
 				matched := false
-				for _, c := range subvBranchHeadInfo.Provenance {
+				for _, c := range branchHeadInfo.Provenance {
 					if c.Commit.ID == v.Commit.ID && c.Branch.Name == v.Branch.Name {
 						matched = true
 					}
@@ -1441,7 +1439,7 @@ nextSubvBranch:
 					break
 				}
 			}
-			if len(subvBranchHeadInfo.Provenance) >= len(commitProvMap) && headIsSubset {
+			if len(branchHeadInfo.Provenance) >= len(commitProvMap) && headIsSubset {
 				// existing HEAD commit is the same new output commit would be; don't
 				// create new commit
 				continue nextSubvBranch
@@ -1465,7 +1463,8 @@ nextSubvBranch:
 		}
 
 		// if a commit was just created and this is the same branch as the one being propagated, we don't need to do anything
-		if subvBranch.Repo.Name == branch.Repo.Name && subvBranch.Name == branch.Name && newCommit {
+		if len(branches) == 1 && branches[0].Repo.Name  == branch.Repo.Name
+		 && branches[0].Name== branch.Name && newCommit {
 			continue nextSubvBranch
 		}
 
