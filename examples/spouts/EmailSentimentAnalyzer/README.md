@@ -1,8 +1,21 @@
 # Email Sentiment Analysis
 
+## Background
+
+This example connects to an IMAP mail account, 
+collects all the incoming mail and analyzes it for positive or negative sentiment,
+sorting the emails into directories in its output repo with scoring information added to the email header "X-Sentiment-Rating".
+
+It is inspired by the [email sentiment analysis bot](https://github.com/shanglun/SentimentAnalyzer) documented in [this article](https://www.toptal.com/java/email-sentiment-analysis-bot) by Shanglung Wang, 
+
+It uses [Python-based VADER](https://github.com/cjhutto/vaderSentiment) from CJ Hutto at Georgia Tech.
+
+## Introduction
 In this example, we will connect a spout called imap_spout to an email account using IMAP.
-That spout's repo will be the input to a pipeline, sentimentalist,  which will score the emails by sentiment, 
-adding a header to each with a detailed sentiment score and sorting them into two folders, positive and negative, in its output repo.
+That spout's repo will be the input to a pipeline, sentimentalist,  which will score the email's positive, negative, neutral, and compound sentiment, 
+adding a header to each with a detailed sentiment score and sorting them into two folders, 
+positive and negative, 
+in its output repo based on the compound score.
 
 This demo will process emails from an account you configure, moving them from the Inbox to a mailbox called "Processed", 
 which it will create if it doesn't exist.
