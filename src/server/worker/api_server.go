@@ -976,6 +976,15 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	if err := putObjsClient.CloseSend(); err != nil {
 		return err
 	}
+	// Be sure that the stream finished successfully.
+	for {
+		if err := putObjsClient.RecvMsg(nil); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+	}
 	// Serialize datum hashtree
 	b := &bytes.Buffer{}
 	if err := tree.Serialize(b); err != nil {
