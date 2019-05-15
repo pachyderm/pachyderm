@@ -4940,25 +4940,34 @@ func TestDeferredProcessing(t *testing.T) {
 }
 
 const (
-	inputRepo    = iota // create a new input repo
-	inputBranch         // create a new branch on an existing input repo
-	commit              // commit to an input branch
-	deleteCommit        // delete a commit from an input branch
-	outputRepo          // create a new output repo, with master branch subscribed to random other branches
-	outputBranch        // create a new output branch on an existing output repo
+	inputRepo          = iota // create a new input repo
+	inputBranch               // create a new branch on an existing input repo
+	deleteInputBranch         // delete an input branch
+	commit                    // commit to an input branch
+	deleteCommit              // delete a commit from an input branch
+	outputRepo                // create a new output repo, with master branch subscribed to random other branches
+	outputBranch              // create a new output branch on an existing output repo
+	deleteOutputBranch        // delete an output branch
 )
 
 func TestFuzzProvenance(t *testing.T) {
-	rand.Seed(0)
+	seed := time.Now().UnixNano()
+	t.Log("Random seed is", seed)
+	r := rand.New(rand.NewSource(seed))
+
 	client := GetPachClient(t)
-	nOps := 100
+	_, err := client.PfsAPIClient.DeleteAll(client.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+	nOps := 1000
 	opShares := []int{
 		1, // inputRepo
 		1, // inputBranch
+		1, // deleteInputBranch
 		5, // commit
-		1, // deleteCommit
+		3, // deleteCommit
 		1, // outputRepo
-		1, // outputBranch
+		2, // outputBranch
+		1, // deleteOutputBranch
 	}
 	total := 0
 	for _, v := range opShares {
@@ -4973,7 +4982,11 @@ func TestFuzzProvenance(t *testing.T) {
 	)
 OpLoop:
 	for i := 0; i < nOps; i++ {
-		roll := rand.Intn(total)
+		t.Log("\niter", i)
+		roll := r.Intn(total)
+		if i < 0 {
+			roll = inputRepo
+		}
 		var op int
 		for _op, v := range opShares {
 			roll -= v
@@ -4984,68 +4997,109 @@ OpLoop:
 		}
 		switch op {
 		case inputRepo:
-			println("inputRepo")
+			t.Log("inputRepo")
 			repo := tu.UniqueString("repo")
 			require.NoError(t, client.CreateRepo(repo))
 			inputRepos = append(inputRepos, repo)
 			require.NoError(t, client.CreateBranch(repo, "master", "", nil))
 			inputBranches = append(inputBranches, pclient.NewBranch(repo, "master"))
 		case inputBranch:
-			println("inputBranch")
+			t.Log("inputBranch")
 			if len(inputRepos) == 0 {
 				continue OpLoop
 			}
-			repo := inputRepos[rand.Intn(len(inputRepos))]
+			repo := inputRepos[r.Intn(len(inputRepos))]
 			branch := tu.UniqueString("branch")
 			require.NoError(t, client.CreateBranch(repo, branch, "", nil))
 			inputBranches = append(inputBranches, pclient.NewBranch(repo, branch))
-		case commit:
-			println("commit")
+		case deleteInputBranch:
+			t.Log("deleteInputBranch")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
-			branch := inputBranches[rand.Intn(len(inputBranches))]
+			i := r.Intn(len(inputBranches))
+			branch := inputBranches[i]
+			inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
+			err = client.DeleteBranch(branch.Repo.Name, branch.Name, false)
+			if err != nil && !strings.Contains(err.Error(), "break") {
+				require.NoError(t, err)
+			}
+		case commit:
+			t.Log("commit")
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			branch := inputBranches[r.Intn(len(inputBranches))]
 			commit, err := client.StartCommit(branch.Repo.Name, branch.Name)
 			require.NoError(t, err)
 			require.NoError(t, client.FinishCommit(branch.Repo.Name, branch.Name))
 			commits = append(commits, commit)
 		case deleteCommit:
-			println("deleteCommit")
+			t.Log("deleteCommit")
 			if len(commits) == 0 {
 				continue OpLoop
 			}
-			commit := commits[rand.Intn(len(commits))]
+			i := r.Intn(len(commits))
+			commit := commits[i]
+			commits = append(commits[:i], commits[i+1:]...)
 			require.NoError(t, client.DeleteCommit(commit.Repo.Name, commit.ID))
 		case outputRepo:
-			println("outputRepo")
+			t.Log("outputRepo")
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
 			repo := tu.UniqueString("repo")
 			require.NoError(t, client.CreateRepo(repo))
 			outputRepos = append(outputRepos, repo)
-			var _inputBranches []*pfs.Branch
-			for _, i := range rand.Perm(len(inputBranches))[:rand.Intn(len(inputBranches))] {
-				_inputBranches = append(_inputBranches, inputBranches[i])
+			var provBranches []*pfs.Branch
+			for num, i := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
+				provBranches = append(provBranches, inputBranches[i])
+				if num > 1 {
+					break
+				}
 			}
-			require.NoError(t, client.CreateBranch(repo, "master", "", _inputBranches))
+
+			require.NoError(t, client.CreateBranch(repo, "master", "", provBranches))
 			outputBranches = append(outputBranches, pclient.NewBranch(repo, "master"))
 		case outputBranch:
-			println("outputBranch")
+			t.Log("outputBranch")
 			if len(outputRepos) == 0 {
 				continue OpLoop
 			}
 			if len(inputBranches) == 0 {
 				continue OpLoop
 			}
-			repo := outputRepos[rand.Intn(len(outputRepos))]
+			repo := outputRepos[r.Intn(len(outputRepos))]
 			branch := tu.UniqueString("branch")
-			var _inputBranches []*pfs.Branch
-			for _, i := range rand.Perm(len(inputBranches))[:rand.Intn(len(inputBranches))] {
-				_inputBranches = append(_inputBranches, inputBranches[i])
+			var provBranches []*pfs.Branch
+			for num, i := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
+				provBranches = append(provBranches, inputBranches[i])
+				if num > 1 {
+					break
+				}
 			}
-			require.NoError(t, client.CreateBranch(repo, branch, "", _inputBranches))
+			for num, i := range r.Perm(len(outputBranches))[:r.Intn(len(outputBranches))] {
+				provBranches = append(provBranches, outputBranches[i])
+				if num > 1 {
+					break
+				}
+			}
+			require.NoError(t, client.CreateBranch(repo, branch, "", provBranches))
 			outputBranches = append(outputBranches, pclient.NewBranch(repo, branch))
+		case deleteOutputBranch:
+			t.Log("deleteOutputBranch")
+			if len(outputBranches) == 0 {
+				continue OpLoop
+			}
+			i := r.Intn(len(outputBranches))
+			branch := outputBranches[i]
+			outputBranches = append(outputBranches[:i], outputBranches[i+1:]...)
+			err = client.DeleteBranch(branch.Repo.Name, branch.Name, false)
+			if err != nil && !strings.Contains(err.Error(), "break") {
+				require.NoError(t, err)
+			}
 		}
+		_, err = client.Fsck(client.Ctx(), &types.Empty{})
+		require.NoError(t, err)
 	}
 }
