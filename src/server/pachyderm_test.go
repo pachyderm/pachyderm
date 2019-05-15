@@ -1567,9 +1567,13 @@ func TestDeletePipeline(t *testing.T) {
 	deletePipeline(pipelines[0])
 
 	// The jobs should be gone
-	jobs, err := c.ListJob(pipelines[1], nil, nil, -1)
+	jobs, err := c.ListJob("", nil, nil, -1)
 	require.NoError(t, err)
 	require.Equal(t, len(jobs), 0)
+
+	// Listing jobs for a deleted pipeline should error
+	_, err = c.ListJob(pipelines[0], nil, nil, -1)
+	require.YesError(t, err)
 
 	createPipelines()
 
