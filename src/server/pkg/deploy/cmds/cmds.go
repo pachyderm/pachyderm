@@ -444,7 +444,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	}
 
 	deployStorageAmazon := &cobra.Command{
-		Use:   "{{alias}} <region> <bucket-id> <secret> [<token>]",
+		Use:   "{{alias}} <region> <access-key-id> <secret-access-key> [<session-token>]",
 		Short: "Deploy credentials for the Amazon S3 storage provider.",
 		Long:  "Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.",
 		Run: cmdutil.RunBoundedArgs(3, 4, func(args []string) error {
