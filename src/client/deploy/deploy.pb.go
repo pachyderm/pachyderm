@@ -8,6 +8,8 @@ import (
 	fmt "fmt"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -172,6 +174,14 @@ func (c *aPIClient) DeployStorageSecret(ctx context.Context, in *DeployStorageSe
 // APIServer is the server API for API service.
 type APIServer interface {
 	DeployStorageSecret(context.Context, *DeployStorageSecretRequest) (*DeployStorageSecretResponse, error)
+}
+
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) DeployStorageSecret(ctx context.Context, req *DeployStorageSecretRequest) (*DeployStorageSecretResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeployStorageSecret not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {

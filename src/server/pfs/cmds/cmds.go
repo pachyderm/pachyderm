@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -1078,6 +1079,29 @@ $ pachctl diff-file foo master path1 bar master path2
 		}),
 	}
 
+	fsck := &cobra.Command{
+		Use:   "fsck",
+		Short: "Run a file system consistency check on pfs.",
+		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.Fsck(
+				c.Ctx(),
+				&types.Empty{},
+			)
+			if err != nil {
+				fmt.Println(grpcutil.ScrubGRPC(err))
+				return nil
+			}
+			fmt.Println("No errors found.")
+			return nil
+		}),
+	}
+
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
 	mount := &cobra.Command{
@@ -1159,38 +1183,38 @@ $ pachctl diff-file foo master path1 bar master path2
 	}
 	unmount.Flags().BoolVarP(&all, "all", "a", false, "unmount all pfs mounts")
 
-    repoCommands := []*cobra.Command{
-        createRepo,
-        updateRepo,
-        inspectRepo,
-        listRepo,
-        deleteRepo,
-    }
+	repoCommands := []*cobra.Command{
+		createRepo,
+		updateRepo,
+		inspectRepo,
+		listRepo,
+		deleteRepo,
+	}
 
-    commitCommands := []*cobra.Command{
-        startCommit,
-        finishCommit,
-        inspectCommit,
-        listCommit,
-        flushCommit,
-        subscribeCommit,
-        deleteCommit,
-    }
+	commitCommands := []*cobra.Command{
+		startCommit,
+		finishCommit,
+		inspectCommit,
+		listCommit,
+		flushCommit,
+		subscribeCommit,
+		deleteCommit,
+	}
 
-    fileCommands := []*cobra.Command{
-        putFile,
-        copyFile,
-        getFile,
-        inspectFile,
-        listFile,
-        globFile,
-        diffFile,
-        deleteFile,
-    }
+	fileCommands := []*cobra.Command{
+		putFile,
+		copyFile,
+		getFile,
+		inspectFile,
+		listFile,
+		globFile,
+		diffFile,
+		deleteFile,
+	}
 
-    cmdutil.SetDocsUsage(repo, repoCommands)
-    cmdutil.SetDocsUsage(commit, commitCommands)
-    cmdutil.SetDocsUsage(file, fileCommands)
+	cmdutil.SetDocsUsage(repo, repoCommands)
+	cmdutil.SetDocsUsage(commit, commitCommands)
+	cmdutil.SetDocsUsage(file, fileCommands)
 
 	var result []*cobra.Command
 	result = append(result, repo)
@@ -1205,6 +1229,7 @@ $ pachctl diff-file foo master path1 bar master path2
 	result = append(result, fileCommands...)
 	result = append(result, getObject)
 	result = append(result, getTag)
+	result = append(result, fsck)
 	result = append(result, mount)
 	result = append(result, unmount)
 	return result
