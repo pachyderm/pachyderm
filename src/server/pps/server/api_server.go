@@ -2468,7 +2468,7 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 		return nil, err
 	}
 	if branch.Head == nil {
-		return nil, fmt.Errorf("Run pipeline needs a pipeline with existing data to run. New commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or torerun an job.")
+		return nil, fmt.Errorf("run pipeline needs a pipeline with existing data to run\nnew commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or to rerun an job")
 	}
 
 	// we need to inspect the commit in order to resolve the commit ID, which may have an ancestry tag
