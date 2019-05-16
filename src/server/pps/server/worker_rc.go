@@ -22,6 +22,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const (
+	pipelineNameLabel = "pipelineName"
+)
+
 // Parameters used when creating the kubernetes replication controller in charge
 // of a job or pipeline's workers
 type workerOptions struct {
@@ -261,7 +265,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
-	labels["pipelineName"] = pipelineName
+	labels[pipelineNameLabel] = pipelineName
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -420,9 +424,9 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 }
 
 func (a *apiServer) createWorkerRc(ctx context.Context, options *workerOptions) (retErr error) {
-	log.Infof("PPS master: upserting workers for %q", options.rcName)
+	log.Infof("PPS master: upserting workers for %q", options.labels[pipelineNameLabel])
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC",
-		"pipeline", options.rcName)
+		"pipeline", options.labels[pipelineNameLabel])
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr.Error())
 		tracing.FinishAnySpan(span)
