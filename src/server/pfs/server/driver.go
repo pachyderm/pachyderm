@@ -604,7 +604,7 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 					}
 					// If this commit was created on an output branch, then we don't expect it to satisfy this invariant
 					// due to the nature of the RunPipeline functionality.
-					if headCommitInfo.Origin == pfs.CommitOrigin_MAKE && len(headCommitInfo.Provenance) > 0 {
+					if headCommitInfo.Origin != nil && headCommitInfo.Origin.Kind == pfs.OriginKind_AUTO && len(headCommitInfo.Provenance) > 0 {
 						continue
 					}
 					contains := false
@@ -915,7 +915,7 @@ func (d *driver) makeCommit(
 	}
 	newCommitInfo := &pfs.CommitInfo{
 		Commit:      newCommit,
-		Origin:      pfs.CommitOrigin_MAKE,
+		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
 		Started:     now(),
 		Description: description,
 	}
@@ -1480,7 +1480,7 @@ nextSubvBranch:
 		}
 		newCommitInfo := &pfs.CommitInfo{
 			Commit:  newCommit,
-			Origin:  pfs.CommitOrigin_PROPAGATE,
+			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
 			Started: now(),
 		}
 
