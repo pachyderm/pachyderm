@@ -274,6 +274,9 @@ func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader,
 		size, err = f(w, r)
 		return err
 	}(); err != nil {
+		// We throw away the delete error state here because the original error is what should be communicated
+		// back and we do not know the cause of the original error. This is just an attempt to clean up
+		// unused storage in the case that the block was actually written to object storage.
 		s.objClient.Delete(ctx, s.blockPath(block))
 		return nil, err
 	}
