@@ -877,9 +877,11 @@ func TestRunPipeline(t *testing.T) {
 		require.Equal(t, 1, len(jobInfos))
 
 		// now run the pipeline
-		require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
-			client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
-		}))
+		require.NoError(t, backoff.Retry(func() error {
+			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+			})
+		}, backoff.NewTestingBackOff()))
 
 		// now we should have two jobs on the old commit for downstreamPipeline
 		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
