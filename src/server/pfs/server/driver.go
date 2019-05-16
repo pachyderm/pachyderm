@@ -595,14 +595,8 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 						}
 					}
 					contains := false
-					if len(headCommitInfo.Provenance) != len(headCommitInfo.BranchProvenance) {
-						return fmt.Errorf("consistency error: head commit %v provenance and branch provenance have unequal lengths", headCommitInfo.Commit.ID)
-					}
-					for i, headProv := range headCommitInfo.Provenance {
-						headProvBranch := headCommitInfo.BranchProvenance[i]
+					for _, headProv := range headCommitInfo.Provenance {
 						if provBranchInfo.Head.Repo.Name == headProv.Repo.Name &&
-							provBranchInfo.Branch.Repo.Name == headProvBranch.Repo.Name &&
-							provBranchInfo.Name == headProvBranch.Name &&
 							provBranchInfo.Head.ID == headProv.ID {
 							contains = true
 						}
@@ -624,15 +618,8 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		// ensure that the provenance is transitive
 		directProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
 		transitiveProvenance := make([]*pfs.Commit, 0, len(ci.Provenance))
-		if len(ci.Provenance) != len(ci.BranchProvenance) {
-			return fmt.Errorf("consistency error: commit %v provenance and branch provenance have unequal lengths", ci.Commit.ID)
-		}
-		for i, prov := range ci.Provenance {
+		for _, prov := range ci.Provenance {
 			// not part of the above invariant, but we want to make sure provenance is self-consistent
-			provBranch := ci.BranchProvenance[i]
-			if prov.Repo.Name != provBranch.Repo.Name {
-				return ErrInconsistentCommitProvenance{Commit: prov, Branch: provBranch}
-			}
 			directProvenance = append(directProvenance, prov)
 			transitiveProvenance = append(transitiveProvenance, prov)
 			provCommitInfo, ok := commitInfos[key(prov.Repo.Name, prov.ID)]
@@ -1064,6 +1051,8 @@ func (d *driver) makeCommit(pachClient *client.APIClient, ID string, parent *pfs
 		// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
 		for _, provCommit := range newCommitProv {
 			newCommitInfo.Provenance = append(newCommitInfo.Provenance, provCommit)
+			// we don't know what the branch provenance is, but we don't want to mess up the pairing -- so we put a dummy branch in here
+			newCommitInfo.BranchProvenance = append(newCommitInfo.BranchProvenance, client.NewBranch("", ""))
 			provCommitInfo := &pfs.CommitInfo{}
 			if err := d.commits(provCommit.Repo.Name).ReadWrite(stm).Update(provCommit.ID, provCommitInfo, func() error {
 				appendSubvenance(provCommitInfo, newCommitInfo)
@@ -1312,13 +1301,9 @@ nextSubvBranch:
 					return fmt.Errorf("could not read provenance %s/%s: %v", provProv.Repo.Name, provProv.ID, err)
 				}
 				branchProvProv := branchHeadInfo.BranchProvenance[i]
-				provProvBranchInfo := &pfs.BranchInfo{}
-				if err := d.branches(branchProvProv.Repo.Name).ReadWrite(stm).Get(branchProvProv.Name, provProvBranchInfo); err != nil && !col.IsErrNotFound(err) {
-					return fmt.Errorf("could not read branch %s/%s: %v", branchProvProv.Repo.Name, branchProvProv.Name, err)
-				}
-				commitProvMap[key(provProvInfo.Commit.ID, provProvBranchInfo.Branch.Name)] = &branchCommit{
+				commitProvMap[key(provProvInfo.Commit.ID, branchProvProv.Name)] = &branchCommit{
 					commit: provProvInfo.Commit,
-					branch: provProvBranchInfo.Branch,
+					branch: branchProvProv,
 				}
 			}
 		}
@@ -1341,7 +1326,7 @@ nextSubvBranch:
 				matched := false
 				for i, c := range branchHeadInfo.Provenance {
 					b := branchHeadInfo.BranchProvenance[i]
-					if c.ID == v.commit.ID && b.Name == v.branch.Name {
+					if c.ID == v.commit.ID && (b.Name == "" || b.Name == v.branch.Name) {
 						matched = true
 					}
 				}
