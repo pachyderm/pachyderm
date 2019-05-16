@@ -659,14 +659,14 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, err)
 
 		// we should have two jobs
-		ji, err := c.ListJob(pipeline, nil, nil)
+		ji, err := c.ListJob(pipeline, nil, nil, -1)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(ji))
 		// now run the pipeline
 		require.NoError(t, c.RunPipeline(pipeline, nil))
 		// running the pipeline should create a new job
 		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, nil)
+			jobInfos, err := c.ListJob(pipeline, nil, nil, -1)
 			require.NoError(t, err)
 			if len(jobInfos) != 3 {
 				return fmt.Errorf("expected 3 jobs, got %d", len(jobInfos))
@@ -683,7 +683,7 @@ func TestRunPipeline(t *testing.T) {
 
 		// running the pipeline should create a new job
 		require.NoError(t, backoff.Retry(func() error {
-			jobInfos, err := c.ListJob(pipeline, nil, nil)
+			jobInfos, err := c.ListJob(pipeline, nil, nil, -1)
 			require.NoError(t, err)
 			if len(jobInfos) != 4 {
 				return fmt.Errorf("expected 4 jobs, got %d", len(jobInfos))
@@ -751,7 +751,7 @@ func TestRunPipeline(t *testing.T) {
 		))
 
 		// we should have two jobs
-		ji, err := c.ListJob(pipeline, nil, nil)
+		ji, err := c.ListJob(pipeline, nil, nil, -1)
 		require.NoError(t, err)
 		require.Equal(t, 0, len(ji))
 		// now run the pipeline
