@@ -100,6 +100,7 @@ If the job fails, the output commit will not be populated with data.`,
 	var pipelineName string
 	var outputCommitStr string
 	var inputCommitStrs []string
+	var history string
 	listJob := &cobra.Command{
 		Short: "Return info about jobs.",
 		Long:  "Return info about jobs.",
@@ -107,8 +108,11 @@ If the job fails, the output commit will not be populated with data.`,
 # Return all jobs
 $ {{alias}}
 
-# Return all jobs in pipeline foo
+# Return all jobs from the most recent version of pipeline "foo"
 $ {{alias}} -p foo
+
+# Return all jobs from all versions of pipeline "foo"
+$ {{alias}} -p foo --history all
 
 # Return all jobs whose input commits include foo@XXX and bar@YYY
 $ {{alias}} -i foo@XXX -i bar@YYY
@@ -120,7 +124,10 @@ $ {{alias}} -p foo -i bar@YYY`,
 			if err != nil {
 				return err
 			}
-
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
+			}
 			var outputCommit *pfs.Commit
 			if outputCommitStr != "" {
 				outputCommit, err = cmdutil.ParseCommit(outputCommitStr)
@@ -136,7 +143,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 			defer client.Close()
 
 			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+				return client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
 					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
 						return err
 					}
@@ -144,7 +151,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+			if err := client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
 				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -161,6 +168,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
 	listJob.Flags().AddFlagSet(rawFlags)
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
+	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
 	var pipelines cmdutil.RepeatedStringArg
@@ -597,15 +605,24 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 
 	var spec bool
 	listPipeline := &cobra.Command{
+		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
+			}
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			defer client.Close()
-			pipelineInfos, err := client.ListPipeline()
+			var pipeline string
+			if len(args) > 0 {
+				pipeline = args[0]
+			}
+			pipelineInfos, err := client.ListPipelineHistory(pipeline, history)
 			if err != nil {
 				return err
 			}
@@ -635,6 +652,7 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output 'create pipeline' compatibility specs.")
 	listPipeline.Flags().AddFlagSet(rawFlags)
 	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
+	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
 	var all bool

@@ -936,7 +936,7 @@ $ {{alias}} foo@master^2:XXX`,
 	inspectFile.Flags().AddFlagSet(rawFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
-	var history int64
+	var history string
 	listFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Return the files in a directory.",
@@ -960,11 +960,15 @@ $ {{alias}} foo@master^2
 $ {{alias}} foo@master --history n
 
 # list all versions of top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master --history -1`,
+$ {{alias}} foo@master --history all`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
+			}
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
 			}
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -988,7 +992,7 @@ $ {{alias}} foo@master --history -1`,
 	}
 	listFile.Flags().AddFlagSet(rawFlags)
 	listFile.Flags().AddFlagSet(fullTimestampsFlags)
-	listFile.Flags().Int64Var(&history, "history", 0, "Return revision history for files.")
+	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
 
 	globFile := &cobra.Command{
