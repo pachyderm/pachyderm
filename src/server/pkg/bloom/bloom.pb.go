@@ -21,27 +21,40 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type BloomData struct {
-	HashLength           uint32   `protobuf:"varint,1,opt,name=hash_length,json=hashLength,proto3" json:"hash_length,omitempty"`
-	NumHashes            uint32   `protobuf:"varint,2,opt,name=num_hashes,json=numHashes,proto3" json:"num_hashes,omitempty"`
+type BloomFilter struct {
+	HashLength      uint32 `protobuf:"varint,1,opt,name=hash_length,json=hashLength,proto3" json:"hash_length,omitempty"`
+	BytesPerSubhash uint32 `protobuf:"varint,2,opt,name=bytes_per_subhash,json=bytesPerSubhash,proto3" json:"bytes_per_subhash,omitempty"`
+	// TODO: we could make each bucket signed, which would allow us to do some interesting things,
+	// but it might make the design a little confusing.
+	// Two BloomFilters with identical hash_length and len(buckets) can be summed
+	// to produce a new filter which should be identical to running all operations
+	// from the original two filters onto a blank filter.
+	// Negative bucket values may be useful if we were to add a background
+	// reprocessing stage that would iterate over all existing items and re-add
+	// them, but would also track live updates to the set.  Due to live updates,
+	// some buckets may need to go negative temporarily - but we would lose the
+	// guarantee that removing something that wasn't added to the set is an error.
+	// Perhaps better to provide a 'BloomFilterDelta' that can later be combined
+	// into an existing filter, while still preserving the invariant that all
+	// buckets are positive.
 	Buckets              []uint32 `protobuf:"varint,3,rep,packed,name=buckets,proto3" json:"buckets,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *BloomData) Reset()         { *m = BloomData{} }
-func (m *BloomData) String() string { return proto.CompactTextString(m) }
-func (*BloomData) ProtoMessage()    {}
-func (*BloomData) Descriptor() ([]byte, []int) {
+func (m *BloomFilter) Reset()         { *m = BloomFilter{} }
+func (m *BloomFilter) String() string { return proto.CompactTextString(m) }
+func (*BloomFilter) ProtoMessage()    {}
+func (*BloomFilter) Descriptor() ([]byte, []int) {
 	return fileDescriptor_39c89857c5c00dac, []int{0}
 }
-func (m *BloomData) XXX_Unmarshal(b []byte) error {
+func (m *BloomFilter) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *BloomData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *BloomFilter) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_BloomData.Marshal(b, m, deterministic)
+		return xxx_messageInfo_BloomFilter.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalTo(b)
@@ -51,33 +64,33 @@ func (m *BloomData) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return b[:n], nil
 	}
 }
-func (m *BloomData) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_BloomData.Merge(m, src)
+func (m *BloomFilter) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_BloomFilter.Merge(m, src)
 }
-func (m *BloomData) XXX_Size() int {
+func (m *BloomFilter) XXX_Size() int {
 	return m.Size()
 }
-func (m *BloomData) XXX_DiscardUnknown() {
-	xxx_messageInfo_BloomData.DiscardUnknown(m)
+func (m *BloomFilter) XXX_DiscardUnknown() {
+	xxx_messageInfo_BloomFilter.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_BloomData proto.InternalMessageInfo
+var xxx_messageInfo_BloomFilter proto.InternalMessageInfo
 
-func (m *BloomData) GetHashLength() uint32 {
+func (m *BloomFilter) GetHashLength() uint32 {
 	if m != nil {
 		return m.HashLength
 	}
 	return 0
 }
 
-func (m *BloomData) GetNumHashes() uint32 {
+func (m *BloomFilter) GetBytesPerSubhash() uint32 {
 	if m != nil {
-		return m.NumHashes
+		return m.BytesPerSubhash
 	}
 	return 0
 }
 
-func (m *BloomData) GetBuckets() []uint32 {
+func (m *BloomFilter) GetBuckets() []uint32 {
 	if m != nil {
 		return m.Buckets
 	}
@@ -85,28 +98,29 @@ func (m *BloomData) GetBuckets() []uint32 {
 }
 
 func init() {
-	proto.RegisterType((*BloomData)(nil), "bloom.BloomData")
+	proto.RegisterType((*BloomFilter)(nil), "bloom.BloomFilter")
 }
 
 func init() { proto.RegisterFile("server/pkg/bloom/bloom.proto", fileDescriptor_39c89857c5c00dac) }
 
 var fileDescriptor_39c89857c5c00dac = []byte{
-	// 188 bytes of a gzipped FileDescriptorProto
+	// 199 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x92, 0x29, 0x4e, 0x2d, 0x2a,
 	0x4b, 0x2d, 0xd2, 0x2f, 0xc8, 0x4e, 0xd7, 0x4f, 0xca, 0xc9, 0xcf, 0xcf, 0x85, 0x90, 0x7a, 0x05,
-	0x45, 0xf9, 0x25, 0xf9, 0x42, 0xac, 0x60, 0x8e, 0x52, 0x2a, 0x17, 0xa7, 0x13, 0x88, 0xe1, 0x92,
-	0x58, 0x92, 0x28, 0x24, 0xcf, 0xc5, 0x9d, 0x91, 0x58, 0x9c, 0x11, 0x9f, 0x93, 0x9a, 0x97, 0x5e,
-	0x92, 0x21, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x1b, 0xc4, 0x05, 0x12, 0xf2, 0x01, 0x8b, 0x08, 0xc9,
-	0x72, 0x71, 0xe5, 0x95, 0xe6, 0xc6, 0x83, 0x44, 0x52, 0x8b, 0x25, 0x98, 0xc0, 0xf2, 0x9c, 0x79,
-	0xa5, 0xb9, 0x1e, 0x60, 0x01, 0x21, 0x09, 0x2e, 0xf6, 0xa4, 0xd2, 0xe4, 0xec, 0xd4, 0x92, 0x62,
-	0x09, 0x66, 0x05, 0x66, 0x0d, 0xde, 0x20, 0x18, 0xd7, 0xc9, 0xf5, 0xc4, 0x23, 0x39, 0xc6, 0x0b,
-	0x8f, 0xe4, 0x18, 0x1f, 0x3c, 0x92, 0x63, 0x9c, 0xf1, 0x58, 0x8e, 0x21, 0xca, 0x38, 0x3d, 0xb3,
-	0x24, 0xa3, 0x34, 0x49, 0x2f, 0x39, 0x3f, 0x57, 0xbf, 0x20, 0x31, 0x39, 0xa3, 0x32, 0x25, 0xb5,
-	0x08, 0x99, 0x55, 0x5c, 0x94, 0xac, 0x8f, 0xee, 0x81, 0x24, 0x36, 0xb0, 0xdb, 0x8d, 0x01, 0x01,
-	0x00, 0x00, 0xff, 0xff, 0x1a, 0x77, 0xd3, 0x15, 0xdb, 0x00, 0x00, 0x00,
+	0x45, 0xf9, 0x25, 0xf9, 0x42, 0xac, 0x60, 0x8e, 0x52, 0x09, 0x17, 0xb7, 0x13, 0x88, 0xe1, 0x96,
+	0x99, 0x53, 0x92, 0x5a, 0x24, 0x24, 0xcf, 0xc5, 0x9d, 0x91, 0x58, 0x9c, 0x11, 0x9f, 0x93, 0x9a,
+	0x97, 0x5e, 0x92, 0x21, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x1b, 0xc4, 0x05, 0x12, 0xf2, 0x01, 0x8b,
+	0x08, 0x69, 0x71, 0x09, 0x26, 0x55, 0x96, 0xa4, 0x16, 0xc7, 0x17, 0xa4, 0x16, 0xc5, 0x17, 0x97,
+	0x26, 0x81, 0xa4, 0x24, 0x98, 0xc0, 0xca, 0xf8, 0xc1, 0x12, 0x01, 0xa9, 0x45, 0xc1, 0x10, 0x61,
+	0x21, 0x09, 0x2e, 0xf6, 0xa4, 0xd2, 0xe4, 0xec, 0xd4, 0x92, 0x62, 0x09, 0x66, 0x05, 0x66, 0x0d,
+	0xde, 0x20, 0x18, 0xd7, 0xc9, 0xf5, 0xc4, 0x23, 0x39, 0xc6, 0x0b, 0x8f, 0xe4, 0x18, 0x1f, 0x3c,
+	0x92, 0x63, 0x9c, 0xf1, 0x58, 0x8e, 0x21, 0xca, 0x38, 0x3d, 0xb3, 0x24, 0xa3, 0x34, 0x49, 0x2f,
+	0x39, 0x3f, 0x57, 0xbf, 0x20, 0x31, 0x39, 0xa3, 0x32, 0x25, 0xb5, 0x08, 0x99, 0x55, 0x5c, 0x94,
+	0xac, 0x8f, 0xee, 0x9f, 0x24, 0x36, 0xb0, 0x57, 0x8c, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0xcf,
+	0x62, 0x6c, 0x7f, 0xea, 0x00, 0x00, 0x00,
 }
 
-func (m *BloomData) Marshal() (dAtA []byte, err error) {
+func (m *BloomFilter) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -116,7 +130,7 @@ func (m *BloomData) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *BloomData) MarshalTo(dAtA []byte) (int, error) {
+func (m *BloomFilter) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -126,10 +140,10 @@ func (m *BloomData) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintBloom(dAtA, i, uint64(m.HashLength))
 	}
-	if m.NumHashes != 0 {
+	if m.BytesPerSubhash != 0 {
 		dAtA[i] = 0x10
 		i++
-		i = encodeVarintBloom(dAtA, i, uint64(m.NumHashes))
+		i = encodeVarintBloom(dAtA, i, uint64(m.BytesPerSubhash))
 	}
 	if len(m.Buckets) > 0 {
 		dAtA2 := make([]byte, len(m.Buckets)*10)
@@ -163,7 +177,7 @@ func encodeVarintBloom(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *BloomData) Size() (n int) {
+func (m *BloomFilter) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -172,8 +186,8 @@ func (m *BloomData) Size() (n int) {
 	if m.HashLength != 0 {
 		n += 1 + sovBloom(uint64(m.HashLength))
 	}
-	if m.NumHashes != 0 {
-		n += 1 + sovBloom(uint64(m.NumHashes))
+	if m.BytesPerSubhash != 0 {
+		n += 1 + sovBloom(uint64(m.BytesPerSubhash))
 	}
 	if len(m.Buckets) > 0 {
 		l = 0
@@ -201,7 +215,7 @@ func sovBloom(x uint64) (n int) {
 func sozBloom(x uint64) (n int) {
 	return sovBloom(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *BloomData) Unmarshal(dAtA []byte) error {
+func (m *BloomFilter) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -224,10 +238,10 @@ func (m *BloomData) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: BloomData: wiretype end group for non-group")
+			return fmt.Errorf("proto: BloomFilter: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: BloomData: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: BloomFilter: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -251,9 +265,9 @@ func (m *BloomData) Unmarshal(dAtA []byte) error {
 			}
 		case 2:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NumHashes", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field BytesPerSubhash", wireType)
 			}
-			m.NumHashes = 0
+			m.BytesPerSubhash = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowBloom
@@ -263,7 +277,7 @@ func (m *BloomData) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.NumHashes |= uint32(b&0x7F) << shift
+				m.BytesPerSubhash |= uint32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
