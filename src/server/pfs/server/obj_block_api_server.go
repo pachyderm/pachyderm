@@ -208,7 +208,11 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 	putObjectReader := &putObjectReader{
 		server: server,
 	}
-	object, err := s.putObject(server.Context(), putObjectReader, false)
+	object, err := s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
+		buf := grpcutil.GetBuffer()
+		defer grpcutil.PutBuffer(buf)
+		return io.CopyBuffer(w, r, buf)
+	})
 	if err != nil {
 		return err
 	}
@@ -234,29 +238,31 @@ func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectS
 	putObjectReader := &putObjectReader{
 		server: server,
 	}
-	for {
-		object, err := s.putObject(server.Context(), putObjectReader, true)
-		if object != nil {
-			objects = append(objects, object)
-		}
-		if err != nil {
+	var done bool
+	for !done {
+		object, err := s.putObject(server.Context(), putObjectReader, func(w io.Writer, r io.Reader) (int64, error) {
+			size, err := io.CopyN(w, r, pfsclient.ChunkSize)
 			if err == io.EOF {
-				break
+				done = true
+				return size, nil
 			}
+			return size, err
+		})
+		if err != nil {
 			return err
 		}
+		objects = append(objects, object)
 	}
 	return server.SendAndClose(&pfsclient.Objects{Objects: objects})
 }
 
-func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader, split bool) (_ *pfsclient.Object, retErr error) {
+func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader, f func(io.Writer, io.Reader) (int64, error)) (_ *pfsclient.Object, retErr error) {
 	hash := pfsclient.NewHash()
 	r := io.TeeReader(dataReader, hash)
 	block := &pfsclient.Block{Hash: uuid.NewWithoutDashes()}
 	var size int64
 	if err := func() (retErr error) {
-		blockPath := s.blockPath(block)
-		w, err := s.objClient.Writer(ctx, blockPath)
+		w, err := s.objClient.Writer(ctx, s.blockPath(block))
 		if err != nil {
 			return err
 		}
@@ -265,30 +271,14 @@ func (s *objBlockAPIServer) putObject(ctx context.Context, dataReader io.Reader,
 				retErr = err
 			}
 		}()
-		if split {
-			size, err = io.CopyN(w, r, pfsclient.ChunkSize)
-		} else {
-			buf := grpcutil.GetBuffer()
-			defer grpcutil.PutBuffer(buf)
-			size, err = io.CopyBuffer(w, r, buf)
-		}
-		if err != nil {
-			if err != io.EOF {
-				s.objClient.Delete(ctx, blockPath)
-			}
-			return err
-		}
-		return nil
+		size, err = f(w, r)
+		return err
 	}(); err != nil {
-		if err == io.EOF {
-			defer func() {
-				if retErr == nil {
-					retErr = io.EOF
-				}
-			}()
-		} else {
-			return nil, err
-		}
+		// We throw away the delete error state here because the original error is what should be communicated
+		// back and we do not know the cause of the original error. This is just an attempt to clean up
+		// unused storage in the case that the block was actually written to object storage.
+		s.objClient.Delete(ctx, s.blockPath(block))
+		return nil, err
 	}
 	object := &pfsclient.Object{Hash: pfsclient.EncodeHash(hash.Sum(nil))}
 	// Now that we have a hash of the object we can check if it already exists.
