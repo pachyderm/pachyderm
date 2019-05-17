@@ -1126,7 +1126,7 @@ func (d *driver) makeCommit(
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
-			if !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
+			if prov.Branch.Repo.Name != ppsconsts.SpecRepo && !branchProvMap[key(prov.Branch.Repo.Name, prov.Branch.Name)] {
 				return nil, fmt.Errorf("the commit provenance contains a branch which the branch is not provenant on")
 			}
 		}
