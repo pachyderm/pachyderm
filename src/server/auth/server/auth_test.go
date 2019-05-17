@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -2560,4 +2561,48 @@ func TestOneTimePasswordExpires(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Nil(t, authResp)
+}
+
+// TestDeleteFailedPipeline creates a pipeline with an invalid image and then
+// tries to delete it (which shouldn't be blocked by the auth system)
+func TestDeleteFailedPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"does-not-exist", // nonexistant image
+		[]string{"true"}, nil,
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+
+	// make sure FlushCommit eventually returns (i.e. pipeline failure doesn't
+	// block flushCommit indefinitely)
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		if err != io.EOF {
+			return err
+		}
+		return nil
+	})
 }
