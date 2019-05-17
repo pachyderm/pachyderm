@@ -368,7 +368,6 @@ func (c APIClient) DeleteBranch(repoName string, branch string, force bool) erro
 }
 
 // DeleteCommit deletes a commit.
-// Note it is currently not implemented.
 func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.DeleteCommit(
 		c.Ctx(),

@@ -505,6 +505,8 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // Fsck does a file system consistency check for pfs
+  rpc Fsck(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message PutObjectRequest {

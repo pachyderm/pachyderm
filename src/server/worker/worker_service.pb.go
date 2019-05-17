@@ -12,6 +12,8 @@ import (
 	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 	pps "github.com/pachyderm/pachyderm/src/client/pps"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -700,6 +702,20 @@ type WorkerServer interface {
 	GetChunk(*GetChunkRequest, Worker_GetChunkServer) error
 }
 
+// UnimplementedWorkerServer can be embedded to have forward compatible implementations.
+type UnimplementedWorkerServer struct {
+}
+
+func (*UnimplementedWorkerServer) Status(ctx context.Context, req *types.Empty) (*pps.WorkerStatus, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
+}
+func (*UnimplementedWorkerServer) Cancel(ctx context.Context, req *CancelRequest) (*CancelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Cancel not implemented")
+}
+func (*UnimplementedWorkerServer) GetChunk(req *GetChunkRequest, srv Worker_GetChunkServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetChunk not implemented")
+}
+
 func RegisterWorkerServer(s *grpc.Server, srv WorkerServer) {
 	s.RegisterService(&_Worker_serviceDesc, srv)
 }
@@ -803,9 +819,9 @@ func (m *Input) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintWorkerService(dAtA, i, uint64(m.FileInfo.Size()))
-		n1, err := m.FileInfo.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.FileInfo.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -835,9 +851,9 @@ func (m *Input) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintWorkerService(dAtA, i, uint64(m.ParentCommit.Size()))
-		n2, err := m.ParentCommit.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.ParentCommit.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -1039,9 +1055,9 @@ func (m *MergeState) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x12
 		i++
 		i = encodeVarintWorkerService(dAtA, i, uint64(m.Tree.Size()))
-		n3, err := m.Tree.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Tree.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -1054,9 +1070,9 @@ func (m *MergeState) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintWorkerService(dAtA, i, uint64(m.StatsTree.Size()))
-		n4, err := m.StatsTree.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.StatsTree.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
