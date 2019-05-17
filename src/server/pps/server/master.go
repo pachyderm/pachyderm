@@ -493,6 +493,9 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 
 	return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		commitInfos, err := superUserClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
+		if isNotFoundErr(err) {
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("could not list output commits of %q to finish them: %v", pipelineName, err)
 		}
