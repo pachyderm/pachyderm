@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
 	"github.com/hanwen/go-fuse/fuse/nodefs"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -27,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
+	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -71,13 +73,17 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			defer c.Close()
-			_, err = c.PfsAPIClient.CreateRepo(
-				c.Ctx(),
-				&pfsclient.CreateRepoRequest{
-					Repo:        client.NewRepo(args[0]),
-					Description: description,
-				},
-			)
+
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				_, err = c.PfsAPIClient.CreateRepo(
+					c.Ctx(),
+					&pfsclient.CreateRepoRequest{
+						Repo:        client.NewRepo(args[0]),
+						Description: description,
+					},
+				)
+				return err
+			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -94,14 +100,18 @@ or type (e.g. csv, binary, images, etc).`,
 				return err
 			}
 			defer c.Close()
-			_, err = c.PfsAPIClient.CreateRepo(
-				c.Ctx(),
-				&pfsclient.CreateRepoRequest{
-					Repo:        client.NewRepo(args[0]),
-					Description: description,
-					Update:      true,
-				},
-			)
+
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				_, err = c.PfsAPIClient.CreateRepo(
+					c.Ctx(),
+					&pfsclient.CreateRepoRequest{
+						Repo:        client.NewRepo(args[0]),
+						Description: description,
+						Update:      true,
+					},
+				)
+				return err
+			})
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -183,30 +193,30 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			if len(args) > 0 && all {
-				return fmt.Errorf("cannot use the --all flag with an argument")
+			defer c.Close()
+
+			request := &pfsclient.DeleteRepoRequest{
+				Force: force,
+				All:   all,
 			}
-			if len(args) == 0 && !all {
+			if len(args) > 0 {
+				if all {
+					return fmt.Errorf("cannot use the --all flag with an argument")
+				}
+				request.Repo = client.NewRepo(args[0])
+			} else if !all {
 				return fmt.Errorf("either a repo name or the --all flag needs to be provided")
 			}
-			if all {
-				_, err = client.PfsAPIClient.DeleteRepo(client.Ctx(),
-					&pfsclient.DeleteRepoRequest{
-						Force: force,
-						All:   all,
-					})
-			} else {
-				err = client.DeleteRepo(args[0], force)
-			}
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
-			}
-			return nil
+
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				_, err = c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				return err
+			})
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	deleteRepo.Flags().BoolVarP(&force, "force", "f", false, "remove the repo regardless of errors; use with care")
@@ -251,22 +261,29 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			cli, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer cli.Close()
-			commit, err := cli.PfsAPIClient.StartCommit(cli.Ctx(),
-				&pfsclient.StartCommitRequest{
-					Branch:      branch.Name,
-					Parent:      client.NewCommit(branch.Repo.Name, parent),
-					Description: description,
-				})
-			if err != nil {
-				return grpcutil.ScrubGRPC(err)
+			defer c.Close()
+
+			var commit *pfsclient.Commit
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				var err error
+				commit, err = c.PfsAPIClient.StartCommit(
+					c.Ctx(),
+					&pfsclient.StartCommitRequest{
+						Branch:      branch.Name,
+						Parent:      client.NewCommit(branch.Repo.Name, parent),
+						Description: description,
+					},
+				)
+				return err
+			})
+			if err == nil {
+				fmt.Println(commit.ID)
 			}
-			fmt.Println(commit.ID)
-			return nil
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	startCommit.Flags().StringVarP(&parent, "parent", "p", "", "The parent of the new commit, unneeded if branch is specified and you want to use the previous head of the branch as the parent.")
@@ -284,20 +301,23 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			cli, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer cli.Close()
-			if description != "" {
-				_, err := cli.PfsAPIClient.FinishCommit(cli.Ctx(),
+			defer c.Close()
+
+			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				_, err = c.PfsAPIClient.FinishCommit(
+					c.Ctx(),
 					&pfsclient.FinishCommitRequest{
 						Commit:      commit,
 						Description: description,
-					})
-				return grpcutil.ScrubGRPC(err)
-			}
-			return cli.FinishCommit(commit.Repo.Name, commit.ID)
+					},
+				)
+				return err
+			})
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	finishCommit.Flags().StringVarP(&description, "message", "m", "", "A description of this commit's contents (overwrites any existing commit description)")
@@ -313,13 +333,13 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer c.Close()
 
-			commitInfo, err := client.InspectCommit(commit.Repo.Name, commit.ID)
+			commitInfo, err := c.InspectCommit(commit.Repo.Name, commit.ID)
 			if err != nil {
 				return err
 			}
@@ -520,12 +540,15 @@ $ {{alias}} test@master --new`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			return client.DeleteCommit(commit.Repo.Name, commit.ID)
+			defer c.Close()
+
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				return c.DeleteCommit(commit.Repo.Name, commit.ID)
+			})
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deleteCommit, "delete commit"))
@@ -558,12 +581,15 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			return client.CreateBranch(branch.Repo.Name, branch.Name, head, provenance)
+			defer c.Close()
+
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				return c.CreateBranch(branch.Repo.Name, branch.Name, head, provenance)
+			})
 		}),
 	}
 	createBranch.Flags().VarP(&branchProvenance, "provenance", "p", "The provenance for the branch. format: <repo>@<branch-or-commit>")
@@ -577,12 +603,12 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			branches, err := client.ListBranch(args[0])
+			defer c.Close()
+			branches, err := c.ListBranch(args[0])
 			if err != nil {
 				return err
 			}
@@ -613,12 +639,15 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			return client.DeleteBranch(branch.Repo.Name, branch.Name, force)
+			defer c.Close()
+
+			return txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
+				return c.DeleteBranch(branch.Repo.Name, branch.Name, force)
+			})
 		}),
 	}
 	deleteBranch.Flags().BoolVarP(&force, "force", "f", false, "remove the branch regardless of errors; use with care")
@@ -813,6 +842,7 @@ $ {{alias}} repo branch -i http://host/path`,
 				return err
 			}
 			defer c.Close()
+
 			return c.CopyFile(
 				srcFile.Commit.Repo.Name, srcFile.Commit.ID, srcFile.Path,
 				destFile.Commit.Repo.Name, destFile.Commit.ID, destFile.Path,
@@ -844,17 +874,17 @@ $ {{alias}} foo@master^2:XXX`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer c.Close()
 			if recursive {
 				if outputPath == "" {
 					return fmt.Errorf("an output path needs to be specified when using the --recursive flag")
 				}
 				puller := sync.NewPuller()
-				return puller.Pull(client, outputPath, file.Commit.Repo.Name, file.Commit.ID, file.Path, false, false, parallelism, nil, "")
+				return puller.Pull(c, outputPath, file.Commit.Repo.Name, file.Commit.ID, file.Path, false, false, parallelism, nil, "")
 			}
 			var w io.Writer
 			// If an output path is given, print the output to stdout
@@ -868,7 +898,7 @@ $ {{alias}} foo@master^2:XXX`,
 				defer f.Close()
 				w = f
 			}
-			return client.GetFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, 0, 0, w)
+			return c.GetFile(file.Commit.Repo.Name, file.Commit.ID, file.Path, 0, 0, w)
 		}),
 	}
 	getFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively download a directory.")
@@ -885,12 +915,12 @@ $ {{alias}} foo@master^2:XXX`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			fileInfo, err := client.InspectFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+			defer c.Close()
+			fileInfo, err := c.InspectFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 			if err != nil {
 				return err
 			}
@@ -936,18 +966,18 @@ $ {{alias}} foo@master --history -1`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer c.Close()
 			if raw {
-				return client.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
+				return c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-			if err := client.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
+			if err := c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
 				pretty.PrintFileInfo(writer, fi, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -978,12 +1008,12 @@ $ {{alias}} "foo@master:data/*"`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			fileInfos, err := client.GlobFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+			defer c.Close()
+			fileInfos, err := c.GlobFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 			if err != nil {
 				return err
 			}
@@ -1032,13 +1062,13 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				}
 			}
 
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer c.Close()
 
-			newFiles, oldFiles, err := client.DiffFile(
+			newFiles, oldFiles, err := c.DiffFile(
 				newFile.Commit.Repo.Name, newFile.Commit.ID, newFile.Path,
 				oldFile.Commit.Repo.Name, oldFile.Commit.ID, oldFile.Path,
 				shallow,
@@ -1083,12 +1113,13 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			if err != nil {
 				return err
 			}
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			return client.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
+			defer c.Close()
+
+			return c.DeleteFile(file.Commit.Repo.Name, file.Commit.ID, file.Path)
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deleteFile, "delete file"))
@@ -1107,12 +1138,12 @@ Objects are a low-level resource and should not be accessed directly by most use
 		Short: "Print the contents of an object.",
 		Long:  "Print the contents of an object.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			return client.GetObject(args[0], os.Stdout)
+			defer c.Close()
+			return c.GetObject(args[0], os.Stdout)
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(getObject, "get object"))
@@ -1131,15 +1162,39 @@ Tags are a low-level resource and should not be accessed directly by most users.
 		Short: "Print the contents of a tag.",
 		Long:  "Print the contents of a tag.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
-			return client.GetTag(args[0], os.Stdout)
+			defer c.Close()
+			return c.GetTag(args[0], os.Stdout)
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
+
+	fsck := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Run a file system consistency check on pfs.",
+		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			_, err = c.PfsAPIClient.Fsck(
+				c.Ctx(),
+				&types.Empty{},
+			)
+			if err != nil {
+				fmt.Println(grpcutil.ScrubGRPC(err))
+				return nil
+			}
+			fmt.Println("No errors found.")
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
@@ -1148,11 +1203,11 @@ Tags are a low-level resource and should not be accessed directly by most users.
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "fuse")
+			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "fuse")
 			if err != nil {
 				return err
 			}
-			defer client.Close()
+			defer c.Close()
 			mountPoint := args[0]
 			commits, err := parseCommits(commits)
 			if err != nil {
@@ -1164,7 +1219,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				},
 				Commits: commits,
 			}
-			return fuse.Mount(client, mountPoint, opts)
+			return fuse.Mount(c, mountPoint, opts)
 		}),
 	}
 	mount.Flags().BoolVarP(&debug, "debug", "d", false, "Turn on debug messages.")
@@ -1245,6 +1300,13 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	limiter limit.ConcurrencyLimiter,
 	split string, targetFileDatums, targetFileBytes, headerRecords uint, // split
 	filesPut *gosync.Map) (retErr error) {
+	// Resolve the path, then trim any prefixed '../' to avoid sending bad paths
+	// to the server
+	path = filepath.Clean(path)
+	for strings.HasPrefix(path, "../") {
+		path = strings.TrimPrefix(path, "../")
+	}
+
 	if _, ok := filesPut.LoadOrStore(path, nil); ok {
 		return fmt.Errorf("multiple files put with the path %s, aborting, "+
 			"some files may already have been put and should be cleaned up with "+

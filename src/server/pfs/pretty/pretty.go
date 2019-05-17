@@ -105,7 +105,11 @@ func PrintCommitInfoHeader(w io.Writer) {
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
-	fmt.Fprintf(w, "%s\t", commitInfo.Branch.Name)
+	if commitInfo.Branch != nil {
+		fmt.Fprintf(w, "%s\t", commitInfo.Branch.Name)
+	} else {
+		fmt.Fprintf(w, "<none>\t")
+	}
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.ID)
 	if commitInfo.ParentCommit != nil {
 		fmt.Fprintf(w, "%s\t", commitInfo.ParentCommit.ID)

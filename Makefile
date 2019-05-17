@@ -474,6 +474,8 @@ test-pfs-cmds:
 
 test-pfs-storage:
 	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
 
 test-deploy-cmds:
 	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
@@ -488,6 +490,9 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
 	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+
+test-transaction:
+	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor

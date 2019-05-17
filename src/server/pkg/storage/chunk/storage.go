@@ -1,25 +1,24 @@
 package chunk
 
 import (
-	"bytes"
 	"context"
-	"io"
-	"io/ioutil"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
+const (
+	prefix = "chunks"
+)
+
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
-	objC   obj.Client
-	prefix string
+	objC obj.Client
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client, prefix string) *Storage {
+func NewStorage(objC obj.Client) *Storage {
 	return &Storage{
-		objC:   objC,
-		prefix: prefix,
+		objC: objC,
 	}
 }
 
@@ -27,11 +26,8 @@ func NewStorage(objC obj.Client, prefix string) *Storage {
 // (bryce) The whole chunk is in-memory right now. Could be a problem with
 // concurrency, particularly the merge process.
 // May want to handle concurrency here (pass in multiple data refs)
-func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) io.ReadCloser {
-	if len(dataRefs) == 0 {
-		return ioutil.NopCloser(&bytes.Buffer{})
-	}
-	return newReader(ctx, s.objC, s.prefix, dataRefs)
+func (s *Storage) NewReader(ctx context.Context, dataRefs ...*DataRef) *Reader {
+	return newReader(ctx, s.objC, dataRefs...)
 }
 
 // NewWriter creates an io.WriteCloser for a stream of bytes to be chunked.
@@ -39,12 +35,12 @@ func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef) io.ReadClo
 // object storage.
 // The callback arguments are the chunk hash and content.
 func (s *Storage) NewWriter(ctx context.Context) *Writer {
-	return newWriter(ctx, s.objC, s.prefix)
+	return newWriter(ctx, s.objC)
 }
 
 // DeleteAll deletes all of the chunks in object storage.
 func (s *Storage) DeleteAll(ctx context.Context) error {
-	return s.objC.Walk(ctx, s.prefix, func(hash string) error {
+	return s.objC.Walk(ctx, prefix, func(hash string) error {
 		return s.objC.Delete(ctx, hash)
 	})
 }
