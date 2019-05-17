@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package bloom;
+option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/bloom";
+
+message BloomData {
+  uint32 hash_length = 1;
+  uint32 num_hashes = 2;
+  repeated uint32 buckets = 3;
+}
