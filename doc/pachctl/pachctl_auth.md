@@ -1,4 +1,4 @@
-## ./pachctl auth
+## pachctl auth
 
 Auth commands manage access to data in a Pachyderm cluster
 

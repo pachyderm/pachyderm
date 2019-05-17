@@ -69,19 +69,19 @@ pipeline:
 
 ```
 # create a repo to hold configuration data that acts as input to the pipeline
-pachctl create-repo estimate_pi_config
+pachctl create repo estimate_pi_config
 
 # create the actual processing pipeline
-pachctl create-pipeline -f estimate_pi_pipeline.json
+pachctl create pipeline -f estimate_pi_pipeline.json
 
 # kick off a job with 1000 samples
-echo 1000 | pachctl put-file estimate_pi_config master num_samples
+echo 1000 | pachctl put file estimate_pi_config@master:num_samples
 
 # check job status
-pachctl list-job --pipeline estimate_pi
+pachctl list job --pipeline estimate_pi
 
 # once job has completed, retrieve the results
-pachctl get-file estimate_pi master pi_estimate
+pachctl get file estimate_pi@master:pi_estimate
 
 ```
 

@@ -1,4 +1,4 @@
-## ./pachctl deploy
+## pachctl deploy
 
 Deploy a Pachyderm cluster.
 

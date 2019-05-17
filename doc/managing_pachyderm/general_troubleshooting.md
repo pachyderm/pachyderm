@@ -64,7 +64,7 @@ gke_my-org_us-east1-b_my-cluster-name-dev
 
 #### Symptom
 
-Any `pachctl put-file` or `pachctl get-file` commands are slow.
+Any `pachctl put file` or `pachctl get file` commands are slow.
 
 #### Recourse
 

@@ -1,4 +1,4 @@
-## ./pachctl deploy list-images
+## pachctl deploy list-images
 
 Output the list of images in a deployment.
 
@@ -8,7 +8,7 @@ Output the list of images in a deployment.
 Output the list of images in a deployment.
 
 ```
-./pachctl deploy list-images
+pachctl deploy list-images
 ```
 
 ### Options inherited from parent commands

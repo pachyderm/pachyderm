@@ -21,7 +21,7 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "NAME\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
+	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
@@ -57,7 +57,11 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 		fmt.Fprintf(w, "-\t")
 	}
 	fmt.Fprintf(w, "%d\t", jobInfo.Restart)
-	fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	if jobInfo.DataRecovered != 0 {
+		fmt.Fprintf(w, "%d + %d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataRecovered, jobInfo.DataTotal)
+	} else {
+		fmt.Fprintf(w, "%d + %d / %d\t", jobInfo.DataProcessed, jobInfo.DataSkipped, jobInfo.DataTotal)
+	}
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.DownloadBytes))
 	fmt.Fprintf(w, "%s\t", pretty.Size(jobInfo.Stats.UploadBytes))
 	if jobInfo.State == ppsclient.JobState_JOB_FAILURE {
@@ -75,6 +79,7 @@ func PrintPipelineHeader(w io.Writer) {
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+	fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
 	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
@@ -133,6 +138,7 @@ Reason: {{.Reason}}
 Processed: {{.DataProcessed}}
 Failed: {{.DataFailed}}
 Skipped: {{.DataSkipped}}
+Recovered: {{.DataRecovered}}
 Total: {{.DataTotal}}
 Data Downloaded: {{prettySize .Stats.DownloadBytes}}
 Data Uploaded: {{prettySize .Stats.UploadBytes}}
@@ -311,6 +317,8 @@ func datumState(datumState ppsclient.DatumState) string {
 		return color.New(color.FgYellow).SprintFunc()("skipped")
 	case ppsclient.DatumState_FAILED:
 		return color.New(color.FgRed).SprintFunc()("failed")
+	case ppsclient.DatumState_RECOVERED:
+		return color.New(color.FgYellow).SprintFunc()("recovered")
 	case ppsclient.DatumState_SUCCESS:
 		return color.New(color.FgGreen).SprintFunc()("success")
 	}
@@ -408,8 +416,6 @@ func ShorthandInput(input *ppsclient.Input) string {
 	switch {
 	case input == nil:
 		return "none"
-	case input.Atom != nil:
-		return fmt.Sprintf("%s:%s", input.Atom.Repo, input.Atom.Glob)
 	case input.Pfs != nil:
 		return fmt.Sprintf("%s:%s", input.Pfs.Repo, input.Pfs.Glob)
 	case input.Cross != nil:

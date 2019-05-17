@@ -33,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
 
@@ -73,6 +74,9 @@ type VersionAPIClient versionpb.APIClient
 // AdminAPIClient is an alias of admin.APIClient
 type AdminAPIClient admin.APIClient
 
+// TransactionAPIClient is an alias of transaction.APIClient
+type TransactionAPIClient transaction.APIClient
+
 // DebugClient is an alias of debug.DebugClient
 type DebugClient debug.DebugClient
 
@@ -85,6 +89,7 @@ type APIClient struct {
 	DeployAPIClient
 	VersionAPIClient
 	AdminAPIClient
+	TransactionAPIClient
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
@@ -285,21 +290,8 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 		}
 		return envAddr, options, nil
 	}
-	// 2) ADDRESS environment variable (now renamed to PACHD_ADDRESS)
-	// TODO(ys): remove this eventually
-	if envAddr, ok := os.LookupEnv("ADDRESS"); ok {
-		log.Warnf("the `ADDRESS` environment variable is deprecated; please use `PACHD_ADDRESS`")
-		if !strings.Contains(envAddr, ":") {
-			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
-		}
-		options, err := getCertOptionsFromEnv()
-		if err != nil {
-			return "", nil, err
-		}
-		return envAddr, options, nil
-	}
 
-	// 3) Get target address from global config if possible
+	// 2) Get target address from global config if possible
 	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
 		// Also get cert info from config (if set)
 		if cfg.V1.ServerCAs != "" {
@@ -312,7 +304,7 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 		return cfg.V1.PachdAddress, nil, nil
 	}
 
-	// 4) Use default address (broadcast) if nothing else works
+	// 3) Use default address (broadcast) if nothing else works
 	options, err := getCertOptionsFromEnv()
 	if err != nil {
 		return "", nil, err
@@ -453,6 +445,7 @@ func (c *APIClient) Close() error {
 
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
@@ -469,6 +462,12 @@ func (c APIClient) DeleteAll() error {
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
+	); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.TransactionAPIClient.DeleteAll(
+		c.Ctx(),
+		&transaction.DeleteAllRequest{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -535,6 +534,7 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	c.DeployAPIClient = deploy.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
+	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)

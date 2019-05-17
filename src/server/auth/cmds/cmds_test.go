@@ -80,10 +80,10 @@ func TestAuthBasic(t *testing.T) {
 	defer deactivateAuth(t)
 	require.NoError(t, tu.BashCmd(`
 		echo "{{.alice}}" | pachctl auth login --no-port-forwarding
-		pachctl create-repo {{.repo}} --no-port-forwarding
-		pachctl list-repo --no-port-forwarding \
+		pachctl create repo {{.repo}} --no-port-forwarding
+		pachctl list repo --no-port-forwarding \
 			| match {{.repo}}
-		pachctl inspect-repo {{.repo}} --no-port-forwarding
+		pachctl inspect repo {{.repo}} --no-port-forwarding
 		`,
 		"alice", tu.UniqueString("alice"),
 		"repo", tu.UniqueString("TestAuthBasic-repo"),
@@ -113,7 +113,7 @@ func TestCheckGetSet(t *testing.T) {
 	// Test both forms of the 'pachctl auth get' command, as well as 'pachctl auth check'
 	require.NoError(t, tu.BashCmd(`
 		echo "{{.alice}}" | pachctl auth login --no-port-forwarding
-		pachctl create-repo {{.repo}} --no-port-forwarding
+		pachctl create repo {{.repo}} --no-port-forwarding
 		pachctl auth check owner {{.repo}} --no-port-forwarding
 		pachctl auth get {{.repo}} --no-port-forwarding \
 			| match {{.alice}}
@@ -128,7 +128,7 @@ func TestCheckGetSet(t *testing.T) {
 	// Test 'pachctl auth set'
 	require.NoError(t, tu.BashCmd(`
 		echo "{{.alice}}" | pachctl auth login --no-port-forwarding
-		pachctl create-repo {{.repo}} --no-port-forwarding
+		pachctl create repo {{.repo}} --no-port-forwarding
 		pachctl auth set {{.bob}} reader {{.repo}} --no-port-forwarding
 		pachctl auth get {{.bob}} {{.repo}} --no-port-forwarding \
 			| match READER

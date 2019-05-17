@@ -14,11 +14,11 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/admin"
-	hashtree_1_7 "github.com/pachyderm/pachyderm/src/client/admin/1_7/hashtree"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -45,6 +45,7 @@ const (
 	undefined opVersion = iota
 	v1_7
 	v1_8
+	v1_9
 )
 
 func (v opVersion) String() string {
@@ -53,6 +54,8 @@ func (v opVersion) String() string {
 		return "1.7"
 	case v1_8:
 		return "1.8"
+	case v1_9:
+		return "1.9"
 	}
 	return "undefined"
 }
@@ -63,6 +66,8 @@ func version(op *admin.Op) opVersion {
 		return v1_7
 	case op.Op1_8 != nil:
 		return v1_8
+	case op.Op1_9 != nil:
+		return v1_9
 	default:
 		return undefined
 	}
@@ -114,12 +119,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				return err
 			}
 			// empty PutObjectRequest to indicate EOF
-			return writeOp(&admin.Op{Op1_8: &admin.Op1_8{Object: &pfs.PutObjectRequest{}}})
+			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{}}})
 		}); err != nil {
 			return err
 		}
 		if err := pachClient.ListTag(func(resp *pfs.ListTagsResponse) error {
-			return writeOp(&admin.Op{Op1_8: &admin.Op1_8{
+			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Tag: &pfs.TagObjectRequest{
 					Object: resp.Object,
 					Tags:   []*pfs.Tag{resp.Tag},
@@ -146,7 +151,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 					continue repos
 				}
 			}
-			if err := writeOp(&admin.Op{Op1_8: &admin.Op1_8{
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
 					Description: ri.Description,
@@ -164,7 +169,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
-			if err := writeOp(&admin.Op{Op1_8: &admin.Op1_8{Pipeline: pipelineInfoToRequest(pi)}}); err != nil {
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}); err != nil {
 				return err
 			}
 		}
@@ -181,12 +186,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 		for _, bcr := range buildCommitRequests(cis, bis) {
-			if err := writeOp(&admin.Op{Op1_8: &admin.Op1_8{Commit: bcr}}); err != nil {
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: bcr}}); err != nil {
 				return err
 			}
 		}
 		for _, bi := range bis {
-			if err := writeOp(&admin.Op{Op1_8: &admin.Op1_8{
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Branch: &pfs.CreateBranchRequest{
 					Head:   bi.Head,
 					Branch: bi.Branch,
@@ -207,7 +212,7 @@ func (a *apiServer) ExtractPipeline(ctx context.Context, request *admin.ExtractP
 	if err != nil {
 		return nil, err
 	}
-	return &admin.Op{Op1_8: &admin.Op1_8{Pipeline: pipelineInfoToRequest(pi)}}, nil
+	return &admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}, nil
 }
 
 func buildCommitRequests(cis []*pfs.CommitInfo, bis []*pfs.BranchInfo) []*pfs.BuildCommitRequest {
@@ -280,9 +285,6 @@ func sortPipelineInfos(pis []*pps.PipelineInfo) []*pps.PipelineInfo {
 	add = func(name string) {
 		if pi, ok := piMap[name]; ok {
 			pps.VisitInput(pi.Input, func(input *pps.Input) {
-				if input.Atom != nil {
-					add(input.Atom.Repo)
-				}
 				if input.Pfs != nil {
 					add(input.Pfs.Repo)
 				}
@@ -400,7 +402,15 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
-				if err := a.apply1_7Op(pachClient, op.Op1_7); err != nil {
+				newOp1_8, err := convert1_7Op(pachClient, a.storageRoot, op.Op1_7)
+				if err != nil {
+					return err
+				}
+				newOp, err := convert1_8Op(newOp1_8)
+				if err != nil {
+					return err
+				}
+				if err := a.applyOp(pachClient, newOp); err != nil {
 					return err
 				}
 			}
@@ -409,14 +419,34 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 				extractedReader := &extractedObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
-					version:               v1_8,
+					version:               v1_9,
 				}
 				extractedReader.buf.Write(op.Op1_8.Object.Value)
 				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
-				if err := a.apply1_8Op(pachClient, op.Op1_8); err != nil {
+				newOp, err := convert1_8Op(op.Op1_8)
+				if err != nil {
+					return err
+				}
+				if err := a.applyOp(pachClient, newOp); err != nil {
+					return err
+				}
+			}
+		} else if op.Op1_9 != nil {
+			if op.Op1_9.Object != nil {
+				extractedReader := &extractedObjectReader{
+					adminAPIRestoreServer: restoreServer,
+					restoreURLReader:      r,
+					version:               v1_9,
+				}
+				extractedReader.buf.Write(op.Op1_9.Object.Value)
+				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
+					return fmt.Errorf("error putting object: %v", err)
+				}
+			} else {
+				if err := a.applyOp(pachClient, op.Op1_9); err != nil {
 					return err
 				}
 			}
@@ -424,13 +454,14 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 	}
 }
 
-func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) error {
+func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_9) error {
 	switch {
 	case op.Tag != nil:
 		if _, err := pachClient.ObjectAPIClient.TagObject(pachClient.Ctx(), op.Tag); err != nil {
 			return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
 		}
 	case op.Repo != nil:
+		op.Repo.Repo.Name = ancestry.SanitizeName(op.Repo.Repo.Name)
 		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), op.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
 		}
@@ -440,16 +471,13 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 		}
 	case op.Branch != nil:
 		if op.Branch.Branch == nil {
-			op.Branch.Branch = client.NewBranch(op.Branch.Head.Repo.Name, op.Branch.SBranch)
+			op.Branch.Branch = client.NewBranch(op.Branch.Head.Repo.Name, ancestry.SanitizeName(op.Branch.SBranch))
 		}
 		if _, err := pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), op.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 		}
 	case op.Pipeline != nil:
-		if op.Pipeline.Salt != "" {
-			// clear salt so we don't re-use old datum hashtrees (which may have an invalid format)
-			op.Pipeline.Salt = ""
-		}
+		sanitizePipeline(op.Pipeline)
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 		}
@@ -457,129 +485,16 @@ func (a *apiServer) apply1_8Op(pachClient *client.APIClient, op *admin.Op1_8) er
 	return nil
 }
 
-func (a *apiServer) apply1_7Op(pachClient *client.APIClient, op *admin.Op1_7) error {
-	switch {
-	case op.Tag != nil:
-		if !objHashRE.MatchString(op.Tag.Object.Hash) {
-			return fmt.Errorf("invalid object hash in op: %q", op)
+func sanitizePipeline(req *pps.CreatePipelineRequest) {
+	req.Pipeline.Name = ancestry.SanitizeName(req.Pipeline.Name)
+	pps.VisitInput(req.Input, func(input *pps.Input) {
+		if input.Pfs != nil {
+			if input.Pfs.Branch != "" {
+				input.Pfs.Branch = ancestry.SanitizeName(input.Pfs.Branch)
+			}
+			input.Pfs.Repo = ancestry.SanitizeName(input.Pfs.Repo)
 		}
-		newTagObjectRequest := &pfs.TagObjectRequest{
-			Object: convert1_7Object(op.Tag.Object),
-			Tags:   convert1_7Tags(op.Tag.Tags),
-		}
-		if _, err := pachClient.ObjectAPIClient.TagObject(
-			pachClient.Ctx(),
-			newTagObjectRequest,
-		); err != nil {
-			return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
-		}
-	case op.Repo != nil:
-		newCreateRepoRequest := &pfs.CreateRepoRequest{
-			Repo:        convert1_7Repo(op.Repo.Repo),
-			Description: op.Repo.Description,
-		}
-		if _, err := pachClient.PfsAPIClient.CreateRepo(
-			pachClient.Ctx(),
-			newCreateRepoRequest,
-		); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
-		}
-	case op.Commit != nil:
-		// update hashtree
-		var buf bytes.Buffer
-		if err := a.pachClient.GetObject(op.Commit.Tree.Hash, &buf); err != nil {
-			return err
-		}
-		var oldTree hashtree_1_7.HashTreeProto
-		oldTree.Unmarshal(buf.Bytes())
-		newTree, err := convert1_7HashTree(a.storageRoot, &oldTree)
-		if err != nil {
-			return err
-		}
-		defer newTree.Destroy()
-
-		// write new hashtree as an object
-		w, err := pachClient.PutObjectAsync(nil)
-		if err != nil {
-			return fmt.Errorf("could not put new hashtree for commit %q: %v", op.Commit.ID, err)
-		}
-		newTree.Serialize(w)
-		if err := w.Close(); err != nil {
-			return fmt.Errorf("could finish object containing new hashtree for commit %q: %v", op.Commit.ID, err)
-		}
-		newTreeObj, err := w.Object()
-		if err != nil {
-			return fmt.Errorf("could retrieve object reference to new hashtree for commit %q: %v", op.Commit.ID, err)
-		}
-
-		// Set op's object to new hashtree & finish building commit
-		newBuildCommitRequest := &pfs.BuildCommitRequest{
-			Parent:     convert1_7Commit(op.Commit.Parent),
-			Branch:     op.Commit.Branch,
-			Provenance: convert1_7Commits(op.Commit.Provenance),
-			Tree:       newTreeObj,
-			ID:         op.Commit.ID,
-		}
-		if _, err := pachClient.PfsAPIClient.BuildCommit(
-			pachClient.Ctx(),
-			newBuildCommitRequest,
-		); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating commit: %v", grpcutil.ScrubGRPC(err))
-		}
-		// TODO(msteffen): Should we delete the old tree object?
-	case op.Branch != nil:
-		newCreateBranchRequest := &pfs.CreateBranchRequest{
-			Head:       convert1_7Commit(op.Branch.Head),
-			Branch:     convert1_7Branch(op.Branch.Branch),
-			Provenance: convert1_7Branches(op.Branch.Provenance),
-		}
-		if newCreateBranchRequest.Branch == nil {
-			newCreateBranchRequest.Branch = client.NewBranch(
-				op.Branch.Head.Repo.Name, op.Branch.SBranch)
-		}
-		if _, err := pachClient.PfsAPIClient.CreateBranch(
-			pachClient.Ctx(),
-			newCreateBranchRequest,
-		); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
-		}
-	case op.Pipeline != nil:
-		newCreatePipelineRequest := &pps.CreatePipelineRequest{
-			Pipeline:           convert1_7Pipeline(op.Pipeline.Pipeline),
-			Transform:          convert1_7Transform(op.Pipeline.Transform),
-			ParallelismSpec:    convert1_7ParallelismSpec(op.Pipeline.ParallelismSpec),
-			HashtreeSpec:       convert1_7HashtreeSpec(op.Pipeline.HashtreeSpec),
-			Egress:             convert1_7Egress(op.Pipeline.Egress),
-			Update:             op.Pipeline.Update,
-			OutputBranch:       op.Pipeline.OutputBranch,
-			ScaleDownThreshold: op.Pipeline.ScaleDownThreshold,
-			ResourceRequests:   convert1_7ResourceSpec(op.Pipeline.ResourceRequests),
-			ResourceLimits:     convert1_7ResourceSpec(op.Pipeline.ResourceLimits),
-			Input:              convert1_7Input(op.Pipeline.Input),
-			Description:        op.Pipeline.Description,
-			CacheSize:          op.Pipeline.CacheSize,
-			EnableStats:        op.Pipeline.EnableStats,
-			Reprocess:          op.Pipeline.Reprocess,
-			Batch:              op.Pipeline.Batch,
-			MaxQueueSize:       op.Pipeline.MaxQueueSize,
-			Service:            convert1_7Service(op.Pipeline.Service),
-			ChunkSpec:          convert1_7ChunkSpec(op.Pipeline.ChunkSpec),
-			DatumTimeout:       op.Pipeline.DatumTimeout,
-			JobTimeout:         op.Pipeline.JobTimeout,
-			Standby:            op.Pipeline.Standby,
-			DatumTries:         op.Pipeline.DatumTries,
-			SchedulingSpec:     convert1_7SchedulingSpec(op.Pipeline.SchedulingSpec),
-			PodSpec:            op.Pipeline.PodSpec,
-			// Note - don't set Salt, so we don't re-use old datum hashtrees
-		}
-		if _, err := pachClient.PpsAPIClient.CreatePipeline(
-			pachClient.Ctx(),
-			newCreatePipelineRequest,
-		); err != nil && !errutil.IsAlreadyExistError(err) {
-			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
-		}
-	}
-	return nil
+	})
 }
 
 func (a *apiServer) getPachClient() *client.APIClient {
@@ -603,7 +518,7 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 		if len(value) > chunkSize {
 			value = value[:chunkSize]
 		}
-		if err := w(&admin.Op{Op1_8: &admin.Op1_8{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
+		if err := w(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
 			return n, err
 		}
 		n += len(value)
@@ -671,11 +586,16 @@ func (r *extractedObjectReader) Read(p []byte) (int, error) {
 				return 0, fmt.Errorf("expected an object, but got: %v", op)
 			}
 			value = op.Op1_7.Object.Value
-		} else {
+		} else if r.version == v1_8 {
 			if op.Op1_8.Object == nil {
 				return 0, fmt.Errorf("expected an object, but got: %v", op)
 			}
 			value = op.Op1_8.Object.Value
+		} else {
+			if op.Op1_9.Object == nil {
+				return 0, fmt.Errorf("expected an object, but got: %v", op)
+			}
+			value = op.Op1_9.Object.Value
 		}
 
 		if len(value) == 0 {

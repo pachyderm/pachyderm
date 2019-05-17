@@ -83,7 +83,7 @@ it takes many unique datums in and may write to many output files for each one.
 Those output files may not be unique across datums.
 That means that the results from processing many datums may be represented in a single file.
 One of the things Pachyderm does is merge all those results into the single file for you.
-This is what “merging” in the output from ``pachctl list-jobs`` means.
+This is what “merging” in the output from ``pachctl list jobs`` means.
 
 To visualize what the many-to-many case looks like,
 we’ll use the `wordcount <https://github.com/pachyderm/pachyderm/tree/master/examples/word_count>`__  example.
@@ -372,7 +372,7 @@ would contain the files
 Where ``\n`` is the newline appended by our “wordcount” code
 after it outputs the word count. If we were to fix ``ttc.txt``, either
 by appending the missing text or replacing it with the entire first
-paragraph using ``pachctl put-file`` with the ``--overwrite`` flag, the
+paragraph using ``pachctl put file`` with the ``--overwrite`` flag, the
 file would then look like this
 
 ::

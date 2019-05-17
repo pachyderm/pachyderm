@@ -11,8 +11,8 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 )
 
 const defaultMaxKeys int = 1000
@@ -166,7 +166,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
-		
+
 		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
 			return nil
 		}

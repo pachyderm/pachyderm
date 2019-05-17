@@ -35,7 +35,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     fundamentals/updating_pipelines
     fundamentals/distributed_computing
     fundamentals/incrementality
-    fundamentals/s3gateway
+    fundamentals/spouts
 
 .. toctree::
     :maxdepth: 1
@@ -45,6 +45,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     enterprise/deployment
     enterprise/auth
     enterprise/stats
+    enterprise/s3gateway
 
 .. toctree::
     :maxdepth: 1

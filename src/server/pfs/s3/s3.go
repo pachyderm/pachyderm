@@ -5,14 +5,20 @@ import (
 	stdlog "log"
 	"net/http"
 	"regexp"
+	"time"
+
+	"golang.org/x/net/context"
 
 	"github.com/gorilla/mux"
 	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
+var enterpriseTimeout = 24 * time.Hour
 var bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_]{1,255}\.[a-zA-Z0-9\-_]{1,255}/`)
 
 func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
@@ -114,6 +120,9 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 		"source": "s3gateway",
 	}).Writer()
 
+	var lastEnterpriseCheck time.Time
+	isEnterprise := false
+
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -125,10 +134,28 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 				requestID = uuid.NewWithoutDashes()
 				r.Header.Set("X-Request-ID", requestID)
 			}
+			w.Header().Set("x-amz-request-id", requestID)
 
+			// Log that a request was made
 			requestLogger(r).Debugf("http request: %s %s", r.Method, r.RequestURI)
 
-			w.Header().Set("x-amz-request-id", requestID)
+			// Ensure enterprise is enabled
+			now := time.Now()
+			if !isEnterprise || now.Sub(lastEnterpriseCheck) > enterpriseTimeout {
+				resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
+				if err != nil {
+					err = fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
+					internalError(w, r, err)
+					return
+				}
+
+				isEnterprise = resp.State == enterpriseclient.State_ACTIVE
+			}
+			if !isEnterprise {
+				enterpriseDisabledError(w, r)
+				return
+			}
+
 			router.ServeHTTP(w, r)
 		}),
 		ErrorLog: stdlog.New(serverErrorLog, "", 0),

@@ -86,35 +86,6 @@ func DatumTagPrefix(salt string) string {
 	return hex.EncodeToString(h.Sum(nil))[:4]
 }
 
-// NewAtomInput returns a new atom input. It only includes required options.
-//
-// Deprecated: Atom inputs have been renamed to PFS inputs. Use `NewPFSInput`
-// instead.
-func NewAtomInput(repo string, glob string) *pps.Input {
-	return &pps.Input{
-		Atom: &pps.AtomInput{
-			Repo: repo,
-			Glob: glob,
-		},
-	}
-}
-
-// NewAtomInputOpts returns a new atom input. It includes all options.
-//
-// Deprecated: Atom inputs have been renamed to PFS inputs. Use
-// `NewPFSInputOpts` instead.
-func NewAtomInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
-	return &pps.Input{
-		Atom: &pps.AtomInput{
-			Name:   name,
-			Repo:   repo,
-			Branch: branch,
-			Glob:   glob,
-			Lazy:   lazy,
-		},
-	}
-}
-
 // NewPFSInput returns a new PFS input. It only includes required options.
 func NewPFSInput(repo string, glob string) *pps.Input {
 	return &pps.Input{
@@ -233,9 +204,14 @@ func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState 
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
-func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit) ([]*pps.JobInfo, error) {
+// history controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
+// 0: Return jobs from the current version of the pipeline or pipelines.
+// 1: Return the above and jobs from the next most recent version
+// 2: etc.
+//-1: Return jobs from all historical versions.
+func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, func(ji *pps.JobInfo) error {
+	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, history, func(ji *pps.JobInfo) error {
 		result = append(result, ji)
 		return nil
 	}); err != nil {
@@ -252,7 +228,13 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
-func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, f func(*pps.JobInfo) error) error {
+// history controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
+// 0: Return jobs from the current version of the pipeline or pipelines.
+// 1: Return the above and jobs from the next most recent version
+// 2: etc.
+//-1: Return jobs from all historical versions.
+func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
+	outputCommit *pfs.Commit, history int64, f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
@@ -263,6 +245,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit, outp
 			Pipeline:     pipeline,
 			InputCommit:  inputCommit,
 			OutputCommit: outputCommit,
+			History:      history,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
@@ -575,6 +558,33 @@ func (c APIClient) ListPipeline() ([]*pps.PipelineInfo, error) {
 	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
 		c.Ctx(),
 		&pps.ListPipelineRequest{},
+	)
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return pipelineInfos.PipelineInfo, nil
+}
+
+// ListPipelineHistory returns historical information about pipelines.
+// `pipeline` specifies which pipeline to return history about, if it's equal
+// to "" then ListPipelineHistory returns historical information about all
+// pipelines.
+// `history` specifies how many historical revisions to return:
+// 0: Return the current version of the pipeline or pipelines.
+// 1: Return the above and the next most recent version
+// 2: etc.
+//-1: Return all historical versions.
+func (c APIClient) ListPipelineHistory(pipeline string, history int64) ([]*pps.PipelineInfo, error) {
+	var _pipeline *pps.Pipeline
+	if pipeline != "" {
+		_pipeline = NewPipeline(pipeline)
+	}
+	pipelineInfos, err := c.PpsAPIClient.ListPipeline(
+		c.Ctx(),
+		&pps.ListPipelineRequest{
+			Pipeline: _pipeline,
+			History:  history,
+		},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)

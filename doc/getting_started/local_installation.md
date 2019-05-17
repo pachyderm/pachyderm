@@ -40,13 +40,13 @@ To reset your kubernetes cluster on Docker For Desktop just click the reset butt
 
 ```shell
 # For macOS:
-$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.8
+$ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
 
 # For Debian based linux (64 bit) or Window 10+ on WSL:
-$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.6/pachctl_1.8.6_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
+$ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.0rc2/pachctl_1.9.0rc2_amd64.deb && sudo dpkg -i /tmp/pachctl.deb
 
 # For all other linux flavors
-$ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.8.6/pachctl_1.8.6_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.8.6_linux_amd64/pachctl /usr/local/bin
+$ curl -o /tmp/pachctl.tar.gz -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.0rc2/pachctl_1.9.0rc2_linux_amd64.tar.gz && tar -xvf /tmp/pachctl.tar.gz -C /tmp && sudo cp /tmp/pachctl_1.9.0rc2_linux_amd64/pachctl /usr/local/bin
 ```
 
 

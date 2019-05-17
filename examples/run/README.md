@@ -34,7 +34,7 @@ are commented in the file so read on there for more details.
 ## Creating the pipeline
 
 1) Make any customizations to `config/pipeline.conf` that you need
-2) Ensure the repo specified in `config/pipeline.conf`'s `PIPELINE_REPO` exists in pachyderm: `pachctl create-repo foobar`
+2) Ensure the repo specified in `config/pipeline.conf`'s `PIPELINE_REPO` exists in pachyderm: `pachctl create repo foobar`
 3) Ensure these env vars are specified:
   * `$DOCKER_REGISTRY_USERNAME`
   * `$DOCKER_REGISTRY_PASSWORD`

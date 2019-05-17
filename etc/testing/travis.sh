@@ -11,7 +11,7 @@ sudo chown -R `whoami` ~/cached-deps
 # script which executes as `root`. Without `chown`ing `~/cached-deps` (where
 # we store cacheable binaries), any calls to those binaries would fail because
 # they're otherwised owned by `root`.
-# 
+#
 # To further complicate things, we update the `PATH` to include
 # `~/cached-deps` in `.travis.yml`, but this doesn't update the PATH for
 # calls using `sudo`. If you need to make a `sudo` call to a binary in
@@ -54,6 +54,7 @@ PPS_SUITE=`echo $BUCKET | grep PPS > /dev/null; echo $?`
 
 make install
 make docker-build
+make docker-build-kafka
 for i in $(seq 3); do
     make clean-launch-dev || true # may be nothing to delete
     make launch-dev && break
@@ -68,20 +69,21 @@ if [[ "$BUCKET" == "MISC" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
 
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
-            test-pfs-cmds test-deploy-cmds test-libs test-vault test-auth \
-            test-enterprise test-worker test-admin test-s3gateway-integration
+            test-pfs-cmds test-pfs-storage test-deploy-cmds test-libs test-vault test-auth \
+            test-enterprise test-worker test-admin test-s3gateway-integration \
+            test-proto-static test-transaction
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
 
         # Do not run some tests when we don't have access to secret
         # credentials
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
-            test-pfs-cmds test-deploy-cmds test-libs test-admin \
+            test-pfs-cmds test-pfs-storage test-deploy-cmds test-libs test-admin \
             test-s3gateway-integration
     fi
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
-    ./etc/testing/examples.sh    
+    ./etc/testing/examples.sh
 elif [[ $PPS_SUITE -eq 0 ]]; then
     PART=`echo $BUCKET | grep -Po '\d+'`
     NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`

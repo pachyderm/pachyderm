@@ -50,11 +50,11 @@ pipe.clean:
 
 # Creates the pipeline in pachyderm
 pipe.create:
-	pachctl create-pipeline -f $(PIPE_CONFIG)
+	pachctl create pipeline -f $(PIPE_CONFIG)
 
 # Deletes the pipeline from pacyderm
 pipe.delete:
-	pachctl delete-pipeline ${PIPELINE_NAME}
+	pachctl delete pipeline ${PIPELINE_NAME}
 
 docker.secrets: docker.secrets.registry docker.secrets.container
 # Create the secrets to access the docker registry
@@ -149,6 +149,6 @@ docker.test.clean: docker.container.clean docker.test.env.clean
 
 # Display some information about the pipeline
 verify:
-	pachctl inspect-pipeline $(PIPELINE_NAME); \
-	pachctl list-file $(PIPELINE_NAME) master
+	pachctl inspect pipeline $(PIPELINE_NAME); \
+	pachctl list file $(PIPELINE_NAME)@master
 

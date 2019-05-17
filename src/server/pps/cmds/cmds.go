@@ -26,51 +26,47 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
+
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/context"
 )
 
-const (
-	codestart  = "```sh"
-	codeend    = "```"
-	termHeight = 24
-)
-
 // Cmds returns a slice containing pps commands.
-func Cmds(noMetrics *bool, noPortForwarding *bool) ([]*cobra.Command, error) {
+func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
+	var commands []*cobra.Command
+
 	raw := false
-	rawFlag := func(cmd *cobra.Command) {
-		cmd.Flags().BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
-	}
+	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	rawFlags.BoolVar(&raw, "raw", false, "disable pretty printing, print raw json")
+
 	fullTimestamps := false
-	fullTimestampsFlag := func(cmd *cobra.Command) {
-		cmd.Flags().BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
-	}
+	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
+
 	marshaller := &jsonpb.Marshaler{
 		Indent:   "  ",
 		OrigName: true,
 	}
 
-	job := &cobra.Command{
-		Use:   "job",
+	jobDocs := &cobra.Command{
 		Short: "Docs for jobs.",
-		Long: `Jobs are the basic unit of computation in Pachyderm.
+		Long: `Jobs are the basic units of computation in Pachyderm.
 
-Jobs run a containerized workload over a set of finished input commits.
-Creating a job will also create a new repo and a commit in that repo which
-contains the output of the job, unless the job is created with another job as a
-parent. If the job is created with a parent, it will use the same repo as its
-parent job and the commit it creates will use the parent job's commit as a
-parent.
-If the job fails, the commit it creates will not be finished.
-To increase the throughput of a job, increase the 'shard' parameter.
-`,
+Jobs run a containerized workload over a set of finished input commits. Jobs are
+created by pipelines and will write output to a commit in the pipeline's output
+repo. A job can have multiple datums, each processed independently and the
+results will be merged together at the end.
+
+If the job fails, the output commit will not be populated with data.`,
 	}
+	cmdutil.SetDocsUsage(jobDocs)
+	commands = append(commands, cmdutil.CreateAlias(jobDocs, "job"))
 
 	var block bool
 	inspectJob := &cobra.Command{
-		Use:   "inspect-job job-id",
+		Use:   "{{alias}} <job>",
 		Short: "Return info about a job.",
 		Long:  "Return info about a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -97,56 +93,57 @@ To increase the throughput of a job, increase the 'shard' parameter.
 		}),
 	}
 	inspectJob.Flags().BoolVarP(&block, "block", "b", false, "block until the job has either succeeded or failed")
-	rawFlag(inspectJob)
-	fullTimestampsFlag(inspectJob)
+	inspectJob.Flags().AddFlagSet(rawFlags)
+	inspectJob.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(inspectJob, "inspect job"))
 
 	var pipelineName string
 	var outputCommitStr string
 	var inputCommitStrs []string
+	var history string
 	listJob := &cobra.Command{
-		Use:   "list-job [commits]",
 		Short: "Return info about jobs.",
-		Long: `Return info about jobs.
+		Long:  "Return info about jobs.",
+		Example: `
+# Return all jobs
+$ {{alias}}
 
-Examples:
+# Return all jobs from the most recent version of pipeline "foo"
+$ {{alias}} -p foo
 
-` + codestart + `# return all jobs
-$ pachctl list-job
+# Return all jobs from all versions of pipeline "foo"
+$ {{alias}} -p foo --history all
 
-# return all jobs in pipeline foo
-$ pachctl list-job -p foo
+# Return all jobs whose input commits include foo@XXX and bar@YYY
+$ {{alias}} -i foo@XXX -i bar@YYY
 
-# return all jobs whose input commits include foo/XXX and bar/YYY
-$ pachctl list-job foo/XXX bar/YYY
-
-# return all jobs in pipeline foo and whose input commits include bar/YYY
-$ pachctl list-job -p foo bar/YYY
-` + codeend,
+# Return all jobs in pipeline foo and whose input commits include bar@YYY
+$ {{alias}} -p foo -i bar@YYY`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			commits, err := cmdutil.ParseCommits(inputCommitStrs)
+			if err != nil {
+				return err
+			}
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
+			}
+			var outputCommit *pfs.Commit
+			if outputCommitStr != "" {
+				outputCommit, err = cmdutil.ParseCommit(outputCommitStr)
+				if err != nil {
+					return err
+				}
+			}
+
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
 			}
 			defer client.Close()
 
-			commits, err := cmdutil.ParseCommits(inputCommitStrs)
-			if err != nil {
-				return err
-			}
-
-			var outputCommit *pfs.Commit
-			if outputCommitStr != "" {
-				outputCommits, err := cmdutil.ParseCommits([]string{outputCommitStr})
-				if err != nil {
-					return err
-				}
-				if len(outputCommits) == 1 {
-					outputCommit = outputCommits[0]
-				}
-			}
-
 			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+				return client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
 					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
 						return err
 					}
@@ -154,7 +151,7 @@ $ pachctl list-job -p foo bar/YYY
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *ppsclient.JobInfo) error {
+			if err := client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
 				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -164,25 +161,27 @@ $ pachctl list-job -p foo bar/YYY
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
-	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit.")
-	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits.")
-	fullTimestampsFlag(listJob)
-	rawFlag(listJob)
+	listJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
+	listJob.Flags().StringVarP(&outputCommitStr, "output", "o", "", "List jobs with a specific output commit. format: <repo>@<branch-or-commit>")
+	listJob.MarkFlagCustom("output", "__pachctl_get_repo_commit")
+	listJob.Flags().StringSliceVarP(&inputCommitStrs, "input", "i", []string{}, "List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>")
+	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
+	listJob.Flags().AddFlagSet(rawFlags)
+	listJob.Flags().AddFlagSet(fullTimestampsFlags)
+	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
+	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 
 	var pipelines cmdutil.RepeatedStringArg
 	flushJob := &cobra.Command{
-		Use:   "flush-job commit [commit ...]",
+		Use:   "{{alias}} <repo>@<branch-or-commit> ...",
 		Short: "Wait for all jobs caused by the specified commits to finish and return them.",
-		Long: `Wait for all jobs caused by the specified commits to finish and return them.
+		Long:  "Wait for all jobs caused by the specified commits to finish and return them.",
+		Example: `
+# Return jobs caused by foo@XXX and bar@YYY.
+$ {{alias}} foo@XXX bar@YYY
 
-Examples:
-
-` + codestart + `# return jobs caused by foo/XXX and bar/YYY
-$ pachctl flush-job foo/XXX bar/YYY
-
-# return jobs caused by foo/XXX leading to pipelines bar and baz
-$ pachctl flush-job foo/XXX -p bar -p baz
-` + codeend,
+# Return jobs caused by foo@XXX leading to pipelines bar and baz.
+$ {{alias}} foo@XXX -p bar -p baz`,
 		Run: cmdutil.Run(func(args []string) error {
 			commits, err := cmdutil.ParseCommits(args)
 			if err != nil {
@@ -217,11 +216,13 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		}),
 	}
 	flushJob.Flags().VarP(&pipelines, "pipeline", "p", "Wait only for jobs leading to a specific set of pipelines")
-	rawFlag(flushJob)
-	fullTimestampsFlag(flushJob)
+	flushJob.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
+	flushJob.Flags().AddFlagSet(rawFlags)
+	flushJob.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(flushJob, "flush job"))
 
 	deleteJob := &cobra.Command{
-		Use:   "delete-job job-id",
+		Use:   "{{alias}} <job>",
 		Short: "Delete a job.",
 		Long:  "Delete a job.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -236,9 +237,10 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			return nil
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(deleteJob, "delete job"))
 
 	stopJob := &cobra.Command{
-		Use:   "stop-job job-id",
+		Use:   "{{alias}} <job>",
 		Short: "Stop a job.",
 		Long:  "Stop a job.  The job will be stopped immediately.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -253,15 +255,30 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			return nil
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(stopJob, "stop job"))
+
+	datumDocs := &cobra.Command{
+		Short: "Docs for datums.",
+		Long: `Datums are the small independent units of processing for Pachyderm jobs.
+
+A datum is defined by applying a glob pattern (in the pipeline spec) to the file
+paths in the input repo. A datum can include one or more files or directories.
+
+Datums within a job will be processed independently, sometimes distributed
+across separate workers.  A separate execution of user code will be run for
+each datum.`,
+	}
+	cmdutil.SetDocsUsage(datumDocs)
+	commands = append(commands, cmdutil.CreateAlias(datumDocs, "datum"))
 
 	restartDatum := &cobra.Command{
-		Use:   "restart-datum job-id datum-path1,datum-path2",
+		Use:   "{{alias}} <job> <datum-path1>,<datum-path2>,...",
 		Short: "Restart a datum.",
 		Long:  "Restart a datum.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
-				return fmt.Errorf("error connecting to pachd: %v", err)
+				return err
 			}
 			defer client.Close()
 			datumFilter := strings.Split(args[1], ",")
@@ -278,13 +295,15 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			return client.RestartDatum(args[0], datumFilter)
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(restartDatum, "restart datum"))
+
 	var pageSize int64
 	var page int64
 	listDatum := &cobra.Command{
-		Use:   "list-datum job-id",
+		Use:   "{{alias}} <job>",
 		Short: "Return the datums in a job.",
 		Long:  "Return the datums in a job.",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -311,15 +330,16 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			return writer.Flush()
 		}),
 	}
-	rawFlag(listDatum)
 	listDatum.Flags().Int64Var(&pageSize, "pageSize", 0, "Specify the number of results sent back in a single page")
 	listDatum.Flags().Int64Var(&page, "page", 0, "Specify the page of results to send")
+	listDatum.Flags().AddFlagSet(rawFlags)
+	commands = append(commands, cmdutil.CreateAlias(listDatum, "list datum"))
 
 	inspectDatum := &cobra.Command{
-		Use:   "inspect-datum job-id datum-id",
+		Use:   "{{alias}} <job> <datum>",
 		Short: "Display detailed info about a single datum.",
-		Long:  "Display detailed info about a single datum.",
-		Run: cmdutil.RunBoundedArgs(2, 2, func(args []string) error {
+		Long:  "Display detailed info about a single datum. Requires the pipeline to have stats enabled.",
+		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return err
@@ -336,7 +356,8 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 			return nil
 		}),
 	}
-	rawFlag(inspectDatum)
+	inspectDatum.Flags().AddFlagSet(rawFlags)
+	commands = append(commands, cmdutil.CreateAlias(inspectDatum, "inspect datum"))
 
 	var (
 		jobID       string
@@ -347,21 +368,18 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 		tail        int64
 	)
 	getLogs := &cobra.Command{
-		Use:   "get-logs [--pipeline=<pipeline>|--job=<job id>] [--datum=<datum id>]",
+		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<job>] [--datum=<datum>]",
 		Short: "Return logs from a job.",
-		Long: `Return logs from a job.
+		Long:  "Return logs from a job.",
+		Example: `
+# Return logs emitted by recent jobs in the "filter" pipeline
+$ {{alias}} --pipeline=filter
 
-Examples:
+# Return logs emitted by the job aedfa12aedf
+$ {{alias}} --job=aedfa12aedf
 
-` + codestart + `# return logs emitted by recent jobs in the "filter" pipeline
-$ pachctl get-logs --pipeline=filter
-
-# return logs emitted by the job aedfa12aedf
-$ pachctl get-logs --job=aedfa12aedf
-
-# return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
-$ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
-` + codeend,
+# Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
+$ {{alias}} --pipeline=filter --inputs=/apple.txt,123aef`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -407,8 +425,10 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 	}
 	getLogs.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Filter the log "+
 		"for lines from this pipeline (accepts pipeline name)")
+	getLogs.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
 	getLogs.Flags().StringVar(&jobID, "job", "", "Filter for log lines from "+
 		"this job (accepts job ID)")
+	getLogs.MarkFlagCustom("job", "__pachctl_get_job")
 	getLogs.Flags().StringVar(&datumID, "datum", "", "Filter for log lines for this datum (accepts datum ID)")
 	getLogs.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines "+
 		"generated while processing these files (accepts PFS paths or file hashes)")
@@ -416,19 +436,20 @@ $ pachctl get-logs --pipeline=filter --inputs=/apple.txt,123aef
 	getLogs.Flags().BoolVar(&raw, "raw", false, "Return log messages verbatim from server.")
 	getLogs.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
 	getLogs.Flags().Int64VarP(&tail, "tail", "t", 0, "Lines of recent logs to display.")
+	commands = append(commands, cmdutil.CreateAlias(getLogs, "logs"))
 
-	pipeline := &cobra.Command{
-		Use:   "pipeline",
+	pipelineDocs := &cobra.Command{
 		Short: "Docs for pipelines.",
 		Long: `Pipelines are a powerful abstraction for automating jobs.
 
-Pipelines take a set of repos as inputs, rather than the set of commits that
-jobs take. Pipelines then subscribe to commits on those repos and launches a job
-to process each incoming commit.
-Creating a pipeline will also create a repo of the same name.
-All jobs created by a pipeline will create commits in the pipeline's repo.
-`,
+Pipelines take a set of repos and branches as inputs and will write to a single
+output repo of the same name. Pipelines then subscribe to commits on those repos
+and launch a job to process each incoming commit.
+
+All jobs created by a pipeline will create commits in the pipeline's output repo.`,
 	}
+	cmdutil.SetDocsUsage(pipelineDocs)
+	commands = append(commands, cmdutil.CreateAlias(pipelineDocs, "pipeline"))
 
 	var build bool
 	var pushImages bool
@@ -436,37 +457,37 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	var username string
 	var pipelinePath string
 	createPipeline := &cobra.Command{
-		Use:   "create-pipeline -f pipeline.json",
 		Short: "Create a new pipeline.",
 		Long:  "Create a new pipeline from a pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(!*noMetrics, !*noPortForwarding, false, build, pushImages, registry, username, pipelinePath, false)
 		}),
 	}
-	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	createPipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	createPipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	createPipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	createPipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your docker username.")
+	commands = append(commands, cmdutil.CreateAlias(createPipeline, "create pipeline"))
 
 	var reprocess bool
 	updatePipeline := &cobra.Command{
-		Use:   "update-pipeline -f pipeline.json",
 		Short: "Update an existing Pachyderm pipeline.",
 		Long:  "Update a Pachyderm pipeline with a new pipeline specification. For details on the format, see http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
 			return pipelineHelper(!*noMetrics, !*noPortForwarding, reprocess, build, pushImages, registry, username, pipelinePath, true)
 		}),
 	}
-	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The file containing the pipeline, it can be a url or local file. - reads from stdin.")
+	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "-", "The JSON file containing the pipeline, it can be a url or local file. - reads from stdin.")
 	updatePipeline.Flags().BoolVarP(&build, "build", "b", false, "If true, build and push local docker images into the docker registry.")
 	updatePipeline.Flags().BoolVarP(&pushImages, "push-images", "p", false, "If true, push local docker images into the docker registry.")
 	updatePipeline.Flags().StringVarP(&registry, "registry", "r", "docker.io", "The registry to push images to.")
 	updatePipeline.Flags().StringVarP(&username, "username", "u", "", "The username to push images as, defaults to your OS username.")
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
 	inspectPipeline := &cobra.Command{
-		Use:   "inspect-pipeline pipeline-name",
+		Use:   "{{alias}} <pipeline>",
 		Short: "Return info about a pipeline.",
 		Long:  "Return info about a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -492,11 +513,12 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			return pretty.PrintDetailedPipelineInfo(pi)
 		}),
 	}
-	rawFlag(inspectPipeline)
-	fullTimestampsFlag(inspectPipeline)
+	inspectPipeline.Flags().AddFlagSet(rawFlags)
+	inspectPipeline.Flags().AddFlagSet(fullTimestampsFlags)
+	commands = append(commands, cmdutil.CreateAlias(inspectPipeline, "inspect pipeline"))
 
 	extractPipeline := &cobra.Command{
-		Use:   "extract-pipeline pipeline-name",
+		Use:   "{{alias}} <pipeline>",
 		Short: "Return the manifest used to create a pipeline.",
 		Long:  "Return the manifest used to create a pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -512,10 +534,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			return marshaller.Marshal(os.Stdout, createPipelineRequest)
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(extractPipeline, "extract pipeline"))
 
 	var editor string
 	editPipeline := &cobra.Command{
-		Use:   "edit-pipeline pipeline-name",
+		Use:   "{{alias}} <pipeline>",
 		Short: "Edit the manifest for a pipeline in your text editor.",
 		Long:  "Edit the manifest for a pipeline in your text editor.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -567,9 +590,6 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			}
 			request.Update = true
 			request.Reprocess = reprocess
-			if request.Input != nil && request.Input.Atom != nil {
-				fmt.Fprintln(os.Stderr, "the `atom` input type is deprecated as of 1.8.1, please replace `atom` with `pfs`")
-			}
 			if _, err := client.PpsAPIClient.CreatePipeline(
 				client.Ctx(),
 				request,
@@ -581,19 +601,28 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	editPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	editPipeline.Flags().StringVar(&editor, "editor", "", "Editor to use for modifying the manifest.")
+	commands = append(commands, cmdutil.CreateAlias(editPipeline, "edit pipeline"))
 
 	var spec bool
 	listPipeline := &cobra.Command{
-		Use:   "list-pipeline",
+		Use:   "{{alias}} [<pipeline>]",
 		Short: "Return info about all pipelines.",
 		Long:  "Return info about all pipelines.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
+			}
 			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
 				return fmt.Errorf("error connecting to pachd: %v", err)
 			}
 			defer client.Close()
-			pipelineInfos, err := client.ListPipeline()
+			var pipeline string
+			if len(args) > 0 {
+				pipeline = args[0]
+			}
+			pipelineInfos, err := client.ListPipelineHistory(pipeline, history)
 			if err != nil {
 				return err
 			}
@@ -620,14 +649,16 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			return writer.Flush()
 		}),
 	}
-	rawFlag(listPipeline)
-	fullTimestampsFlag(listPipeline)
-	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output create-pipeline compatibility specs.")
+	listPipeline.Flags().BoolVarP(&spec, "spec", "s", false, "Output 'create pipeline' compatibility specs.")
+	listPipeline.Flags().AddFlagSet(rawFlags)
+	listPipeline.Flags().AddFlagSet(fullTimestampsFlags)
+	listPipeline.Flags().StringVar(&history, "history", "none", "Return revision history for pipelines.")
+	commands = append(commands, cmdutil.CreateAlias(listPipeline, "list pipeline"))
 
 	var all bool
 	var force bool
 	deletePipeline := &cobra.Command{
-		Use:   "delete-pipeline pipeline-name",
+		Use:   "{{alias}} (<pipeline>|--all)",
 		Short: "Delete a pipeline.",
 		Long:  "Delete a pipeline.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
@@ -660,9 +691,10 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 	}
 	deletePipeline.Flags().BoolVar(&all, "all", false, "delete all pipelines")
 	deletePipeline.Flags().BoolVarP(&force, "force", "f", false, "delete the pipeline regardless of errors; use with care")
+	commands = append(commands, cmdutil.CreateAlias(deletePipeline, "delete pipeline"))
 
 	startPipeline := &cobra.Command{
-		Use:   "start-pipeline pipeline-name",
+		Use:   "{{alias}} <pipeline>",
 		Short: "Restart a stopped pipeline.",
 		Long:  "Restart a stopped pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -677,9 +709,10 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			return nil
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(startPipeline, "start pipeline"))
 
 	stopPipeline := &cobra.Command{
-		Use:   "stop-pipeline pipeline-name",
+		Use:   "{{alias}} <pipeline>",
 		Short: "Stop a running pipeline.",
 		Long:  "Stop a running pipeline.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
@@ -694,10 +727,10 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 			return nil
 		}),
 	}
+	commands = append(commands, cmdutil.CreateAlias(stopPipeline, "stop pipeline"))
 
 	var memory string
 	garbageCollect := &cobra.Command{
-		Use:   "garbage-collect",
 		Short: "Garbage collect unused data.",
 		Long: `Garbage collect unused data.
 
@@ -710,7 +743,7 @@ To actually remove the data, you will need to manually invoke garbage
 collection with "pachctl garbage-collect".
 
 Currently "pachctl garbage-collect" can only be started when there are no
-pipelines running.  You also need to ensure that there's no ongoing "put-file".
+pipelines running.  You also need to ensure that there's no ongoing "put file".
 Garbage collection puts the cluster into a readonly mode where no new jobs can
 be created and no data can be added.
 
@@ -736,41 +769,9 @@ you can increase the amount of memory used for the bloom filters with the
 		}),
 	}
 	garbageCollect.Flags().StringVarP(&memory, "memory", "m", "0", "The amount of memory to use during garbage collection. Default is 10MB.")
+	commands = append(commands, cmdutil.CreateAlias(garbageCollect, "garbage-collect"))
 
-	jobCommands := []*cobra.Command{
-		inspectJob,
-		listJob,
-		flushJob,
-		deleteJob,
-		stopJob,
-	}
-
-	pipelineCommands := []*cobra.Command{
-		createPipeline,
-		updatePipeline,
-		inspectPipeline,
-		extractPipeline,
-		editPipeline,
-		listPipeline,
-		deletePipeline,
-		startPipeline,
-		stopPipeline,
-	}
-
-	cmdutil.SetDocsUsage(job, jobCommands)
-	cmdutil.SetDocsUsage(pipeline, pipelineCommands)
-
-	var result []*cobra.Command
-	result = append(result, job)
-	result = append(result, jobCommands...)
-	result = append(result, restartDatum)
-	result = append(result, listDatum)
-	result = append(result, inspectDatum)
-	result = append(result, getLogs)
-	result = append(result, pipeline)
-	result = append(result, pipelineCommands...)
-	result = append(result, garbageCollect)
-	return result, nil
+	return commands
 }
 
 func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build bool, pushImages bool, registry string, username string, pipelinePath string, update bool) error {
@@ -789,9 +790,6 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 			break
 		} else if err != nil {
 			return err
-		}
-		if request.Input != nil && request.Input.Atom != nil {
-			fmt.Println("WARNING: The `atom` input type has been deprecated and will be removed in a future version. Please replace `atom` with `pfs`.")
 		}
 		if update {
 			request.Update = true

@@ -1,4 +1,4 @@
-## ./pachctl enterprise activate
+## pachctl enterprise activate
 
 Activate the enterprise features of Pachyderm with an activation code
 
@@ -8,7 +8,7 @@ Activate the enterprise features of Pachyderm with an activation code
 Activate the enterprise features of Pachyderm with an activation code
 
 ```
-./pachctl enterprise activate activation-code
+pachctl enterprise activate <activation-code>
 ```
 
 ### Options

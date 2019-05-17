@@ -1,4 +1,4 @@
-## ./pachctl deploy export-images
+## pachctl deploy export-images
 
 Export a tarball (to stdout) containing all of the images in a deployment.
 
@@ -8,7 +8,7 @@ Export a tarball (to stdout) containing all of the images in a deployment.
 Export a tarball (to stdout) containing all of the images in a deployment.
 
 ```
-./pachctl deploy export-images output-file
+pachctl deploy export-images <output-file>
 ```
 
 ### Options inherited from parent commands

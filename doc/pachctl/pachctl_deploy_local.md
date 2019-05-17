@@ -1,4 +1,4 @@
-## ./pachctl deploy local
+## pachctl deploy local
 
 Deploy a single-node Pachyderm cluster with local metadata storage.
 
@@ -8,7 +8,7 @@ Deploy a single-node Pachyderm cluster with local metadata storage.
 Deploy a single-node Pachyderm cluster with local metadata storage.
 
 ```
-./pachctl deploy local
+pachctl deploy local
 ```
 
 ### Options

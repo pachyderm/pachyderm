@@ -9,6 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 )
@@ -589,6 +591,26 @@ type APIServer interface {
 	DeleteCluster(context.Context, *DeleteClusterRequest) (*types.Empty, error)
 }
 
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) CreateCluster(ctx context.Context, req *CreateClusterRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateCluster not implemented")
+}
+func (*UnimplementedAPIServer) UpdateCluster(ctx context.Context, req *UpdateClusterRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UpdateCluster not implemented")
+}
+func (*UnimplementedAPIServer) InspectCluster(ctx context.Context, req *InspectClusterRequest) (*ClusterInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectCluster not implemented")
+}
+func (*UnimplementedAPIServer) ListCluster(ctx context.Context, req *ListClusterRequest) (*ClusterInfos, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListCluster not implemented")
+}
+func (*UnimplementedAPIServer) DeleteCluster(ctx context.Context, req *DeleteClusterRequest) (*types.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteCluster not implemented")
+}
+
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
@@ -785,9 +807,9 @@ func (m *ClusterInfo) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n1, err := m.Cluster.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.Cluster.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -854,9 +876,9 @@ func (m *CreateClusterRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n2, err := m.Cluster.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Cluster.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -890,9 +912,9 @@ func (m *UpdateClusterRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n3, err := m.Cluster.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.Cluster.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -926,9 +948,9 @@ func (m *InspectClusterRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n4, err := m.Cluster.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.Cluster.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -978,9 +1000,9 @@ func (m *DeleteClusterRequest) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0xa
 		i++
 		i = encodeVarintDeploy(dAtA, i, uint64(m.Cluster.Size()))
-		n5, err := m.Cluster.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n5, err5 := m.Cluster.MarshalTo(dAtA[i:])
+		if err5 != nil {
+			return 0, err5
 		}
 		i += n5
 	}

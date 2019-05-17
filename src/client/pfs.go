@@ -34,6 +34,14 @@ func NewCommit(repoName string, commitID string) *pfs.Commit {
 	}
 }
 
+// NewCommitProvenance creates a pfs.CommitProvenance.
+func NewCommitProvenance(repoName string, branchName string, commitID string) *pfs.CommitProvenance {
+	return &pfs.CommitProvenance{
+		Commit: NewCommit(repoName, commitID),
+		Branch: NewBranch(repoName, branchName),
+	}
+}
+
 // NewFile creates a pfs.File.
 func NewFile(repoName string, commitID string, path string) *pfs.File {
 	return &pfs.File{
@@ -368,7 +376,6 @@ func (c APIClient) DeleteBranch(repoName string, branch string, force bool) erro
 }
 
 // DeleteCommit deletes a commit.
-// Note it is currently not implemented.
 func (c APIClient) DeleteCommit(repoName string, commitID string) error {
 	_, err := c.PfsAPIClient.DeleteCommit(
 		c.Ctx(),
@@ -415,7 +422,7 @@ func (c APIClient) FlushCommit(commits []*pfs.Commit, toRepos []*pfs.Repo) (Comm
 // will be considered, otherwise all repos are considered.
 //
 // Note that it's never necessary to call FlushCommit to run jobs, they'll run
-// no matter what, FlushCommit just allows you to wait for them to complete and
+// no matter what, FlushCommitF just allows you to wait for them to complete and
 // see their output once they do.
 func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f func(*pfs.CommitInfo) error) error {
 	stream, err := c.PfsAPIClient.FlushCommit(
@@ -440,6 +447,28 @@ func (c APIClient) FlushCommitF(commits []*pfs.Commit, toRepos []*pfs.Repo, f fu
 			return err
 		}
 	}
+}
+
+// FlushCommitAll returns commits that have the specified `commits` as
+// provenance. Note that it can block if jobs have not successfully
+// completed. This in effect waits for all of the jobs that are triggered by a
+// set of commits to complete.
+//
+// If toRepos is not nil then only the commits up to and including those repos
+// will be considered, otherwise all repos are considered.
+//
+// Note that it's never necessary to call FlushCommit to run jobs, they'll run
+// no matter what, FlushCommitAll just allows you to wait for them to complete and
+// see their output once they do.
+func (c APIClient) FlushCommitAll(commits []*pfs.Commit, toRepos []*pfs.Repo) ([]*pfs.CommitInfo, error) {
+	var result []*pfs.CommitInfo
+	if err := c.FlushCommitF(commits, toRepos, func(ci *pfs.CommitInfo) error {
+		result = append(result, ci)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // CommitInfoIterator wraps a stream of commits and makes them easy to iterate.
@@ -1418,7 +1447,12 @@ func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
 			return 0, grpcutil.ScrubGRPC(err)
 		}
 	default:
-		if len(w.buf)+len(p) > cap(w.buf) {
+		for len(w.buf)+len(p) > cap(w.buf) {
+			// Write the bytes that fit into w.buf, then
+			// remove those bytes from p.
+			i := cap(w.buf) - len(w.buf)
+			w.buf = append(w.buf, p[:i]...)
+			p = p[i:]
 			w.writeChan <- w.buf
 			w.buf = grpcutil.GetBuffer()[:0]
 		}

@@ -408,9 +408,9 @@ func (m *DirectoryNodeProto) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintHashtree(dAtA, i, uint64(m.Header.Size()))
-		n1, err := m.Header.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n1, err1 := m.Header.MarshalTo(dAtA[i:])
+		if err1 != nil {
+			return 0, err1
 		}
 		i += n1
 	}
@@ -418,9 +418,9 @@ func (m *DirectoryNodeProto) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintHashtree(dAtA, i, uint64(m.Footer.Size()))
-		n2, err := m.Footer.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n2, err2 := m.Footer.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
 		}
 		i += n2
 	}
@@ -466,9 +466,9 @@ func (m *NodeProto) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x22
 		i++
 		i = encodeVarintHashtree(dAtA, i, uint64(m.FileNode.Size()))
-		n3, err := m.FileNode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n3, err3 := m.FileNode.MarshalTo(dAtA[i:])
+		if err3 != nil {
+			return 0, err3
 		}
 		i += n3
 	}
@@ -476,9 +476,9 @@ func (m *NodeProto) MarshalTo(dAtA []byte) (int, error) {
 		dAtA[i] = 0x2a
 		i++
 		i = encodeVarintHashtree(dAtA, i, uint64(m.DirNode.Size()))
-		n4, err := m.DirNode.MarshalTo(dAtA[i:])
-		if err != nil {
-			return 0, err
+		n4, err4 := m.DirNode.MarshalTo(dAtA[i:])
+		if err4 != nil {
+			return 0, err4
 		}
 		i += n4
 	}
@@ -528,9 +528,9 @@ func (m *HashTreeProto) MarshalTo(dAtA []byte) (int, error) {
 				dAtA[i] = 0x12
 				i++
 				i = encodeVarintHashtree(dAtA, i, uint64(v.Size()))
-				n5, err := v.MarshalTo(dAtA[i:])
-				if err != nil {
-					return 0, err
+				n5, err5 := v.MarshalTo(dAtA[i:])
+				if err5 != nil {
+					return 0, err5
 				}
 				i += n5
 			}

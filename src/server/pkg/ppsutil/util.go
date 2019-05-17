@@ -171,6 +171,11 @@ func GetExpectedNumHashtrees(spec *ppsclient.HashtreeSpec) (int64, error) {
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
 func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo, full bool) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
+	ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, ptr.SpecCommit.ID)
+	if err != nil {
+		return nil, err
+	}
+	ptr.SpecCommit = ci.Commit
 	if full {
 		buf := bytes.Buffer{}
 		if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
@@ -209,16 +214,11 @@ func JobInput(pipelineInfo *pps.PipelineInfo, outputCommitInfo *pfs.CommitInfo) 
 	// branchToCommit maps strings of the form "<repo>/<branch>" to PFS commits
 	branchToCommit := make(map[string]*pfs.Commit)
 	key := path.Join
-	for i, provCommit := range outputCommitInfo.Provenance {
-		branchToCommit[key(provCommit.Repo.Name, outputCommitInfo.BranchProvenance[i].Name)] = provCommit
+	for _, prov := range outputCommitInfo.Provenance {
+		branchToCommit[key(prov.Commit.Repo.Name, prov.Branch.Name)] = prov.Commit
 	}
 	jobInput := proto.Clone(pipelineInfo.Input).(*pps.Input)
 	pps.VisitInput(jobInput, func(input *pps.Input) {
-		if input.Atom != nil {
-			if commit, ok := branchToCommit[key(input.Atom.Repo, input.Atom.Branch)]; ok {
-				input.Atom.Commit = commit.ID
-			}
-		}
 		if input.Pfs != nil {
 			if commit, ok := branchToCommit[key(input.Pfs.Repo, input.Pfs.Branch)]; ok {
 				input.Pfs.Commit = commit.ID
@@ -265,7 +265,7 @@ func PipelineReqFromInfo(pipelineInfo *ppsclient.PipelineInfo) *ppsclient.Create
 }
 
 // PipelineManifestReader helps with unmarshalling pipeline configs from JSON. It's used by
-// create-pipeline and update-pipeline
+// 'create pipeline' and 'update pipeline'
 type PipelineManifestReader struct {
 	buf     bytes.Buffer
 	decoder *json.Decoder

@@ -2,7 +2,7 @@
 
 ## Go Client
 
-The Go client is officially supported by the Pachyderm team.  It implements almost all of the functionality that is provided with the `pachctl` CLI tool, and, thus, you can easily integrated operations like `put-file` into your applications.
+The Go client is officially supported by the Pachyderm team.  It implements almost all of the functionality that is provided with the `pachctl` CLI tool, and, thus, you can easily integrated operations like `put file` into your applications.
 
 For more info, check out the [godocs](https://godoc.org/github.com/pachyderm/pachyderm/src/client).
 
