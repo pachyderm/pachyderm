@@ -1,13 +1,13 @@
 #!/usr/local/bin/python3
-from twitter_scraper import get_tweets
 import os
+import twitterscraper as t
 
-for name in os.listdir("/pfs/users/users"):
-    with open(os.path.join("/pfs/users/users", name)) as f:
-        for user in f:
-            user = user.strip()
-            with open(os.path.join("/pfs/out", user), "w+") as out:
-                for tweet in get_tweets(user):
+for query in os.listdir("/pfs/queries/"):
+    with open(os.path.join("/pfs/queries", query)) as f:
+        for q in f:
+            q = q.strip()  # clean whitespace
+            with open(os.path.join("/pfs/out", query), "w+") as out:
+                for tweet in t.query_tweets(q):
                     out.write("<|startoftext|> ")
-                    out.write(tweet['text'])
+                    out.write(tweet.text)
                     out.write(" <|endoftext|> ")

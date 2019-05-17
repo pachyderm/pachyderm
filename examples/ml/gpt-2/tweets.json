@@ -8,8 +8,8 @@
     },
     "input": {
         "pfs": {
-            "repo": "users",
-            "glob": "/users/*"
+            "repo": "queries",
+            "glob": "/*"
         }
     }
 }
