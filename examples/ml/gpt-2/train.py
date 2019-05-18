@@ -8,6 +8,7 @@ tweets = [f for f in os.listdir("/pfs/tweets")]
 # chdir so that the training process outputs to the right place
 out = os.path.join("/pfs/out", tweets[0])
 os.mkdir(out)
+# chdir to get gpt2 to output where want it to
 os.chdir(out)
 
 model_name = "117M"

@@ -5,6 +5,7 @@ import os
 models = [f for f in os.listdir("/pfs/train")]
 
 model_dir = os.path.join("/pfs/train", models[0])
+# can't tell gpt2 where to read from, so we chdir
 os.chdir(model_dir)
 
 sess = gpt2.start_tf_sess()
