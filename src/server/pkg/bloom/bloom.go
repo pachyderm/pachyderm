@@ -6,36 +6,64 @@ import (
 	"math"
 )
 
-func (f *BloomFilter) ExpectedFalsePositiveRate(numItems uint32) float32 {
-	return math.Pow(math.E, float64(len(f.Buckets))/(-float64(numItems))*math.Pow(math.Ln2, 2))
+func optimalSubhashes(numBuckets uint32, expectedCount uint32) uint32 {
+	return uint32(math.Ceil(float64(numBuckets) / float64(expectedCount) * math.Ln2))
 }
 
-func NewBloomFilter(hashLength uint32, numSubhashes uint32, numBuckets uint32) (*BloomFilter, error) {
+func requiredBuckets(elementCount uint32, falsePositiveRate float32) uint32 {
+	return uint32(math.Ceil(-(float64(elementCount) * math.Ln(falsePositiveRate) / (math.Pow(math.Ln2, 2)))))
+}
+
+func bytesPerSubhash(numBuckets uint32) uint32 {
+	return uint32(math.Ceil(math.Ln(numBuckets) / math.Ln(2)))
+}
+
+// FilterSize returns the memory footprint for a filter with the given constraints
+func FilterSizeForFalsePositiveRate(falsePositiveRate float32, elementCount uint32) uint32 {
+	return requiredBuckets(elementCount, falsePositiveRate) * 4
+}
+
+// NewFilterWithSize constructs a new bloom filter with the given constraints.
+//  * 'bytes' - the number of bytes to allocate for the filter buckets
+//  * 'elementCount' - the expected number of elements that will be present in
+//      the filter
+// Given these, the filter will choose the optimal number of hashes to perform
+// to get the best possible false-positive rate.
+func NewFilterWithSize(bytes uint32, elementCount uint32, hashLength uint32) *BloomFilter {
+	numBuckets := constraints.Bytes / 4
+	subhashLength := bytesPerSubhash(numBuckets)
+
 	filter := &BloomFilter{
-		HashLength:      hashLength,
-		BytesPerSubhash: hashLength / numSubhashes,
+		NumSubhashes:    optimalSubhashes(numBuckets, elementCount),
+		BytesPerSubhash: subhashLength,
 		Buckets:         make([]uint32, numBuckets),
 	}
 
-	if err := filter.Validate(); err != nil {
-		return nil, err
+	return filter
+}
+
+func NewFilterWithFalsePositiveRate(falsePositiveRate float32, elementCount uint32, hashLength uint32) *BloomFilter {
+	if falsePositiveRate < 0.0 || falsePositiveRate > 1.0 {
+		panic("Expected false positive rate to be a value between 0 and 1")
 	}
+
+	numBuckets := requiredBuckets(elementCount, falsePositiveRate)
+	subhashLength := bytesPerSubhash(numBuckets)
+
+	filter := &BloomFilter{
+		NumSubhashes:    optimalSubhashes(numBuckets, elementCount),
+		BytesPerSubhash: subhashLength,
+		Buckets:         make([]uint32, numBuckets),
+	}
+
 	return filter, nil
 }
 
-func (f *BloomFilter) Validate() error {
-	optimalHashes := math.Log2(float64(len(f.Buckets)))
-	fmt.Printf("optimalHashes: %f\n", optimalHashes)
-	fmt.Printf("bytesPerSubhash: %d\n", f.BytesPerSubhash)
-
-	// require numBuckets to be a power of two so we don't have weighted areas of the hash space
-	if len(f.Buckets)&(len(f.Buckets)-1) != 0 {
-		return fmt.Errorf("Bloom filter number of buckets must be a power of two")
-	}
-	if math.Floor(float64(f.HashLength)/float64(f.BytesPerSubhash)) < optimalHashes {
-		return fmt.Errorf("Bloom filter hash length is too short for the number of buckets")
-	}
-	return nil
+func (f *BloomFilter) FalsePositiveRate(numItems uint32) float64 {
+	// m: number of buckets, k: number of hashes
+	m := float64(len(f.Buckets))
+	k := float64(f.NumSubhashes)
+	return math.Pow(1-math.Pow(1-1/m, k*float64(numItems)), k)
 }
 
 // OverflowRate iterates over all buckets in the filter and returns the ratio
@@ -97,17 +125,29 @@ func (f *BloomFilter) IsNotPresent(hash []byte) bool {
 }
 
 func (f *BloomFilter) forEachSubhash(hash []byte, cb func(uint32)) {
-	if uint32(len(hash)) != f.HashLength {
-		panic(fmt.Sprintf("Incorrect hash length passed to bloom filter, expected %d, got %d", f.HashLength, len(hash)))
+	if len(hash) < 8 {
+		panic("Bloom filter hashes must be at least 8 bytes")
 	}
 
-	fmt.Printf("Hash: %s\n", hash)
-	// Divide the hash into equal chunks based on the number of buckets
-	for i := uint32(0); i <= f.HashLength-f.BytesPerSubhash; i += f.BytesPerSubhash {
-		subhash := hash[i : i+f.BytesPerSubhash]
-		fmt.Printf("Hash[%d:%d]: %s\n", i, i+f.BytesPerSubhash, subhash)
-		value := binary.LittleEndian.Uint32(subhash)
-		fmt.Printf("Vaule: %d\n", value)
+	index := 0
+	var first, second *uint32
+	for hashes := uint32(0); hashes < f.NumSubhashes; hashes += 1 {
+		var value uint32
+		if index+f.BytesPerSubhash < len(hash) {
+			subhash := hash[i : i+f.BytesPerSubhash]
+			value = binary.LittleEndian.Uint32(subhash)
+		} else {
+			// This should be an ok way to extend the hash, via https://www.eecs.harvard.edu/~michaelm/postscripts/tr-02-05.pdf
+			if first == nil {
+				subhash := hash[0:4]
+				first = &binary.LittleEndian.Uint32(subhash)
+				subhash = hash[4:8]
+				second = &binary.LittleEndian.Uint32(subhash)
+			}
+			value = *first + hashes*(*second)
+		}
+
+		fmt.Printf("Bucket: %d (%d)\n", value%uint32(len(f.Buckets)), value)
 		cb(value % uint32(len(f.Buckets)))
 	}
 }

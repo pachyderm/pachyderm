@@ -9,6 +9,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
 )
 
+func maxValue(f *BloomFilter) uint32 {
+	max := uint32(0)
+	for _, value := range f.Buckets {
+		if value > max {
+			max = value
+		}
+	}
+	return max
+}
+
 // Uses the storage layer hash
 func makeHash(t *testing.T) []byte {
 	data := make([]byte, 128)
@@ -19,7 +29,7 @@ func makeHash(t *testing.T) []byte {
 }
 
 func TestAddRemove(t *testing.T) {
-	filter, err := NewBloomFilter(64, 256)
+	filter, err := NewFilter(FilterConstraints{ElementCount: 1024, FalsePositiveRate: 0.1}, 64)
 	require.NoError(t, err)
 
 	hashes := make([][]byte, 1024)
@@ -39,5 +49,7 @@ func TestAddRemove(t *testing.T) {
 		}
 	}
 
-	fmt.Printf("%d/1024 false positives\n", falsePositives)
+	fmt.Printf("%d/1024 false positives: %f\n", falsePositives, float64(falsePositives)/1024)
+	fmt.Printf("expected false positive rate: %f\n", filter.ExpectedFalsePositiveRate(1024))
+	fmt.Printf("max value: %d\n", maxValue(filter))
 }
