@@ -59,7 +59,7 @@ func TestHashLength(t *testing.T) {
 	filter := NewFilterWithFalsePositiveRate(0.01, 1000, maxFilterSize)
 
 	hash := makeHash(t)
-	for i := 0; i < 8; i += 1 {
+	for i := 0; i < 8; i++ {
 		partial := hash[0:i]
 		requirePanic(t, func() { filter.Add(partial) })
 		requirePanic(t, func() { filter.Remove(partial) })
@@ -67,7 +67,7 @@ func TestHashLength(t *testing.T) {
 		requirePanic(t, func() { filter.UpperBoundCount(partial) })
 	}
 
-	for i := 8; i < 64; i += 1 {
+	for i := 8; i < 64; i++ {
 		partial := hash[0:i]
 		filter.Add(partial)
 		require.False(t, filter.IsNotPresent(partial))
@@ -151,9 +151,9 @@ func TestFalsePositiveRate(t *testing.T) {
 
 	falsePositives := 0
 	falsePositiveChecks := 10000
-	for i := 0; i < falsePositiveChecks; i += 1 {
+	for i := 0; i < falsePositiveChecks; i++ {
 		if !filter.IsNotPresent(mathHash()) {
-			falsePositives += 1
+			falsePositives++
 		}
 	}
 

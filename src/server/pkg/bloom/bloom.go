@@ -19,7 +19,8 @@ func requiredBuckets(elementCount int, falsePositiveRate float64) int {
 	return int(math.Ceil(-(float64(elementCount) * math.Log(falsePositiveRate) / (math.Pow(math.Ln2, 2)))))
 }
 
-// FilterSize returns the memory footprint for a filter with the given constraints
+// FilterSizeForFalsePositiveRate returns the memory footprint for a filter with
+// the given constraints.
 func FilterSizeForFalsePositiveRate(falsePositiveRate float64, elementCount int) int {
 	return requiredBuckets(elementCount, falsePositiveRate)
 }
@@ -78,6 +79,8 @@ func NewFilterWithFalsePositiveRate(falsePositiveRate float64, elementCount int,
 	return filter
 }
 
+// FalsePositiveRate returns the expected rate of false positives if the filter
+// contains the given number of elements.
 func (f *BloomFilter) FalsePositiveRate(elementCount int) float64 {
 	// m: number of buckets, k: number of hashes
 	m := float64(len(f.Buckets))
@@ -94,7 +97,7 @@ func (f *BloomFilter) OverflowRate() float64 {
 	numOverflow := 0
 	for _, value := range f.Buckets {
 		if value == math.MaxUint8 {
-			numOverflow += 1
+			numOverflow++
 		}
 	}
 	return float64(numOverflow) / float64(len(f.Buckets))
@@ -154,7 +157,7 @@ func (f *BloomFilter) forEachSubhash(hash []byte, cb func(int)) {
 	overflowInitialized := false
 	var overflowFirst, overflowSecond uint32
 
-	for hashes := uint32(0); hashes < f.NumSubhashes; hashes += 1 {
+	for hashes := uint32(0); hashes < f.NumSubhashes; hashes++ {
 		var value uint32
 		if index+4 < uint(len(hash)) {
 			subhash := hash[index : index+4]
