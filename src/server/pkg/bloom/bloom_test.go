@@ -101,8 +101,11 @@ func TestAddRemove(t *testing.T) {
 
 func TestLargeAllocation(t *testing.T) {
 	expectedSize := FilterSizeForFalsePositiveRate(0.001, 10000)
-	require.Equal(t, 0, expectedSize)
+	require.Equal(t, maxFilterSize, expectedSize)
 }
 
 func TestFalsePositiveRate(t *testing.T) {
+}
+
+func TestZeroElementCount(t *testing.T) {
 }
