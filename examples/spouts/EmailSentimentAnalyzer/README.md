@@ -55,7 +55,7 @@ metadata:
   creationTimestamp: "2019-05-20T21:27:56Z"
   name: imap-credentials
   namespace: default
-  resourceVersion: "XXX>
+  resourceVersion: <some-version>
   selfLink: /api/v1/namespaces/default/secrets/imap-credentials
   uid: <some-uid>
 type: Opaque
@@ -72,27 +72,27 @@ $ docker login
 $ docker build -t <docker-account-name>/imap_spout:1.9 -f ./Dockerfile.imap_spout .
 $ docker push <docker-account-name>/imap_spout:1.9
 ```
-1. Build the docker image for the sentimentalist. 
+2. Build the docker image for the sentimentalist. 
    Put your own docker account name in for`<docker-account-name>`.
    There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
 ```sh
 $ docker build -t <docker-account-name>/sentimentalist:1.9 -f ./Dockerfile.sentimentalist .
 $ docker push <docker-account-name>/sentimentalist:1.9
 ```
-1. Edit the pipeline definition files to refer to your own docker repo.
+3. Edit the pipeline definition files to refer to your own docker repo.
    Put your own docker account name in for `<docker-account-name>`.
    There are prebuilt images for both pipelines in the Pachyderm DockerHub registry account, if you want to use those.
 ```sh
 $ sed s/pachyderm/<docker-account-name>/g < sentimentalist.json > my_sentimentalist.json
 $ sed s/pachyderm/<docker-account-name>/g < imap_spout.json > my_imap_spout.json
 ```
-1. Confirm the pipeline definition files are correct.
-1. Create the pipelines
+4. Confirm the pipeline definition files are correct.
+5. Create the pipelines
 ```sh
 pachctl create pipeline -f my_imap_spout.json
 pachctl create pipeline -f my_sentimentalist.json
 ```
-1. Start sending plain-text emails to the account you created. 
+6. Start sending plain-text emails to the account you created. 
    Every few seconds, the imap_spout pipeline will fetch emails from that account via IMAP and send them to its output repo, 
    where the sentimentalist pipeline will score them as positive or negative and sort them into output repos accordingly.
    Have fun! 
