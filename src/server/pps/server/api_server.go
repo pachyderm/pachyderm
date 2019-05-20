@@ -81,6 +81,10 @@ func newErrPipelineExists(pipeline string) error {
 	return fmt.Errorf("pipeline %v already exists", pipeline)
 }
 
+func newErrPipelineUpdate(pipeline string, err error) error {
+	return fmt.Errorf("pipeline %v update error: %v", pipeline, err)
+}
+
 type errEmptyInput struct {
 	error
 }
@@ -1905,6 +1909,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, &pipelinePtr, true)
 				if err != nil {
 					return err
+				}
+
+				// Cannot disable stats after it has been enabled.
+				if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
+					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, fmt.Errorf("cannot disable stats"))
 				}
 
 				// Modify pipelineInfo
