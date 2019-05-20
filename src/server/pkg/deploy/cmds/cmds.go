@@ -432,6 +432,13 @@ If <object store backend> is \"s3\", then the arguments are:
 		}
 		defer c.Close()
 
+		// clean up any empty, but non-nil strings in the data, since those will prevent those fields from getting merged when we do the patch
+		for k, v := range data {
+			if v != nil && len(v) == 0 {
+				delete(data, k)
+			}
+		}
+
 		manifest := getEncoder(outputFormat)
 		err = assets.WriteSecret(manifest, data, opts)
 		if err != nil {
@@ -450,7 +457,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 		// it can't unmarshal it from stdin in the given format for some reason, so we pass it in directly
 		s := string(manifest.Buffer().Bytes())
-		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace)
+		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
 	}
 
 	deployStorageAmazon := &cobra.Command{
