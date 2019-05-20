@@ -13,10 +13,6 @@ func requiredBuckets(elementCount uint32, falsePositiveRate float64) uint32 {
 	return uint32(math.Ceil(-(float64(elementCount) * math.Log(falsePositiveRate) / (math.Pow(math.Ln2, 2)))))
 }
 
-func bytesPerSubhash(numBuckets uint32) uint32 {
-	return uint32(math.Ceil(math.Log(float64(numBuckets)) / math.Log(2)))
-}
-
 // FilterSize returns the memory footprint for a filter with the given constraints
 func FilterSizeForFalsePositiveRate(falsePositiveRate float64, elementCount uint32) uint32 {
 	return requiredBuckets(elementCount, falsePositiveRate) * 4
@@ -30,12 +26,10 @@ func FilterSizeForFalsePositiveRate(falsePositiveRate float64, elementCount uint
 // to get the best possible false-positive rate.
 func NewFilterWithSize(bytes uint32, elementCount uint32) *BloomFilter {
 	numBuckets := bytes / 4
-	subhashLength := bytesPerSubhash(numBuckets)
 
 	filter := &BloomFilter{
-		NumSubhashes:    optimalSubhashes(numBuckets, elementCount),
-		BytesPerSubhash: subhashLength,
-		Buckets:         make([]uint32, numBuckets),
+		NumSubhashes: optimalSubhashes(numBuckets, elementCount),
+		Buckets:      make([]uint32, numBuckets),
 	}
 
 	return filter
@@ -56,12 +50,10 @@ func NewFilterWithFalsePositiveRate(falsePositiveRate float64, elementCount uint
 	}
 
 	numBuckets := requiredBuckets(elementCount, falsePositiveRate)
-	subhashLength := bytesPerSubhash(numBuckets)
 
 	filter := &BloomFilter{
-		NumSubhashes:    optimalSubhashes(numBuckets, elementCount),
-		BytesPerSubhash: subhashLength,
-		Buckets:         make([]uint32, numBuckets),
+		NumSubhashes: optimalSubhashes(numBuckets, elementCount),
+		Buckets:      make([]uint32, numBuckets),
 	}
 
 	return filter
@@ -87,6 +79,16 @@ func (f *BloomFilter) OverflowRate() float32 {
 		}
 	}
 	return float32(numOverflow) / float32(len(f.Buckets))
+}
+
+func (f *BloomFilter) maxValue() uint32 {
+	max := uint32(0)
+	for _, value := range f.Buckets {
+		if value > max {
+			max = value
+		}
+	}
+	return max
 }
 
 // Add adds an item to the filter.
@@ -145,9 +147,10 @@ func (f *BloomFilter) forEachSubhash(hash []byte, cb func(uint32)) {
 
 	for hashes := uint32(0); hashes < f.NumSubhashes; hashes += 1 {
 		var value uint32
-		if index+f.BytesPerSubhash < uint32(len(hash)) {
-			subhash := hash[index : index+f.BytesPerSubhash]
+		if index+4 < uint32(len(hash)) {
+			subhash := hash[index : index+4]
 			value = binary.LittleEndian.Uint32(subhash)
+			index += 4
 		} else {
 			// This should be an ok way to extend the hash, via https://www.eecs.harvard.edu/~michaelm/postscripts/tr-02-05.pdf
 			if !overflowInitialized {

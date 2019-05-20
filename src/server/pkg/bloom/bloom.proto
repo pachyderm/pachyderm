@@ -6,7 +6,6 @@ option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/bloom";
 message BloomFilter {
   uint32 hash_length = 1;
   uint32 num_subhashes = 2;
-  uint32 bytes_per_subhash = 3;
 
   // TODO: we could make each bucket signed, which would allow us to do some interesting things,
   // but it might make the design a little confusing.
@@ -21,5 +20,5 @@ message BloomFilter {
   // Perhaps better to provide a 'BloomFilterDelta' that can later be combined
   // into an existing filter, while still preserving the invariant that all
   // buckets are positive.
-  repeated uint32 buckets = 4;
+  repeated uint32 buckets = 3;
 }

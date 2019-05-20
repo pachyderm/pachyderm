@@ -29,10 +29,9 @@ func makeHash(t *testing.T) []byte {
 }
 
 func TestAddRemove(t *testing.T) {
-	fmt.Printf("Filter size: %d\n", FilterSizeForFalsePositiveRate(0.1, 1024))
-	filter := NewFilterWithFalsePositiveRate(0.1, 1024)
+	filter := NewFilterWithFalsePositiveRate(0.9, 1000000)
 
-	hashes := make([][]byte, 1024)
+	hashes := make([][]byte, 1000000)
 	for i := range hashes {
 		hashes[i] = makeHash(t)
 		filter.Add(hashes[i])
@@ -43,12 +42,13 @@ func TestAddRemove(t *testing.T) {
 	}
 
 	falsePositives := 0
-	for i := 0; i < 1024; i += 1 {
+	for i := 0; i < 100000; i += 1 {
 		if !filter.IsNotPresent(makeHash(t)) {
 			falsePositives += 1
 		}
 	}
 
-	fmt.Printf("False positive rate: %f\n", float64(falsePositives)/float64(1024))
-	fmt.Printf("Expected false positive rate: %f\n", filter.FalsePositiveRate(1024))
+	fmt.Printf("False positive rate: %f\n", float64(falsePositives)/float64(100000))
+	fmt.Printf("Filter size: %d\n", len(filter.Buckets)*4)
+	fmt.Printf("Max value: %d\n", filter.maxValue())
 }
