@@ -2,6 +2,7 @@ package bloom
 
 import (
 	"crypto/rand"
+	mathrand "math/rand"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -38,11 +39,19 @@ func requirePanic(t *testing.T, cb func()) {
 
 const maxFilterSize = 1048576
 
-func TestInvalidFalsePositive(t *testing.T) {
+func TestInvalidConstraints(t *testing.T) {
 	requirePanic(t, func() { NewFilterWithFalsePositiveRate(-0.4, 1000, maxFilterSize) })
 	requirePanic(t, func() { NewFilterWithFalsePositiveRate(-0.0, 1000, maxFilterSize) })
 	requirePanic(t, func() { NewFilterWithFalsePositiveRate(0.0, 1000, maxFilterSize) })
 	requirePanic(t, func() { NewFilterWithFalsePositiveRate(1.0, 1000, maxFilterSize) })
+	requirePanic(t, func() { NewFilterWithFalsePositiveRate(0.1, 0, maxFilterSize) })
+	requirePanic(t, func() { NewFilterWithFalsePositiveRate(0.1, -1, maxFilterSize) })
+	requirePanic(t, func() { NewFilterWithFalsePositiveRate(0.1, 1000, 0) })
+	requirePanic(t, func() { NewFilterWithFalsePositiveRate(0.1, 1000, -100) })
+	requirePanic(t, func() { NewFilterWithSize(1000, 0) })
+	requirePanic(t, func() { NewFilterWithSize(1000, -4) })
+	requirePanic(t, func() { NewFilterWithSize(0, 400) })
+	requirePanic(t, func() { NewFilterWithSize(-10, 400) })
 }
 
 func TestHashLength(t *testing.T) {
@@ -100,12 +109,59 @@ func TestAddRemove(t *testing.T) {
 }
 
 func TestLargeAllocation(t *testing.T) {
-	expectedSize := FilterSizeForFalsePositiveRate(0.001, 10000)
-	require.Equal(t, maxFilterSize, expectedSize)
+	desiredFalsePositiveRate := 0.001
+	expectedSize := FilterSizeForFalsePositiveRate(desiredFalsePositiveRate, 1000000)
+	require.True(t, maxFilterSize < expectedSize)
+
+	// Allocate a filter that is larger than our max size
+	filter := NewFilterWithFalsePositiveRate(desiredFalsePositiveRate, 1000000, maxFilterSize)
+
+	// The filter should be truncated to the max size
+	require.Equal(t, maxFilterSize, len(filter.Buckets))
+
+	// The false positive rate should be higher than we wanted
+	require.True(t, filter.FalsePositiveRate(1000000) > desiredFalsePositiveRate)
 }
 
 func TestFalsePositiveRate(t *testing.T) {
-}
+	elementCount := 1024
 
-func TestZeroElementCount(t *testing.T) {
+	// This is a probabilistic test, so seed the RNG to avoid flakiness
+	mathrand.Seed(0x23505ea7bb812c38)
+
+	mathHash := func() []byte {
+		data := make([]byte, 128)
+		n, err := mathrand.Read(data)
+		require.NoError(t, err)
+		require.Equal(t, 128, n)
+		return hash.Sum(data)
+	}
+
+	filter := NewFilterWithFalsePositiveRate(0.1, elementCount, maxFilterSize)
+
+	hashes := make([][]byte, elementCount)
+	for i := range hashes {
+		hashes[i] = mathHash()
+		filter.Add(hashes[i])
+	}
+
+	for _, h := range hashes {
+		require.False(t, filter.IsNotPresent(h))
+	}
+
+	falsePositives := 0
+	falsePositiveChecks := 10000
+	for i := 0; i < falsePositiveChecks; i += 1 {
+		if !filter.IsNotPresent(mathHash()) {
+			falsePositives += 1
+		}
+	}
+
+	expectedFalsePositiveRate := filter.FalsePositiveRate(elementCount)
+	require.True(t, expectedFalsePositiveRate > 0.09)
+	require.True(t, expectedFalsePositiveRate < 0.11)
+
+	actualFalsePositiveRate := float64(falsePositives) / float64(falsePositiveChecks)
+	require.True(t, actualFalsePositiveRate > 0.09)
+	require.True(t, actualFalsePositiveRate < 0.11)
 }
