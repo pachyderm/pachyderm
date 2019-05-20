@@ -2,18 +2,17 @@ package bloom
 
 import (
 	"crypto/rand"
-	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
 )
 
-func maxValue(f *BloomFilter) uint8 {
-	max := uint8(0)
+func maxValue(f *BloomFilter) int {
+	max := 0
 	for _, value := range f.Buckets {
-		if value > max {
-			max = value
+		if int(value) > max {
+			max = int(value)
 		}
 	}
 	return max
@@ -28,27 +27,82 @@ func makeHash(t *testing.T) []byte {
 	return hash.Sum(data)
 }
 
+func requirePanic(t *testing.T, cb func()) {
+	defer func() {
+		r := recover()
+		require.NotNil(t, r)
+	}()
+
+	cb()
+}
+
+const maxFilterSize = 1048576
+
+func TestInvalidFalsePositive(t *testing.T) {
+	requirePanic(t, func() { NewFilterWithFalsePositiveRate(-0.4, 1000, maxFilterSize) })
+	requirePanic(t, func() { NewFilterWithFalsePositiveRate(-0.0, 1000, maxFilterSize) })
+	requirePanic(t, func() { NewFilterWithFalsePositiveRate(0.0, 1000, maxFilterSize) })
+	requirePanic(t, func() { NewFilterWithFalsePositiveRate(1.0, 1000, maxFilterSize) })
+}
+
+func TestHashLength(t *testing.T) {
+	// We can handle arbitrary hash lengths greater than 8 bytes
+	filter := NewFilterWithFalsePositiveRate(0.01, 1000, maxFilterSize)
+
+	hash := makeHash(t)
+	for i := 0; i < 8; i += 1 {
+		partial := hash[0:i]
+		requirePanic(t, func() { filter.Add(partial) })
+		requirePanic(t, func() { filter.Remove(partial) })
+		requirePanic(t, func() { filter.IsNotPresent(partial) })
+		requirePanic(t, func() { filter.UpperBoundCount(partial) })
+	}
+
+	for i := 8; i < 64; i += 1 {
+		partial := hash[0:i]
+		filter.Add(partial)
+		require.False(t, filter.IsNotPresent(partial))
+		require.True(t, filter.UpperBoundCount(partial) > 0)
+		filter.Remove(partial)
+	}
+}
+
 func TestAddRemove(t *testing.T) {
-	filter := NewFilterWithFalsePositiveRate(0.4, 1000000)
+	hashA := makeHash(t)
+	hashB := makeHash(t)
+	filter := NewFilterWithFalsePositiveRate(0.01, 1000, maxFilterSize)
 
-	hashes := make([][]byte, 1000000)
-	for i := range hashes {
-		hashes[i] = makeHash(t)
-		filter.Add(hashes[i])
-	}
+	require.True(t, filter.IsNotPresent(hashA))
+	require.True(t, filter.IsNotPresent(hashB))
+	require.Equal(t, 0, maxValue(filter))
 
-	for _, h := range hashes {
-		require.False(t, filter.IsNotPresent(h))
-	}
+	filter.Add(hashA)
 
-	falsePositives := 0
-	for i := 0; i < 100000; i += 1 {
-		if !filter.IsNotPresent(makeHash(t)) {
-			falsePositives += 1
-		}
-	}
+	require.False(t, filter.IsNotPresent(hashA))
+	require.Equal(t, 1, maxValue(filter))
 
-	fmt.Printf("False positive rate: %f\n", float64(falsePositives)/float64(100000))
-	fmt.Printf("Filter size: %d\n", len(filter.Buckets)*4)
-	fmt.Printf("Max value: %d\n", maxValue(filter))
+	filter.Add(hashB)
+
+	require.False(t, filter.IsNotPresent(hashA))
+	require.False(t, filter.IsNotPresent(hashB))
+	require.True(t, maxValue(filter) > 0)
+
+	filter.Remove(hashA)
+
+	require.False(t, filter.IsNotPresent(hashB))
+	require.Equal(t, 1, maxValue(filter))
+
+	filter.Remove(hashB)
+
+	require.Equal(t, 0, maxValue(filter))
+	require.True(t, filter.IsNotPresent(hashA))
+	require.True(t, filter.IsNotPresent(hashB))
+}
+
+func TestLargeAllocation(t *testing.T) {
+	expectedSize := FilterSizeForFalsePositiveRate(0.001, 10000)
+	require.Equal(t, 0, expectedSize)
+}
+
+func TestFalsePositiveRate(t *testing.T) {
 }

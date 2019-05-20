@@ -5,6 +5,12 @@ import (
 	"math"
 )
 
+const (
+	// Used for a sanity check that we don't allocate too much when determining
+	// bloom filter size in NewFilterWithFalsePositiveRate.
+	maxBuckets = 104857600
+)
+
 func optimalSubhashes(numBuckets uint32, expectedCount uint32) uint32 {
 	return uint32(math.Ceil(float64(numBuckets) / float64(expectedCount) * math.Ln2))
 }
@@ -15,7 +21,7 @@ func requiredBuckets(elementCount uint32, falsePositiveRate float64) uint32 {
 
 // FilterSize returns the memory footprint for a filter with the given constraints
 func FilterSizeForFalsePositiveRate(falsePositiveRate float64, elementCount uint32) uint32 {
-	return requiredBuckets(elementCount, falsePositiveRate) * 4
+	return requiredBuckets(elementCount, falsePositiveRate)
 }
 
 // NewFilterWithSize constructs a new bloom filter with the given constraints.
@@ -26,7 +32,6 @@ func FilterSizeForFalsePositiveRate(falsePositiveRate float64, elementCount uint
 // to get the best possible false-positive rate.
 func NewFilterWithSize(bytes uint32, elementCount uint32) *BloomFilter {
 	numBuckets := bytes
-
 	filter := &BloomFilter{
 		NumSubhashes: optimalSubhashes(numBuckets, elementCount),
 		Buckets:      make([]byte, numBuckets),
@@ -41,15 +46,16 @@ func NewFilterWithSize(bytes uint32, elementCount uint32) *BloomFilter {
 //      loaded with 'elementCount' elements
 //  * 'elementCount' - the expected number of elements that will be present in
 //      the filter
+//  * 'maxBytes' - the maximum memory footprint to allocate for this filter.
 // Given these, the filter will choose a size that will provide the specified
-// constraints.  As a sanity check, `FilterSizeForFalsePositiveRate` should be
-// called beforehand to avoid an accidental ridiculously large allocation.
-func NewFilterWithFalsePositiveRate(falsePositiveRate float64, elementCount uint32) *BloomFilter {
-	if falsePositiveRate < 0.0 || falsePositiveRate > 1.0 {
+// constraints.  If the memory footprint is capped by 'maxBytes', the
+// falsePositiveRate will increase.
+func NewFilterWithFalsePositiveRate(falsePositiveRate float64, elementCount uint32, maxBytes uint32) *BloomFilter {
+	if falsePositiveRate <= 0.0 || falsePositiveRate >= 1.0 {
 		panic("Expected false positive rate to be a value between 0 and 1")
 	}
 
-	numBuckets := requiredBuckets(elementCount, falsePositiveRate)
+	numBuckets := uint32(math.Min(float64(requiredBuckets(elementCount, falsePositiveRate)), float64(maxBytes)))
 
 	filter := &BloomFilter{
 		NumSubhashes: optimalSubhashes(numBuckets, elementCount),
