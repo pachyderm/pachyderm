@@ -29,8 +29,8 @@ func makeHash(t *testing.T) []byte {
 }
 
 func TestAddRemove(t *testing.T) {
-	filter, err := NewFilter(FilterConstraints{ElementCount: 1024, FalsePositiveRate: 0.1}, 64)
-	require.NoError(t, err)
+	fmt.Printf("Filter size: %d\n", FilterSizeForFalsePositiveRate(0.1, 1024))
+	filter := NewFilterWithFalsePositiveRate(0.1, 1024)
 
 	hashes := make([][]byte, 1024)
 	for i := range hashes {
@@ -49,7 +49,6 @@ func TestAddRemove(t *testing.T) {
 		}
 	}
 
-	fmt.Printf("%d/1024 false positives: %f\n", falsePositives, float64(falsePositives)/1024)
-	fmt.Printf("expected false positive rate: %f\n", filter.ExpectedFalsePositiveRate(1024))
-	fmt.Printf("max value: %d\n", maxValue(filter))
+	fmt.Printf("False positive rate: %f\n", float64(falsePositives)/float64(1024))
+	fmt.Printf("Expected false positive rate: %f\n", filter.FalsePositiveRate(1024))
 }

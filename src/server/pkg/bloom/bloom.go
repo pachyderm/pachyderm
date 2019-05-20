@@ -2,7 +2,6 @@ package bloom
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 )
 
@@ -10,16 +9,16 @@ func optimalSubhashes(numBuckets uint32, expectedCount uint32) uint32 {
 	return uint32(math.Ceil(float64(numBuckets) / float64(expectedCount) * math.Ln2))
 }
 
-func requiredBuckets(elementCount uint32, falsePositiveRate float32) uint32 {
-	return uint32(math.Ceil(-(float64(elementCount) * math.Ln(falsePositiveRate) / (math.Pow(math.Ln2, 2)))))
+func requiredBuckets(elementCount uint32, falsePositiveRate float64) uint32 {
+	return uint32(math.Ceil(-(float64(elementCount) * math.Log(falsePositiveRate) / (math.Pow(math.Ln2, 2)))))
 }
 
 func bytesPerSubhash(numBuckets uint32) uint32 {
-	return uint32(math.Ceil(math.Ln(numBuckets) / math.Ln(2)))
+	return uint32(math.Ceil(math.Log(float64(numBuckets)) / math.Log(2)))
 }
 
 // FilterSize returns the memory footprint for a filter with the given constraints
-func FilterSizeForFalsePositiveRate(falsePositiveRate float32, elementCount uint32) uint32 {
+func FilterSizeForFalsePositiveRate(falsePositiveRate float64, elementCount uint32) uint32 {
 	return requiredBuckets(elementCount, falsePositiveRate) * 4
 }
 
@@ -29,8 +28,8 @@ func FilterSizeForFalsePositiveRate(falsePositiveRate float32, elementCount uint
 //      the filter
 // Given these, the filter will choose the optimal number of hashes to perform
 // to get the best possible false-positive rate.
-func NewFilterWithSize(bytes uint32, elementCount uint32, hashLength uint32) *BloomFilter {
-	numBuckets := constraints.Bytes / 4
+func NewFilterWithSize(bytes uint32, elementCount uint32) *BloomFilter {
+	numBuckets := bytes / 4
 	subhashLength := bytesPerSubhash(numBuckets)
 
 	filter := &BloomFilter{
@@ -42,7 +41,16 @@ func NewFilterWithSize(bytes uint32, elementCount uint32, hashLength uint32) *Bl
 	return filter
 }
 
-func NewFilterWithFalsePositiveRate(falsePositiveRate float32, elementCount uint32, hashLength uint32) *BloomFilter {
+// NewFilterWithFalsePositiveRate constructs a new bloom filter with the given
+// constraints:
+//  * 'falsePositiveRate' - the expected false positive rate when the filter is
+//      loaded with 'elementCount' elements
+//  * 'elementCount' - the expected number of elements that will be present in
+//      the filter
+// Given these, the filter will choose a size that will provide the specified
+// constraints.  As a sanity check, `FilterSizeForFalsePositiveRate` should be
+// called beforehand to avoid an accidental ridiculously large allocation.
+func NewFilterWithFalsePositiveRate(falsePositiveRate float64, elementCount uint32) *BloomFilter {
 	if falsePositiveRate < 0.0 || falsePositiveRate > 1.0 {
 		panic("Expected false positive rate to be a value between 0 and 1")
 	}
@@ -56,7 +64,7 @@ func NewFilterWithFalsePositiveRate(falsePositiveRate float32, elementCount uint
 		Buckets:         make([]uint32, numBuckets),
 	}
 
-	return filter, nil
+	return filter
 }
 
 func (f *BloomFilter) FalsePositiveRate(numItems uint32) float64 {
@@ -125,29 +133,32 @@ func (f *BloomFilter) IsNotPresent(hash []byte) bool {
 }
 
 func (f *BloomFilter) forEachSubhash(hash []byte, cb func(uint32)) {
+	// This is required so that we can guarantee hash generation in overflow
 	if len(hash) < 8 {
 		panic("Bloom filter hashes must be at least 8 bytes")
 	}
 
-	index := 0
-	var first, second *uint32
+	index := uint32(0)
+
+	overflowInitialized := false
+	var overflowFirst, overflowSecond uint32
+
 	for hashes := uint32(0); hashes < f.NumSubhashes; hashes += 1 {
 		var value uint32
-		if index+f.BytesPerSubhash < len(hash) {
-			subhash := hash[i : i+f.BytesPerSubhash]
+		if index+f.BytesPerSubhash < uint32(len(hash)) {
+			subhash := hash[index : index+f.BytesPerSubhash]
 			value = binary.LittleEndian.Uint32(subhash)
 		} else {
 			// This should be an ok way to extend the hash, via https://www.eecs.harvard.edu/~michaelm/postscripts/tr-02-05.pdf
-			if first == nil {
+			if !overflowInitialized {
 				subhash := hash[0:4]
-				first = &binary.LittleEndian.Uint32(subhash)
+				overflowFirst = binary.LittleEndian.Uint32(subhash)
 				subhash = hash[4:8]
-				second = &binary.LittleEndian.Uint32(subhash)
+				overflowSecond = binary.LittleEndian.Uint32(subhash)
 			}
-			value = *first + hashes*(*second)
+			value = overflowFirst + hashes*(overflowSecond)
 		}
 
-		fmt.Printf("Bucket: %d (%d)\n", value%uint32(len(f.Buckets)), value)
 		cb(value % uint32(len(f.Buckets)))
 	}
 }
