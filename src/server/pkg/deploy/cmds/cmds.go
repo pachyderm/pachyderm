@@ -447,11 +447,10 @@ If <object store backend> is \"s3\", then the arguments are:
 			Stdout: os.Stdout,
 			Stderr: os.Stderr,
 		}
-		// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-		if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
-			return err
-		}
-		return nil
+
+		// it can't unmarshal it from stdin in the given format for some reason, so we pass it in directly
+		s := string(manifest.Buffer().Bytes())
+		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace)
 	}
 
 	deployStorageAmazon := &cobra.Command{
