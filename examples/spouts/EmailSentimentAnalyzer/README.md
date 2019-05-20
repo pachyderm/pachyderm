@@ -36,7 +36,7 @@ This guide assumes that you already have a Pachyderm cluster running and have co
    Look in the source code for [./imap_spout.py](imap_spout.py) for environment variables you may need to add to the pipeline spec for the spout to use another email service or other default IMAP folders.
 3. Create the secrets needed to securely access the account.  
    The values `<your-password>` and `<account name>` are enclosed in single quotes to prevent the shell from interpreting them.
-   Confirm the values in these files are what you accept.
+   Confirm the values in these files are what you expect.
 ```sh
 $ echo -n '<your-password>' > IMAP_PASSWORD
 $ echo -n '<account-name>` > IMAP_LOGIN
@@ -131,7 +131,7 @@ A couple of things to note, to expand on the [Pachyderm spout](http://docs.pachy
    Sometimes it'll take the spout a little bit of time to reopen`/pfs/out` after out code closes it for a commit;
    the backoff is insurance.
 1. It saves each email in a file with the `mbox` extension, which is the standard extension for Unix emails. 
-   "eml" is also commonly used, but is a slightly different format than what we use here. '
+   `eml` is also commonly used, but is a slightly different format than what we use here.
    Each `mbox` file contains one email.
 
 ### sentimentalist
