@@ -25,11 +25,11 @@ func FilterSizeForFalsePositiveRate(falsePositiveRate float64, elementCount uint
 // Given these, the filter will choose the optimal number of hashes to perform
 // to get the best possible false-positive rate.
 func NewFilterWithSize(bytes uint32, elementCount uint32) *BloomFilter {
-	numBuckets := bytes / 4
+	numBuckets := bytes
 
 	filter := &BloomFilter{
 		NumSubhashes: optimalSubhashes(numBuckets, elementCount),
-		Buckets:      make([]uint32, numBuckets),
+		Buckets:      make([]byte, numBuckets),
 	}
 
 	return filter
@@ -53,7 +53,7 @@ func NewFilterWithFalsePositiveRate(falsePositiveRate float64, elementCount uint
 
 	filter := &BloomFilter{
 		NumSubhashes: optimalSubhashes(numBuckets, elementCount),
-		Buckets:      make([]uint32, numBuckets),
+		Buckets:      make([]byte, numBuckets),
 	}
 
 	return filter
@@ -74,30 +74,20 @@ func (f *BloomFilter) FalsePositiveRate(numItems uint32) float64 {
 func (f *BloomFilter) OverflowRate() float32 {
 	numOverflow := 0
 	for _, value := range f.Buckets {
-		if value == math.MaxUint32 {
+		if value == math.MaxUint8 {
 			numOverflow += 1
 		}
 	}
 	return float32(numOverflow) / float32(len(f.Buckets))
 }
 
-func (f *BloomFilter) maxValue() uint32 {
-	max := uint32(0)
-	for _, value := range f.Buckets {
-		if value > max {
-			max = value
-		}
-	}
-	return max
-}
-
 // Add adds an item to the filter.
 func (f *BloomFilter) Add(hash []byte) {
 	f.forEachSubhash(hash, func(i uint32) {
 		// If we overflow the bucket, we don't want it to wrap back to zero, just
-		// leave it at MaxUint32 and it can never be removed from the filter.
+		// leave it at MaxUint8 and it can never be removed from the filter.
 		value := f.Buckets[i]
-		if value != math.MaxUint32 {
+		if value != math.MaxUint8 {
 			f.Buckets[i] = value + 1
 		}
 	})
@@ -107,9 +97,9 @@ func (f *BloomFilter) Add(hash []byte) {
 func (f *BloomFilter) Remove(hash []byte) {
 	f.forEachSubhash(hash, func(i uint32) {
 		// We can't remove from an overflowed bucket, as the information has already
-		// been lost - just leave it at MaxUint32
+		// been lost - just leave it at MaxUint8
 		value := f.Buckets[i]
-		if value != 0 && value != math.MaxUint32 {
+		if value != 0 && value != math.MaxUint8 {
 			f.Buckets[i] = value - 1
 		}
 	})
@@ -117,10 +107,10 @@ func (f *BloomFilter) Remove(hash []byte) {
 
 // UpperBoundCount returns the maximum number of items in the filter matching
 // the given hash.
-func (f *BloomFilter) UpperBoundCount(hash []byte) uint32 {
-	lowerBound := uint32(math.MaxUint32)
+func (f *BloomFilter) UpperBoundCount(hash []byte) uint8 {
+	lowerBound := uint8(math.MaxUint8)
 	f.forEachSubhash(hash, func(i uint32) {
-		value := f.Buckets[i]
+		value := uint8(f.Buckets[i])
 		if value < lowerBound {
 			lowerBound = value
 		}
