@@ -117,7 +117,7 @@ message Tag {
 **Garbage Collection:**
 
 We store two types of objects in object storage, content addressed objects and
-semantically addressed objects. Content address objects are named based on
+semantically addressed objects. Content addressed objects are named based on
 their content, semantically named objects have their names passed in and are
 identifiers that users of the storage layer defines. In practice these will be
 commit names although we may start using it for other identifiers as well. The
@@ -126,19 +126,19 @@ important differences between these two types of objects as it pertains to GC is
 - CA objects are referenced by SA objects, and by each other. They cannot be
   deleted by the user, they must be deleted by GC.
 - SA objects aren't referenced by other objects, they are deleted by the user
-  and this deletion orphans CA objects and allows them to be GCed.
+  and this deletion orphans CA objects which allows them to be GCed.
 
 For each object we store we will also store a counting bloom filter which
 describes the transitive closure of the objects it references. Counting
 bloom filters have the nice property that they can be added to, and
-subtract from each other. Bloom filters are appealing for GC because they
+subtracted from each other. Bloom filters are appealing for GC because they
 are space efficient structures that sometimes return false positives, but
 never return false negatives. That means that if the bloom filter says an
 object is unreferenced we know it's safe to delete. By summing the bloom
 filters of all the SA objects we can get a global bloom filter that
 describes all of the referenced blocks in our cluster, we can keep this up
 to date by adding the bloom filters of newly added blocks, and subtracting
-the bloom filters of deleted blocks. One of the difficulties of with bloom
+the bloom filters of deleted blocks. One of the difficulties with bloom
 filters is that they can't be used to enumerate paths, they can only be
 used to check a path that you already know about. That means that to
 perform garbage collection we'll need to scan objects and check them
@@ -146,7 +146,7 @@ against our bloom filter to see if they're still referenced. I think this
 can work fine as a process that is always passively running.
 
 The other big difficulty with Pachyderm GC is race conditions. Because of
-our de-dupe system, an object that is unreferenced and thus ready to be
+our deduplication system, an object that is unreferenced and thus ready to be
 GCed may at any point get re-referenced and thus cease to be ready for GC.
 I think we can solve this with a generational system wherein each object
 belongs to a generation, and we record a bloom filter that describes the
