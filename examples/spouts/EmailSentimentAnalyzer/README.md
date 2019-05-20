@@ -28,43 +28,76 @@ which ensures they'll be unique.
 This guide assumes that you already have a Pachyderm cluster running and have configured `pachctl` to talk to the cluster and `kubectl` to talk to Kubernetes.
 [Installation instructions can be found here](http://pachyderm.readthedocs.io/en/stable/getting_started/local_installation.html).
 
-1. Create an email account you want to use.  Keep the email addrees (which is usually the account name) and the password handy.
-1. Enable IMAP on that account. In Gmail, click the gear for "settings" and then click "Forwarding and POP/IMAP"
- to get to the IMAP settings.
-1. Create the secrets needed to securely access the account.
-```
-$ echo -n "your-password" > IMAP_PASSWORD
-$ echo -n "account-name" > IMAP_LOGIN
+1. Create an email account you want to use.  
+   Keep the email addrees (which is usually the account name) and the password handy.
+1. Enable IMAP on that account. 
+   In Gmail, click the gear for "settings" and then click "Forwarding and POP/IMAP" to get to the IMAP settings. 
+   In this example, we're assuming you're using Gmail.
+   Look in the source code for [./imap_spout.py](imap_spout.py) for environment variables you may need to add to the pipeline spec for the spout to use another email service or other default IMAP folders.
+1. Create the secrets needed to securely access the account.  
+   The values `<your-password>` and `<account name>` are enclosed in single quotes to prevent the shell from interpreting them.
+   Confirm the values in these files are what you accept.
+```sh
+$ echo -n '<your-password>' > IMAP_PASSWORD
+$ echo -n '<account-name>` > IMAP_LOGIN
 $ kubectl create secret generic imap-credentials --from-file=./IMAP_LOGIN --from-file=./IMAP_PASSWORD
 ```
-1. Build the docker image for the imap_spout. Put your own docker account name in for`<docker-account-name>`.
+1. Confirm that the secrets got set correctly.
+   You use `kubectl get secret` to output the secrets, and then decode them to confirm they're correct.
+```sh
+$ kubectl get secret imap-credentials -o yaml
+apiVersion: v1
+data:
+  IMAP_LOGIN: <base64-encoded-imap-login>
+  IMAP_PASSWORD: <base64-encoded-imap-password>
+kind: Secret
+metadata:
+  creationTimestamp: "2019-05-20T21:27:56Z"
+  name: imap-credentials
+  namespace: default
+  resourceVersion: "XXX>
+  selfLink: /api/v1/namespaces/default/secrets/imap-credentials
+  uid: <some-uid>
+type: Opaque
+$ echo -n `<base64-encoded-imap-login>` | base64 -d
+<imap-login>
+$ echo -n `<base64-encoded-imap-password>` | base64 -d
+<imap-password>
 ```
+1. Build the docker image for the imap_spout. 
+   Put your own docker account name in for`<docker-account-name>`.
+   There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
+```sh
 $ docker login
-$ docker build -t <docker-account-name>/imap_spout:1.9 -f ./Dockerfile.imap-spout .
+$ docker build -t <docker-account-name>/imap_spout:1.9 -f ./Dockerfile.imap_spout .
 $ docker push <docker-account-name>/imap_spout:1.9
 ```
-1. Build the docker image for the sentimentalist. Put your own docker account name in for`<docker-account-name>`.
-```
+1. Build the docker image for the sentimentalist. 
+   Put your own docker account name in for`<docker-account-name>`.
+   There is a prebuilt image in the Pachyderm DockerHub registry account, if you want to use it.
+```sh
 $ docker build -t <docker-account-name>/sentimentalist:1.9 -f ./Dockerfile.sentimentalist .
 $ docker push <docker-account-name>/sentimentalist:1.9
 ```
-1. Edit the pipeline definition files to refer to your own docker repo.  Put your own docker account name in for _docker-account-name_.
-```
-$ sed s/pachyderm/docker-account-name/g < sentimentalist.json > my_sentimentalist.json
-$ sed s/pachyderm/docker-account-name/g < imap_spout.json > my_imap_spout.json
+1. Edit the pipeline definition files to refer to your own docker repo.
+   Put your own docker account name in for `<docker-account-name>`.
+   There are prebuilt images for both pipelines in the Pachyderm DockerHub registry account, if you want to use those.
+```sh
+$ sed s/pachyderm/<docker-account-name>/g < sentimentalist.json > my_sentimentalist.json
+$ sed s/pachyderm/<docker-account-name>/g < imap_spout.json > my_imap_spout.json
 ```
 1. Confirm the pipeline definition files are correct.
 1. Create the pipelines
-```
+```sh
 pachctl create pipeline -f my_imap_spout.json
 pachctl create pipeline -f my_sentimentalist.json
 ```
 1. Start sending plain-text emails to the account you created. 
-Every few seconds, the imap_spout pipeline will fetch emails from that account via IMAP and send them to its output repo, 
-where the sentimentalist pipeline will score them as positive or negative and sort them into output repos accordingly.
-Have fun! 
-Try tricking the VADER sentiment engine with vague and ironic statements.
-Try emojis!
+   Every few seconds, the imap_spout pipeline will fetch emails from that account via IMAP and send them to its output repo, 
+   where the sentimentalist pipeline will score them as positive or negative and sort them into output repos accordingly.
+   Have fun! 
+   Try tricking the VADER sentiment engine with vague and ironic statements.
+   Try emojis!
 
 ## Pipelines
 
@@ -81,22 +114,25 @@ It then puts each email as a separate file in the spout's output repo.
 
 A couple of things to note, to expand on the [Pachyderm spout](http://docs.pachyderm.com/en/latest/fundamentals/spouts.html) documentation.
 
+1. Look in the source code for [./imap_spout.py](imap_spout.py) for environment variables you may need to add to the pipeline spec for the spout to use another email service or other default IMAP folders.
 1. The function `open_pipe` opens `/pfs/out`, 
-the named pipe that's the gateway to the spout's output repo. 
-Note that it must open that pipe as _write only_ and in _binary_ mode. 
-If you omit this, you're likely to see errors like `TypeError: a bytes-like object is required, not 'str'` in your `pachctl logs` for the pipeline.
+   the named pipe that's the gateway to the spout's output repo. 
+   Note that it must open that pipe as _write only_ and in _binary_ mode. 
+   If you omit this, you're likely to see errors like `TypeError: a bytes-like object is required, not 'str'` in your `pachctl logs` for the pipeline.
 1. The files are not written directly to the `/pfs/out`; 
-they're written as part of a `tarfile` object.  
-Pachyderm uses the Unix `tar` format to ensure that multiple files can be written to `/pfs/out` and appear correctly in the output repo of your spout.
+   they're written as part of a `tarfile` object.  
+   Pachyderm uses the Unix `tar` format to ensure that multiple files can be written to `/pfs/out` and appear correctly in the output repo of your spout.
 1. In Python, the `tarfile.open()` command must use the `mode="w|"` argument,
-along with the named pipe's file object,
-to ensure that the `tarfile` object won't try to `seek` on the named pipe `/pfs/out`.
-If you forget this argument, you're likely to to see errors like `file stream is not seekable` in your `pachctl logs` for the pipeline.
+   along with the named pipe's file object,
+   to ensure that the `tarfile` object won't try to `seek` on the named pipe `/pfs/out`.
+   If you forget this argument, you're likely to to see errors like `file stream is not seekable` in your `pachctl logs` for the pipeline.
 1. Every time you `close()` `/pfs/out`, it's a commit.
 1. Note that `open_pipe` backs off and attempts to open `/pfs/out` if any errors happen.
-Sometimes it'll take the spout a little bit of time to reopen`/pfs/out` after out code closes it for a commit;
-the backoff is insurance.
-1. It saves each email in a file with the `mbox` extension, which is the standard extension for Unix emails. "eml" is also commonly used, but is a slightly different format than what we use here. Each `mbox` file contains one email.
+   Sometimes it'll take the spout a little bit of time to reopen`/pfs/out` after out code closes it for a commit;
+   the backoff is insurance.
+1. It saves each email in a file with the `mbox` extension, which is the standard extension for Unix emails. 
+   "eml" is also commonly used, but is a slightly different format than what we use here. '
+   Each `mbox` file contains one email.
 
 ### sentimentalist
 
