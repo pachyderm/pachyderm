@@ -112,7 +112,7 @@ $ pachctl get file "tweets@master:/<username>"
 Assuming those results look reasonable, let's move on to training a model.
 
 
-# Model training
+## Model training
 
 As mentioned we'll be using OpenAI's gpt-2 text generation model, actually
 we'll be using a handy wrapper:
@@ -181,6 +181,80 @@ $ pachctl create pipeline -f train.json
 ```
 
 This will kick off a job immediately, because there are already inputs to be
-processed. Expect this job to take a while to run, on a laptop with 4 Intel
-Core i7-6600U CPU @ 2.60GHz and 32 GB of ram it took about an hour. While
-that's running, let's setup the generate pipeline.
+processed. Expect this job to take a while to run, you can make it run
+quicker by setting the max steps lower.
+
+While that's running, let's setup the last step: generating text.
+
+## Text Generation
+
+The last step is to take our trained models and make them tweet! The code
+for this is in [generate.py](link) and looks like this:
+
+```python
+#!/usr/local/bin/python3
+import gpt_2_simple as gpt2
+import os
+
+models = [f for f in os.listdir("/pfs/train")]
+
+model_dir = os.path.join("/pfs/train", models[0])
+# can't tell gpt2 where to read from, so we chdir
+os.chdir(model_dir)
+
+sess = gpt2.start_tf_sess()
+gpt2.load_gpt2(sess)
+
+out = os.path.join("/pfs/out", models[0])
+gpt2.generate_to_file(sess, destination_path=out, prefix="<|startoftext|>",
+                      truncate="<|endoftext|>", include_prefix=False,
+                      length=280, nsamples=30)
+```
+
+Again this code includes some standard Pachyderm boilerplate to read the data
+from the local filesystem. The interesting bit is the call the
+`generate_to_file`, which actually generates the tweets. A few things to
+mention: we set prefix to `"<|startoftext|>"` and truncate `"<|endoftext|>"`
+off the end. These are the tokens we added in the first steps (and that were
+added in the original training set) to delineate the beginning and end of
+tweets. We also set `include_prefix` to `False`, so that we don't have
+`"<|startoftext|>"` appended to every single tweet. Adding them here tells
+gpt-2 to generate a single coherent (hopefully) piece of text. We also set the
+length to 280 characters, which is Twitter's limit on tweet size, in a future
+version we may teach gpt-2 to post tweet storms. Lastly we tell it to give us
+30 samples, in this case a sample is a tweet.
+
+The pipeline spec to run this on Pachyderm should look familiar by now:
+
+```json
+{
+    "pipeline": {
+        "name": "generate"
+    },
+    "transform": {
+        "image": "gpt-2-example",
+        "cmd": ["/generate.py"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "train",
+            "glob": "/*"
+        }
+    }
+}
+```
+
+# Modifying and running this example
+
+This example comes with a simple Makefile to build and deploy it.
+
+To build the docker images (after modifying the code):
+
+```sh
+$ make docker-build
+```
+
+```sh
+$ make deploy
+```
+
