@@ -108,7 +108,7 @@ func TestLargeAllocation(t *testing.T) {
 	filter := NewFilterWithFalsePositiveRate(desiredFalsePositiveRate, 1000000, maxFilterSize)
 
 	// The filter should be truncated to the max size
-	require.Equal(t, maxFilterSize, len(filter.Buckets))
+	require.Equal(t, maxFilterSize, len(filter.Buckets)*bytesPerBucket)
 
 	// The false positive rate should be higher than we wanted
 	require.True(t, filter.FalsePositiveRate(1000000) > desiredFalsePositiveRate)

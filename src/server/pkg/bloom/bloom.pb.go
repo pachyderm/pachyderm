@@ -36,7 +36,7 @@ type BloomFilter struct {
 	// Perhaps better to provide a 'BloomFilterDelta' that can later be combined
 	// into an existing filter, while still preserving the invariant that all
 	// buckets are positive.
-	Buckets              []byte   `protobuf:"bytes,2,opt,name=buckets,proto3" json:"buckets,omitempty"`
+	Buckets              []uint32 `protobuf:"varint,2,rep,packed,name=buckets,proto3" json:"buckets,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -82,7 +82,7 @@ func (m *BloomFilter) GetNumSubhashes() uint32 {
 	return 0
 }
 
-func (m *BloomFilter) GetBuckets() []byte {
+func (m *BloomFilter) GetBuckets() []uint32 {
 	if m != nil {
 		return m.Buckets
 	}
@@ -103,11 +103,11 @@ var fileDescriptor_39c89857c5c00dac = []byte{
 	0x99, 0x53, 0x92, 0x5a, 0x24, 0xa4, 0xcc, 0xc5, 0x9b, 0x57, 0x9a, 0x1b, 0x5f, 0x5c, 0x9a, 0x94,
 	0x91, 0x58, 0x9c, 0x91, 0x5a, 0x2c, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x1b, 0xc4, 0x93, 0x57, 0x9a,
 	0x1b, 0x0c, 0x13, 0x13, 0x92, 0xe0, 0x62, 0x4f, 0x2a, 0x4d, 0xce, 0x4e, 0x2d, 0x29, 0x96, 0x60,
-	0x52, 0x60, 0xd4, 0xe0, 0x09, 0x82, 0x71, 0x9d, 0x5c, 0x4f, 0x3c, 0x92, 0x63, 0xbc, 0xf0, 0x48,
+	0x52, 0x60, 0xd6, 0xe0, 0x0d, 0x82, 0x71, 0x9d, 0x5c, 0x4f, 0x3c, 0x92, 0x63, 0xbc, 0xf0, 0x48,
 	0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x19, 0x8f, 0xe5, 0x18, 0xa2, 0x8c, 0xd3, 0x33, 0x4b, 0x32,
 	0x4a, 0x93, 0xf4, 0x92, 0xf3, 0x73, 0xf5, 0x0b, 0x12, 0x93, 0x33, 0x2a, 0x53, 0x52, 0x8b, 0x90,
 	0x59, 0xc5, 0x45, 0xc9, 0xfa, 0xe8, 0xee, 0x4c, 0x62, 0x03, 0x3b, 0xd1, 0x18, 0x10, 0x00, 0x00,
-	0xff, 0xff, 0x41, 0xf5, 0xda, 0x5e, 0xc2, 0x00, 0x00, 0x00,
+	0xff, 0xff, 0xbc, 0x49, 0x25, 0x61, 0xc2, 0x00, 0x00, 0x00,
 }
 
 func (m *BloomFilter) Marshal() (dAtA []byte, err error) {
@@ -131,10 +131,21 @@ func (m *BloomFilter) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintBloom(dAtA, i, uint64(m.NumSubhashes))
 	}
 	if len(m.Buckets) > 0 {
+		dAtA2 := make([]byte, len(m.Buckets)*10)
+		var j1 int
+		for _, num := range m.Buckets {
+			for num >= 1<<7 {
+				dAtA2[j1] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j1++
+			}
+			dAtA2[j1] = uint8(num)
+			j1++
+		}
 		dAtA[i] = 0x12
 		i++
-		i = encodeVarintBloom(dAtA, i, uint64(len(m.Buckets)))
-		i += copy(dAtA[i:], m.Buckets)
+		i = encodeVarintBloom(dAtA, i, uint64(j1))
+		i += copy(dAtA[i:], dAtA2[:j1])
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -160,9 +171,12 @@ func (m *BloomFilter) Size() (n int) {
 	if m.NumSubhashes != 0 {
 		n += 1 + sovBloom(uint64(m.NumSubhashes))
 	}
-	l = len(m.Buckets)
-	if l > 0 {
-		n += 1 + l + sovBloom(uint64(l))
+	if len(m.Buckets) > 0 {
+		l = 0
+		for _, e := range m.Buckets {
+			l += sovBloom(uint64(e))
+		}
+		n += 1 + sovBloom(uint64(l)) + l
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -232,39 +246,81 @@ func (m *BloomFilter) Unmarshal(dAtA []byte) error {
 				}
 			}
 		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Buckets", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBloom
+			if wireType == 0 {
+				var v uint32
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowBloom
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= uint32(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
 				}
-				if iNdEx >= l {
+				m.Buckets = append(m.Buckets, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowBloom
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthBloom
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthBloom
+				}
+				if postIndex > l {
 					return io.ErrUnexpectedEOF
 				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
+				var elementCount int
+				var count int
+				for _, integer := range dAtA[iNdEx:postIndex] {
+					if integer < 128 {
+						count++
+					}
 				}
+				elementCount = count
+				if elementCount != 0 && len(m.Buckets) == 0 {
+					m.Buckets = make([]uint32, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v uint32
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowBloom
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= uint32(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.Buckets = append(m.Buckets, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field Buckets", wireType)
 			}
-			if byteLen < 0 {
-				return ErrInvalidLengthBloom
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthBloom
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Buckets = append(m.Buckets[:0], dAtA[iNdEx:postIndex]...)
-			if m.Buckets == nil {
-				m.Buckets = []byte{}
-			}
-			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipBloom(dAtA[iNdEx:])

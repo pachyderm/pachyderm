@@ -19,5 +19,5 @@ message BloomFilter {
   // Perhaps better to provide a 'BloomFilterDelta' that can later be combined
   // into an existing filter, while still preserving the invariant that all
   // buckets are positive.
-  bytes buckets = 2;
+  repeated uint32 buckets = 2;
 }
