@@ -413,6 +413,18 @@ func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	}
 }
 
+// Panic checks that the callback panics.
+func Panic(tb testing.TB, cb func(), msgAndArgs ...interface{}) {
+	defer func() {
+		r := recover()
+		if r == nil {
+			fatal(tb, msgAndArgs, "Should have panicked.")
+		}
+	}()
+
+	cb()
+}
+
 func logMessage(tb testing.TB, msgAndArgs []interface{}) {
 	tb.Helper()
 	if len(msgAndArgs) == 1 {
