@@ -51,6 +51,7 @@ enum State {
 message GetStateResponse {
   State state = 1;
   TokenInfo info = 2;
+  string activation_code = 3;
 }
 
 message DeactivateRequest{}

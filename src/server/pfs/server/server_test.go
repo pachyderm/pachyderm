@@ -354,6 +354,51 @@ func TestRegressionPutFileIntoOpenCommit(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestPutFileDirectoryTraversal(t *testing.T) {
+	var fileInfos []*pfs.FileInfo
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("repo"))
+
+	_, err := client.StartCommit("repo", "master")
+	require.NoError(t, err)
+
+	writer, err := client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "../foo", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.YesError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	writer, err = client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "foo/../../bar", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.YesError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 0, len(fileInfos))
+
+	writer, err = client.NewPutFileClient()
+	require.NoError(t, err)
+	_, err = writer.PutFile("repo", "master", "foo/../bar", strings.NewReader("foo\n"))
+	require.NoError(t, err)
+	err = writer.Close()
+	require.NoError(t, err)
+
+	fileInfos, err = client.ListFile("repo", "master", "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(fileInfos))
+
+	err = client.Close()
+	require.NoError(t, err)
+}
+
 func TestCreateInvalidBranchName(t *testing.T) {
 
 	client := GetPachClient(t)
@@ -680,7 +725,7 @@ func TestAncestrySyntax(t *testing.T) {
 
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFileOverwrite(repo, commit1.ID, "file", strings.NewReader("1"), 0)
+	_, err = client.PutFileOverwrite(repo, "master", "file", strings.NewReader("1"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -728,6 +773,18 @@ func TestAncestrySyntax(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit1, commitInfo.Commit)
 
+	commitInfo, err = client.InspectCommit(repo, "master.1")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.2")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.3")
+	require.NoError(t, err)
+	require.Equal(t, commit3, commitInfo.Commit)
+
 	commitInfo, err = client.InspectCommit(repo, "master^^^")
 	require.YesError(t, err)
 
@@ -754,6 +811,33 @@ func TestAncestrySyntax(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 2), "file", 0, 0, &buffer))
 	require.Equal(t, "1", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -1), "file", 0, 0, &buffer))
+	require.Equal(t, "1", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -2), "file", 0, 0, &buffer))
+	require.Equal(t, "2", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -3), "file", 0, 0, &buffer))
+	require.Equal(t, "3", buffer.String())
+
+	// Adding a bunch of commits to the head of the branch shouldn't change the forward references.
+	// (It will change backward references.)
+	for i := 0; i < 10; i++ {
+		_, err = client.PutFileOverwrite(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i+4)), 0)
+		require.NoError(t, err)
+	}
+	commitInfo, err = client.InspectCommit(repo, "master.1")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.2")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.3")
+	require.NoError(t, err)
+	require.Equal(t, commit3, commitInfo.Commit)
 }
 
 // TestProvenance implements the following DAG
@@ -3921,18 +4005,14 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 	// - reset bigSubvCommit to be the head of 'schema/master' (the only commit)
 	// - commit to 'logs' 10 more times
 	// - delete bigSubvCommit
-	// - Now there should be one commit in 'pipeline' (started by DeleteCommit, to
-	//   process 'logs/master' alone) and its parent should be nil
-	//   (makes sure that the branch pipeline/master is rewritten back to nil)
+	// - Now there shouldn't be any commits in 'pipeline'
 	// - Further test: delete all commits in schema and logs, and make sure that
-	//   'pipeline/master' actually points to nil, as there are no input commits
+	//   'pipeline/master' still points to nil, as there are no input commits
 	commits, err = c.ListCommit("schema", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(commits))
 	bigSubvCommit = commits[0].Commit
-	// bigSubvCommitInfo, err = c.InspectCommit(schema, "master")
-	// require.NoError(t, err)
-	// bigSubvCommit = bigSubvCommitInfo.Commit
+
 	for i := 0; i < 10; i++ {
 		commit, err = c.StartCommit("logs", "master")
 		require.NoError(t, err)
@@ -3943,11 +4023,7 @@ func TestDeleteCommitBigSubvenance(t *testing.T) {
 
 	commits, err = c.ListCommit("pipeline", "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(commits))
-	pipelineMaster, err = c.InspectCommit("pipeline", "master")
-	require.NoError(t, err)
-	require.Equal(t, pipelineMaster.Commit.ID, commits[0].Commit.ID)
-	require.Nil(t, pipelineMaster.ParentCommit)
+	require.Equal(t, 0, len(commits))
 
 	// Delete all input commits--DeleteCommit should reset 'pipeline/master' to
 	// nil, and should not create a new output commit this time
@@ -4204,8 +4280,7 @@ func TestDeleteCommitMultiLevelChildrenNilParent(t *testing.T) {
 
 	// Make sure child/parent relationships are as shown in second diagram
 	commits, err = cli.ListCommit("repo", "", "", 0)
-	// Delete commit does start an additional output commit, but we're ignoring it
-	require.Equal(t, 4, len(commits))
+	require.Equal(t, 3, len(commits))
 	require.Nil(t, eInfo.ParentCommit)
 	require.Nil(t, fInfo.ParentCommit)
 	require.Nil(t, dInfo.ChildCommits)
@@ -4452,19 +4527,12 @@ func TestDeleteCommitShrinkSubvRange(t *testing.T) {
 
 	// Case 4
 	// - Delete the remaining commits in "logs" and make sure that the subvenance
-	//   of the single commit in "schema" has a single, new commit (started by
-	//   DeleteCommit), which is only provenant on the commit in "schema"
+	//   of the single commit in "schema" is now empty
 	for _, i := range []int{1, 2, 3, 4, 6, 7, 8} {
 		require.NoError(t, c.DeleteCommit("logs", logsCommit[i].ID))
 	}
 	schemaCommitInfo, err = c.InspectCommit("schema", schemaCommit.ID)
-	require.Equal(t, 1, len(schemaCommitInfo.Subvenance))
-	require.Equal(t, schemaCommitInfo.Subvenance[0].Lower.ID,
-		schemaCommitInfo.Subvenance[0].Upper.ID)
-	outputCommitInfo, err := c.InspectCommit("pipeline", "master")
-	require.NoError(t, err)
-	require.Equal(t, 1, len(outputCommitInfo.Provenance))
-	require.Equal(t, schemaCommit.ID, outputCommitInfo.Provenance[0].Commit.ID)
+	require.Equal(t, 0, len(schemaCommitInfo.Subvenance))
 }
 
 func TestCommitState(t *testing.T) {
@@ -4644,7 +4712,6 @@ func TestPutFileCommitOverwrite(t *testing.T) {
 
 func TestStartCommitOutputBranch(t *testing.T) {
 	c := GetPachClient(t)
-
 	require.NoError(t, c.CreateRepo("in"))
 	require.NoError(t, c.CreateRepo("out"))
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
@@ -4908,4 +4975,174 @@ func TestDeferredProcessing(t *testing.T) {
 	commits, err = client.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
+}
+
+const (
+	inputRepo          = iota // create a new input repo
+	inputBranch               // create a new branch on an existing input repo
+	deleteInputBranch         // delete an input branch
+	commit                    // commit to an input branch
+	deleteCommit              // delete a commit from an input branch
+	outputRepo                // create a new output repo, with master branch subscribed to random other branches
+	outputBranch              // create a new output branch on an existing output repo
+	deleteOutputBranch        // delete an output branch
+)
+
+func TestFuzzProvenance(t *testing.T) {
+	seed := time.Now().UnixNano()
+	t.Log("Random seed is", seed)
+	r := rand.New(rand.NewSource(seed))
+
+	client := GetPachClient(t)
+	_, err := client.PfsAPIClient.DeleteAll(client.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+	nOps := 300
+	opShares := []int{
+		1, // inputRepo
+		1, // inputBranch
+		1, // deleteInputBranch
+		5, // commit
+		3, // deleteCommit
+		1, // outputRepo
+		2, // outputBranch
+		1, // deleteOutputBranch
+	}
+	total := 0
+	for _, v := range opShares {
+		total += v
+	}
+	var (
+		inputRepos     []string
+		inputBranches  []*pfs.Branch
+		commits        []*pfs.Commit
+		outputRepos    []string
+		outputBranches []*pfs.Branch
+	)
+OpLoop:
+	for i := 0; i < nOps; i++ {
+		println("\niter", i)
+		roll := r.Intn(total)
+		if i < 0 {
+			roll = inputRepo
+		}
+		var op int
+		for _op, v := range opShares {
+			roll -= v
+			if roll < 0 {
+				op = _op
+				break
+			}
+		}
+		switch op {
+		case inputRepo:
+			println("inputRepo")
+			repo := tu.UniqueString("repo")
+			require.NoError(t, client.CreateRepo(repo))
+			inputRepos = append(inputRepos, repo)
+			require.NoError(t, client.CreateBranch(repo, "master", "", nil))
+			inputBranches = append(inputBranches, pclient.NewBranch(repo, "master"))
+		case inputBranch:
+			println("inputBranch")
+			if len(inputRepos) == 0 {
+				continue OpLoop
+			}
+			repo := inputRepos[r.Intn(len(inputRepos))]
+			branch := tu.UniqueString("branch")
+			require.NoError(t, client.CreateBranch(repo, branch, "", nil))
+			inputBranches = append(inputBranches, pclient.NewBranch(repo, branch))
+		case deleteInputBranch:
+			println("deleteInputBranch")
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			i := r.Intn(len(inputBranches))
+			branch := inputBranches[i]
+			inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
+			err = client.DeleteBranch(branch.Repo.Name, branch.Name, false)
+			// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
+			if err != nil && !strings.Contains(err.Error(), "break") {
+				require.NoError(t, err)
+			}
+		case commit:
+			println("commit")
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			branch := inputBranches[r.Intn(len(inputBranches))]
+			commit, err := client.StartCommit(branch.Repo.Name, branch.Name)
+			require.NoError(t, err)
+			require.NoError(t, client.FinishCommit(branch.Repo.Name, branch.Name))
+			commits = append(commits, commit)
+		case deleteCommit:
+			println("deleteCommit")
+			if len(commits) == 0 {
+				continue OpLoop
+			}
+			i := r.Intn(len(commits))
+			commit := commits[i]
+			commits = append(commits[:i], commits[i+1:]...)
+			require.NoError(t, client.DeleteCommit(commit.Repo.Name, commit.ID))
+		case outputRepo:
+			println("outputRepo")
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			repo := tu.UniqueString("repo")
+			require.NoError(t, client.CreateRepo(repo))
+			outputRepos = append(outputRepos, repo)
+			var provBranches []*pfs.Branch
+			for num, i := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
+				provBranches = append(provBranches, inputBranches[i])
+				if num > 1 {
+					break
+				}
+			}
+
+			require.NoError(t, client.CreateBranch(repo, "master", "", provBranches))
+			outputBranches = append(outputBranches, pclient.NewBranch(repo, "master"))
+		case outputBranch:
+			println("outputBranch")
+			if len(outputRepos) == 0 {
+				continue OpLoop
+			}
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			repo := outputRepos[r.Intn(len(outputRepos))]
+			branch := tu.UniqueString("branch")
+			var provBranches []*pfs.Branch
+			for num, i := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
+				provBranches = append(provBranches, inputBranches[i])
+				if num > 1 {
+					break
+				}
+			}
+
+			if len(outputBranches) > 0 {
+				for num, i := range r.Perm(len(outputBranches))[:r.Intn(len(outputBranches))] {
+					provBranches = append(provBranches, outputBranches[i])
+					if num > 1 {
+						break
+					}
+				}
+			}
+			require.NoError(t, client.CreateBranch(repo, branch, "", provBranches))
+			outputBranches = append(outputBranches, pclient.NewBranch(repo, branch))
+		case deleteOutputBranch:
+			println("deleteOutputBranch")
+			if len(outputBranches) == 0 {
+				continue OpLoop
+			}
+			i := r.Intn(len(outputBranches))
+			branch := outputBranches[i]
+			outputBranches = append(outputBranches[:i], outputBranches[i+1:]...)
+			err = client.DeleteBranch(branch.Repo.Name, branch.Name, false)
+			// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
+			if err != nil && !strings.Contains(err.Error(), "break") {
+				require.NoError(t, err)
+			}
+		}
+		_, err = client.Fsck(client.Ctx(), &types.Empty{})
+		require.NoError(t, err)
+	}
 }

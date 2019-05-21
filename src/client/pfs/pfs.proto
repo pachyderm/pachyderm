@@ -79,6 +79,15 @@ message RepoAuthInfo {
   auth.Scope access_level = 1;
 }
 
+// These are the different places where a commit may be originated from
+enum OriginKind {
+  USER = 0;
+  AUTO = 1;
+}
+
+message CommitOrigin {
+  OriginKind kind = 1;
+}
 // Commit is a reference to a commit (e.g. the collection of branches and the
 // collection of currently-open commits in etcd are collections of Commit
 // protos)
@@ -107,6 +116,7 @@ message CommitInfo {
   reserved 6, 10;
   Commit commit = 1;
   Branch branch = 15;
+  CommitOrigin origin = 17;
   // description is a user-provided script describing this commit
   string description = 8;
   Commit parent_commit = 2;
@@ -514,6 +524,8 @@ service API {
 
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  // Fsck does a file system consistency check for pfs
+  rpc Fsck(google.protobuf.Empty) returns (google.protobuf.Empty) {}
 }
 
 message PutObjectRequest {

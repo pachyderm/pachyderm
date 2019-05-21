@@ -36,7 +36,7 @@ func TestDryrun(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
 
 	job := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
@@ -52,6 +52,155 @@ func TestDryrun(t *testing.T) {
 	jobInfosReadonly := jobInfos.ReadOnly(context.Background())
 	err = jobInfosReadonly.Get("j1", job)
 	require.True(t, IsErrNotFound(err))
+}
+
+func TestGetAfterDel(t *testing.T) {
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
+
+	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+
+	j1 := &pps.JobInfo{
+		Job:      client.NewJob("j1"),
+		Pipeline: client.NewPipeline("p1"),
+	}
+	j2 := &pps.JobInfo{
+		Job:      client.NewJob("j2"),
+		Pipeline: client.NewPipeline("p1"),
+	}
+	j3 := &pps.JobInfo{
+		Job:      client.NewJob("j3"),
+		Pipeline: client.NewPipeline("p2"),
+	}
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j1.Job.ID, j1)
+		jobInfos.Put(j2.Job.ID, j2)
+		jobInfos.Put(j3.Job.ID, j3)
+		return nil
+	})
+	require.NoError(t, err)
+
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		job := &pps.JobInfo{}
+		jobInfos := jobInfos.ReadWrite(stm)
+		if err := jobInfos.Get(j1.Job.ID, job); err != nil {
+			return err
+		}
+
+		if err := jobInfos.Get("j4", job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", "j4", err)
+		}
+
+		jobInfos.DeleteAll()
+
+		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
+		}
+		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j2.Job.ID, err)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+
+	count, err := jobInfos.ReadOnly(context.Background()).Count()
+	require.NoError(t, err)
+	require.Equal(t, int64(0), count)
+}
+
+func TestDeletePrefix(t *testing.T) {
+	etcdClient := getEtcdClient()
+	uuidPrefix := uuid.NewWithoutDashes()
+
+	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+
+	j1 := &pps.JobInfo{
+		Job:      client.NewJob("prefix/suffix/job"),
+		Pipeline: client.NewPipeline("p"),
+	}
+	j2 := &pps.JobInfo{
+		Job:      client.NewJob("prefix/suffix/job2"),
+		Pipeline: client.NewPipeline("p"),
+	}
+	j3 := &pps.JobInfo{
+		Job:      client.NewJob("prefix/job3"),
+		Pipeline: client.NewPipeline("p"),
+	}
+	j4 := &pps.JobInfo{
+		Job:      client.NewJob("job4"),
+		Pipeline: client.NewPipeline("p"),
+	}
+
+	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		jobInfos := jobInfos.ReadWrite(stm)
+		jobInfos.Put(j1.Job.ID, j1)
+		jobInfos.Put(j2.Job.ID, j2)
+		jobInfos.Put(j3.Job.ID, j3)
+		jobInfos.Put(j4.Job.ID, j4)
+		return nil
+	})
+	require.NoError(t, err)
+
+	_, err = NewSTM(context.Background(), etcdClient, func(stm STM) error {
+		job := &pps.JobInfo{}
+		jobInfos := jobInfos.ReadWrite(stm)
+
+		jobInfos.DeleteAllPrefix("prefix/suffix")
+		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
+		}
+		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j2.Job.ID, err)
+		}
+		if err := jobInfos.Get(j3.Job.ID, job); err != nil {
+			return err
+		}
+		if err := jobInfos.Get(j4.Job.ID, job); err != nil {
+			return err
+		}
+
+		jobInfos.DeleteAllPrefix("prefix")
+		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
+		}
+		if err := jobInfos.Get(j2.Job.ID, job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j2.Job.ID, err)
+		}
+		if err := jobInfos.Get(j3.Job.ID, job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j3.Job.ID, err)
+		}
+		if err := jobInfos.Get(j4.Job.ID, job); err != nil {
+			return err
+		}
+
+		jobInfos.Put(j1.Job.ID, j1)
+		if err := jobInfos.Get(j1.Job.ID, job); err != nil {
+			return err
+		}
+
+		jobInfos.DeleteAllPrefix("prefix/suffix")
+		if err := jobInfos.Get(j1.Job.ID, job); !IsErrNotFound(err) {
+			return fmt.Errorf("Expected ErrNotFound for key '%s', but got '%v'", j1.Job.ID, err)
+		}
+
+		jobInfos.Put(j2.Job.ID, j2)
+		if err := jobInfos.Get(j2.Job.ID, job); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+
+	job := &pps.JobInfo{}
+	jobs := jobInfos.ReadOnly(context.Background())
+	require.True(t, IsErrNotFound(jobs.Get(j1.Job.ID, job)))
+	require.NoError(t, jobs.Get(j2.Job.ID, job))
+	require.Equal(t, j2, job)
+	require.True(t, IsErrNotFound(jobs.Get(j3.Job.ID, job)))
+	require.NoError(t, jobs.Get(j4.Job.ID, job))
+	require.Equal(t, j4, job)
 }
 
 func TestIndex(t *testing.T) {
