@@ -2,6 +2,7 @@ package bloom
 
 import (
 	"crypto/rand"
+	"math"
 	mathrand "math/rand"
 	"testing"
 
@@ -155,4 +156,51 @@ func TestFalsePositiveRate(t *testing.T) {
 	actualFalsePositiveRate := float64(falsePositives) / float64(falsePositiveChecks)
 	require.True(t, actualFalsePositiveRate > 0.09)
 	require.True(t, actualFalsePositiveRate < 0.11)
+}
+
+func TestOverflow(t *testing.T) {
+	filter := NewFilterWithSize(1024, 100)
+
+	// Insert one element
+	hash := makeHash(t)
+	filter.Add(hash)
+
+	// All buckets should be 0 or 1 - the number of buckets with '1' should be
+	// equal to filter.NumSubhashes.
+	indexes := map[int]bool{}
+	for i, value := range filter.Buckets {
+		if value == 1 {
+			indexes[i] = true
+		} else {
+			require.True(t, value == 0)
+		}
+	}
+	require.Equal(t, int(filter.NumSubhashes), len(indexes))
+
+	// Directly modify the buckets to make them just shy of overflow
+	for index, _ := range indexes {
+		filter.Buckets[index] = math.MaxUint32 - 1
+	}
+
+	// This should put all the buckets into overflow
+	filter.Add(hash)
+
+	// Helper function to make sure the values in the buckets are correct
+	checkOverflow := func() {
+		for i, value := range filter.Buckets {
+			if _, found := indexes[i]; found {
+				require.Equal(t, uint32(math.MaxUint32), value)
+			} else {
+				require.Equal(t, uint32(0), value)
+			}
+		}
+	}
+
+	checkOverflow()
+
+	// Now that the buckets are in overflow, these are effectively no-ops
+	filter.Add(hash)
+	checkOverflow()
+	filter.Remove(hash)
+	checkOverflow()
 }
