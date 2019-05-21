@@ -5007,6 +5007,7 @@ func TestMonkeyObjectStorage(t *testing.T) {
 	var err error
 	buf := &bytes.Buffer{}
 	obj.EnableMonkeyTest()
+	defer obj.DisableMonkeyTest()
 	for i := 0; i < iterations; i++ {
 		file := filePrefix + strconv.Itoa(i)
 		data := dataPrefix + strconv.Itoa(i)
