@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
@@ -4937,4 +4939,77 @@ func TestDeferredProcessing(t *testing.T) {
 	commits, err = client.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
+}
+
+func seedStr(seed int64) string {
+	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+}
+
+func monkeyRetry(t *testing.T, f func() error, errMsg string) {
+	backoff.Retry(func() error {
+		err := f()
+		if err != nil {
+			require.True(t, obj.IsMonkeyError(err), errMsg)
+		}
+		return err
+	}, backoff.NewInfiniteBackOff())
+}
+
+func TestMonkeyObjectStorage(t *testing.T) {
+	seed := time.Now().UTC().UnixNano()
+	obj.InitMonkeyTest(seed)
+	client := GetPachClient(t)
+	iterations := 25
+	repo := "input"
+	require.NoError(t, client.CreateRepo(repo), seedStr(seed))
+	filePrefix := "file"
+	dataPrefix := "data"
+	var commit *pfs.Commit
+	var err error
+	buf := &bytes.Buffer{}
+	obj.EnableMonkeyTest()
+	for i := 0; i < iterations; i++ {
+		file := filePrefix + strconv.Itoa(i)
+		data := dataPrefix + strconv.Itoa(i)
+		// Retry start commit until it eventually succeeds.
+		monkeyRetry(t, func() error {
+			commit, err = client.StartCommit(repo, "")
+			return err
+		}, seedStr(seed))
+		// Retry put file until it eventually succeeds.
+		monkeyRetry(t, func() error {
+			_, err = client.PutFile(repo, commit.ID, file, strings.NewReader(data))
+			if err != nil {
+				// Verify that the file does not exist if an error occurred.
+				obj.DisableMonkeyTest()
+				defer obj.EnableMonkeyTest()
+				buf.Reset()
+				err := client.GetFile(repo, commit.ID, file, 0, 0, buf)
+				require.Matches(t, "not found", err.Error(), seedStr(seed))
+			}
+			return err
+		}, seedStr(seed))
+		// Retry get file until it eventually succeeds (before commit is finished).
+		monkeyRetry(t, func() error {
+			buf.Reset()
+			if err = client.GetFile(repo, commit.ID, file, 0, 0, buf); err != nil {
+				return err
+			}
+			require.Equal(t, data, buf.String(), seedStr(seed))
+			return nil
+		}, seedStr(seed))
+		// Retry finish commit until it eventually succeeds.
+		monkeyRetry(t, func() error {
+			return client.FinishCommit(repo, commit.ID)
+		}, seedStr(seed))
+		// Retry get file until it eventually succeeds (after commit is finished).
+		monkeyRetry(t, func() error {
+			buf.Reset()
+			if err = client.GetFile(repo, commit.ID, file, 0, 0, buf); err != nil {
+				return err
+			}
+			require.Equal(t, data, buf.String(), seedStr(seed))
+			return nil
+		}, seedStr(seed))
+	}
 }
