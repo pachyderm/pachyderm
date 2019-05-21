@@ -42,7 +42,7 @@ type AuthWrites interface {
 // PfsPropagater is the interface that PFS implements to propagate commits at
 // the end of a transaction.  It is defined here to avoid a circular dependency.
 type PfsPropagater interface {
-	PropagateCommit(branch *pfs.Branch) error
+	PropagateCommit(branch *pfs.Branch, isNewCommit bool) error
 	Run() error
 }
 
@@ -83,8 +83,8 @@ func (t *TransactionContext) Pfs() PfsTransactionServer {
 // PropagateCommit saves a branch to be propagated at the end of the transaction
 // (if all operations complete successfully).  This is used to batch together
 // propagations and dedupe downstream commits in PFS.
-func (t *TransactionContext) PropagateCommit(branch *pfs.Branch) error {
-	return t.pfsPropagater.PropagateCommit(branch)
+func (t *TransactionContext) PropagateCommit(branch *pfs.Branch, isNewCommit bool) error {
+	return t.pfsPropagater.PropagateCommit(branch, isNewCommit)
 }
 
 func (t *TransactionContext) finish() error {

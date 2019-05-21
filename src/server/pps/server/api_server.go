@@ -2448,12 +2448,52 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 	return &types.Empty{}, nil
 }
 
-// RerunPipeline implements the protobuf pps.RerunPipeline RPC
-func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *types.Empty, retErr error) {
+func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	return nil, fmt.Errorf("TODO")
+	pachClient := a.env.GetPachClient(ctx)
+	ctx = pachClient.Ctx() // pachClient will propagate auth info
+	pfsClient := pachClient.PfsAPIClient
+
+	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
+	if err != nil {
+		return nil, err
+	}
+	// make sure the user isn't trying to run pipeline on an empty branch
+	branch, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
+		Branch: client.NewBranch(request.Pipeline.Name, pipelineInfo.OutputBranch),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if branch.Head == nil {
+		return nil, fmt.Errorf("run pipeline needs a pipeline with existing data to run\nnew commits will trigger the pipeline automatically, so this only needs to be used if you need to run the pipeline on an old version of the data, or to rerun an job")
+	}
+
+	// we need to inspect the commit in order to resolve the commit ID, which may have an ancestry tag
+	specCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit: pipelineInfo.SpecCommit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
+	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
+	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Parent: &pfs.Commit{
+			Repo: &pfs.Repo{
+				Name: request.Pipeline.Name,
+			},
+		},
+		Branch:     pipelineInfo.OutputBranch,
+		Provenance: append(request.Provenance, specProvenance),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &types.Empty{}, nil
 }
 
 // DeleteAll implements the protobuf pps.DeleteAll RPC

@@ -836,8 +836,8 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				// start commit
 				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
 					Parent:     client.NewCommit(repo, ""),
-					Branch:     "master",
-					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, "master", a.pipelineInfo.SpecCommit.ID)},
+					Branch:     a.pipelineInfo.OutputBranch,
+					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, a.pipelineInfo.OutputBranch, a.pipelineInfo.SpecCommit.ID)},
 				})
 				if err != nil {
 					return err

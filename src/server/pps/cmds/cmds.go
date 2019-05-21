@@ -486,6 +486,41 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
+	runPipeline := &cobra.Command{
+		Use:   "{{alias}} <pipeline> [commits...]",
+		Short: "Run an existing Pachyderm pipeline on the specified commits or branches.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commits. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline.",
+		Example: `
+		# Rerun the latest job for the "filter" pipeline
+		$ {{alias}} filter
+		
+		# Reprocess the pipeline "filter" on the data from commits a23e4 and bf363
+		$ {{alias}} filter a23e4 and bf363
+		
+		# Run the pipeline "filter" on the data from the "staging" branch
+		$ {{alias}} filter staging`,
+		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			provCommits, err := cmdutil.ParseCommits(args[1:])
+			if err != nil {
+				return err
+			}
+			prov := make([]*pfs.CommitProvenance, 0, len(args[1:]))
+			for _, commit := range provCommits {
+				prov = append(prov, &pfs.CommitProvenance{
+					Commit: commit,
+				})
+			}
+			client.RunPipeline(args[0], prov)
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
+
 	inspectPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Return info about a pipeline.",
