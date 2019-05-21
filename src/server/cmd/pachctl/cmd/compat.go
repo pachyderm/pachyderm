@@ -528,7 +528,7 @@ $ pachctl list-job -p foo bar/YYY`,
 			}
 
 			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, func(ji *pps.JobInfo) error {
+				return client.ListJobF(pipelineName, commits, outputCommit, -1, func(ji *pps.JobInfo) error {
 					marshaller := &jsonpb.Marshaler{Indent: "  "}
 					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
 						return err
@@ -537,7 +537,7 @@ $ pachctl list-job -p foo bar/YYY`,
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, ppspretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, func(ji *pps.JobInfo) error {
+			if err := client.ListJobF(pipelineName, commits, outputCommit, -1, func(ji *pps.JobInfo) error {
 				ppspretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {

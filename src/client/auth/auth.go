@@ -68,7 +68,7 @@ var (
 	// containing no auth token.
 	ErrNoMetadata = status.Error(codes.Internal, "no authentication metadata (try logging in)")
 
-	// ErrBadToken is returned by the Auth API if the caller's token is corruped
+	// ErrBadToken is returned by the Auth API if the caller's token is corrupted
 	// or has expired.
 	ErrBadToken = status.Error(codes.Unauthenticated, "provided auth token is corrupted or has expired (try logging in again)")
 )
