@@ -327,7 +327,7 @@ func (a *apiServer) master() {
 			c()
 		}
 		a.monitorCancels = make(map[string]func())
-		log.Errorf("master: error running the master process: %v; retrying in %v", err, d)
+		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
 	panic("internal error: PPS master has somehow exited. Restarting pod...")
