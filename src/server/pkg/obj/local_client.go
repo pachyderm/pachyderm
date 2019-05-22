@@ -13,7 +13,11 @@ func NewLocalClient(root string) (Client, error) {
 	if err := os.MkdirAll(root, 0755); err != nil {
 		return nil, err
 	}
-	return &localClient{root}, nil
+	c := &localClient{root}
+	if monkeyTest {
+		return &monkeyClient{c}, nil
+	}
+	return c, nil
 }
 
 type localClient struct {
