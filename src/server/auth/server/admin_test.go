@@ -1628,3 +1628,67 @@ func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
 	require.NoError(t, aliceClient.GetFile(pipeline2, "master", "/file.2", 0, 0, buf))
 	require.Equal(t, "2", buf.String())
 }
+
+// TestPipelineFailingWithOpenCommit creates a pipeline, then revokes its access
+// to its output repo while it's running, causing it to fail. Then it makes sure
+// that FlushCommit still works and that the pipeline's output commit was
+// successfully finished (though as an empty commit)
+//
+// Note: This test actually doesn't use the admin client or admin privileges
+// anywhere. However, it restarts pachd, so it shouldn't be run in parallel with
+// any other test
+func TestPipelineFailingWithOpenCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, admin)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+			"cp /pfs/*/* /pfs/out/",
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// Revoke pipeline's access to output repo while 'sleep 10' is running (so
+	// that it fails)
+	_, err = adminClient.SetScope(adminClient.Ctx(), &auth.SetScopeRequest{
+		Username: fmt.Sprintf("pipeline:%s", pipeline),
+		Repo:     pipeline,
+		Scope:    auth.Scope_NONE,
+	})
+	require.NoError(t, err)
+
+	// make sure flush-commit returns (pipeline either
+	// fails or restarts RC & finishes)
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+
+	// make sure the pipeline is failed
+	pi, err := adminClient.InspectPipeline(pipeline)
+	require.NoError(t, err)
+	require.Equal(t, pps.PipelineState_PIPELINE_FAILURE, pi.State)
+}
