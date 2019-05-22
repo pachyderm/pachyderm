@@ -57,7 +57,10 @@ message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
   string ip = 3 [(gogoproto.customname) = "IP"];
+  map<string, string> annotations = 5;
 }
+
+
 
 message Spout {
   bool overwrite = 1;

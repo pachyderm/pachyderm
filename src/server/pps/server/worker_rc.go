@@ -389,6 +389,9 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	if a.iamRole != "" {
 		annotations["iam.amazonaws.com/role"] = a.iamRole
 	}
+	for k, v := range service.Annotations {
+		annotations[k] = v
+	}
 
 	return &workerOptions{
 		rcName:           rcName,
@@ -487,6 +490,7 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   options.rcName + "-user",
 				Labels: options.labels,
+				Annotations: options.annotations,
 			},
 			Spec: v1.ServiceSpec{
 				Selector: options.labels,
