@@ -60,8 +60,6 @@ message Service {
   map<string, string> annotations = 5;
 }
 
-
-
 message Spout {
   bool overwrite = 1;
 }
