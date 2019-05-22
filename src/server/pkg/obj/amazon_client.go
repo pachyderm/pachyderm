@@ -165,7 +165,7 @@ type AmazonCreds struct {
 	VaultToken   string
 }
 
-func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, reversed ...bool) (*amazonClient, error) {
+func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, reversed ...bool) (*amazonClient, error) {
 	// set up aws config, including credentials (if neither creds.ID nor
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
 	awsConfig := &aws.Config{
@@ -185,6 +185,10 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 			vaultClient: vaultClient,
 			vaultRole:   creds.VaultRole,
 		})
+	}
+	// Set custom endpoint for a custom deployment.
+	if endpoint != "" {
+		awsConfig.Endpoint = aws.String(endpoint)
 	}
 
 	// Create new session using awsConfig

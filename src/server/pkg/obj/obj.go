@@ -72,6 +72,7 @@ const (
 	AmazonVaultRoleEnvVar    = "AMAZON_VAULT_ROLE"
 	AmazonVaultTokenEnvVar   = "AMAZON_VAULT_TOKEN"
 	AmazonDistributionEnvVar = "AMAZON_DISTRIBUTION"
+	CustomEndpointEnvVar     = "CUSTOM_ENDPOINT"
 )
 
 // EnvVarToSecretKey is an environment variable name to secret key mapping
@@ -100,6 +101,7 @@ var EnvVarToSecretKey = map[string]string{
 	AmazonVaultRoleEnvVar:    "amazon-vault-role",
 	AmazonVaultTokenEnvVar:   "amazon-vault-token",
 	AmazonDistributionEnvVar: "amazon-distribution",
+	CustomEndpointEnvVar:     "custom-endpoint",
 }
 
 // StorageRootFromEnv gets the storage root based on environment variables.
@@ -283,8 +285,9 @@ func NewMinioClient(endpoint, bucket, id, secret string, secure, isS3V2 bool) (C
 //   secret - AWS secret access key
 //   token  - AWS access token
 //   region - AWS region
-func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, reversed ...bool) (Client, error) {
-	return newAmazonClient(region, bucket, creds, distribution, reversed...)
+//   endpoint - Custom endpoint (generally used for S3 compatible object stores)
+func NewAmazonClient(region, bucket string, creds *AmazonCreds, distribution string, endpoint string, reversed ...bool) (Client, error) {
+	return newAmazonClient(region, bucket, creds, distribution, endpoint, reversed...)
 }
 
 // NewMinioClientFromSecret constructs an s3 compatible client by reading
@@ -398,7 +401,9 @@ func NewAmazonClientFromSecret(bucket string, reversed ...bool) (Client, error) 
 
 	// Get Cloudfront distribution (not required, though we can log a warning)
 	distribution, err := readSecretFile("/amazon-distribution")
-	return NewAmazonClient(region, bucket, &creds, distribution, reversed...)
+	// Get endpoint for custom deployment (optional).
+	endpoint, err := readSecretFile("/custom-endpoint")
+	return NewAmazonClient(region, bucket, &creds, distribution, endpoint, reversed...)
 }
 
 // NewAmazonClientFromEnv creates a Amazon client based on environment variables.
@@ -421,7 +426,9 @@ func NewAmazonClientFromEnv() (Client, error) {
 	creds.VaultToken, _ = os.LookupEnv(AmazonVaultTokenEnvVar)
 
 	distribution, _ := os.LookupEnv(AmazonDistributionEnvVar)
-	return NewAmazonClient(region, bucket, &creds, distribution)
+	// Get endpoint for custom deployment (optional).
+	endpoint, _ := os.LookupEnv(CustomEndpointEnvVar)
+	return NewAmazonClient(region, bucket, &creds, distribution, endpoint)
 }
 
 // NewClientFromURLAndSecret constructs a client by parsing `URL` and then
