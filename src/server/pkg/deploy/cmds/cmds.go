@@ -452,7 +452,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if len(args) == 4 {
 				token = args[3]
 			}
-			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, ""))
+			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", ""))
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
