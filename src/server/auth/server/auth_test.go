@@ -2606,3 +2606,51 @@ func TestDeleteFailedPipeline(t *testing.T) {
 		return nil
 	})
 }
+
+// TestDeletePipelineMissingOutput creates a pipeline, force-deletes its input
+// and output repos, and then confirms that DeletePipeline still works.
+func TestDeletePipelineMissingRepos(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"does-not-exist", // nonexistant image
+		[]string{"true"}, nil,
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewAtomInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// force-delete input and output repos
+	require.NoError(t, aliceClient.DeleteRepo(repo, true))
+	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
+
+	// Attempt to delete the pipeline--must succeed
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pis, err := aliceClient.ListPipeline()
+		if err != nil {
+			return err
+		}
+		for _, pi := range pis {
+			if pi.Pipeline.Name == pipeline {
+				return fmt.Errorf("Expected %q to be deleted, but still present", pipeline)
+			}
+		}
+		return nil
+	})
+}
