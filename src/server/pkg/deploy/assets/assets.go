@@ -1513,7 +1513,7 @@ func WriteCustomAssets(encoder Encoder, opts *AssetOpts, args []string, objectSt
 			return WriteSecret(encoder, MinioSecret(bucket, id, secret, endpoint, secure, isS3V2), opts)
 		}
 		// (bryce) hardcode region?
-		return WriteSecret(encoder, AmazonSecret("us-west-2", bucket, id, secret, "", "", endpoint), opts)
+		return WriteSecret(encoder, AmazonSecret("us-east-1", bucket, id, secret, "", "", endpoint), opts)
 	default:
 		return fmt.Errorf("Did not recognize the choice of object-store")
 	}

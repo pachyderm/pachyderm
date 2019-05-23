@@ -189,6 +189,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	// Set custom endpoint for a custom deployment.
 	if endpoint != "" {
 		awsConfig.Endpoint = aws.String(endpoint)
+		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
 
 	// Create new session using awsConfig
