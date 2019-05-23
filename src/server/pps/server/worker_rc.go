@@ -488,8 +488,8 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 				APIVersion: "v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   options.rcName + "-user",
-				Labels: options.labels,
+				Name:        options.rcName + "-user",
+				Labels:      options.labels,
 				Annotations: options.annotations,
 			},
 			Spec: v1.ServiceSpec{
