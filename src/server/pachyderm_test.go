@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -6199,6 +6200,8 @@ func TestService(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
+	annotations := map[string]string{"foo": "bar"}
+
 	pipeline := tu.UniqueString("pipelineservice")
 	// This pipeline sleeps for 10 secs per datum
 	require.NoError(t, c.CreatePipelineService(
@@ -6216,6 +6219,7 @@ func TestService(t *testing.T) {
 		false,
 		8000,
 		31800,
+		annotations,
 	))
 	time.Sleep(10 * time.Second)
 
@@ -6248,6 +6252,17 @@ func TestService(t *testing.T) {
 				host := svc.Spec.ClusterIP
 				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
 				address = net.JoinHostPort(host, port)
+
+				actualAnnotations := svc.Annotations
+				delete(actualAnnotations, "pipelineName")
+				if !reflect.DeepEqual(actualAnnotations, annotations) {
+					return fmt.Errorf(
+						"expected service annotations map %#v, got %#v",
+						annotations,
+						actualAnnotations,
+					)
+				}
+
 				return nil
 			}
 			return fmt.Errorf("no matching k8s service found")
@@ -8843,16 +8858,25 @@ func TestKafka(t *testing.T) {
 	}
 
 	// now we asynchronously write to the kafka topic
-	go func() {
+	quit := make(chan bool)
+	go func(chan bool) {
 		i := 0
 		for {
-			if _, err = conn.WriteMessages(
-				kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", i))},
-			); err != nil {
-				t.Fatal(err)
+			select {
+			case <-quit:
+				return
+			default:
+				if _, err = conn.WriteMessages(
+					kafka.Message{Value: []byte(fmt.Sprintf("Now it's %v\n", i))},
+				); err != nil {
+					t.Fatal(err)
+				}
+				i++
 			}
-			i++
 		}
+	}(quit)
+	defer func() {
+		quit <- true
 	}()
 
 	// create a spout pipeline running the kafka consumer
