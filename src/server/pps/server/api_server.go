@@ -60,6 +60,8 @@ const (
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
+	// DefaultServiceType is the default service type for a service pipeline
+	DefaultServiceType = "NodePort"
 )
 
 var (
@@ -2077,6 +2079,11 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	}
 	if pipelineInfo.DatumTries == 0 {
 		pipelineInfo.DatumTries = DefaultDatumTries
+	}
+	if pipelineInfo.Service != nil {
+		if pipelineInfo.Service.Type == "" {
+			pipelineInfo.Service.Type = DefaultServiceType
+		}
 	}
 }
 
