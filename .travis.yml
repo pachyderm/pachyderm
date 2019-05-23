@@ -20,9 +20,6 @@ env:
     - BUCKET=PPS2
     - BUCKET=PPS3
     - BUCKET=EXAMPLES
-branches:
-  except:
-    - /^v[0-9]/
 before_install:
 - sudo etc/testing/travis_before_install.sh
 before_script:
