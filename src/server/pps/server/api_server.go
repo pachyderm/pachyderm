@@ -1542,6 +1542,13 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 	if pipelineInfo.PodPatch != "" && !json.Valid([]byte(pipelineInfo.PodPatch)) {
 		return fmt.Errorf("malformed PodPatch")
 	}
+	if pipelineInfo.Service != nil {
+		validServiceTypes := map[string]bool{"ClusterIP": true, "LoadBalancer": true, "NodePort": true}
+
+		if !validServiceTypes[pipelineInfo.Service.Type] {
+			return fmt.Errorf("the following service type % is not allowed", pipelineInfo.Service.Type)
+		}
+	}
 	return nil
 }
 
