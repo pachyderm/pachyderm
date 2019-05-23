@@ -3,7 +3,7 @@
         "name": "tweets"
     },
     "transform": {
-        "image": "gpt-2-example",
+        "image": "pachyderm/gpt-2-example",
         "cmd": ["/tweets.py"]
     },
     "input": {

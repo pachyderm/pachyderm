@@ -3,7 +3,7 @@
         "name": "generate"
     },
     "transform": {
-        "image": "gpt-2-example",
+        "image": "pachyderm/gpt-2-example",
         "cmd": ["/generate.py"]
     },
     "input": {
