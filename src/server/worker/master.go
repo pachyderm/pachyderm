@@ -176,11 +176,12 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 	logger, err := a.getTaggedLogger(pachClient, "spout", nil, false)
 	puller := filesync.NewPuller()
 
+	if err := a.unlinkData(nil); err != nil {
+		return fmt.Errorf("unlinkData: %v", err)
+	}
+
 	// If this is our second time through the loop cleanup the old data.
 	if dir != "" {
-		if err := a.unlinkData(nil); err != nil {
-			return fmt.Errorf("unlinkData: %v", err)
-		}
 		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("os.RemoveAll: %v", err)
 		}
@@ -821,7 +822,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 		for {
 			// this extra closure is so that we can scope the defer
 			if err := func() (retErr error) {
-				// open connection to the pfs/out named pipe
+				// open a read connection to the /pfs/out named pipe
 				out, err := os.Open("/pfs/out")
 				if err != nil {
 					return err
@@ -849,6 +850,15 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				if err != nil {
 					return err
 				}
+
+				// finish the commit even if there was an issue
+				defer func() {
+					if err := a.pachClient.FinishCommit(repo, commit.ID); err != nil && retErr == nil {
+						// this lets us pass the error through if FinishCommit fails
+						retErr = err
+					}
+				}()
+				// this loops through all the files in the tar that we've read from /pfs/out
 				for {
 					fileHeader, err := outTar.Next()
 					if err == io.EOF {
@@ -857,7 +867,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 					if err != nil {
 						return err
 					}
-					// put files
+					// put files into pachyderm
 					if a.pipelineInfo.Spout.Overwrite {
 						_, err = a.pachClient.PutFileOverwrite(repo, commit.ID, fileHeader.Name, outTar, 0)
 						if err != nil {
@@ -869,11 +879,6 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 							return err
 						}
 					}
-				}
-				// close commit
-				err = a.pachClient.FinishCommit(repo, commit.ID)
-				if err != nil {
-					return err
 				}
 				return nil
 			}(); err != nil {
