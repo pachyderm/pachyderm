@@ -390,7 +390,9 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		annotations["iam.amazonaws.com/role"] = a.iamRole
 	}
 	for k, v := range service.Annotations {
-		annotations[k] = v
+		if k != "pipelineName" && k != "iam.amazonaws.com/role" {
+			annotations[k] = v
+		}
 	}
 
 	return &workerOptions{
