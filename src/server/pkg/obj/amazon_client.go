@@ -324,11 +324,14 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		}
 		reader = resp.Body
 	} else {
-		getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
+		objIn := &s3.GetObjectInput{
 			Bucket: aws.String(c.bucket),
 			Key:    aws.String(name),
-			Range:  aws.String(byteRange),
-		})
+		}
+		if byteRange != "" {
+			objIn.Range = aws.String(byteRange)
+		}
+		getObjectOutput, err := c.s3.GetObject(objIn)
 		if err != nil {
 			return nil, err
 		}
