@@ -167,3 +167,135 @@ to make sure that the GC process for gen 2 has either already finished,
 because if it hasn't, it might GC foo after we write it for gen 3, or
 knows not to GC this object, because it's about to be re-referenced.
 I think all of this is manageable, but it's definitely tricky.
+
+## Garbage Collection
+
+A background garbage collection process will replace the existing `pachctl
+garbage-collect` command, which currently requires all pipelines to stop before
+garbage collection can begin.
+
+### Requirements
+
+* Always-running background process/service
+* No global locks or stoppages required during steady-state operations
+* Iterative and rate-limitable for any large operations
+* Configurable accuracy (e.g. 99% of unreferenced objects should be cleaned up)
+* Batches updates from Pachyderm and batches deletes to object storage
+* Recovers smoothly from disorderly shutdown
+* Capable of becoming shardable with minimal changes
+
+### API
+
+The garbage collection service will run in pachd and provide a GRPC API for
+adding and removing references.  This will a be batch operation, and may block
+until it is safe to use a reference (that is, until there are no pending deletes
+for referenced chunks).
+
+```
+rpc UpdateReferences(UpdateReferencesRequest)
+
+message UpdateReferencesRequest {
+  repeated Reference add
+  repeated Reference remove
+}
+
+message Reference {
+  uint64 source_timestamp
+  string hash
+}
+```
+
+In addition, the garbage collection service will periodically need to
+reevaluate existing references - that is, when recovering from a shutdown or
+resizing its bloom filter.  Another service in the storage layer must provide
+an interface to fetch this information.
+
+```
+rpc GetReferences(GetReferencesRequest) stream UpdateReferencesRequest
+
+message GetReferencesRequest {
+  uint64 start_timestamp
+  uint64 end_timestamp
+}
+```
+
+### Implementation
+
+#### Persistence
+
+The garbage collector should periodically serialize its state to some location
+in object storage.  It is ok if this is out-of-date, as it can be rebuilt from
+a point in
+
+#### Resizing
+
+The garbage collector can periodically check the false-positive rate of the
+bloom filter based on how many buckets are non-zero.  If the false-positive rate
+gets too large or small, the bloom filter should be resized.
+
+In order to perform a resizing operation, the garbage collector can create a
+second bloom filter in write-only mode while it backfills.  Meanwhile, all
+updates will go to both the active filter and the new filter.  The garbage
+collector will maintain a set of timestamp ranges that the filter has been
+updated for.
+
+In order to support this, the bloom filter must allow negative values, as a
+bucket may go negative due to live updates while the backfill is processing.
+
+#### Recovering
+
+When starting up after a disorderly shutdown, the garbage collector will need to
+recover missing state.  Based on the latest serialized data, we can tell which
+timestamp ranges the filter is valid for and being backfilling any missing
+ranges, just like with the resizing operation.  Because the active filter - and
+a possible resizing filter - are not up-to-date, deletion operations must be
+paused until backfill completes.
+
+#### Race Conditions
+
+##### New Chunks
+
+The implementation must take into account a possible race condition where the
+last reference to a chunk is removed, and then a new reference to that chunk is
+added immediately after.  The `UpdateReferences` RPCs for these changes may run
+in parallel.
+
+If the first request results in a batch of deletes going to object storage, the
+garbage collector will keep track of the pending deletes.  When the second
+request comes in, it will see that one of the new references is to a pending
+delete that has not resolved yet.  The response for this `UpdateReferences` RPC
+will not be sent until the delete has been confirmed successful.
+
+From the client side, this means that references should be updated _before_
+writing chunks into object storage.  Once the garbage collector has replied, it
+is safe to ensure that the chunks exist.
+
+##### Rewrites during resizing
+
+If an index is rewritten during a resizing operation, there may be a race
+condition where the updates for the new index come in while the garbage collector
+is currently scanning over the timestamp range that includes that index.
+
+Using the `source_timestamp` in the update request, the garbage collector can
+block the update operation until the scan has passed the relevant timestamp.
+
+#### Shardability
+
+Garbage collector operations should be shardable by the keyspace of the chunk
+hashes.  Multiple garbage collectors could theoretically run across the cluster,
+each responsible for a prefix in the keyspace.  The most complicated part would
+likely be bootstrapping parallel garbage collectors and routing requests
+correctly.
+
+Such a system would allow us to grow the garbage collector past what one node
+can handle (e.g. the bloom filter becomes too large or the update traffic puts
+too much load on a node).  In order to make this easier in the future, it is
+recommended to reserve the first 4 bytes of the chunk hash for sharding, and
+not to use it for the bloom filter (if it was used in the filter, it would stop
+being uniformly random and would hurt the false-positive rate).
+
+### Open Questions
+
+* What are the cases where a chunk might be rewritten?  What does the proposed handling of race conditions imply for order-of-operations during merging?
+* Does this design put any unrealistic constraints on other components in the system?
+  * Is it reasonable to associate all indexes with a timestamp, and to iterate over them by timestamp (in order)?
