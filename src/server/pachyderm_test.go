@@ -4717,20 +4717,27 @@ func TestGarbageCollection(t *testing.T) {
 	// Now delete both pipelines and GC
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 	require.NoError(t, c.DeletePipeline(failurePipeline, false))
-	require.NoError(t, c.GarbageCollect(0))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		require.NoError(t, c.GarbageCollect(0))
 
-	// We should've deleted one tag since the functioning pipeline only processed
-	// one datum.
-	tagsAfter = getAllTags(t, c)
-	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
+		// We should've deleted one tag since the functioning pipeline only
+		// processed one datum.
+		tagsAfter = getAllTags(t, c)
+		if dTags := len(tagsBefore) - len(tagsAfter); dTags != 1 {
+			return fmt.Errorf("expected 1 tag after GC but found %d", dTags)
+		}
 
-	// We should've deleted 3 objects:
-	// - the hashtree referenced by the tag (datum hashtree)
-	// - the hashtree for the output commit (commit hashtree, merged from 1 datum)
-	// - the modified "bar" file
-	// Note that deleting a pipeline doesn't delete the spec commits
-	objectsAfter = getAllObjects(t, c)
-	require.Equal(t, 3, len(objectsBefore)-len(objectsAfter))
+		// We should've deleted 3 objects:
+		// - the hashtree referenced by the tag (datum hashtree)
+		// - the hashtree for the output commit (commit hashtree, merged from 1 datum)
+		// - the modified "bar" file
+		// Note that deleting a pipeline doesn't delete the spec commits
+		objectsAfter = getAllObjects(t, c)
+		if dObjects := len(objectsBefore) - len(objectsAfter); dObjects != 3 {
+			return fmt.Errorf("expected 3 objects but found %d", dObjects)
+		}
+		return nil
+	})
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())

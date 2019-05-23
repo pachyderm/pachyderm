@@ -1276,6 +1276,8 @@ func (d *driver) flushCommit(ctx context.Context, fromCommits []*pfs.Commit, toR
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
 				continue // just skip this
+			} else if auth.IsErrNotAuthorized(err) {
+				continue // again, just skip
 			}
 			return err
 		}

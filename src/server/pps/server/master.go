@@ -327,7 +327,7 @@ func (a *apiServer) master() {
 			c()
 		}
 		a.monitorCancels = make(map[string]func())
-		log.Errorf("master: error running the master process: %v; retrying in %v", err, d)
+		log.Errorf("PPS master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
 	panic("internal error: PPS master has somehow exited. Restarting pod...")
@@ -493,6 +493,9 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 
 	return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		commitInfos, err := superUserClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
+		if isNotFoundErr(err) {
+			return nil
+		}
 		if err != nil {
 			return fmt.Errorf("could not list output commits of %q to finish them: %v", pipelineName, err)
 		}

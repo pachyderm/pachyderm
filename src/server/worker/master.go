@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
@@ -102,7 +103,13 @@ func (a *APIServer) master() {
 		logger.Logf("Launching worker master process")
 		return a.jobSpawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
-		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
+		if auth.IsErrNotAuthorized(err) {
+			log.Printf("Worker Master: failing %q due to auth rejection", a.pipelineInfo.Pipeline.Name)
+			return ppsutil.FailPipeline(a.pachClient.Ctx(), a.etcdClient, a.pipelines,
+				a.pipelineInfo.Pipeline.Name, "worker master could not access output "+
+					"repo to watch for new commits")
+		}
+		logger.Logf("Worker Master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
@@ -147,7 +154,13 @@ func (a *APIServer) serviceMaster() {
 		}
 		return a.serviceSpawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
-		logger.Logf("master: error running the master process: %v; retrying in %v", err, d)
+		if auth.IsErrNotAuthorized(err) {
+			log.Printf("Worker Master: failing %q due to auth rejection", a.pipelineInfo.Pipeline.Name)
+			return ppsutil.FailPipeline(a.pachClient.Ctx(), a.etcdClient, a.pipelines,
+				a.pipelineInfo.Pipeline.Name, "worker master could not access output "+
+					"repo to watch for new commits")
+		}
+		logger.Logf("Worker Master: error running the master process: %v; retrying in %v", err, d)
 		return nil
 	})
 }
