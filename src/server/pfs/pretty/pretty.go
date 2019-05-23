@@ -21,7 +21,9 @@ const (
 	// BranchHeader is the header for branches.
 	BranchHeader = "BRANCH\tHEAD\t\n"
 	// FileHeader is the header for files.
-	FileHeader = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
+	FileHeader = "NAME\tTYPE\tSIZE\t\n"
+	// FileHeaderWithCommit is the header for files that includes a commit field.
+	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
 )
 
 // PrintRepoHeader prints a repo header.
@@ -169,28 +171,38 @@ Provenance: {{range .Provenance}} {{.Commit.Repo.Name}}@{{.Commit.ID}} ({{.Branc
 	return nil
 }
 
-// PrintFileInfoHeader prints a file info header.
-func PrintFileInfoHeader(w io.Writer) {
-	fmt.Fprint(w, FileHeader)
+// PrintFileInfoHeader prints a file info header, withCommit indicates whether
+// or not to have fields for the file's commit and when it was committed
+// present.
+func PrintFileInfoHeader(w io.Writer, withCommit bool) {
+	if withCommit {
+		fmt.Fprint(w, FileHeaderWithCommit)
+	} else {
+		fmt.Fprint(w, FileHeader)
+	}
 }
 
 // PrintFileInfo pretty-prints file info.
 // If recurse is false and directory size is 0, display "-" instead
 // If fast is true and file size is 0, display "-" instead
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withCommit bool) {
+	if withCommit {
+		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.ID)
+	}
 	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
 	if fileInfo.FileType == pfs.FileType_FILE {
 		fmt.Fprint(w, "file\t")
 	} else {
 		fmt.Fprint(w, "dir\t")
 	}
-	if fileInfo.Committed == nil {
-		fmt.Fprintf(w, "-\t")
-	} else if fullTimestamps {
-		fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
-	} else {
-		fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
+	if withCommit {
+		if fileInfo.Committed == nil {
+			fmt.Fprintf(w, "-\t")
+		} else if fullTimestamps {
+			fmt.Fprintf(w, "%s\t", fileInfo.Committed.String())
+		} else {
+			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
+		}
 	}
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
