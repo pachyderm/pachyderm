@@ -378,11 +378,9 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/UpsertWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func(span opentracing.Span) {
-		if span != nil {
-			span.SetTag("err", fmt.Sprintf("%v", retErr))
-		}
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
-	}(span)
+	}(span) // bind span eagerly, as it's overwritten below
 	var errCount int
 	if err := backoff.RetryNotify(func() error {
 		var resourceRequests *v1.ResourceList
@@ -416,7 +414,11 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 		} else if err == nil {
 			rcFound = true
 		}
-		newPachVersion := rcFound && workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion()
+		if rcFound && workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
+			if err := a.deletePipelineResources(ctx, pipelineInfo.Pipeline.Name); err != nil {
+				return err
+			}
+		}
 
 		// Generate options for new RC
 		options := a.getWorkerOptions(
@@ -436,15 +438,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 			Name:  client.PPSPipelineNameEnv,
 			Value: pipelineInfo.Pipeline.Name,
 		})
-
-		if newPachVersion {
-			if err := a.deletePipelineResources(ctx, pipelineInfo.Pipeline.Name); err != nil {
-				return err
-			}
-		}
-		span, _ = tracing.AddSpanToAnyExisting(ctx, "/kube.RC/Create", "pipeline", pipelineInfo.Pipeline.Name)
-		defer tracing.FinishAnySpan(span)
-		return a.createWorkerRc(options)
+		return a.createWorkerRc(ctx, options)
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		errCount++
 		if errCount >= 3 {
@@ -484,12 +478,10 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 	if span != nil {
 		pachClient = pachClient.WithCtx(_ctx) // copy auth info from input to output
 	}
-	defer func(span opentracing.Span) {
-		if span != nil {
-			span.SetTag("err", fmt.Sprintf("%v", retErr))
-		}
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
-	}(span)
+	}()
 
 	return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		commitInfos, err := superUserClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
@@ -520,12 +512,10 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
 	log.Infof("PPS master: deleting resources for failed pipeline %q", pipelineName)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
-	defer func(span opentracing.Span) {
-		if span != nil {
-			span.SetTag("err", fmt.Sprintf("%v", retErr))
-		}
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
-	}(span)
+	}()
 
 	// Cancel any running monitorPipeline call
 	a.monitorCancelsMu.Lock()
@@ -568,12 +558,10 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	log.Infof("scaling down workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleDownWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
-	defer func(span opentracing.Span) {
-		if span != nil {
-			span.SetTag("err", fmt.Sprintf("%v", retErr))
-		}
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
-	}(span)
+	}()
 
 	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
 
@@ -594,12 +582,10 @@ func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInf
 
 func (a *apiServer) scaleUpWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleUpWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
-	defer func(span opentracing.Span) {
-		if span != nil {
-			span.SetTag("err", fmt.Sprintf("%v", retErr))
-		}
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
-	}(span)
+	}()
 
 	rc := a.kubeClient.CoreV1().ReplicationControllers(a.namespace)
 	workerRc, err := rc.Get(
@@ -636,15 +622,10 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 	if span != nil {
 		pachClient = pachClient.WithCtx(ctx)
 	}
-	defer func(span opentracing.Span) {
-		if span != nil {
-			span.SetTag("err", fmt.Sprintf("%v", retErr))
-		}
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
-	}(span)
-	if span != nil {
-		pachClient = pachClient.WithCtx(ctx)
-	}
+	}()
 	log.Infof("moving pipeline %s to %s", pipelineInfo.Pipeline.Name, state.String())
 	_, err := col.NewSTM(pachClient.Ctx(), a.etcdClient, func(stm col.STM) error {
 		pipelines := a.pipelines.ReadWrite(stm)
@@ -652,9 +633,7 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 		if err := pipelines.Get(pipelineInfo.Pipeline.Name, pipelinePtr); err != nil {
 			return err
 		}
-		if span != nil {
-			span.SetTag("old-state", pipelinePtr.State)
-		}
+		tracing.TagAnySpan(span, "old-state", pipelinePtr.State)
 		if pipelinePtr.State == pps.PipelineState_PIPELINE_FAILURE {
 			return nil
 		}

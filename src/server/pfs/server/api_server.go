@@ -4,20 +4,18 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 
+	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/golang-lru"
+	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-)
-
-import (
-	opentracing "github.com/opentracing/opentracing-go"
 )
 
 var (
@@ -242,12 +240,11 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	span := opentracing.SpanFromContext(ctx)
-	if span != nil {
-		span.SetTag("file", fmt.Sprintf("%s@%s:%s", request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path))
-		defer func() {
-			span.SetTag("err", retErr)
-		}()
-	}
+	tracing.TagAnySpan(span, "file", fmt.Sprintf("%s@%s:/%s",
+		request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path))
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+	}()
 
 	file, err := a.driver.getFile(ctx, request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {

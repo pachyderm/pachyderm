@@ -181,7 +181,7 @@ func (s *stm) Put(key, val string, ttl int64, ptr uintptr) error {
 	if ttl > 0 {
 		lease, ok := s.newLeases[ttl]
 		if !ok {
-			span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Grant")
+			span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/GrantLease")
 			defer tracing.FinishAnySpan(span)
 			leaseResp, err := s.client.Grant(ctx, ttl)
 			if err != nil {
@@ -210,7 +210,7 @@ func (s *stm) Rev(key string) int64 {
 
 func (s *stm) commit() *v3.TxnResponse {
 	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Txn")
-	tracing.FinishAnySpan(span)
+	defer tracing.FinishAnySpan(span)
 
 	cmps := s.cmps()
 	puts := s.puts()
@@ -321,12 +321,9 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 	if span != nil {
 		keys := make([]byte, 0, 512)
 		for k := range s.wset {
-			if len(keys) > 0 {
-				keys = append(keys, ',')
-			}
-			keys = append(keys, []byte(k)...)
+			keys = append(append(keys, ','), k...)
 		}
-		span.SetTag("updated-keys", string(keys))
+		span.SetTag("updated-keys", string(keys[1:])) // drop leading ','
 	}
 
 	keys, getops := s.gets()
@@ -346,9 +343,7 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 		panic(stmError{err})
 	}
 
-	if span != nil {
-		span.SetTag("applied-at-revision", txnresp.Header.Revision)
-	}
+	tracing.TagAnySpan(span, "applied-at-revision", txnresp.Header.Revision)
 	if txnresp.Succeeded {
 		return txnresp
 	}
