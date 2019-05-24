@@ -428,7 +428,7 @@ func (a *apiServer) createWorkerRc(ctx context.Context, options *workerOptions) 
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC",
 		"pipeline", options.labels[pipelineNameLabel])
 	defer func() {
-		tracing.TagAnySpan(span, "err", retErr.Error())
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 

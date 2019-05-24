@@ -392,7 +392,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/UpsertWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func(span opentracing.Span) {
-		tracing.TagAnySpan(span, "err", retErr.Error())
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}(span) // bind span eagerly, as it's overwritten below
 	var errCount int
@@ -494,7 +494,7 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 		pachClient = pachClient.WithCtx(_ctx) // copy auth info from input to output
 	}
 	defer func() {
-		tracing.TagAnySpan(span, "err", fmt.Sprintf("%v", retErr))
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 
@@ -526,7 +526,7 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
 	defer func() {
-		tracing.TagAnySpan(span, "err", retErr.Error())
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 
@@ -574,7 +574,7 @@ func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInf
 	log.Infof("scaling down workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleDownWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
-		tracing.TagAnySpan(span, "err", retErr.Error())
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 
@@ -598,7 +598,7 @@ func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInf
 func (a *apiServer) scaleUpWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleUpWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
-		tracing.TagAnySpan(span, "err", retErr.Error())
+		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 
