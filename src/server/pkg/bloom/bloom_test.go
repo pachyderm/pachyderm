@@ -178,7 +178,7 @@ func TestOverflow(t *testing.T) {
 	require.Equal(t, int(filter.NumSubhashes), len(indexes))
 
 	// Directly modify the buckets to make them just shy of overflow
-	for index, _ := range indexes {
+	for index := range indexes {
 		filter.Buckets[index] = math.MaxUint32 - 1
 	}
 
