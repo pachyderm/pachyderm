@@ -60,8 +60,6 @@ const (
 	// DefaultDatumTries is the default number of times a datum will be tried
 	// before we give up and consider the job failed.
 	DefaultDatumTries = 3
-	// DefaultServiceType is the default service type for a service pipeline
-	DefaultServiceType = "NodePort"
 )
 
 var (
@@ -1543,9 +1541,13 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 		return fmt.Errorf("malformed PodPatch")
 	}
 	if pipelineInfo.Service != nil {
-		validServiceTypes := map[string]bool{"ClusterIP": true, "LoadBalancer": true, "NodePort": true}
+		validServiceTypes := map[v1.ServiceType]bool{
+			v1.ServiceTypeClusterIP:    true,
+			v1.ServiceTypeLoadBalancer: true,
+			v1.ServiceTypeNodePort:     true,
+		}
 
-		if !validServiceTypes[pipelineInfo.Service.Type] {
+		if !validServiceTypes[v1.ServiceType(pipelineInfo.Service.Type)] {
 			return fmt.Errorf("the following service type % is not allowed", pipelineInfo.Service.Type)
 		}
 	}
@@ -2089,7 +2091,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	}
 	if pipelineInfo.Service != nil {
 		if pipelineInfo.Service.Type == "" {
-			pipelineInfo.Service.Type = DefaultServiceType
+			pipelineInfo.Service.Type = string(v1.ServiceTypeNodePort)
 		}
 	}
 }

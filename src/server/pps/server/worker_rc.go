@@ -486,13 +486,8 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 				Name:       "user-port",
 			},
 		}
-		var serviceType v1.ServiceType
-		if options.service.Type == "ClusterIP" {
-			serviceType = v1.ServiceTypeClusterIP
-		} else if options.service.Type == "LoadBalancer" {
-			serviceType = v1.ServiceTypeLoadBalancer
-		} else {
-			serviceType = v1.ServiceTypeNodePort
+		var serviceType = v1.ServiceType(options.service.Type)
+		if serviceType == v1.ServiceTypeNodePort {
 			servicePort[0].NodePort = options.service.ExternalPort
 		}
 		service := &v1.Service{
