@@ -4757,3 +4757,36 @@ func TestFileHistory(t *testing.T) {
 		require.Equal(t, i, len(fileInfos))
 	}
 }
+
+func TestUpdateRepo(t *testing.T) {
+	var err error
+	client := GetPachClient(t)
+	repo := "test"
+	_, err = client.PfsAPIClient.CreateRepo(
+		client.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:   pclient.NewRepo(repo),
+			Update: true,
+		},
+	)
+	require.NoError(t, err)
+	ri, err := client.InspectRepo(repo)
+	require.NoError(t, err)
+	created, err := types.TimestampFromProto(ri.Created)
+	require.NoError(t, err)
+	desc := "foo"
+	_, err = client.PfsAPIClient.CreateRepo(
+		client.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:        pclient.NewRepo(repo),
+			Update:      true,
+			Description: desc,
+		},
+	)
+	require.NoError(t, err)
+	ri, err = client.InspectRepo(repo)
+	require.NoError(t, err)
+	newCreated, err := types.TimestampFromProto(ri.Created)
+	require.Equal(t, created, newCreated)
+	require.Equal(t, desc, ri.Description)
+}
