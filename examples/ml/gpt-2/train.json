@@ -11,5 +11,11 @@
             "repo": "tweets",
             "glob": "/*"
         }
+    },
+    "resource_limits": {
+        "gpu": {
+            "type": "nvidia.com/gpu",
+            "number": 1
+        }
     }
 }
