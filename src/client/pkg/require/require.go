@@ -413,8 +413,8 @@ func False(tb testing.TB, value bool, msgAndArgs ...interface{}) {
 	}
 }
 
-// Panic checks that the callback panics.
-func Panic(tb testing.TB, cb func(), msgAndArgs ...interface{}) {
+// YesPanic checks that the callback panics.
+func YesPanic(tb testing.TB, cb func(), msgAndArgs ...interface{}) {
 	defer func() {
 		r := recover()
 		if r == nil {

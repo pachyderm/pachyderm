@@ -32,18 +32,18 @@ func makeHash(t *testing.T) []byte {
 const maxFilterSize = 1048576
 
 func TestInvalidConstraints(t *testing.T) {
-	require.Panic(t, func() { NewFilterWithFalsePositiveRate(-0.4, 1000, maxFilterSize) })
-	require.Panic(t, func() { NewFilterWithFalsePositiveRate(-0.0, 1000, maxFilterSize) })
-	require.Panic(t, func() { NewFilterWithFalsePositiveRate(0.0, 1000, maxFilterSize) })
-	require.Panic(t, func() { NewFilterWithFalsePositiveRate(1.0, 1000, maxFilterSize) })
-	require.Panic(t, func() { NewFilterWithFalsePositiveRate(0.1, 0, maxFilterSize) })
-	require.Panic(t, func() { NewFilterWithFalsePositiveRate(0.1, -1, maxFilterSize) })
-	require.Panic(t, func() { NewFilterWithFalsePositiveRate(0.1, 1000, 0) })
-	require.Panic(t, func() { NewFilterWithFalsePositiveRate(0.1, 1000, -100) })
-	require.Panic(t, func() { NewFilterWithSize(1000, 0) })
-	require.Panic(t, func() { NewFilterWithSize(1000, -4) })
-	require.Panic(t, func() { NewFilterWithSize(0, 400) })
-	require.Panic(t, func() { NewFilterWithSize(-10, 400) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(-0.4, 1000, maxFilterSize) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(-0.0, 1000, maxFilterSize) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(0.0, 1000, maxFilterSize) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(1.0, 1000, maxFilterSize) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(0.1, 0, maxFilterSize) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(0.1, -1, maxFilterSize) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(0.1, 1000, 0) })
+	require.YesPanic(t, func() { NewFilterWithFalsePositiveRate(0.1, 1000, -100) })
+	require.YesPanic(t, func() { NewFilterWithSize(1000, 0) })
+	require.YesPanic(t, func() { NewFilterWithSize(1000, -4) })
+	require.YesPanic(t, func() { NewFilterWithSize(0, 400) })
+	require.YesPanic(t, func() { NewFilterWithSize(-10, 400) })
 }
 
 func TestHashLength(t *testing.T) {
@@ -53,10 +53,10 @@ func TestHashLength(t *testing.T) {
 	hash := makeHash(t)
 	for i := 0; i < 8; i++ {
 		partial := hash[0:i]
-		require.Panic(t, func() { filter.Add(partial) })
-		require.Panic(t, func() { filter.Remove(partial) })
-		require.Panic(t, func() { filter.IsNotPresent(partial) })
-		require.Panic(t, func() { filter.UpperBoundCount(partial) })
+		require.YesPanic(t, func() { filter.Add(partial) })
+		require.YesPanic(t, func() { filter.Remove(partial) })
+		require.YesPanic(t, func() { filter.IsNotPresent(partial) })
+		require.YesPanic(t, func() { filter.UpperBoundCount(partial) })
 	}
 
 	for i := 8; i < 64; i++ {
