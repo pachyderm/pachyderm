@@ -18,6 +18,7 @@ package collection
 // not have the DelAll method, which we need.
 
 import (
+	"bytes"
 	"fmt"
 
 	v3 "github.com/coreos/etcd/clientv3"
@@ -323,7 +324,7 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 		for k := range s.wset {
 			keys = append(append(keys, ','), k...)
 		}
-		span.SetTag("updated-keys", string(keys[1:])) // drop leading ','
+		span.SetTag("updated-keys", bytes.TrimLeft(keys, ",")) // drop leading ','
 	}
 
 	keys, getops := s.gets()
