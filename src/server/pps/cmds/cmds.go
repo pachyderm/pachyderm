@@ -455,12 +455,11 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 				if _, ok := os.LookupEnv(extended.TargetRepoEnvVar); ok && tracing.IsActive() {
 					// unmarshal extended trace from RPC context
 					clientSpan, ctx := opentracing.StartSpanFromContext(
-						client.Ctx(),
-						"/pps.API/CreatePipeline",
-						ext.SpanKindRPCClient,
+						client.Ctx(), tracing.CreatePipelineMethodName, ext.SpanKindRPCClient,
 						opentracing.Tag{string(ext.Component), "gRPC"},
-					)
+						opentracing.Tag{"pipeline", request.Pipeline.Name})
 					defer clientSpan.Finish()
+
 					extendedTrace := extended.TraceProto{SerializedTrace: map[string]string{}} // init map
 					opentracing.GlobalTracer().Inject(
 						clientSpan.Context(),
@@ -488,6 +487,7 @@ All jobs created by a pipeline will create commits in the pipeline's repo.
 					}
 				}
 
+				// Push image if flag is set
 				if pushImages {
 					pushedImage, err := pushImage(registry, username, password, request.Transform.Image)
 					if err != nil {
