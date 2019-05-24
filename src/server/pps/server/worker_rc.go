@@ -479,6 +479,17 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 	}
 
 	if options.service != nil {
+		var servicePort = []v1.ServicePort{
+			{
+				Port:       options.service.ExternalPort,
+				TargetPort: intstr.FromInt(int(options.service.InternalPort)),
+				Name:       "user-port",
+			},
+		}
+		var serviceType = v1.ServiceType(options.service.Type)
+		if serviceType == v1.ServiceTypeNodePort {
+			servicePort[0].NodePort = options.service.ExternalPort
+		}
 		service := &v1.Service{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Service",
@@ -490,15 +501,8 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 			},
 			Spec: v1.ServiceSpec{
 				Selector: options.labels,
-				Type:     v1.ServiceTypeNodePort,
-				Ports: []v1.ServicePort{
-					{
-						Port:       options.service.ExternalPort,
-						TargetPort: intstr.FromInt(int(options.service.InternalPort)),
-						Name:       "user-port",
-						NodePort:   options.service.ExternalPort,
-					},
-				},
+				Type:     serviceType,
+				Ports:    servicePort,
 			},
 		}
 		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {
