@@ -408,7 +408,7 @@ You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
 
 ### Known issues
 
-Problems related to OpenShift deployment are tracked in [with the "openshift" label](https://github.com/pachyderm/pachyderm/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+label%3Aopenshift). 
+Problems related to OpenShift deployment are tracked in [issues with the "openshift" label](https://github.com/pachyderm/pachyderm/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+label%3Aopenshift). 
 
 
 
