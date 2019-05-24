@@ -259,3 +259,8 @@ likely be bootstrapping parallel garbage collectors and routing requests
 correctly.  Such a system would allow us to grow the garbage collector past
 what one node can handle (i.e. the deletion traffic puts too much load on a
 node).
+
+### Open questions
+
+* What database should we use for this?
+* Should we store semantic reference identifiers in the database?
