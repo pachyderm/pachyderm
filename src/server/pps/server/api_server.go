@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
@@ -46,6 +47,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	opentracing "github.com/opentracing/opentracing-go"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1772,9 +1774,18 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipeline")
 	defer func(start time.Time) { metricsFn(start, retErr) }(time.Now())
-	ctx = extended.TraceIn2Out(ctx) // propagate trace info
+
+	// Annotate current span with pipeline name
+	span := opentracing.SpanFromContext(ctx)
+	tracing.TagAnySpan(span, "pipeline", request.Pipeline.Name)
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+	}()
+
+	// propagate trace info (doesn't affect intra-RPC trace)
+	ctx = extended.TraceIn2Out(ctx)
 	pachClient := a.getPachClient().WithCtx(ctx)
-	ctx = pachClient.Ctx() // pachClient will propagate auth info
+
 	pfsClient := pachClient.PfsAPIClient
 	if request.Salt == "" {
 		request.Salt = uuid.NewWithoutDashes()
