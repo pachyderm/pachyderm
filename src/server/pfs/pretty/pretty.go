@@ -26,15 +26,6 @@ const (
 	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
 )
 
-// PrintRepoHeader prints a repo header.
-func PrintRepoHeader(w io.Writer, printAuth bool) {
-	if printAuth {
-		fmt.Fprint(w, RepoAuthHeader)
-		return
-	}
-	fmt.Fprint(w, RepoHeader)
-}
-
 // PrintRepoInfo pretty-prints repo info.
 func PrintRepoInfo(w io.Writer, repoInfo *pfs.RepoInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", repoInfo.Repo.Name)
@@ -84,11 +75,6 @@ Access level: {{ .AuthInfo.AccessLevel.String }}{{end}}
 	return nil
 }
 
-// PrintBranchHeader prints a branch header.
-func PrintBranchHeader(w io.Writer) {
-	fmt.Fprint(w, BranchHeader)
-}
-
 // PrintBranch pretty-prints a Branch.
 func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	fmt.Fprintf(w, "%s\t", branchInfo.Branch.Name)
@@ -97,11 +83,6 @@ func PrintBranch(w io.Writer, branchInfo *pfs.BranchInfo) {
 	} else {
 		fmt.Fprintf(w, "-\t\n")
 	}
-}
-
-// PrintCommitInfoHeader prints a commit info header.
-func PrintCommitInfoHeader(w io.Writer) {
-	fmt.Fprint(w, CommitHeader)
 }
 
 // PrintCommitInfo pretty-prints commit info.
@@ -169,17 +150,6 @@ Provenance: {{range .Provenance}} {{.Commit.Repo.Name}}@{{.Commit.ID}} ({{.Branc
 		return err
 	}
 	return nil
-}
-
-// PrintFileInfoHeader prints a file info header, withCommit indicates whether
-// or not to have fields for the file's commit and when it was committed
-// present.
-func PrintFileInfoHeader(w io.Writer, withCommit bool) {
-	if withCommit {
-		fmt.Fprint(w, FileHeaderWithCommit)
-	} else {
-		fmt.Fprint(w, FileHeader)
-	}
 }
 
 // PrintFileInfo pretty-prints file info.
