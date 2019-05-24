@@ -30,16 +30,44 @@ but it looks like 10G of disk space is sufficient for most purposes.
 Size your object store generously, once you start using Pachyderm, you'll start versioning all your data.
 You'll need four items to configure object storage
 
-1. The access endpoint, an url.  For example, Minio's endpoints are usually something like http://minio-server:9000/
+1. The access endpoint.
+   For example, Minio's endpoints are usually something like `minio-server:9000`. 
+   Don't begin it with the protocol; it's an endpoint, not an url.
 1. The bucket name you're dedicating to Pachyderm. Pachyderm will need exclusive access to this bucket.
 1. The access key id for the object store.  This is like a user name for logging into the object store.
 1. The secret key for the object store.  This is like the above user's password.
 
 ### TCP/IP ports
 
+For more details on how Kubernetes networking and service definitions work, see the [Kubernetes services 
+documentation](https://kubernetes.io/docs/concepts/services-networking/service/).
+
+#### Incoming ports (port)
+
+These are the ports internal to the containers, 
+You'll find these on both the pachd and dash containers.
 OpenShift runs containers and pods as unprivileged users which don't have access to port numbers below 1024.
 Pachyderm's default manifests use ports below 1024, so you'll have to modify the manifests to use other port numbers.
 It's usually as easy as adding a "1" in front of the port numbers we use.
+
+#### Pod ports (targetPort)
+
+This is the port exposed by the pod to Kubernetes, which is forwarded to the `port`.
+You should leave the `targetPort` set at `0` so it will match the `port` definition. 
+
+#### External ports (nodePorts)
+
+This is the port accessible from outside of Kubernetes.
+You probably don't need to change `nodePort` values unless your network security requirements or architecture requires you to change to another method of access. 
+Please see the [Kubernetes services documentation](https://kubernetes.io/docs/concepts/services-networking/service/) for details.
+
+## The OCPify script
+
+A bash script that automates many of the substitutions below is available [at this gist](https://gist.github.com/gabrielgrant/86c1a5b590ae3f4b3fd32d7e9d622dc8). 
+You can use it to modify a manifest created using the `--dry-run` flag to `pachctl deploy custom`, as detailed below, and then use this guide to ensure the modifications it makes are relevant to your OpenShift environment.
+It requires certain prerequisites, just as [jq](https://github.com/stedolan/jq) and [sponge, found in moreutils](https://joeyh.name/code/moreutils/).
+
+This script may be useful as a basis for automating redeploys of Pachyderm as needed.
 
 ## Preparing to deploy Pachyderm
 
@@ -69,12 +97,14 @@ Don't yet deploy your manifest, come back here after you've set up your PV and o
 Once you have your PV, object store, and project, you can create a manifest for editing using the `--dry-run` argument to `pachctl deploy`.
 That step is detailed in the deployment instructions for each type of deployment, above.
 
-Below, find an example is using AWS elastic block storage as a persistent disk with a custom deploy.
+Below, find an example using AWS elastic block storage as a persistent disk with a custom deploy.
 We'll show how to remove this PV in case you want to use a PV you create separately.
 
-
 ```
-pachctl deploy custom --persistent-disk aws --object-store s3 <pv-storage-name> <pv-storage-size> <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> --static-etcd-volume=<pv-storage-name> > manifest.json
+$ pachctl deploy custom --persistent-disk aws --object-store s3 \
+     <pv-storage-name> <pv-storage-size> \
+     <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
+     --static-etcd-volume=<pv-storage-name> > manifest.json
 ```
 
 ### 3. Modify pachd Service ports
@@ -322,9 +352,11 @@ The rest of the stanza is omitted for clarity.
 							},
 
 ```
-### 5. Change ClusterRoles to Roles
+### 5. (Optional) Change ClusterRoles to Roles
 
-You'll find two stanzas, `ClusterRole` and `ClusterRoleBinding`.  Default Openshift security policies require you to change those to `Role` and `RoleBinding`, respectively. You can safely do a global replace of `ClusterRole` with `Role` in your text editor; there should be 3 occurrences.
+You'll find two stanzas, `ClusterRole` and `ClusterRoleBinding`.  
+Many institutional Openshift security policies require you to change those to `Role` and `RoleBinding`, respectively. 
+You can safely do a global replace of `ClusterRole` with `Role` in your text editor; there should be 3 occurrences.
 
 ### 6. Optional: remove the PV created during the deploy command
 If you're using a PV you've created separately, remove the PV that was added to your manifest by `pachctl deploy --dry-run`.  Here's the example PV we created with the deploy command we used above, so you can recognize it.
@@ -376,7 +408,7 @@ You can see the cluster status by using `oc get pods` as in upstream Kubernetes:
 
 ### Known issues
 
-Problems related to OpenShift deployment are tracked in [this issue](https://github.com/pachyderm/pachyderm/issues/336). 
+Problems related to OpenShift deployment are tracked in [with the "openshift" label](https://github.com/pachyderm/pachyderm/issues?utf8=%E2%9C%93&q=is%3Aissue+is%3Aopen+label%3Aopenshift). 
 
 
 
