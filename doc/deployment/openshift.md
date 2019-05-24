@@ -358,7 +358,7 @@ You'll find two stanzas, `ClusterRole` and `ClusterRoleBinding`.
 Many institutional Openshift security policies require you to change those to `Role` and `RoleBinding`, respectively. 
 You can safely do a global replace of `ClusterRole` with `Role` in your text editor; there should be 3 occurrences.
 
-### 6. Optional: remove the PV created during the deploy command
+### 6. (Optional) remove the PV created during the deploy command
 If you're using a PV you've created separately, remove the PV that was added to your manifest by `pachctl deploy --dry-run`.  Here's the example PV we created with the deploy command we used above, so you can recognize it.
 ```
 {
