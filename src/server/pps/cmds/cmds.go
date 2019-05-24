@@ -834,12 +834,11 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 		if _, ok := os.LookupEnv(extended.TargetRepoEnvVar); ok && tracing.IsActive() {
 			// unmarshal extended trace from RPC context
 			clientSpan, ctx := opentracing.StartSpanFromContext(
-				client.Ctx(),
-				"/pps.API/CreatePipeline",
-				ext.SpanKindRPCClient,
+				client.Ctx(), tracing.CreatePipelineMethodName, ext.SpanKindRPCClient,
 				opentracing.Tag{string(ext.Component), "gRPC"},
-			)
+				opentracing.Tag{"pipeline", request.Pipeline.Name})
 			defer clientSpan.Finish()
+
 			extendedTrace := extended.TraceProto{SerializedTrace: map[string]string{}} // init map
 			opentracing.GlobalTracer().Inject(
 				clientSpan.Context(),
