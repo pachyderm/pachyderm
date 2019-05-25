@@ -518,6 +518,34 @@ func NewClientFromEnv(storageRoot string) (c Client, err error) {
 	}
 }
 
+// NewClientFromSecret creates a client based on mounted secret files.
+func NewClientFromSecret(storageRoot string) (c Client, err error) {
+	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
+	if !ok {
+		return nil, fmt.Errorf("storage backend environment variable not found")
+	}
+	switch storageBackend {
+	case Amazon:
+		c, err = NewAmazonClientFromSecret("")
+	case Google:
+		c, err = NewGoogleClientFromSecret("")
+	case Microsoft:
+		c, err = NewMicrosoftClientFromSecret("")
+	case Minio:
+		c, err = NewMinioClientFromSecret("")
+	case Local:
+		c, err = NewLocalClient(storageRoot)
+	}
+	switch {
+	case err != nil:
+		return nil, err
+	case c != nil:
+		return TracingObjClient(storageBackend, c), nil
+	default:
+		return nil, fmt.Errorf("unrecognized storage backend: %s", storageBackend)
+	}
+}
+
 // NewExponentialBackOffConfig creates an exponential back-off config with
 // longer wait times than the default.
 func NewExponentialBackOffConfig() *backoff.ExponentialBackOff {
