@@ -2083,7 +2083,7 @@ func TestUpdatePipeline(t *testing.T) {
 		},
 		client.NewPFSInput(dataRepo, "/*"),
 		"",
-		false,
+		true,
 	))
 
 	_, err := c.StartCommit(dataRepo, "master")
@@ -4689,6 +4689,78 @@ func TestPipelineWithStats(t *testing.T) {
 	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
 	require.NoError(t, err)
 	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+}
+
+func TestPipelineWithStatsToggle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	dataRepo := tu.UniqueString("TestPipelineWithStatsToggle_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	pipeline := tu.UniqueString("TestPipelineWithStatsToggle")
+	updatePipeline := func(enabled bool) error {
+		_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Cmd: []string{"bash"},
+					Stdin: []string{
+						fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo),
+					},
+				},
+				EnableStats: enabled,
+				Input:       client.NewPFSInput(dataRepo, "/*"),
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Update: true,
+			})
+		return err
+	}
+	numFiles := 5
+	var commits []*pfs.Commit
+	updateFiles := func() {
+		commitLen := len(commits)
+		for i := commitLen; i < commitLen+numFiles; i++ {
+			commit, err := c.StartCommit(dataRepo, "master")
+			commits = append(commits, commit)
+			require.NoError(t, err)
+			_, err = c.PutFile(dataRepo, commits[i].ID, fmt.Sprintf("foo-%d", i), strings.NewReader("foo\n"))
+			require.NoError(t, err)
+			require.NoError(t, c.FinishCommit(dataRepo, commits[i].ID))
+		}
+	}
+	// Start with stats disabled.
+	require.NoError(t, updatePipeline(false))
+	updateFiles()
+	jobs, err := c.FlushJobAll([]*pfs.Commit{commits[len(commits)-1]}, nil)
+	require.NoError(t, err)
+	// Check no stats.
+	resp, err := c.ListDatum(jobs[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	_, err = c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
+	require.YesError(t, err)
+	// Enable stats
+	require.NoError(t, updatePipeline(true))
+	updateFiles()
+	jobs, err = c.FlushJobAll([]*pfs.Commit{commits[len(commits)-1]}, nil)
+	require.NoError(t, err)
+	// Check stats.
+	resp, err = c.ListDatum(jobs[0].Job.ID, 0, 0)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(resp.DatumInfos))
+	datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[0].Datum.ID)
+	require.NoError(t, err)
+	require.Equal(t, pps.DatumState_SUCCESS, datum.State)
+	for i := 1; i < numFiles; i++ {
+		datum, err := c.InspectDatum(jobs[0].Job.ID, resp.DatumInfos[i].Datum.ID)
+		require.NoError(t, err)
+		require.Equal(t, pps.DatumState_SKIPPED, datum.State)
+	}
+	// Check that disabling stats errors.
+	require.YesError(t, updatePipeline(false))
 }
 
 func TestPipelineWithStatsFailedDatums(t *testing.T) {

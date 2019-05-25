@@ -81,6 +81,10 @@ func newErrPipelineExists(pipeline string) error {
 	return fmt.Errorf("pipeline %v already exists", pipeline)
 }
 
+func newErrPipelineUpdate(pipeline string, err error) error {
+	return fmt.Errorf("pipeline %v update error: %v", pipeline, err)
+}
+
 type errEmptyInput struct {
 	error
 }
@@ -1869,12 +1873,14 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	}
 	pipelineName := pipelineInfo.Pipeline.Name
 	pps.SortInput(pipelineInfo.Input) // Makes datum hashes comparable
+	update := false
 	if request.Update {
-		// inspect the pipeline here so that if it doesn't exist users get a
-		// sensible error message
-		if _, err := a.inspectPipeline(pachClient, request.Pipeline.Name); err != nil {
-			return nil, err
+		// inspect the pipeline to see if this is a real update
+		if _, err := a.inspectPipeline(pachClient, request.Pipeline.Name); err == nil {
+			update = true
 		}
+	}
+	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
 		if ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {
 			return nil, err
@@ -1905,6 +1911,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				oldPipelineInfo, err = ppsutil.GetPipelineInfo(pachClient, &pipelinePtr, true)
 				if err != nil {
 					return err
+				}
+
+				// Cannot disable stats after it has been enabled.
+				if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
+					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, fmt.Errorf("cannot disable stats"))
 				}
 
 				// Modify pipelineInfo
@@ -2436,7 +2447,14 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 	if err := pachClient.DeleteRepo(ppsconsts.SpecRepo, true); err != nil && !isNotFoundErr(err) {
 		return nil, err
 	}
-	if err := pachClient.CreateRepo(ppsconsts.SpecRepo); err != nil && !isAlreadyExistsErr(err) {
+	if _, err := pachClient.PfsAPIClient.CreateRepo(
+		pachClient.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:        client.NewRepo(ppsconsts.SpecRepo),
+			Update:      true,
+			Description: ppsconsts.SpecRepoDesc,
+		},
+	); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
