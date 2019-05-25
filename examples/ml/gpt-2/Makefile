@@ -1,6 +1,9 @@
 
 docker-build:
-	docker build -t gpt-2-example .
+	docker build -t pachyderm/gpt-2-example .
+
+docker-push: docker-build
+	docker push pachyderm/gpt-2-example
 
 deploy:
 	pachctl update repo queries
