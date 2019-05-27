@@ -211,7 +211,7 @@ docker-push-test:
 docker-wait-pachd:
 	etc/compile/wait.sh pachd_compile
 
-docker-build-helper: enterprise-code-checkin-test
+docker-build-helper:
 	@# run these in separate make process so that if
 	@# 'enterprise-code-checkin-test' fails, the rest of the build process aborts
 	@make docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
