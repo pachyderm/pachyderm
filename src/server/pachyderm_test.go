@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/segmentio/kafka-go"
-
 	"golang.org/x/sync/errgroup"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -48,9 +46,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/types"
-	prom_api "github.com/prometheus/client_golang/api"
-	prom_api_v1 "github.com/prometheus/client_golang/api/prometheus/v1"
-	prom_model "github.com/prometheus/common/model"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
