@@ -30,6 +30,7 @@ before_install:
 - kind create cluster
 # Set KUBECONFIG environment variable for KinD
 - export KUBECONFIG="$(kind get kubeconfig-path)"
+- pachctl port-forward &
 #- sudo etc/testing/travis_before_install.sh
 before_script:
 - docker version
