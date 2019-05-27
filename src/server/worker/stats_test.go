@@ -40,7 +40,6 @@ func activateEnterprise(c *client.APIClient) error {
 	}, backoff.NewTestingBackOff())
 }
 
-
 // Regression: stats commits would not close when there were no input datums.
 //For more info, see github.com/pachyderm/pachyderm/issues/3337
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
