@@ -12,9 +12,9 @@ make docker-build
 kind load docker-image pachyderm/worker:local
 kind load docker-image pachyderm/pachd:local
 
-make docker-build-kafka
+#make docker-build-kafka
 
-kind load docker-image kafka-demo
+#kind load docker-image kafka-demo
 
 make docker-build-test-entrypoint
 
