@@ -9,17 +9,17 @@ cache:
 language: go
 go:
 - "1.11.1"
-#env:
-#  global:
-#    - PATH=$HOME/cached-deps:$PATH
-#  matrix:
-#    - BUCKET=MISC
+env:
+  global:
+    - PATH=$HOME/cached-deps:$PATH
+  matrix:
+    - BUCKET=MISC
     # If you want to update the number of PPS workers, you'll also need to update
     # the value in ./etc/build/PPS_BUILD_BUCKET_COUNT
-    # - BUCKET=PPS1
-    # - BUCKET=PPS2
-    # - BUCKET=PPS3
-    # - BUCKET=EXAMPLES
+     - BUCKET=PPS1
+     - BUCKET=PPS2
+     - BUCKET=PPS3
+     - BUCKET=EXAMPLES
 branches:
   except:
     - /^v[0-9]/
