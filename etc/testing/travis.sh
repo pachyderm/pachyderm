@@ -24,7 +24,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
 
-        make lint docker-build test-pfs-server \
+        make lint test-pfs-server \
             test-pfs-cmds test-pfs-storage test-deploy-cmds test-libs test-auth \
             test-enterprise test-worker test-admin test-s3gateway-integration \
             test-proto-static test-transaction
@@ -33,7 +33,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
 
         # Do not run some tests when we don't have access to secret
         # credentials
-        make lint docker-build test-pfs-server \
+        make lint test-pfs-server \
             test-pfs-cmds test-pfs-storage test-deploy-cmds test-libs test-admin \
             test-s3gateway-integration
     fi
