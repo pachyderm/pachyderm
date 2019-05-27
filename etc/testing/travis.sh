@@ -18,6 +18,8 @@ make launch-dev
 
 go install ./src/testing/match
 
+echo 'something'
+
 if [[ "$BUCKET" == "MISC" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
