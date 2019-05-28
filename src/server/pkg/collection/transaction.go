@@ -18,6 +18,7 @@ package collection
 // not have the DelAll method, which we need.
 
 import (
+	"bytes"
 	"fmt"
 	"sort"
 	"strings"
@@ -414,7 +415,7 @@ func (s *stmSerializable) commit() *v3.TxnResponse {
 		for k := range s.wset {
 			keys = append(append(keys, ','), k...)
 		}
-		span.SetTag("updated-keys", string(keys[1:])) // drop leading ','
+		span.SetTag("updated-keys", string(bytes.TrimLeft(keys, ",")))
 	}
 
 	keys, getops := s.gets()
