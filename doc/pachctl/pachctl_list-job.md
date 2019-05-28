@@ -29,6 +29,7 @@ $ pachctl list-job -p foo bar/YYY
 ### Options
 
 ```
+      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
   -i, --input strings     List jobs with a specific set of input commits.
   -o, --output string     List jobs with a specific output commit.
   -p, --pipeline string   Limit to jobs made by pipeline.

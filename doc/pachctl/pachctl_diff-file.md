@@ -26,7 +26,8 @@ $ pachctl diff-file foo master path1 bar master path2
 ### Options
 
 ```
-  -s, --shallow   Specifies whether or not to diff subdirectories
+      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -s, --shallow           Specifies whether or not to diff subdirectories
 ```
 
 ### Options inherited from parent commands

@@ -40,8 +40,9 @@ $ pachctl list-file foo master --history -1
 ### Options
 
 ```
-      --history int   Return revision history for files.
-      --raw           disable pretty printing, print raw json
+      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+      --history int       Return revision history for files.
+      --raw               disable pretty printing, print raw json
 ```
 
 ### Options inherited from parent commands

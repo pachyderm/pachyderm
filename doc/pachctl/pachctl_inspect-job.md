@@ -14,8 +14,9 @@ Return info about a job.
 ### Options
 
 ```
-  -b, --block   block until the job has either succeeded or failed
-      --raw     disable pretty printing, print raw json
+  -b, --block             block until the job has either succeeded or failed
+      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+      --raw               disable pretty printing, print raw json
 ```
 
 ### Options inherited from parent commands

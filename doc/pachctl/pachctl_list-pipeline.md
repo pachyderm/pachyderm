@@ -14,8 +14,9 @@ Return info about all pipelines.
 ### Options
 
 ```
-      --raw    disable pretty printing, print raw json
-  -s, --spec   Output create-pipeline compatibility specs.
+      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+      --raw               disable pretty printing, print raw json
+  -s, --spec              Output create-pipeline compatibility specs.
 ```
 
 ### Options inherited from parent commands

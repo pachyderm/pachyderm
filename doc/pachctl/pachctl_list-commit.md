@@ -35,9 +35,10 @@ $ pachctl list-commit foo master --from XXX
 ### Options
 
 ```
-  -f, --from string   list all commits since this commit
-  -n, --number int    list only this many commits; if set to zero, list all commits
-      --raw           disable pretty printing, print raw json
+  -f, --from string       list all commits since this commit
+      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+  -n, --number int        list only this many commits; if set to zero, list all commits
+      --raw               disable pretty printing, print raw json
 ```
 
 ### Options inherited from parent commands

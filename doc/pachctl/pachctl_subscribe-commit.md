@@ -33,9 +33,10 @@ $ pachctl subscribe-commit test master --new
 ### Options
 
 ```
-      --from string   subscribe to all commits since this commit
-      --new           subscribe to only new commits created from now on
-      --raw           disable pretty printing, print raw json
+      --from string       subscribe to all commits since this commit
+      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+      --new               subscribe to only new commits created from now on
+      --raw               disable pretty printing, print raw json
 ```
 
 ### Options inherited from parent commands

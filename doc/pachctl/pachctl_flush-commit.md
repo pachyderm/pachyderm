@@ -26,8 +26,9 @@ $ pachctl flush-commit foo/XXX -r bar -r baz
 ### Options
 
 ```
-      --raw              disable pretty printing, print raw json
-  -r, --repos []string   Wait only for commits leading to a specific set of repos (default [])
+      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
+      --raw               disable pretty printing, print raw json
+  -r, --repos []string    Wait only for commits leading to a specific set of repos (default [])
 ```
 
 ### Options inherited from parent commands

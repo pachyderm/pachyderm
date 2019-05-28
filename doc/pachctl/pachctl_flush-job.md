@@ -23,6 +23,7 @@ $ pachctl flush-job foo/XXX -p bar -p baz
 ### Options
 
 ```
+      --full-timestamps     Return absolute timestamps (as opposed to the default, relative timestamps).
   -p, --pipeline []string   Wait only for jobs leading to a specific set of pipelines (default [])
       --raw                 disable pretty printing, print raw json
 ```

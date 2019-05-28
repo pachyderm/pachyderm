@@ -63,7 +63,7 @@ $ pachctl put-file repo branch -i http://host/path
   -o, --overwrite                 Overwrite the existing content of the file, either from previous commits or previous calls to put-file within this commit.
   -p, --parallelism int           The maximum number of files that can be uploaded in parallel. (default 10)
   -r, --recursive                 Recursively put the files in a directory.
-      --split json                Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are `line`, `json`, `sql` and `csv`.
+      --split line                Split the input file into smaller files, subject to the constraints of --target-file-datums and --target-file-bytes. Permissible values are line, `json`, `sql` and `csv`.
       --target-file-bytes uint    The target upper bound of the number of bytes that each file contains; needs to be used with --split.
       --target-file-datums uint   The upper bound of the number of datums that each file contains, the last file will contain fewer if the datums don't divide evenly; needs to be used with --split.
 ```
