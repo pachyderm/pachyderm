@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.8.7
+
+- Make the 'put file' directory traversal change backwards compatible for legacy branches (#3707)
+- Several fixes to provenance (#3734):
+  - Force provenance to be transitively closed
+  - Propagate all affected branches on deleteCommit
+  - Fix weird two branches with one commit bugs
+- Added a new fsck utility for PFS (#3734)
+- Make stats somewhat toggleable (#3758)
+- Example of spouts using kafka (#3752)
+- Refactor/fix some of the PFS upload steps (#3750)
+
 ## 1.8.6
 
 - The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#cron-input) for more info. (#3509)
