@@ -140,31 +140,12 @@ func AddPipelineSpanToAnyTrace(ctx context.Context, c *etcd.Client,
 		return nil, ctx
 	}
 
-	// Construct new span's options (follows from extended span, + tags)
-	options := []opentracing.StartSpanOption{
-		opentracing.FollowsFrom(spanCtx),
-		opentracing.Tag{"pipeline", pipeline},
-	}
-	for i := 0; i < len(kvs); i += 2 {
-		if len(kvs) == i+1 {
-			// likely forgot key or value--best effort
-			options = append(options, opentracing.Tag{"extra", fmt.Sprintf("%v", kvs[i])})
-			break
-		}
-		key, ok := kvs[i].(string) // common case--key is string
-		if !ok {
-			key = fmt.Sprintf("%v", kvs[i])
-		}
-		val, ok := kvs[i+1].(string) // common case--val is string
-		if !ok {
-			val = fmt.Sprintf("%v", kvs[i+1])
-		}
-		options = append(options, opentracing.Tag{key, val})
-	}
-
 	// return new span
-	return opentracing.StartSpanFromContext(ctx,
-		operation, options...)
+	span, ctx := opentracing.StartSpanFromContext(ctx,
+		operation, opentracing.FollowsFrom(spanCtx),
+		opentracing.Tag{"pipeline", pipeline})
+	tracing.TagAnySpan(span, kvs...)
+	return span, ctx
 }
 
 // AddJobSpanToAnyTrace is like AddPipelineSpanToAnyTrace but looks for traces
