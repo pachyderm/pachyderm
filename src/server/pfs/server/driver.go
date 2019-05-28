@@ -3152,7 +3152,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 			objects = append(objects, footer) // apply final footer
 		}
 		if pathsFound == 0 {
-			return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+			return nil, pfsserver.ErrFileNotFound{file}
 		}
 
 		// retrieve the content of all objects in 'objects'
@@ -3174,7 +3174,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+		return nil, pfsserver.ErrFileNotFound{file}
 	}
 	var rs []io.ReadCloser
 	// Handles the case when looking for a specific file/directory
@@ -3208,7 +3208,7 @@ func (d *driver) getFile(pachClient *client.APIClient, file *pfs.File, offset in
 		return nil, err
 	}
 	if !found {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+		return nil, pfsserver.ErrFileNotFound{file}
 	}
 	getBlocksClient, err := pachClient.ObjectAPIClient.GetBlocks(
 		ctx,
@@ -3331,7 +3331,7 @@ func (d *driver) inspectFile(pachClient *client.APIClient, file *pfs.File) (fi *
 		return nil, fmt.Errorf("output commit %v not finished", commitInfo.Commit.ID)
 	}
 	if commitInfo.Trees == nil {
-		return nil, fmt.Errorf("no file(s) found that match %v", file.Path)
+		return nil, pfsserver.ErrFileNotFound{file}
 	}
 	rs, err := d.getTree(pachClient, commitInfo, file.Path)
 	if err != nil {

@@ -9102,6 +9102,65 @@ func TestPipelineHistory(t *testing.T) {
 	require.Equal(t, 1, len(pipelineInfos))
 }
 
+func TestFileHistory(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo1 := tu.UniqueString("TestFileHistory_data1")
+	require.NoError(t, c.CreateRepo(dataRepo1))
+	dataRepo2 := tu.UniqueString("TestFileHistory_data2")
+	require.NoError(t, c.CreateRepo(dataRepo2))
+
+	pipeline := tu.UniqueString("TestSimplePipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("for a in /pfs/%s/*", dataRepo1),
+			"do",
+			fmt.Sprintf("for b in /pfs/%s/*", dataRepo2),
+			"do",
+			"touch /pfs/out/$(basename $a)_$(basename $b)",
+			"done",
+			"done",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewCrossInput(
+			client.NewPFSInput(dataRepo1, "/*"),
+			client.NewPFSInput(dataRepo2, "/*"),
+		),
+		"",
+		false,
+	))
+
+	_, err := c.PutFile(dataRepo1, "master", "A1", strings.NewReader(""))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo2, "master", "B1", strings.NewReader(""))
+	require.NoError(t, err)
+
+	_, err = c.PutFile(dataRepo1, "master", "A2", strings.NewReader(""))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo1, "master", "A3", strings.NewReader(""))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo2, "master", "B2", strings.NewReader(""))
+	require.NoError(t, err)
+	_, err = c.PutFile(dataRepo2, "master", "B3", strings.NewReader(""))
+	require.NoError(t, err)
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo1, "master"), client.NewCommit(dataRepo2, "master")}, nil)
+	require.NoError(t, err)
+
+	_, err = c.ListFileHistory(pipeline, "master", "", -1)
+	require.NoError(t, err)
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
