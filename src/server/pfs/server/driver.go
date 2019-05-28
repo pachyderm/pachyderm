@@ -2947,7 +2947,7 @@ func (d *driver) getTrees(pachClient *client.APIClient, commitInfo *pfs.CommitIn
 }
 
 func (d *driver) downloadTree(pachClient *client.APIClient, object *pfs.Object, prefix string) (r io.ReadCloser, retErr error) {
-	objClient, err := obj.NewClientFromEnv(d.storageRoot)
+	objClient, err := obj.NewClientFromSecret(d.storageRoot)
 	if err != nil {
 		return nil, err
 	}
