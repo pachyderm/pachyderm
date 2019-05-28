@@ -35,5 +35,6 @@ after_failure:
 - kubectl get all --namespace kafka
 - kubectl describe pod -l app=pachd
 - kubectl describe pod -l suite=pachyderm,app=etcd
+- kubectl logs -l app=pachd | tail -n 100
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd
