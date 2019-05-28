@@ -1,6 +1,6 @@
 # OpenShift
 
-[OpenShift](https://www.openshift.com/) is a popular enterprise Kubernetes distribution.  
+[OpenShift](https://www.openshift.com/) is a popular enterprise Kubernetes distribution.
 Pachyderm can run on OpenShift with a few small tweaks in the deployment process, which will be outlined below.
 Please see [known issues](#known-issues) below for currently issues with OpenShift deployments.
 
@@ -67,7 +67,11 @@ A bash script that automates many of the substitutions below is available [at th
 You can use it to modify a manifest created using the `--dry-run` flag to `pachctl deploy custom`, as detailed below, and then use this guide to ensure the modifications it makes are relevant to your OpenShift environment.
 It requires certain prerequisites, just as [jq](https://github.com/stedolan/jq) and [sponge, found in moreutils](https://joeyh.name/code/moreutils/).
 
-This script may be useful as a basis for automating redeploys of Pachyderm as needed.
+This script may be useful as a basis for automating redeploys of Pachyderm as needed. 
+
+### Configuration as code
+
+You're strongly encouraged to treat any manifests you generate and modify as _code_, subjecting them to the same revision control management you would any source code.
 
 ## Preparing to deploy Pachyderm
 
