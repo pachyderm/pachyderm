@@ -3,7 +3,7 @@
         "name": "generate"
     },
     "transform": {
-        "image": "pachyderm/gpt-2-example",
+        "image": "jdoliner/gpt-2-example:5",
         "cmd": ["/generate.py"]
     },
     "input": {
@@ -11,5 +11,18 @@
             "repo": "train",
             "glob": "/*"
         }
-    }
+    },
+    "resource_limits": {
+        "gpu": {
+            "type": "nvidia.com/gpu",
+            "number": 1
+        },
+        "memory": "10G",
+        "cpu": 1
+    },
+    "resource_requests": {
+        "memory": "10G",
+        "cpu": 1
+    },
+    "standby": true
 }

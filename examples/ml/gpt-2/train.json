@@ -3,7 +3,7 @@
         "name": "train"
     },
     "transform": {
-        "image": "pachyderm/gpt-2-example",
+        "image": "jdoliner/gpt-2-example:5",
         "cmd": ["/train.py"]
     },
     "input": {
@@ -16,6 +16,13 @@
         "gpu": {
             "type": "nvidia.com/gpu",
             "number": 1
-        }
-    }
+        },
+        "memory": "10G",
+        "cpu": 1
+    },
+    "resource_requests": {
+        "memory": "10G",
+        "cpu": 1
+    },
+    "standby": true
 }
