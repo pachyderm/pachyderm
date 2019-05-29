@@ -143,15 +143,12 @@ $ {{alias}} -p foo -i bar@YYY`,
 			defer client.Close()
 
 			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
-					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
-						return err
-					}
-					return nil
+				return client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
+					return marshaller.Marshal(os.Stdout, ji)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
+			if err := client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
 				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
