@@ -149,42 +149,47 @@ for a client, while coordinating between the pachd service and the database as
 necessary.
 
 ```go
-func (gcc *GcClient) ReserveChunks(chunks []Chunk)
-func (gcc *GcClient) UpdateReferences(add []Chunk, remove []Chunk)
+type Reference struct {
+  chunk Chunk
+  sourcetype string
+  source string
+}
+
+func (gcc *GcClient) ReserveChunks(job string, chunks []Chunk) {...}
+func (gcc *GcClient) UpdateReferences(add []Reference, remove []Reference, releaseJobs []string) {...}
 ```
 
 The garbage collection service will provide a GRPC API for use by the client
 library (which should not be used directly).
 
-```
-rpc FlushDeletes(FlushDeletesRequest)
-```
-
-When deleting a chunk, the garbage collection service will need to evaluate the
-transitive references from that chunk to others.  Another service in the storage
-layer must provide an interface to fetch this information.
-
-```
-rpc GetReferences(GetReferencesRequest) stream Chunk
-
-message GetReferencesRequest {
-  Chunk chunk
+```proto
+message FlushDeletesRequest {
+  repeated Chunk chunks;
 }
+
+rpc FlushDeletes(FlushDeletesRequest)
+
+message DeleteChunksRequest {
+  repeated Chunk chunks;
+}
+
+rpc DeleteChunks(DeleteChunksRequest)
 ```
 
 ### Implementation
 
 **Client Library**
 
-`ReserveChunks` will store the set of chunks in new rows in the database with a
-preset TTL.  If the chunks are already present, the TTL will be updated.  If the
-chunks are currently being deleted, the client library will contact the pachd
-service and block until the deletion is confirmed and the chunk can be safely
-rewritten, using the `FlushDeletes` RPC.
+`ReserveChunks` will upsert records for the given chunks in the database, as
+well as adding temporary references to each of the given chunks using the
+specified job-id. If the chunks are currently being deleted, the client library
+will contact the pachd service and block until the deletion is confirmed and the
+chunk can be safely rewritten, using the `FlushDeletes` RPC.  The temporary
+reference can be released via the `releaseJob` parameter to `UpdateReferences`.
 
 `UpdateReferences` will update the reference count of the given chunks in the
-database.  If the references drop to zero _and_ the chunk is outside of its
-TTL, the client library will call the `DeleteChunks` rpc on the pachd service.
+database.  If the references drop to zero, the client library will call the 
+`DeleteChunks` rpc on the pachd service.
 
 **Pachd Service**
 
@@ -192,52 +197,55 @@ TTL, the client library will call the `DeleteChunks` rpc on the pachd service.
 for the specified chunks have completed.
 
 The service will periodically query the database for unreferenced chunks and
-proceed with removing their references and deleting them.  This is done by
-first marking the chunk as 'removing', then evaluating its references to other
-chunks through `GetReferences`.  Then, the service will atomically update these
-references in the database and mark the chunk as deleting.  Afterwards, it will
-send deletion requests to object storage, followed by deleting the row from the
-database, then responding to any `FlushDeletes` requests that were blocked.
+proceed with removing their references and deleting them.  This can be done in
+a transaction joining the chunks and references tables and marking the chunk as
+'deleting'.  Afterwards, it will send deletion requests to object storage,
+followed by deleting the row from the chunks table, then responding to any
+`FlushDeletes` requests that were blocked.
 
 #### Persistence
 
 The garbage collector will save changes to a database which will act as the
 point of coordination between nodes.
 
-Database entry:
+Chunks table spec:
 * hash: string (chunk name, primary key)
-* refcount: number
-* updated: timestamp (used for TTL)
-* removing: timestamp (one-way)
 * deleting: timestamp (one-way)
 
-States:
-Nascent ↔ Live → Removing → Deleting → Deleted
+References table spec:
+* chunk: string (chunk name)
+* type: string (the type of the source of the reference 'chunk', 'semantic', or 'job')
+* reference: string (source of the reference)
+* primary key is the compound of (chunk, type, reference)
+
+The `reference` field indicates the source of the reference, which can be one of
+the following:
+* a cross-chunk reference - `type`: "chunk"
+ * a reference from one chunk to another
+ * this field should be the hash id of the source chunk of the reference
+* a semantic reference - `type`: "semantic"
+ * typically the top-level reference to a chunk
+ * this field is the identifier that the chunk is referred to as
+* a job reference - `type`: "job"
+ * this is a temporary reference tied to the lifecycle of the job
+ * this field is the job id, which can be resolved to check if the job is
+ complete and the reference can be removed
+
+Logical states:
+Nascent ↔ Live → Deleting → Deleted
 
 * Nascent
  * the chunk has been reserved for writing
  * the chunk may or may not exist in object storage
- * `refcount` should be zero
- * `updated` should be within the TTL range
- * `removing` and `deleting` should be `nil`
+ * the chunk has one or more temporary semantic references from one or more clients
+ * `deleting` should be `nil`
 * Live
- * the chunk is referenced either semantically or from other chunks
+ * the chunk is referenced either semantically or from clients or other chunks
  * the chunk must exist in object storage
- * `refcount` should be non-zero
- * `removing` and `deleting` should be `nil`
-* Removing
- * the chunk is no longer referenced and is in the process of being removed
- * the chunk must exist in object storage
- * `refcount` should be zero
- * `updated` should be outside the TTL range
- * `removing` should be non-`nil`
  * `deleting` should be `nil`
 * Deleting
  * the chunk's references to other chunks have been removed and it is in the process of being deleted
  * the chunk may or may not exist in object storage
- * `refcount` should be zero
- * `updated` should be outside the TTL range
- * `removing` should be non-`nil`
  * `deleting` should be non-`nil`
 * Deleted
  * the chunk is no longer present in the database
@@ -246,9 +254,10 @@ Nascent ↔ Live → Removing → Deleting → Deleted
 #### Recovering
 
 When starting up after a disorderly shutdown, the garbage collector will need to
-recover missing state.  This will be unreferenced chunks that have timed out or
-that were in the process of deleting.  At startup, the garbage collector service
-should query these from the database and resume deletion.
+recover missing state.  This will be chunks with stale semantic references from
+failed clients, or chunks that were in the process of deleting.  At startup, the
+garbage collector service should query these from the database and resume
+deletion.
 
 #### Shardability
 
