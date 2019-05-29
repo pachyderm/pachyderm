@@ -16,8 +16,11 @@ import (
 	pfs2 "github.com/pachyderm/pachyderm/src/client/pfs"
 	pps2 "github.com/pachyderm/pachyderm/src/client/pps"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -760,6 +763,23 @@ type APIServer interface {
 	ExtractPipeline(context.Context, *ExtractPipelineRequest) (*Op, error)
 	Restore(API_RestoreServer) error
 	InspectCluster(context.Context, *types.Empty) (*ClusterInfo, error)
+}
+
+// UnimplementedAPIServer can be embedded to have forward compatible implementations.
+type UnimplementedAPIServer struct {
+}
+
+func (*UnimplementedAPIServer) Extract(req *ExtractRequest, srv API_ExtractServer) error {
+	return status.Errorf(codes.Unimplemented, "method Extract not implemented")
+}
+func (*UnimplementedAPIServer) ExtractPipeline(ctx context.Context, req *ExtractPipelineRequest) (*Op, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExtractPipeline not implemented")
+}
+func (*UnimplementedAPIServer) Restore(srv API_RestoreServer) error {
+	return status.Errorf(codes.Unimplemented, "method Restore not implemented")
+}
+func (*UnimplementedAPIServer) InspectCluster(ctx context.Context, req *types.Empty) (*ClusterInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectCluster not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -1542,14 +1562,7 @@ func (m *ClusterInfo) Size() (n int) {
 }
 
 func sovAdmin(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozAdmin(x uint64) (n int) {
 	return sovAdmin(uint64((x << 1) ^ uint64((int64(x) >> 63))))
