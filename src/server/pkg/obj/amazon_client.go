@@ -30,7 +30,7 @@ import (
 
 const oneDayInSeconds = 60 * 60 * 24
 const twoDaysInSeconds = 60 * 60 * 48
-const MaxRetries = 10
+const maxRetries = 10
 
 var (
 	// By default, objects uploaded to a bucket are only accessible to the
@@ -171,7 +171,7 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
 	awsConfig := &aws.Config{
 		Region:     aws.String(region),
-		MaxRetries: aws.Int(MaxRetries),
+		MaxRetries: aws.Int(maxRetries),
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
