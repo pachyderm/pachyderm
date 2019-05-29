@@ -57,6 +57,8 @@ message Service {
   int32 internal_port = 1;
   int32 external_port = 2;
   string ip = 3 [(gogoproto.customname) = "IP"];
+  string type = 4;
+  map<string, string> annotations = 5;
 }
 
 message Spout {

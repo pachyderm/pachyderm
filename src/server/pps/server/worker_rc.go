@@ -389,6 +389,13 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	if a.iamRole != "" {
 		annotations["iam.amazonaws.com/role"] = a.iamRole
 	}
+	if service != nil {
+		for k, v := range service.Annotations {
+			if k != "pipelineName" && k != "iam.amazonaws.com/role" {
+				annotations[k] = v
+			}
+		}
+	}
 
 	return &workerOptions{
 		rcName:           rcName,
@@ -479,26 +486,31 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 	}
 
 	if options.service != nil {
+		var servicePort = []v1.ServicePort{
+			{
+				Port:       options.service.ExternalPort,
+				TargetPort: intstr.FromInt(int(options.service.InternalPort)),
+				Name:       "user-port",
+			},
+		}
+		var serviceType = v1.ServiceType(options.service.Type)
+		if serviceType == v1.ServiceTypeNodePort {
+			servicePort[0].NodePort = options.service.ExternalPort
+		}
 		service := &v1.Service{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Service",
 				APIVersion: "v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   options.rcName + "-user",
-				Labels: options.labels,
+				Name:        options.rcName + "-user",
+				Labels:      options.labels,
+				Annotations: options.annotations,
 			},
 			Spec: v1.ServiceSpec{
 				Selector: options.labels,
-				Type:     v1.ServiceTypeNodePort,
-				Ports: []v1.ServicePort{
-					{
-						Port:       options.service.ExternalPort,
-						TargetPort: intstr.FromInt(int(options.service.InternalPort)),
-						Name:       "user-port",
-						NodePort:   options.service.ExternalPort,
-					},
-				},
+				Type:     serviceType,
+				Ports:    servicePort,
 			},
 		}
 		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {

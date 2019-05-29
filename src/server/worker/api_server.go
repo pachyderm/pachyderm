@@ -1211,7 +1211,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 				}
 			}
 			ctx, _ := joincontext.Join(jobCtx, a.shardCtx)
-			objClient, err := obj.NewClientFromEnv(a.hashtreeStorage)
+			objClient, err := obj.NewClientFromSecret(a.hashtreeStorage)
 			if err != nil {
 				return err
 			}
@@ -1879,7 +1879,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		}
 	}()
 	ctx := pachClient.Ctx()
-	objClient, err := obj.NewClientFromEnv(a.hashtreeStorage)
+	objClient, err := obj.NewClientFromSecret(a.hashtreeStorage)
 	if err != nil {
 		return nil, err
 	}

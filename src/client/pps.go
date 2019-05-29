@@ -651,6 +651,7 @@ func (c APIClient) CreatePipelineService(
 	update bool,
 	internalPort int32,
 	externalPort int32,
+	annotations map[string]string,
 ) error {
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
@@ -667,6 +668,7 @@ func (c APIClient) CreatePipelineService(
 			Service: &pps.Service{
 				InternalPort: internalPort,
 				ExternalPort: externalPort,
+				Annotations:  annotations,
 			},
 		},
 	)
