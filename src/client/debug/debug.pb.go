@@ -9,11 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -331,20 +328,6 @@ type DebugServer interface {
 	Binary(*BinaryRequest, Debug_BinaryServer) error
 }
 
-// UnimplementedDebugServer can be embedded to have forward compatible implementations.
-type UnimplementedDebugServer struct {
-}
-
-func (*UnimplementedDebugServer) Dump(req *DumpRequest, srv Debug_DumpServer) error {
-	return status.Errorf(codes.Unimplemented, "method Dump not implemented")
-}
-func (*UnimplementedDebugServer) Profile(req *ProfileRequest, srv Debug_ProfileServer) error {
-	return status.Errorf(codes.Unimplemented, "method Profile not implemented")
-}
-func (*UnimplementedDebugServer) Binary(req *BinaryRequest, srv Debug_BinaryServer) error {
-	return status.Errorf(codes.Unimplemented, "method Binary not implemented")
-}
-
 func RegisterDebugServer(s *grpc.Server, srv DebugServer) {
 	s.RegisterService(&_Debug_serviceDesc, srv)
 }
@@ -582,7 +565,14 @@ func (m *BinaryRequest) Size() (n int) {
 }
 
 func sovDebug(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozDebug(x uint64) (n int) {
 	return sovDebug(uint64((x << 1) ^ uint64((int64(x) >> 63))))

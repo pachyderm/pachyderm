@@ -9,11 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -568,20 +565,6 @@ type APIServer interface {
 	Deactivate(context.Context, *DeactivateRequest) (*DeactivateResponse, error)
 }
 
-// UnimplementedAPIServer can be embedded to have forward compatible implementations.
-type UnimplementedAPIServer struct {
-}
-
-func (*UnimplementedAPIServer) Activate(ctx context.Context, req *ActivateRequest) (*ActivateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Activate not implemented")
-}
-func (*UnimplementedAPIServer) GetState(ctx context.Context, req *GetStateRequest) (*GetStateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetState not implemented")
-}
-func (*UnimplementedAPIServer) Deactivate(ctx context.Context, req *DeactivateRequest) (*DeactivateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Deactivate not implemented")
-}
-
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
@@ -1033,7 +1016,14 @@ func (m *DeactivateResponse) Size() (n int) {
 }
 
 func sovEnterprise(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozEnterprise(x uint64) (n int) {
 	return sovEnterprise(uint64((x << 1) ^ uint64((int64(x) >> 63))))

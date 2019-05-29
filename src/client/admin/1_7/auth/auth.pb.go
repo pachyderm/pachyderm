@@ -10,11 +10,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -3279,74 +3276,6 @@ type APIServer interface {
 	GetOneTimePassword(context.Context, *GetOneTimePasswordRequest) (*GetOneTimePasswordResponse, error)
 }
 
-// UnimplementedAPIServer can be embedded to have forward compatible implementations.
-type UnimplementedAPIServer struct {
-}
-
-func (*UnimplementedAPIServer) Activate(ctx context.Context, req *ActivateRequest) (*ActivateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Activate not implemented")
-}
-func (*UnimplementedAPIServer) Deactivate(ctx context.Context, req *DeactivateRequest) (*DeactivateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Deactivate not implemented")
-}
-func (*UnimplementedAPIServer) GetConfiguration(ctx context.Context, req *GetConfigurationRequest) (*GetConfigurationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetConfiguration not implemented")
-}
-func (*UnimplementedAPIServer) SetConfiguration(ctx context.Context, req *SetConfigurationRequest) (*SetConfigurationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetConfiguration not implemented")
-}
-func (*UnimplementedAPIServer) GetAdmins(ctx context.Context, req *GetAdminsRequest) (*GetAdminsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAdmins not implemented")
-}
-func (*UnimplementedAPIServer) ModifyAdmins(ctx context.Context, req *ModifyAdminsRequest) (*ModifyAdminsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ModifyAdmins not implemented")
-}
-func (*UnimplementedAPIServer) Authenticate(ctx context.Context, req *AuthenticateRequest) (*AuthenticateResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Authenticate not implemented")
-}
-func (*UnimplementedAPIServer) Authorize(ctx context.Context, req *AuthorizeRequest) (*AuthorizeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Authorize not implemented")
-}
-func (*UnimplementedAPIServer) WhoAmI(ctx context.Context, req *WhoAmIRequest) (*WhoAmIResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method WhoAmI not implemented")
-}
-func (*UnimplementedAPIServer) GetScope(ctx context.Context, req *GetScopeRequest) (*GetScopeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetScope not implemented")
-}
-func (*UnimplementedAPIServer) SetScope(ctx context.Context, req *SetScopeRequest) (*SetScopeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetScope not implemented")
-}
-func (*UnimplementedAPIServer) GetACL(ctx context.Context, req *GetACLRequest) (*GetACLResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetACL not implemented")
-}
-func (*UnimplementedAPIServer) SetACL(ctx context.Context, req *SetACLRequest) (*SetACLResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetACL not implemented")
-}
-func (*UnimplementedAPIServer) GetAuthToken(ctx context.Context, req *GetAuthTokenRequest) (*GetAuthTokenResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAuthToken not implemented")
-}
-func (*UnimplementedAPIServer) ExtendAuthToken(ctx context.Context, req *ExtendAuthTokenRequest) (*ExtendAuthTokenResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ExtendAuthToken not implemented")
-}
-func (*UnimplementedAPIServer) RevokeAuthToken(ctx context.Context, req *RevokeAuthTokenRequest) (*RevokeAuthTokenResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RevokeAuthToken not implemented")
-}
-func (*UnimplementedAPIServer) SetGroupsForUser(ctx context.Context, req *SetGroupsForUserRequest) (*SetGroupsForUserResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetGroupsForUser not implemented")
-}
-func (*UnimplementedAPIServer) ModifyMembers(ctx context.Context, req *ModifyMembersRequest) (*ModifyMembersResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ModifyMembers not implemented")
-}
-func (*UnimplementedAPIServer) GetGroups(ctx context.Context, req *GetGroupsRequest) (*GetGroupsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetGroups not implemented")
-}
-func (*UnimplementedAPIServer) GetUsers(ctx context.Context, req *GetUsersRequest) (*GetUsersResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetUsers not implemented")
-}
-func (*UnimplementedAPIServer) GetOneTimePassword(ctx context.Context, req *GetOneTimePasswordRequest) (*GetOneTimePasswordResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetOneTimePassword not implemented")
-}
-
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
@@ -6448,7 +6377,14 @@ func (m *GetOneTimePasswordResponse) Size() (n int) {
 }
 
 func sovAuth(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozAuth(x uint64) (n int) {
 	return sovAuth(uint64((x << 1) ^ uint64((int64(x) >> 63))))

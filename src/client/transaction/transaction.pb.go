@@ -11,11 +11,8 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	pfs "github.com/pachyderm/pachyderm/src/client/pfs"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -762,29 +759,6 @@ type APIServer interface {
 	ListTransaction(context.Context, *ListTransactionRequest) (*TransactionInfos, error)
 	FinishTransaction(context.Context, *FinishTransactionRequest) (*TransactionInfo, error)
 	DeleteAll(context.Context, *DeleteAllRequest) (*types.Empty, error)
-}
-
-// UnimplementedAPIServer can be embedded to have forward compatible implementations.
-type UnimplementedAPIServer struct {
-}
-
-func (*UnimplementedAPIServer) StartTransaction(ctx context.Context, req *StartTransactionRequest) (*Transaction, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StartTransaction not implemented")
-}
-func (*UnimplementedAPIServer) InspectTransaction(ctx context.Context, req *InspectTransactionRequest) (*TransactionInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InspectTransaction not implemented")
-}
-func (*UnimplementedAPIServer) DeleteTransaction(ctx context.Context, req *DeleteTransactionRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteTransaction not implemented")
-}
-func (*UnimplementedAPIServer) ListTransaction(ctx context.Context, req *ListTransactionRequest) (*TransactionInfos, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListTransaction not implemented")
-}
-func (*UnimplementedAPIServer) FinishTransaction(ctx context.Context, req *FinishTransactionRequest) (*TransactionInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method FinishTransaction not implemented")
-}
-func (*UnimplementedAPIServer) DeleteAll(ctx context.Context, req *DeleteAllRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteAll not implemented")
 }
 
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
@@ -1565,7 +1539,14 @@ func (m *FinishTransactionRequest) Size() (n int) {
 }
 
 func sovTransaction(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozTransaction(x uint64) (n int) {
 	return sovTransaction(uint64((x << 1) ^ uint64((int64(x) >> 63))))

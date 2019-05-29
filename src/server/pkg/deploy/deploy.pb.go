@@ -9,11 +9,8 @@ import (
 	types "github.com/gogo/protobuf/types"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
-	codes "google.golang.org/grpc/codes"
-	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -592,26 +589,6 @@ type APIServer interface {
 	DeleteCluster(context.Context, *DeleteClusterRequest) (*types.Empty, error)
 }
 
-// UnimplementedAPIServer can be embedded to have forward compatible implementations.
-type UnimplementedAPIServer struct {
-}
-
-func (*UnimplementedAPIServer) CreateCluster(ctx context.Context, req *CreateClusterRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CreateCluster not implemented")
-}
-func (*UnimplementedAPIServer) UpdateCluster(ctx context.Context, req *UpdateClusterRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateCluster not implemented")
-}
-func (*UnimplementedAPIServer) InspectCluster(ctx context.Context, req *InspectClusterRequest) (*ClusterInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InspectCluster not implemented")
-}
-func (*UnimplementedAPIServer) ListCluster(ctx context.Context, req *ListClusterRequest) (*ClusterInfos, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListCluster not implemented")
-}
-func (*UnimplementedAPIServer) DeleteCluster(ctx context.Context, req *DeleteClusterRequest) (*types.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DeleteCluster not implemented")
-}
-
 func RegisterAPIServer(s *grpc.Server, srv APIServer) {
 	s.RegisterService(&_API_serviceDesc, srv)
 }
@@ -1174,7 +1151,14 @@ func (m *DeleteClusterRequest) Size() (n int) {
 }
 
 func sovDeploy(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozDeploy(x uint64) (n int) {
 	return sovDeploy(uint64((x << 1) ^ uint64((int64(x) >> 63))))
