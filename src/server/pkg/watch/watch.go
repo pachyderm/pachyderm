@@ -152,7 +152,7 @@ func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix str
 					return err
 				}
 				etcdWatcher = etcd.NewWatcher(client)
-				rch = etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(nextRevision))
+				rch = etcdWatcher.Watch(ctx, prefix, options...)
 				continue
 			}
 			if err := resp.Err(); err != nil {
