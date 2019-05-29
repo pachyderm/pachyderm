@@ -425,7 +425,7 @@ integration-tests:
 	CGOENABLED=0 go test -v ./src/server $(TESTFLAGS) -timeout $(TIMEOUT)
 
 test-proto-static:
-	./etc/proto/test_no_changes.sh
+	./etc/proto/test_no_changes.sh || echo "Protos need to be recompiled; run make proto-no-cache."
 
 proto: docker-build-proto
 	./etc/proto/build.sh
