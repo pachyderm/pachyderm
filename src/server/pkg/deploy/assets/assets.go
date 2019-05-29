@@ -25,11 +25,9 @@ import (
 var (
 	suite = "pachyderm"
 
-	pachdImage = "pachyderm/pachd"
-	// Using our own etcd image for now because there's a fix we need
-	// that hasn't been released, and which has been manually applied
-	// to the official v3.2.7 release.
+	pachdImage     = "pachyderm/pachd"
 	etcdImage      = "quay.io/coreos/etcd:v3.3.5"
+	postgresImage  = "postgres:11.3"
 	grpcProxyImage = "pachyderm/grpc-proxy:0.4.3"
 	dashName       = "dash"
 	workerImage    = "pachyderm/worker"
@@ -1556,6 +1554,7 @@ func Images(opts *AssetOpts) []string {
 	return []string{
 		versionedWorkerImage(opts),
 		etcdImage,
+		postgresImage,
 		grpcProxyImage,
 		pauseImage,
 		versionedPachdImage(opts),
