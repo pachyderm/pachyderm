@@ -3,7 +3,7 @@
         "name": "train"
     },
     "transform": {
-        "image": "jdoliner/gpt-2-example:5",
+        "image": "jdoliner/gpt-2-example:6",
         "cmd": ["/train.py"]
     },
     "input": {

@@ -14,4 +14,4 @@ gpt2.load_gpt2(sess)
 out = os.path.join("/pfs/out", models[0])
 gpt2.generate_to_file(sess, destination_path=out, prefix="<|startoftext|>",
                       truncate="<|endoftext|>", include_prefix=False,
-                      length=280, nsamples=200, temperature=1.5)
+                      length=280, nsamples=200, temperature=1.0)
