@@ -25,6 +25,7 @@ import (
 
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -32,6 +33,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
+	txnenv "github.com/pachyderm/pachyderm/src/server/pkg/transactionenv"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 )
@@ -87,8 +89,17 @@ var githubTokenRegex = regexp.MustCompile("^[0-9a-f]{40}$")
 // though empty values are still stored in etcd)
 var epsilon = &types.BoolValue{Value: true}
 
+// APIServer represents an auth api server
+type APIServer interface {
+	authclient.APIServer
+	txnenv.AuthTransactionServer
+}
+
+// apiServer implements the public interface of the Pachyderm auth system,
+// including all RPCs defined in the protobuf spec.
 type apiServer struct {
 	env        *serviceenv.ServiceEnv
+	txnEnv     *txnenv.TransactionEnv
 	pachLogger log.Logger
 
 	adminCache map[string]struct{} // cache of current cluster admins
@@ -156,9 +167,15 @@ func (a *apiServer) LogResp(request interface{}, response interface{}, err error
 }
 
 // NewAuthServer returns an implementation of authclient.APIServer.
-func NewAuthServer(env *serviceenv.ServiceEnv, etcdPrefix string, public bool) (authclient.APIServer, error) {
+func NewAuthServer(
+	env *serviceenv.ServiceEnv,
+	txnEnv *txnenv.TransactionEnv,
+	etcdPrefix string,
+	public bool,
+) (APIServer, error) {
 	s := &apiServer{
 		env:        env,
+		txnEnv:     txnEnv,
 		pachLogger: log.NewLogger("authclient.API"),
 		adminCache: make(map[string]struct{}),
 		tokens: col.NewCollection(
@@ -413,6 +430,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	return resp.State, nil
 }
 
+// Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateRequest) (resp *authclient.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
 	ctx = pachClient.Ctx() // copy auth information
@@ -544,6 +562,7 @@ func (a *apiServer) Activate(ctx context.Context, req *authclient.ActivateReques
 	return &authclient.ActivateResponse{PachToken: pachToken}, nil
 }
 
+// Deactivate implements the protobuf auth.Deactivate RPC
 func (a *apiServer) Deactivate(ctx context.Context, req *authclient.DeactivateRequest) (resp *authclient.DeactivateResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -649,6 +668,7 @@ func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, erro
 	return authclient.GitHubPrefix + verifiedUsername, nil
 }
 
+// GetAdmins implements the protobuf auth.GetAdmins RPC
 func (a *apiServer) GetAdmins(ctx context.Context, req *authclient.GetAdminsRequest) (resp *authclient.GetAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -705,6 +725,7 @@ func (a *apiServer) validateModifyAdminsRequest(add []string, remove []string) e
 	return nil
 }
 
+// ModifyAdmins implements the protobuf auth.ModifyAdmins RPC
 func (a *apiServer) ModifyAdmins(ctx context.Context, req *authclient.ModifyAdminsRequest) (resp *authclient.ModifyAdminsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -808,6 +829,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 	return nil
 }
 
+// Authenticate implements the protobuf auth.Authenticate RPC
 func (a *apiServer) Authenticate(ctx context.Context, req *authclient.AuthenticateRequest) (resp *authclient.AuthenticateResponse, retErr error) {
 	switch a.activationState() {
 	case none:
@@ -919,6 +941,7 @@ func (a *apiServer) getCallerTTL(ctx context.Context) (int64, error) {
 	return ttl, nil
 }
 
+// GetOneTimePassword implements the protobuf auth.GetOneTimePassword RPC
 func (a *apiServer) GetOneTimePassword(ctx context.Context, req *authclient.GetOneTimePasswordRequest) (resp *authclient.GetOneTimePasswordResponse, retErr error) {
 	// We don't want to actually log the request/response since they contain
 	// credentials.
@@ -1041,20 +1064,21 @@ func (a *apiServer) getOneTimePassword(ctx context.Context, username string, exp
 	return code, nil
 }
 
+// AuthorizeInTransaction is identical to Authorize except that it can run
+// inside an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) AuthorizeInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.AuthorizeRequest,
 ) (resp *authclient.AuthorizeResponse, retErr error) {
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1087,11 +1111,11 @@ func (a *apiServer) AuthorizeInTransaction(
 
 	// Get ACL to check
 	var acl authclient.ACL
-	if err := a.acls.ReadWrite(stm).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
+	if err := a.acls.ReadWrite(txnCtx.Stm).Get(req.Repo, &acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, fmt.Errorf("error getting ACL for repo \"%s\": %v", req.Repo, err)
 	}
 
-	scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+	scope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
 	if err != nil {
 		return nil, err
 	}
@@ -1100,6 +1124,7 @@ func (a *apiServer) AuthorizeInTransaction(
 	}, nil
 }
 
+// Authorize implements the protobuf auth.Authorize RPC
 func (a *apiServer) Authorize(
 	ctx context.Context,
 	req *authclient.AuthorizeRequest,
@@ -1108,17 +1133,17 @@ func (a *apiServer) Authorize(
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.AuthorizeResponse
-	err := col.NewDryrunSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		response, err = a.AuthorizeInTransaction(ctx, stm, req)
+		response, err = a.AuthorizeInTransaction(txnCtx, req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
 }
 
+// WhoAmI implements the protobuf auth.WhoAmI RPC
 func (a *apiServer) WhoAmI(ctx context.Context, req *authclient.WhoAmIRequest) (resp *authclient.WhoAmIResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1189,40 +1214,40 @@ func (a *apiServer) isAdmin(ctx context.Context, subject string) (bool, error) {
 	return false, nil
 }
 
+// SetScopeInTransaction is identical to SetScope except that it can run inside
+// an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) SetScopeInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.SetScopeRequest,
 ) (*authclient.SetScopeResponse, error) {
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
-	pachClient := a.env.GetPachClient(ctx)
 
 	// validate request & authenticate user
-	if err := validateSetScopeRequest(ctx, req); err != nil {
+	if err := validateSetScopeRequest(txnCtx.ClientContext, req); err != nil {
 		return nil, err
 	}
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
 
-	acls := a.acls.ReadWrite(stm)
+	acls := a.acls.ReadWrite(txnCtx.Stm)
 	var acl authclient.ACL
 	if err := acls.Get(req.Repo, &acl); err != nil {
 		if !col.IsErrNotFound(err) {
 			return nil, err
 		}
-		// ACL not found. Check that repo exists (return error if not). Note that
-		// this is not consistent with the rest of the transaction, but users
-		// should not be able to send a SetScope request that races with
-		// CreateRepo
-		_, err := pachClient.InspectRepo(req.Repo)
+		// ACL not found. Check that repo exists (return error if not).
+		_, err = txnCtx.Pfs().InspectRepoInTransaction(
+			txnCtx,
+			&pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}},
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -1249,7 +1274,7 @@ func (a *apiServer) SetScopeInTransaction(
 		}
 
 		// Check if the user or one of their groups is on the ACL directly
-		scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+		scope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
 		if err != nil {
 			return false, err
 		}
@@ -1270,7 +1295,7 @@ func (a *apiServer) SetScopeInTransaction(
 	}
 
 	// Scope change is authorized. Make the change
-	principal, err := a.canonicalizeSubject(ctx, req.Username)
+	principal, err := a.canonicalizeSubject(txnCtx.ClientContext, req.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -1279,33 +1304,28 @@ func (a *apiServer) SetScopeInTransaction(
 	} else {
 		delete(acl.Entries, principal)
 	}
-
 	if len(acl.Entries) == 0 {
-		err := acls.Delete(req.Repo)
-		if err != nil {
-			return nil, err
-		}
+		err = acls.Delete(req.Repo)
+	} else {
+		err = acls.Put(req.Repo, &acl)
 	}
-
-	err = acls.Put(req.Repo, &acl)
 	if err != nil {
 		return nil, err
 	}
-
 	return &authclient.SetScopeResponse{}, nil
 }
 
+// SetScope implements the protobuf auth.SetScope RPC
 func (a *apiServer) SetScope(ctx context.Context, req *authclient.SetScopeRequest) (resp *authclient.SetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.SetScopeResponse
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		var err error
-		response, err = a.SetScopeInTransaction(ctx, stm, req)
+		response, err = txn.SetScope(req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
@@ -1333,20 +1353,21 @@ func (a *apiServer) getScope(ctx context.Context, subject string, acl *authclien
 	return scope, nil
 }
 
+// GetScopeInTransaction is identical to GetScope except that it can run inside
+// an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) GetScopeInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.GetScopeRequest,
 ) (*authclient.GetScopeResponse, error) {
 	if a.activationState() == none {
 		return nil, authclient.ErrNotActivated
 	}
 
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	callerIsAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	callerIsAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1369,7 +1390,7 @@ func (a *apiServer) GetScopeInTransaction(
 	targetSubject := callerInfo.Subject
 	mustHaveReadAccess := false
 	if req.Username != "" {
-		targetSubject, err = a.canonicalizeSubject(ctx, req.Username)
+		targetSubject, err = a.canonicalizeSubject(txnCtx.ClientContext, req.Username)
 		if err != nil {
 			return nil, err
 		}
@@ -1383,7 +1404,7 @@ func (a *apiServer) GetScopeInTransaction(
 	// that pfs.ListRepo overrides this logic—the auth info it returns for a
 	// listed repo indicates that a user is OWNER of all repos if they are an
 	// admin
-	acls := a.acls.ReadWrite(stm)
+	acls := a.acls.ReadWrite(txnCtx.Stm)
 	response := new(authclient.GetScopeResponse)
 	for _, repo := range req.Repos {
 		var acl authclient.ACL
@@ -1395,7 +1416,7 @@ func (a *apiServer) GetScopeInTransaction(
 		if mustHaveReadAccess && !callerIsAdmin {
 			// Caller is getting another user's scopes. Check if the caller is
 			// authorized to view this repo's ACL
-			callerScope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+			callerScope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
 			if err != nil {
 				return nil, err
 			}
@@ -1409,7 +1430,7 @@ func (a *apiServer) GetScopeInTransaction(
 		}
 
 		// compute target's access scope to this repo
-		targetScope, err := a.getScope(ctx, targetSubject, &acl)
+		targetScope, err := a.getScope(txnCtx.ClientContext, targetSubject, &acl)
 		if err != nil {
 			return nil, err
 		}
@@ -1419,25 +1440,26 @@ func (a *apiServer) GetScopeInTransaction(
 	return response, nil
 }
 
+// GetScope implements the protobuf auth.GetScope RPC
 func (a *apiServer) GetScope(ctx context.Context, req *authclient.GetScopeRequest) (resp *authclient.GetScopeResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.GetScopeResponse
-	err := col.NewDryrunSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		response, err = a.GetScopeInTransaction(ctx, stm, req)
+		response, err = a.GetScopeInTransaction(txnCtx, req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
 }
 
+// GetACLInTransaction is identical to GetACL except that it can run inside
+// an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) GetACLInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.GetACLRequest,
 ) (*authclient.GetACLResponse, error) {
 	if a.activationState() == none {
@@ -1450,17 +1472,17 @@ func (a *apiServer) GetACLInTransaction(
 	}
 
 	// Get calling user
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	if err := a.expiredClusterAdminCheck(ctx, callerInfo.Subject); err != nil {
+	if err := a.expiredClusterAdminCheck(txnCtx.ClientContext, callerInfo.Subject); err != nil {
 		return nil, err
 	}
 
 	// Read repo ACL from etcd
 	acl := &authclient.ACL{}
-	if err = a.acls.ReadWrite(stm).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
+	if err = a.acls.ReadWrite(txnCtx.Stm).Get(req.Repo, acl); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
 	response := &authclient.GetACLResponse{
@@ -1477,25 +1499,26 @@ func (a *apiServer) GetACLInTransaction(
 	return response, nil
 }
 
+// GetACL implements the protobuf auth.GetACL RPC
 func (a *apiServer) GetACL(ctx context.Context, req *authclient.GetACLRequest) (resp *authclient.GetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.GetACLResponse
-	err := col.NewDryrunSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		response, err = a.GetACLInTransaction(ctx, stm, req)
+		response, err = a.GetACLInTransaction(txnCtx, req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
 }
 
+// SetACLInTransaction is identical to SetACL except that it can run inside
+// an existing etcd STM transaction.  This is not an RPC.
 func (a *apiServer) SetACLInTransaction(
-	ctx context.Context,
-	stm col.STM,
+	txnCtx *txnenv.TransactionContext,
 	req *authclient.SetACLRequest,
 ) (*authclient.SetACLResponse, error) {
 	if a.activationState() == none {
@@ -1508,11 +1531,11 @@ func (a *apiServer) SetACLInTransaction(
 	}
 
 	// Get calling user
-	callerInfo, err := a.getAuthenticatedUser(ctx)
+	callerInfo, err := a.getAuthenticatedUser(txnCtx.ClientContext)
 	if err != nil {
 		return nil, err
 	}
-	isAdmin, err := a.isAdmin(ctx, callerInfo.Subject)
+	isAdmin, err := a.isAdmin(txnCtx.ClientContext, callerInfo.Subject)
 	if err != nil {
 		return nil, err
 	}
@@ -1532,7 +1555,7 @@ func (a *apiServer) SetACLInTransaction(
 			continue
 		}
 		eg.Go(func() error {
-			principal, err := a.canonicalizeSubject(ctx, user)
+			principal, err := a.canonicalizeSubject(txnCtx.ClientContext, user)
 			if err != nil {
 				return err
 			}
@@ -1547,7 +1570,7 @@ func (a *apiServer) SetACLInTransaction(
 	}
 
 	// Read repo ACL from etcd
-	acls := a.acls.ReadWrite(stm)
+	acls := a.acls.ReadWrite(txnCtx.Stm)
 
 	// determine if the caller is authorized to set this repo's ACL
 	authorized, err := func() (bool, error) {
@@ -1574,7 +1597,7 @@ func (a *apiServer) SetACLInTransaction(
 		}
 		if len(acl.Entries) > 0 {
 			// ACL is present; caller must be authorized directly
-			scope, err := a.getScope(ctx, callerInfo.Subject, &acl)
+			scope, err := a.getScope(txnCtx.ClientContext, callerInfo.Subject, &acl)
 			if err != nil {
 				return false, err
 			}
@@ -1585,8 +1608,7 @@ func (a *apiServer) SetACLInTransaction(
 		}
 
 		// No ACL -- check if the repo being modified exists
-		_, err = a.env.GetPachClient(ctx).InspectRepo(req.Repo)
-		err = grpcutil.ScrubGRPC(err)
+		_, err = txnCtx.Pfs().InspectRepoInTransaction(txnCtx, &pfs.InspectRepoRequest{Repo: &pfs.Repo{Name: req.Repo}})
 		if err == nil {
 			// Repo exists -- user isn't authorized
 			return false, nil
@@ -1628,22 +1650,23 @@ func (a *apiServer) SetACLInTransaction(
 	return &authclient.SetACLResponse{}, nil
 }
 
+// SetACL implements the protobuf auth.SetACL RPC
 func (a *apiServer) SetACL(ctx context.Context, req *authclient.SetACLRequest) (resp *authclient.SetACLResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
 
 	var response *authclient.SetACLResponse
-	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
 		var err error
-		response, err = a.SetACLInTransaction(ctx, stm, req)
+		response, err = txn.SetACL(req)
 		return err
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return response, nil
 }
 
+// GetAuthToken implements the protobuf auth.GetAuthToken RPC
 func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTokenRequest) (resp *authclient.GetAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1732,6 +1755,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 	}, nil
 }
 
+// ExtendAuthToken implements the protobuf auth.ExtendAuthToken RPC
 func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendAuthTokenRequest) (resp *authclient.ExtendAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1799,6 +1823,7 @@ func (a *apiServer) ExtendAuthToken(ctx context.Context, req *authclient.ExtendA
 	return &authclient.ExtendAuthTokenResponse{}, nil
 }
 
+// RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *authclient.RevokeAuthTokenRequest) (resp *authclient.RevokeAuthTokenResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1893,6 +1918,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 	return err
 }
 
+// SetGroupsForUser implements the protobuf auth.SetGroupsForUser RPC
 func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGroupsForUserRequest) (resp *authclient.SetGroupsForUserResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -1927,6 +1953,7 @@ func (a *apiServer) SetGroupsForUser(ctx context.Context, req *authclient.SetGro
 	return &authclient.SetGroupsForUserResponse{}, nil
 }
 
+// ModifyMembers implements the protobuf auth.ModifyMembers RPC
 func (a *apiServer) ModifyMembers(ctx context.Context, req *authclient.ModifyMembersRequest) (resp *authclient.ModifyMembersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -2033,6 +2060,7 @@ func (a *apiServer) getGroups(ctx context.Context, subject string) ([]string, er
 	return setToList(groupsProto.Groups), nil
 }
 
+// GetGroups implements the protobuf auth.GetGroups RPC
 func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequest) (resp *authclient.GetGroupsResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -2077,6 +2105,7 @@ func (a *apiServer) GetGroups(ctx context.Context, req *authclient.GetGroupsRequ
 	return &authclient.GetGroupsResponse{Groups: groups}, nil
 }
 
+// GetUsers implements the protobuf auth.GetUsers RPC
 func (a *apiServer) GetUsers(ctx context.Context, req *authclient.GetUsersRequest) (resp *authclient.GetUsersResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -2279,6 +2308,7 @@ func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error
 	return authclient.GitHubPrefix + u.GetLogin(), nil
 }
 
+// GetConfiguration implements the protobuf auth.GetConfiguration RPC
 func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetConfigurationRequest) (resp *authclient.GetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -2326,6 +2356,7 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	}, nil
 }
 
+// SetConfiguration implements the protobuf auth.SetConfiguration RPC
 func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetConfigurationRequest) (resp *authclient.SetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())

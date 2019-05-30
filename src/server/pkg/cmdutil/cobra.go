@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -32,6 +33,21 @@ func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Comm
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min || len(args) > max {
 			fmt.Printf("expected %d to %d arguments, got %d\n\n", min, max, len(args))
+			cmd.Usage()
+		} else {
+			if err := run(args); err != nil {
+				ErrorAndExit("%v", err)
+			}
+		}
+	}
+}
+
+// RunMinimumArgs wraps a function in a function
+// that checks its argument count is above a minimum amount
+func RunMinimumArgs(min int, run func([]string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if len(args) < min {
+			fmt.Printf("expected at least %d arguments, got %d\n\n", min, len(args))
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
@@ -157,6 +173,19 @@ func ParseFiles(args []string) ([]*pfs.File, error) {
 		results = append(results, commit)
 	}
 	return results, nil
+}
+
+// ParseHistory parses a --history flag argument. Permissable values are "all"
+// "none", and integers greater than or equal to -1 (as strings).
+func ParseHistory(history string) (int64, error) {
+	if history == "all" {
+		return -1, nil
+	}
+	if history == "none" {
+		return 0, nil
+	}
+	result, err := strconv.Atoi(history)
+	return int64(result), err
 }
 
 // RepeatedStringArg is an alias for []string

@@ -231,7 +231,7 @@ docker-build-gpu:
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-build-kafka:
-	docker build -t kafka-demo examples/kafka
+	docker build -t kafka-demo etc/testing/kafka
 
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
@@ -490,6 +490,9 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
 	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+
+test-transaction:
+	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
