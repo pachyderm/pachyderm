@@ -9,7 +9,6 @@ import (
 	chunk "github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	io "io"
 	math "math"
-	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -555,7 +554,14 @@ func (m *Index) Size() (n int) {
 }
 
 func sovIndex(x uint64) (n int) {
-	return (math_bits.Len64(x|1) + 6) / 7
+	for {
+		n++
+		x >>= 7
+		if x == 0 {
+			break
+		}
+	}
+	return n
 }
 func sozIndex(x uint64) (n int) {
 	return sovIndex(uint64((x << 1) ^ uint64((int64(x) >> 63))))
