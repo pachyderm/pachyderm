@@ -861,7 +861,7 @@ func (s *objBlockAPIServer) writeProto(ctx context.Context, path string, pb prot
 	return backoff.RetryNotify(func() error {
 		return s.writeInternal(ctx, path, data)
 	}, b, func(err error, duration time.Duration) error {
-		logrus.Errorf("coult not write proto: %v, retrying in %v", err, duration)
+		logrus.Errorf("could not write proto: %v, retrying in %v", err, duration)
 		return nil
 	})
 }
