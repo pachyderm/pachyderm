@@ -726,6 +726,18 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(restartDocs, "restart"))
 
+	resumeDocs := &cobra.Command{
+		Short: "Resume a stopped task.",
+		Long:  "Resume a stopped task.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(resumeDocs, "resume"))
+
+	runDocs := &cobra.Command{
+		Short: "Manually run a Pachyderm resource.",
+		Long:  "Manually run a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(runDocs, "run"))
+
 	editDocs := &cobra.Command{
 		Short: "Edit the value of an existing Pachyderm resource.",
 		Long:  "Edit the value of an existing Pachyderm resource.",
