@@ -69,9 +69,11 @@ It requires certain prerequisites, just as [jq](https://github.com/stedolan/jq) 
 
 This script may be useful as a basis for automating redeploys of Pachyderm as needed. 
 
-### Configuration as code
-
-You're strongly encouraged to treat any manifests you generate and modify as _code_, subjecting them to the same revision control management you would any source code.
+### Best practices: Infrastructure as code
+We highly encourage you to apply the best practices used in developing software to managing the deployment process.
+1. Create scripts that automate as much of your processes as possible and keep them under version control.
+1. Keep copies of all artifacts, such as manifests, produced by those scripts and keep those under version control.
+1. Document your practices in the code and outside it.
 
 ## Preparing to deploy Pachyderm
 
