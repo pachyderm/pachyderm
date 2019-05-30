@@ -1,23 +1,21 @@
-## pachctl list pipeline
+## pachctl list transaction
 
-Return info about all pipelines.
+List transactions.
 
 ### Synopsis
 
 
-Return info about all pipelines.
+List transactions.
 
 ```
-pachctl list pipeline [<pipeline>]
+pachctl list transaction
 ```
 
 ### Options
 
 ```
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
-      --history string    Return revision history for pipelines. (default "none")
       --raw               disable pretty printing, print raw json
-  -s, --spec              Output 'create pipeline' compatibility specs.
 ```
 
 ### Options inherited from parent commands
