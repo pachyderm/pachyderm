@@ -171,12 +171,6 @@ func GetExpectedNumHashtrees(spec *ppsclient.HashtreeSpec) (int64, error) {
 // the PFS read/unmarshalling of bytes as well as filling in missing fields
 func GetPipelineInfo(pachClient *client.APIClient, ptr *pps.EtcdPipelineInfo) (*pps.PipelineInfo, error) {
 	result := &pps.PipelineInfo{}
-	// With pipeline history, ptr.SpecCommit need to be resolved
-	ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, ptr.SpecCommit.ID)
-	if err != nil {
-		return nil, err
-	}
-	ptr.SpecCommit = ci.Commit
 	buf := bytes.Buffer{}
 	if err := pachClient.GetFile(ppsconsts.SpecRepo, ptr.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, &buf); err != nil {
 		return nil, fmt.Errorf("could not read existing PipelineInfo from PFS: %v", err)
