@@ -133,7 +133,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		}
 		// Check if a job was previously created for this commit. If not, make one
 		var jobInfo *pps.JobInfo
-		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1)
+		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
 		if err != nil {
 			return err
 		}

@@ -209,14 +209,16 @@ func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState 
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
 //-1: Return jobs from all historical versions.
-// 'full' controls whether the JobInfo passed to 'f' includes details fromt the
-// pipeline spec--setting this to 'false' can improve performance.
-func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64, full bool) ([]*pps.JobInfo, error) {
+// 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
+// details fromt the pipeline spec (e.g. the transform). Leaving this 'false'
+// can improve performance.
+func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64, includePipelineInfo bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, history, full, func(ji *pps.JobInfo) error {
-		result = append(result, ji)
-		return nil
-	}); err != nil {
+	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, history,
+		includePipelineInfo, func(ji *pps.JobInfo) error {
+			result = append(result, ji)
+			return nil
+		}); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -235,10 +237,11 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
 //-1: Return jobs from all historical versions.
-// 'full' controls whether the JobInfo passed to 'f' includes details fromt the
-// pipeline spec--setting this to 'false' can improve performance.
+// 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
+// details fromt the pipeline spec--setting this to 'false' can improve
+// performance.
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
-	outputCommit *pfs.Commit, history int64, full bool,
+	outputCommit *pfs.Commit, history int64, includePipelineInfo bool,
 	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
@@ -251,7 +254,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 			InputCommit:  inputCommit,
 			OutputCommit: outputCommit,
 			History:      history,
-			Full:         full,
+			Full:         includePipelineInfo,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
