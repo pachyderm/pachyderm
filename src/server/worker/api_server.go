@@ -177,6 +177,8 @@ type taggedLogger struct {
 // DatumID computes the id for a datum, this value is used in ListDatum and
 // InspectDatum.
 func (a *APIServer) DatumID(data []*Input) string {
+	fmt.Printf(">>> DatumID\n")
+	defer fmt.Printf(">>> DatumID done\n")
 	hash := sha256.New()
 	for _, d := range data {
 		hash.Write([]byte(d.FileInfo.File.Path))
@@ -188,6 +190,8 @@ func (a *APIServer) DatumID(data []*Input) string {
 }
 
 func (a *APIServer) getTaggedLogger(pachClient *client.APIClient, jobID string, data []*Input, enableStats bool) (*taggedLogger, error) {
+	fmt.Printf(">>> getTaggedLogger\n")
+	defer fmt.Printf(">>> getTaggedLogger done\n")
 	result := &taggedLogger{
 		template:  a.logMsgTemplate, // Copy struct
 		stderrLog: log.Logger{},
@@ -433,6 +437,8 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 }
 
 func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, input *Input) error {
+	fmt.Printf(">>> downloadGitData\n")
+	defer fmt.Printf(">>> downloadGitData done\n")
 	file := input.FileInfo.File
 	pachydermRepoName := input.Name
 	var rawJSON bytes.Buffer
@@ -472,6 +478,8 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 }
 
 func (a *APIServer) reportDownloadSizeStats(downSize float64, logger *taggedLogger) {
+	fmt.Printf(">>> reportDownloadSizeStats\n")
+	defer fmt.Printf(">>> reportDownloadSizeStats done\n")
 
 	if a.exportStats {
 		if hist, err := datumDownloadSize.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
@@ -488,6 +496,8 @@ func (a *APIServer) reportDownloadSizeStats(downSize float64, logger *taggedLogg
 }
 
 func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+	fmt.Printf(">>> reportDownloadTimeStats\n")
+	defer fmt.Printf(">>> reportDownloadTimeStats done\n")
 	duration := time.Since(start)
 	stats.DownloadTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -505,6 +515,8 @@ func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessS
 }
 
 func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
+	fmt.Printf(">>> downloadData\n")
+	defer fmt.Printf(">>> downloadData done\n")
 	defer a.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -553,6 +565,8 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 }
 
 func (a *APIServer) linkData(inputs []*Input, dir string) error {
+	fmt.Printf(">>> linkData\n")
+	defer fmt.Printf(">>> linkData done\n")
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(client.PPSInputPrefix, input.Name)
@@ -564,6 +578,8 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 }
 
 func (a *APIServer) unlinkData(inputs []*Input) error {
+	fmt.Printf(">>> unlinkData\n")
+	defer fmt.Printf(">>> unlinkData done\n")
 	for _, input := range inputs {
 		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, input.Name)); err != nil {
 			return err
@@ -573,6 +589,8 @@ func (a *APIServer) unlinkData(inputs []*Input) error {
 }
 
 func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
+	fmt.Printf(">>> reportUserCodeStats\n")
+	defer fmt.Printf(">>> reportUserCodeStats done\n")
 	if a.exportStats {
 		if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, "started"); err != nil {
 			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
@@ -583,6 +601,8 @@ func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
 }
 
 func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+	fmt.Printf(">>> reportDeferredUserCodeStats\n")
+	defer fmt.Printf(">>> reportDeferredUserCodeStats done\n")
 	duration := time.Since(start)
 	stats.ProcessTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -610,6 +630,8 @@ func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stat
 
 // Run user code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+	fmt.Printf(">>> runUserCode\n")
+	defer fmt.Printf(">>> runUserCode done\n")
 	a.reportUserCodeStats(logger)
 	defer func(start time.Time) { a.reportDeferredUserCodeStats(retErr, start, stats, logger) }(time.Now())
 	logger.Logf("beginning to run user code")
@@ -691,6 +713,8 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 
 // Run user error code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+	fmt.Printf(">>> runUserErrorHandlingCode\n")
+	defer fmt.Printf(">>> runUserErrorHandlingCode done\n")
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -758,6 +782,8 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *tagged
 }
 
 func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+	fmt.Printf(">>> reportUploadStats\n")
+	defer fmt.Printf(">>> reportUploadStats done\n")
 	duration := time.Since(start)
 	stats.UploadTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -785,6 +811,8 @@ func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, 
 }
 
 func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
+	fmt.Printf(">>> uploadOutput\n")
+	defer fmt.Printf(">>> uploadOutput done\n")
 	defer a.reportUploadStats(time.Now(), stats, logger)
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -1047,6 +1075,8 @@ func HashDatum15(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) 
 
 // Status returns the status of the current worker.
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
+	fmt.Printf(">>> Status\n")
+	defer fmt.Printf(">>> Status done\n")
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	started, err := types.TimestampProto(a.started)
@@ -1065,6 +1095,8 @@ func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStat
 
 // Cancel cancels the currently running datum
 func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*CancelResponse, error) {
+	fmt.Printf(">>> Cancel\n")
+	defer fmt.Printf(">>> Cancel done\n")
 	a.statusMu.Lock()
 	defer a.statusMu.Unlock()
 	if request.JobID != a.jobID {
@@ -1084,6 +1116,8 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 
 // GetChunk returns the merged datum hashtrees of a particular chunk (if available)
 func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkServer) error {
+	fmt.Printf(">>> GetChunk\n")
+	defer fmt.Printf(">>> GetChunk done\n")
 	filter := hashtree.NewFilter(a.numShards, request.Shard)
 	if request.Stats {
 		return a.chunkStatsCache.Get(request.Id, grpcutil.NewStreamingBytesWriter(server), filter)
@@ -1092,6 +1126,8 @@ func (a *APIServer) GetChunk(request *GetChunkRequest, server Worker_GetChunkSer
 }
 
 func (a *APIServer) datum() []*pps.InputFile {
+	fmt.Printf(">>> datum\n")
+	defer fmt.Printf(">>> datum done\n")
 	var result []*pps.InputFile
 	for _, datum := range a.data {
 		result = append(result, &pps.InputFile{
@@ -1103,6 +1139,8 @@ func (a *APIServer) datum() []*pps.InputFile {
 }
 
 func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Input) []string {
+	fmt.Printf(">>> userCodeEnv\n")
+	defer fmt.Printf(">>> userCodeEnv done\n")
 	result := os.Environ()
 	for _, input := range data {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
@@ -1124,6 +1162,8 @@ type processResult struct {
 type processFunc func(low, high int64) (*processResult, error)
 
 func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger, process processFunc) error {
+	fmt.Printf(">>> acquireDatums\n")
+	defer fmt.Printf(">>> acquireDatums done\n")
 	chunks := a.chunks(jobID)
 	watcher, err := chunks.ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
@@ -1164,6 +1204,8 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 }
 
 func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high int64, process processFunc) error {
+	fmt.Printf(">>> processChunk\n")
+	defer fmt.Printf(">>> processChunk done\n")
 	processResult, err := process(low, high)
 	if err != nil {
 		return err
@@ -1199,6 +1241,8 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 }
 
 func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+	fmt.Printf(">>> mergeDatums\n")
+	defer fmt.Printf(">>> mergeDatums done\n")
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1327,6 +1371,8 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 }
 
 func (a *APIServer) getChunk(ctx context.Context, id int64, address string, failed bool) error {
+	fmt.Printf(">>> getChunk\n")
+	defer fmt.Printf(">>> getChunk done\n")
 	// If this worker processed the chunk, then it is already in the chunk cache
 	if address == os.Getenv(client.PPSWorkerIPEnv) {
 		return nil
@@ -1378,6 +1424,8 @@ func (a *APIServer) getChunk(ctx context.Context, id int64, address string, fail
 }
 
 func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) []*pfs.Tag {
+	fmt.Printf(">>> computeTags\n")
+	defer fmt.Printf(">>> computeTags done\n")
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
 		files := df.Datum(int(i))
@@ -1392,6 +1440,8 @@ func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[strin
 }
 
 func (a *APIServer) getChunkFromObjectStorage(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, id int64, failed bool) error {
+	fmt.Printf(">>> getChunkFromObjectStorage\n")
+	defer fmt.Printf(">>> getChunkFromObjectStorage done\n")
 	// Download, merge, and cache datum hashtrees for a chunk if it succeeded
 	if !failed {
 		ts, err := a.getHashtrees(ctx, pachClient, objClient, tags, hashtree.NewFilter(a.numShards, a.shard))
@@ -1428,6 +1478,8 @@ func (a *APIServer) getChunkFromObjectStorage(ctx context.Context, pachClient *c
 }
 
 func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, stats bool, parent io.Reader) (*pfs.Object, uint64, error) {
+	fmt.Printf(">>> merge\n")
+	defer fmt.Printf(">>> merge done\n")
 	var tree *pfs.Object
 	var size uint64
 	if err := func() (retErr error) {
@@ -1468,6 +1520,8 @@ func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, st
 }
 
 func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	fmt.Printf(">>> getParentCommitInfo\n")
+	defer fmt.Printf(">>> getParentCommitInfo done\n")
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
@@ -1493,6 +1547,8 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 }
 
 func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, tags []*pfs.Tag, filter hashtree.Filter) ([]*hashtree.Reader, error) {
+	fmt.Printf(">>> getHashtrees\n")
+	defer fmt.Printf(">>> getHashtrees done\n")
 	limiter := limit.New(hashtree.DefaultMergeConcurrency)
 	var eg errgroup.Group
 	var mu sync.Mutex
@@ -1546,6 +1602,8 @@ func (a *APIServer) getHashtrees(ctx context.Context, pachClient *client.APIClie
 }
 
 func (a *APIServer) getCommitDatums(ctx context.Context, pachClient *client.APIClient, commitInfo *pfs.CommitInfo) (datums map[string]struct{}, retErr error) {
+	fmt.Printf(">>> getCommitDatums\n")
+	defer fmt.Printf(">>> getCommitDatums done\n")
 	r, err := pachClient.GetObjectReader(commitInfo.Datums.Hash)
 	if err != nil {
 		return nil, err
@@ -1570,6 +1628,8 @@ func (a *APIServer) getCommitDatums(ctx context.Context, pachClient *client.APIC
 }
 
 func (a *APIServer) getParentHashTree(ctx context.Context, pachClient *client.APIClient, objClient obj.Client, commit *pfs.Commit, merge int64) (io.ReadCloser, error) {
+	fmt.Printf(">>> getParentHashTree\n")
+	defer fmt.Printf(">>> getParentHashTree done\n")
 	parentCommitInfo, err := a.getParentCommitInfo(ctx, pachClient, commit)
 	if err != nil {
 		return nil, err
@@ -1623,6 +1683,8 @@ func isDone(ctx context.Context) bool {
 // terminal state (KILLED, FAILED, or SUCCESS) cancel the jobCtx so we kill any
 // user processes
 func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func(), jobID string) {
+	fmt.Printf(">>> cancelCtxIfJobFails\n")
+	defer fmt.Printf(">>> cancelCtxIfJobFails done\n")
 	logger := a.getWorkerLogger() // this worker's formatting logger
 
 	backoff.RetryNotify(func() error {
@@ -1681,6 +1743,8 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 //  - processes the chunks with processDatums
 //  - merges the chunks with mergeDatums
 func (a *APIServer) worker() {
+	fmt.Printf(">>> worker\n")
+	defer fmt.Printf(">>> worker done\n")
 	logger := a.getWorkerLogger() // this worker's formatting logger
 
 	// claim a shard if one is available or becomes available
@@ -1719,7 +1783,10 @@ func (a *APIServer) worker() {
 			if err := e.Unmarshal(&jobID, jobPtr); err != nil {
 				return fmt.Errorf("error unmarshalling: %v", err)
 			}
+			fmt.Printf(">>> unmarshalled as: %v\n", jobPtr)
+			// Clear chunk caches from previous job
 			if ppsutil.IsTerminal(jobPtr.State) {
+				fmt.Printf(">>> job %q is terminal (%s)\n", jobID, jobPtr.State.String())
 				// previously-created job has finished, or job was finished during backoff
 				// or in the 'watcher' queue
 				logger.Logf("skipping job %v as it is already in state %v", jobID, jobPtr.State)
@@ -1832,6 +1899,8 @@ func (a *APIServer) worker() {
 }
 
 func (a *APIServer) claimShard(ctx context.Context) {
+	fmt.Printf(">>> claimShard\n")
+	defer fmt.Printf(">>> claimShard done\n")
 	watcher, err := a.shards.ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
 		log.Printf("error creating shard watcher: %v", err)
@@ -1870,6 +1939,8 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // such as network errors.
 func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
 	df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
+	fmt.Printf(">>> processDatums\n")
+	defer fmt.Printf(">>> processDatums done\n")
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
 			logger.Logf("error clearing datum cache: %v", err)
@@ -2113,6 +2184,8 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 }
 
 func (a *APIServer) cacheHashtree(pachClient *client.APIClient, tag string, datumIdx int64) (retErr error) {
+	fmt.Printf(">>> cacheHashtree\n")
+	defer fmt.Printf(">>> cacheHashtree done\n")
 	buf := &bytes.Buffer{}
 	if err := pachClient.GetTag(tag, buf); err != nil {
 		return err
@@ -2134,6 +2207,8 @@ func (a *APIServer) cacheHashtree(pachClient *client.APIClient, tag string, datu
 }
 
 func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger *taggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered, datumIdx int64) (retErr error) {
+	fmt.Printf(">>> writeStats\n")
+	defer fmt.Printf(">>> writeStats done\n")
 	// Store stats and add stats file
 	marshaler := &jsonpb.Marshaler{}
 	statsString, err := marshaler.MarshalToString(stats)
@@ -2223,6 +2298,8 @@ func mergeStats(x, y *pps.ProcessStats) error {
 
 // mergeChunk merges the datum hashtrees into a chunk hashtree and stores it.
 func (a *APIServer) mergeChunk(logger *taggedLogger, high int64, result *processResult) (retErr error) {
+	fmt.Printf(">>> mergeChunk\n")
+	defer fmt.Printf(">>> mergeChunk done\n")
 	logger.Logf("starting to merge chunk")
 	defer func(start time.Time) {
 		if retErr != nil {

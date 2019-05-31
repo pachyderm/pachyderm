@@ -656,6 +656,7 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 	jobs := a.jobs.ReadOnly(pachClient.Ctx())
 	jobPtr := &pps.EtcdJobInfo{}
 	_f := func(string) error {
+		fmt.Printf(">>> jobPtr: %v\n", jobPtr)
 		jobInfo, err := a.jobInfoFromPtr(pachClient, jobPtr,
 			len(inputCommits) > 0 || full)
 		if err != nil {
@@ -687,6 +688,8 @@ func (a *apiServer) listJob(pachClient *client.APIClient, pipeline *pps.Pipeline
 				}
 			}
 		}
+		fmt.Printf(">>> jobInfo.SpecCommit.ID: %v\n", jobInfo.SpecCommit.ID)
+		fmt.Printf(">>> specCommits: %v\n", specCommits)
 		if !specCommits[jobInfo.SpecCommit.ID] {
 			return nil
 		}
@@ -1908,6 +1911,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				if err != nil {
 					return err
 				}
+				fmt.Printf(">>> Updating old pipeline:\n%v\n", oldPipelineInfo)
 
 				// Cannot disable stats after it has been enabled.
 				if oldPipelineInfo.EnableStats && !pipelineInfo.EnableStats {
