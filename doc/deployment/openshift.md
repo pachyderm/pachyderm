@@ -76,36 +76,35 @@ We highly encourage you to apply the best practices used in developing software 
 1. Document your practices in the code and outside it.
 
 ## Preparing to deploy Pachyderm
-
 Things you'll need
-
 1. Your PV.  It can be created separately.
 1. Your object store information
 1. Your project in OpenShift
 1. A text editor for editing your deployment manifest
-
 ## Deploying Pachyderm
-
 ### 1. Setting up PV and object stores
-
 How you deploy Pachyderm on OpenShift is largely going to depend on where OpenShift is deployed. 
 Below you'll find links to the documentation for each kind of deployment you can do.
 Follow the instructions there for setting up persistent volumes and object storage resources.
 Don't yet deploy your manifest, come back here after you've set up your PV and object store.
-
 * OpenShift Deployed on [AWS](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html) 
 * OpenShift Deployed on [GCP](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html)
 * OpenShift Deployed on [Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html)
 * OpenShift Deployed [on-premise](https://pachyderm.readthedocs.io/en/latest/deployment/on_premises.html)
-
-### 2. Run the deploy command with --dry-run
-
+### 2. Determine your role security policy
+Pachyderm is deployed by default with cluster roles.
+Many institutional Openshift security policies require namespace-local roles rather than cluster roles.
+If your security policies require namespace-local roles, use the [`pachctl deploy` command below with the `--local-roles` flag](#namespace-local-roles).
+### 3. Run the deploy command with --dry-run
 Once you have your PV, object store, and project, you can create a manifest for editing using the `--dry-run` argument to `pachctl deploy`.
 That step is detailed in the deployment instructions for each type of deployment, above.
 
-Below, find an example using AWS elastic block storage as a persistent disk with a custom deploy.
+Below, find examples, 
+with cluster roles and with namespace-local roles,
+using AWS elastic block storage as a persistent disk with a custom deploy.
 We'll show how to remove this PV in case you want to use a PV you create separately.
 
+#### Cluster roles
 ```
 $ pachctl deploy custom --persistent-disk aws --object-store s3 \
      <pv-storage-name> <pv-storage-size> \
@@ -113,7 +112,15 @@ $ pachctl deploy custom --persistent-disk aws --object-store s3 \
      --static-etcd-volume=<pv-storage-name> > manifest.json
 ```
 
-### 3. Modify pachd Service ports
+#### Namespace-local roles
+```
+$ pachctl deploy custom --persistent-disk aws --object-store s3 \
+     <pv-storage-name> <pv-storage-size> \
+     <s3-bucket-name> <s3-access-key-id> <s3-access-secret-key> <s3-access-endpoint-url> \
+     --static-etcd-volume=<pv-storage-name> --local-roles > manifest.json
+```
+
+### 4. Modify pachd Service ports
 
 In the deployment manifest, which we called `manifest.json`, above, find the stanza for the `pachd` Service.  An example is shown below.
 ```
@@ -225,11 +232,11 @@ While the nodePort declarations are fine, the port declarations are too low for 
 		],
 ```
 
-### 4. Modify pachd Deployment ports and add environment variables
+### 5. Modify pachd Deployment ports and add environment variables
 In this case you're editing two parts of the `pachd` Deployment json.  
 Here, we'll omit the example of the unmodified version.
 Instead, we'll show you the modified version.
-#### 4.1 pachd Deployment ports
+#### 5.1 pachd Deployment ports
 The `pachd` Deployment also has a set of port numbers in the spec for the `pachd` container. 
 Those must be modified to match the port numbers you set above for each port.
 ```
@@ -315,7 +322,7 @@ Those must be modified to match the port numbers you set above for each port.
 						],
                         
 ```
-#### 4.2 Add environment variables
+#### 5.2 Add environment variables
 There are six environment variables necessary for OpenShift
 1. `WORKER_USES_ROOT`: This controls whether worker pipelines run as the root user or not. You'll need to set it to `false`
 1. `PORT`: This is the grpc port used by pachd for communication with `pachctl` and the api.  It should be set to the same value you set for `api-grpc-port` above.
@@ -358,13 +365,7 @@ The rest of the stanza is omitted for clarity.
 							},
 
 ```
-### 5. (Optional) Change ClusterRoles to Roles
-
-You'll find two stanzas, `ClusterRole` and `ClusterRoleBinding`.  
-Many institutional Openshift security policies require you to change those to `Role` and `RoleBinding`, respectively. 
-You can safely do a global replace of `ClusterRole` with `Role` in your text editor; there should be 3 occurrences.
-
-### 6. (Optional) remove the PV created during the deploy command
+### 6. (Optional) Remove the PV created during the deploy command
 If you're using a PV you've created separately, remove the PV that was added to your manifest by `pachctl deploy --dry-run`.  Here's the example PV we created with the deploy command we used above, so you can recognize it.
 ```
 {
