@@ -14,6 +14,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
@@ -67,7 +68,7 @@ func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(pc *client.APIClient, port uint16) *http.Server {
+func Server(pc *client.APIClient, config *Config) *http.Server {
 	router := mux.NewRouter()
 	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
 
@@ -124,7 +125,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	isEnterprise := false
 
 	return &http.Server{
-		Addr: fmt.Sprintf(":%d", port),
+		Addr: fmt.Sprintf(":%d", config.Port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set a request ID, if it hasn't been set by the client already.
 			// This can be used for tracing, and is included in error
@@ -140,24 +141,37 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 			requestLogger(r).Debugf("http request: %s %s", r.Method, r.RequestURI)
 
 			// Ensure enterprise is enabled
-			now := time.Now()
-			if !isEnterprise || now.Sub(lastEnterpriseCheck) > enterpriseTimeout {
-				resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
-				if err != nil {
-					err = fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
-					internalError(w, r, err)
+			if !config.NoEnterpriseCheck {
+				now := time.Now()
+				if !isEnterprise || now.Sub(lastEnterpriseCheck) > enterpriseTimeout {
+					resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
+					if err != nil {
+						err = fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
+						internalError(w, r, err)
+						return
+					}
+
+					isEnterprise = resp.State == enterpriseclient.State_ACTIVE
+				}
+				if !isEnterprise {
+					enterpriseDisabledError(w, r)
 					return
 				}
-
-				isEnterprise = resp.State == enterpriseclient.State_ACTIVE
-			}
-			if !isEnterprise {
-				enterpriseDisabledError(w, r)
-				return
 			}
 
 			router.ServeHTTP(w, r)
 		}),
 		ErrorLog: stdlog.New(serverErrorLog, "", 0),
 	}
+}
+
+type Config struct {
+	// The port to serve requests on.
+	Port uint16
+	// View defines a view of the filesystem in which only some of it is visible.
+	// In particular it specifies a set of bucket names that should be associated
+	// with specific commits in specific repos.
+	View map[string]*pfs.Commit
+	// NoEnterpriseCheck disables the enterprise, useful for testing.
+	NoEnterpriseCheck bool
 }
