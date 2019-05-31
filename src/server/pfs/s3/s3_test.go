@@ -20,6 +20,7 @@ import (
 
 	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pfs/server"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -30,12 +31,12 @@ var (
 
 )
 
-func clients(t testing.TB) (*client.APIClient, *minio.Client, func()) {
+func clients(t testing.TB, view map[string]*pfs.Commit) (*client.APIClient, *minio.Client, func()) {
 	t.Helper()
 
 	pachClient := server.GetPachClient(t)
 	s3Port := atomic.AddInt32(&port, 1)
-	s := Server(pachClient, &Config{Port: uint16(s3Port), NoEnterpriseCheck: true})
+	s := Server(pachClient, &Config{Port: uint16(s3Port), NoEnterpriseCheck: true, View: view})
 	go s.ListenAndServe()
 
 	minioClient, err := minio.New(fmt.Sprintf("127.0.0.1:%d", s3Port), "id", "secret", false)
@@ -147,7 +148,7 @@ func TestListBuckets(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	// `startTime` and `endTime` will be used to ensure that an object's
@@ -187,7 +188,7 @@ func TestListBucketsBranchless(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo1 := tu.UniqueString("testlistbucketsbranchless1")
@@ -208,7 +209,7 @@ func TestGetObject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo := tu.UniqueString("testgetobject")
@@ -225,7 +226,7 @@ func TestGetObjectInBranch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo := tu.UniqueString("testgetobjectinbranch")
@@ -243,7 +244,7 @@ func TestStatObject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo := tu.UniqueString("teststatobject")
@@ -272,7 +273,7 @@ func TestPutObject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo := tu.UniqueString("testputobject")
@@ -295,7 +296,7 @@ func TestRemoveObject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo := tu.UniqueString("testremoveobject")
@@ -317,7 +318,7 @@ func TestLargeObjects(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	// test repos: repo1 exists, repo2 does not
@@ -378,7 +379,7 @@ func TestGetObjectNoHead(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo := tu.UniqueString("testgetobjectnohead")
@@ -393,7 +394,7 @@ func TestGetObjectNoBranch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo := tu.UniqueString("testgetobjectnobranch")
@@ -407,7 +408,7 @@ func TestGetObjectNoRepo(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	_, c, close := clients(t)
+	_, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testgetobjectnorepo")
 	_, err := getObject(t, c, repo, "master", "file")
@@ -418,7 +419,7 @@ func TestMakeBucket(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testmakebucket")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
@@ -433,7 +434,7 @@ func TestMakeBucketWithBranch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testmakebucketwithbranch")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("branch.%s", repo), ""))
@@ -448,7 +449,7 @@ func TestMakeBucketWithRegion(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testmakebucketwithregion")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), "us-east-1"))
@@ -460,7 +461,7 @@ func TestMakeBucketRedundant(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	_, c, close := clients(t)
+	_, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testmakebucketredundant")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
@@ -473,7 +474,7 @@ func TestMakeBucketDifferentBranches(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	_, c, close := clients(t)
+	_, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testmakebucketdifferentbranches")
 	require.NoError(t, c.MakeBucket(fmt.Sprintf("master.%s", repo), ""))
@@ -484,7 +485,7 @@ func TestBucketExists(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testbucketexists")
 
@@ -520,7 +521,7 @@ func TestRemoveBucket(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testremovebucket")
 
@@ -536,7 +537,7 @@ func TestRemoveBucketBranchless(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 	repo := tu.UniqueString("testremovebucketbranchless")
 
@@ -549,7 +550,7 @@ func TestListObjectsPaginated(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	// create a bunch of files - enough to require the use of paginated
@@ -607,7 +608,7 @@ func TestListObjectsHeadlessBranch(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	repo := tu.UniqueString("testlistobjectsheadlessbranch")
@@ -623,7 +624,7 @@ func TestListObjectsRecursive(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	pc, c, close := clients(t)
+	pc, c, close := clients(t, nil)
 	defer close()
 
 	// `startTime` and `endTime` will be used to ensure that an object's
@@ -667,4 +668,47 @@ func TestListObjectsRecursive(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+}
+
+func TestView(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	view := make(map[string]*pfs.Commit)
+	pc, c, close := clients(t, view)
+	defer close()
+	repo := "view"
+	require.NoError(t, pc.CreateRepo(repo))
+	_, err := pc.PutFile(repo, "master", "file1", strings.NewReader("content"))
+	require.NoError(t, err)
+	_, err = pc.PutFile(repo, "master", "file2", strings.NewReader("content"))
+	require.NoError(t, err)
+	_, err = pc.PutFile(repo, "master", "file3", strings.NewReader("content"))
+	require.NoError(t, err)
+
+	otherRepo := "other"
+	require.NoError(t, pc.CreateRepo(otherRepo))
+	_, err = pc.PutFile(otherRepo, "master", "file1", strings.NewReader("content"))
+	require.NoError(t, err)
+
+	// Because the view is empty (not nil) we don't see any buckets, this case
+	// is degenerate, but seems like the only reasonable behavior.
+	buckets, err := c.ListBuckets()
+	require.NoError(t, err)
+	require.Equal(t, 0, len(buckets))
+
+	bucket := "bucket"
+	view[bucket] = client.NewCommit(repo, "master.1")
+
+	buckets, err = c.ListBuckets()
+	require.NoError(t, err)
+	require.Equal(t, 1, len(buckets))
+	require.Equal(t, bucket, buckets[0].Name)
+
+	ch := c.ListObjects(bucket, "", true, nil)
+	var objects []string
+	for object := range ch {
+		objects = append(objects, object.Key)
+	}
+	require.Equal(t, 1, len(objects))
 }
