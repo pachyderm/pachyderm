@@ -204,17 +204,21 @@ func (c APIClient) InspectJobOutputCommit(repoName, commitID string, blockState 
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
-// history controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
+// 'history' controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
 // 0: Return jobs from the current version of the pipeline or pipelines.
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
 //-1: Return jobs from all historical versions.
-func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64) ([]*pps.JobInfo, error) {
+// 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
+// details fromt the pipeline spec (e.g. the transform). Leaving this 'false'
+// can improve performance.
+func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outputCommit *pfs.Commit, history int64, includePipelineInfo bool) ([]*pps.JobInfo, error) {
 	var result []*pps.JobInfo
-	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, history, func(ji *pps.JobInfo) error {
-		result = append(result, ji)
-		return nil
-	}); err != nil {
+	if err := c.ListJobF(pipelineName, inputCommit, outputCommit, history,
+		includePipelineInfo, func(ji *pps.JobInfo) error {
+			result = append(result, ji)
+			return nil
+		}); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -228,13 +232,17 @@ func (c APIClient) ListJob(pipelineName string, inputCommit []*pfs.Commit, outpu
 // If inputCommit is non-nil then only jobs which took the specific commits as inputs will be returned.
 // The order of the inputCommits doesn't matter.
 // If outputCommit is non-nil then only the job which created that commit as output will be returned.
-// history controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
+// 'history' controls whether jobs from historical versions of pipelines are returned, it has the following semantics:
 // 0: Return jobs from the current version of the pipeline or pipelines.
 // 1: Return the above and jobs from the next most recent version
 // 2: etc.
 //-1: Return jobs from all historical versions.
+// 'includePipelineInfo' controls whether the JobInfo passed to 'f' includes
+// details fromt the pipeline spec--setting this to 'false' can improve
+// performance.
 func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
-	outputCommit *pfs.Commit, history int64, f func(*pps.JobInfo) error) error {
+	outputCommit *pfs.Commit, history int64, includePipelineInfo bool,
+	f func(*pps.JobInfo) error) error {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
 		pipeline = NewPipeline(pipelineName)
@@ -246,6 +254,7 @@ func (c APIClient) ListJobF(pipelineName string, inputCommit []*pfs.Commit,
 			InputCommit:  inputCommit,
 			OutputCommit: outputCommit,
 			History:      history,
+			Full:         includePipelineInfo,
 		})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
