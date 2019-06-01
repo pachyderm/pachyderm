@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,15 +33,15 @@ func writeXML(w http.ResponseWriter, r *http.Request, code int, v interface{}) {
 	}
 }
 
-func bucketArgs(w http.ResponseWriter, r *http.Request) (string, string) {
+func bucketArgs(w http.ResponseWriter, r *http.Request, view map[string]*pfs.Commit) (string, string) {
 	vars := mux.Vars(r)
 	repo := vars["repo"]
-	branch := vars["branch"]
-	return repo, branch
+	commit := vars["commit"]
+	return repo, commit
 }
 
-func objectArgs(w http.ResponseWriter, r *http.Request) (string, string, string) {
-	repo, branch := bucketArgs(w, r)
+func objectArgs(w http.ResponseWriter, r *http.Request, view map[string]*pfs.Commit) (string, string, string) {
+	repo, branch := bucketArgs(w, r, view)
 	vars := mux.Vars(r)
 	file := vars["file"]
 	return repo, branch, file

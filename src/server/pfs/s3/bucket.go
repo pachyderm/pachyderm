@@ -79,15 +79,16 @@ func newCommonPrefixes(dir string) CommonPrefixes {
 }
 
 type bucketHandler struct {
-	pc *client.APIClient
+	pc   *client.APIClient
+	view map[string]*pfsClient.Commit
 }
 
-func newBucketHandler(pc *client.APIClient) bucketHandler {
-	return bucketHandler{pc: pc}
+func newBucketHandler(pc *client.APIClient, view map[string]*pfsClient.Commit) bucketHandler {
+	return bucketHandler{pc: pc, view: view}
 }
 
 func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r)
+	repo, branch := bucketArgs(w, r, h.view)
 
 	_, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -101,7 +102,7 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r)
+	repo, branch := bucketArgs(w, r, h.view)
 
 	// ensure the branch exists and has a head
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
@@ -218,7 +219,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r)
+	repo, branch := bucketArgs(w, r, h.view)
 
 	err := h.pc.CreateRepo(repo)
 	if err != nil {
@@ -252,7 +253,7 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r)
+	repo, branch := bucketArgs(w, r, h.view)
 
 	// `DeleteBranch` does not return an error if a non-existing branch is
 	// deleting. So first, we verify that the branch exists so we can

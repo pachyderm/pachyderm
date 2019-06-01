@@ -19,8 +19,14 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 )
 
-var enterpriseTimeout = 24 * time.Hour
-var bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_]{1,255}\.[a-zA-Z0-9\-_]{1,255}/`)
+var (
+	enterpriseTimeout   = 24 * time.Hour
+	bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_]{1,255}\.[a-zA-Z0-9\-_]{1,255}/`)
+	bucketTpl           = `/{commit:[a-zA-Z0-9\-_]{1,255}}.{repo:[a-zA-Z0-9\-_]{1,255}}/`
+	bucketViewTpl       = `/{bucket:[a-zA-Z0-9\-_]{1,255}}/`
+	objectTpl           = bucketTpl + `{file:.+}`
+	objectViewTpl       = bucketViewTpl + `{file:.+}`
+)
 
 func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 	router.Methods("GET", "PUT").Queries("accelerate", "").HandlerFunc(notImplementedError)
@@ -78,14 +84,22 @@ func Server(pc *client.APIClient, config *Config) *http.Server {
 	// the same as `/foo/`. This is used instead of mux's builtin "strict
 	// slash" functionality, because that uses redirects which doesn't always
 	// play nice with s3 clients.
-	bucketHandler := newBucketHandler(pc)
-	trailingSlashBucketRouter := router.Path(`/{branch:[a-zA-Z0-9\-_]{1,255}}.{repo:[a-zA-Z0-9\-_]{1,255}}/`).Subrouter()
+	bucketHandler := newBucketHandler(pc, config.View)
+	bucketTpl := bucketTpl
+	if config.View != nil {
+		bucketTpl = bucketViewTpl
+	}
+	trailingSlashBucketRouter := router.Path(bucketTpl).Subrouter()
 	attachBucketRoutes(trailingSlashBucketRouter, bucketHandler)
-	bucketRouter := router.Path(`/{branch:[a-zA-Z0-9\-_]{1,255}}.{repo:[a-zA-Z0-9\-_]{1,255}}`).Subrouter()
+	bucketRouter := router.Path(bucketTpl).Subrouter()
 	attachBucketRoutes(bucketRouter, bucketHandler)
 
 	// object-related routes
-	objectRouter := router.Path(`/{branch:[a-zA-Z0-9\-_]{1,255}}.{repo:[a-zA-Z0-9\-_]{1,255}}/{file:.+}`).Subrouter()
+	objectTpl := objectTpl
+	if config.View != nil {
+		objectTpl = objectViewTpl
+	}
+	objectRouter := router.Path(objectTpl).Subrouter()
 
 	objectRouter.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(notImplementedError)
 	objectRouter.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(notImplementedError)

@@ -11,18 +11,20 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 type objectHandler struct {
-	pc *client.APIClient
+	pc   *client.APIClient
+	view map[string]*pfs.Commit
 }
 
-func newObjectHandler(pc *client.APIClient) *objectHandler {
-	return &objectHandler{pc: pc}
+func newObjectHandler(pc *client.APIClient, view map[string]*pfs.Commit) *objectHandler {
+	return &objectHandler{pc: pc, view: view}
 }
 
 func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r)
+	repo, branch, file := objectArgs(w, r, h.view)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
@@ -60,7 +62,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r)
+	repo, branch, file := objectArgs(w, r, h.view)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
@@ -118,7 +120,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r)
+	repo, branch, file := objectArgs(w, r, h.view)
 	branchInfo, err := h.pc.InspectBranch(repo, branch)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
