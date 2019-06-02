@@ -1366,7 +1366,7 @@ nextSubvBranch:
 
 		// Compute the full provenance of hypothetical new output commit to decide
 		// if we need it
-		commitProvMap := make(map[string]*pfs.CommitProvenance)
+		newCommitProvMap := make(map[string]*pfs.CommitProvenance)
 		for _, provBranch := range branchInfo.Provenance {
 			// get the branch info from the provenance branch
 			provBranchInfo := &pfs.BranchInfo{}
@@ -1377,8 +1377,9 @@ nextSubvBranch:
 			if provBranchInfo.Head == nil {
 				continue
 			}
-			// We need to key on both the commit id and the branch name, so that branches with a shared commit are both represented in the provenance
-			commitProvMap[key(provBranchInfo.Head.ID, provBranch.Name)] = &pfs.CommitProvenance{
+			// We need to key on both the commit id and the branch name, so that
+			// branches with a shared commit are both represented in the provenance
+			newCommitProvMap[key(provBranchInfo.Head.ID, provBranch.Name)] = &pfs.CommitProvenance{
 				Commit: provBranchInfo.Head,
 				Branch: provBranch,
 			}
@@ -1399,7 +1400,7 @@ nextSubvBranch:
 				if err := d.branches(provProv.Branch.Repo.Name).ReadWrite(stm).Get(provProv.Branch.Name, provProvBranchInfo); err != nil && !col.IsErrNotFound(err) {
 					return fmt.Errorf("could not read branch %s/%s: %v", provProv.Branch.Repo.Name, provProv.Branch.Name, err)
 				}
-				commitProvMap[key(provProvInfo.Commit.ID, provProvInfo.Branch.Name)] = &pfs.CommitProvenance{
+				newCommitProvMap[key(provProvInfo.Commit.ID, provProvInfo.Branch.Name)] = &pfs.CommitProvenance{
 					Commit: provProvInfo.Commit,
 					Branch: provProvInfo.Branch,
 				}
@@ -1413,40 +1414,32 @@ nextSubvBranch:
 				if err != nil {
 					return err
 				}
-				commitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
+				newCommitProvMap[key(commitProv.Commit.ID, commitProv.Branch.Name)] = commitProv
 			}
 		}
-		if len(commitProvMap) == 0 {
+		if len(newCommitProvMap) == 0 {
 			// no input commits to process; don't create a new output commit
 			continue nextSubvBranch
 		}
 
 		// 'branch' may already have a HEAD commit, so compute whether the new
-		// output commit would have the same provenance as the existing HEAD
-		// commit. If so, a new output commit would be a duplicate, so don't create
-		// it.
+		// output commit's provenance would be a subset of the existing HEAD
+		// commit's provenance. If so, a new output commit would be a duplicate, so
+		// don't create it.
 		if branchInfo.Head != nil {
 			// get the info for the branch's HEAD commit
 			branchHeadInfo := &pfs.CommitInfo{}
 			if err := stmCommits.Get(branchInfo.Head.ID, branchHeadInfo); err != nil {
 				return pfsserver.ErrCommitNotFound{branchInfo.Head}
 			}
-			headIsSubset := false
-			for _, v := range commitProvMap {
-				matched := false
-				for _, c := range branchHeadInfo.Provenance {
-					if c.Commit.ID == v.Commit.ID && c.Branch.Name == v.Branch.Name {
-						matched = true
-					}
-				}
-				headIsSubset = matched
-				if !headIsSubset {
-					break
+			provIntersection := make(map[string]struct{})
+			for _, p := range branchHeadInfo.Provenance {
+				if _, ok := newCommitProvMap[key(p.Commit.ID, p.Branch.Name)]; ok {
+					provIntersection[key(p.Commit.ID, p.Branch.Name)] = struct{}{}
 				}
 			}
-			if len(branchHeadInfo.Provenance) >= len(commitProvMap) && headIsSubset {
-				// existing HEAD commit is the same new output commit would be; don't
-				// create new commit
+			if len(newCommitProvMap) == len(provIntersection) {
+				// newCommit's provenance is subset of existing HEAD's provenance
 				continue nextSubvBranch
 			}
 		}
@@ -1456,7 +1449,7 @@ nextSubvBranch:
 		// "dummy" job with no non-spec input data. If this is the case, don't
 		// create a new output commit
 		allSpec := true
-		for _, p := range commitProvMap {
+		for _, p := range newCommitProvMap {
 			if p.Branch.Repo.Name != ppsconsts.SpecRepo {
 				allSpec = false
 				break
@@ -1505,7 +1498,7 @@ nextSubvBranch:
 
 		// Set provenance and upstream subvenance (appendSubvenance needs
 		// newCommitInfo.ParentCommit to extend the correct subvenance range)
-		for _, prov := range commitProvMap {
+		for _, prov := range newCommitProvMap {
 			// set provenance of 'newCommit'
 			newCommitInfo.Provenance = append(newCommitInfo.Provenance, prov)
 
