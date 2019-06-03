@@ -1815,9 +1815,11 @@ func (a *APIServer) worker() {
 				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
 			}
 			if jobInfo.PipelineVersion < a.pipelineInfo.Version {
+				fmt.Printf(">>> job %q has old pipeline version %d\n", jobInfo.Job.ID, jobInfo.PipelineVersion)
 				continue
 			}
 			if jobInfo.PipelineVersion > a.pipelineInfo.Version {
+				fmt.Printf(">>> job %q has too-new pipeline version %d\n", jobInfo.Job.ID, jobInfo.PipelineVersion)
 				return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
 					"version (%d), this should automatically resolve when the worker "+
 					"is updated", jobID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
