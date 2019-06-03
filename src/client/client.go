@@ -287,16 +287,21 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	}
 
 	// 2) Get target address from global config if possible
-	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
-		// Also get cert info from config (if set)
-		if cfg.V1.ServerCAs != "" {
-			pemBytes, err := base64.StdEncoding.DecodeString(cfg.V1.ServerCAs)
-			if err != nil {
-				return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+	if cfg != nil {
+		context := cfg.ActiveContext(false)
+		if context != nil && context.PachdHostname != "" {
+			pachdAddress := fmt.Sprintf("%s:%d", context.PachdHostname, context.PachdRemotePort)
+
+			// Also get cert info from config (if set)
+			if context.ServerCAs != "" {
+				pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
+				if err != nil {
+					return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+				}
+				return pachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 			}
-			return cfg.V1.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+			return pachdAddress, nil, nil
 		}
-		return cfg.V1.PachdAddress, nil, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
@@ -398,8 +403,11 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 	if cfg != nil && cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
 	}
-	if cfg != nil && cfg.V1 != nil && cfg.V1.SessionToken != "" {
-		client.authenticationToken = cfg.V1.SessionToken
+	if cfg != nil {
+		context := cfg.ActiveContext(false)
+		if context.SessionToken != "" {
+			client.authenticationToken = context.SessionToken
+		}
 	}
 
 	// Add port forwarding. This will set it to nil if port forwarding is

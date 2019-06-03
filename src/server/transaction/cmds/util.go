@@ -17,10 +17,11 @@ func getActiveTransaction() (*transaction.Transaction, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading Pachyderm config: %v", err)
 	}
-	if cfg.V1 == nil || cfg.V1.ActiveTransaction == "" {
+	context := cfg.ActiveContext(false)
+	if context == nil || context.ActiveTransaction == "" {
 		return nil, nil
 	}
-	return &transaction.Transaction{ID: cfg.V1.ActiveTransaction}, nil
+	return &transaction.Transaction{ID: context.ActiveTransaction}, nil
 }
 
 func requireActiveTransaction() (*transaction.Transaction, error) {
@@ -38,13 +39,11 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("error reading Pachyderm config: %v", err)
 	}
-	if cfg.V1 == nil {
-		cfg.V1 = &config.ConfigV1{}
-	}
+	context := cfg.ActiveContext(true)
 	if txn == nil {
-		cfg.V1.ActiveTransaction = ""
+		context.ActiveTransaction = ""
 	} else {
-		cfg.V1.ActiveTransaction = txn.ID
+		context.ActiveTransaction = txn.ID
 	}
 	if err := cfg.Write(); err != nil {
 		return fmt.Errorf("error writing Pachyderm config: %v", err)

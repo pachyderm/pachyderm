@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/satori/go.uuid"
 )
@@ -20,6 +22,26 @@ func configPath() string {
 		return env
 	}
 	return defaultConfigPath
+}
+
+// ActiveContext gets the active context in the config
+func (c *Config) ActiveContext(initialize bool) *Context {
+	if c.V2.ActiveContext == "" {
+		if initialize {
+			newContext := &Context{}
+			c.V2.ActiveContext = "default"
+			c.V2.Contexts["default"] = newContext
+			return newContext
+		}
+		return nil
+	}
+	context, ok := c.V2.Contexts[c.V2.ActiveContext]
+	if !ok && initialize {
+		newContext := &Context{}
+		c.V2.Contexts[c.V2.ActiveContext] = newContext
+		return newContext
+	}
+	return context
 }
 
 // Read loads the Pachyderm config on this machine.
@@ -54,12 +76,74 @@ func Read() (*Config, error) {
 			return nil, err
 		}
 	}
+	if c.V2 == nil {
+		c.V2 = &ConfigV2{
+			ActiveContext: "",
+			Contexts:      map[string]*Context{},
+		}
+	}
+	if c.V1 != nil {
+		if _, ok := c.V2.Contexts["default"]; ok {
+			return nil, fmt.Errorf("Attempting to migrate to config V2, but there's already a default context")
+		}
+
+		pachdHostname := ""
+		var pachdRemotePort uint32 = 650
+		if c.V1.PachdAddress != "" {
+			parts := strings.SplitN(c.V1.PachdAddress, ":", 2)
+			if len(parts) == 1 {
+				pachdHostname = parts[0]
+			} else if len(parts) == 2 {
+				pachdRemotePort64, err := strconv.ParseUint(parts[1], 10, 32)
+				if err == nil {
+					pachdHostname = parts[0]
+					pachdRemotePort = uint32(pachdRemotePort64)
+				}
+			}
+		}
+
+		serverCAs := ""
+		if c.V1.ServerCAs != "" {
+			serverCAs = c.V1.ServerCAs
+		}
+
+		sessionToken := ""
+		if c.V1.SessionToken != "" {
+			sessionToken = c.V1.SessionToken
+		}
+
+		activeTransaction := ""
+		if c.V1.ActiveTransaction != "" {
+			activeTransaction = c.V1.ActiveTransaction
+		}
+
+		c.V2.ActiveContext = "default"
+		c.V2.Contexts["default"] = &Context{
+			PachdHostname:           pachdHostname,
+			ServerCAs:               serverCAs,
+			SessionToken:            sessionToken,
+			ActiveTransaction:       activeTransaction,
+			ConnectionMethodology:   ConnectionMethodology_PORT_FORWARDING,
+			PachdRemotePort:         pachdRemotePort,
+			SAMLACSRemotePort:       654,
+			DashUIRemotePort:        8080,
+			DashWebsocketRemotePort: 8081,
+			PFSOverHTTPRemotePort:   30652,
+			S3GatewayRemotePort:     600,
+		}
+
+		c.V1 = nil
+	}
 	return c, nil
 }
 
 // Write writes the configuration in 'c' to this machine's Pachyderm config
 // file.
 func (c *Config) Write() error {
+	if c.V1 != nil {
+		panic("v1 config included, implying a bug")
+	}
+
 	rawConfig, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err

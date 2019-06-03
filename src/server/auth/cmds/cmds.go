@@ -40,10 +40,8 @@ func writePachTokenToCfg(token string) error {
 		return fmt.Errorf("error reading Pachyderm config (for cluster "+
 			"address): %v", err)
 	}
-	if cfg.V1 == nil {
-		cfg.V1 = &config.ConfigV1{}
-	}
-	cfg.V1.SessionToken = token
+	context := cfg.ActiveContext(true)
+	context.SessionToken = token
 	if err := cfg.Write(); err != nil {
 		return fmt.Errorf("error writing pachyderm config: %v", err)
 	}
@@ -212,10 +210,8 @@ func LogoutCmd() *cobra.Command {
 				return fmt.Errorf("error reading Pachyderm config (for cluster "+
 					"address): %v", err)
 			}
-			if cfg.V1 == nil {
-				return nil
-			}
-			cfg.V1.SessionToken = ""
+			context := cfg.ActiveContext(true)
+			context.SessionToken = ""
 			return cfg.Write()
 		}),
 	}
