@@ -556,26 +556,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 			}
 		}()
-		// Handle the case when there are no datums
-		if df.Len() == 0 {
-			if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
-				return err
-			}
-			if jobInfo.EnableStats {
-				if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit:    statsCommit,
-					Trees:     statsTrees,
-					SizeBytes: statsSize,
-				}); err != nil {
-					return err
-				}
-			}
-			_, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit: jobInfo.OutputCommit,
-				Empty:  true,
-			})
-			return err
-		}
 		// Watch the chunks in order
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 		var failedDatumID string
