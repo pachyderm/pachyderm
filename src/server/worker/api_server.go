@@ -1477,7 +1477,7 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
-		logger.Logf("blocking on parent commit %q before writing to output commit %q",
+		a.getWorkerLogger().Logf("blocking on parent commit %q before writing to output commit %q",
 			commitInfo.ParentCommit.ID, outputCommitID)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
