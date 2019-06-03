@@ -348,12 +348,14 @@ func portForwarder() *PortForwarder {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, options ...Option) (*APIClient, error) {
+	var context *config.Context
 	cfg, err := config.Read()
 	if err != nil {
 		// metrics errors are non fatal
 		log.Warningf("error loading user config from ~/.pachyderm/config: %v", err)
+	} else {
+		context = cfg.ActiveContext(false)
 	}
-	context := cfg.ActiveContext(false)
 
 	// create new pachctl client
 	var fw *PortForwarder
@@ -401,7 +403,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg.UserID != "" && reportMetrics {
+	if cfg != nil && cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
 	}
 	if context != nil && context.SessionToken != "" {
