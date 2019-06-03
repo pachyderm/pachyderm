@@ -16,6 +16,7 @@ import (
 	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1344,14 +1345,7 @@ func (m *Plan) Size() (n int) {
 }
 
 func sovWorkerService(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozWorkerService(x uint64) (n int) {
 	return sovWorkerService(uint64((x << 1) ^ uint64((int64(x) >> 63))))

@@ -77,6 +77,38 @@ func TestJSONSyntaxErrorsReportedUpdatePipeline(t *testing.T) {
 	).Run())
 }
 
+func TestRawFullPipelineInfo(t *testing.T) {
+	require.NoError(t, tu.BashCmd(`
+		yes | pachctl delete all
+		pachctl garbage-collect
+	`).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl create repo data
+		pachctl put file data@master:/file <<<"This is a test"
+		pachctl create pipeline <<EOF
+			{
+			  "pipeline": {"name": "{{.pipeline}}"},
+			  "input": {
+			    "pfs": {
+			      "glob": "/*",
+			      "repo": "data"
+			    }
+			  },
+			  "transform": {
+			    "cmd": ["bash"],
+					"stdin": ["cp /pfs/data/file /pfs/out"]
+			  }
+			}`+"\nEOF\n",
+		"pipeline", tu.UniqueString("p-")).Run())
+	require.NoError(t, tu.BashCmd(`
+		pachctl flush commit data@master
+
+		# make sure the results have the full pipeline info, including version
+		pachctl list job --raw --history=all \
+			| match "pipeline_version"
+		`).Run())
+}
+
 // func TestPushImages(t *testing.T) {
 // 	if testing.Short() {
 // 		t.Skip("Skipping integration tests in short mode")

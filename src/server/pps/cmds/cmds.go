@@ -143,15 +143,12 @@ $ {{alias}} -p foo -i bar@YYY`,
 			defer client.Close()
 
 			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
-					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
-						return err
-					}
-					return nil
+				return client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
+					return marshaller.Marshal(os.Stdout, ji)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
+			if err := client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
 				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -493,10 +490,10 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 		Example: `
 		# Rerun the latest job for the "filter" pipeline
 		$ {{alias}} filter
-		
+
 		# Reprocess the pipeline "filter" on the data from commits a23e4 and bf363
 		$ {{alias}} filter a23e4 and bf363
-		
+
 		# Run the pipeline "filter" on the data from the "staging" branch
 		$ {{alias}} filter staging`,
 		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {

@@ -528,19 +528,21 @@ $ pachctl list-job -p foo bar/YYY`,
 			}
 
 			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, -1, func(ji *pps.JobInfo) error {
-					marshaller := &jsonpb.Marshaler{Indent: "  "}
-					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
-						return err
-					}
-					return nil
-				})
+				return client.ListJobF(pipelineName, commits, outputCommit, -1, true,
+					func(ji *pps.JobInfo) error {
+						marshaller := &jsonpb.Marshaler{Indent: "  "}
+						if err := marshaller.Marshal(os.Stdout, ji); err != nil {
+							return err
+						}
+						return nil
+					})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, ppspretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, -1, func(ji *pps.JobInfo) error {
-				ppspretty.PrintJobInfo(writer, ji, fullTimestamps)
-				return nil
-			}); err != nil {
+			if err := client.ListJobF(pipelineName, commits, outputCommit, -1, false,
+				func(ji *pps.JobInfo) error {
+					ppspretty.PrintJobInfo(writer, ji, fullTimestamps)
+					return nil
+				}); err != nil {
 				return err
 			}
 			return writer.Flush()

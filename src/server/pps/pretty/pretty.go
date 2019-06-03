@@ -30,11 +30,6 @@ const (
 	jobReasonLen = 25
 )
 
-// PrintJobHeader prints a job header.
-func PrintJobHeader(w io.Writer) {
-	fmt.Fprint(w, JobHeader)
-}
-
 func safeTrim(s string, l int) string {
 	if len(s) < l {
 		return s
@@ -69,11 +64,6 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 	} else {
 		fmt.Fprintf(w, "%s\t\n", jobState(jobInfo.State))
 	}
-}
-
-// PrintPipelineHeader prints a pipeline header.
-func PrintPipelineHeader(w io.Writer) {
-	fmt.Fprint(w, PipelineHeader)
 }
 
 // PrintPipelineInfo pretty-prints pipeline info.
@@ -234,11 +224,6 @@ Job Counts:
 		return err
 	}
 	return nil
-}
-
-// PrintDatumInfoHeader prints a file info header.
-func PrintDatumInfoHeader(w io.Writer) {
-	fmt.Fprint(w, DatumHeader)
 }
 
 // PrintDatumInfo pretty-prints file info.
