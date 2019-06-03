@@ -297,7 +297,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
 			if err != nil {
-				return context.PachdAddress, nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
+				return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
 			}
 			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
