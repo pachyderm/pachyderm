@@ -99,7 +99,9 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 		}
 		defer masterLock.Unlock(ctx)
 		logger.Logf("Launching %v master process", masterType)
-		return spawner(pachClient)
+		err = spawner(pachClient)
+		fmt.Printf(">>>***** spawner(pachclient) returned!\n")
+		return err
 	}, b, func(err error, d time.Duration) error {
 		logger.Logf("master: error running the %v master process: %v; retrying in %v", masterType, err, d)
 		return nil
@@ -119,6 +121,8 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
+		fmt.Printf(">>> got commit: %s@%s (Finished: %v)\n", commitInfo.Commit.Repo.Name,
+			commitInfo.Commit.ID, commitInfo.Finished != nil)
 		if commitInfo.Finished != nil {
 			continue
 		}
@@ -128,6 +132,8 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
+		fmt.Printf(">>> refreshed commit: %s@%s (Finished: %v)\n", commitInfo.Commit.Repo.Name,
+			commitInfo.Commit.ID, commitInfo.Finished != nil)
 		if commitInfo.Finished != nil {
 			continue // commit finished after queueing
 		}
@@ -176,26 +182,39 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				jobInfos = append(jobInfos, ji)
 			}
 		}
+		/* >>> */ func() {
+			jobIDs := make([]string, 0, len(jobInfos))
+			for _, ji := range jobInfos {
+				jobIDs = append(jobIDs, ji.Job.ID)
+			}
+			fmt.Printf(">>> >>> jobs: %v\n", jobIDs)
+		}()
 
 		var jobInfo *pps.JobInfo
 		switch {
 		case len(jobInfos) > 1:
+			fmt.Printf(">>> >>> len(jobInfos) > 1\n")
 			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 		case len(jobInfos) == 1:
+			fmt.Printf(">>> >>> len(jobInfos) == 1\n")
 			// check job still exists & get latest state
 			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
+			fmt.Printf(">>> >>> inspectJob =>\n>>> >>>   (%v, %v)\n", jobInfo, err)
 			if err != nil {
 				return err
 			}
 		default:
+			fmt.Printf(">>> >>> len(jobInfos) < 1\n")
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
+			fmt.Printf(">>> >>> new job: %v\n", job.ID)
 			jobInfo, err = pachClient.InspectJob(job.ID, false)
 			if err != nil {
 				return err
 			}
+			fmt.Printf(">>> >>> info: %v\n", jobInfo)
 		}
 		if ppsutil.IsTerminal(jobInfo.State) {
 			// previously-created job has finished, but commit has not been closed yet
