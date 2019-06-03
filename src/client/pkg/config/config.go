@@ -26,7 +26,9 @@ func configPath() string {
 func (c *Config) ActiveContext(initialize bool) *Context {
 	if c.V2.ActiveContext == "" {
 		if initialize {
-			newContext := &Context{}
+			newContext := &Context{
+				Source: ContextSource_SELF,
+			}
 			c.V2.ActiveContext = "default"
 			c.V2.Contexts["default"] = newContext
 			return newContext
