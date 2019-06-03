@@ -74,18 +74,9 @@ message Context {
     // This can be set or cleared via many of the `pachctl * transaction` commands.
     // This is the ID of the transaction object stored in the pachyderm etcd.
     string active_transaction = 5;
-
-    // How to best connect to the cluster
-    ConnectionMethod connection_method = 6;
 }
 
 enum ContextSource {
     SELF = 0;
     CONFIG_V1 = 1;
-}
-
-enum ConnectionMethod {
-    DIRECT = 0;
-    PORT_FORWARDING = 1;
-    NONE = 2;
 }

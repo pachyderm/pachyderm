@@ -91,7 +91,6 @@ func Read() (*Config, error) {
 			ServerCAs:         c.V1.ServerCAs,
 			SessionToken:      c.V1.SessionToken,
 			ActiveTransaction: c.V1.ActiveTransaction,
-			ConnectionMethod:  ConnectionMethod_PORT_FORWARDING,
 		}
 
 		c.V1 = nil
