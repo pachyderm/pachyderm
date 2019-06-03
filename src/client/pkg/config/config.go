@@ -27,7 +27,7 @@ func (c *Config) ActiveContext(initialize bool) *Context {
 	if c.V2.ActiveContext == "" {
 		if initialize {
 			newContext := &Context{
-				Source: ContextSource_SELF,
+				Source: ContextSource_NONE,
 			}
 			c.V2.ActiveContext = "default"
 			c.V2.Contexts["default"] = newContext

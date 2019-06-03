@@ -287,9 +287,8 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 		if context == nil || context.Source == config.ContextSource_CONFIG_V1 {
 			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and will be removed in a future version. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
 			return envAddr, options, nil
-		} else {
-			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and does not work with the pachyderm context you're using. The value will be ignored. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
 		}
+		fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and does not work with the pachyderm context you're using. The value will be ignored. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
 	}
 
 	// 2) Get target address from global config if possible
