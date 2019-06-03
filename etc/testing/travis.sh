@@ -3,10 +3,6 @@
 set -ex
 
 # Make sure cache dirs exist and are writable
-mkdir -p ~/.cache/go-build
-sudo chown -R `whoami` ~/.cache/go-build
-sudo chown -R `whoami` ~/cached-deps
-
 # Note that this script executes as the user `travis`, vs the pre-install
 # script which executes as `root`. Without `chown`ing `~/cached-deps` (where
 # we store cacheable binaries), any calls to those binaries would fail because
@@ -19,6 +15,10 @@ sudo chown -R `whoami` ~/cached-deps
 #
 #     sudo env "PATH=$PATH" minikube foo
 #
+mkdir -p ~/.cache/go-build
+sudo chown -R `whoami` ~/.cache/go-build
+sudo chown -R `whoami` ~/cached-deps
+
 kubectl version --client
 etcdctl --version
 
@@ -29,7 +29,7 @@ sleep 5
 # Wait until a connection with kubernetes has been established
 echo "Waiting for connection to kubernetes..."
 max_t=90
-WHEEL="\|/-";
+WHEEL='\|/-';
 until {
   minikube status 2>&1 >/dev/null
   kubectl version 2>&1 >/dev/null
@@ -85,6 +85,7 @@ elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
     ./etc/testing/examples.sh
 elif [[ $PPS_SUITE -eq 0 ]]; then
+    set +x
     PART=`echo $BUCKET | grep -Po '\d+'`
     NUM_BUCKETS=`cat etc/build/PPS_BUILD_BUCKET_COUNT`
     echo "Running pps test suite, part $PART of $NUM_BUCKETS"
@@ -112,6 +113,7 @@ elif [[ $PPS_SUITE -eq 0 ]]; then
         INDEX=$(( $INDEX + 1 ))
     done
     echo "Running $( echo $RUN | tr '|' '\n' | wc -l ) tests of $COUNT total tests"
+    set -x
     make RUN=-run=\"$RUN\" test-pps-helper
 else
     echo "Unknown bucket"
