@@ -123,7 +123,7 @@ func Read() (*Config, error) {
 			ServerCAs:               serverCAs,
 			SessionToken:            sessionToken,
 			ActiveTransaction:       activeTransaction,
-			ConnectionMethodology:   ConnectionMethodology_PORT_FORWARDING,
+			ConnectionMethod:        ConnectionMethod_PORT_FORWARDING,
 			PachdRemotePort:         pachdRemotePort,
 			SAMLACSRemotePort:       654,
 			DashUIRemotePort:        8080,

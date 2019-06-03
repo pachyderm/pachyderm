@@ -73,7 +73,7 @@ message Context {
     string active_transaction = 4;
 
     // How to best connect to the cluster
-    ConnectionMethodology connection_methodology = 5;
+    ConnectionMethod connection_method = 5;
 
     // Remote port numbers
     uint32 pachd_remote_port = 6;
@@ -84,7 +84,7 @@ message Context {
     uint32 s3gateway_remote_port = 11 [(gogoproto.customname) = "S3GatewayRemotePort"];
 }
 
-enum ConnectionMethodology {
+enum ConnectionMethod {
     DIRECT = 0;
     PORT_FORWARDING = 1;
     NONE = 2;
