@@ -1,16 +1,22 @@
 # Pachyderm Version Upgrades
 
-**Important Information For v1.8**
+As new versions of Pachyderm are released, you may need to update your cluster to get access to bug fixes and new features. These updates fall into two categories, [Upgrades](./upgrades.md) and [Migrations](./migrations).
 
-In v1.8 we rearchitected core parts of the platform to [improve speed and scalability](http://www.pachyderm.io/2018/11/15/performance-improvements.html). Currently, this has made upgrading to 1.8 from previous versions of pachyderm not possible. Therefore, it's recommended that users create a new 1.8 deployment and [migrate data over manually](https://pachyderm.readthedocs.io/en/latest/deployment/migrations.html). Rest assured, we are working on a supported upgrade path and you can track our efforts [here](https://github.com/pachyderm/pachyderm/issues/3259).  
+A Pachyderm deployment upgrade is moving between point releases within the same major release (e.g. 1.7.2 --> 1.7.3). Upgrades are typically a simple process that require little to no downtime. 
 
-Pachyderm releases new major versions (1.4, 1.5, 1.6, etc.) roughly every 2-3 months and releases minor versions as needed/warranted. Upgrading the version of your Pachyderm cluster should be relatively painless, and you should try to upgrade to make sure that you benefit from the latest features, bug fixes, etc. This guide will walk you through that upgrading process.
+__ Note:__ If you are moving between major versions (e.g. 1.8.x -->1 .9.x), you need to follow [Migration](./migrations.md) procedures, not upgrading. 
 
-**Note** - Occasionally, Pachyderm introduces changes that are backward-incompatible. For example, repos/commits/files created on an old version of Pachyderm may be unusable on a new version of Pachyderm. When that happens (which isn't very often), migrations of Pachyderm metadata will happen automatically upon upgrading. We try our best to make these type of changes transparent (in blog posts, changelogs, etc.), and you can read more about the migration process and best practices [here](migrations.html). 
+* [Before upgrading](#before-upgrading), we recommend you follow standard backup procedures to ensure no data is lost in the case of an error. 
+* [Upgrade Procedures](#upgrading-pachyderm)
+* [Common Issues](#common-issues-questions)
+
+
 
 ## Before Upgrading
 
-Pachyderm's state (the data you have/are processing and metadata associated with commits, jobs, etc.) is stored in the object store bucket and persistent volume(s) you specified at deploy time. As such, you may want to back up one or both of these storage resources before upgrading, just in case something unexpected happens. You should follow your cloud provider's recommendation for backing up these resources. For example, here are official guides on backing up persistent volumes on Google Cloud Platform and AWS, respectively:
+Refer to [Backing up your cluster](./backups.md)...
+
+<!-- Pachyderm's state (the data you have/are processing and metadata associated with commits, jobs, etc.) is stored in the object store bucket and persistent volume(s) you specified at deploy time. As such, you may want to back up one or both of these storage resources before upgrading, just in case something unexpected happens. You should follow your cloud provider's recommendation for backing up these resources. For example, here are official guides on backing up persistent volumes on Google Cloud Platform and AWS, respectively:
 
 - [Creating snapshots of GCE persistent volumes](https://cloud.google.com/compute/docs/disks/create-snapshots)
 - [Creating snapshots of Elastic Block Store (EBS) volumes](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-creating-snapshot.html)
@@ -20,6 +26,15 @@ In addition or alternatively, you can utilize `pachctl extract` and `pachctl res
 That being said, the upgrading steps detailed below should not effect these storage resources, and it's perfectly fine to upgrade to the new version of Pachyderm with the same storage resources.
 
 It's also good idea to version or otherwise save the Pachyderm deploy commands (`pachctl deploy ...`) that you utilize when deploying, because you can re-use those exact same commands when re-deploying, as further detailed below.
+
+**Important Information For v1.8**
+
+In v1.8 we rearchitected core parts of the platform to [improve speed and scalability](http://www.pachyderm.io/2018/11/15/performance-improvements.html). The 1.7.x 1.8.x migration is a fairly indepth process (see our [Migrations docs](./backup_retore_and_migrate.md)) Therefore, it may actually be easier if you don't have tons of data to create a new 1.8 deployment and reingress data. Please come chat with us our [Public Slack Channel](slack.pachyderm.io) if you have any questions. 
+
+Pachyderm releases new major versions (1.4, 1.5, 1.6, etc.) roughly every 3 months and releases point releases as needed/warranted. 
+
+**Note** - Occasionally, Pachyderm introduces changes that are backward-incompatible. For example, repos/commits/files created on an old version of Pachyderm may be unusable on a new version of Pachyderm. When that happens (which isn't very often), migrations of Pachyderm metadata will happen automatically upon upgrading. We try our best to make these type of changes transparent (in blog posts, changelogs, etc.), and you can read more about the migration process and best practices [here](migrations.html).  --> 
+
 
 ## Upgrading Pachyderm
 
@@ -40,12 +55,12 @@ pachctl undeploy
 
 To deploy an upgraded Pachyderm, we need to retrieve the latest version of `pachctl`. Details on installing the latest version can be found [here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html#pachctl). You should be able to upgrade via `brew upgrade` or `apt` depending on your environment.
 
-Once you install the new version of `pachctl` (e.g., 1.7.0 in our example), you can confirm this via:
+Once you install the new version of `pachctl` (e.g., 1.8.4 in our example), you can confirm this via:
 
 ```sh
 $ pachctl version --client-only
 COMPONENT           VERSION
-pachctl             1.7.0
+pachctl             1.8.4
 ```
 
 ### Re-deploying Pachyderm
@@ -84,9 +99,11 @@ And you can confirm the new version of Pachyderm as follows:
 ```sh
 pachctl version
 COMPONENT           VERSION
-pachctl             1.7.0
-pachd               1.7.0
+pachctl             1.8.4
+pachd               1.8.4
 ```
+
+You'll want to make sure your pachd and pachctl versions are both matching the new version.
 
 ## Common Issues, Questions
 
