@@ -119,17 +119,12 @@ func Read() (*Config, error) {
 
 		c.V2.ActiveContext = "default"
 		c.V2.Contexts["default"] = &Context{
-			PachdHostname:           pachdHostname,
-			ServerCAs:               serverCAs,
-			SessionToken:            sessionToken,
-			ActiveTransaction:       activeTransaction,
-			ConnectionMethod:        ConnectionMethod_PORT_FORWARDING,
-			PachdRemotePort:         pachdRemotePort,
-			SAMLACSRemotePort:       654,
-			DashUIRemotePort:        8080,
-			DashWebsocketRemotePort: 8081,
-			PFSOverHTTPRemotePort:   30652,
-			S3GatewayRemotePort:     600,
+			PachdHostname:     pachdHostname,
+			ServerCAs:         serverCAs,
+			SessionToken:      sessionToken,
+			ActiveTransaction: activeTransaction,
+			ConnectionMethod:  ConnectionMethod_PORT_FORWARDING,
+			PachdRemotePort:   pachdRemotePort,
 		}
 
 		c.V1 = nil

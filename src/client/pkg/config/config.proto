@@ -74,14 +74,6 @@ message Context {
 
     // How to best connect to the cluster
     ConnectionMethod connection_method = 5;
-
-    // Remote port numbers
-    uint32 pachd_remote_port = 6;
-    uint32 saml_acs_remote_port = 7 [(gogoproto.customname) = "SAMLACSRemotePort"];
-    uint32 dash_ui_remote_port = 8 [(gogoproto.customname) = "DashUIRemotePort"];
-    uint32 dash_websocket_remote_port = 9;
-    uint32 pfs_over_http_remote_port = 10 [(gogoproto.customname) = "PFSOverHTTPRemotePort"];
-    uint32 s3gateway_remote_port = 11 [(gogoproto.customname) = "S3GatewayRemotePort"];
 }
 
 enum ConnectionMethod {
