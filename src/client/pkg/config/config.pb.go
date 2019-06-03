@@ -23,6 +23,34 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type ConnectionMethodology int32
+
+const (
+	ConnectionMethodology_DIRECT          ConnectionMethodology = 0
+	ConnectionMethodology_PORT_FORWARDING ConnectionMethodology = 1
+	ConnectionMethodology_NONE            ConnectionMethodology = 2
+)
+
+var ConnectionMethodology_name = map[int32]string{
+	0: "DIRECT",
+	1: "PORT_FORWARDING",
+	2: "NONE",
+}
+
+var ConnectionMethodology_value = map[string]int32{
+	"DIRECT":          0,
+	"PORT_FORWARDING": 1,
+	"NONE":            2,
+}
+
+func (x ConnectionMethodology) String() string {
+	return proto.EnumName(ConnectionMethodology_name, int32(x))
+}
+
+func (ConnectionMethodology) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_60f651abce1dcdf3, []int{0}
+}
+
 // Config specifies the pachyderm config that is read and interpreted by the
 // pachctl command-line tool. Right now, this is stored at
 // $HOME/.pachyderm/config.
@@ -38,6 +66,7 @@ type Config struct {
 	// Configuration options. Exactly one of these fields should be set
 	// (depending on which version of the config is being used)
 	V1                   *ConfigV1 `protobuf:"bytes,2,opt,name=v1,proto3" json:"v1,omitempty"`
+	V2                   *ConfigV2 `protobuf:"bytes,3,opt,name=v2,proto3" json:"v2,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -90,7 +119,14 @@ func (m *Config) GetV1() *ConfigV1 {
 	return nil
 }
 
-// ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - present)
+func (m *Config) GetV2() *ConfigV2 {
+	if m != nil {
+		return m.V2
+	}
+	return nil
+}
+
+// ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)
 // DO NOT change or remove field numbers from this proto, as if you do, v1 user
 // configs will become unparseable.
 type ConfigV1 struct {
@@ -175,35 +211,255 @@ func (m *ConfigV1) GetActiveTransaction() string {
 	return ""
 }
 
+// ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
+type ConfigV2 struct {
+	ActiveContext        string              `protobuf:"bytes,1,opt,name=active_context,json=activeContext,proto3" json:"active_context,omitempty"`
+	Contexts             map[string]*Context `protobuf:"bytes,2,rep,name=contexts,proto3" json:"contexts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
+}
+
+func (m *ConfigV2) Reset()         { *m = ConfigV2{} }
+func (m *ConfigV2) String() string { return proto.CompactTextString(m) }
+func (*ConfigV2) ProtoMessage()    {}
+func (*ConfigV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_60f651abce1dcdf3, []int{2}
+}
+func (m *ConfigV2) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConfigV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConfigV2.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConfigV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigV2.Merge(m, src)
+}
+func (m *ConfigV2) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConfigV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigV2 proto.InternalMessageInfo
+
+func (m *ConfigV2) GetActiveContext() string {
+	if m != nil {
+		return m.ActiveContext
+	}
+	return ""
+}
+
+func (m *ConfigV2) GetContexts() map[string]*Context {
+	if m != nil {
+		return m.Contexts
+	}
+	return nil
+}
+
+type Context struct {
+	// The hostname or IP address pointing pachd at a pachyderm cluster.
+	PachdHostname string `protobuf:"bytes,1,opt,name=pachd_hostname,json=pachdHostname,proto3" json:"pachd_hostname,omitempty"`
+	// Trusted root certificates (overrides installed certificates), formatted
+	// as base64-encoded PEM
+	ServerCAs string `protobuf:"bytes,2,opt,name=server_cas,json=serverCas,proto3" json:"server_cas,omitempty"`
+	// A secret token identifying the current pachctl user within their
+	// pachyderm cluster. This is included in all RPCs sent by pachctl, and used
+	// to determine if pachctl actions are authorized.
+	SessionToken string `protobuf:"bytes,3,opt,name=session_token,json=sessionToken,proto3" json:"session_token,omitempty"`
+	// The currently active transaction for batching together pachctl commands.
+	// This can be set or cleared via many of the `pachctl * transaction` commands.
+	// This is the ID of the transaction object stored in the pachyderm etcd.
+	ActiveTransaction string `protobuf:"bytes,4,opt,name=active_transaction,json=activeTransaction,proto3" json:"active_transaction,omitempty"`
+	// How to best connect to the cluster
+	ConnectionMethodology ConnectionMethodology `protobuf:"varint,5,opt,name=connection_methodology,json=connectionMethodology,proto3,enum=config.ConnectionMethodology" json:"connection_methodology,omitempty"`
+	// Remote port numbers
+	PachdRemotePort         uint32   `protobuf:"varint,6,opt,name=pachd_remote_port,json=pachdRemotePort,proto3" json:"pachd_remote_port,omitempty"`
+	SamlAcsRemotePort       uint32   `protobuf:"varint,7,opt,name=saml_acs_remote_port,json=samlAcsRemotePort,proto3" json:"saml_acs_remote_port,omitempty"`
+	DashUiRemotePort        uint32   `protobuf:"varint,8,opt,name=dash_ui_remote_port,json=dashUiRemotePort,proto3" json:"dash_ui_remote_port,omitempty"`
+	DashWebsocketRemotePort uint32   `protobuf:"varint,9,opt,name=dash_websocket_remote_port,json=dashWebsocketRemotePort,proto3" json:"dash_websocket_remote_port,omitempty"`
+	PfsOverHttpRemotePort   uint32   `protobuf:"varint,10,opt,name=pfs_over_http_remote_port,json=pfsOverHttpRemotePort,proto3" json:"pfs_over_http_remote_port,omitempty"`
+	S3GatewayRemotePort     uint32   `protobuf:"varint,11,opt,name=s3gateway_remote_port,json=s3gatewayRemotePort,proto3" json:"s3gateway_remote_port,omitempty"`
+	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
+	XXX_unrecognized        []byte   `json:"-"`
+	XXX_sizecache           int32    `json:"-"`
+}
+
+func (m *Context) Reset()         { *m = Context{} }
+func (m *Context) String() string { return proto.CompactTextString(m) }
+func (*Context) ProtoMessage()    {}
+func (*Context) Descriptor() ([]byte, []int) {
+	return fileDescriptor_60f651abce1dcdf3, []int{3}
+}
+func (m *Context) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Context) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Context.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Context) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Context.Merge(m, src)
+}
+func (m *Context) XXX_Size() int {
+	return m.Size()
+}
+func (m *Context) XXX_DiscardUnknown() {
+	xxx_messageInfo_Context.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Context proto.InternalMessageInfo
+
+func (m *Context) GetPachdHostname() string {
+	if m != nil {
+		return m.PachdHostname
+	}
+	return ""
+}
+
+func (m *Context) GetServerCAs() string {
+	if m != nil {
+		return m.ServerCAs
+	}
+	return ""
+}
+
+func (m *Context) GetSessionToken() string {
+	if m != nil {
+		return m.SessionToken
+	}
+	return ""
+}
+
+func (m *Context) GetActiveTransaction() string {
+	if m != nil {
+		return m.ActiveTransaction
+	}
+	return ""
+}
+
+func (m *Context) GetConnectionMethodology() ConnectionMethodology {
+	if m != nil {
+		return m.ConnectionMethodology
+	}
+	return ConnectionMethodology_DIRECT
+}
+
+func (m *Context) GetPachdRemotePort() uint32 {
+	if m != nil {
+		return m.PachdRemotePort
+	}
+	return 0
+}
+
+func (m *Context) GetSamlAcsRemotePort() uint32 {
+	if m != nil {
+		return m.SamlAcsRemotePort
+	}
+	return 0
+}
+
+func (m *Context) GetDashUiRemotePort() uint32 {
+	if m != nil {
+		return m.DashUiRemotePort
+	}
+	return 0
+}
+
+func (m *Context) GetDashWebsocketRemotePort() uint32 {
+	if m != nil {
+		return m.DashWebsocketRemotePort
+	}
+	return 0
+}
+
+func (m *Context) GetPfsOverHttpRemotePort() uint32 {
+	if m != nil {
+		return m.PfsOverHttpRemotePort
+	}
+	return 0
+}
+
+func (m *Context) GetS3GatewayRemotePort() uint32 {
+	if m != nil {
+		return m.S3GatewayRemotePort
+	}
+	return 0
+}
+
 func init() {
+	proto.RegisterEnum("config.ConnectionMethodology", ConnectionMethodology_name, ConnectionMethodology_value)
 	proto.RegisterType((*Config)(nil), "config.Config")
 	proto.RegisterType((*ConfigV1)(nil), "config.ConfigV1")
+	proto.RegisterType((*ConfigV2)(nil), "config.ConfigV2")
+	proto.RegisterMapType((map[string]*Context)(nil), "config.ConfigV2.ContextsEntry")
+	proto.RegisterType((*Context)(nil), "config.Context")
 }
 
 func init() { proto.RegisterFile("client/pkg/config/config.proto", fileDescriptor_60f651abce1dcdf3) }
 
 var fileDescriptor_60f651abce1dcdf3 = []byte{
-	// 305 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x64, 0x90, 0x41, 0x4a, 0x03, 0x31,
-	0x14, 0x86, 0x4d, 0x95, 0xd1, 0x89, 0x2d, 0x68, 0x70, 0x31, 0xb8, 0x98, 0x96, 0x76, 0xd3, 0x85,
-	0x76, 0xa8, 0x7a, 0x81, 0xb6, 0x22, 0x74, 0x25, 0x8c, 0xd5, 0x85, 0x9b, 0x61, 0x9a, 0xc4, 0x69,
-	0xa8, 0x26, 0x43, 0x5e, 0x3a, 0xe0, 0x4d, 0xbc, 0x86, 0xb7, 0x70, 0xe9, 0x09, 0x8a, 0x8c, 0x17,
-	0x91, 0x24, 0x2d, 0x0a, 0xae, 0xe6, 0x9f, 0xef, 0x7b, 0x79, 0xef, 0xf1, 0x70, 0x4c, 0x9f, 0x05,
-	0x97, 0x26, 0x29, 0x97, 0x45, 0x42, 0x95, 0x7c, 0x12, 0xdb, 0xcf, 0xa0, 0xd4, 0xca, 0x28, 0x12,
-	0xf8, 0xbf, 0xd3, 0x93, 0x42, 0x15, 0xca, 0xa1, 0xc4, 0x26, 0x6f, 0xbb, 0xb7, 0x38, 0x98, 0x38,
-	0x4f, 0x7a, 0x78, 0x7f, 0x05, 0x5c, 0x67, 0x82, 0x45, 0xa8, 0x83, 0xfa, 0xe1, 0x18, 0xd7, 0xeb,
-	0x76, 0x70, 0x0f, 0x5c, 0x4f, 0xaf, 0xd3, 0xc0, 0xaa, 0x29, 0x23, 0x1d, 0xdc, 0xa8, 0x86, 0x51,
-	0xa3, 0x83, 0xfa, 0x87, 0x17, 0x47, 0x83, 0xcd, 0x1c, 0xdf, 0xe0, 0x61, 0x98, 0x36, 0xaa, 0x61,
-	0xf7, 0x1d, 0xe1, 0x83, 0x2d, 0x20, 0x3d, 0xdc, 0x2a, 0x73, 0xba, 0x60, 0x59, 0xce, 0x98, 0xe6,
-	0x00, 0xee, 0x65, 0x98, 0x36, 0x1d, 0x1c, 0x79, 0x46, 0xce, 0x30, 0x06, 0xae, 0x2b, 0xae, 0x33,
-	0x9a, 0x43, 0xb4, 0xeb, 0x66, 0xb7, 0xea, 0x75, 0x3b, 0xbc, 0x73, 0x74, 0x32, 0x82, 0x34, 0xf4,
-	0x05, 0x93, 0x1c, 0x6c, 0x4b, 0xe0, 0x00, 0x42, 0xc9, 0xcc, 0xa8, 0x25, 0x97, 0x7e, 0xd9, 0xb4,
-	0xb9, 0x81, 0x33, 0xcb, 0xc8, 0x39, 0x26, 0x39, 0x35, 0xa2, 0xe2, 0x99, 0xd1, 0xb9, 0x04, 0x9b,
-	0x95, 0x8c, 0xf6, 0x5c, 0xe5, 0xb1, 0x37, 0xb3, 0x5f, 0x31, 0xbe, 0xf9, 0xa8, 0x63, 0xf4, 0x59,
-	0xc7, 0xe8, 0xab, 0x8e, 0xd1, 0xdb, 0x77, 0xbc, 0xf3, 0x78, 0x55, 0x08, 0xb3, 0x58, 0xcd, 0x07,
-	0x54, 0xbd, 0x24, 0x76, 0xd9, 0x57, 0xc6, 0xf5, 0xdf, 0x04, 0x9a, 0x26, 0xff, 0xee, 0x3e, 0x0f,
-	0xdc, 0x4d, 0x2f, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x4e, 0x3f, 0x0b, 0x0f, 0x93, 0x01, 0x00,
-	0x00,
+	// 659 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x94, 0xc1, 0x4e, 0xdb, 0x4a,
+	0x14, 0x86, 0xb1, 0x03, 0x26, 0x39, 0x10, 0x08, 0x03, 0xb9, 0x37, 0x17, 0xe9, 0x86, 0x28, 0x08,
+	0x29, 0x42, 0x97, 0x44, 0x98, 0xbb, 0x40, 0x74, 0x95, 0x04, 0x28, 0x91, 0x5a, 0x82, 0xa6, 0xa1,
+	0x48, 0xdd, 0x58, 0xc6, 0x1e, 0x12, 0x2b, 0x89, 0xc7, 0x9d, 0x99, 0x98, 0xe6, 0x4d, 0xfa, 0x1a,
+	0x5d, 0x77, 0xd1, 0x6d, 0x97, 0x7d, 0x02, 0x54, 0xa5, 0x2f, 0x52, 0xcd, 0xd8, 0x21, 0x0e, 0x65,
+	0x53, 0x75, 0xe5, 0xe3, 0xff, 0xff, 0xfe, 0x33, 0x73, 0x8e, 0x25, 0x43, 0xd1, 0x19, 0x78, 0xc4,
+	0x17, 0xb5, 0xa0, 0xdf, 0xad, 0x39, 0xd4, 0xbf, 0xf3, 0xa6, 0x8f, 0x6a, 0xc0, 0xa8, 0xa0, 0xc8,
+	0x88, 0xde, 0xb6, 0xb7, 0xba, 0xb4, 0x4b, 0x95, 0x54, 0x93, 0x55, 0xe4, 0x96, 0xdf, 0x83, 0xd1,
+	0x54, 0x3e, 0xda, 0x85, 0xe5, 0x11, 0x27, 0xcc, 0xf2, 0xdc, 0x82, 0x56, 0xd2, 0x2a, 0x99, 0x06,
+	0x4c, 0x1e, 0x76, 0x8c, 0x6b, 0x4e, 0x58, 0xeb, 0x14, 0x1b, 0xd2, 0x6a, 0xb9, 0xa8, 0x04, 0x7a,
+	0x78, 0x58, 0xd0, 0x4b, 0x5a, 0x65, 0xc5, 0xcc, 0x55, 0xe3, 0x73, 0xa2, 0x06, 0x6f, 0x0f, 0xb1,
+	0x1e, 0x1e, 0x2a, 0xc2, 0x2c, 0xa4, 0x9e, 0x25, 0x4c, 0xac, 0x87, 0x66, 0xf9, 0x93, 0x06, 0xe9,
+	0x69, 0x04, 0xed, 0x42, 0x36, 0xb0, 0x9d, 0x9e, 0x6b, 0xd9, 0xae, 0xcb, 0x08, 0xe7, 0xaa, 0x77,
+	0x06, 0xaf, 0x2a, 0xb1, 0x1e, 0x69, 0xe8, 0x3f, 0x00, 0x4e, 0x58, 0x48, 0x98, 0xe5, 0xd8, 0x5c,
+	0xf5, 0xce, 0x34, 0xb2, 0x93, 0x87, 0x9d, 0xcc, 0x1b, 0xa5, 0x36, 0xeb, 0x1c, 0x67, 0x22, 0xa0,
+	0x69, 0x73, 0xd9, 0x92, 0x13, 0xce, 0x3d, 0xea, 0x5b, 0x82, 0xf6, 0x89, 0x1f, 0x8d, 0x83, 0x57,
+	0x63, 0xb1, 0x23, 0x35, 0x74, 0x00, 0xc8, 0x76, 0x84, 0x17, 0x12, 0x4b, 0x30, 0xdb, 0xe7, 0xb2,
+	0xa6, 0x7e, 0x61, 0x51, 0x91, 0x1b, 0x91, 0xd3, 0x99, 0x19, 0xe5, 0xcf, 0xb3, 0x3b, 0x9b, 0x68,
+	0x0f, 0xd6, 0xe2, 0xac, 0x43, 0x7d, 0x41, 0x3e, 0x88, 0xf8, 0x84, 0x6c, 0xa4, 0x36, 0x23, 0x11,
+	0x9d, 0x40, 0x3a, 0xf6, 0xe5, 0x54, 0xa9, 0xca, 0x8a, 0x59, 0x7c, 0xba, 0x8f, 0x6a, 0xcc, 0xf2,
+	0x33, 0x5f, 0xb0, 0x31, 0x7e, 0xe4, 0xb7, 0x5f, 0x41, 0x76, 0xce, 0x42, 0x39, 0x48, 0xf5, 0xc9,
+	0x38, 0x3e, 0x48, 0x96, 0x68, 0x0f, 0x96, 0x42, 0x7b, 0x30, 0x22, 0xf1, 0xd7, 0x58, 0x4f, 0xf4,
+	0x96, 0x39, 0x1c, 0xb9, 0x27, 0xfa, 0xb1, 0x56, 0xfe, 0xb2, 0x08, 0xcb, 0xd3, 0x5b, 0xed, 0xc1,
+	0x5a, 0xb4, 0xf0, 0x1e, 0xe5, 0xc2, 0xb7, 0x87, 0x64, 0x7a, 0x79, 0xa5, 0x5e, 0xc4, 0xe2, 0x93,
+	0x95, 0xeb, 0xbf, 0xbb, 0xf2, 0xd4, 0x1f, 0xaf, 0x1c, 0x75, 0xe0, 0x2f, 0x87, 0xfa, 0x3e, 0x51,
+	0x6f, 0xd6, 0x90, 0x88, 0x1e, 0x75, 0xe9, 0x80, 0x76, 0xc7, 0x85, 0xa5, 0x92, 0x56, 0x59, 0x33,
+	0xff, 0x4d, 0x0c, 0x1c, 0x53, 0xaf, 0x67, 0x10, 0xce, 0x3b, 0xcf, 0xc9, 0x68, 0x1f, 0x36, 0xa2,
+	0xf1, 0x19, 0x19, 0x52, 0x41, 0xac, 0x80, 0x32, 0x51, 0x30, 0x4a, 0x5a, 0x25, 0x8b, 0xd7, 0x95,
+	0x81, 0x95, 0x7e, 0x45, 0x99, 0x40, 0x35, 0xd8, 0xe2, 0xf6, 0x70, 0x60, 0xd9, 0x0e, 0x9f, 0xc3,
+	0x97, 0x15, 0xbe, 0x21, 0xbd, 0xba, 0xc3, 0x13, 0x81, 0x03, 0xd8, 0x74, 0x6d, 0xde, 0xb3, 0x46,
+	0xde, 0x1c, 0x9f, 0x56, 0x7c, 0x4e, 0x5a, 0xd7, 0x5e, 0x02, 0x7f, 0x01, 0xdb, 0x0a, 0xbf, 0x27,
+	0xb7, 0x9c, 0x3a, 0x7d, 0x22, 0xe6, 0x52, 0x19, 0x95, 0xfa, 0x5b, 0x12, 0x37, 0x53, 0x20, 0x11,
+	0x3e, 0x86, 0x7f, 0x82, 0x3b, 0x6e, 0x51, 0xf9, 0x89, 0x7a, 0x42, 0x04, 0x73, 0x59, 0x50, 0xd9,
+	0x7c, 0x70, 0xc7, 0xdb, 0x21, 0x61, 0x17, 0x42, 0x04, 0x89, 0xa4, 0x09, 0x79, 0x7e, 0xd4, 0xb5,
+	0x05, 0xb9, 0xb7, 0xc7, 0x73, 0xa9, 0x15, 0x95, 0xda, 0x7c, 0x34, 0x67, 0x99, 0xfd, 0x06, 0xe4,
+	0x9f, 0x5d, 0x33, 0x02, 0x30, 0x4e, 0x5b, 0xf8, 0xac, 0xd9, 0xc9, 0x2d, 0xa0, 0x4d, 0x58, 0xbf,
+	0x6a, 0xe3, 0x8e, 0x75, 0xde, 0xc6, 0x37, 0x75, 0x7c, 0xda, 0xba, 0x7c, 0x99, 0xd3, 0x50, 0x1a,
+	0x16, 0x2f, 0xdb, 0x97, 0x67, 0x39, 0xbd, 0x71, 0xfe, 0x75, 0x52, 0xd4, 0xbe, 0x4d, 0x8a, 0xda,
+	0xf7, 0x49, 0x51, 0xfb, 0xf8, 0xa3, 0xb8, 0xf0, 0xee, 0xff, 0xae, 0x27, 0x7a, 0xa3, 0xdb, 0xaa,
+	0x43, 0x87, 0x35, 0xb9, 0xfc, 0xb1, 0x4b, 0x58, 0xb2, 0xe2, 0xcc, 0xa9, 0xfd, 0xf2, 0x77, 0xbb,
+	0x35, 0xd4, 0x9f, 0xeb, 0xe8, 0x67, 0x00, 0x00, 0x00, 0xff, 0xff, 0x20, 0x6d, 0x45, 0x55, 0xf9,
+	0x04, 0x00, 0x00,
 }
 
 func (m *Config) Marshal() (dAtA []byte, err error) {
@@ -236,6 +492,16 @@ func (m *Config) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err1
 		}
 		i += n1
+	}
+	if m.V2 != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.V2.Size()))
+		n2, err2 := m.V2.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
+		}
+		i += n2
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -288,6 +554,141 @@ func (m *ConfigV1) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ConfigV2) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConfigV2) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ActiveContext) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ActiveContext)))
+		i += copy(dAtA[i:], m.ActiveContext)
+	}
+	if len(m.Contexts) > 0 {
+		for k, _ := range m.Contexts {
+			dAtA[i] = 0x12
+			i++
+			v := m.Contexts[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovConfig(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
+			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
+				n3, err3 := v.MarshalTo(dAtA[i:])
+				if err3 != nil {
+					return 0, err3
+				}
+				i += n3
+			}
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *Context) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Context) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.PachdHostname) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.PachdHostname)))
+		i += copy(dAtA[i:], m.PachdHostname)
+	}
+	if len(m.ServerCAs) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServerCAs)))
+		i += copy(dAtA[i:], m.ServerCAs)
+	}
+	if len(m.SessionToken) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.SessionToken)))
+		i += copy(dAtA[i:], m.SessionToken)
+	}
+	if len(m.ActiveTransaction) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ActiveTransaction)))
+		i += copy(dAtA[i:], m.ActiveTransaction)
+	}
+	if m.ConnectionMethodology != 0 {
+		dAtA[i] = 0x28
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.ConnectionMethodology))
+	}
+	if m.PachdRemotePort != 0 {
+		dAtA[i] = 0x30
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.PachdRemotePort))
+	}
+	if m.SamlAcsRemotePort != 0 {
+		dAtA[i] = 0x38
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.SamlAcsRemotePort))
+	}
+	if m.DashUiRemotePort != 0 {
+		dAtA[i] = 0x40
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.DashUiRemotePort))
+	}
+	if m.DashWebsocketRemotePort != 0 {
+		dAtA[i] = 0x48
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.DashWebsocketRemotePort))
+	}
+	if m.PfsOverHttpRemotePort != 0 {
+		dAtA[i] = 0x50
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.PfsOverHttpRemotePort))
+	}
+	if m.S3GatewayRemotePort != 0 {
+		dAtA[i] = 0x58
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.S3GatewayRemotePort))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -309,6 +710,10 @@ func (m *Config) Size() (n int) {
 	}
 	if m.V1 != nil {
 		l = m.V1.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.V2 != nil {
+		l = m.V2.Size()
 		n += 1 + l + sovConfig(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -338,6 +743,84 @@ func (m *ConfigV1) Size() (n int) {
 	l = len(m.ActiveTransaction)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ConfigV2) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.ActiveContext)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if len(m.Contexts) > 0 {
+		for k, v := range m.Contexts {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovConfig(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovConfig(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovConfig(uint64(mapEntrySize))
+		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Context) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.PachdHostname)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.ServerCAs)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.SessionToken)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.ActiveTransaction)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.ConnectionMethodology != 0 {
+		n += 1 + sovConfig(uint64(m.ConnectionMethodology))
+	}
+	if m.PachdRemotePort != 0 {
+		n += 1 + sovConfig(uint64(m.PachdRemotePort))
+	}
+	if m.SamlAcsRemotePort != 0 {
+		n += 1 + sovConfig(uint64(m.SamlAcsRemotePort))
+	}
+	if m.DashUiRemotePort != 0 {
+		n += 1 + sovConfig(uint64(m.DashUiRemotePort))
+	}
+	if m.DashWebsocketRemotePort != 0 {
+		n += 1 + sovConfig(uint64(m.DashWebsocketRemotePort))
+	}
+	if m.PfsOverHttpRemotePort != 0 {
+		n += 1 + sovConfig(uint64(m.PfsOverHttpRemotePort))
+	}
+	if m.S3GatewayRemotePort != 0 {
+		n += 1 + sovConfig(uint64(m.S3GatewayRemotePort))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -445,6 +928,42 @@ func (m *Config) Unmarshal(dAtA []byte) error {
 				m.V1 = &ConfigV1{}
 			}
 			if err := m.V1.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field V2", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.V2 == nil {
+				m.V2 = &ConfigV2{}
+			}
+			if err := m.V2.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -630,6 +1149,536 @@ func (m *ConfigV1) Unmarshal(dAtA []byte) error {
 			}
 			m.ActiveTransaction = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConfigV2) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConfigV2: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConfigV2: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ActiveContext", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ActiveContext = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Contexts", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Contexts == nil {
+				m.Contexts = make(map[string]*Context)
+			}
+			var mapkey string
+			var mapvalue *Context
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowConfig
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= int(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if postmsgIndex < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Context{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipConfig(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Contexts[mapkey] = mapvalue
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Context) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Context: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Context: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PachdHostname", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PachdHostname = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServerCAs", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServerCAs = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SessionToken", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SessionToken = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ActiveTransaction", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ActiveTransaction = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ConnectionMethodology", wireType)
+			}
+			m.ConnectionMethodology = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ConnectionMethodology |= ConnectionMethodology(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 6:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PachdRemotePort", wireType)
+			}
+			m.PachdRemotePort = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.PachdRemotePort |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 7:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SamlAcsRemotePort", wireType)
+			}
+			m.SamlAcsRemotePort = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.SamlAcsRemotePort |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 8:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DashUiRemotePort", wireType)
+			}
+			m.DashUiRemotePort = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DashUiRemotePort |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 9:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DashWebsocketRemotePort", wireType)
+			}
+			m.DashWebsocketRemotePort = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.DashWebsocketRemotePort |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 10:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PfsOverHttpRemotePort", wireType)
+			}
+			m.PfsOverHttpRemotePort = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.PfsOverHttpRemotePort |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 11:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field S3GatewayRemotePort", wireType)
+			}
+			m.S3GatewayRemotePort = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.S3GatewayRemotePort |= uint32(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipConfig(dAtA[iNdEx:])

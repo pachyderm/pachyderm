@@ -21,9 +21,10 @@ message Config {
     // Configuration options. Exactly one of these fields should be set
     // (depending on which version of the config is being used)
     ConfigV1 v1 = 2;
+    ConfigV2 v2 = 3;
 }
 
-// ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - present)
+// ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)
 // DO NOT change or remove field numbers from this proto, as if you do, v1 user
 // configs will become unparseable.
 message ConfigV1 {
@@ -47,3 +48,44 @@ message ConfigV1 {
     string active_transaction = 4;
 }
 
+// ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
+message ConfigV2 {
+    string active_context = 1;
+    map<string, Context> contexts = 2;
+}
+
+message Context {
+    // The hostname or IP address pointing pachd at a pachyderm cluster.
+    string pachd_hostname = 1;
+
+    // Trusted root certificates (overrides installed certificates), formatted
+    // as base64-encoded PEM
+    string server_cas = 2 [(gogoproto.customname) = "ServerCAs"];
+
+    // A secret token identifying the current pachctl user within their
+    // pachyderm cluster. This is included in all RPCs sent by pachctl, and used
+    // to determine if pachctl actions are authorized.
+    string session_token = 3;
+
+    // The currently active transaction for batching together pachctl commands.
+    // This can be set or cleared via many of the `pachctl * transaction` commands.
+    // This is the ID of the transaction object stored in the pachyderm etcd.
+    string active_transaction = 4;
+
+    // How to best connect to the cluster
+    ConnectionMethodology connection_methodology = 5;
+
+    // Remote port numbers
+    uint32 pachd_remote_port = 6;
+    uint32 saml_acs_remote_port = 7;
+    uint32 dash_ui_remote_port = 8;
+    uint32 dash_websocket_remote_port = 9;
+    uint32 pfs_over_http_remote_port = 10;
+    uint32 s3gateway_remote_port = 11;
+}
+
+enum ConnectionMethodology {
+    DIRECT = 0;
+    PORT_FORWARDING = 1;
+    NONE = 2;
+}
