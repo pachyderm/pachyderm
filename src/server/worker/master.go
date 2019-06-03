@@ -132,17 +132,62 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			continue // commit finished after queueing
 		}
 		// Check if a job was previously created for this commit. If not, make one
-		var jobInfo *pps.JobInfo
-		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
+		oldJobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
+		jobInfos := make([]*pps.JobInfo, 0, 1)
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) > 0 {
-			if len(jobInfos) > 1 {
-				return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+		// filter out unfinished jobs from old pipelines (should generally be
+		// cleaned up by PPS master, but the PPS master and worker master can race)
+		for _, ji := range oldJobInfos {
+			switch {
+			case ppsutil.IsTerminal(ji.State):
+				// ignore finished jobs (e.g. old pipeline & already killed)
+				continue
+			case ji.PipelineVersion < a.pipelineInfo.Version:
+				if err := a.updateJobState(pachClient.Ctx(), ji, nil,
+					pps.JobState_JOB_KILLED, "stale job uses old pipeline"); err != nil {
+					return fmt.Errorf("could not kill stale job: %v", err)
+				}
+				// waitJob isn't running for this job (as it's just been received) so
+				// finish output commit & any stats commit
+				if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
+					&pfs.FinishCommitRequest{
+						Commit: ji.OutputCommit,
+						Empty:  true,
+					}); err != nil {
+					logger.Logf("Error finishing killed job output commit: %v", err)
+				}
+				if ji.StatsCommit != nil {
+					if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
+						&pfs.FinishCommitRequest{
+							Commit: ji.StatsCommit,
+							Empty:  true,
+						}); err != nil {
+						logger.Logf("Error finishing killed job stats commit: %v", err)
+					}
+				}
+				continue
+			case ji.PipelineVersion > a.pipelineInfo.Version:
+				return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
+					"version (%d), this should automatically resolve when the worker "+
+					"is updated", ji.Job.ID, ji.PipelineVersion, a.pipelineInfo.Version)
+			default:
+				jobInfos = append(jobInfos, ji)
 			}
-			jobInfo = jobInfos[0]
-		} else {
+		}
+
+		var jobInfo *pps.JobInfo
+		switch {
+		case len(jobInfos) > 1:
+			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+		case len(jobInfos) == 1:
+			// check job still exists & get latest state
+			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
+			if err != nil {
+				return err
+			}
+		default:
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
 				return err
