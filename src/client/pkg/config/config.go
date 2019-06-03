@@ -6,8 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
 	"github.com/satori/go.uuid"
 )
@@ -86,45 +84,14 @@ func Read() (*Config, error) {
 		if _, ok := c.V2.Contexts["default"]; ok {
 			return nil, fmt.Errorf("Attempting to migrate to config V2, but there's already a default context")
 		}
-
-		pachdHostname := ""
-		var pachdRemotePort uint32 = 650
-		if c.V1.PachdAddress != "" {
-			parts := strings.SplitN(c.V1.PachdAddress, ":", 2)
-			if len(parts) == 1 {
-				pachdHostname = parts[0]
-			} else if len(parts) == 2 {
-				pachdRemotePort64, err := strconv.ParseUint(parts[1], 10, 32)
-				if err == nil {
-					pachdHostname = parts[0]
-					pachdRemotePort = uint32(pachdRemotePort64)
-				}
-			}
-		}
-
-		serverCAs := ""
-		if c.V1.ServerCAs != "" {
-			serverCAs = c.V1.ServerCAs
-		}
-
-		sessionToken := ""
-		if c.V1.SessionToken != "" {
-			sessionToken = c.V1.SessionToken
-		}
-
-		activeTransaction := ""
-		if c.V1.ActiveTransaction != "" {
-			activeTransaction = c.V1.ActiveTransaction
-		}
-
 		c.V2.ActiveContext = "default"
 		c.V2.Contexts["default"] = &Context{
-			PachdHostname:     pachdHostname,
-			ServerCAs:         serverCAs,
-			SessionToken:      sessionToken,
-			ActiveTransaction: activeTransaction,
+			Source:            ContextSource_CONFIG_V1,
+			PachdAddress:      c.V1.PachdAddress,
+			ServerCAs:         c.V1.ServerCAs,
+			SessionToken:      c.V1.SessionToken,
+			ActiveTransaction: c.V1.ActiveTransaction,
 			ConnectionMethod:  ConnectionMethod_PORT_FORWARDING,
-			PachdRemotePort:   pachdRemotePort,
 		}
 
 		c.V1 = nil

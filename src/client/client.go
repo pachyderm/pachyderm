@@ -273,8 +273,9 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
-func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
+func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
+	// TODO(ys): remove this eventually
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		if !strings.Contains(envAddr, ":") {
 			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
@@ -283,25 +284,25 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 		if err != nil {
 			return "", nil, err
 		}
-		return envAddr, options, nil
+		if context == nil || context.Source == config.ContextSource_CONFIG_V1 {
+			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and will be removed in a future version. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
+			return envAddr, options, nil
+		} else {
+			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and does not work with the pachyderm context you're using. The value will be ignored. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
+		}
 	}
 
 	// 2) Get target address from global config if possible
-	if cfg != nil {
-		context := cfg.ActiveContext(false)
-		if context != nil && context.PachdHostname != "" {
-			pachdAddress := fmt.Sprintf("%s:%d", context.PachdHostname, context.PachdRemotePort)
-
-			// Also get cert info from config (if set)
-			if context.ServerCAs != "" {
-				pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
-				if err != nil {
-					return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
-				}
-				return pachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+	if context != nil && context.PachdAddress != "" {
+		// Also get cert info from config (if set)
+		if context.ServerCAs != "" {
+			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
+			if err != nil {
+				return context.PachdAddress, nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
 			}
-			return pachdAddress, nil, nil
+			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
+		return context.PachdAddress, nil, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
@@ -353,10 +354,11 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 		// metrics errors are non fatal
 		log.Warningf("error loading user config from ~/.pachyderm/config: %v", err)
 	}
+	context := cfg.ActiveContext(false)
 
 	// create new pachctl client
 	var fw *PortForwarder
-	addr, cfgOptions, err := getUserMachineAddrAndOpts(cfg)
+	addr, cfgOptions, err := getUserMachineAddrAndOpts(context)
 	if err != nil {
 		return nil, err
 	}
@@ -400,14 +402,11 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg != nil && cfg.UserID != "" && reportMetrics {
+	if cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
 	}
-	if cfg != nil {
-		context := cfg.ActiveContext(false)
-		if context.SessionToken != "" {
-			client.authenticationToken = context.SessionToken
-		}
+	if context != nil && context.SessionToken != "" {
+		client.authenticationToken = context.SessionToken
 	}
 
 	// Add port forwarding. This will set it to nil if port forwarding is
