@@ -1391,13 +1391,13 @@ nextSubvBI:
 		// provenance. If so, a new output commit would be a duplicate, so don't
 		// create it.
 		if subvBI.Head != nil {
-			// get the info for the subvB's HEAD commit
-			provOfSubvBHeadInfo := &pfs.CommitInfo{}
-			if err := stmCommits.Get(subvBI.Head.ID, provOfSubvBHeadInfo); err != nil {
+			// get the info for subvB's HEAD commit
+			subvBHeadInfo := &pfs.CommitInfo{}
+			if err := stmCommits.Get(subvBI.Head.ID, subvBHeadInfo); err != nil {
 				return pfsserver.ErrCommitNotFound{subvBI.Head}
 			}
 			provIntersection := make(map[string]struct{})
-			for _, p := range provOfSubvBHeadInfo.Provenance {
+			for _, p := range subvBHeadInfo.Provenance {
 				if _, ok := newCommitProvMap[key(p.Commit.ID, p.Branch.Name)]; ok {
 					provIntersection[key(p.Commit.ID, p.Branch.Name)] = struct{}{}
 				}
