@@ -104,6 +104,7 @@ var (
 	commitFinishedRe = regexp.MustCompile("commit [^ ]+ in repo [^ ]+ has already finished")
 	repoNotFoundRe   = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
 	branchNotFoundRe = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
+	branchNoHeadRe   = regexp.MustCompile(`branch "[a-zA-Z0-9.\-_]{1,255}" has no head`)
 	fileNotFoundRe   = regexp.MustCompile(`file .+ not found`)
 )
 
@@ -159,4 +160,13 @@ func IsFileNotFoundErr(err error) bool {
 		return false
 	}
 	return fileNotFoundRe.MatchString(err.Error())
+}
+
+// IsBranchNoHeadErr returns true if 'err' is an error message about a PFS
+// branch not having a head.
+func IsBranchNoHeadErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return branchNoHeadRe.MatchString(err.Error())
 }

@@ -88,10 +88,10 @@ func newBucketHandler(pc *client.APIClient, view map[string]*pfsClient.Commit) b
 }
 
 func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r, h.view)
+	repo, commit := bucketArgs(w, r, h.view)
 
-	_, err := h.pc.InspectBranch(repo, branch)
-	if err != nil {
+	_, err := h.pc.InspectCommit(repo, commit)
+	if err != nil && !pfsServer.IsBranchNoHeadErr(err) {
 		maybeNotFoundError(w, r, err)
 		return
 	}
@@ -102,13 +102,17 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch := bucketArgs(w, r, h.view)
+	repo, commit := bucketArgs(w, r, h.view)
 
 	// ensure the branch exists and has a head
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	noHead := false
+	_, err := h.pc.InspectCommit(repo, commit)
 	if err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+		if !pfsServer.IsBranchNoHeadErr(err) {
+			maybeNotFoundError(w, r, err)
+			return
+		}
+		noHead = true
 	}
 
 	maxKeys := defaultMaxKeys
@@ -138,7 +142,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		IsTruncated: false,
 	}
 
-	if branchInfo.Head == nil {
+	if noHead {
 		// if there's no head commit, just print an empty list of files
 		writeXML(w, r, http.StatusOK, result)
 		return
@@ -151,7 +155,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
 	}
 
-	if err = h.pc.GlobFileF(result.Name, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	if err = h.pc.GlobFileF(result.Name, commit, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -219,6 +223,10 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
+	if h.view != nil {
+		methodNotAllowedError(w, r)
+		return
+	}
 	repo, branch := bucketArgs(w, r, h.view)
 
 	err := h.pc.CreateRepo(repo)
@@ -253,6 +261,10 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
+	if h.view != nil {
+		methodNotAllowedError(w, r)
+		return
+	}
 	repo, branch := bucketArgs(w, r, h.view)
 
 	// `DeleteBranch` does not return an error if a non-existing branch is

@@ -115,7 +115,7 @@ func Server(pc *client.APIClient, config *Config) *http.Server {
 	objectRouter.Methods("PUT").Queries("uploadId", "").HandlerFunc(notImplementedError)
 	objectRouter.Methods("DELETE").Queries("uploadId", "").HandlerFunc(notImplementedError)
 
-	objectHandler := newObjectHandler(pc)
+	objectHandler := newObjectHandler(pc, config.View)
 	objectRouter.Methods("GET", "HEAD").HandlerFunc(objectHandler.get)
 	objectRouter.Methods("PUT").HandlerFunc(objectHandler.put)
 	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.del)
