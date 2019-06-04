@@ -133,7 +133,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		}
 		// Check if a job was previously created for this commit. If not, make one
 		var jobInfo *pps.JobInfo
-		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1)
+		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
 		if err != nil {
 			return err
 		}
@@ -141,10 +141,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			if len(jobInfos) > 1 {
 				return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 			}
-			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
-			if err != nil {
-				return err
-			}
+			jobInfo = jobInfos[0]
 		} else {
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {

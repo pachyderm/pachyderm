@@ -980,9 +980,13 @@ $ {{alias}} foo@master --history all`,
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
+			header := pretty.FileHeader
+			if history != 0 {
+				header = pretty.FileHeaderWithCommit
+			}
+			writer := tabwriter.NewWriter(os.Stdout, header)
 			if err := c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi, fullTimestamps)
+				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
 				return err
@@ -1031,7 +1035,7 @@ $ {{alias}} "foo@master:data/*"`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 			}
 			return writer.Flush()
 		}),
@@ -1085,7 +1089,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				fmt.Println("New Files:")
 				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range newFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 				}
 				if err := writer.Flush(); err != nil {
 					return err
@@ -1095,7 +1099,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				fmt.Println("Old Files:")
 				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range oldFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 				}
 				if err := writer.Flush(); err != nil {
 					return err

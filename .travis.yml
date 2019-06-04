@@ -20,9 +20,6 @@ env:
     - BUCKET=PPS2
     - BUCKET=PPS3
     - BUCKET=EXAMPLES
-branches:
-  except:
-    - /^v[0-9]/
 before_install:
 - sudo etc/testing/travis_before_install.sh
 before_script:
@@ -35,5 +32,6 @@ after_failure:
 - kubectl get all --namespace kafka
 - kubectl describe pod -l app=pachd
 - kubectl describe pod -l suite=pachyderm,app=etcd
+- kubectl logs -l app=pachd | tail -n 100
 notifications:
   slack: pachyderm:qmSCZSX1Q2yWxc6DjNZZFLGd

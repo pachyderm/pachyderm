@@ -231,7 +231,9 @@ docker-build-gpu:
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-build-kafka:
-	docker build -t kafka-demo etc/testing/kafka
+	cp -R src/server/vendor/github.com/segmentio/kafka-go etc/testing/kafka
+	docker build -t kafka-demo etc/testing/kafka || { rm -r etc/testing/kafka/kafka-go; exit 1; }
+	rm -r etc/testing/kafka/kafka-go
 
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
@@ -489,7 +491,7 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
-	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	  go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
 
 test-transaction:
 	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)

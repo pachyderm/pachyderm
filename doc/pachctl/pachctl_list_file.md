@@ -34,7 +34,7 @@ $ pachctl list file foo@master^2
 $ pachctl list file foo@master --history n
 
 # list all versions of top-level files on branch "master" in repo "foo"
-$ pachctl list file foo@master --history -1
+$ pachctl list file foo@master --history all
 ```
 ```
 
@@ -42,7 +42,7 @@ $ pachctl list file foo@master --history -1
 
 ```
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
-      --history int       Return revision history for files.
+      --history string    Return revision history for files. (default "none")
       --raw               disable pretty printing, print raw json
 ```
 
