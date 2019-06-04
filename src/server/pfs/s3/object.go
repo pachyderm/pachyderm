@@ -12,6 +12,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 )
 
 type objectHandler struct {
@@ -24,22 +25,21 @@ func newObjectHandler(pc *client.APIClient, view map[string]*pfs.Commit) *object
 }
 
 func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r, h.view)
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	repo, commit, file := objectArgs(w, r, h.view)
+	ci, err := h.pc.InspectCommit(repo, commit)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
 		return
 	}
-	if branchInfo.Head == nil {
-		noSuchKeyError(w, r)
-		return
-	}
+	// commit returned by objectArgs might be a branch which might get
+	// committed to while this function runs, this freezes it.
+	commit = ci.Commit.ID
 	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
 
-	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
+	fileInfo, err := h.pc.InspectFile(repo, commit, file)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
 		return
@@ -52,7 +52,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", fileInfo.Hash))
-	reader, err := h.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
+	reader, err := h.pc.GetFileReadSeeker(repo, commit, file)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -62,12 +62,16 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r, h.view)
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
-	if err != nil {
+	repo, commit, file := objectArgs(w, r, h.view)
+	ci, err := h.pc.InspectCommit(repo, commit)
+	// BranchNoHeadErr is acceptable because the put will create the head
+	if err != nil && !pfsServer.IsBranchNoHeadErr(err) {
 		maybeNotFoundError(w, r, err)
 		return
 	}
+	// commit returned by objectArgs might be a branch which might get
+	// committed to while this function runs, this freezes it.
+	commit = ci.Commit.ID
 	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
@@ -87,7 +91,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	reader := io.TeeReader(r.Body, hasher)
 	success := false
 
-	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
+	_, err = h.pc.PutFileOverwrite(repo, commit, file, reader, 0)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -96,7 +100,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		// try to clean up the file if an error occurred
 		if !success {
-			if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+			if err = h.pc.DeleteFile(repo, commit, file); err != nil {
 				requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
 			}
 		}
@@ -108,7 +112,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	fileInfo, err := h.pc.InspectFile(repo, commit, file)
 	if err != nil {
 		internalError(w, r, err)
 		return
@@ -120,22 +124,21 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r, h.view)
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	repo, commit, file := objectArgs(w, r, h.view)
+	ci, err := h.pc.InspectCommit(repo, commit)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
 		return
 	}
-	if branchInfo.Head == nil {
-		noSuchKeyError(w, r)
-		return
-	}
+	// commit returned by objectArgs might be a branch which might get
+	// committed to while this function runs, this freezes it.
+	commit = ci.Commit.ID
 	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
 	}
 
-	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+	if err := h.pc.DeleteFile(repo, commit, file); err != nil {
 		maybeNotFoundError(w, r, err)
 		return
 	}

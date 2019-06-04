@@ -41,10 +41,10 @@ func bucketArgs(w http.ResponseWriter, r *http.Request, view map[string]*pfs.Com
 }
 
 func objectArgs(w http.ResponseWriter, r *http.Request, view map[string]*pfs.Commit) (string, string, string) {
-	repo, branch := bucketArgs(w, r, view)
+	repo, commit := bucketArgs(w, r, view)
 	vars := mux.Vars(r)
 	file := vars["file"]
-	return repo, branch, file
+	return repo, commit, file
 }
 
 func requestLogger(r *http.Request) *logrus.Entry {

@@ -84,9 +84,9 @@ func noSuchKeyError(w http.ResponseWriter, r *http.Request) {
 }
 
 func maybeNotFoundError(w http.ResponseWriter, r *http.Request, err error) {
-	if pfs.IsRepoNotFoundErr(err) || pfs.IsBranchNotFoundErr(err) {
+	if pfs.IsRepoNotFoundErr(err) || pfs.IsBranchNotFoundErr(err) || pfs.IsCommitNotFoundErr(err) {
 		noSuchBucketError(w, r)
-	} else if pfs.IsFileNotFoundErr(err) {
+	} else if pfs.IsFileNotFoundErr(err) || pfs.IsBranchNoHeadErr(err) {
 		noSuchKeyError(w, r)
 	} else {
 		internalError(w, r, err)
