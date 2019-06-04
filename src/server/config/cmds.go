@@ -3,12 +3,10 @@ package cmds
 import (
 	"errors"
 	"fmt"
-	"os"
 
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
-	"github.com/golang/snappy"
 	"github.com/spf13/cobra"
 )
 
@@ -16,23 +14,32 @@ import (
 func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
-	var enable bool
-	var disable bool
-	metrics := &cobra.Command{
-		Short: "Gets or sets whether metrics are enabled.",
-		Long:  "Gets or sets whether metrics are enabled.",
-		Example: `
-# Disable metrics:
-$ {{alias}} --disable
-
-# Get whether metrics are enabled:
-$ {{alias}}
-
-# Enable metrics:
-$ {{alias}} --enable`,
+	getMetrics := &cobra.Command{
+		Short: "Gets whether metrics are enabled.",
+		Long:  "Gets whether metrics are enabled.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			if enable && disable {
-				return errors.New("cannot set both `--enable` and `--disable`")
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%v\n", !cfg.V2.NoMetrics)
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(getMetrics, "config get metrics"))
+
+	setMetrics := &cobra.Command{
+		Short: "Sets whether metrics are enabled.",
+		Long:  "Sets whether metrics are enabled.",
+		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+			if len(args) != 1 {
+				return errors.New("invalid argument; use either `true` or `false`")
+			}
+			metrics := true
+			if args[0] == "false" {
+				metrics = false
+			} else if args[0] != "true" {
+				return errors.New("invalid argument; use either `true` or `false`")
 			}
 
 			cfg, err := config.Read()
@@ -40,21 +47,11 @@ $ {{alias}} --enable`,
 				return err
 			}
 
-			if enable {
-				cfg.NoMetrics = false
-				return cfg.Write()
-			} else if disable {
-				cfg.NoMetrics = true
-				return cfg.Write()
-			}
-
-			fmt.Printf("%v\n", !cfg.NoMetrics)
-			return nil
+			cfg.V2.NoMetrics = !metrics
+			return cfg.Write()
 		}),
 	}
-	metrics.Flags().BoolVar(&enable, "enable", false, "enable metrics")
-	metrics.Flags().BoolVar(&disable, "disable", false, "disable metrics")
-	commands = append(commands, cmdutil.CreateAlias(metrics, "metrics"))
+	commands = append(commands, cmdutil.CreateAlias(setMetrics, "config get metrics"))
 
 	return commands
 }
