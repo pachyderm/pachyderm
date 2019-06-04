@@ -25,7 +25,6 @@ func configPath() string {
 
 // ActiveContext gets the active context in the config
 func (c *Config) ActiveContext() (*Context, error) {
-	var name string
 	if env, ok := os.LookupEnv(contextEnvVar); ok {
 		context := c.V2.Contexts[env]
 		if context == nil {
@@ -35,7 +34,7 @@ func (c *Config) ActiveContext() (*Context, error) {
 	}
 	context := c.V2.Contexts[c.V2.ActiveContext]
 	if context == nil {
-		return nil, fmt.Errorf("The active context in the config %q refers to a context that does not exist. Change the active context first.", p)
+		return nil, fmt.Errorf("the active context refers to a context that does not exist; change the active context first")
 	}
 	return context, nil
 }

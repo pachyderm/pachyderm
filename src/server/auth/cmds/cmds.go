@@ -52,7 +52,7 @@ func writePachTokenToCfg(token string) error {
 }
 
 // ActivateCmd returns a cobra.Command to activate Pachyderm's auth system
-func ActivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func ActivateCmd() *cobra.Command {
 	var initialAdmin string
 	activate := &cobra.Command{
 		Short: "Activate Pachyderm's auth system",
@@ -72,7 +72,7 @@ first cluster admin`[1:],
 			fmt.Println("Retrieving Pachyderm token...")
 
 			// Exchange GitHub token for Pachyderm token
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -110,7 +110,7 @@ cluster`[1:])
 
 // DeactivateCmd returns a cobra.Command to delete all ACLs, tokens, and admins,
 // deactivating Pachyderm's auth system
-func DeactivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func DeactivateCmd() *cobra.Command {
 	deactivate := &cobra.Command{
 		Short: "Delete all ACLs, tokens, and admins, and deactivate Pachyderm auth",
 		Long: "Deactivate Pachyderm's auth system, which will delete ALL auth " +
@@ -123,7 +123,7 @@ func DeactivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 			if !strings.Contains("yY", confirm[:1]) {
 				return fmt.Errorf("operation aborted")
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -138,7 +138,7 @@ func DeactivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 // LoginCmd returns a cobra.Command to login to a Pachyderm cluster with your
 // GitHub account. Any resources that have been restricted to the email address
 // registered with your GitHub account will subsequently be accessible.
-func LoginCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func LoginCmd() *cobra.Command {
 	var useOTP bool
 	login := &cobra.Command{
 		Short: "Log in to Pachyderm",
@@ -146,7 +146,7 @@ func LoginCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 			"the account you have with your ID provider (e.g. GitHub, Okta) " +
 			"account will subsequently be accessible.",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -213,7 +213,7 @@ func LogoutCmd() *cobra.Command {
 				return fmt.Errorf("error reading Pachyderm config (for cluster "+
 					"address): %v", err)
 			}
-			context := cfg.ActiveContext()
+			context, err := cfg.ActiveContext()
 			if err != nil {
 				return fmt.Errorf("error getting the active context: %v", err)
 			}
@@ -227,12 +227,12 @@ func LogoutCmd() *cobra.Command {
 // WhoamiCmd returns a cobra.Command that deletes your local Pachyderm
 // credential, logging you out of your cluster. Note that this is not necessary
 // to do before logging in as another user, but is useful for testing.
-func WhoamiCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func WhoamiCmd() *cobra.Command {
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
 		Long:  "Print your Pachyderm identity.",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -256,7 +256,7 @@ func WhoamiCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 
 // CheckCmd returns a cobra command that sends an "Authorize" RPC to Pachd, to
 // determine whether the specified user has access to the specified repo.
-func CheckCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func CheckCmd() *cobra.Command {
 	check := &cobra.Command{
 		Use:   "{{alias}} (none|reader|writer|owner) <repo>",
 		Short: "Check whether you have reader/writer/etc-level access to 'repo'",
@@ -272,7 +272,7 @@ func CheckCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 				return err
 			}
 			repo := args[1]
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -293,7 +293,7 @@ func CheckCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 
 // GetCmd returns a cobra command that gets either the ACL for a Pachyderm
 // repo or another user's scope of access to that repo
-func GetCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func GetCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use:   "{{alias}} [<username>] <repo>",
 		Short: "Get the ACL for 'repo' or the access that 'username' has to 'repo'",
@@ -304,7 +304,7 @@ func GetCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 			"Pachyderm authentication uses GitHub OAuth, so 'username' must be a " +
 			"GitHub username",
 		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -340,7 +340,7 @@ func GetCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 
 // SetScopeCmd returns a cobra command that lets a user set the level of access
 // that another user has to a repo
-func SetScopeCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func SetScopeCmd() *cobra.Command {
 	setScope := &cobra.Command{
 		Use:   "{{alias}} <username> (none|reader|writer|owner) <repo>",
 		Short: "Set the scope of access that 'username' has to 'repo'",
@@ -358,7 +358,7 @@ func SetScopeCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 				return err
 			}
 			username, repo := args[0], args[2]
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -375,12 +375,12 @@ func SetScopeCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 }
 
 // ListAdminsCmd returns a cobra command that lists the current cluster admins
-func ListAdminsCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func ListAdminsCmd() *cobra.Command {
 	listAdmins := &cobra.Command{
 		Short: "List the current cluster admins",
 		Long:  "List the current cluster admins",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return err
 			}
@@ -400,7 +400,7 @@ func ListAdminsCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 
 // ModifyAdminsCmd returns a cobra command that modifies the set of current
 // cluster admins
-func ModifyAdminsCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func ModifyAdminsCmd() *cobra.Command {
 	var add []string
 	var remove []string
 	modifyAdmins := &cobra.Command{
@@ -409,7 +409,7 @@ func ModifyAdminsCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 			"separated list of users to grant admin status, and --remove accepts a " +
 			"comma-separated list of users to revoke admin status",
 		Run: cmdutil.Run(func([]string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return err
 			}
@@ -435,7 +435,7 @@ func ModifyAdminsCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 
 // GetAuthTokenCmd returns a cobra command that lets a user get a pachyderm
 // token on behalf of themselves or another user
-func GetAuthTokenCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func GetAuthTokenCmd() *cobra.Command {
 	var quiet bool
 	getAuthToken := &cobra.Command{
 		Use:   "{{alias}} <username>",
@@ -444,7 +444,7 @@ func GetAuthTokenCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 			"this can only be called by cluster admins",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			subject := args[0]
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine(true, "user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -492,7 +492,7 @@ func UseAuthTokenCmd() *cobra.Command {
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
-func Cmds(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
 	auth := &cobra.Command{
@@ -501,20 +501,20 @@ func Cmds(noMetrics, noPortForwarding *bool) []*cobra.Command {
 	}
 
 	commands = append(commands, cmdutil.CreateAlias(auth, "auth"))
-	commands = append(commands, ActivateCmd(noMetrics, noPortForwarding))
-	commands = append(commands, DeactivateCmd(noMetrics, noPortForwarding))
-	commands = append(commands, LoginCmd(noMetrics, noPortForwarding))
+	commands = append(commands, ActivateCmd())
+	commands = append(commands, DeactivateCmd())
+	commands = append(commands, LoginCmd())
 	commands = append(commands, LogoutCmd())
-	commands = append(commands, WhoamiCmd(noMetrics, noPortForwarding))
-	commands = append(commands, CheckCmd(noMetrics, noPortForwarding))
-	commands = append(commands, SetScopeCmd(noMetrics, noPortForwarding))
-	commands = append(commands, GetCmd(noMetrics, noPortForwarding))
-	commands = append(commands, ListAdminsCmd(noMetrics, noPortForwarding))
-	commands = append(commands, ModifyAdminsCmd(noMetrics, noPortForwarding))
-	commands = append(commands, GetAuthTokenCmd(noMetrics, noPortForwarding))
+	commands = append(commands, WhoamiCmd())
+	commands = append(commands, CheckCmd())
+	commands = append(commands, SetScopeCmd())
+	commands = append(commands, GetCmd())
+	commands = append(commands, ListAdminsCmd())
+	commands = append(commands, ModifyAdminsCmd())
+	commands = append(commands, GetAuthTokenCmd())
 	commands = append(commands, UseAuthTokenCmd())
-	commands = append(commands, GetConfigCmd(noPortForwarding))
-	commands = append(commands, SetConfigCmd(noPortForwarding))
+	commands = append(commands, GetConfigCmd())
+	commands = append(commands, SetConfigCmd())
 
 	return commands
 }

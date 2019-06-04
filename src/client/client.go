@@ -347,14 +347,14 @@ func portForwarder() *PortForwarder {
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, options ...Option) (*APIClient, error) {
+func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not read config: %v", err)
 	}
 	context, err := cfg.ActiveContext()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not get active context: %v", err)
 	}
 
 	// create new pachctl client
@@ -365,10 +365,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 	}
 	if addr == "" {
 		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
-
-		if portForward {
-			fw = portForwarder()
-		}
+		fw = portForwarder()
 	}
 
 	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
@@ -403,7 +400,7 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg.UserID != "" && reportMetrics {
+	if cfg.UserID != "" && reportMetrics && !cfg.V2.NoMetrics {
 		client.metricsUserID = cfg.UserID
 	}
 	if context.SessionToken != "" {
