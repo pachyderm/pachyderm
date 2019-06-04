@@ -146,11 +146,14 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		// filter out unfinished jobs from old pipelines (should generally be
 		// cleaned up by PPS master, but the PPS master and worker master can race)
 		for _, ji := range oldJobInfos {
+			fmt.Printf(">>> >>> oldJob: %s\n", ji.Job.ID)
 			switch {
 			case ppsutil.IsTerminal(ji.State):
 				// ignore finished jobs (e.g. old pipeline & already killed)
 				continue
 			case ji.PipelineVersion < a.pipelineInfo.Version:
+				fmt.Printf(">>> >>> ji.PipelineVersion(%d) < a.pipelineInfo.Version(%d)\n",
+					ji.PipelineVersion, a.pipelineInfo.Version)
 				if err := a.updateJobState(pachClient.Ctx(), ji, nil,
 					pps.JobState_JOB_KILLED, "stale job uses old pipeline"); err != nil {
 					return fmt.Errorf("could not kill stale job: %v", err)
