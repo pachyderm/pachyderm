@@ -241,7 +241,7 @@ func TestToggleBranchProvenance(t *testing.T) {
 	cis, err = c.ListCommit("out", "master", "", 0)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(cis))
-	// make sure output commit still has the right provenance
+	// make sure new output commit has the right provenance
 	ci, err = c.InspectCommit("in", "master") // newest input commit
 	require.NoError(t, err)
 	expectedProv = map[string]bool{
