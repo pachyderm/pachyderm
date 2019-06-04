@@ -2343,6 +2343,8 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 				return err
 			}
 			for _, provBranch := range provBranchInfo.Provenance {
+				// add provBranch to branchInfo.Provenance, and branchInfo.Branch to
+				// provBranch subvenance
 				if err := d.addBranchProvenance(branchInfo, provBranch, txnCtx.Stm); err != nil {
 					return err
 				}
