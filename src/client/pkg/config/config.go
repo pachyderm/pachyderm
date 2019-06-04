@@ -64,39 +64,54 @@ func Read() (*Config, error) {
 	} else {
 		return nil, fmt.Errorf("fatal: could not read config at %q: %v", p, err)
 	}
+
+	updated := false
+
 	if c.UserID == "" {
-		fmt.Fprintf(os.Stderr, "No UserID present in config. Generating new UserID and "+
-			"updating config at %s\n", p)
+		updated = true
+		fmt.Fprintln(os.Stderr, "No UserID present in config - generating new one.")
+
 		uuid, err := uuid.NewV4()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not generate new user ID: %v", err)
 		}
 		c.UserID = uuid.String()
-		if err := c.Write(); err != nil {
-			return nil, err
-		}
 	}
+
 	if c.V2 == nil {
+		updated = true
+		fmt.Fprintln(os.Stderr, "Migrating to config v2.")
+
 		c.V2 = &ConfigV2{
 			ActiveContext: "",
 			Contexts:      map[string]*Context{},
 		}
-	}
-	if c.V1 != nil {
-		if _, ok := c.V2.Contexts["default"]; ok {
-			return nil, fmt.Errorf("Attempting to migrate to config V2, but there's already a default context")
-		}
-		c.V2.ActiveContext = "default"
-		c.V2.Contexts["default"] = &Context{
-			Source:            ContextSource_CONFIG_V1,
-			PachdAddress:      c.V1.PachdAddress,
-			ServerCAs:         c.V1.ServerCAs,
-			SessionToken:      c.V1.SessionToken,
-			ActiveTransaction: c.V1.ActiveTransaction,
-		}
 
-		c.V1 = nil
+		if c.V1 != nil {
+			if _, ok := c.V2.Contexts["default"]; ok {
+				return nil, fmt.Errorf("Attempted to migrate to config v2, but there's already a default context")
+			}
+			c.V2.ActiveContext = "default"
+			c.V2.Contexts["default"] = &Context{
+				Source:            ContextSource_CONFIG_V1,
+				PachdAddress:      c.V1.PachdAddress,
+				ServerCAs:         c.V1.ServerCAs,
+				SessionToken:      c.V1.SessionToken,
+				ActiveTransaction: c.V1.ActiveTransaction,
+			}
+
+			c.V1 = nil
+		}
 	}
+
+	if updated {
+		fmt.Fprintln(os.Stderr, "Rewriting config at %q.", p)
+
+		if err := c.Write(); err != nil {
+			return nil, fmt.Errorf("could not rewrite config at %q: %v", p, err)
+		}
+	}
+
 	return c, nil
 }
 
