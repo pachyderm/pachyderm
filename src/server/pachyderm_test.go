@@ -889,6 +889,112 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 2, len(jobInfos))
 	})
+
+	// Test with a downstream pipeline who's upstream has no datum, but where the downstream still needs to succeed
+	t.Run("RunPipelineEmptyUpstream", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestRunPipeline_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		branchA := "branchA"
+		branchB := "branchB"
+
+		pipeline := tu.UniqueString("pipeline-downstream")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cat /pfs/branch-a/file >> /pfs/out/file",
+				"cat /pfs/branch-b/file >> /pfs/out/file",
+				"echo ran-pipeline",
+			},
+			nil,
+			client.NewCrossInput(
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", false),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", false),
+			),
+			"",
+			false,
+		))
+
+		commitA, err := c.StartCommit(dataRepo, branchA)
+		require.NoError(t, err)
+		c.PutFile(dataRepo, commitA.ID, "/file", strings.NewReader("data A\n"))
+		c.FinishCommit(dataRepo, commitA.ID)
+
+		iter, err := c.FlushCommit([]*pfs.Commit{commitA}, nil)
+		require.NoError(t, err)
+		commits := collectCommitInfos(t, iter)
+		require.Equal(t, 1, len(commits))
+		buffer := bytes.Buffer{}
+
+		// no commit to branch-b so "file" should not exist
+		require.YesError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
+
+		// and make sure we can attatch a downstream pipeline
+		downstreamPipeline := tu.UniqueString("pipelinedownstream")
+		require.NoError(t, c.CreatePipeline(
+			downstreamPipeline,
+			"",
+			[]string{"/bin/bash"},
+			[]string{
+				"cat /pfs/branch-a/file >> /pfs/out/file",
+				fmt.Sprintf("cat /pfs/%s/file >> /pfs/out/file", pipeline),
+				"echo ran-pipeline",
+			},
+			nil,
+			client.NewUnionInput(
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", false),
+				client.NewPFSInput(pipeline, "/*"),
+			),
+			"",
+			false,
+		))
+
+		commitA2, err := c.StartCommit(dataRepo, branchA)
+		require.NoError(t, err)
+		err = c.FinishCommit(dataRepo, commitA2.ID)
+		require.NoError(t, err)
+
+		// there should be one job on the old commit for downstreamPipeline
+		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfos))
+
+		// now run the pipeline
+		require.NoError(t, backoff.Retry(func() error {
+			return c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
+			})
+		}, backoff.NewTestingBackOff()))
+
+		// now we should have two jobs on the old commit for downstreamPipeline
+		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
+		require.NoError(t, err)
+		require.Equal(t, 2, len(jobInfos))
+
+		buffer2 := bytes.Buffer{}
+		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", 0, 0, &buffer2))
+		// the union of an empty output and datA should only return a file with "data A" in it.
+		require.Equal(t, "data A\n", buffer2.String())
+
+		// add another commit to see that we can successfully do the cross and union together
+		commitB, err := c.StartCommit(dataRepo, branchB)
+		require.NoError(t, err)
+		c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
+		c.FinishCommit(dataRepo, commitB.ID)
+
+		_, err = c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
+
+		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitB}, []string{downstreamPipeline})
+		require.NoError(t, err)
+		require.Equal(t, 1, len(jobInfos))
+
+		buffer3 := bytes.Buffer{}
+		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", 0, 0, &buffer3))
+		// now that we've added data to the other branch of the cross, we should see the union of data A along with the the crossed data.
+		require.Equal(t, "data A\ndata A\ndata B\n", buffer3.String())
+	})
 }
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
