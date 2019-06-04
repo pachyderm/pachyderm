@@ -4630,6 +4630,63 @@ func TestSubscribeStates(t *testing.T) {
 	})
 }
 
+// TestRestrictedProvenance makes sure that output commits don't contain old
+// input commits in their provenance (a past bug)
+func TestRestrictedProvenance(t *testing.T) {
+	c := GetPachClient(t)
+
+	numFiles := 25
+	in := "in"
+	out := "out"
+	require.NoError(t, c.CreateRepo(in))
+	require.NoError(t, c.CreateRepo(out))
+	require.NoError(t, c.CreateBranch(out, "master", "", []*pfs.Branch{
+		pclient.NewBranch(in, "master"),
+	}))
+	// Check new branch's subvenance
+	bi, err := c.InspectBranch(in, "master")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(bi.Subvenance))
+	require.Equal(t, out, bi.Subvenance[0].Repo.Name)
+	require.Equal(t, "master", bi.Subvenance[0].Name)
+
+	// Check output branch's provenance
+	bi, err = c.InspectBranch(out, "master")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(bi.Provenance))
+	require.Equal(t, in, bi.Provenance[0].Repo.Name)
+	require.Equal(t, "master", bi.Provenance[0].Name)
+
+	// Check output branch's direct provenance
+	require.Equal(t, 1, len(bi.DirectProvenance))
+	require.Equal(t, in, bi.DirectProvenance[0].Repo.Name)
+	require.Equal(t, "master", bi.DirectProvenance[0].Name)
+
+	inCommits := make([]*pfs.Commit, 0, numFiles)
+	for i := 0; i < numFiles; i++ {
+		_, err := c.PutFile(in, "master", fmt.Sprintf("%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
+		require.NoError(t, err)
+		ci, err := c.InspectCommit(in, "master")
+		require.NoError(t, err)
+		inCommits = append(inCommits, ci.Commit)
+	}
+
+	cis, err := c.ListCommit(out, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(cis))
+	for i := 0; i < numFiles; i++ {
+		fmt.Printf("%s@%s -> %s@%s\n", inCommits[i].Repo.Name,
+			inCommits[i].ID, cis[numFiles-1-i].Commit.Repo.Name,
+			cis[numFiles-1-i].Commit.ID)
+	}
+	for i, ci := range cis {
+		require.Equal(t, 1, len(ci.Provenance))
+		require.Equal(t, in, ci.Provenance[0].Commit.Repo.Name)
+		require.Equal(t, "master", ci.Provenance[0].Branch.Name)
+		require.Equal(t, inCommits[numFiles-1-i].ID, ci.Provenance[0].Commit.ID)
+	}
+}
+
 func TestPutFileCommit(t *testing.T) {
 	c := GetPachClient(t)
 
