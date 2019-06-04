@@ -20,7 +20,7 @@ Pachyderm is built on [Kubernetes](https://kubernetes.io/).
 Before you can deploy Pachyderm, you or your Kubernetes administrator will need to perform the following actions:
 1. [Deploy Kubernetes](#deploying-kubernetes) on-premises.
 1. [Deploy a Kubernetes persistent volume](#deploying-a-persistent-volume) that Pachyderm will use to store administrative data.
-1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io/) EMC's ECS or Swift to provide S3-compatible access to your on-premises storage.
+1. [Deploy an on-premises object store](#deploying-an-object-store) using a storage provider like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) to provide S3-compatible access to your on-premises storage.
 1. [Create a Pachyderm manifest](./deploy_custom.html#creating-a-pachyderm-manifest) by running the `pachctl deploy custom` command with appropriate arguments and the `--dry-run` flag to create a Kubernetes manifest for the Pachyderm deployment.
 1. [Edit the Pachyderm manifest](#deploy_custom.html#editing-a-pachyderm-manifest) for your particular Kubernetes deployment
 
@@ -46,6 +46,8 @@ It's important that bandwidth to your storage deployment meet the guidelines of 
 1. [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
 2. [pachctl](http://docs.pachyderm.io/en/latest/pachctl/pachctl.html)
 
+## Setting up to deploy on-premises
+
 ### Deploying Kubernetes
 
 The Kubernetes docs have instructions for [deploying Kubernetes in a variety of on-premise scenarios](https://kubernetes.io/docs/getting-started-guides/#on-premises-vms).
@@ -59,28 +61,75 @@ A Kubernetes [persistent volume](https://kubernetes.io/docs/concepts/storage/per
 In Kubernetes, [persistent volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) are a mechanism for providing storage for consumption by the users of the cluster.
 They are provisioned by the cluster administrators.
 In a typical enterprise Kubernetes deployment, the administrators have configured persistent volumes that your Pachyderm deployment will consume by means of a [persistent volume claim](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims) in the [Pachyderm manifest you generate](./deploy_custom.html#creating-a-pachyderm-manifest). 
-If your administrators require specification of [selectors](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#selector) or [classes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1) to consume persistent volumes, 
-you will need to find out the particulars of your cluster's PV configuration and [edit the Pachyderm manifest](./deploy_custom.html#editing-the-pachyderm-manifest) accordingly.
 
-#### Sizing the pv
+You can deploy PV's to Pachyderm using our command-line arguments in three ways: using a static PV, with StatefulSets, or with StatefulSets using a StorageClass.
 
-You'll need to use a pv with enough space for the metadata associated with the data you plan to store in Pachyderm. 
+If your administrators are using [selectors](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#selector), or you want to use StorageClasses in a different way, you'll need to [edit the Pachyderm manifest](#deploy_custom.html#editing-a-pachyderm-manifest) appropriately before applying it.
+
+##### Static PV
+
+In this case, `etcd` will be deployed in Pachyderm as a [ReplicationController](https://kubernetes.io/docs/concepts/workloads/controllers/replicationcontroller/) with one (1) pod that uses a static PV. This is a common deployment for testing. 
+
+##### StatefulSets
+
+[StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/) are a mechanism provided in  Kubernetes 1.9 and newer to manage the deployment and scaling of applications.  It uses either [Persistent Volume Provisioning](https://github.com/kubernetes/examples/blob/master/staging/persistent-volume-provisioning/README.md) or pre-provisioned PV's. 
+
+If you're using StatefulSets in your Kubernetes cluster, you will need to find out the particulars of your cluster's PV configuration and [use appropriate flags to `pachctl deploy custom`](#configuring-with-statefulsets)
+
+##### StorageClasses 
+If your administrators require specification of [classes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#class-1) to consume persistent volumes, 
+you will need to find out the particulars of your cluster's PV configuration and [use appropriate flags to `pachctl deploy custom`](#configuring-with-statefulsets-using-storageclasses).
+
+#### Common tasks to all types of PV deployments
+##### Sizing the PV
+
+You'll need to use a PV with enough space for the metadata associated with the data you plan to store in Pachyderm. 
 We're currently developing good rules of thumb for scaling this storage as your Pachyderm deployment grows,
 but it looks like 10G of disk space is sufficient for most purposes.
 
-#### Creating the pv
+##### Creating the PV
 
 In the case of cloud-based deployments, the `pachctl deploy` command for AWS, GCP and Azure creates persistent volumes for you, when you follow the instructions for those infrastructures.
-In the case of on-premises deployments, the kind of PV you provision will be dependent on what kind of storage your Kubernetes administrators have attached to your cluster and configured.
+
+In the case of on-premises deployments, the kind of PV you provision will be dependent on what kind of storage your Kubernetes administrators have attached to your cluster and configured, and whether you are expected to consume that storage as a static PV, with Persistent Volume Provisioning  or as a StorageClass.
+
 For example, many on-premises deployments use Network File System (NFS) to access to some kind of enterprise storage.
 Persistent volumes are provisioned in Kubernetes like all things in Kubernetes: by means of a manifest.
 You can learn about creating [volumes](https://kubernetes.io/docs/concepts/storage/volumes/)  and [persistent volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) in the Kubernetes documentation.
 
-#### What you'll need for Pachyderm configuration of pv storage
+You or your Kubernetes administrators will be responsible for configuring the PVs you create to be consumable as static PV's, with Persistent Volume Provisioning or as a StorageClass.
 
-You'll need the name of the pv and the amount of space you can use, in gigabytes.  We'll refer to those as `PVC_STORAGE_NAME` and `PVC_STORAGE_SIZE` further on.
+#### What you'll need for Pachyderm configuration of PV storage
 
-Keep this information handy.
+Keep the information below at hand for when you [run `pachctl deploy custom` further on](./deploy_custom.html)
+
+##### Configuring with static volumes
+
+You'll need the name of the PV and the amount of space you can use, in gigabytes.
+We'll refer to those, respectively, as `PVC_STORAGE_NAME` and `PVC_STORAGE_SIZE` further on.
+With this kind of PV, 
+you'll use the flag `--static-etcd-volume` with `PVC_STORAGE_NAME` as its argument in your deployment.
+
+Note: this will override any attempt to configure with StorageClasses, below.
+
+##### Configuring with StatefulSets
+
+If you're deploying using [StatefulSets](#statefulsets),
+you'll just need the amount of space you can use, in gigabytes, 
+which we'll refer to as `PVC_STORAGE_SIZE` further on..
+
+Note: The `--etcd-storage-class` flag and argument will be ignored if you use the flag `--static-etcd-volume` along with it.
+
+##### Configuring with StatefulSets using StorageClasses
+
+If you're deploying using [StatefulSets](#statefulsets) with [StorageClasses](#storageclasses), 
+you'll need the name of the storage class and the amount of space you can use, in gigabytes.
+We'll refer to those, respectively, as `PVC_STORAGECLASS` and `PVC_STORAGE_SIZE` further on.
+With this kind of PV,
+you'll use the flag `--etcd-storage-class` with `PVC_STORAGECLASS` as its argument in your deployment. 
+
+Note: The `--etcd-storage-class` flag and argument will be ignored if you use the flag `--static-etcd-volume` along with it.
+
    
 ### Deploying an object store
 
@@ -95,7 +144,7 @@ Don't deploy an on-premises Pachyderm cluster against cloud-based object stores 
 #### Object store prerequisites
 
 Object stores are accessible using the S3 protocol, created by Amazon. 
-Storage providers like MinIO, EMC's ECS or Swift provide S3-compatible access to enterprise storage for on-premises deployment. 
+Storage providers like [MinIO](https://min.io), [EMC's ECS](https://www.dellemc.com/storage/ecs/index.htm), or [SwiftStack](https://www.swiftstack.com/) provide S3-compatible access to enterprise storage for on-premises deployment. 
 You can find links to instructions for providers of particular object stores in the [See also](#see-also) section.
 
 #### Sizing the object store
@@ -125,7 +174,7 @@ Once you have Kubernetes deployed, your persistent volume created, and your obje
 ### Kubernetes variants
 - [OpenShift](./openshift.html)
 ### Object storage variants
-- [ECS](./non-cloud-object-stores.html#ecs)
+- [EMC ECS](./non-cloud-object-stores.html#emc-ecs)
 - [MinIO](./non-cloud-object-stores.html#minio)
 - [SwiftStack](./non-cloud-object-stores.html#swiftstack)
 

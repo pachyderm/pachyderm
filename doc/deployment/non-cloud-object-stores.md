@@ -3,7 +3,20 @@
 Coming soon.
 This document, when complete, will discuss common configurations for on-premises objects stores.
 
-## Non-Cloud Object Stores
+## General information on non-cloud object stores
+
+Please see [the on-premises introduction to object stores](./on-premises.html#deploying-an-object-store) for some general information on object stores and how they're used with Pachyderm.
+
+### EMC ECS
+Coming soon.
+
+### MinIO
+Coming soon.
+
+### SwiftStack
+Coming soon.
+
+## Notes
 ### S3 API Signature Algorithms and Regions
 
 The S3 protocol has two different ways of authenticating requests through its api.
@@ -44,3 +57,4 @@ which is not recommended (see the section [Infrastructure in general](./on_premi
 You'll need to determine what signature algorithm your object store uses in its S3-compatible API:  `S3v2` or `S3v4`.
 If it's `S3V2`, 
 you can solve this by using the `--isS3V2` flag on your the `pachctl deploy custom ...` command.
+
