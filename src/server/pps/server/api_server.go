@@ -1876,6 +1876,12 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			update = true
 		}
 	}
+	var (
+		// provenance for the pipeline's output branch (includes the spec branch)
+		provenance = append(branchProvenance(pipelineInfo.Input),
+			client.NewBranch(ppsconsts.SpecRepo, pipelineName))
+		outputBranch = client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
+	)
 	fmt.Printf(">>> provenance of new output branch: %v\n", provenance)
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
@@ -1887,10 +1893,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 				"call crashed. If you're sure no other CreatePipeline commands are " +
 				"running, you can run 'pachctl update pipeline --clean' which will " +
 				"delete this open commit")
-		}
-
-		if err := a.hardStopPipeline(pachClient, pipelineInfo); err != nil {
-			return nil, err
 		}
 
 		// Look up existing pipelineInfo and update it, writing updated
@@ -1915,19 +1917,54 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, fmt.Errorf("cannot disable stats"))
 				}
 
+				var specCommit *pfs.Commit
 				// Modify pipelineInfo
 				pipelineInfo.Version = oldPipelineInfo.Version + 1
 				pipelineInfo.Stopped = oldPipelineInfo.Stopped
-				if !request.Reprocess {
+				// If we're reprocessing, recreate the output branch with nil head
+				// (break the output chain)
+				if request.Reprocess {
+					// remove provenance from existing output branch, so that updating the
+					// spec commit doesn't create an output commit in the old output branch
+					if err := a.hardStopPipeline(pachClient, pipelineInfo); err != nil {
+						return err
+					}
+					// Write new PipelineInfo back to PFS (will not create new output
+					// commit)
+					specCommit, err = a.makePipelineInfoCommit(pachClient, pipelineInfo)
+					if err != nil {
+						return err
+					}
+					// Recreate output branch & stats branch w/ nil head, to break output
+					// chain
+					// Note: Head MUST be nil, or propagateCommit will pull the existing
+					// outputBranch Head commit's provenance, including the old spec
+					// commit, into the new output commit's provenance, breaking this
+					// pipeline
+					if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+						Branch:     outputBranch,
+						Provenance: provenance,
+					}); err != nil {
+						return fmt.Errorf("could not create/update output branch: %v", err)
+					}
+					if pipelineInfo.EnableStats {
+						if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+							Branch:     client.NewBranch(pipelineName, "stats"),
+							Provenance: []*pfs.Branch{outputBranch},
+						}); err != nil {
+							return fmt.Errorf("could not create/update stats branch: %v", err)
+						}
+					}
+				} else {
 					pipelineInfo.Salt = oldPipelineInfo.Salt
-				}
-				// Write updated PipelineInfo back to PFS.
-				commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-				if err != nil {
-					return err
+					// Write new PipelineInfo back to PFS, triggering new output commit
+					specCommit, err = a.makePipelineInfoCommit(pachClient, pipelineInfo)
+					if err != nil {
+						return err
+					}
 				}
 				// Update pipelinePtr to point to new commit
-				pipelinePtr.SpecCommit = commit
+				pipelinePtr.SpecCommit = specCommit
 				pipelinePtr.State = pps.PipelineState_PIPELINE_STARTING
 				// Clear any failure reasons
 				pipelinePtr.Reason = ""
@@ -1942,22 +1979,36 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			}
 		}
 	} else {
+		// Create spec commit and update etcd ptr (must happen before creating
+		// output branch, so that no commits are created without a spec commit)
+		commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
+		if err != nil {
+			return nil, err
+		}
+		pipelinePtr := &pps.EtcdPipelineInfo{
+			SpecCommit: commit,
+			State:      pps.PipelineState_PIPELINE_STARTING,
+		}
+
 		// Create output repo, pipeline output, and stats
 		if _, err := pfsClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
 			Repo: client.NewRepo(pipelineName),
 		}); err != nil && !isAlreadyExistsErr(err) {
 			return nil, err
 		}
-		commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-		if err != nil {
-			return nil, err
+		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+			Branch:     outputBranch,
+			Provenance: provenance,
+		}); err != nil {
+			return nil, fmt.Errorf("could not create/update output branch: %v", err)
 		}
-
-		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
-		// auth token
-		pipelinePtr := &pps.EtcdPipelineInfo{
-			SpecCommit: commit,
-			State:      pps.PipelineState_PIPELINE_STARTING,
+		if pipelineInfo.EnableStats {
+			if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+				Branch:     client.NewBranch(pipelineName, "stats"),
+				Provenance: []*pfs.Branch{outputBranch},
+			}); err != nil {
+				return nil, fmt.Errorf("could not create/update stats branch: %v", err)
+			}
 		}
 
 		// Generate pipeline's auth token & add pipeline to the ACLs of input/output
@@ -1997,39 +2048,6 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			if err := a.fixPipelineInputRepoACLs(pachClient, pipelineInfo, nil); err != nil {
 				return nil, err
 			}
-		}
-	}
-
-	// Create a branch for the pipeline's output data (provenant on the spec branch)
-	provenance := append(branchProvenance(pipelineInfo.Input),
-		client.NewBranch(ppsconsts.SpecRepo, pipelineName))
-	outputBranch := client.NewBranch(pipelineName, pipelineInfo.OutputBranch)
-	var head *pfs.Commit
-	// If this is an update without reprocess then we don't want to break the output chain.
-	if request.Update && !request.Reprocess {
-		// First make sure that the branch exists
-		_, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{Branch: outputBranch})
-		if err != nil && !isNotFoundErr(err) {
-			return nil, err
-		}
-		if err == nil {
-			// Make the new head of the branch the current head (don't change the head)
-			head = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
-		}
-	}
-	if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-		Branch:     outputBranch,
-		Provenance: provenance,
-		Head:       head,
-	}); err != nil {
-		return nil, fmt.Errorf("could not create/update output branch: %v", err)
-	}
-	if pipelineInfo.EnableStats {
-		if _, err := pfsClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
-			Branch:     client.NewBranch(pipelineName, "stats"),
-			Provenance: []*pfs.Branch{outputBranch},
-		}); err != nil {
-			return nil, fmt.Errorf("could not create/update stats branch: %v", err)
 		}
 	}
 

@@ -2539,6 +2539,88 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "buzz\n", buffer.String())
 }
 
+func TestManyPipelineUpdate(t *testing.T) {
+	t.Skip(t.Name() + " should only be run manually; it takes ~10m and is too " +
+		"slow for CI")
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("input-")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader(fmt.Sprintf("-")))
+	require.NoError(t, err)
+
+	pipeline := "p"
+	count := 100
+	jobsSeen := 0
+	for i := 0; i < count; i++ {
+		fmt.Printf("creating pipeline %d...", i)
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{fmt.Sprintf("echo %d >/pfs/out/f", i)},
+			&pps.ParallelismSpec{
+				Constant: 1,
+			},
+			client.NewPFSInput(dataRepo, "/*"),
+			"",
+			/*update: */ i > 0,
+		))
+		fmt.Printf("flushing commit...")
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+			require.NoError(t, err)
+			_, err = iter.Next()
+			if err != nil {
+				if err == io.EOF {
+					return fmt.Errorf("expected %d commits, but only got %d", jobsSeen+1, i)
+				}
+				return err
+			}
+
+			jis, err := c.ListJob(pipeline, []*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil, 0, false)
+			require.NoError(t, err)
+			if len(jis) < 1 {
+				return fmt.Errorf("expected to see %d jobs, but only saw %d", jobsSeen+1, len(jis))
+			}
+			jobsSeen = len(jis)
+			return nil
+		})
+		fmt.Printf("done\n")
+	}
+
+	// list all jobs from all prior versions of this pipeline
+	jis, err := c.ListJob(pipeline, []*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, count, len(jis))
+	var buf bytes.Buffer
+	for i := 0; i < count; i++ {
+		require.Equal(t, fmt.Sprintf("echo %d >/pfs/out/f", i), jis[i].Transform.Stdin[0])
+		// get job output
+		buf.Reset()
+		c.GetFile(pipeline, jis[i].OutputCommit.ID, "f", 0, 0, &buf)
+		require.Equal(t, fmt.Sprintf("%d", count-1-i), buf.String())
+	}
+	var cis []*pfs.CommitInfo
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		cis, err = c.ListCommit(pipeline, "", "", 0)
+		require.NoError(t, err)
+		if len(cis) < count {
+			fmt.Printf(">>> waiting for commits to show up (only found %d)\n", len(cis))
+			return fmt.Errorf("too few commits")
+		}
+		return nil
+	})
+	for i := 0; i < count; i++ {
+		buf.Reset()
+		c.GetFile(dataRepo, cis[i].Commit.ID, "file", 0, 0, &buf)
+		// commits are listed from most recent to oldest
+		require.Equal(t, fmt.Sprintf("%d", count-1-i), buf.String())
+	}
+}
+
 func TestUpdateFailedPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
