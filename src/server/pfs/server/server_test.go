@@ -183,6 +183,78 @@ func TestBranch(t *testing.T) {
 	require.NotNil(t, commitInfo.ParentCommit)
 }
 
+func TestToggleBranchProvenance(t *testing.T) {
+	c := GetPachClient(t)
+
+	require.NoError(t, c.CreateRepo("in"))
+	require.NoError(t, c.CreateRepo("out"))
+	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{
+		pclient.NewBranch("in", "master"),
+	}))
+
+	// Create initial input commit, and make sure we get an output commit
+	_, err := c.PutFile("in", "master", "1", strings.NewReader("1"))
+	require.NoError(t, err)
+	cis, err := c.ListCommit("out", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	require.NoError(t, c.FinishCommit("out", "master"))
+	// make sure output commit has the right provenance
+	ci, err := c.InspectCommit("in", "master")
+	require.NoError(t, err)
+	expectedProv := map[string]bool{
+		path.Join("in", ci.Commit.ID): true,
+	}
+	ci, err = c.InspectCommit("out", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+
+	// Toggle out@master provenance off
+	require.NoError(t, c.CreateBranch("out", "master", "master", nil))
+
+	// Create new input commit & make sure no new output commit is created
+	_, err = c.PutFile("in", "master", "2", strings.NewReader("2"))
+	require.NoError(t, err)
+	cis, err = c.ListCommit("out", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	// make sure output commit still has the right provenance
+	ci, err = c.InspectCommit("in", "master~1") // old input commit
+	require.NoError(t, err)
+	expectedProv = map[string]bool{
+		path.Join("in", ci.Commit.ID): true,
+	}
+	ci, err = c.InspectCommit("out", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+
+	// Toggle out@master provenance back on, creating a new output commit
+	require.NoError(t, c.CreateBranch("out", "master", "master", []*pfs.Branch{
+		pclient.NewBranch("in", "master"),
+	}))
+	cis, err = c.ListCommit("out", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+	// make sure output commit still has the right provenance
+	ci, err = c.InspectCommit("in", "master") // newest input commit
+	require.NoError(t, err)
+	expectedProv = map[string]bool{
+		path.Join("in", ci.Commit.ID): true,
+	}
+	ci, err = c.InspectCommit("out", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+}
+
 func TestCreateAndInspectRepo(t *testing.T) {
 	client := GetPachClient(t)
 
