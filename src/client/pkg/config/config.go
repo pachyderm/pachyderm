@@ -11,6 +11,7 @@ import (
 )
 
 const configEnvVar = "PACH_CONFIG"
+const contextEnvVar = "PACH_CONTEXT"
 
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
@@ -23,25 +24,20 @@ func configPath() string {
 }
 
 // ActiveContext gets the active context in the config
-func (c *Config) ActiveContext(initialize bool) *Context {
-	if c.V2.ActiveContext == "" {
-		if initialize {
-			newContext := &Context{
-				Source: ContextSource_NONE,
-			}
-			c.V2.ActiveContext = "default"
-			c.V2.Contexts["default"] = newContext
-			return newContext
+func (c *Config) ActiveContext() (*Context, error) {
+	var name string
+	if env, ok := os.LookupEnv(contextEnvVar); ok {
+		context := c.V2.Contexts[env]
+		if context == nil {
+			return nil, fmt.Errorf("`%s` refers to a context that does not exist", contextEnvVar)
 		}
-		return nil
+		return context, nil
 	}
-	context, ok := c.V2.Contexts[c.V2.ActiveContext]
-	if !ok && initialize {
-		newContext := &Context{}
-		c.V2.Contexts[c.V2.ActiveContext] = newContext
-		return newContext
+	context := c.V2.Contexts[c.V2.ActiveContext]
+	if context == nil {
+		return nil, fmt.Errorf("The active context in the config %q refers to a context that does not exist. Change the active context first.", p)
 	}
-	return context
+	return context, nil
 }
 
 // Read loads the Pachyderm config on this machine.
@@ -83,7 +79,7 @@ func Read() (*Config, error) {
 		fmt.Fprintln(os.Stderr, "Migrating to config v2.")
 
 		c.V2 = &ConfigV2{
-			ActiveContext: "",
+			ActiveContext: "default",
 			Contexts:      map[string]*Context{},
 		}
 
@@ -91,7 +87,6 @@ func Read() (*Config, error) {
 			if _, ok := c.V2.Contexts["default"]; ok {
 				return nil, fmt.Errorf("Attempted to migrate to config v2, but there's already a default context")
 			}
-			c.V2.ActiveContext = "default"
 			c.V2.Contexts["default"] = &Context{
 				Source:            ContextSource_CONFIG_V1,
 				PachdAddress:      c.V1.PachdAddress,
@@ -101,6 +96,10 @@ func Read() (*Config, error) {
 			}
 
 			c.V1 = nil
+		} else {
+			c.V2.Contexts["default"] = &Context{
+				Source: ContextSource_NONE,
+			}
 		}
 	}
 

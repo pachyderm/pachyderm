@@ -40,7 +40,10 @@ func writePachTokenToCfg(token string) error {
 		return fmt.Errorf("error reading Pachyderm config (for cluster "+
 			"address): %v", err)
 	}
-	context := cfg.ActiveContext(true)
+	context, err := cfg.ActiveContext()
+	if err != nil {
+		return fmt.Errorf("error getting the active context: %v", err)
+	}
 	context.SessionToken = token
 	if err := cfg.Write(); err != nil {
 		return fmt.Errorf("error writing pachyderm config: %v", err)
@@ -210,7 +213,10 @@ func LogoutCmd() *cobra.Command {
 				return fmt.Errorf("error reading Pachyderm config (for cluster "+
 					"address): %v", err)
 			}
-			context := cfg.ActiveContext(true)
+			context := cfg.ActiveContext()
+			if err != nil {
+				return fmt.Errorf("error getting the active context: %v", err)
+			}
 			context.SessionToken = ""
 			return cfg.Write()
 		}),

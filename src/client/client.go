@@ -284,7 +284,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 		if err != nil {
 			return "", nil, err
 		}
-		if context == nil || context.Source == config.ContextSource_CONFIG_V1 {
+		if context.Source == config.ContextSource_CONFIG_V1 {
 			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and will be removed in a future version. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
 			return envAddr, options, nil
 		}
@@ -292,7 +292,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 	}
 
 	// 2) Get target address from global config if possible
-	if context != nil && context.PachdAddress != "" {
+	if context.PachdAddress != "" {
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
@@ -348,13 +348,13 @@ func portForwarder() *PortForwarder {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, options ...Option) (*APIClient, error) {
-	var context *config.Context
 	cfg, err := config.Read()
 	if err != nil {
-		// metrics errors are non fatal
-		log.Warningf("error loading user config from ~/.pachyderm/config: %v", err)
-	} else {
-		context = cfg.ActiveContext(false)
+		return nil, err
+	}
+	context, err := cfg.ActiveContext()
+	if err != nil {
+		return nil, err
 	}
 
 	// create new pachctl client
@@ -403,10 +403,10 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg != nil && cfg.UserID != "" && reportMetrics {
+	if cfg.UserID != "" && reportMetrics {
 		client.metricsUserID = cfg.UserID
 	}
-	if context != nil && context.SessionToken != "" {
+	if context.SessionToken != "" {
 		client.authenticationToken = context.SessionToken
 	}
 
