@@ -5051,6 +5051,15 @@ func TestDeferredProcessing(t *testing.T) {
 	require.Equal(t, 2, len(commits))
 }
 
+// TestMultiInputWithDeferredProcessing tests this DAG:
+//
+// input1 ─▶ deferred-output ─▶ final-output
+//                              ▲
+// input2 ──────────────────────╯
+//
+// For this test to pass, commits in 'final-output' must include commits from
+// the provenance of 'deferred-output', *even if 'deferred-output@master' isn't
+// the branch being propagated*
 func TestMultiInputWithDeferredProcessing(t *testing.T) {
 	client := GetPachClient(t)
 	require.NoError(t, client.CreateRepo("input1"))
