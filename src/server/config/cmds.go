@@ -31,10 +31,7 @@ func Cmds() []*cobra.Command {
 	setMetrics := &cobra.Command{
 		Short: "Sets whether metrics are enabled.",
 		Long:  "Sets whether metrics are enabled.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			if len(args) != 1 {
-				return errors.New("invalid argument; use either `true` or `false`")
-			}
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			metrics := true
 			if args[0] == "false" {
 				metrics = false
@@ -51,7 +48,7 @@ func Cmds() []*cobra.Command {
 			return cfg.Write()
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(setMetrics, "config get metrics"))
+	commands = append(commands, cmdutil.CreateAlias(setMetrics, "config set metrics"))
 
 	return commands
 }
