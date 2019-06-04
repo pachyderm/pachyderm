@@ -159,7 +159,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 					return fmt.Errorf("could not kill stale job: %v", err)
 				}
 				// waitJob isn't running for this job (as it's just been received) so
-				// finish output commit & any stats commit
+				// finish output commits
 				if _, err := pachClient.PfsAPIClient.FinishCommit(pachClient.Ctx(),
 					&pfs.FinishCommitRequest{
 						Commit: ji.OutputCommit,
