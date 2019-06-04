@@ -996,8 +996,9 @@ func (d *driver) makeCommit(
 				}
 			}
 
-			// if the passed in provenance for the commit itself includes a spec commit, (note the difference from the prev condition)
-			// then it was created by pps, and so we want to allow it to commit to output branches
+			// if the passed in provenance for the commit itself includes a spec
+			// commit, (note the difference from the prev condition) then it was
+			// created by pps, and so we want to allow it to commit to output branches
 			hasSpec := false
 			for _, prov := range provenance {
 				if prov.Commit.Repo.Name == ppsconsts.SpecRepo {
@@ -2265,6 +2266,9 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		branchInfo.Head = commit
 		branchInfo.DirectProvenance = nil
 		for _, provBranch := range provenance {
+			if provBranch.Repo.Name == branch.Repo.Name && provBranch.Name == branch.Name {
+				return fmt.Errorf("branch %s@%s cannot be in its own provenance", branch.Repo.Name, branch.Name)
+			}
 			add(&branchInfo.DirectProvenance, provBranch)
 		}
 		return nil
