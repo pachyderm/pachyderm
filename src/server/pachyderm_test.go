@@ -2539,6 +2539,71 @@ func TestUpdatePipeline(t *testing.T) {
 	require.Equal(t, "buzz\n", buffer.String())
 }
 
+// TestManyPipelineUpdate updates a single pipeline several (currently 8) times,
+// and watches the jobs it creates to make sure they start and run successfully.
+// This catches issues with output commit provenance, and any other basic
+// problems with updating pipelines. It's very slow, so it can only be run
+// manually
+func TestManyPipelineUpdate(t *testing.T) {
+	t.Skip(t.Name() + " should only be run manually; it takes ~10m and is too " +
+		"slow for CI")
+
+	testUpdates := func(reprocess bool) func(t *testing.T) {
+		return func(t *testing.T) {
+			c := getPachClient(t)
+			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.GarbageCollect(0))
+
+			dataRepo := tu.UniqueString("input-")
+			require.NoError(t, c.CreateRepo(dataRepo))
+			_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader(fmt.Sprintf("-")))
+			require.NoError(t, err)
+
+			pipeline := "p"
+			count := 8
+			jobsSeen := 0
+			for i := 0; i < count; i++ {
+				fmt.Printf("creating pipeline %d (reprocess: %t)...", i, reprocess)
+				require.NoError(t, c.CreatePipeline(
+					pipeline,
+					"",
+					[]string{"bash"},
+					[]string{fmt.Sprintf("echo %d >/pfs/out/f", i)},
+					&pps.ParallelismSpec{
+						Constant: 1,
+					},
+					client.NewPFSInput(dataRepo, "/*"),
+					"",
+					/*update: */ i > 0,
+				))
+				fmt.Printf("flushing commit...")
+				require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+					iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+					require.NoError(t, err)
+					_, err = iter.Next()
+					if err != nil {
+						if err == io.EOF {
+							return fmt.Errorf("expected %d commits, but only got %d", jobsSeen+1, i)
+						}
+						return err
+					}
+
+					jis, err := c.ListJob(pipeline, []*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil, 0, false)
+					require.NoError(t, err)
+					if len(jis) < 1 {
+						return fmt.Errorf("expected to see %d jobs, but only saw %d", jobsSeen+1, len(jis))
+					}
+					jobsSeen = len(jis)
+					return nil
+				})
+				fmt.Printf("done\n")
+			}
+		}
+	}
+	t.Run("Reprocess", testUpdates(true))
+	t.Run("NoReprocess", testUpdates(false))
+}
+
 func TestUpdateFailedPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
