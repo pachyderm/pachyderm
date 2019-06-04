@@ -74,6 +74,9 @@ message Context {
     // This can be set or cleared via many of the `pachctl * transaction` commands.
     // This is the ID of the transaction object stored in the pachyderm etcd.
     string active_transaction = 5;
+
+    // The kubernetes context associated with this pach context
+    string kube_context = 6;
 }
 
 enum ContextSource {
