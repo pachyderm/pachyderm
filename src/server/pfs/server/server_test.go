@@ -4979,6 +4979,97 @@ func TestDeferredProcessing(t *testing.T) {
 	require.Equal(t, 2, len(commits))
 }
 
+func TestMultiInputWithDeferredProcessing(t *testing.T) {
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("input1"))
+	require.NoError(t, client.CreateRepo("deferred-output"))
+	require.NoError(t, client.CreateRepo("input2"))
+	require.NoError(t, client.CreateRepo("final-output"))
+	require.NoError(t, client.CreateBranch("deferred-output", "staging", "",
+		[]*pfs.Branch{pclient.NewBranch("input1", "master")}))
+	require.NoError(t, client.CreateBranch("final-output", "master", "",
+		[]*pfs.Branch{
+			pclient.NewBranch("input2", "master"),
+			pclient.NewBranch("deferred-output", "master"),
+		}))
+	_, err := client.PutFile("input1", "master", "1", strings.NewReader("1"))
+	require.NoError(t, err)
+	_, err = client.PutFile("input2", "master", "2", strings.NewReader("2"))
+
+	// There should be an open commit in "staging" but not "master"
+	cis, err := client.ListCommit("deferred-output", "staging", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	require.NoError(t, client.FinishCommit("deferred-output", "staging"))
+	cis, err = client.ListCommit("deferred-output", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(cis))
+
+	// There shouldn't be one output commit in "final-output@master", but with no
+	// provenance in deferred-output or input1 (only in input2)
+	cis, err = client.ListCommit("final-output", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	require.NoError(t, client.FinishCommit("final-output", "master"))
+	ci, err := client.InspectCommit("input2", "master")
+	require.NoError(t, err)
+	expectedProv := map[string]bool{
+		path.Join("input2", ci.Commit.ID): true,
+	}
+	ci, err = client.InspectCommit("final-output", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+
+	// 1) Move master branch and create second output commit (first w/ full prov)
+	require.NoError(t, client.CreateBranch("deferred-output", "master", "staging", nil))
+	require.NoError(t, err)
+	cis, err = client.ListCommit("final-output", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+	require.NoError(t, client.FinishCommit("final-output", "master"))
+
+	// Make sure the final output (triggered by deferred-downstream) has the right
+	// commit provenance
+	expectedProv = make(map[string]bool)
+	for _, r := range []string{"input1", "input2", "deferred-output"} {
+		ci, err := client.InspectCommit(r, "master")
+		require.NoError(t, err)
+		expectedProv[path.Join(r, ci.Commit.ID)] = true
+	}
+	ci, err = client.InspectCommit("final-output", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+
+	// 2) Commit to input2 and create second output commit
+	_, err = client.PutFile("input2", "master", "3", strings.NewReader("3"))
+	require.NoError(t, err)
+	cis, err = client.ListCommit("final-output", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(cis))
+	require.NoError(t, client.FinishCommit("final-output", "master"))
+
+	// Make sure the final output (triggered by second input) has the right
+	// commit provenance
+	expectedProv = make(map[string]bool)
+	for _, r := range []string{"input1", "input2", "deferred-output"} {
+		ci, err := client.InspectCommit(r, "master")
+		require.NoError(t, err)
+		expectedProv[path.Join(r, ci.Commit.ID)] = true
+	}
+	ci, err = client.InspectCommit("final-output", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+}
+
 func seedStr(seed int64) string {
 	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 }
