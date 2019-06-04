@@ -1332,6 +1332,11 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 							},
 							ImagePullPolicy: "IfNotPresent",
 							Resources:       resourceRequirements,
+							Env: []v1.EnvVar{
+								{Name: "POSTGRES_DB", Value: "pgc"},
+								{Name: "POSTGRES_USER", Value: "pachyderm"},
+								{Name: "POSTGRES_PASSWORD", Value: "elephantastic"},
+							},
 						},
 					},
 					Volumes:          volumes,
