@@ -1296,6 +1296,8 @@ func (d *driver) writeFinishedCommit(stm col.STM, commit *pfs.Commit, commitInfo
 //
 // The isNewCommit flag indicates whether propagateCommits was called during the creation of a new commit.
 func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch, isNewCommit bool) error {
+	fmt.Printf("------------ START ----------------\n")
+	defer fmt.Printf("------------- END -----------------\n")
 	type BranchData struct {
 		branchInfo *pfs.BranchInfo
 		heads      []*pfs.CommitInfo // List of head commits being propagated that this branch is provenant on
@@ -1323,7 +1325,19 @@ func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch, isNewComm
 			branchMap[key(branch.Repo.Name, branch.Name)] = branchData
 		}
 
+		/* >>> */
+		func() {
+			fmt.Printf(">>> branch %s@%s long subvenance: %v\n",
+				branchData.branchInfo.Branch.Repo.Name, branchData.branchInfo.Branch.Name, branchData.branchInfo.Subvenance)
+			fmt.Printf(">>> branch %s@%s subvenance:",
+				branchData.branchInfo.Branch.Repo.Name, branchData.branchInfo.Branch.Name)
+			for _, subvBranch := range branchData.branchInfo.Subvenance {
+				fmt.Printf(" %s@%s", subvBranch.Repo.Name, subvBranch.Name)
+			}
+			/* >>> */ fmt.Printf("\n")
+		}()
 		for _, subvBranch := range branchData.branchInfo.Subvenance {
+			fmt.Printf(" %s@%s", subvBranch.Repo.Name, subvBranch.Name)
 			subvData, exists := branchMap[key(subvBranch.Repo.Name, subvBranch.Name)]
 			if !exists {
 				subvInfo := &pfs.BranchInfo{}
@@ -1339,6 +1353,16 @@ func (d *driver) propagateCommits(stm col.STM, branches []*pfs.Branch, isNewComm
 			}
 		}
 	}
+	/* >>> */ func() {
+		fmt.Printf(">>> branchMap:\n")
+		for k, v := range branchMap {
+			fmt.Printf(">>> >>> %s -> (heads of branches that depend on it):", k)
+			for _, h := range v.heads {
+				fmt.Printf(" %s@%v", h.Commit.Repo.Name, h.Commit.ID)
+			}
+			fmt.Printf("\n")
+		}
+	}()
 
 	// 'subvBranchData' is the collection of downstream branches that may get a
 	// new commit. Populate subvBranchData
@@ -1407,8 +1431,10 @@ nextSubvBranch:
 			}
 		}
 		for _, head := range branchData.heads {
+			fmt.Printf(">>> adding provenance of branch head %s@%s:\n", head.Commit.Repo.Name, head.Commit.ID)
 			// make sure the head commit's provenance is included in the new commit provenance (used for deferred downstream)
 			for _, commitProv := range head.Provenance {
+				fmt.Printf(">>> >>> %s@%s:\n", commitProv.Commit.Repo.Name, commitProv.Commit.ID)
 				// resolve the commit provenance in case it is specified as a branch name
 				commitProv, err = d.resolveCommitProvenance(stm, commitProv)
 				if err != nil {
@@ -1476,6 +1502,13 @@ nextSubvBranch:
 			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
 			Started: now(),
 		}
+		/* >>> */ func() {
+			fmt.Printf(">>> creating output commit %s@%s; prov:", newCommit.Repo.Name, newCommit.ID)
+			for _, p := range newCommitProvMap {
+				fmt.Printf(" %s@%s", p.Commit.Repo.Name, p.Commit.ID)
+			}
+			fmt.Printf("\n")
+		}()
 
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
 		newCommitInfo.ParentCommit = branchInfo.Head
@@ -3814,6 +3847,8 @@ func branchKey(branch *pfs.Branch) string {
 }
 
 func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs.Branch, stm col.STM) error {
+	fmt.Printf("addBranchProvenance(upstream: %s@%s, downstream: %s@%s)\n",
+		provBranch.Repo.Name, provBranch.Name, branchInfo.Branch.Repo.Name, branchInfo.Branch.Name)
 	if provBranch.Repo.Name == branchInfo.Branch.Repo.Name && provBranch.Name == branchInfo.Branch.Name {
 		return fmt.Errorf("provenance loop, branch %s/%s cannot be provenance for itself", provBranch.Repo.Name, provBranch.Name)
 	}
@@ -3824,6 +3859,8 @@ func (d *driver) addBranchProvenance(branchInfo *pfs.BranchInfo, provBranch *pfs
 		provBranchInfo.Name = provBranch.Name
 		provBranchInfo.Branch = provBranch
 		add(&provBranchInfo.Subvenance, branchInfo.Branch)
+		fmt.Printf("addBranchProvenance; %s@%s subv is now: %v\n",
+			provBranchInfo.Branch.Repo.Name, provBranchInfo.Branch.Name, provBranchInfo.Subvenance)
 		return nil
 	}); err != nil {
 		return err

@@ -1876,6 +1876,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 			update = true
 		}
 	}
+	fmt.Printf(">>> provenance of new output branch: %v\n", provenance)
 	if update {
 		// Help user fix inconsistency if previous UpdatePipeline call failed
 		if ci, err := pachClient.InspectCommit(ppsconsts.SpecRepo, pipelineName); err != nil {

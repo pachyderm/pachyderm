@@ -4639,33 +4639,43 @@ func TestPutFileCommit(t *testing.T) {
 
 	var eg errgroup.Group
 	for i := 0; i < numFiles; i++ {
+		fmt.Printf(">>> starting goro to put file %d\n", i)
 		i := i
 		eg.Go(func() error {
 			_, err := c.PutFile(repo, "master", fmt.Sprintf("%d", i), strings.NewReader(fmt.Sprintf("%d", i)))
 			return err
 		})
 	}
+	fmt.Printf(">>> waiting to put files\n")
 	require.NoError(t, eg.Wait())
+	fmt.Printf(">>> putting files done\n")
 
 	for i := 0; i < numFiles; i++ {
+		fmt.Printf(">>> getting file %d\n", i)
 		var b bytes.Buffer
 		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("%d", i), 0, 0, &b))
 		require.Equal(t, fmt.Sprintf("%d", i), b.String())
 	}
 
+	fmt.Printf(">>> inspecting %s@master\n", repo)
 	bi, err := c.InspectBranch(repo, "master")
+	fmt.Printf(">>> done inspecting %s@master\n", repo)
 	require.NoError(t, err)
 
 	eg = errgroup.Group{}
 	for i := 0; i < numFiles; i++ {
+		fmt.Printf(">>> starting goro to copy file %d\n", i)
 		i := i
 		eg.Go(func() error {
 			return c.CopyFile(repo, bi.Head.ID, fmt.Sprintf("%d", i), repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), true)
 		})
 	}
+	fmt.Printf(">>> waiting to copy files\n")
 	require.NoError(t, eg.Wait())
+	fmt.Printf(">>> copying files done\n")
 
 	for i := 0; i < numFiles; i++ {
+		fmt.Printf(">>> getting file %d\n", i)
 		var b bytes.Buffer
 		require.NoError(t, c.GetFile(repo, "master", fmt.Sprintf("%d", (i+1)%numFiles), 0, 0, &b))
 		require.Equal(t, fmt.Sprintf("%d", i), b.String())
@@ -4673,14 +4683,19 @@ func TestPutFileCommit(t *testing.T) {
 
 	eg = errgroup.Group{}
 	for i := 0; i < numFiles; i++ {
+		fmt.Printf(">>> starting goro to delete file %d\n", i)
 		i := i
 		eg.Go(func() error {
 			return c.DeleteFile(repo, "master", fmt.Sprintf("%d", i))
 		})
 	}
+	fmt.Printf(">>> waiting to delete files\n")
 	require.NoError(t, eg.Wait())
+	fmt.Printf(">>> deleting files done\n")
 
+	fmt.Printf(">>> listing files in %s@master\n", repo)
 	fileInfos, err := c.ListFile(repo, "master", "")
+	fmt.Printf(">>> done listing files in %s@master\n", repo)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(fileInfos))
 }
