@@ -1099,7 +1099,7 @@ func (d *driver) makeCommit(
 		}
 		// there should only be one representative of each branch in the commit provenance
 		if _, ok := provenantBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)]; ok {
-			return nil, fmt.Errorf("the commit provenance contains multiple commits provenant on the same branch")
+			return nil, fmt.Errorf("the commit provenance contains multiple commits from the same branch")
 		}
 		provenantBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
 
