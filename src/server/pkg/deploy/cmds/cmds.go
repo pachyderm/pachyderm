@@ -133,6 +133,38 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) e
 	return nil
 }
 
+func contextCreate(deploymentName string) error {
+	kubeContext, err := config.ActiveKubeContext()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Read()
+	if err != nil {
+		return err
+	}
+
+	var name string
+	for i := 0; i < 100000; i++ {
+		if i == 0 {
+			name = deploymentName
+		} else {
+			name = fmt.Sprintf("%s-%d", name, i)
+		}
+
+		if _, ok := cfg.V2.Contexts[name]; ok {
+			break
+		}
+	}
+
+	cfg.V2.Contexts[name] = &config.Context{
+		Source:      config.ContextSource_NONE,
+		KubeContext: kubeContext,
+	}
+	cfg.V2.ActiveContext = name
+	return cfg.Write()
+}
+
 // containsEmpty is a helper function used for validation (particularly for
 // validating that creds arguments aren't empty
 func containsEmpty(vals []string) bool {
@@ -226,7 +258,11 @@ func deployCmds() []*cobra.Command {
 			if err = assets.WriteGoogleAssets(manifest, opts, bucket, cred, volumeSize); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts)
+			err = kubectlCreate(dryRun, manifest, opts)
+			if err != nil {
+				return err
+			}
+			return contextCreate("google")
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployGoogle, "deploy google"))
@@ -254,7 +290,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts)
+			err = kubectlCreate(dryRun, manifest, opts)
+			if err != nil {
+				return err
+			}
+			return contextCreate("custom")
 		}),
 	}
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
@@ -357,7 +397,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err = assets.WriteAmazonAssets(manifest, opts, region, bucket, volumeSize, amazonCreds, cloudfrontDistribution); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts)
+			err = kubectlCreate(dryRun, manifest, opts)
+			if err != nil {
+				return err
+			}
+			return contextCreate("aws")
 		}),
 	}
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
@@ -403,7 +447,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err = assets.WriteMicrosoftAssets(manifest, opts, container, accountName, accountKey, volumeSize); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts)
+			err = kubectlCreate(dryRun, manifest, opts)
+			if err != nil {
+				return err
+			}
+			return contextCreate("azure")
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))

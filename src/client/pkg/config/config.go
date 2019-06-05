@@ -29,6 +29,17 @@ func configPath() string {
 	return defaultConfigPath
 }
 
+func ActiveKubeContext() (string, error) {
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	overrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
+	rawKubeConfig, err := kubeConfig.RawConfig()
+	if err != nil {
+		return "", err
+	}
+	return rawKubeConfig.CurrentContext, nil
+}
+
 // ActiveContext gets the active context in the config
 func (c *Config) ActiveContext() (*Context, error) {
 	if env, ok := os.LookupEnv(contextEnvVar); ok {
@@ -103,14 +114,10 @@ func Read() (*Config, error) {
 }
 
 func (c *Config) initV2() error {
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	overrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
-	rawKubeConfig, err := kubeConfig.RawConfig()
+	kubeContext, err := ActiveKubeContext()
 	if err != nil {
 		return err
 	}
-	kubeContext := rawKubeConfig.CurrentContext
 	fmt.Fprintf(os.Stderr, "No config V2 present in config - generating a new one off of the kube context '%s'.\n", kubeContext)
 
 	c.V2 = &ConfigV2{
