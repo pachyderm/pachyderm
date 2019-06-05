@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/satori/go.uuid"
 	"k8s.io/client-go/tools/clientcmd"
@@ -16,6 +17,10 @@ const contextEnvVar = "PACH_CONTEXT"
 
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
 var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
+
+var readerOnce sync.Once
+var value *Config
+var readErr error
 
 func configPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
@@ -44,51 +49,57 @@ func (c *Config) ActiveContext() (*Context, error) {
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
 func Read() (*Config, error) {
-	var c *Config
-
-	// Read json file
-	p := configPath()
-	if raw, err := ioutil.ReadFile(p); err == nil {
-		err = json.Unmarshal(raw, &c)
-		if err != nil {
-			return nil, err
+	readerOnce.Do(func() {
+		// Read json file
+		p := configPath()
+		if raw, err := ioutil.ReadFile(p); err == nil {
+			err = json.Unmarshal(raw, &value)
+			if err != nil {
+				readErr = err
+				return
+			}
+		} else if os.IsNotExist(err) {
+			// File doesn't exist, so create a new config
+			fmt.Fprintf(os.Stderr, "No config detected at %q. Generating new config...\n", p)
+			value = &Config{}
+		} else {
+			readErr = fmt.Errorf("fatal: could not read config at %q: %v", p, err)
+			return
 		}
-	} else if os.IsNotExist(err) {
-		// File doesn't exist, so create a new config
-		fmt.Fprintf(os.Stderr, "No config detected at %q. Generating new config...\n", p)
-		c = &Config{}
-	} else {
-		return nil, fmt.Errorf("fatal: could not read config at %q: %v", p, err)
-	}
 
-	updated := false
+		updated := false
 
-	if c.UserID == "" {
-		updated = true
-		fmt.Fprintln(os.Stderr, "No UserID present in config - generating new one.")
-		uuid, err := uuid.NewV4()
-		if err != nil {
-			return nil, fmt.Errorf("could not generate new user ID: %v", err)
+		if value.UserID == "" {
+			updated = true
+			fmt.Fprintln(os.Stderr, "No UserID present in config - generating new one.")
+			uuid, err := uuid.NewV4()
+			if err != nil {
+				readErr = fmt.Errorf("could not generate new user ID: %v", err)
+				return
+			}
+			value.UserID = uuid.String()
 		}
-		c.UserID = uuid.String()
-	}
 
-	if c.V2 == nil {
-		updated = true
-		if err := c.initV2(); err != nil {
-			return nil, err
+		if value.V2 == nil {
+			updated = true
+			if err := value.initV2(); err != nil {
+				readErr = err
+				return
+			}
 		}
-	}
 
-	if updated {
-		fmt.Fprintf(os.Stderr, "Rewriting config at %q.\n", p)
+		if updated {
+			fmt.Fprintf(os.Stderr, "Rewriting config at %q.\n", p)
 
-		if err := c.Write(); err != nil {
-			return nil, fmt.Errorf("could not rewrite config at %q: %v", p, err)
+			if err := value.Write(); err != nil {
+				readErr = fmt.Errorf("could not rewrite config at %q: %v", p, err)
+				return
+			}
 		}
-	}
 
-	return c, nil
+	})
+
+	return value, readErr
 }
 
 func (c *Config) initV2() error {
