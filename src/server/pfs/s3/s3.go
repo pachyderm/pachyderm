@@ -76,7 +76,7 @@ func attachBucketRoutes(router *mux.Router, handler bucketHandler) {
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
 func Server(pc *client.APIClient, config *Config) *http.Server {
 	router := mux.NewRouter()
-	router.Handle(`/`, newRootHandler(pc)).Methods("GET", "HEAD")
+	router.Handle(`/`, newRootHandler(pc, config.View)).Methods("GET", "HEAD")
 
 	// Bucket-related routes. Repo validation regex is the same that the aws
 	// cli uses. There's two routers - one with a trailing a slash and one

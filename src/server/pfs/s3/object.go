@@ -26,14 +26,11 @@ func newObjectHandler(pc *client.APIClient, view map[string]*pfs.Commit) *object
 
 func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	repo, commit, file := objectArgs(w, r, h.view)
-	ci, err := h.pc.InspectCommit(repo, commit)
+	_, err := h.pc.InspectCommit(repo, commit)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
 		return
 	}
-	// commit returned by objectArgs might be a branch which might get
-	// committed to while this function runs, this freezes it.
-	commit = ci.Commit.ID
 	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
@@ -63,15 +60,12 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	repo, commit, file := objectArgs(w, r, h.view)
-	ci, err := h.pc.InspectCommit(repo, commit)
+	_, err := h.pc.InspectCommit(repo, commit)
 	// BranchNoHeadErr is acceptable because the put will create the head
 	if err != nil && !pfsServer.IsBranchNoHeadErr(err) {
 		maybeNotFoundError(w, r, err)
 		return
 	}
-	// commit returned by objectArgs might be a branch which might get
-	// committed to while this function runs, this freezes it.
-	commit = ci.Commit.ID
 	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return
@@ -125,14 +119,11 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 
 func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 	repo, commit, file := objectArgs(w, r, h.view)
-	ci, err := h.pc.InspectCommit(repo, commit)
+	_, err := h.pc.InspectCommit(repo, commit)
 	if err != nil {
 		maybeNotFoundError(w, r, err)
 		return
 	}
-	// commit returned by objectArgs might be a branch which might get
-	// committed to while this function runs, this freezes it.
-	commit = ci.Commit.ID
 	if strings.HasSuffix(file, "/") {
 		invalidFilePathError(w, r)
 		return

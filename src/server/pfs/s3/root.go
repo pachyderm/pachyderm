@@ -7,6 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
 )
 
 // ListAllMyBucketsResult is an XML-encodable listing of repos as buckets
@@ -22,36 +23,55 @@ type Bucket struct {
 }
 
 type rootHandler struct {
-	pc *client.APIClient
+	pc   *client.APIClient
+	view map[string]*pfs.Commit
 }
 
-func newRootHandler(pc *client.APIClient) rootHandler {
-	return rootHandler{pc: pc}
+func newRootHandler(pc *client.APIClient, view map[string]*pfs.Commit) rootHandler {
+	return rootHandler{pc: pc, view: view}
 }
 
 func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	repos, err := h.pc.ListRepo()
-	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-
 	result := ListAllMyBucketsResult{
 		Owner: defaultUser,
 	}
 
-	for _, repo := range repos {
-		t, err := types.TimestampFromProto(repo.Created)
+	if h.view != nil {
+		for name, commit := range h.view {
+			ri, err := h.pc.InspectRepo(commit.Repo.Name)
+			if err != nil {
+				internalError(w, r, err)
+				return
+			}
+			t, err := types.TimestampFromProto(ri.Created)
+			if err != nil {
+				internalError(w, r, err)
+				return
+			}
+			result.Buckets = append(result.Buckets, Bucket{
+				Name:         name,
+				CreationDate: t,
+			})
+		}
+	} else {
+		repos, err := h.pc.ListRepo()
 		if err != nil {
 			internalError(w, r, err)
 			return
 		}
+		for _, repo := range repos {
+			t, err := types.TimestampFromProto(repo.Created)
+			if err != nil {
+				internalError(w, r, err)
+				return
+			}
 
-		for _, branch := range repo.Branches {
-			result.Buckets = append(result.Buckets, Bucket{
-				Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
-				CreationDate: t,
-			})
+			for _, branch := range repo.Branches {
+				result.Buckets = append(result.Buckets, Bucket{
+					Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
+					CreationDate: t,
+				})
+			}
 		}
 	}
 
