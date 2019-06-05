@@ -995,6 +995,53 @@ func TestRunPipeline(t *testing.T) {
 		// now that we've added data to the other branch of the cross, we should see the union of data A along with the the crossed data.
 		require.Equal(t, "data A\ndata A\ndata B\n", buffer3.String())
 	})
+
+	// Test on commits from the same branch
+	t.Run("RunPipelineSameBranch", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestRunPipeline_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		branchA := "branchA"
+		branchB := "branchB"
+
+		pipeline := tu.UniqueString("sameBranch-pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{
+				"cat /pfs/branch-a/file >> /pfs/out/file",
+				"cat /pfs/branch-b/file >> /pfs/out/file",
+				"echo ran-pipeline",
+			},
+			nil,
+			client.NewCrossInput(
+				client.NewPFSInputOpts("branch-a", dataRepo, branchA, "/*", false),
+				client.NewPFSInputOpts("branch-b", dataRepo, branchB, "/*", false),
+			),
+			"",
+			false,
+		))
+		commitA1, err := c.StartCommit(dataRepo, branchA)
+		require.NoError(t, err)
+		c.PutFile(dataRepo, commitA1.ID, "/file", strings.NewReader("data A1\n"))
+		c.FinishCommit(dataRepo, commitA1.ID)
+
+		commitA2, err := c.StartCommit(dataRepo, branchA)
+		require.NoError(t, err)
+		c.PutFile(dataRepo, commitA2.ID, "/file", strings.NewReader("data A2\n"))
+		c.FinishCommit(dataRepo, commitA2.ID)
+
+		_, err = c.FlushCommit([]*pfs.Commit{commitA1, commitA2}, nil)
+		require.NoError(t, err)
+
+		// now run the pipeline with unrelated provenance
+		require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+			client.NewCommitProvenance(dataRepo, branchA, commitA1.ID),
+			client.NewCommitProvenance(dataRepo, branchA, commitA2.ID)},
+		))
+	})
+
 }
 func TestPipelineFailure(t *testing.T) {
 	if testing.Short() {
