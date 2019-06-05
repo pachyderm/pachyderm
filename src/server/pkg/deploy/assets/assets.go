@@ -1299,6 +1299,8 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	if opts.Registry != "" {
 		image = AddRegistry(opts.Registry, postgresImage)
 	}
+	// postgresUser := int64(999)
+	// postgresGroup := int64(999)
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -1317,6 +1319,10 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 						{
 							Name:  postgresName,
 							Image: image,
+							//SecurityContext: &v1.SecurityContext{
+							//	RunAsUser:  &postgresUser,
+							//	RunAsGroup: &postgresGroup,
+							//},
 							//TODO figure out how to get a cluster of these to talk to each other
 							Ports: []v1.ContainerPort{
 								{
@@ -1350,7 +1356,7 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 func PostgresService(local bool, opts *AssetOpts) *v1.Service {
 	var clientNodePort int32
 	if local {
-		clientNodePort = 65432
+		clientNodePort = 32228
 	}
 	return &v1.Service{
 		TypeMeta: metav1.TypeMeta{
@@ -1639,7 +1645,7 @@ func WriteAssets(encoder Encoder, opts *AssetOpts, objectStoreBackend backend,
 	} else {
 		return fmt.Errorf("unless deploying locally, either --dynamic-etcd-nodes or --static-etcd-volume needs to be provided")
 	}
-	if err := encoder.Encode(EtcdNodePortService(objectStoreBackend == localBackend, opts)); err != nil {
+	if err := encoder.Encode(PostgresService(objectStoreBackend == localBackend, opts)); err != nil {
 		return err
 	}
 
