@@ -175,7 +175,7 @@ func Cmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			for name, _ := range cfg.V2.Contexts {
+			for name := range cfg.V2.Contexts {
 				if name == cfg.V2.ActiveContext {
 					fmt.Printf("* %s\n", name)
 				} else {

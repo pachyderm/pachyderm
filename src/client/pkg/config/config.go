@@ -29,6 +29,7 @@ func configPath() string {
 	return defaultConfigPath
 }
 
+// ActiveKubeContext gets the current kube context from the kube config
 func ActiveKubeContext() (string, error) {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
