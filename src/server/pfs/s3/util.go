@@ -35,6 +35,16 @@ func writeXML(w http.ResponseWriter, r *http.Request, code int, v interface{}) {
 
 func bucketArgs(w http.ResponseWriter, r *http.Request, view map[string]*pfs.Commit) (string, string) {
 	vars := mux.Vars(r)
+	if view != nil {
+		name := vars["name"]
+		commit, ok := view[name]
+		if !ok {
+			// Returning empty repo and commit params, which are guaranteed to
+			// be not found.
+			return "", ""
+		}
+		return commit.Repo.Name, commit.ID
+	}
 	repo := vars["repo"]
 	commit := vars["commit"]
 	return repo, commit
