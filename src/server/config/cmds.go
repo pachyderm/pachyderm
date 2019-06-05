@@ -167,5 +167,25 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(deleteContext, "config delete context"))
 
+	listContext := &cobra.Command{
+		Short: "Lists contexts.",
+		Long:  "Lists contexts.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+			for name, _ := range cfg.V2.Contexts {
+				if name == cfg.V2.ActiveContext {
+					fmt.Printf("* %s\n", name)
+				} else {
+					fmt.Printf("  %s\n", name)
+				}
+			}
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(listContext, "config list context"))
+
 	return commands
 }
