@@ -213,7 +213,7 @@ func LogoutCmd() *cobra.Command {
 				return fmt.Errorf("error reading Pachyderm config (for cluster "+
 					"address): %v", err)
 			}
-			context := cfg.ActiveContext()
+			context, err := cfg.ActiveContext()
 			if err != nil {
 				return fmt.Errorf("error getting the active context: %v", err)
 			}

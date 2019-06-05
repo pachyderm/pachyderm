@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/satori/go.uuid"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const configEnvVar = "PACH_CONFIG"
@@ -25,7 +26,6 @@ func configPath() string {
 
 // ActiveContext gets the active context in the config
 func (c *Config) ActiveContext() (*Context, error) {
-	var name string
 	if env, ok := os.LookupEnv(contextEnvVar); ok {
 		context := c.V2.Contexts[env]
 		if context == nil {
@@ -35,7 +35,7 @@ func (c *Config) ActiveContext() (*Context, error) {
 	}
 	context := c.V2.Contexts[c.V2.ActiveContext]
 	if context == nil {
-		return nil, fmt.Errorf("The active context in the config %q refers to a context that does not exist. Change the active context first.", p)
+		return nil, fmt.Errorf("The active context references one that does exist. Change the active context first.")
 	}
 	return context, nil
 }
@@ -66,7 +66,6 @@ func Read() (*Config, error) {
 	if c.UserID == "" {
 		updated = true
 		fmt.Fprintln(os.Stderr, "No UserID present in config - generating new one.")
-
 		uuid, err := uuid.NewV4()
 		if err != nil {
 			return nil, fmt.Errorf("could not generate new user ID: %v", err)
@@ -76,35 +75,13 @@ func Read() (*Config, error) {
 
 	if c.V2 == nil {
 		updated = true
-		fmt.Fprintln(os.Stderr, "Migrating to config v2.")
-
-		c.V2 = &ConfigV2{
-			ActiveContext: "default",
-			Contexts:      map[string]*Context{},
-		}
-
-		if c.V1 != nil {
-			if _, ok := c.V2.Contexts["default"]; ok {
-				return nil, fmt.Errorf("Attempted to migrate to config v2, but there's already a default context")
-			}
-			c.V2.Contexts["default"] = &Context{
-				Source:            ContextSource_CONFIG_V1,
-				PachdAddress:      c.V1.PachdAddress,
-				ServerCAs:         c.V1.ServerCAs,
-				SessionToken:      c.V1.SessionToken,
-				ActiveTransaction: c.V1.ActiveTransaction,
-			}
-
-			c.V1 = nil
-		} else {
-			c.V2.Contexts["default"] = &Context{
-				Source: ContextSource_NONE,
-			}
+		if err := c.initV2(); err != nil {
+			return nil, err
 		}
 	}
 
 	if updated {
-		fmt.Fprintln(os.Stderr, "Rewriting config at %q.", p)
+		fmt.Fprintf(os.Stderr, "Rewriting config at %q.\n", p)
 
 		if err := c.Write(); err != nil {
 			return nil, fmt.Errorf("could not rewrite config at %q: %v", p, err)
@@ -112,6 +89,42 @@ func Read() (*Config, error) {
 	}
 
 	return c, nil
+}
+
+func (c *Config) initV2() error {
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	overrides := &clientcmd.ConfigOverrides{}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
+	rawKubeConfig, err := kubeConfig.RawConfig()
+	if err != nil {
+		return err
+	}
+	kubeContext := rawKubeConfig.CurrentContext
+	fmt.Fprintf(os.Stderr, "No config V2 present in config - generating a new one off of the kube context '%s'.\n", kubeContext)
+
+	c.V2 = &ConfigV2{
+		ActiveContext: "default",
+		Contexts:      map[string]*Context{},
+	}
+
+	if c.V1 != nil {
+		c.V2.Contexts["default"] = &Context{
+			Source:            ContextSource_CONFIG_V1,
+			PachdAddress:      c.V1.PachdAddress,
+			ServerCAs:         c.V1.ServerCAs,
+			SessionToken:      c.V1.SessionToken,
+			ActiveTransaction: c.V1.ActiveTransaction,
+			KubeContext:       kubeContext,
+		}
+
+		c.V1 = nil
+	} else {
+		c.V2.Contexts["default"] = &Context{
+			Source:      ContextSource_NONE,
+			KubeContext: kubeContext,
+		}
+	}
+	return nil
 }
 
 // Write writes the configuration in 'c' to this machine's Pachyderm config
