@@ -147,5 +147,25 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
 
+	deleteContext := &cobra.Command{
+		Short: "Deletes a context.",
+		Long:  "Deletes a context.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+			if _, ok := cfg.V2.Contexts[args[0]]; !ok {
+				return fmt.Errorf("context does not exist: %s", args[0])
+			}
+			if cfg.V2.ActiveContext == args[0] {
+				return errors.New("cannot delete an active context")
+			}
+			delete(cfg.V2.Contexts, args[0])
+			return cfg.Write()
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(deleteContext, "config delete context"))
+
 	return commands
 }
