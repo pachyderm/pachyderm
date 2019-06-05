@@ -1,8 +1,11 @@
 package cmds
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
@@ -11,6 +14,24 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
 )
+
+func readContext() (*config.Context, error) {
+	var buf bytes.Buffer
+	var decoder *json.Decoder
+	var result config.Context
+
+	contextReader := io.TeeReader(os.Stdin, &buf)
+	fmt.Println("Reading from stdin.")
+	decoder = json.NewDecoder(contextReader)
+
+	if err := jsonpb.UnmarshalNext(decoder, &result); err != nil {
+		if err == io.EOF {
+			return nil, err
+		}
+		return nil, fmt.Errorf("malformed context: %s", err)
+	}
+	return &result, nil
+}
 
 // Cmds returns a slice containing admin commands.
 func Cmds() []*cobra.Command {
@@ -105,6 +126,26 @@ func Cmds() []*cobra.Command {
 	}
 	getContext.Flags().BoolVar(&active, "active", false, "Get the active context.")
 	commands = append(commands, cmdutil.CreateAlias(getContext, "config get context"))
+
+	setContext := &cobra.Command{
+		Short: "Set a context.",
+		Long:  "Set a context config from a given name and JSON stdin.",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+
+			context, err := readContext()
+			if err != nil {
+				return err
+			}
+
+			cfg.V2.Contexts[args[0]] = context
+			return cfg.Write()
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
 
 	return commands
 }
