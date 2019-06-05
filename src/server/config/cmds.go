@@ -45,7 +45,7 @@ func Cmds() []*cobra.Command {
 	getMetrics := &cobra.Command{
 		Short: "Gets whether metrics are enabled.",
 		Long:  "Gets whether metrics are enabled.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.Run(func(args []string) (retErr error) {
 			cfg, err := config.Read()
 			if err != nil {
 				return err
@@ -170,7 +170,7 @@ func Cmds() []*cobra.Command {
 	listContext := &cobra.Command{
 		Short: "Lists contexts.",
 		Long:  "Lists contexts.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.Run(func(args []string) (retErr error) {
 			cfg, err := config.Read()
 			if err != nil {
 				return err
