@@ -262,7 +262,13 @@ func deployCmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			return contextCreate("google")
+			if !dryRun {
+				err = contextCreate("gcs")
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployGoogle, "deploy google"))
@@ -294,7 +300,13 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err != nil {
 				return err
 			}
-			return contextCreate("custom")
+			if !dryRun {
+				err = contextCreate("custom")
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
@@ -401,7 +413,13 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err != nil {
 				return err
 			}
-			return contextCreate("aws")
+			if !dryRun {
+				err = contextCreate("aws")
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
@@ -451,7 +469,13 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err != nil {
 				return err
 			}
-			return contextCreate("azure")
+			if !dryRun {
+				err = contextCreate("azure")
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
