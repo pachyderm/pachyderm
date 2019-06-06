@@ -97,7 +97,7 @@ func printState(t *testing.T, gcc *Client) {
 func makeJobs(count int) []string {
 	result := []string{}
 	for i := 0; i < count; i++ {
-		result = append(result, testutil.UniqueString("job"))
+		result = append(result, fmt.Sprintf("job-%d", i))
 	}
 	return result
 }
@@ -105,7 +105,7 @@ func makeJobs(count int) []string {
 func makeChunks(count int) []chunk.Chunk {
 	result := []chunk.Chunk{}
 	for i := 0; i < count; i++ {
-		result = append(result, chunk.Chunk{Hash: testutil.UniqueString("")})
+		result = append(result, chunk.Chunk{Hash: testutil.UniqueString(fmt.Sprintf("chunk-%d-", i))})
 	}
 	return result
 }
@@ -155,10 +155,27 @@ func TestUpdateReferences(t *testing.T) {
 
 	// Currently, no links between chunks:
 	// 0 1 2 3 4
-	printState(t, gcc)
+	expectedChunkRows := []chunkRow{
+		{chunks[0].Hash, false},
+		{chunks[1].Hash, false},
+		{chunks[2].Hash, false},
+		{chunks[3].Hash, false},
+		{chunks[4].Hash, false},
+	}
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+
+	expectedRefRows := []refRow{
+		{"job", jobs[0], chunks[0].Hash},
+		{"job", jobs[0], chunks[1].Hash},
+		{"job", jobs[0], chunks[2].Hash},
+		{"job", jobs[1], chunks[2].Hash},
+		{"job", jobs[1], chunks[3].Hash},
+		{"job", jobs[2], chunks[4].Hash},
+	}
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
-		[]Reference{{"chunk", chunks[3].Hash, chunks[0]}},
+		[]Reference{{"chunk", chunks[4].Hash, chunks[0]}},
 		[]Reference{},
 		jobs[0:1],
 	))
@@ -167,7 +184,22 @@ func TestUpdateReferences(t *testing.T) {
 	// 4 2 3 <- referenced by jobs
 	// |
 	// 0
-	printState(t, gcc)
+	expectedChunkRows = []chunkRow{
+		{chunks[0].Hash, false},
+		{chunks[1].Hash, true},
+		{chunks[2].Hash, false},
+		{chunks[3].Hash, false},
+		{chunks[4].Hash, false},
+	}
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+
+	expectedRefRows = []refRow{
+		{"job", jobs[1], chunks[2].Hash},
+		{"job", jobs[1], chunks[3].Hash},
+		{"job", jobs[2], chunks[4].Hash},
+		{"chunk", chunks[4].Hash, chunks[0].Hash},
+	}
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
 		[]Reference{
@@ -184,7 +216,22 @@ func TestUpdateReferences(t *testing.T) {
 	// 4 <- referenced by jobs
 	// |
 	// 0
-	printState(t, gcc)
+	expectedChunkRows = []chunkRow{
+		{chunks[0].Hash, false},
+		{chunks[1].Hash, true},
+		{chunks[2].Hash, false},
+		{chunks[3].Hash, false},
+		{chunks[4].Hash, false},
+	}
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+
+	expectedRefRows = []refRow{
+		{"job", jobs[2], chunks[4].Hash},
+		{"chunk", chunks[4].Hash, chunks[0].Hash},
+		{"semantic", "semantic-2", chunks[2].Hash},
+		{"semantic", "semantic-3", chunks[3].Hash},
+	}
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
 		[]Reference{{"chunk", chunks[4].Hash, chunks[2]}},
@@ -194,9 +241,24 @@ func TestUpdateReferences(t *testing.T) {
 
 	// Chunk 3 should be cleaned up as the semantic reference was removed
 	// Chunk 4 should be cleaned up as the job reference was removed
-	// Chunk 0 should be cleaned up as its only reference was from chunk 4
+	// Chunk 0 should be cleaned up later once chunk 4 has been removed
 	// 2 <- referenced semantically
-	printState(t, gcc)
+	// 0 <- referenced by 4 (deleting)
+	expectedChunkRows = []chunkRow{
+		{chunks[0].Hash, false},
+		{chunks[1].Hash, true},
+		{chunks[2].Hash, false},
+		{chunks[3].Hash, true},
+		{chunks[4].Hash, true},
+	}
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+
+	expectedRefRows = []refRow{
+		{"chunk", chunks[4].Hash, chunks[0].Hash},
+		{"chunk", chunks[4].Hash, chunks[2].Hash},
+		{"semantic", "semantic-2", chunks[2].Hash},
+	}
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
 }
 
 func TestFuzz(t *testing.T) {

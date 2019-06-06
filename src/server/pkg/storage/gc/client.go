@@ -5,18 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
-
-// TODO: remove debugging timing fn
-func timeTrack(start time.Time, name string) {
-	elapsed := time.Since(start)
-	fmt.Printf("%s took %s\n", name, elapsed)
-}
 
 type Client struct {
 	pachClient *client.APIClient
@@ -62,12 +55,12 @@ create table if not exists chunks (
 		return err
 	}
 
-	_, err = db.ExecContext(ctx, `create index on refs (chunk)`)
+	_, err = db.ExecContext(ctx, `create index if not exists idx_chunk on refs (chunk)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = db.ExecContext(ctx, `create index on refs (sourcetype, source)`)
+	_, err = db.ExecContext(ctx, `create index if not exists idx_sourcetype_source on refs (sourcetype, source)`)
 	if err != nil {
 		return err
 	}
@@ -98,7 +91,6 @@ func NewClient(pachClient *client.APIClient, host string, port int16) (*Client, 
 }
 
 func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
-	defer timeTrack(time.Now(), "ReserveChunks")
 	if len(chunks) == 0 {
 		return nil
 	}
@@ -161,7 +153,6 @@ select chunk from added_chunks where deleting is not null;
 }
 
 func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, releaseJobs []string) error {
-	defer timeTrack(time.Now(), "UpdateReferences")
 	ctx := gcc.pachClient.Ctx()
 
 	// TODO: check for conflict errors and retry in a loop
