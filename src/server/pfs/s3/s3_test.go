@@ -682,11 +682,12 @@ func TestView(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	view := make(map[string]*pfs.Commit)
+	repo := "view"
+	view := map[string]*pfs.Commit{"bucket": client.NewCommit(repo, "master.2")}
 	pc, c, close := clients(t, view)
 	defer close()
-	repo := "view"
 	require.NoError(t, pc.CreateRepo(repo))
+
 	_, err := pc.PutFile(repo, "master", "file1", strings.NewReader("content1"))
 	require.NoError(t, err)
 	_, err = pc.PutFile(repo, "master", "file2", strings.NewReader("content2"))
@@ -699,15 +700,7 @@ func TestView(t *testing.T) {
 	_, err = pc.PutFile(otherRepo, "master", "file1", strings.NewReader("content4"))
 	require.NoError(t, err)
 
-	// Because the view is empty (not nil) we don't see any buckets, this case
-	// is degenerate, but seems like the only reasonable behavior.
 	buckets, err := c.ListBuckets()
-	require.NoError(t, err)
-	require.Equal(t, 0, len(buckets))
-
-	view["bucket"] = client.NewCommit(repo, "master.1")
-
-	buckets, err = c.ListBuckets()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(buckets))
 	require.Equal(t, "bucket", buckets[0].Name)
@@ -717,12 +710,15 @@ func TestView(t *testing.T) {
 	for object := range ch {
 		objects = append(objects, object.Key)
 	}
-	require.Equal(t, 1, len(objects))
+	require.Equal(t, 2, len(objects))
 
 	content, err := getObject(t, c, "bucket", "file1")
 	require.NoError(t, err)
 	require.Equal(t, "content1", content)
 
 	_, err = getObject(t, c, bucket(repo, "master"), "file1")
+	require.YesError(t, err)
+
+	_, err = getObject(t, c, "bucket", "file3")
 	require.YesError(t, err)
 }
