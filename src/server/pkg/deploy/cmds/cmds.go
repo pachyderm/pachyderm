@@ -144,24 +144,12 @@ func contextCreate(deploymentName string) error {
 		return err
 	}
 
-	var name string
-	for i := 0; i < 100000; i++ {
-		if i == 0 {
-			name = deploymentName
-		} else {
-			name = fmt.Sprintf("%s-%d", name, i)
-		}
-
-		if _, ok := cfg.V2.Contexts[name]; ok {
-			break
-		}
-	}
-
-	cfg.V2.Contexts[name] = &config.Context{
+	cfg.V2.Contexts[kubeContext] = &config.Context{
 		Source:      config.ContextSource_NONE,
 		KubeContext: kubeContext,
 	}
-	cfg.V2.ActiveContext = name
+	cfg.V2.ActiveContext = kubeContext
+
 	return cfg.Write()
 }
 

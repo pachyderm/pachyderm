@@ -122,13 +122,13 @@ func (c *Config) initV2() error {
 	fmt.Fprintf(os.Stderr, "No config V2 present in config - generating a new one off of the kube context '%s'.\n", kubeContext)
 
 	c.V2 = &ConfigV2{
-		ActiveContext: "migrated",
+		ActiveContext: kubeContext,
 		Contexts:      map[string]*Context{},
 		Metrics:       true,
 	}
 
 	if c.V1 != nil {
-		c.V2.Contexts["migrated"] = &Context{
+		c.V2.Contexts[kubeContext] = &Context{
 			Source:            ContextSource_CONFIG_V1,
 			PachdAddress:      c.V1.PachdAddress,
 			ServerCAs:         c.V1.ServerCAs,
@@ -139,7 +139,7 @@ func (c *Config) initV2() error {
 
 		c.V1 = nil
 	} else {
-		c.V2.Contexts["migrated"] = &Context{
+		c.V2.Contexts[kubeContext] = &Context{
 			Source:      ContextSource_NONE,
 			KubeContext: kubeContext,
 		}
