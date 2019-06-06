@@ -13,7 +13,7 @@ There are four basic rules to how Pachyderm will process your data in
 the pipelines you create.
 
 -  Pachyderm will split your input into individual datums `as you
-   specified <./reference/pipeline_spec.html#the-input-glob-pattern>`__
+   specified <../reference/pipeline_spec.html#the-input-glob-pattern>`__
    in your pipeline spec
 -  each datum will be processed independently, using `the parallelism
    you
@@ -48,7 +48,7 @@ into them in detail, pointing to examples that illustrate them.
 1:1
 ^^^
 
-The best example of this is the `opencv example and beginner’s tutorial <./getting_started/beginner_tutorial.html>`__.
+The best example of this is the `opencv example and beginner’s tutorial <../getting_started/beginner_tutorial.html>`__.
 
 One datum,
 in this case an image,
@@ -64,7 +64,7 @@ in this case, another image.
 ^^^^^^^^^^^^^
 
 A good example of this is a pipeline designed to split an image into many tiles for further analysis,
-an easy extension of the `opencv example <https://pachyderm.readthedocs.io/en/stable/getting_started/beginner_tutorial.html>`__,
+an easy extension of the `opencv example <../getting_started/beginner_tutorial.html>`__,
 left as an exercise for you.
 Each tile is unique in the output by necessity;
 you can’t have one image stomping on another image’s tile!
@@ -131,7 +131,7 @@ When creating pipelines,
 you can use “union” and “cross” operations to combine inputs.
 
 `Union
-input <http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#union-input>`__
+input <../reference/pipeline_spec.html#union-input>`__
 will combine each of the datums in the input repos as one set of datums.
 The result is that the number of datums processed is the sum of all the
 datums in each repo.
@@ -241,14 +241,14 @@ so it’s easier to understand when a file from a particular repo is being proce
     :align: center
     :alt: If you give each input to a union the same name, it can make your code simpler.
 
-`Cross input <http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#cross-input>`__
+`Cross input <../reference/pipeline_spec.html#cross-input>`__
 is a cross-product of all the datums,
 selected by the globs on the repos you’re crossing.
 It provides a combination of all the datums to the pipeline that uses it as input,
 treating each combination as a datum.
 
 There are many examples that show the power of this operator:
-`Combining/Merging/Joining Data <http://docs.pachyderm.io/en/latest/cookbook/combining.html#combining-merging-joining-data>`__
+`Combining/Merging/Joining Data <../cookbook/combining.html#combining-merging-joining-data>`__
 cookbook and
 the `Distributed hyperparameter tuning <https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter>`__
 example are good ones.

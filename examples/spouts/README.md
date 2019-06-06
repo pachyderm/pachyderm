@@ -9,7 +9,7 @@ To create a spout, you need three things
 
 ## Email Sentiment Analysis
 
-[This example](./EmailSentimentAnalysis/) connects to an IMAP mail account, 
+[This example](https://github.com/pachyderm/pachyderm/tree/master/examples/spouts/EmailSentimentAnalyzer) connects to an IMAP mail account, 
 collects all the incoming mail and analyzes it for positive or negative sentiment,
 sorting the emails into folders in its output repo with scoring information added to a header "X-VADER-Sentiment-Score".
 
