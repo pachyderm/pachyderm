@@ -5015,8 +5015,9 @@ func TestPutObjectAsync(t *testing.T) {
 	w, err := client.PutObjectAsync([]*pfs.Tag{tag})
 	require.NoError(t, err)
 	expected := []byte(generateRandomString(30 * MB))
-	_, err = w.Write(expected)
+	n, err := w.Write(expected)
 	require.NoError(t, err)
+	require.Equal(t, len(expected), n)
 	require.NoError(t, w.Close())
 	// Check actual results of write.
 	actual := &bytes.Buffer{}
