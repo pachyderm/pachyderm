@@ -78,7 +78,21 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(setMetrics, "config set metrics"))
 
-	useContext := &cobra.Command{
+	getActiveContext := &cobra.Command{
+		Short: "Gets the currently active context.",
+		Long:  "Gets the currently active context.",
+		Run: cmdutil.Run(func(args []string) (retErr error) {
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s\n", cfg.V2.ActiveContext)
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(getActiveContext, "config get active-context"))
+
+	setActiveContext := &cobra.Command{
 		Short: "Sets the currently active context.",
 		Long:  "Sets the currently active context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
@@ -93,7 +107,7 @@ func Cmds() []*cobra.Command {
 			return cfg.Write()
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(useContext, "config use context"))
+	commands = append(commands, cmdutil.CreateAlias(setActiveContext, "config set active-context"))
 
 	getContext := &cobra.Command{
 		Short: "Gets a context.",
