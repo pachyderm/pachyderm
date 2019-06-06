@@ -193,7 +193,7 @@ func Cmds() []*cobra.Command {
 		}),
 	}
 	updateContext.Flags().StringVar(&pachdAddress, "pachd-address", "", "Set a new name pachd address.")
-	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
+	commands = append(commands, cmdutil.CreateAlias(updateContext, "config update context"))
 
 	deleteContext := &cobra.Command{
 		Short: "Deletes a context.",

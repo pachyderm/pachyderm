@@ -482,6 +482,9 @@ test-pfs-storage:
 test-deploy-cmds:
 	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
 
+test-config:
+	go test ./src/server/config -count 1 -timeout $(TIMEOUT)
+
 test-pps:
 	@# Travis uses the helper directly because it needs to specify a
 	@# subset of the tests using the run flag

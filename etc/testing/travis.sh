@@ -71,7 +71,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
             test-pfs-cmds test-pfs-storage test-deploy-cmds test-libs test-vault test-auth \
             test-enterprise test-worker test-admin test-s3gateway-integration \
-            test-proto-static test-transaction
+            test-proto-static test-transaction test-config
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
 
@@ -79,7 +79,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
         # credentials
         make lint enterprise-code-checkin-test docker-build test-pfs-server \
             test-pfs-cmds test-pfs-storage test-deploy-cmds test-libs test-admin \
-            test-s3gateway-integration
+            test-s3gateway-integration test-config
     fi
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"
