@@ -2875,6 +2875,57 @@ func TestManyFilesSingleCommit(t *testing.T) {
 	require.Equal(t, numFiles, len(fileInfos))
 }
 
+func TestManyFilesSingleOutputCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+	dataRepo := tu.UniqueString("TestManyFilesSingleOutputCommit_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	branch := "master"
+	file := "file"
+	// Setup input.
+	_, err := c.StartCommit(dataRepo, branch)
+	require.NoError(t, err)
+	numFiles := 20000
+	var data string
+	for i := 0; i < numFiles; i++ {
+		data += strconv.Itoa(i) + "\n"
+	}
+	_, err = c.PutFile(dataRepo, branch, file, strings.NewReader(data))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, branch))
+	// Setup pipeline.
+	pipelineName := tu.UniqueString("TestManyFilesSingleOutputCommit")
+	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipelineName),
+			Transform: &pps.Transform{
+				Cmd:   []string{"sh"},
+				Stdin: []string{"while read line; do echo $line > /pfs/out/$line; done < " + path.Join("/pfs", dataRepo, file)},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		},
+	)
+	require.NoError(t, err)
+	// Check results.
+	jis, err := c.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, branch)}, nil)
+	require.Equal(t, 1, len(jis))
+	fileInfos, err := c.ListFile(pipelineName, branch, "")
+	require.NoError(t, err)
+	require.Equal(t, numFiles, len(fileInfos))
+	fileInfos, err = c.ListFile(pipelineName, branch, "/1*")
+	require.NoError(t, err)
+	require.Equal(t, 11111, len(fileInfos))
+	fileInfos, err = c.ListFile(pipelineName, branch, "/5*")
+	require.NoError(t, err)
+	require.Equal(t, 1111, len(fileInfos))
+	fileInfos, err = c.ListFile(pipelineName, branch, "/9*")
+	require.NoError(t, err)
+	require.Equal(t, 1111, len(fileInfos))
+}
+
 func TestStopPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
