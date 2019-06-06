@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -14,42 +15,188 @@ var _ = fmt.Printf // TODO: remove after debugging is done
 
 // TODO: create clients only once
 
-func getPachClient(t testing.TB) *client.APIClient {
+func getPachClient(t *testing.T) *client.APIClient {
 	pachClient, err := client.NewOnUserMachine(false, false, "user")
 	require.NoError(t, err)
 	return pachClient
 }
 
 func getGcClient(t *testing.T) *Client {
-	client, err := NewClient(getPachClient(t), "localhost", 32228)
+	gcc, err := NewClient(getPachClient(t), "localhost", 32228)
 	require.NoError(t, err)
-	return client
+	return gcc
 }
 
-func makeJob() string {
-	return testutil.UniqueString("job")
+func initialize(t *testing.T) *Client {
+	gcc := getGcClient(t)
+	_, err := gcc.db.QueryContext(gcc.pachClient.Ctx(), "delete from chunks *; delete from refs *;")
+	require.NoError(t, err)
+	return gcc
 }
 
-func makeChunk() chunk.Chunk {
-	return chunk.Chunk{Hash: testutil.UniqueString("")}
+type chunkRow struct {
+	chunk    string
+	deleting bool
+}
+
+func allChunkRows(t *testing.T, gcc *Client) []chunkRow {
+	rows, err := gcc.db.QueryContext(gcc.pachClient.Ctx(), "select chunk, deleting from chunks")
+	require.NoError(t, err)
+	defer rows.Close()
+
+	chunks := []chunkRow{}
+
+	for rows.Next() {
+		var chunk string
+		var timestamp pq.NullTime
+		require.NoError(t, rows.Scan(&chunk, &timestamp))
+		chunks = append(chunks, chunkRow{chunk: chunk, deleting: timestamp.Valid})
+	}
+	require.NoError(t, rows.Err())
+
+	return chunks
+}
+
+type refRow struct {
+	sourcetype string
+	source     string
+	chunk      string
+}
+
+func allRefRows(t *testing.T, gcc *Client) []refRow {
+	rows, err := gcc.db.QueryContext(gcc.pachClient.Ctx(), "select sourcetype, source, chunk from refs")
+	require.NoError(t, err)
+	defer rows.Close()
+
+	refs := []refRow{}
+
+	for rows.Next() {
+		row := refRow{}
+		require.NoError(t, rows.Scan(&row.sourcetype, &row.source, &row.chunk))
+		refs = append(refs, row)
+	}
+	require.NoError(t, rows.Err())
+
+	return refs
+}
+
+func printState(t *testing.T, gcc *Client) {
+	chunkRows := allChunkRows(t, gcc)
+	fmt.Printf("Chunks table:\n")
+	for _, row := range chunkRows {
+		fmt.Printf("  %v\n", row)
+	}
+
+	refRows := allRefRows(t, gcc)
+	fmt.Printf("Refs table:\n")
+	for _, row := range refRows {
+		fmt.Printf("  %v\n", row)
+	}
+}
+
+func makeJobs(count int) []string {
+	result := []string{}
+	for i := 0; i < count; i++ {
+		result = append(result, testutil.UniqueString("job"))
+	}
+	return result
+}
+
+func makeChunks(count int) []chunk.Chunk {
+	result := []chunk.Chunk{}
+	for i := 0; i < count; i++ {
+		result = append(result, chunk.Chunk{Hash: testutil.UniqueString("")})
+	}
+	return result
 }
 
 func TestConnectivity(t *testing.T) {
-	getGcClient(t)
+	initialize(t)
 }
 
 func TestReserveChunks(t *testing.T) {
-	gcc := getGcClient(t)
-	chunks := []chunk.Chunk{makeChunk(), makeChunk(), makeChunk()}
+	gcc := initialize(t)
+	jobs := makeJobs(3)
+	chunks := makeChunks(3)
 
 	// No chunks
-	require.NoError(t, gcc.ReserveChunks(makeJob(), chunks[0:0]))
+	require.NoError(t, gcc.ReserveChunks(jobs[0], chunks[0:0]))
 
 	// One chunk
-	require.NoError(t, gcc.ReserveChunks(makeJob(), chunks[0:1]))
+	require.NoError(t, gcc.ReserveChunks(jobs[1], chunks[0:1]))
 
 	// Multiple chunks
-	require.NoError(t, gcc.ReserveChunks(makeJob(), chunks))
+	require.NoError(t, gcc.ReserveChunks(jobs[2], chunks))
+
+	expectedChunkRows := []chunkRow{
+		{chunks[0].Hash, false},
+		{chunks[1].Hash, false},
+		{chunks[2].Hash, false},
+	}
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+
+	expectedRefRows := []refRow{
+		{"job", jobs[1], chunks[0].Hash},
+		{"job", jobs[2], chunks[0].Hash},
+		{"job", jobs[2], chunks[1].Hash},
+		{"job", jobs[2], chunks[2].Hash},
+	}
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
+}
+
+func TestUpdateReferences(t *testing.T) {
+	gcc := initialize(t)
+	jobs := makeJobs(3)
+	chunks := makeChunks(5)
+
+	require.NoError(t, gcc.ReserveChunks(jobs[0], chunks[0:3])) // 0, 1, 2
+	require.NoError(t, gcc.ReserveChunks(jobs[1], chunks[2:4])) // 2, 3
+	require.NoError(t, gcc.ReserveChunks(jobs[2], chunks[4:5])) // 4
+
+	// Currently, no links between chunks:
+	// 0 1 2 3 4
+	printState(t, gcc)
+
+	require.NoError(t, gcc.UpdateReferences(
+		[]Reference{{"chunk", chunks[3].Hash, chunks[0]}},
+		[]Reference{},
+		jobs[0:1],
+	))
+
+	// Chunk 1 should be cleaned up as unreferenced
+	// 4 2 3 <- referenced by jobs
+	// |
+	// 0
+	printState(t, gcc)
+
+	require.NoError(t, gcc.UpdateReferences(
+		[]Reference{
+			{"semantic", "semantic-3", chunks[3]},
+			{"semantic", "semantic-2", chunks[2]},
+		},
+		[]Reference{},
+		jobs[1:2],
+	))
+
+	// No chunks should be cleaned up, the job reference to 2 and 3 were replaced
+	// with semantic references
+	// 2 3 <- referenced semantically
+	// 4 <- referenced by jobs
+	// |
+	// 0
+	printState(t, gcc)
+
+	require.NoError(t, gcc.UpdateReferences(
+		[]Reference{{"chunk", chunks[4].Hash, chunks[2]}},
+		[]Reference{{"semantic", "semantic-3", chunks[3]}},
+		jobs[2:3],
+	))
+
+	// Chunk 3 should be cleaned up as the semantic reference was removed
+	// Chunk 4 should be cleaned up as the job reference was removed
+	// Chunk 0 should be cleaned up as its only reference was from chunk 4
+	// 2 <- referenced semantically
+	printState(t, gcc)
 }
 
 func TestFuzz(t *testing.T) {

@@ -4,23 +4,29 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
+// TODO: remove debugging timing fn
+func timeTrack(start time.Time, name string) {
+	elapsed := time.Since(start)
+	fmt.Printf("%s took %s\n", name, elapsed)
+}
+
 type Client struct {
-	pachClient           *client.APIClient
-	db                   *sql.DB
-	reserveChunksStmt    *sql.Stmt
-	updateReferencesStmt *sql.Stmt
+	pachClient *client.APIClient
+	db         *sql.DB
 }
 
 type Reference struct {
-	chunk      chunk.Chunk
 	sourcetype string
 	source     string
+	chunk      chunk.Chunk
 }
 
 func initializeDb(db *sql.DB, ctx context.Context) error {
@@ -85,11 +91,36 @@ func NewClient(pachClient *client.APIClient, host string, port int16) (*Client, 
 		return nil, err
 	}
 
-	reserveChunksStmt, err := db.PrepareContext(ctx, `
+	return &Client{
+		db:         db,
+		pachClient: pachClient,
+	}, nil
+}
+
+func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
+	defer timeTrack(time.Now(), "ReserveChunks")
+	if len(chunks) == 0 {
+		return nil
+	}
+
+	ctx := gcc.pachClient.Ctx()
+
+	// TODO: check for conflict errors and retry in a loop
+	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return err
+	}
+
+	questions := []string{}
+	for i := 0; i < len(chunks); i++ {
+		questions = append(questions, fmt.Sprintf("($%d)", 2+i))
+	}
+
+	query := `
 with
 added_chunks as (
  insert into chunks (chunk)
-  values ($2)
+  values ` + strings.Join(questions, ",") + `
  on conflict (chunk) do update set chunk = excluded.chunk
  returning chunk, deleting
 ),
@@ -104,60 +135,14 @@ added_refs as (
 )
 
 select chunk from added_chunks where deleting is not null;
-	`)
-	if err != nil {
-		return nil, err
-	}
+	`
 
-	updateReferencesStmt, err := db.PrepareContext(ctx, `
-with
-del_refs as (
- delete from refs where (sourcetype, source, chunk) in ($1) or (sourcetype, source) in ($2)
- returning chunk
-),
-counts as (
- select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1
-)
-
-update chunks set
- deleting = now()
-from counts where
- counts.chunk = chunks.chunk and
- count = 0
-returning chunks.chunk;
-	`)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Client{
-		db:                   db,
-		pachClient:           pachClient,
-		reserveChunksStmt:    reserveChunksStmt,
-		updateReferencesStmt: updateReferencesStmt,
-	}, nil
-}
-
-func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
-	if len(chunks) == 0 {
-		return nil
-	}
-
-	ctx := gcc.pachClient.Ctx()
-
-	// TODO: check for conflict errors and retry in a loop
-	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		return err
-	}
-
-	strChunks := []string{}
+	parameters := []interface{}{job}
 	for _, chunk := range chunks {
-		strChunks = append(strChunks, chunk.Hash)
+		parameters = append(parameters, chunk.Hash)
 	}
 
-	txnStmt := txn.StmtContext(ctx, gcc.reserveChunksStmt)
-	rows, err := txnStmt.QueryContext(ctx, job, pq.Array(strChunks)) // TODO: probably wrong way to insert chunks
+	rows, err := txn.QueryContext(ctx, query, parameters...)
 	if err != nil {
 		return err
 	}
@@ -176,6 +161,7 @@ func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
 }
 
 func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, releaseJobs []string) error {
+	defer timeTrack(time.Now(), "UpdateReferences")
 	ctx := gcc.pachClient.Ctx()
 
 	// TODO: check for conflict errors and retry in a loop
@@ -200,15 +186,53 @@ func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, release
 		return err
 	}
 
-	removes := []string{}
-	jobs := []string{}
+	var removeStr string
+	if len(remove) == 0 {
+		removeStr = "null"
+	} else {
+		removes := []string{}
+		for _, ref := range remove {
+			removes = append(removes, fmt.Sprintf("('%s', '%s', '%s')", ref.sourcetype, ref.source, ref.chunk.Hash))
+		}
+		removeStr = strings.Join(removes, ",")
+	}
 
-	txnStmt := txn.StmtContext(ctx, gcc.updateReferencesStmt)
-	defer txnStmt.Close()
-	rows, err := txnStmt.QueryContext(ctx, pq.Array(removes), pq.Array(jobs)) // TODO: probably wrong way to insert things
+	var jobStr string
+	if len(releaseJobs) == 0 {
+		jobStr = "null"
+	} else {
+		jobs := []string{}
+		for _, job := range releaseJobs {
+			jobs = append(jobs, fmt.Sprintf("('job', '%s')", job))
+		}
+		jobStr = strings.Join(jobs, ",")
+	}
+
+	query := `
+with
+del_refs as (
+ delete from refs where
+  (sourcetype, source, chunk) in (` + removeStr + `) or 
+	(sourcetype, source) in (` + jobStr + `)
+ returning chunk
+),
+counts as (
+ select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1
+)
+
+update chunks set
+ deleting = now()
+from counts where
+ counts.chunk = chunks.chunk and
+ count = 0
+returning chunks.chunk;
+	`
+
+	rows, err := txn.QueryContext(ctx, query)
 	if err != nil {
 		return err
 	}
+
 	rows.Close()
 
 	if err := txn.Commit(); err != nil {
