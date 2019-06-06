@@ -218,13 +218,11 @@ func deployCmds() []*cobra.Command {
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
 			}
-			err = kubectlCreate(dryRun, manifest, opts)
-			if err != nil {
+			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
 				return err
 			}
 			if !dryRun {
-				err = contextCreate("local")
-				if err != nil {
+				if err := contextCreate("local"); err != nil {
 					return err
 				}
 			}
@@ -268,13 +266,11 @@ func deployCmds() []*cobra.Command {
 			if err = assets.WriteGoogleAssets(manifest, opts, bucket, cred, volumeSize); err != nil {
 				return err
 			}
-			err = kubectlCreate(dryRun, manifest, opts)
-			if err != nil {
+			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
 				return err
 			}
 			if !dryRun {
-				err = contextCreate("gcs")
-				if err != nil {
+				if err := contextCreate("gcs"); err != nil {
 					return err
 				}
 			}
@@ -306,13 +302,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err != nil {
 				return err
 			}
-			err = kubectlCreate(dryRun, manifest, opts)
-			if err != nil {
+			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
 				return err
 			}
 			if !dryRun {
-				err = contextCreate("custom")
-				if err != nil {
+				if err := contextCreate("custom"); err != nil {
 					return err
 				}
 			}
@@ -419,13 +413,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err = assets.WriteAmazonAssets(manifest, opts, region, bucket, volumeSize, amazonCreds, cloudfrontDistribution); err != nil {
 				return err
 			}
-			err = kubectlCreate(dryRun, manifest, opts)
-			if err != nil {
+			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
 				return err
 			}
 			if !dryRun {
-				err = contextCreate("aws")
-				if err != nil {
+				if err := contextCreate("aws"); err != nil {
 					return err
 				}
 			}
@@ -475,13 +467,11 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err = assets.WriteMicrosoftAssets(manifest, opts, container, accountName, accountKey, volumeSize); err != nil {
 				return err
 			}
-			err = kubectlCreate(dryRun, manifest, opts)
-			if err != nil {
+			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
 				return err
 			}
 			if !dryRun {
-				err = contextCreate("azure")
-				if err != nil {
+				if err := contextCreate("azure"); err != nil {
 					return err
 				}
 			}
