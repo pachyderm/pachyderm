@@ -228,7 +228,7 @@ func Cmds() []*cobra.Command {
 			i := 0
 			for key := range cfg.V2.Contexts {
 				keys[i] = key
-				i += 1
+				i++
 			}
 			sort.Strings(keys)
 
