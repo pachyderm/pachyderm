@@ -284,6 +284,9 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 		if err != nil {
 			return "", nil, err
 		}
+		if context == nil {
+			return envAddr, options, nil
+		}
 		if context.Source == config.ContextSource_CONFIG_V1 {
 			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and will be removed in a future version. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
 			return envAddr, options, nil
@@ -292,7 +295,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 	}
 
 	// 2) Get target address from global config if possible
-	if context.PachdAddress != "" {
+	if context != nil && context.PachdAddress != "" {
 		// Also get cert info from config (if set)
 		if context.ServerCAs != "" {
 			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
@@ -338,16 +341,32 @@ func portForwarder() *PortForwarder {
 	return fw
 }
 
-// NewOnUserMachine constructs a new APIClient using env vars that may be set
-// on a user's machine (i.e. PACHD_ADDRESS), as well as
-// $HOME/.pachyderm/config if it  exists. This is primarily intended to be
-// used with the pachctl binary, but may also be useful in tests.
+// NewForTest constructs a new APIClient for tests.
+func NewForTest() (*APIClient, error) {
+	// create new pachctl client
+	addr, cfgOptions, err := getUserMachineAddrAndOpts(nil)
+	if err != nil {
+		return nil, err
+	}
+	if addr == "" {
+		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+	}
+
+	client, err := NewFromAddress(addr, cfgOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to pachd at %q: %v", addr, err)
+	}
+	return client, nil
+}
+
+// NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
+// if it exists. This is intended to be used in the pachctl binary.
 //
 // TODO(msteffen) this logic is fairly linux/unix specific, and makes the
 // pachyderm client library incompatible with Windows. We may want to move this
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
-func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*APIClient, error) {
+func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	cfg, err := config.Read()
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
@@ -400,7 +419,7 @@ func NewOnUserMachine(reportMetrics bool, prefix string, options ...Option) (*AP
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg.UserID != "" && reportMetrics && !cfg.V2.NoMetrics {
+	if cfg.UserID != "" && !cfg.V2.NoMetrics {
 		client.metricsUserID = cfg.UserID
 	}
 	if context.SessionToken != "" {

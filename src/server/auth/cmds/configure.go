@@ -24,7 +24,7 @@ func GetConfigCmd() *cobra.Command {
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}
@@ -69,7 +69,7 @@ func SetConfigCmd() *cobra.Command {
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %v", err)
 			}

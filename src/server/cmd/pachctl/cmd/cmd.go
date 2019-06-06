@@ -401,9 +401,11 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, "user", client.WithDialTimeout(timeout))
+				// TODO(ys): metrics used to be force-disabled here, do we still want that?
+				pachClient, err = client.NewOnUserMachine("user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, "user")
+				// TODO(ys): metrics used to be force-disabled here, do we still want that?
+				pachClient, err = client.NewOnUserMachine("user")
 			}
 			if err != nil {
 				return err
@@ -451,7 +453,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(true, "user")
+			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}

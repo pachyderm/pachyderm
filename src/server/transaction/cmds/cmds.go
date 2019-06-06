@@ -55,7 +55,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "List transactions.",
 		Long:  "List transactions.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -87,7 +87,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Start a new transaction.",
 		Long:  "Start a new transaction.",
 		Run: cmdutil.RunFixedArgs(0, func([]string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -135,7 +135,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Execute and clear the currently active transaction.",
 		Long:  "Execute and clear the currently active transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -174,7 +174,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Cancel and delete an existing transaction.",
 		Long:  "Cancel and delete an existing transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -218,7 +218,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Print information about an open transaction.",
 		Long:  "Print information about an open transaction.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -259,7 +259,7 @@ transaction' or cancelled with 'delete transaction'.`,
 		Short: "Set an existing transaction as active.",
 		Long:  "Set an existing transaction as active.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(true, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}

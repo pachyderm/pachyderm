@@ -99,7 +99,7 @@ func initSeedClient(tb testing.TB) {
 	if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
 		seedClient, err = client.NewInCluster()
 	} else {
-		seedClient, err = client.NewOnUserMachine(false, false, "user")
+		seedClient, err = client.NewForTest()
 	}
 	require.NoError(tb, err)
 	// discard any credentials from the user's machine (seedClient is

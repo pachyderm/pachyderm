@@ -481,7 +481,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
 
 	deployStorageSecrets := func(data map[string][]byte) error {
-		c, err := client.NewOnUserMachine(true, "user")
+		c, err := client.NewOnUserMachine("user")
 		if err != nil {
 			return fmt.Errorf("error constructing pachyderm client: %v", err)
 		}
