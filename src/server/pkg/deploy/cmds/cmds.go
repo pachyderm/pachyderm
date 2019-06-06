@@ -659,7 +659,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
 				LogLevel:                logLevel,
-				Metrics:                 cfg == nil || !cfg.V2.NoMetrics,
+				Metrics:                 cfg == nil || cfg.V2.Metrics,
 				PachdCPURequest:         pachdCPURequest,
 				PachdNonCacheMemRequest: pachdNonCacheMemRequest,
 				BlockCacheSize:          blockCacheSize,

@@ -419,7 +419,7 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg.UserID != "" && !cfg.V2.NoMetrics {
+	if cfg.UserID != "" && cfg.V2.Metrics {
 		client.metricsUserID = cfg.UserID
 	}
 	if context.SessionToken != "" {

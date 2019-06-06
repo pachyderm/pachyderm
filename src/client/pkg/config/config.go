@@ -124,6 +124,7 @@ func (c *Config) initV2() error {
 	c.V2 = &ConfigV2{
 		ActiveContext: "migrated",
 		Contexts:      map[string]*Context{},
+		Metrics:       true,
 	}
 
 	if c.V1 != nil {

@@ -369,7 +369,6 @@ Environment variables:
 				return nil
 			}
 
-			// TODO: check in metrics whether config.NoMetrics is set
 			start := time.Now()
 			startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
 			defer startMetricsWait()

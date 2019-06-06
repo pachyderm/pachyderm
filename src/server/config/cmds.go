@@ -50,7 +50,7 @@ func Cmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%v\n", !cfg.V2.NoMetrics)
+			fmt.Printf("%v\n", cfg.V2.Metrics)
 			return nil
 		}),
 	}
@@ -72,7 +72,7 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 
-			cfg.V2.NoMetrics = !metrics
+			cfg.V2.Metrics = metrics
 			return cfg.Write()
 		}),
 	}
