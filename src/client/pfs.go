@@ -1447,12 +1447,8 @@ func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
 		// remove those bytes from p.
 		i := cap(w.buf) - len(w.buf)
 		w.buf = append(w.buf, p[:i]...)
-		select {
-		case err := <-w.errChan:
-			if err != nil {
-				return 0, grpcutil.ScrubGRPC(err)
-			}
-		case w.writeChan <- w.buf:
+		if err := w.writeBuf(); err != nil {
+			return 0, err
 		}
 		written += i
 		p = p[i:]
@@ -1465,12 +1461,8 @@ func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
 
 // Close closes the writer.
 func (w *PutObjectWriteCloserAsync) Close() error {
-	select {
-	case err := <-w.errChan:
-		if err != nil {
-			return grpcutil.ScrubGRPC(err)
-		}
-	case w.writeChan <- w.buf:
+	if err := w.writeBuf(); err != nil {
+		return err
 	}
 	close(w.writeChan)
 	err := <-w.errChan
@@ -1479,6 +1471,17 @@ func (w *PutObjectWriteCloserAsync) Close() error {
 	}
 	w.object, err = w.client.CloseAndRecv()
 	return grpcutil.ScrubGRPC(err)
+}
+
+func (w *PutObjectWriteCloserAsync) writeBuf() error {
+	select {
+	case err := <-w.errChan:
+		if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	case w.writeChan <- w.buf:
+	}
+	return nil
 }
 
 // Object gets the pfs object for this writer.
