@@ -150,7 +150,7 @@ func (c *Config) initV2() error {
 // file.
 func (c *Config) Write() error {
 	if c.V1 != nil {
-		panic("v1 config included, implying a bug")
+		panic("v1 config included (this is likely a bug)")
 	}
 
 	rawConfig, err := json.MarshalIndent(c, "", "  ")
