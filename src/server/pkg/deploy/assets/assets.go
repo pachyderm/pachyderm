@@ -1299,8 +1299,6 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	if opts.Registry != "" {
 		image = AddRegistry(opts.Registry, postgresImage)
 	}
-	// postgresUser := int64(999)
-	// postgresGroup := int64(999)
 	return &apps.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -1319,10 +1317,6 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 						{
 							Name:  postgresName,
 							Image: image,
-							//SecurityContext: &v1.SecurityContext{
-							//	RunAsUser:  &postgresUser,
-							//	RunAsGroup: &postgresGroup,
-							//},
 							//TODO figure out how to get a cluster of these to talk to each other
 							Ports: []v1.ContainerPort{
 								{

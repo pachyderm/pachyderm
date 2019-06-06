@@ -85,7 +85,6 @@ func NewClient(pachClient *client.APIClient, host string, port int16) (*Client, 
 		return nil, err
 	}
 
-	fmt.Printf("making reserve chunks statement\n")
 	reserveChunksStmt, err := db.PrepareContext(ctx, `
 with
 added_chunks as (
@@ -110,15 +109,10 @@ select chunk from added_chunks where deleting is not null;
 		return nil, err
 	}
 
-	fmt.Printf("making update references statement\n")
-
 	updateReferencesStmt, err := db.PrepareContext(ctx, `
 with
-added_refs as (
- insert into refs (sourcetype, source, chunk) values $1
-),
 del_refs as (
- delete from refs where (sourcetype, source, chunk) in ($2) or (sourcetype, source) in ($3)
+ delete from refs where (sourcetype, source, chunk) in ($1) or (sourcetype, source) in ($2)
  returning chunk
 ),
 counts as (
@@ -145,6 +139,10 @@ returning chunks.chunk;
 }
 
 func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
+	if len(chunks) == 0 {
+		return nil
+	}
+
 	ctx := gcc.pachClient.Ctx()
 
 	// TODO: check for conflict errors and retry in a loop
@@ -163,7 +161,9 @@ func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+
+	// The cursor must be closed before committing
+	rows.Close()
 
 	if err := txn.Commit(); err != nil {
 		return err
@@ -184,16 +184,32 @@ func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, release
 		return err
 	}
 
-	adds := []string{}
+	insertStmt, err := txn.Prepare(pq.CopyIn("refs", "sourcetype", "source", "chunk"))
+	if err != nil {
+		return err
+	}
+	defer insertStmt.Close()
+	for _, ref := range add {
+		_, err := insertStmt.Exec(ref.sourcetype, ref.source, ref.chunk.Hash)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = insertStmt.Exec()
+	if err != nil {
+		return err
+	}
+
 	removes := []string{}
 	jobs := []string{}
 
 	txnStmt := txn.StmtContext(ctx, gcc.updateReferencesStmt)
-	rows, err := txnStmt.QueryContext(ctx, pq.Array(adds), pq.Array(removes), pq.Array(jobs)) // TODO: probably wrong way to insert things
+	defer txnStmt.Close()
+	rows, err := txnStmt.QueryContext(ctx, pq.Array(removes), pq.Array(jobs)) // TODO: probably wrong way to insert things
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	rows.Close()
 
 	if err := txn.Commit(); err != nil {
 		return err

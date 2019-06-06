@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -8,6 +9,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 )
+
+var _ = fmt.Printf // TODO: remove after debugging is done
 
 // TODO: create clients only once
 
