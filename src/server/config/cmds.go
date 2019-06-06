@@ -7,12 +7,17 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/spf13/cobra"
+)
+
+const (
+	listContextHeader = "ACITVE\tNAME"
 )
 
 func readContext() (*config.Context, error) {
@@ -218,11 +223,21 @@ func Cmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			for name := range cfg.V2.Contexts {
-				if name == cfg.V2.ActiveContext {
-					fmt.Printf("* %s\n", name)
+
+			keys := make([]string, len(cfg.V2.Contexts))
+			i := 0
+			for key := range cfg.V2.Contexts {
+				keys[i] = key
+				i += 1
+			}
+			sort.Strings(keys)
+
+			fmt.Println(listContextHeader)
+			for _, key := range keys {
+				if key == cfg.V2.ActiveContext {
+					fmt.Printf("*\t%s\n", key)
 				} else {
-					fmt.Printf("  %s\n", name)
+					fmt.Printf("\t%s\n", key)
 				}
 			}
 			return nil
