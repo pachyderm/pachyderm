@@ -1023,35 +1023,6 @@ func (d *driver) makeCommit(
 		newCommitInfo.Branch = branchInfo.Branch
 	}
 
-	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
-	// newCommit to parent's ChildCommits
-	if parent.ID != "" {
-		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
-		// happen if 'branch' is new and diverges from the existing branch in
-		// 'parent.ID')
-		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
-		if err != nil {
-			return nil, fmt.Errorf("parent commit not found: %v", err)
-		}
-		// fail if the parent commit has not been finished
-		if parentCommitInfo.Finished == nil {
-			return nil, fmt.Errorf("parent commit %s has not been finished", parent.ID)
-		}
-		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
-			newCommitInfo.ParentCommit = parent
-			// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
-			if newCommitInfo.Branch == nil {
-				newCommitInfo.Branch = parentCommitInfo.Branch
-			}
-			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
-			return nil
-		}); err != nil {
-			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
-			// missing/invalid commit ID
-			return nil, fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
-		}
-	}
-
 	// 1. Write 'newCommit' to 'openCommits' collection OR
 	// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
 	//    "FinishCommit case" above)
@@ -1116,6 +1087,8 @@ func (d *driver) makeCommit(
 		}
 	}
 
+	// keep track of which branches are represented in the commit provenance
+	provenantBranches := make(map[string]bool)
 	// Copy newCommitProv into newCommitInfo.Provenance, and update upstream subv
 	for _, prov := range newCommitProv {
 		// resolve the provenance
@@ -1124,6 +1097,11 @@ func (d *driver) makeCommit(
 		if err != nil {
 			return nil, err
 		}
+		// there should only be one representative of each branch in the commit provenance
+		if _, ok := provenantBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)]; ok {
+			return nil, fmt.Errorf("the commit provenance contains multiple commits from the same branch")
+		}
+		provenantBranches[key(prov.Branch.Repo.Name, prov.Branch.Name)] = true
 
 		// ensure the commit provenance is consistent with the branch provenance
 		if len(branchProvMap) != 0 {
@@ -1139,6 +1117,35 @@ func (d *driver) makeCommit(
 			return nil
 		}); err != nil {
 			return nil, err
+		}
+	}
+
+	// Set newCommit.ParentCommit (if 'parent' and/or 'branch' was set) and add
+	// newCommit to parent's ChildCommits
+	if parent.ID != "" {
+		// Resolve parent.ID if it's a branch that isn't 'branch' (which can
+		// happen if 'branch' is new and diverges from the existing branch in
+		// 'parent.ID')
+		parentCommitInfo, err := d.resolveCommit(txnCtx.Stm, parent)
+		if err != nil {
+			return nil, fmt.Errorf("parent commit not found: %v", err)
+		}
+		// fail if the parent commit has not been finished
+		if parentCommitInfo.Finished == nil {
+			return nil, fmt.Errorf("parent commit %s has not been finished", parent.ID)
+		}
+		if err := commits.Update(parent.ID, parentCommitInfo, func() error {
+			newCommitInfo.ParentCommit = parent
+			// If we don't know the branch the commit belongs to at this point, assume it is the same as the parent branch
+			if newCommitInfo.Branch == nil {
+				newCommitInfo.Branch = parentCommitInfo.Branch
+			}
+			parentCommitInfo.ChildCommits = append(parentCommitInfo.ChildCommits, newCommit)
+			return nil
+		}); err != nil {
+			// Note: error is emitted if parent.ID is a missing/invalid branch OR a
+			// missing/invalid commit ID
+			return nil, fmt.Errorf("could not resolve parent commit \"%s\": %v", parent.ID, err)
 		}
 	}
 
