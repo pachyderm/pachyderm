@@ -119,6 +119,7 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(getContext, "config get context"))
 
+	var overwrite bool
 	setContext := &cobra.Command{
 		Short: "Set a context.",
 		Long:  "Set a context config from a given name and JSON stdin.",
@@ -133,10 +134,46 @@ func Cmds() []*cobra.Command {
 				return err
 			}
 
+			if !overwrite {
+				if _, ok := cfg.V2.Contexts[args[0]]; ok {
+					return fmt.Errorf("context '%s' already exists, use `--overwrite` if you wish to replace it", args[0])
+				}
+			}
+
 			cfg.V2.Contexts[args[0]] = context
 			return cfg.Write()
 		}),
 	}
+	setContext.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite a context if it already exists.")
+	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
+
+	var pachdAddress string
+	updateContext := &cobra.Command{
+		Short: "Updates a context.",
+		Long:  "Updates an existing context config from a given name.",
+		Run: cmdutil.RunCmdFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
+			cfg, err := config.Read()
+			if err != nil {
+				return err
+			}
+
+			context, ok := cfg.V2.Contexts[args[0]]
+			if !ok {
+				return fmt.Errorf("context does not exist: %s", args[0])
+			}
+
+			if cmd.Flags().Changed("pachd-address") {
+				// Use this method since we want to differentiate between no
+				// `pachd-address` flag being set (the value shouldn't be
+				// changed) vs the flag being an empty string (meaning we want
+				// to set the value to an empty string)
+				context.PachdAddress = pachdAddress
+			}
+
+			return cfg.Write()
+		}),
+	}
+	updateContext.Flags().StringVar(&pachdAddress, "pachd-address", "", "Set a new name pachd address.")
 	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
 
 	deleteContext := &cobra.Command{
