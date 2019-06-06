@@ -1035,8 +1035,8 @@ func TestRunPipeline(t *testing.T) {
 		_, err = c.FlushCommit([]*pfs.Commit{commitA1, commitA2}, nil)
 		require.NoError(t, err)
 
-		// now run the pipeline with unrelated provenance
-		require.NoError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
+		// now run the pipeline with provenance from the same branch
+		require.YesError(t, c.RunPipeline(pipeline, []*pfs.CommitProvenance{
 			client.NewCommitProvenance(dataRepo, branchA, commitA1.ID),
 			client.NewCommitProvenance(dataRepo, branchA, commitA2.ID)},
 		))
