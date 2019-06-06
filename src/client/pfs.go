@@ -1465,7 +1465,13 @@ func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
 
 // Close closes the writer.
 func (w *PutObjectWriteCloserAsync) Close() error {
-	w.writeChan <- w.buf
+	select {
+	case err := <-w.errChan:
+		if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	case w.writeChan <- w.buf:
+	}
 	close(w.writeChan)
 	err := <-w.errChan
 	if err != nil {
