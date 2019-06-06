@@ -201,11 +201,19 @@ You can also use the `-u` or `--url` flag to get the backup directly from the ob
 
 ## Notes and design considerations
 
-### Loading data from other sources into pachyderm
+### Loading data from other sources into Pachyderm
 
-When writing systems that place data into Pachyderm input repos (see [above](#pausing-data-loading-operations) for a definition of 'input repo'), it is important to provide ways of 'pausing' output while queueing any data output requests to be output when the systems are 'resumed'.  This allows all pachyderm processing to be stopped while the extract takes place.
+When writing systems that place data into Pachyderm input repos (see [above](#pausing-data-loading-operations) for a definition of 'input repo'), 
+it is important to provide ways of 'pausing' output while queueing any data output requests to be output when the systems are 'resumed'.
+This allows all Pachyderm processing to be stopped while the extract takes place.
 
-In addition, it is desirable for systems that load data into Pachyderm have a mechanism for replaying a queue from any checkpoint in time.  This is useful when doing migrations from one release to another, where you would like to minimize downtime of a production Pachyderm system.  After an extract, the old system is kept running with the checkpoint established while a duplicate, upgraded pachyderm cluster is migrated with duplicated data. Transactions that occur while the migrated, upgraded cluster is being brought up are not lost, and can be replayed into this new cluster to reestablish state and minimize downtime.
+In addition, it is desirable for systems that load data into Pachyderm have a mechanism for replaying a queue from any checkpoint in time.
+This is useful when doing migrations from one release to another, where you would like to minimize downtime of a production Pachyderm system. 
+After an extract, 
+the old system is kept running with the checkpoint established while a duplicate, upgraded pachyderm cluster is migrated with duplicated data. 
+Transactions that occur while the migrated, 
+upgraded cluster is being brought up are not lost, 
+and can be replayed into this new cluster to reestablish state and minimize downtime.
 
 ### Note about releases prior to Pachyderm 1.7
 
