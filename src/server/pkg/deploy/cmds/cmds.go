@@ -218,7 +218,17 @@ func deployCmds() []*cobra.Command {
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
 			}
-			return kubectlCreate(dryRun, manifest, opts)
+			err = kubectlCreate(dryRun, manifest, opts)
+			if err != nil {
+				return err
+			}
+			if !dryRun {
+				err = contextCreate("local")
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
