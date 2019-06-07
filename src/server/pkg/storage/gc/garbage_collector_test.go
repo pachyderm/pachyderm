@@ -16,30 +16,36 @@ import (
 var _ = fmt.Printf // TODO: remove after debugging is done
 
 // A mock server to use for tests that immediately responds to requests
-type immediateServer struct {
+type testServer struct {
 	db *sql.DB
 }
 
-func (im *immediateServer) Ctx() context.Context {
+func makeServer(t *testing.T) *testServer {
+}
+
+func (im *testServer) Ctx() context.Context {
 	return context.Background()
 }
 
-func (im *immediateServer) DeleteChunks(chunks []chunk.Chunk) error {
+func (im *testServer) DeleteChunks(chunks []chunk.Chunk) error {
 	return nil
 }
 
-func (im *immediateServer) FlushDeletes([]chunk.Chunk) error {
+func (im *testServer) FlushDeletes([]chunk.Chunk) error {
 	return nil
 }
 
-func getGcClient(t *testing.T) *Client {
-	gcc, err := NewClient(&immediateServer{}, "localhost", 32228)
+func makeClient(t *testing.T, server *testServer) *Client {
+	if server == nil {
+		server = makeServer(t)
+	}
+	gcc, err := NewClient(server, "localhost", 32228)
 	require.NoError(t, err)
 	return gcc
 }
 
 func initialize(t *testing.T) *Client {
-	gcc := getGcClient(t)
+	gcc := makeClient(t, nil)
 	_, err := gcc.db.QueryContext(gcc.server.Ctx(), "delete from chunks *; delete from refs *;")
 	require.NoError(t, err)
 	return gcc
@@ -274,22 +280,61 @@ func TestUpdateReferences(t *testing.T) {
 
 func TestFuzz(t *testing.T) {
 	numClients := 3
-	eg, _ := errgroup.WithContext(context.Background())
+	eg, egctx := errgroup.WithContext(context.Background())
+	ctx, cancel := context.WithCancel(egctx)
+
+	sem := semaphore.NewWeighted(numClients)
+
+	// block workers from running until we're ready
+	require.NoError(sem.acquire(ctx, numClients))
+
+	// Set up a global ref registry with a mutex to track what the values should be in the database
+	mutex := sync.Mutex{}
+	chunkRefs := map[string][]Reference{}
+	outstandingJobs := []string{}
+
+	updateChunkRefs := func() error {
+		chunkRefsMutex.Lock()
+
+		defer chunkRefsMutex.Unlock()
+	}
+
+	iterate := func() error {
+		if err := sem.acquire(ctx, 1); err != nil {
+			return nil
+		}
+		defer sem.release(1)
+
+		// Choose a thing to do
+		// Run random add/remove operations, only allow references to go from lower numbers to higher numbers to keep it acyclic
+	}
 
 	// Set up several parallel goroutines each with their own client
 	for i := 0; i < numClients; i++ {
 		eg.Go(func() error {
-			return nil
+			for {
+				if err := iterate(); err != nil {
+					if err == context.Canceled {
+						return nil
+					}
+					return err
+				}
+			}
 		})
 	}
+	defer func() {
+		// TODO: make this play nicely with a require panic
+		cancel()
+		require.NoError(t, eg.Wait())
+	}()
 
-	// Set up a global ref registry with a mutex to track what the values should end up as
+	// Occasionally halt all goroutines and check data consistency
+	for i := 0; i < 5; i++ {
+		sem.release(numClients)
+		time.Sleep(time.Second)
+		require.NoError(sem.acquire(ctx, numClients))
+	}
 
-	// Run random add/remove operations, only allow references to go from lower numbers to higher numbers to keep it acyclic
-
-	// Occasionally halt all goroutines and check reference counts in the db
-
-	// Repeat for some amount of time
-
-	require.NoError(t, eg.Wait())
+	// Shut down the clients, collect errors
+	sem.acquire(ctx, numClients)
 }
