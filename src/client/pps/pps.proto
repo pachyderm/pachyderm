@@ -259,22 +259,22 @@ message EtcdJobInfo {
 message JobInfo {
   reserved 4, 5, 28;
   Job job = 1;
-  Transform transform = 2;
+  Transform transform = 2;                     // requires ListJobRequest.Full
   Pipeline pipeline = 3;
-  uint64 pipeline_version = 13;
+  uint64 pipeline_version = 13;                // requires ListJobRequest.Full
   pfs.Commit spec_commit = 47;
-  ParallelismSpec parallelism_spec = 12;
-  Egress egress = 15;
+  ParallelismSpec parallelism_spec = 12;       // requires ListJobRequest.Full
+  Egress egress = 15;                          // requires ListJobRequest.Full
   Job parent_job = 6;
   google.protobuf.Timestamp started = 7;
   google.protobuf.Timestamp finished = 8;
   pfs.Commit output_commit = 9;
   JobState state = 10;
   string reason = 35;  // reason explains why the job is in the current state
-  Service service = 14;
-  Spout spout = 45;
+  Service service = 14;                        // requires ListJobRequest.Full
+  Spout spout = 45;                            // requires ListJobRequest.Full
   pfs.Repo output_repo = 18;
-  string output_branch = 17;
+  string output_branch = 17;                   // requires ListJobRequest.Full
   uint64 restart = 20;
   int64 data_processed = 22;
   int64 data_skipped = 30;
@@ -283,21 +283,21 @@ message JobInfo {
   int64 data_total = 23;
   ProcessStats stats = 31;
   repeated WorkerStatus worker_status = 24;
-  ResourceSpec resource_requests = 25;
-  ResourceSpec resource_limits = 36;
-  Input input = 26;
+  ResourceSpec resource_requests = 25;         // requires ListJobRequest.Full
+  ResourceSpec resource_limits = 36;           // requires ListJobRequest.Full
+  Input input = 26;                            // requires ListJobRequest.Full
   pfs.BranchInfo new_branch = 27;
   pfs.Commit stats_commit = 29;
-  bool enable_stats = 32;
-  string salt = 33;
-  bool batch = 34;
-  ChunkSpec chunk_spec = 37;
-  google.protobuf.Duration datum_timeout = 38;
-  google.protobuf.Duration job_timeout = 39;
-  int64 datum_tries = 41;
-  SchedulingSpec scheduling_spec = 42;
-  string pod_spec = 43;
-  string pod_patch = 44;
+  bool enable_stats = 32;                      // requires ListJobRequest.Full
+  string salt = 33;                            // requires ListJobRequest.Full
+  bool batch = 34;                             // requires ListJobRequest.Full
+  ChunkSpec chunk_spec = 37;                   // requires ListJobRequest.Full
+  google.protobuf.Duration datum_timeout = 38; // requires ListJobRequest.Full
+  google.protobuf.Duration job_timeout = 39;   // requires ListJobRequest.Full
+  int64 datum_tries = 41;                      // requires ListJobRequest.Full
+  SchedulingSpec scheduling_spec = 42;         // requires ListJobRequest.Full
+  string pod_spec = 43;                        // requires ListJobRequest.Full
+  string pod_patch = 44;                       // requires ListJobRequest.Full
 }
 
 enum WorkerState {
