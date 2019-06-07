@@ -2727,7 +2727,7 @@ func TestManyPipelineUpdate(t *testing.T) {
 					},
 					client.NewPFSInput(dataRepo, "/*"),
 					"",
-					/*update: */ i > 0,
+					true,
 				))
 				fmt.Printf("flushing commit...")
 				require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
