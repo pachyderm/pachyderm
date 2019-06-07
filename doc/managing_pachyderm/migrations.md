@@ -42,8 +42,7 @@ so the process involves:
 1. bringing up a new Pachyderm cluster adjacent to the old pachyderm cluster
 1. exporting the old Pachdyerm cluster's repos, pipelines, and input commits
 1. importing the old cluster's repos, commits, and pipelines into the new
-   cluster, and then re-running all of the old cluster's pipelines from scratch
-   once.
+   cluster.
 
 *You must perform a migration to move between major releases*,
 such as 1.8.7 to 1.9.0.
@@ -242,7 +241,7 @@ or check with us in your Pachyderm support channel if you need help.
 
 _Important: Use the_ `kubectl config current-config` _command to confirm you're talking to the correct kubernetes cluster configuration for the new cluster._
 
-### 6. Restore the new 1.XPachyderm cluster from your backup
+### 6. Restore the new 1.X Pachyderm cluster from your backup
 
 Using the Pachyderm cluster you deployed in the previous step, [5. Deploy a 1.X pachyderm cluster with cloned bucket](#deploy-a-1.X-pachyderm-cluster-with-cloned-bucket), run `pachctl restore` with the backup you created in [2. Extract a pachyderm backup with the --no-objects flag](#extract-a-pachyderm-backup-with-the-no-objects-flag).
 
