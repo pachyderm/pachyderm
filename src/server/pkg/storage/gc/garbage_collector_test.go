@@ -28,7 +28,7 @@ func (im *immediateServer) DeleteChunks(chunks []chunk.Chunk) error {
 	return nil
 }
 
-func (im *immediateServer) WaitForDeletes([]chunk.Chunk) error {
+func (im *immediateServer) FlushDeletes([]chunk.Chunk) error {
 	return nil
 }
 

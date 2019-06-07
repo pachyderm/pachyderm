@@ -13,7 +13,7 @@ import (
 type Server interface {
 	Ctx() context.Context
 	DeleteChunks([]chunk.Chunk) error
-	WaitForDeletes([]chunk.Chunk) error
+	FlushDeletes([]chunk.Chunk) error
 }
 
 type Client struct {
@@ -95,6 +95,18 @@ func NewClient(server Server, host string, port int16) (*Client, error) {
 	}, nil
 }
 
+func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
+	chunks := []chunk.Chunk{}
+	for cursor.Next() {
+		var hash string
+		if err := cursor.Scan(&hash); err != nil {
+			return nil
+		}
+		chunks = append(chunks, chunk.Chunk{Hash: hash})
+	}
+	return chunks
+}
+
 func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
 	if len(chunks) == 0 {
 		return nil
@@ -139,22 +151,24 @@ select chunk from added_chunks where deleting is not null;
 		parameters = append(parameters, chunk.Hash)
 	}
 
-	rows, err := txn.QueryContext(ctx, query, parameters...)
+	cursor, err := txn.QueryContext(ctx, query, parameters...)
 	if err != nil {
 		return err
 	}
 
-	// The cursor must be closed before committing
-	rows.Close()
+	// Flush returned chunks through the server
+	chunksToFlush := readChunksFromCursor(cursor)
+	cursor.Close()
+	if err := cursor.Err(); err != nil {
+		txn.Rollback()
+		return err
+	}
 
 	if err := txn.Commit(); err != nil {
 		return err
 	}
 
-	// If any returned rows have `removing` or `deleting` non-nil, flush those
-	// rows through the `FlushDeletes` RPC.
-
-	return nil
+	return gcc.server.FlushDeletes(chunksToFlush)
 }
 
 func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, releaseJobs []string) error {
@@ -227,28 +241,18 @@ from counts where
 returning chunks.chunk;
 	`
 
-	rows, err := txn.QueryContext(ctx, query)
+	cursor, err := txn.QueryContext(ctx, query)
 	if err != nil {
 		txn.Rollback()
 		return err
 	}
 
-	chunksToDelete := []chunk.Chunk{}
-	for rows.Next() {
-		var hash string
-		if err := rows.Scan(&hash); err != nil {
-			rows.Close()
-			txn.Rollback()
-			return err
-		}
-		chunksToDelete = append(chunksToDelete, chunk.Chunk{Hash: hash})
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
+	chunksToDelete := readChunksFromCursor(cursor)
+	cursor.Close()
+	if err := cursor.Err(); err != nil {
 		txn.Rollback()
 		return err
 	}
-	rows.Close()
 
 	if err := txn.Commit(); err != nil {
 		return err
