@@ -7,13 +7,18 @@ import (
 	"strings"
 
 	"github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
+type Server interface {
+	Ctx() context.Context
+	DeleteChunks([]chunk.Chunk) error
+	WaitForDeletes([]chunk.Chunk) error
+}
+
 type Client struct {
-	pachClient *client.APIClient
-	db         *sql.DB
+	server Server
+	db     *sql.DB
 }
 
 type Reference struct {
@@ -68,7 +73,7 @@ create table if not exists chunks (
 	return nil
 }
 
-func NewClient(pachClient *client.APIClient, host string, port int16) (*Client, error) {
+func NewClient(server Server, host string, port int16) (*Client, error) {
 	connStr := fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port)
 	connector, err := pq.NewConnector(connStr)
 	if err != nil {
@@ -77,7 +82,7 @@ func NewClient(pachClient *client.APIClient, host string, port int16) (*Client, 
 
 	// Opening a connection is done lazily, statement preparation will connect
 	db := sql.OpenDB(connector)
-	ctx := pachClient.Ctx()
+	ctx := server.Ctx()
 
 	err = initializeDb(db, ctx)
 	if err != nil {
@@ -85,8 +90,8 @@ func NewClient(pachClient *client.APIClient, host string, port int16) (*Client, 
 	}
 
 	return &Client{
-		db:         db,
-		pachClient: pachClient,
+		db:     db,
+		server: server,
 	}, nil
 }
 
@@ -95,7 +100,7 @@ func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
 		return nil
 	}
 
-	ctx := gcc.pachClient.Ctx()
+	ctx := gcc.server.Ctx()
 
 	// TODO: check for conflict errors and retry in a loop
 	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -153,7 +158,7 @@ select chunk from added_chunks where deleting is not null;
 }
 
 func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, releaseJobs []string) error {
-	ctx := gcc.pachClient.Ctx()
+	ctx := gcc.server.Ctx()
 
 	// TODO: check for conflict errors and retry in a loop
 	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -163,17 +168,20 @@ func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, release
 
 	insertStmt, err := txn.Prepare(pq.CopyIn("refs", "sourcetype", "source", "chunk"))
 	if err != nil {
+		txn.Rollback()
 		return err
 	}
 	defer insertStmt.Close()
 	for _, ref := range add {
 		_, err := insertStmt.Exec(ref.sourcetype, ref.source, ref.chunk.Hash)
 		if err != nil {
+			txn.Rollback()
 			return err
 		}
 	}
 	_, err = insertStmt.Exec()
 	if err != nil {
+		txn.Rollback()
 		return err
 	}
 
@@ -221,17 +229,33 @@ returning chunks.chunk;
 
 	rows, err := txn.QueryContext(ctx, query)
 	if err != nil {
+		txn.Rollback()
 		return err
 	}
 
+	chunksToDelete := []chunk.Chunk{}
+	for rows.Next() {
+		var hash string
+		if err := rows.Scan(&hash); err != nil {
+			rows.Close()
+			txn.Rollback()
+			return err
+		}
+		chunksToDelete = append(chunksToDelete, chunk.Chunk{Hash: hash})
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		txn.Rollback()
+		return err
+	}
 	rows.Close()
 
 	if err := txn.Commit(); err != nil {
 		return err
 	}
 
-	// Verify that the rows are not removing, deleting, or missing - if so, return
-	// an error - the user will need to reserve the chunks then try again
+	// TODO: Verify that the rows are not removing, deleting, or missing - if so,
+	// return an error - the user will need to reserve the chunks then try again
 
-	return nil
+	return gcc.server.DeleteChunks(chunksToDelete)
 }

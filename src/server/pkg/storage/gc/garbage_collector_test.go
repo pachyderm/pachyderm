@@ -1,35 +1,46 @@
 package gc
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"testing"
 
 	"github.com/lib/pq"
-	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ = fmt.Printf // TODO: remove after debugging is done
 
-// TODO: create clients only once
+// A mock server to use for tests that immediately responds to requests
+type immediateServer struct {
+	db *sql.DB
+}
 
-func getPachClient(t *testing.T) *client.APIClient {
-	pachClient, err := client.NewOnUserMachine(false, false, "user")
-	require.NoError(t, err)
-	return pachClient
+func (im *immediateServer) Ctx() context.Context {
+	return context.Background()
+}
+
+func (im *immediateServer) DeleteChunks(chunks []chunk.Chunk) error {
+	return nil
+}
+
+func (im *immediateServer) WaitForDeletes([]chunk.Chunk) error {
+	return nil
 }
 
 func getGcClient(t *testing.T) *Client {
-	gcc, err := NewClient(getPachClient(t), "localhost", 32228)
+	gcc, err := NewClient(&immediateServer{}, "localhost", 32228)
 	require.NoError(t, err)
 	return gcc
 }
 
 func initialize(t *testing.T) *Client {
 	gcc := getGcClient(t)
-	_, err := gcc.db.QueryContext(gcc.pachClient.Ctx(), "delete from chunks *; delete from refs *;")
+	_, err := gcc.db.QueryContext(gcc.server.Ctx(), "delete from chunks *; delete from refs *;")
 	require.NoError(t, err)
 	return gcc
 }
@@ -40,7 +51,7 @@ type chunkRow struct {
 }
 
 func allChunkRows(t *testing.T, gcc *Client) []chunkRow {
-	rows, err := gcc.db.QueryContext(gcc.pachClient.Ctx(), "select chunk, deleting from chunks")
+	rows, err := gcc.db.QueryContext(gcc.server.Ctx(), "select chunk, deleting from chunks")
 	require.NoError(t, err)
 	defer rows.Close()
 
@@ -64,7 +75,7 @@ type refRow struct {
 }
 
 func allRefRows(t *testing.T, gcc *Client) []refRow {
-	rows, err := gcc.db.QueryContext(gcc.pachClient.Ctx(), "select sourcetype, source, chunk from refs")
+	rows, err := gcc.db.QueryContext(gcc.server.Ctx(), "select sourcetype, source, chunk from refs")
 	require.NoError(t, err)
 	defer rows.Close()
 
@@ -262,7 +273,15 @@ func TestUpdateReferences(t *testing.T) {
 }
 
 func TestFuzz(t *testing.T) {
+	numClients := 3
+	eg, _ := errgroup.WithContext(context.Background())
+
 	// Set up several parallel goroutines each with their own client
+	for i := 0; i < numClients; i++ {
+		eg.Go(func() error {
+			return nil
+		})
+	}
 
 	// Set up a global ref registry with a mutex to track what the values should end up as
 
@@ -271,4 +290,6 @@ func TestFuzz(t *testing.T) {
 	// Occasionally halt all goroutines and check reference counts in the db
 
 	// Repeat for some amount of time
+
+	require.NoError(t, eg.Wait())
 }
