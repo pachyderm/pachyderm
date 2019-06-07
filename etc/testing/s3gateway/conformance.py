@@ -898,7 +898,7 @@ def main():
     if args.no_run:
         sys.exit(print_failures())
 
-    proc = subprocess.run("yes | pachctl delete-all", shell=True)
+    proc = subprocess.run("yes | pachctl delete all", shell=True)
     if proc.returncode != 0:
         raise Exception("bad exit code: {}".format(proc.returncode))
 
