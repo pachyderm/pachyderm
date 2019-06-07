@@ -936,7 +936,7 @@ $ {{alias}} foo@master^2:XXX`,
 	inspectFile.Flags().AddFlagSet(rawFlags)
 	commands = append(commands, cmdutil.CreateAlias(inspectFile, "inspect file"))
 
-	var history int64
+	var history string
 	listFile := &cobra.Command{
 		Use:   "{{alias}} <repo>@<branch-or-commit>[:<path/in/pfs>]",
 		Short: "Return the files in a directory.",
@@ -960,11 +960,15 @@ $ {{alias}} foo@master^2
 $ {{alias}} foo@master --history n
 
 # list all versions of top-level files on branch "master" in repo "foo"
-$ {{alias}} foo@master --history -1`,
+$ {{alias}} foo@master --history all`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
 				return err
+			}
+			history, err := cmdutil.ParseHistory(history)
+			if err != nil {
+				return fmt.Errorf("error parsing history flag: %v", err)
 			}
 			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
 			if err != nil {
@@ -976,9 +980,13 @@ $ {{alias}} foo@master --history -1`,
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
+			header := pretty.FileHeader
+			if history != 0 {
+				header = pretty.FileHeaderWithCommit
+			}
+			writer := tabwriter.NewWriter(os.Stdout, header)
 			if err := c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi, fullTimestamps)
+				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
 				return err
@@ -988,7 +996,7 @@ $ {{alias}} foo@master --history -1`,
 	}
 	listFile.Flags().AddFlagSet(rawFlags)
 	listFile.Flags().AddFlagSet(fullTimestampsFlags)
-	listFile.Flags().Int64Var(&history, "history", 0, "Return revision history for files.")
+	listFile.Flags().StringVar(&history, "history", "none", "Return revision history for files.")
 	commands = append(commands, cmdutil.CreateAlias(listFile, "list file"))
 
 	globFile := &cobra.Command{
@@ -1027,7 +1035,7 @@ $ {{alias}} "foo@master:data/*"`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 			}
 			return writer.Flush()
 		}),
@@ -1081,7 +1089,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				fmt.Println("New Files:")
 				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range newFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 				}
 				if err := writer.Flush(); err != nil {
 					return err
@@ -1091,7 +1099,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				fmt.Println("Old Files:")
 				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range oldFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 				}
 				if err := writer.Flush(); err != nil {
 					return err

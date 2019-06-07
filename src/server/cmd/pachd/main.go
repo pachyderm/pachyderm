@@ -17,7 +17,6 @@ import (
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
-	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 	eprsclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	healthclient "github.com/pachyderm/pachyderm/src/client/health"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
@@ -32,7 +31,6 @@ import (
 	adminserver "github.com/pachyderm/pachyderm/src/server/admin/server"
 	authserver "github.com/pachyderm/pachyderm/src/server/auth/server"
 	debugserver "github.com/pachyderm/pachyderm/src/server/debug/server"
-	deployserver "github.com/pachyderm/pachyderm/src/server/deploy"
 	eprsserver "github.com/pachyderm/pachyderm/src/server/enterprise/server"
 	"github.com/pachyderm/pachyderm/src/server/health"
 	pach_http "github.com/pachyderm/pachyderm/src/server/http"
@@ -433,7 +431,6 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
-					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(env.GetKubeClient(), kubeNamespace))
 					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))
 					healthclient.RegisterHealthServer(s, publicHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
@@ -561,7 +558,6 @@ func doFullMode(config interface{}) (retErr error) {
 					}
 					eprsclient.RegisterAPIServer(s, enterpriseAPIServer)
 
-					deployclient.RegisterAPIServer(s, deployserver.NewDeployServer(env.GetKubeClient(), kubeNamespace))
 					healthclient.RegisterHealthServer(s, peerHealthServer)
 					versionpb.RegisterAPIServer(s, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 					adminclient.RegisterAPIServer(s, adminserver.NewAPIServer(address, env.StorageRoot, &adminclient.ClusterInfo{ID: clusterID}))

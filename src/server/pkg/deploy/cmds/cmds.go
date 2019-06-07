@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	deployclient "github.com/pachyderm/pachyderm/src/client/deploy"
 
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -121,7 +119,7 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts, m
 		Stderr: os.Stderr,
 	}
 	// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false"); err != nil {
+	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
 		return err
 	}
 
@@ -434,13 +432,32 @@ If <object store backend> is \"s3\", then the arguments are:
 		}
 		defer c.Close()
 
-		_, err = c.DeployStorageSecret(context.Background(), &deployclient.DeployStorageSecretRequest{
-			Secrets: data,
-		})
-		if err != nil {
-			return fmt.Errorf("error deploying storage secret to pachd: %v", err)
+		// clean up any empty, but non-nil strings in the data, since those will prevent those fields from getting merged when we do the patch
+		for k, v := range data {
+			if v != nil && len(v) == 0 {
+				delete(data, k)
+			}
 		}
-		return nil
+
+		manifest := getEncoder(outputFormat)
+		err = assets.WriteSecret(manifest, data, opts)
+		if err != nil {
+			return err
+		}
+		if dryRun {
+			_, err := os.Stdout.Write(manifest.Buffer().Bytes())
+			return err
+		}
+
+		io := cmdutil.IO{
+			Stdin:  manifest.Buffer(),
+			Stdout: os.Stdout,
+			Stderr: os.Stderr,
+		}
+
+		// it can't unmarshal it from stdin in the given format for some reason, so we pass it in directly
+		s := string(manifest.Buffer().Bytes())
+		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
 	}
 
 	deployStorageAmazon := &cobra.Command{
@@ -452,7 +469,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if len(args) == 4 {
 				token = args[3]
 			}
-			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, ""))
+			return deployStorageSecrets(assets.AmazonSecret(args[0], "", args[1], args[2], token, "", ""))
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployStorageAmazon, "deploy storage amazon"))
