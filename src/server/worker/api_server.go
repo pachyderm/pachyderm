@@ -1155,7 +1155,6 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 			if e.Type == watch.EventError {
 				return fmt.Errorf("chunk watch error: %v", e.Err)
 			}
-			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		}
