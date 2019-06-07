@@ -288,10 +288,10 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 			return envAddr, options, nil
 		}
 		if context.Source == config.ContextSource_CONFIG_V1 {
-			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and will be removed in a future version. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
+			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and will be removed in a future version. If you wish to set an explicit address, set it in the config like so: pachctl config update context `pachctl config get active-context` --pachd-address=$PACHD_ADDRESS.\n")
 			return envAddr, options, nil
 		}
-		fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and does not work with the pachyderm context you're using. The value will be ignored. If you wish to set an explicit address, modify your config file and remove the environment variable.\n")
+		fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and does not work with the pachyderm context you're using. The value will be ignored. If you wish to set an explicit address, set it in the config like so: pachctl config update context `pachctl config get active-context` --pachd-address=$PACHD_ADDRESS\n")
 	}
 
 	// 2) Get target address from global config if possible

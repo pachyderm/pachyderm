@@ -52,7 +52,7 @@ func (c *Config) ActiveContext() (*Context, error) {
 	}
 	context := c.V2.Contexts[c.V2.ActiveContext]
 	if context == nil {
-		return nil, fmt.Errorf("the active context references one that does exist; change the active context first")
+		return nil, fmt.Errorf("the active context references one that does exist; set the active context first like so: pachctl config set active-context [value]")
 	}
 	return context, nil
 }
@@ -151,7 +151,7 @@ func (c *Config) initV2() error {
 // file.
 func (c *Config) Write() error {
 	if c.V1 != nil {
-		panic("v1 config included (this is likely a bug)")
+		panic("config V1 included (this is a bug)")
 	}
 
 	rawConfig, err := json.MarshalIndent(c, "", "  ")
