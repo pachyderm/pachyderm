@@ -293,10 +293,16 @@ func TestFuzz(t *testing.T) {
 	chunkRefs := map[string][]Reference{}
 	outstandingJobs := []string{}
 
-	updateChunkRefs := func() error {
-		chunkRefsMutex.Lock()
+	updateLocalState := func() error {
+		mutex.Lock()
+		defer mutex.Unlock()
 
-		defer chunkRefsMutex.Unlock()
+	}
+
+	type jobData struct {
+		id string
+		add []Reference{}
+		remove []Reference{}
 	}
 
 	iterate := func() error {
@@ -305,8 +311,25 @@ func TestFuzz(t *testing.T) {
 		}
 		defer sem.release(1)
 
+		job := makeJob()
+
 		// Choose a thing to do
 		// Run random add/remove operations, only allow references to go from lower numbers to higher numbers to keep it acyclic
+		adds := []Reference{}
+		for rand.Float32() > 0.5 {
+			numAdds := rand.Intn(10)
+			for i := 0; i < 
+			if rand.Float32() > 0.5 
+
+		}
+
+		removes := []Reference{}
+		for rand.Float32() > 0.6 {
+			numRemoves := rand.Intn(7)
+		}
+
+		// Reserve the chunks we are adding references to/from
+
 	}
 
 	// Set up several parallel goroutines each with their own client
@@ -333,6 +356,9 @@ func TestFuzz(t *testing.T) {
 		sem.release(numClients)
 		time.Sleep(time.Second)
 		require.NoError(sem.acquire(ctx, numClients))
+
+		mutex.Lock()
+		defer mutex.Unlock()
 	}
 
 	// Shut down the clients, collect errors
