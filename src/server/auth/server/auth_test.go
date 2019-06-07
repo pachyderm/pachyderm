@@ -1041,6 +1041,11 @@ func TestPipelineRevoke(t *testing.T) {
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
+	// This test spawns a few goroutines, and they can use testDone to know when
+	// the test is over
+	testDone := make(chan struct{})
+	defer close(testDone)
+
 	// alice creates a repo, and adds bob as a reader
 	repo := tu.UniqueString("TestPipelineRevoke")
 	require.NoError(t, aliceClient.CreateRepo(repo))
@@ -1128,6 +1133,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, err)
 	doneCh := make(chan struct{})
 	go func() {
+		defer close(doneCh)
 		iter, err = aliceClient.FlushCommit(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
@@ -1138,9 +1144,13 @@ func TestPipelineRevoke(t *testing.T) {
 			if err == io.EOF {
 				break
 			}
-			require.NoError(t, err)
+			select {
+			case <-testDone:
+				return // pipeline is deleted by the next test--no point im watching
+			default:
+				require.NoError(t, err)
+			}
 		}
-		close(doneCh)
 	}()
 	select {
 	case <-doneCh:
@@ -1163,14 +1173,19 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, err)
 	doneCh = make(chan struct{})
 	go func() {
+		defer close(doneCh)
 		iter, err = aliceClient.FlushCommit(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		require.NoError(t, err)
 		_, err = iter.Next()
-		require.NoError(t, err)
-		close(doneCh)
+		select {
+		case <-testDone:
+			return // pipeline is deleted by the next test--no point im watching
+		default:
+			require.NoError(t, err)
+		}
 	}()
 	select {
 	case <-doneCh:
@@ -1191,8 +1206,15 @@ func TestPipelineRevoke(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := iter.Next()
-		return err
+		for { // flushCommit yields two output commits (one from the prev pipeline)
+			_, err = iter.Next()
+			if err == io.EOF {
+				return nil
+			} else if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
