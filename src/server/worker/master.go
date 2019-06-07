@@ -165,7 +165,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 				// aren't killed, future jobs will hang indefinitely waiting for their
 				// parents to finish)
 				if err := a.updateJobState(pachClient.Ctx(), jobInfo, nil,
-					pps.JobState_JOB_KILLED, "stale job uses old pipeline"); err != nil {
+					pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
 					return fmt.Errorf("could not kill stale job: %v", err)
 				}
 				continue
