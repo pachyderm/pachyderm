@@ -52,7 +52,7 @@ type PachdSpecificConfiguration struct {
 	ExposeObjectAPI       bool   `env:"EXPOSE_OBJECT_API,default=false"`
 	MemoryRequest         string `env:"PACHD_MEMORY_REQUEST,default=1T"`
 	WorkerUsesRoot        bool   `env:"WORKER_USES_ROOT,default=true"`
-	S3GatewayPort         uint16 `env:"S3GATEWAY_PORT,default=600"`
+	S3GatewayPort         uint16 `env:"S3GATEWAY_PORT,default=655"`
 }
 
 // WorkerFullConfiguration contains the full worker configuration.

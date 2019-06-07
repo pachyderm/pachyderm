@@ -13,7 +13,7 @@ with PFS through its gRPC interface instead.
 ## Connecting to the s3gateway
 
 The s3gateway runs in your cluster, and can be reached via
-`http://<cluster ip>:30600`.
+`http://<cluster ip>:30655`.
 
 Alternatively, you can use port forwarding to connect to the cluster.
 However, we don't recommend it, as kubernetes' port forwarder incurs overhead,
