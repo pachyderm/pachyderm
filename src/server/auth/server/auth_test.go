@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -1132,8 +1133,13 @@ func TestPipelineRevoke(t *testing.T) {
 			[]*pfs.Repo{client.NewRepo(pipeline)},
 		)
 		require.NoError(t, err)
-		_, err = iter.Next()
-		require.NoError(t, err)
+		for { // flushCommit yields two output commits (one from the prev pipeline)
+			_, err = iter.Next()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+		}
 		close(doneCh)
 	}()
 	select {
