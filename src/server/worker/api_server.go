@@ -1468,6 +1468,7 @@ func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, st
 }
 
 func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	outputCommitID := commit.ID
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
@@ -1476,6 +1477,8 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
+		logger.Logf("blocking on parent commit %q before writing to output commit %q",
+			commitInfo.ParentCommit.ID, outputCommitID)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
 				Commit:     commitInfo.ParentCommit,
@@ -1748,6 +1751,7 @@ func (a *APIServer) worker() {
 				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
 			}
 			if jobInfo.PipelineVersion < a.pipelineInfo.Version {
+				logger.Logf("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
 				continue
 			}
 			if jobInfo.PipelineVersion > a.pipelineInfo.Version {
@@ -1755,6 +1759,7 @@ func (a *APIServer) worker() {
 					"version (%d), this should automatically resolve when the worker "+
 					"is updated", jobID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
 			}
+			logger.Logf("processing job %v", jobID)
 
 			// Read the chunks laid out by the master and create the datum factory
 			plan := &Plan{}
