@@ -2806,7 +2806,10 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 
 	jobInfos, err := c.ListJob(pipelineName, nil, nil, -1, true)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jobInfos))
+	// As of v1.9.0, a new job will be created for commit2 and immediately killed
+	// (as an expedient way of closing the job's output commit, which is necessary
+	// for job #3, based on the UpdatePipeline call, to run)
+	require.Equal(t, 3, len(jobInfos))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jobInfos[0].State.String())
 	require.Equal(t, pps.JobState_JOB_KILLED.String(), jobInfos[1].State.String())
 }
