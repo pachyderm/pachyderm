@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
@@ -14,39 +16,33 @@ import (
 )
 
 var _ = fmt.Printf // TODO: remove after debugging is done
+var _ = sql.OpenDB
 
-// A mock server to use for tests that immediately responds to requests
-type testServer struct {
-	db *sql.DB
-}
+// Dummy deleter object for testing, so we don't need an object storage
+type testDeleter struct{}
 
-func makeServer(t *testing.T) *testServer {
-}
-
-func (im *testServer) Ctx() context.Context {
-	return context.Background()
-}
-
-func (im *testServer) DeleteChunks(chunks []chunk.Chunk) error {
+func (td *testDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
 	return nil
 }
 
-func (im *testServer) FlushDeletes([]chunk.Chunk) error {
-	return nil
+func makeServer(t *testing.T) Server {
+	server, err := MakeServer(&testDeleter{}, "localhost", 32228)
+	require.NoError(t, err)
+	return server
 }
 
-func makeClient(t *testing.T, server *testServer) *Client {
+func makeClient(t *testing.T, ctx context.Context, server Server) *ClientImpl {
 	if server == nil {
 		server = makeServer(t)
 	}
-	gcc, err := NewClient(server, "localhost", 32228)
+	gcc, err := MakeClient(ctx, server, "localhost", 32228)
 	require.NoError(t, err)
-	return gcc
+	return gcc.(*ClientImpl)
 }
 
-func initialize(t *testing.T) *Client {
-	gcc := makeClient(t, nil)
-	_, err := gcc.db.QueryContext(gcc.server.Ctx(), "delete from chunks *; delete from refs *;")
+func initialize(t *testing.T, ctx context.Context) *ClientImpl {
+	gcc := makeClient(t, ctx, nil)
+	_, err := gcc.db.QueryContext(ctx, "delete from chunks *; delete from refs *;")
 	require.NoError(t, err)
 	return gcc
 }
@@ -56,9 +52,10 @@ type chunkRow struct {
 	deleting bool
 }
 
-func allChunkRows(t *testing.T, gcc *Client) []chunkRow {
-	rows, err := gcc.db.QueryContext(gcc.server.Ctx(), "select chunk, deleting from chunks")
+func allChunkRows(t *testing.T, ctx context.Context, gcc *ClientImpl) []chunkRow {
+	rows, err := gcc.db.QueryContext(ctx, "select chunk, deleting from chunks")
 	require.NoError(t, err)
+
 	defer rows.Close()
 
 	chunks := []chunkRow{}
@@ -80,8 +77,8 @@ type refRow struct {
 	chunk      string
 }
 
-func allRefRows(t *testing.T, gcc *Client) []refRow {
-	rows, err := gcc.db.QueryContext(gcc.server.Ctx(), "select sourcetype, source, chunk from refs")
+func allRefRows(t *testing.T, ctx context.Context, gcc *ClientImpl) []refRow {
+	rows, err := gcc.db.QueryContext(ctx, "select sourcetype, source, chunk from refs")
 	require.NoError(t, err)
 	defer rows.Close()
 
@@ -97,14 +94,14 @@ func allRefRows(t *testing.T, gcc *Client) []refRow {
 	return refs
 }
 
-func printState(t *testing.T, gcc *Client) {
-	chunkRows := allChunkRows(t, gcc)
+func printState(t *testing.T, ctx context.Context, gcc *ClientImpl) {
+	chunkRows := allChunkRows(t, ctx, gcc)
 	fmt.Printf("Chunks table:\n")
 	for _, row := range chunkRows {
 		fmt.Printf("  %v\n", row)
 	}
 
-	refRows := allRefRows(t, gcc)
+	refRows := allRefRows(t, ctx, gcc)
 	fmt.Printf("Refs table:\n")
 	for _, row := range refRows {
 		fmt.Printf("  %v\n", row)
@@ -128,29 +125,30 @@ func makeChunks(count int) []chunk.Chunk {
 }
 
 func TestConnectivity(t *testing.T) {
-	initialize(t)
+	initialize(t, context.Background())
 }
 
 func TestReserveChunks(t *testing.T) {
-	gcc := initialize(t)
+	ctx := context.Background()
+	gcc := initialize(t, ctx)
 	jobs := makeJobs(3)
 	chunks := makeChunks(3)
 
 	// No chunks
-	require.NoError(t, gcc.ReserveChunks(jobs[0], chunks[0:0]))
+	require.NoError(t, gcc.ReserveChunks(ctx, jobs[0], chunks[0:0]))
 
 	// One chunk
-	require.NoError(t, gcc.ReserveChunks(jobs[1], chunks[0:1]))
+	require.NoError(t, gcc.ReserveChunks(ctx, jobs[1], chunks[0:1]))
 
 	// Multiple chunks
-	require.NoError(t, gcc.ReserveChunks(jobs[2], chunks))
+	require.NoError(t, gcc.ReserveChunks(ctx, jobs[2], chunks))
 
 	expectedChunkRows := []chunkRow{
 		{chunks[0].Hash, false},
 		{chunks[1].Hash, false},
 		{chunks[2].Hash, false},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
 
 	expectedRefRows := []refRow{
 		{"job", jobs[1], chunks[0].Hash},
@@ -158,17 +156,18 @@ func TestReserveChunks(t *testing.T) {
 		{"job", jobs[2], chunks[1].Hash},
 		{"job", jobs[2], chunks[2].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
 }
 
 func TestUpdateReferences(t *testing.T) {
-	gcc := initialize(t)
+	ctx := context.Background()
+	gcc := initialize(t, ctx)
 	jobs := makeJobs(3)
 	chunks := makeChunks(5)
 
-	require.NoError(t, gcc.ReserveChunks(jobs[0], chunks[0:3])) // 0, 1, 2
-	require.NoError(t, gcc.ReserveChunks(jobs[1], chunks[2:4])) // 2, 3
-	require.NoError(t, gcc.ReserveChunks(jobs[2], chunks[4:5])) // 4
+	require.NoError(t, gcc.ReserveChunks(ctx, jobs[0], chunks[0:3])) // 0, 1, 2
+	require.NoError(t, gcc.ReserveChunks(ctx, jobs[1], chunks[2:4])) // 2, 3
+	require.NoError(t, gcc.ReserveChunks(ctx, jobs[2], chunks[4:5])) // 4
 
 	// Currently, no links between chunks:
 	// 0 1 2 3 4
@@ -179,7 +178,7 @@ func TestUpdateReferences(t *testing.T) {
 		{chunks[3].Hash, false},
 		{chunks[4].Hash, false},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
 
 	expectedRefRows := []refRow{
 		{"job", jobs[0], chunks[0].Hash},
@@ -189,12 +188,13 @@ func TestUpdateReferences(t *testing.T) {
 		{"job", jobs[1], chunks[3].Hash},
 		{"job", jobs[2], chunks[4].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
+		ctx,
 		[]Reference{{"chunk", chunks[4].Hash, chunks[0]}},
 		[]Reference{},
-		jobs[0:1],
+		jobs[0],
 	))
 
 	// Chunk 1 should be cleaned up as unreferenced
@@ -208,7 +208,7 @@ func TestUpdateReferences(t *testing.T) {
 		{chunks[3].Hash, false},
 		{chunks[4].Hash, false},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
 
 	expectedRefRows = []refRow{
 		{"job", jobs[1], chunks[2].Hash},
@@ -216,15 +216,16 @@ func TestUpdateReferences(t *testing.T) {
 		{"job", jobs[2], chunks[4].Hash},
 		{"chunk", chunks[4].Hash, chunks[0].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
+		ctx,
 		[]Reference{
 			{"semantic", "semantic-3", chunks[3]},
 			{"semantic", "semantic-2", chunks[2]},
 		},
 		[]Reference{},
-		jobs[1:2],
+		jobs[1],
 	))
 
 	// No chunks should be cleaned up, the job reference to 2 and 3 were replaced
@@ -240,7 +241,7 @@ func TestUpdateReferences(t *testing.T) {
 		{chunks[3].Hash, false},
 		{chunks[4].Hash, false},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
 
 	expectedRefRows = []refRow{
 		{"job", jobs[2], chunks[4].Hash},
@@ -248,12 +249,13 @@ func TestUpdateReferences(t *testing.T) {
 		{"semantic", "semantic-2", chunks[2].Hash},
 		{"semantic", "semantic-3", chunks[3].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
+		ctx,
 		[]Reference{{"chunk", chunks[4].Hash, chunks[2]}},
 		[]Reference{{"semantic", "semantic-3", chunks[3]}},
-		jobs[2:3],
+		jobs[2],
 	))
 
 	// Chunk 3 should be cleaned up as the semantic reference was removed
@@ -268,99 +270,101 @@ func TestUpdateReferences(t *testing.T) {
 		{chunks[3].Hash, true},
 		{chunks[4].Hash, true},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
 
 	expectedRefRows = []refRow{
 		{"chunk", chunks[4].Hash, chunks[0].Hash},
 		{"chunk", chunks[4].Hash, chunks[2].Hash},
 		{"semantic", "semantic-2", chunks[2].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
 }
 
 func TestFuzz(t *testing.T) {
-	numClients := 3
-	eg, egctx := errgroup.WithContext(context.Background())
-	ctx, cancel := context.WithCancel(egctx)
-
-	sem := semaphore.NewWeighted(numClients)
-
-	// block workers from running until we're ready
-	require.NoError(sem.acquire(ctx, numClients))
-
-	// Set up a global ref registry with a mutex to track what the values should be in the database
-	mutex := sync.Mutex{}
-	chunkRefs := map[string][]Reference{}
-	outstandingJobs := []string{}
-
-	updateLocalState := func() error {
-		mutex.Lock()
-		defer mutex.Unlock()
-
-	}
-
 	type jobData struct {
-		id string
-		add []Reference{}
-		remove []Reference{}
+		id     string
+		add    []Reference
+		remove []Reference
 	}
 
-	iterate := func() error {
-		if err := sem.acquire(ctx, 1); err != nil {
-			return nil
+	runJob := func(ctx context.Context, gcc Client, job jobData) error {
+		// Make a list of chunks we'll be referencing and reserve them
+		chunkMap := map[string]bool{}
+		for _, item := range job.add {
+			chunkMap[item.chunk.Hash] = true
+			if item.sourcetype == "chunk" {
+				chunkMap[item.source] = true
+			}
 		}
-		defer sem.release(1)
+		reservedChunks := []chunk.Chunk{}
+		for hash := range chunkMap {
+			reservedChunks = append(reservedChunks, chunk.Chunk{Hash: hash})
+		}
 
-		job := makeJob()
+		if err := gcc.ReserveChunks(ctx, job.id, reservedChunks); err != nil {
+			return err
+		}
 
-		// Choose a thing to do
+		// Pretend we write to object storage here
+		time.Sleep(time.Duration(rand.Float32()*50) * time.Millisecond)
+
+		return gcc.UpdateReferences(ctx, job.add, job.remove, job.id)
+	}
+
+	server := makeServer(t)
+	startClients := func(numClients int, jobChannel chan jobData) *errgroup.Group {
+		eg, ctx := errgroup.WithContext(context.Background())
+		for i := 0; i < numClients; i++ {
+			eg.Go(func() error {
+				gcc := makeClient(t, ctx, server)
+				for x := range jobChannel {
+					if err := runJob(ctx, gcc, x); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		}
+		return eg
+	}
+
+	// Global ref registry to track what the database should look like
+	chunkRefs := map[string][]Reference{}
+
+	makeJobData := func() jobData {
+		jd := jobData{id: testutil.UniqueString("job-")}
+
 		// Run random add/remove operations, only allow references to go from lower numbers to higher numbers to keep it acyclic
-		adds := []Reference{}
 		for rand.Float32() > 0.5 {
 			numAdds := rand.Intn(10)
-			for i := 0; i < 
-			if rand.Float32() > 0.5 
-
+			for i := 0; i < numAdds; i++ {
+				jd.add = append(jd.add, newRef)
+			}
 		}
 
-		removes := []Reference{}
 		for rand.Float32() > 0.6 {
 			numRemoves := rand.Intn(7)
+			for i := 0; i < numRemoves; i++ {
+				jd.remove = append(jd.remove, existingRef)
+			}
 		}
 
-		// Reserve the chunks we are adding references to/from
-
+		return jd
 	}
 
-	// Set up several parallel goroutines each with their own client
-	for i := 0; i < numClients; i++ {
-		eg.Go(func() error {
-			for {
-				if err := iterate(); err != nil {
-					if err == context.Canceled {
-						return nil
-					}
-					return err
-				}
-			}
-		})
+	verifyData := func() {
 	}
-	defer func() {
-		// TODO: make this play nicely with a require panic
-		cancel()
-		require.NoError(t, eg.Wait())
-	}()
 
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
-		sem.release(numClients)
-		time.Sleep(time.Second)
-		require.NoError(sem.acquire(ctx, numClients))
+		jobs := make(chan jobData)
+		eg := startClients(3, jobs)
+		for i := 0; i < 1000; i++ {
+			jobs <- makeJobData()
+		}
+		close(jobs)
+		require.NoError(t, eg.Wait())
 
-		mutex.Lock()
-		defer mutex.Unlock()
+		verifyData()
 	}
-
-	// Shut down the clients, collect errors
-	sem.acquire(ctx, numClients)
 }

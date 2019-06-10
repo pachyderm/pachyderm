@@ -10,24 +10,23 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
-type Server interface {
-	Ctx() context.Context
-	DeleteChunks([]chunk.Chunk) error
-	FlushDeletes([]chunk.Chunk) error
-}
-
-type Client struct {
-	server Server
-	db     *sql.DB
-}
-
 type Reference struct {
 	sourcetype string
 	source     string
 	chunk      chunk.Chunk
 }
 
-func initializeDb(db *sql.DB, ctx context.Context) error {
+type Client interface {
+	ReserveChunks(context.Context, string, []chunk.Chunk) error
+	UpdateReferences(context.Context, []Reference, []Reference, string) error
+}
+
+type ClientImpl struct {
+	server Server
+	db     *sql.DB
+}
+
+func initializeDb(ctx context.Context, db *sql.DB) error {
 	// TODO: move initialization somewhere more consistent
 	_, err := db.ExecContext(ctx, `
 do $$ begin
@@ -60,12 +59,16 @@ create table if not exists chunks (
 		return err
 	}
 
-	_, err = db.ExecContext(ctx, `create index if not exists idx_chunk on refs (chunk)`)
+	_, err = db.ExecContext(ctx, `
+create index if not exists idx_chunk on refs (chunk)
+`)
 	if err != nil {
 		return err
 	}
 
-	_, err = db.ExecContext(ctx, `create index if not exists idx_sourcetype_source on refs (sourcetype, source)`)
+	_, err = db.ExecContext(ctx, `
+create index if not exists idx_sourcetype_source on refs (sourcetype, source)
+`)
 	if err != nil {
 		return err
 	}
@@ -73,23 +76,22 @@ create table if not exists chunks (
 	return nil
 }
 
-func NewClient(server Server, host string, port int16) (*Client, error) {
+func MakeClient(ctx context.Context, server Server, host string, port int16) (Client, error) {
 	connStr := fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port)
 	connector, err := pq.NewConnector(connStr)
 	if err != nil {
 		return nil, err
 	}
 
-	// Opening a connection is done lazily, statement preparation will connect
+	// Opening a connection is done lazily, initialization will connect
 	db := sql.OpenDB(connector)
-	ctx := server.Ctx()
 
-	err = initializeDb(db, ctx)
+	err = initializeDb(ctx, db)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Client{
+	return &ClientImpl{
 		db:     db,
 		server: server,
 	}, nil
@@ -107,12 +109,10 @@ func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
 	return chunks
 }
 
-func (gcc *Client) ReserveChunks(job string, chunks []chunk.Chunk) error {
+func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) error {
 	if len(chunks) == 0 {
 		return nil
 	}
-
-	ctx := gcc.server.Ctx()
 
 	// TODO: check for conflict errors and retry in a loop
 	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -136,9 +136,7 @@ added_chunks as (
 added_refs as (
  insert into refs (chunk, source, sourcetype)
   select
-   chunk,
-   ($1) as source,
-   'job'::reftype as sourcetype
+   chunk, '` + job + `', 'job'::reftype
   from added_chunks where
    deleting is null
 )
@@ -168,12 +166,10 @@ select chunk from added_chunks where deleting is not null;
 		return err
 	}
 
-	return gcc.server.FlushDeletes(chunksToFlush)
+	return gcc.server.FlushDeletes(ctx, chunksToFlush)
 }
 
-func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, releaseJobs []string) error {
-	ctx := gcc.server.Ctx()
-
+func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) error {
 	// TODO: check for conflict errors and retry in a loop
 	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 	if err != nil {
@@ -211,14 +207,10 @@ func (gcc *Client) UpdateReferences(add []Reference, remove []Reference, release
 	}
 
 	var jobStr string
-	if len(releaseJobs) == 0 {
+	if releaseJob == "" {
 		jobStr = "null"
 	} else {
-		jobs := []string{}
-		for _, job := range releaseJobs {
-			jobs = append(jobs, fmt.Sprintf("('job', '%s')", job))
-		}
-		jobStr = strings.Join(jobs, ",")
+		jobStr = fmt.Sprintf("'%s'", releaseJob)
 	}
 
 	query := `
@@ -261,5 +253,5 @@ returning chunks.chunk;
 	// TODO: Verify that the rows are not removing, deleting, or missing - if so,
 	// return an error - the user will need to reserve the chunks then try again
 
-	return gcc.server.DeleteChunks(chunksToDelete)
+	return gcc.server.DeleteChunks(ctx, chunksToDelete)
 }
