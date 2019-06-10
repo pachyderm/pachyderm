@@ -102,6 +102,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     :caption: Reference
 
     reference/pipeline_spec
+    reference/config_spec
     pachctl/pachctl
     reference/clients
     reference/s3gateway_api
