@@ -143,12 +143,6 @@ In the deployment manifest, which we called `manifest.json`, above, find the sta
 	"spec": {
 		"ports": [
 			{
-				"name": "s3gateway-port",
-				"port": 600,
-				"targetPort": 0,
-				"nodePort": 30600
-			},
-			{
 				"name": "api-grpc-port",
 				"port": 650,
 				"targetPort": 0,
@@ -177,6 +171,12 @@ In the deployment manifest, which we called `manifest.json`, above, find the sta
 				"port": 999,
 				"targetPort": 0,
 				"nodePort": 30999
+			},
+			{
+				"name": "s3gateway-port",
+				"port": 600,
+				"targetPort": 0,
+				"nodePort": 30600
 			}
 		],
 		"selector": {
@@ -193,12 +193,6 @@ While the nodePort declarations are fine, the port declarations are too low for 
 ```
 	"spec": {
 		"ports": [
-			{
-				"name": "s3gateway-port",
-				"port": 1600,
-				"targetPort": 0,
-				"nodePort": 30600
-			},
 			{
 				"name": "api-grpc-port",
 				"port": 1650,
@@ -228,6 +222,12 @@ While the nodePort declarations are fine, the port declarations are too low for 
 				"port": 1999,
 				"targetPort": 0,
 				"nodePort": 30999
+			},
+			{
+				"name": "s3gateway-port",
+				"port": 1600,
+				"targetPort": 0,
+				"nodePort": 30600
 			}
 		],
 ```
