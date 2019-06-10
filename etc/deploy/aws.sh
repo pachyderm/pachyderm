@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Argument Defaults
-METRICS_FLAG="true"  # By default, aws.sh enables metric reporting
 DEPLOY_PACHD="true"  # By default, aws.sh deploys pachyderm in its k8s cluster
 USE_CLOUDFRONT="false"
 
@@ -36,10 +35,6 @@ parse_flags() {
             export AWS_REGION=${AWS_AVAILABILITY_ZONE:0:${len_zone_minus_one}}
             shift 2
             ;;
-          --no-metrics)
-            METRICS_FLAG="false" # default is true, see top of file
-            shift
-            ;;
           --no-pachyderm)
             DEPLOY_PACHD="false" # default is true, see top of file
             shift
@@ -54,7 +49,7 @@ parse_flags() {
             ;;
           *)
             echo "Unrecognized argument: \"${1}\""
-            echo "Must be one of --state, --zone, --no-metrics, --use-cloudfront, --no-pachyderm"
+            echo "Must be one of --state, --zone, --use-cloudfront, --no-pachyderm"
             exit 1
             ;;
       esac
@@ -301,10 +296,6 @@ deploy_pachyderm_on_aws() {
     cmd=( pachctl deploy amazon ${PACHYDERM_BUCKET} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --no-dashboard --credentials=${AWS_ID},${AWS_KEY},)
     if [[ "${USE_CLOUDFRONT}" == "true" ]]; then
       cmd+=( "--cloudfront-distribution" "${CLOUDFRONT_DOMAIN}" )
-    fi
-
-    if [[ "${METRICS_FLAG}" == "false" ]]; then
-      cmd+=( "--no-metrics" )
     fi
     "${cmd[@]}"  # Run pachctl deploy
 }
