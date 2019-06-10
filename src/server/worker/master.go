@@ -145,6 +145,11 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			if err != nil {
 				return err
 			}
+			logger.Logf("creating new job %q for output commit %q", job.ID, commitInfo.Commit.ID)
+			// get jobInfo to look up spec commit, pipeline version, etc (if this
+			// worker is stale and about to be killed, the new job may have a newer
+			// pipeline version than the master. Or if the commit is stale, it may
+			// have an older pipeline version than the master)
 			jobInfo, err = pachClient.InspectJob(job.ID, false)
 			if err != nil {
 				return err
@@ -152,28 +157,32 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		} else {
 			// get latest job state
 			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
+			logger.Logf("found existing job %q for output commit %q",
+				jobInfo.Job.ID, commitInfo.Commit.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
 			if err != nil {
 				return err
 			}
-			switch {
-			case ppsutil.IsTerminal(jobInfo.State):
-				// ignore finished jobs (e.g. old pipeline & already killed)
-				continue
-			case jobInfo.PipelineVersion < a.pipelineInfo.Version:
-				// kill unfinished jobs from old pipelines (should generally be cleaned
-				// up by PPS master, but the PPS master can fail, and if these jobs
-				// aren't killed, future jobs will hang indefinitely waiting for their
-				// parents to finish)
-				if err := a.updateJobState(pachClient.Ctx(), jobInfo, nil,
-					pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
-					return fmt.Errorf("could not kill stale job: %v", err)
-				}
-				continue
-			case jobInfo.PipelineVersion > a.pipelineInfo.Version:
-				return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
-					"version (%d), this should automatically resolve when the worker "+
-					"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
+		}
+
+		switch {
+		case ppsutil.IsTerminal(jobInfo.State):
+			// ignore finished jobs (e.g. old pipeline & already killed)
+			continue
+		case jobInfo.PipelineVersion < a.pipelineInfo.Version:
+			// kill unfinished jobs from old pipelines (should generally be cleaned
+			// up by PPS master, but the PPS master can fail, and if these jobs
+			// aren't killed, future jobs will hang indefinitely waiting for their
+			// parents to finish)
+			if err := a.updateJobState(pachClient.Ctx(), jobInfo, nil,
+				pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
+				return fmt.Errorf("could not kill stale job: %v", err)
 			}
+			continue
+		case jobInfo.PipelineVersion > a.pipelineInfo.Version:
+			return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
+				"version (%d), this should automatically resolve when the worker "+
+				"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
+			continue
 		}
 
 		// Now that the jobInfo is persisted, wait until all input commits are
@@ -407,7 +416,7 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
 func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
-	logger.Logf("waitJob: %s", jobInfo.Job.ID)
+	logger.Logf("waiting on job %q (pipeline version: %d, state: %s)", jobInfo.Job.ID, jobInfo.PipelineVersion, jobInfo.State)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
 
