@@ -61,7 +61,7 @@ results will be merged together at the end.
 
 If the job fails, the output commit will not be populated with data.`,
 	}
-	cmdutil.SetDocsUsage(jobDocs, "job$")
+	cmdutil.SetDocsUsage(jobDocs, " job$")
 	commands = append(commands, cmdutil.CreateAlias(jobDocs, "job"))
 
 	var block bool
@@ -265,7 +265,7 @@ Datums within a job will be processed independently, sometimes distributed
 across separate workers.  A separate execution of user code will be run for
 each datum.`,
 	}
-	cmdutil.SetDocsUsage(datumDocs, "datum$")
+	cmdutil.SetDocsUsage(datumDocs, " datum$")
 	commands = append(commands, cmdutil.CreateAlias(datumDocs, "datum"))
 
 	restartDatum := &cobra.Command{
@@ -445,7 +445,7 @@ and launch a job to process each incoming commit.
 
 All jobs created by a pipeline will create commits in the pipeline's output repo.`,
 	}
-	cmdutil.SetDocsUsage(pipelineDocs, "pipeline$")
+	cmdutil.SetDocsUsage(pipelineDocs, " pipeline$")
 	commands = append(commands, cmdutil.CreateAlias(pipelineDocs, "pipeline"))
 
 	var build bool
