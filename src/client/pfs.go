@@ -1441,29 +1441,29 @@ func (c APIClient) newPutObjectWriteCloserAsync(tags []*pfs.Tag) (*PutObjectWrit
 
 // Write performs a write.
 func (w *PutObjectWriteCloserAsync) Write(p []byte) (int, error) {
-	select {
-	case err := <-w.errChan:
-		if err != nil {
-			return 0, grpcutil.ScrubGRPC(err)
+	var written int
+	for len(w.buf)+len(p) > cap(w.buf) {
+		// Write the bytes that fit into w.buf, then
+		// remove those bytes from p.
+		i := cap(w.buf) - len(w.buf)
+		w.buf = append(w.buf, p[:i]...)
+		if err := w.writeBuf(); err != nil {
+			return 0, err
 		}
-	default:
-		for len(w.buf)+len(p) > cap(w.buf) {
-			// Write the bytes that fit into w.buf, then
-			// remove those bytes from p.
-			i := cap(w.buf) - len(w.buf)
-			w.buf = append(w.buf, p[:i]...)
-			p = p[i:]
-			w.writeChan <- w.buf
-			w.buf = grpcutil.GetBuffer()[:0]
-		}
-		w.buf = append(w.buf, p...)
+		written += i
+		p = p[i:]
+		w.buf = grpcutil.GetBuffer()[:0]
 	}
-	return len(p), nil
+	w.buf = append(w.buf, p...)
+	written += len(p)
+	return written, nil
 }
 
 // Close closes the writer.
 func (w *PutObjectWriteCloserAsync) Close() error {
-	w.writeChan <- w.buf
+	if err := w.writeBuf(); err != nil {
+		return err
+	}
 	close(w.writeChan)
 	err := <-w.errChan
 	if err != nil {
@@ -1471,6 +1471,17 @@ func (w *PutObjectWriteCloserAsync) Close() error {
 	}
 	w.object, err = w.client.CloseAndRecv()
 	return grpcutil.ScrubGRPC(err)
+}
+
+func (w *PutObjectWriteCloserAsync) writeBuf() error {
+	select {
+	case err := <-w.errChan:
+		if err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	case w.writeChan <- w.buf:
+	}
+	return nil
 }
 
 // Object gets the pfs object for this writer.
