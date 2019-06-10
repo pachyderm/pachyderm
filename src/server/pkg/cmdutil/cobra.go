@@ -3,6 +3,7 @@ package cmdutil
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -317,7 +318,7 @@ func MergeCommands(root *cobra.Command, children []*cobra.Command) {
 // SetDocsUsage sets the usage string for a docs-style command.  Docs commands
 // have no functionality except to output some docs and related commands, and
 // should not specify a 'Run' attribute.
-func SetDocsUsage(command *cobra.Command) {
+func SetDocsUsage(command *cobra.Command, pattern string) {
 	command.SetHelpTemplate(`{{or .Long .Short}}
 
 {{.UsageString}}
@@ -330,7 +331,8 @@ func SetDocsUsage(command *cobra.Command) {
 		var associated []*cobra.Command
 		var walk func(*cobra.Command)
 		walk = func(cursor *cobra.Command) {
-			if cursor.Name() == cmd.Name() && cursor.CommandPath() != cmd.CommandPath() {
+			isMatch, _ := regexp.MatchString(pattern, cursor.CommandPath())
+			if isMatch && cursor.CommandPath() != cmd.CommandPath() && cursor.Runnable() {
 				associated = append(associated, cursor)
 			}
 			for _, subcmd := range cursor.Commands() {
