@@ -825,7 +825,7 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 			return err
 		}
 		// Add trace if env var is set
-		if ctx, ok := extended.AddTraceToCtxFromEnv(client.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name, ""); ok {
+		if ctx, ok := extended.StartAnyExtendedTrace(client.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name); ok {
 			client = client.WithCtx(ctx)
 		}
 

@@ -149,12 +149,12 @@ func AddPipelineSpanToAnyTrace(ctx context.Context, c *etcd.Client,
 	return span, ctx
 }
 
-// AddTraceToCtxFromEnv adds a new trace to 'ctx' (and returns an augmented
+// StartAnyExtendedTrace adds a new trace to 'ctx' (and returns an augmented
 // context) based on whether the environment variable in 'targetRepoEnvVar' is
 // set.
 // Returns a context that may have the new span attached, and 'true' if an an
 // extended trace was created, or 'false' otherwise
-func AddTraceToCtxFromEnv(ctx context.Context, operation string, pipeline string) (newCtx context.Context, ok bool) {
+func StartAnyExtendedTrace(ctx context.Context, operation string, pipeline string) (newCtx context.Context, ok bool) {
 	if _, ok := os.LookupEnv(ExtendedTraceEnvVar); !ok || !tracing.IsActive() {
 		return ctx, false
 	}
