@@ -524,7 +524,7 @@ test-vault:
 
 test-s3gateway-integration:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
-	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1 | grep -v 'INFO pfs.'
+	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
 
 test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
 	./etc/testing/s3gateway/conformance.py
