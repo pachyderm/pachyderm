@@ -32,7 +32,7 @@ const JaegerServiceName = "pachd"
 // traces hard to find in Jaeger, so you may not want this variable set for
 // every call.
 const jaegerEndpointEnvVar = "JAEGER_ENDPOINT"
-const shortTraceEnvVar = "PACH_ENABLE_TRACING"
+const shortTraceEnvVar = "PACH_TRACE"
 
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
@@ -98,7 +98,7 @@ func InstallJaegerTracerFromEnv() {
 		cfg := jaegercfg.Configuration{
 			// Configure Jaeger to sample every call, but use the SpanInclusionFunc
 			// addTraceIfTracingEnabled (defined below) to skip sampling every RPC
-			// unless the PACH_ENABLE_TRACING environment variable is set
+			// unless the PACH_TRACE environment variable is set
 			Sampler: &jaegercfg.SamplerConfig{
 				Type:  "const",
 				Param: 1,
@@ -137,7 +137,7 @@ func addTraceIfTracingEnabled(
 	parentSpanCtx opentracing.SpanContext,
 	method string,
 	req, resp interface{}) bool {
-	// Always trace if PACH_ENABLE_TRACING is on
+	// Always trace if PACH_TRACE is on
 	_, hasJaegerEndpoint := os.LookupEnv(jaegerEndpointEnvVar)
 	_, shortTracingOn := os.LookupEnv(shortTraceEnvVar)
 	if hasJaegerEndpoint && shortTracingOn {
