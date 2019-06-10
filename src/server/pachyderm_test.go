@@ -8696,8 +8696,8 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		if len(jis) < 6 {
-			return fmt.Errorf("should have more than 6 jobs in 5 minutes")
+		if len(jis) < 5 {
+			return fmt.Errorf("should have more than 5 jobs in 5 minutes")
 		}
 		for i := 0; i < 5; i++ {
 			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
