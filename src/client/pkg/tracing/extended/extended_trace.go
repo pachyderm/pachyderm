@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"os"
 
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
@@ -11,14 +12,15 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc/metadata"
 )
 
 const (
-	// TraceCtxKey is the grpc metadata key whose value is a ExtendedTrace
+	// traceCtxKey is the grpc metadata key whose value is a ExtendedTrace
 	// identifying the current RPC/commit
-	TraceCtxKey = "commit-trace"
+	traceCtxKey = "commit-trace"
 
 	// TracesCollectionPrefix is the prefix associated with the 'traces'
 	// collection in etcd (which maps pipelines and commits to extended traces)
@@ -64,7 +66,7 @@ func GetTraceFromCtx(ctx context.Context) (*TraceProto, error) {
 	if !ok {
 		return nil, nil // no trace
 	}
-	vals := md.Get(TraceCtxKey)
+	vals := md.Get(traceCtxKey)
 	if len(vals) < 1 {
 		return nil, nil // no trace
 	}
@@ -94,10 +96,10 @@ func TraceIn2Out(ctx context.Context) context.Context {
 	}
 
 	// Expected len('vals') is 1, but don't bother verifying
-	vals := md.Get(TraceCtxKey)
+	vals := md.Get(traceCtxKey)
 	pairs := make([]string, 2*len(vals))
 	for i := 0; i < len(pairs); i += 2 {
-		pairs[i], pairs[i+1] = TraceCtxKey, vals[i/2]
+		pairs[i], pairs[i+1] = traceCtxKey, vals[i/2]
 	}
 	return metadata.AppendToOutgoingContext(ctx, pairs...)
 }
@@ -226,4 +228,45 @@ func AddJobSpanToAnyTrace(ctx context.Context, c *etcd.Client, commit *pfs.Commi
 	return opentracing.StartSpanFromContext(ctx,
 		"worker.ProcessCommit", opentracing.FollowsFrom(spanCtx),
 		opentracing.Tag{"commit", commit.Commit.ID})
+}
+
+// AddTraceToCtxFromEnv adds a new trace to 'ctx' (and returns an augmented context)
+// based on whether the environment variable in 'TargetRepoEnvVar' is set.
+func AddTraceToCtxFromEnv(ctx context.Context, operation string, pipeline string, branch *pfs.Branch) (context.Context, bool) {
+	repo, ok := os.LookupEnv(TargetRepoEnvVar)
+	if !ok || !tracing.IsActive() {
+		return ctx, false
+	}
+
+	// Create trace
+	clientSpan, ctx := opentracing.StartSpanFromContext(
+		ctx, operation, ext.SpanKindRPCClient,
+		opentracing.Tag{string(ext.Component), "gRPC"})
+	defer clientSpan.Finish()
+
+	// embed extended trace proto in RPC context
+	extendedTrace := TraceProto{SerializedTrace: map[string]string{}} // init map
+	opentracing.GlobalTracer().Inject(
+		clientSpan.Context(),
+		opentracing.TextMap,
+		opentracing.TextMapCarrier(extendedTrace.SerializedTrace),
+	)
+	if pipeline != "" {
+		clientSpan.SetTag("pipeline", pipeline)
+		extendedTrace.Pipeline = pipeline
+	}
+	if repo != "" {
+		clientSpan.SetTag("repo", repo)
+		extendedTrace.Repo = repo
+	}
+
+	marshalledTrace, err := extendedTrace.Marshal()
+	if err != nil {
+		fmt.Printf("Warning: could not marshal commit trace proto (can only get intra-RPC trace): %v", err)
+		return ctx, false
+	}
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
+		traceCtxKey, base64.URLEncoding.EncodeToString(marshalledTrace),
+	))
+	return ctx, true
 }

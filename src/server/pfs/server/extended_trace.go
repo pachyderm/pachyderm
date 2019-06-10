@@ -66,7 +66,7 @@ func attachNewCommitsToAnyExtendedTrace(c *etcd.Client, etcdPrefix string, stm c
 	// Attach HEAD of each branch in extendedTrace.Branch's provenance to
 	// extendedTrace
 	var (
-		targetBranch     = extendedTrace.Branch
+		targetCommit     = extendedTrace.Commit
 		targetBranchInfo pfs.BranchInfo
 		branchesCol      = pfsdb.Branches(c, etcdPrefix, targetBranch.Repo.Name).ReadWrite(stm)
 	)
@@ -79,7 +79,10 @@ func attachNewCommitsToAnyExtendedTrace(c *etcd.Client, etcdPrefix string, stm c
 		// IDs, and will only be indexed by its pipeline. In this case, it'll be
 		// re-written later, after the pipeline's output branch is created.
 	}
-	for _, provBranch := range targetBranchInfo.Provenance {
+commitInfo, err := d.resolveCommit(stm, commit)
+	if err != nil {
+		return
+	for _, prov := range targetBranchInfo.Provenance {
 		var provBranchInfo pfs.BranchInfo
 		if err := branchesCol.Get(provBranch.Name, &provBranchInfo); err != nil {
 			log.Errorf("error getting branch info for extended trace provenant branch \"%s/%s\": %v",

@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -30,13 +28,10 @@ import (
 	docker "github.com/fsouza/go-dockerclient"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/proto"
-	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/opentracing/opentracing-go/ext"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc/metadata"
 )
 
 // Cmds returns a slice containing pps commands.
@@ -829,41 +824,9 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 		} else if err != nil {
 			return err
 		}
-
 		// Add trace if env var is set
-		if _, ok := os.LookupEnv(extended.TargetRepoEnvVar); ok && tracing.IsActive() {
-			// unmarshal extended trace from RPC context
-			clientSpan, ctx := opentracing.StartSpanFromContext(
-				client.Ctx(), tracing.CreatePipelineMethodName, ext.SpanKindRPCClient,
-				opentracing.Tag{string(ext.Component), "gRPC"},
-				opentracing.Tag{"pipeline", request.Pipeline.Name})
-			defer clientSpan.Finish()
-
-			extendedTrace := extended.TraceProto{SerializedTrace: map[string]string{}} // init map
-			opentracing.GlobalTracer().Inject(
-				clientSpan.Context(),
-				opentracing.TextMap,
-				opentracing.TextMapCarrier(extendedTrace.SerializedTrace),
-			)
-			outputBranch := "master"
-			if request.OutputBranch != "" {
-				outputBranch = request.OutputBranch
-			}
-			extendedTrace.Branch = &pfs.Branch{
-				Repo: &pfs.Repo{Name: request.Pipeline.Name},
-				Name: outputBranch,
-			}
-			extendedTrace.Pipeline = request.Pipeline.Name
-			marshalledTrace, err := extendedTrace.Marshal()
-			if err == nil {
-				ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
-					extended.TraceCtxKey,
-					base64.URLEncoding.EncodeToString(marshalledTrace),
-				))
-				client = client.WithCtx(ctx)
-			} else {
-				fmt.Printf("ERROR marshalling extended trace proto: %v", err)
-			}
+		if ctx, ok := extended.AddTraceToCtxFromEnv(client.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name, ""); ok {
+			client = client.WithCtx(ctx)
 		}
 
 		if update {

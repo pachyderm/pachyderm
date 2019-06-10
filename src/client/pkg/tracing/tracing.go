@@ -21,11 +21,6 @@ import (
 // describe itself when it reports traces to Jaeger
 const JaegerServiceName = "pachd"
 
-// CreatePipelineMethodName is used by pps/cmds/cmds.go to manually tag outgoing
-// RPCs. It's defined in the tracing library so that it doesn't add a redundant
-// client tag
-const CreatePipelineMethodName = "/pps.API/CreatePipeline"
-
 // If you have Jaeger deployed and the JAEGER_ENDPOINT environment variable set
 // to the address of your Jaeger instance's HTTP collection API, setting this
 // environment variable to "true" will cause pachyderm to attach a Jaeger trace
@@ -37,7 +32,7 @@ const CreatePipelineMethodName = "/pps.API/CreatePipeline"
 // traces hard to find in Jaeger, so you may not want this variable set for
 // every call.
 const jaegerEndpointEnvVar = "JAEGER_ENDPOINT"
-const pachdTracingEnvVar = "PACH_ENABLE_TRACING"
+const shortTraceEnvVar = "PACH_ENABLE_TRACING"
 
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
@@ -143,9 +138,10 @@ func addTraceIfTracingEnabled(
 	method string,
 	req, resp interface{}) bool {
 	// Always trace if PACH_ENABLE_TRACING is on
-	if _, ok := os.LookupEnv(jaegerEndpointEnvVar); ok && os.Getenv(pachdTracingEnvVar) == "true" {
-		// we're in a client and tracing is enabled
-		return method != CreatePipelineMethodName
+	_, hasJaegerEndpoint := os.LookupEnv(jaegerEndpointEnvVar)
+	_, shortTracingOn := os.LookupEnv(shortTraceEnvVar)
+	if hasJaegerEndpoint && shortTracingOn {
+		return true
 	}
 
 	// Otherwise, only propagate an existing trace

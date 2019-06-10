@@ -1,8 +1,7 @@
 syntax = "proto3";
 
 package extended;
-option go_package =
-"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended";
+option go_package = "github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended";
 
 import "client/pfs/pfs.proto";
 import "gogoproto/gogo.proto";
@@ -11,11 +10,10 @@ import "gogoproto/gogo.proto";
 // propagate traces that follow the lifetime of a long operation (e.g. creating
 // a pipeline or running a job), and which live longer than any single RPC.
 message TraceProto {
-  // branch specifies a target branch of this trace; this would be set for a
-  // trace created by 'pachctl finish-commit' (or some other call that would
-  // spawn jobs) and if that new commit spawns a downstream commit in 'branch',
+  // commit specifies a target commit (or branch, if committing to a branch) of
+  // this trace; this would be set for a trace created by 'pachctl put-file' and
   // then this trace will cover RPCs util that downstream commit is finished
-  pfs.Branch branch = 1;
+  pfs.Commit commit = 1;
 
   // pipeline specifies the target pipeline of this trace; this would be set for
   // a trace created by 'pachctl create-pipeline' or 'pachctl update-pipeline'

@@ -3,6 +3,7 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -728,37 +730,14 @@ $ {{alias}} repo@branch -i http://host/path`,
 				return err
 			}
 			defer c.Close()
-
-			// Add trace if env var is set
-			if repo, ok := os.LookupEnv(extended.TargetRepoEnvVar); ok && tracing.IsActive() {
-				// unmarshal extended trace from RPC context
-				clientSpan, ctx := opentracing.StartSpanFromContext(
-					c.Ctx(),
-					"/pfs.API/PutFile",
-					ext.SpanKindRPCClient,
-					opentracing.Tag{string(ext.Component), "gRPC"},
-				)
-				defer clientSpan.Finish()
-				commitTrace := pfsclient.CommitTrace{Value: map[string]string{}} // init map
-				opentracing.GlobalTracer().Inject(
-					clientSpan.Context(),
-					opentracing.TextMap,
-					opentracing.TextMapCarrier(commitTrace.Value),
-				)
-				// TODO(msteffen) lookup pipeline output instead of assuming "master"
-				extendedTrace.Branch = client.NewBranch(repo, "master")
-				marshalledTrace, err := extendedTrace.Marshal()
-				if err == nil {
-					ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs(
-						pfsclient.CommitTraceCtxKey,
-						base64.URLEncoding.EncodeToString(marshalledTrace),
-					))
-					c = c.WithCtx(ctx)
-				} else {
-					fmt.Printf("ERROR marshalling commit trace proto: %v", err)
-				}
+			if ctx, ok := extended.AddTraceToCtxFromEnv(c.Ctx(), "/pfs.API/PutFile", "", &pfs.Branch{
+				Repo: file.Commit.Repo,
+				Name: file.Commit.ID,
+			}); ok {
+				c = c.WithCtx(ctx)
 			}
 
+			// load data into pachyderm
 			pfc, err := c.NewPutFileClient()
 			if err != nil {
 				return err
