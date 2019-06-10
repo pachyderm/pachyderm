@@ -245,5 +245,15 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(listContext, "config list context"))
 
+	configDocs := &cobra.Command{
+		Short: "Manages the pachyderm config.",
+		Long:  "Gets/sets pachyderm config values.",
+	}
+	configDocs.SetHelpTemplate(`{{or .Long .Short}}
+
+{{.UsageString}}
+`)
+	commands = append(commands, cmdutil.CreateAlias(configDocs, "config"))
+
 	return commands
 }
