@@ -48,7 +48,7 @@ commands will be stored in the transaction rather than immediately executed.
 The stored commands can be executed as a single operation with 'finish
 transaction' or cancelled with 'delete transaction'.`,
 	}
-	cmdutil.SetDocsUsage(transactionDocs)
+	cmdutil.SetDocsUsage(transactionDocs, "transaction$")
 	commands = append(commands, cmdutil.CreateAlias(transactionDocs, "transaction"))
 
 	listTransaction := &cobra.Command{

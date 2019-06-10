@@ -59,7 +59,7 @@ func Cmds() []*cobra.Command {
 Repos contain version-controlled directories and files. Files can be of any size
 or type (e.g. csv, binary, images, etc).`,
 	}
-	cmdutil.SetDocsUsage(repoDocs)
+	cmdutil.SetDocsUsage(repoDocs, "repo$")
 	commands = append(commands, cmdutil.CreateAlias(repoDocs, "repo"))
 
 	var description string
@@ -237,7 +237,7 @@ Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.`,
 	}
-	cmdutil.SetDocsUsage(commitDocs)
+	cmdutil.SetDocsUsage(commitDocs, "commit$")
 	commands = append(commands, cmdutil.CreateAlias(commitDocs, "commit"))
 
 	var parent string
@@ -563,7 +563,7 @@ multiple branches can refer to the same commit.
 
 Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
-	cmdutil.SetDocsUsage(branchDocs)
+	cmdutil.SetDocsUsage(branchDocs, "branch$")
 	commands = append(commands, cmdutil.CreateAlias(branchDocs, "branch"))
 
 	var branchProvenance cmdutil.RepeatedStringArg
@@ -661,7 +661,7 @@ Files can be of any type (e.g. csv, binary, images, etc) or size and can be
 written to started (but not finished) commits with 'put file'. Files can be read
 from commits with 'get file'.`,
 	}
-	cmdutil.SetDocsUsage(fileDocs)
+	cmdutil.SetDocsUsage(fileDocs, "file$")
 	commands = append(commands, cmdutil.CreateAlias(fileDocs, "file"))
 
 	var filePaths []string
@@ -1138,7 +1138,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 
 Objects are a low-level resource and should not be accessed directly by most users.`,
 	}
-	cmdutil.SetDocsUsage(objectDocs)
+	cmdutil.SetDocsUsage(objectDocs, "object$")
 	commands = append(commands, cmdutil.CreateAlias(objectDocs, "object"))
 
 	getObject := &cobra.Command{
@@ -1162,7 +1162,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 
 Tags are a low-level resource and should not be accessed directly by most users.`,
 	}
-	cmdutil.SetDocsUsage(tagDocs)
+	cmdutil.SetDocsUsage(tagDocs, "tag$")
 	commands = append(commands, cmdutil.CreateAlias(tagDocs, "tag"))
 
 	getTag := &cobra.Command{

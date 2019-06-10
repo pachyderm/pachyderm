@@ -8,8 +8,6 @@ import (
 	"io"
 	"os"
 	"sort"
-	"strings"
-	"text/template"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
@@ -247,58 +245,11 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(listContext, "config list context"))
 
-	// TODO(ys): help template and usage func are nearly a copy-paste from
-	// what's in cmdutil/cobra.go, clean this up
 	configDocs := &cobra.Command{
 		Short: "Manages the pachyderm config.",
 		Long:  "Gets/sets pachyderm config values.",
 	}
-	configDocs.SetHelpTemplate(`{{or .Long .Short}}
-
-{{.UsageString}}
-`)
-	configDocs.SetUsageFunc(func(cmd *cobra.Command) error {
-		rootCmd := cmd.Root()
-
-		// Walk the command tree, finding commands with the documented word
-		var associated []*cobra.Command
-		var walk func(*cobra.Command)
-		walk = func(cursor *cobra.Command) {
-			if strings.HasPrefix(cursor.CommandPath(), "pachctl config") && strings.Count(cursor.CommandPath(), " ") >= 3 {
-				associated = append(associated, cursor)
-			}
-			for _, subcmd := range cursor.Commands() {
-				walk(subcmd)
-			}
-		}
-		walk(rootCmd)
-
-		var maxCommandPath int
-		for _, x := range associated {
-			commandPathLen := len(x.CommandPath())
-			if commandPathLen > maxCommandPath {
-				maxCommandPath = commandPathLen
-			}
-		}
-
-		templateFuncs := template.FuncMap{
-			"pad": func(s string) string {
-				format := fmt.Sprintf("%%-%ds", maxCommandPath+1)
-				return fmt.Sprintf(format, s)
-			},
-			"associated": func() []*cobra.Command {
-				return associated
-			},
-		}
-
-		text := `Associated Commands:{{range associated}}{{if .IsAvailableCommand}}
-  {{pad .CommandPath}} {{.Short}}{{end}}{{end}}`
-
-		t := template.New("top")
-		t.Funcs(templateFuncs)
-		template.Must(t.Parse(text))
-		return t.Execute(cmd.Out(), cmd)
-	})
+	cmdutil.SetDocsUsage(configDocs, "^pachctl config")
 	commands = append(commands, cmdutil.CreateAlias(configDocs, "config"))
 
 	return commands
