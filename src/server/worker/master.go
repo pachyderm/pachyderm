@@ -157,8 +157,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		} else {
 			// get latest job state
 			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
-			logger.Logf("found existing job %q for output commit %q",
-				jobInfo.Job.ID, commitInfo.Commit.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
+			logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
 			if err != nil {
 				return err
 			}
