@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 
@@ -150,115 +149,33 @@ func AddPipelineSpanToAnyTrace(ctx context.Context, c *etcd.Client,
 	return span, ctx
 }
 
-// AddJobSpanToAnyTrace is like AddPipelineSpanToAnyTrace but looks for traces
-// associated with the output commit 'commit'. Unlike AddPipelineSpan, this also
-// may delete extended traces that it finds.
-//
-// In general, AddJobSpan will
-// - Retrieve any trace associated with the pipeline identified with 'commit's
-//   repo
-// - Delete (from etcd, but not Jaeger) any extended trace that it finds where
-//   all commits associated with the trace are in 'commit's provenance. This
-//   covers the following two cases:
-//   1. A job is being traced through 'commit's output commit. Once commit is
-//      finished, no more spans should be added to the trace
-//   2. The trace has no commits associated with it. This means the trace is for
-//      initial pipeline creation, but a worker is now starting jobs for the
-//      pipeline, so the pipeline is up and it's safe to stop tracing it
-// - Add a span to any trace associated with 'commit's ID (case 2. above)
-func AddJobSpanToAnyTrace(ctx context.Context, c *etcd.Client, commit *pfs.CommitInfo) (opentracing.Span, context.Context) {
-	if !tracing.IsActive() {
-		return nil, ctx // no Jaeger instance to send trace info to
-	}
-
-	// copy 'commit's provenance into a map, to make subset computation simpler
-	provCommits := make(map[string]struct{})
-	for _, c := range commit.Provenance {
-		provCommits[c.Commit.ID] = struct{}{}
-	}
-
-	// read all traces associated with 'commit's pipeline (i.e. repo)
-	tracesCol := TracesCol(c).ReadOnly(ctx)
-	var xt, curXT TraceProto
-	if err := tracesCol.GetByIndex(PipelineIndex, commit.Commit.Repo.Name, &curXT, TraceGetOpts,
-		func(key string) error {
-			// 1. if 'commit's ID is in 'curXT's provenance, then we'll add the new
-			//    span to this trace
-			// 2. if 'curXT's commit IDs are all in 'commit's provenance, then remove
-			//    'curXT' from etcd after this is done
-			allCommitsHaveBeenTraced := true
-			for _, c := range curXT.CommitIDs {
-				if commit.Commit.ID == c {
-					if xt.isValid() {
-						log.Errorf("multiple traces found for commit %q", commit.Commit.ID)
-					}
-					xt = curXT
-				}
-				if _, ok := provCommits[c]; !ok {
-					allCommitsHaveBeenTraced = false
-				}
-			}
-
-			// Delete 'curXT' if all of its commits are in 'commit's provenance
-			if allCommitsHaveBeenTraced {
-				if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
-					return TracesCol(c).ReadWrite(stm).Delete(key)
-				}); err != nil {
-					log.Errorf("error deleting trace for %q: %v", commit.Commit.ID, err)
-				}
-			}
-			return nil
-		}); err != nil {
-		log.Errorf("error getting trace via pipeline %q: %v", commit.Commit.Repo.Name, err)
-		return nil, ctx
-	}
-	if !xt.isValid() {
-		return nil, ctx // no trace found
-	}
-
-	// Create new opentracing span from 'xt'
-	spanCtx, err := opentracing.GlobalTracer().Extract(opentracing.TextMap,
-		opentracing.TextMapCarrier(xt.SerializedTrace))
-	if err != nil {
-		log.Errorf("could not extract span context from ExtendedTrace proto: %v", err)
-		return nil, ctx
-	}
-
-	// return new span
-	return opentracing.StartSpanFromContext(ctx,
-		"worker.ProcessCommit", opentracing.FollowsFrom(spanCtx),
-		opentracing.Tag{"commit", commit.Commit.ID})
-}
-
-// AddTraceToCtxFromEnv adds a new trace to 'ctx' (and returns an augmented context)
-// based on whether the environment variable in 'TargetRepoEnvVar' is set.
-func AddTraceToCtxFromEnv(ctx context.Context, operation string, pipeline string, branch *pfs.Branch) (context.Context, bool) {
-	repo, ok := os.LookupEnv(TargetRepoEnvVar)
-	if !ok || !tracing.IsActive() {
+// AddTraceToCtxFromEnv adds a new trace to 'ctx' (and returns an augmented
+// context) based on whether the environment variable in 'targetRepoEnvVar' is
+// set.
+// Returns a context that may have the new span attached, and 'true' if an an
+// extended trace was created, or 'false' otherwise
+func AddTraceToCtxFromEnv(ctx context.Context, operation string, pipeline string) (newCtx context.Context, ok bool) {
+	if _, ok := os.LookupEnv(ExtendedTraceEnvVar); !ok || !tracing.IsActive() {
 		return ctx, false
 	}
 
 	// Create trace
 	clientSpan, ctx := opentracing.StartSpanFromContext(
 		ctx, operation, ext.SpanKindRPCClient,
-		opentracing.Tag{string(ext.Component), "gRPC"})
+		opentracing.Tag{string(ext.Component), "gRPC"},
+		opentracing.Tag{"pipeline", pipeline})
 	defer clientSpan.Finish()
 
 	// embed extended trace proto in RPC context
-	extendedTrace := TraceProto{SerializedTrace: map[string]string{}} // init map
+	extendedTrace := TraceProto{
+		SerializedTrace: map[string]string{}, // init map
+		Pipeline:        pipeline,
+	}
 	opentracing.GlobalTracer().Inject(
 		clientSpan.Context(),
 		opentracing.TextMap,
 		opentracing.TextMapCarrier(extendedTrace.SerializedTrace),
 	)
-	if pipeline != "" {
-		clientSpan.SetTag("pipeline", pipeline)
-		extendedTrace.Pipeline = pipeline
-	}
-	if repo != "" {
-		clientSpan.SetTag("repo", repo)
-		extendedTrace.Repo = repo
-	}
 
 	marshalledTrace, err := extendedTrace.Marshal()
 	if err != nil {

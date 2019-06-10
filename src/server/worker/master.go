@@ -15,13 +15,10 @@ import (
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
-	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	pfsserver "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
@@ -117,25 +114,10 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		return err
 	}
 	defer commitIter.Close()
-	var (
-		span    opentracing.Span
-		spanCtx context.Context
-		oldCtx  = pachClient.Ctx()
-	)
-	defer func() {
-		// Finish any dangling span
-		// Note: cannot do 'defer tracing.FinishAnySpan(span)' b/c that would
-		// evaluate 'span' before the "for" loop below runs
-		tracing.FinishAnySpan(span) // finish any dangling span
-	}()
 	for {
-		tracing.FinishAnySpan(span) // finish span from previous job
 		commitInfo, err := commitIter.Next()
 		if err != nil {
 			return err
-		}
-		if span, spanCtx = extended.AddJobSpanToAnyTrace(oldCtx, a.etcdClient, commitInfo); spanCtx != nil {
-			pachClient = pachClient.WithCtx(spanCtx)
 		}
 		if commitInfo.Finished != nil {
 			continue
@@ -436,8 +418,6 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
 	logger.Logf("waiting on job %q (pipeline version: %d, state: %s)", jobInfo.Job.ID, jobInfo.PipelineVersion, jobInfo.State)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/worker.Master/WaitJob")
-	defer tracing.FinishAnySpan(span)
 	pachClient = pachClient.WithCtx(ctx)
 
 	// Watch the output commit to see if it's terminated (KILLED, FAILED, or
@@ -608,11 +588,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		// Watch the chunks in order
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 		var failedDatumID string
-		var oldCtx = ctx
-		var span opentracing.Span
 		for _, high := range plan.Chunks {
-			tracing.FinishAnySpan(span)
-			span, ctx = tracing.AddSpanToAnyExisting(oldCtx, "/worker.Master/WatchChunk", "high", high)
 			chunkState := &ChunkState{}
 			if err := chunks.WatchOneF(fmt.Sprint(high), func(e *watch.Event) error {
 				var key string
@@ -633,7 +609,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				return err
 			}
 		}
-		tracing.FinishAnySpan(span)
 		if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_MERGING, ""); err != nil {
 			return err
 		}

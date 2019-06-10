@@ -3,7 +3,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -24,13 +23,11 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
-	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -730,12 +727,6 @@ $ {{alias}} repo@branch -i http://host/path`,
 				return err
 			}
 			defer c.Close()
-			if ctx, ok := extended.AddTraceToCtxFromEnv(c.Ctx(), "/pfs.API/PutFile", "", &pfs.Branch{
-				Repo: file.Commit.Repo,
-				Name: file.Commit.ID,
-			}); ok {
-				c = c.WithCtx(ctx)
-			}
 
 			// load data into pachyderm
 			pfc, err := c.NewPutFileClient()
