@@ -89,8 +89,8 @@ func (d *pfsDatumIterator) Next() bool {
 }
 
 type unionDatumIterator struct {
-	inputs   []DatumIterator
-	unionIdx int
+	iterators []DatumIterator
+	unionIdx  int
 }
 
 func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (DatumIterator, error) {
@@ -100,14 +100,14 @@ func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (Da
 		if err != nil {
 			return nil, err
 		}
-		result.inputs = append(result.inputs, datumIterator)
+		result.iterators = append(result.iterators, datumIterator)
 	}
 	result.Reset()
 	return result, nil
 }
 
 func (d *unionDatumIterator) Reset() {
-	for _, input := range d.inputs {
+	for _, input := range d.iterators {
 		input.Reset()
 	}
 	d.unionIdx = 0
@@ -115,28 +115,25 @@ func (d *unionDatumIterator) Reset() {
 
 func (d *unionDatumIterator) Len() int {
 	result := 0
-	for _, datumIterator := range d.inputs {
+	for _, datumIterator := range d.iterators {
 		result += datumIterator.Len()
 	}
 	return result
 }
 
 func (d *unionDatumIterator) Next() bool {
-	if len(d.inputs) == 0 {
+	if d.unionIdx >= len(d.iterators) {
 		return false
 	}
-	inputHasNext := d.inputs[d.unionIdx].Next()
-	if !inputHasNext {
+	if !d.iterators[d.unionIdx].Next() {
 		d.unionIdx++
-		if d.unionIdx < len(d.inputs) {
-			return d.inputs[d.unionIdx].Next()
-		}
+		return d.Next()
 	}
-	return false
+	return true
 }
 
 func (d *unionDatumIterator) Datum() []*Input {
-	return d.inputs[d.unionIdx].Datum()
+	return d.iterators[d.unionIdx].Datum()
 }
 
 type crossDatumIterator struct {
@@ -151,6 +148,10 @@ func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (Da
 		if err != nil {
 			return nil, err
 		}
+		// start the iterator, and make sure it isn't empty
+		if !datumIterator.Next() {
+			return &crossDatumIterator{}, nil
+		}
 		result.inputs = append(result.inputs, datumIterator)
 	}
 	return result, nil
@@ -159,6 +160,7 @@ func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (Da
 func (d *crossDatumIterator) Reset() {
 	for _, input := range d.inputs {
 		input.Reset()
+		input.Next()
 	}
 	d.started = false
 }
@@ -175,35 +177,23 @@ func (d *crossDatumIterator) Len() int {
 }
 
 func (d *crossDatumIterator) Next() bool {
-	// we need to make sure each of the iterators has been started (i.e is not at -1)
-	hasNext := true
 	if !d.started {
-		for _, input := range d.inputs {
-			hasNext = hasNext && input.Next()
-		}
-		if hasNext {
-			d.started = true
-		}
-		return hasNext
+		d.started = true
+		return true
 	}
-
-	// this is the normal case
 	for _, input := range d.inputs {
 		// if we're at the end of the "row"
 		if !input.Next() {
 			// we reset the "row"
 			input.Reset()
-
-			if !input.Next() {
-				// this should never happen, since the started case should handle this
-				return false
-			}
+			// and start back it up
+			input.Next()
 			// after resetting this "row", start iterating through the next "row"
 		} else {
 			return true
 		}
 	}
-	return true
+	return false
 }
 
 func (d *crossDatumIterator) Datum() []*Input {
