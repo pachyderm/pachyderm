@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/limit"
 	pfsclient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -203,7 +204,10 @@ func newLocalBlockAPIServer(dir string, cacheBytes int64, etcdAddress string) (*
 
 func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(server.Context(), "err", retErr)
+		s.Log(nil, nil, retErr, time.Since(start))
+	}(time.Now())
 	defer drainObjectServer(server)
 	putObjectReader := &putObjectReader{
 		server: server,
@@ -232,7 +236,10 @@ func (s *objBlockAPIServer) PutObject(server pfsclient.ObjectAPI_PutObjectServer
 
 func (s *objBlockAPIServer) PutObjectSplit(server pfsclient.ObjectAPI_PutObjectSplitServer) (retErr error) {
 	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(server.Context(), "err", retErr)
+		s.Log(nil, nil, retErr, time.Since(start))
+	}(time.Now())
 	defer drainObjectServer(server)
 	var objects []*pfsclient.Object
 	putObjectReader := &putObjectReader{
@@ -343,7 +350,10 @@ func (s *objBlockAPIServer) PutObjects(server pfsclient.ObjectAPI_PutObjectsServ
 
 func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer pfsclient.ObjectAPI_GetObjectServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(getObjectServer.Context(), "object", request.Hash, "err", retErr)
+		s.Log(request, nil, retErr, time.Since(start))
+	}(time.Now())
 	// First we inspect the object to see how big it is.
 	objectInfo, err := s.InspectObject(getObjectServer.Context(), request)
 	if err != nil {
@@ -385,7 +395,10 @@ func (s *objBlockAPIServer) GetObject(request *pfsclient.Object, getObjectServer
 
 func (s *objBlockAPIServer) GetObjects(request *pfsclient.GetObjectsRequest, getObjectsServer pfsclient.ObjectAPI_GetObjectsServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(getObjectsServer.Context(), "err", retErr)
+		s.Log(request, nil, retErr, time.Since(start))
+	}(time.Now())
 	offset := request.OffsetBytes
 	size := request.SizeBytes
 	for _, object := range request.Objects {

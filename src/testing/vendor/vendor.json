@@ -55,6 +55,12 @@
 			"path": "golang.org/x/crypto/ripemd160",
 			"revision": "0e37d006457bf46f9e6692014ba72ef82c33022c",
 			"revisionTime": "2018-06-14T19:19:50Z"
+		},
+		{
+			"checksumSHA1": "GtamqiJoL7PGHsN454AoffBFMa8=",
+			"path": "golang.org/x/net/context",
+			"revision": "eb5bcb51f2a31c7d5141d810b70815c05d9c9146",
+			"revisionTime": "2019-04-03T01:06:53Z"
 		}
 	],
 	"rootPath": "github.com/pachyderm/pachyderm/src/testing"
