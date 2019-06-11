@@ -8668,7 +8668,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	pipeline := tu.UniqueString("TestRapidUpdatePipelines")
+	pipeline := tu.UniqueString(t.Name() + "-pipeline-")
 	cronInput := client.NewCronInput("time", "@every 30s")
 	cronInput.Cron.Overwrite = true
 	require.NoError(t, c.CreatePipeline(
@@ -8681,7 +8681,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		"",
 		false,
 	))
-
+	// TODO(msteffen): remove all sleeps from tests
 	time.Sleep(10 * time.Second)
 
 	for i := 0; i < 20; i++ {
@@ -8699,15 +8699,16 @@ func TestRapidUpdatePipelines(t *testing.T) {
 			})
 		require.NoError(t, err)
 	}
+	// TODO ideally this test would not take 5 minutes (or even 3 minutes)
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
 		jis, err := c.ListJob(pipeline, nil, nil, -1, true)
 		if err != nil {
 			return err
 		}
-		if len(jis) < 5 {
-			return fmt.Errorf("should have more than 5 jobs in 5 minutes")
+		if len(jis) < 6 {
+			return fmt.Errorf("should have more than 6 jobs in 5 minutes")
 		}
-		for i := 0; i < 5; i++ {
+		for i := 0; i+1 < len(jis); i++ {
 			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
 			if difference < 15 {
 				return fmt.Errorf("jobs too close together")

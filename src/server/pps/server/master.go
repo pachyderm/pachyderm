@@ -852,7 +852,12 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		// get the time of the next time from the latest time using the cron schedule
 		next := schedule.Next(latestTime)
 		// and wait until then to make the next commit
-		time.Sleep(time.Until(next))
+		select {
+		case <-time.After(time.Until(next)):
+			break
+		case <-pachClient.Ctx().Done():
+			return pachClient.Ctx().Err()
+		}
 		if err != nil {
 			return err
 		}
