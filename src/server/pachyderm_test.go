@@ -5245,13 +5245,21 @@ func TestGarbageCollection(t *testing.T) {
 	tagsAfter = getAllTags(t, c)
 	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
 
-	// We should've deleted 3 objects:
+	// We should've deleted 2 objects:
 	// - the hashtree referenced by the tag (datum hashtree)
-	// - the hashtree for the output commit (commit hashtree, merged from 1 datum)
-	// - the modified "bar" file
+	//   - Note that the hashtree for the output commit is the same object as the
+	//     datum hashtree. It contains the same metadata, and b/c hashtrees are
+	//     stored as objects, it's deduped with the datum hashtree
+	//   - The "datums" object attached to 'pipeline's output commit
 	// Note that deleting a pipeline doesn't delete the spec commits
 	objectsAfter = getAllObjects(t, c)
-	require.Equal(t, 3, len(objectsBefore)-len(objectsAfter))
+	require.Equal(t, 2, len(objectsBefore)-len(objectsAfter))
+	// The 9 remaining objects are:
+	// - hashtree for input commit
+	// - object w/ contents of /foo + object w/ contents of /bar
+	// - 6 objects in __spec__:
+	//   (hashtree + /spec file) * (2 'pipeline' commits + 1 'failurePipeline' commit)
+	require.Equal(t, 9, len(objectsAfter))
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
