@@ -275,7 +275,6 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // running a command should connect to.
 func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
-	// TODO(ys): remove this eventually
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		if !strings.Contains(envAddr, ":") {
 			envAddr = fmt.Sprintf("%s:%s", envAddr, DefaultPachdNodePort)
@@ -284,14 +283,7 @@ func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error
 		if err != nil {
 			return "", nil, err
 		}
-		if context == nil {
-			return envAddr, options, nil
-		}
-		if context.Source == config.ContextSource_CONFIG_V1 {
-			fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and will be removed in a future version. If you wish to set an explicit address, set it in the config like so: pachctl config update context `pachctl config get active-context` --pachd-address=$PACHD_ADDRESS.\n")
-			return envAddr, options, nil
-		}
-		fmt.Fprintf(os.Stderr, "WARNING: `PACHD_ADDRESS` is deprecated, and does not work with the pachyderm context you're using. The value will be ignored. If you wish to set an explicit address, set it in the config like so: pachctl config update context `pachctl config get active-context` --pachd-address=$PACHD_ADDRESS\n")
+		return envAddr, options, nil
 	}
 
 	// 2) Get target address from global config if possible
