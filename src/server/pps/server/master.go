@@ -183,12 +183,12 @@ func (a *apiServer) master() {
 					// PAUSED)
 					pipelinePartiallyPaused := pipelineInfo.Stopped &&
 						pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED
-						// True if the user has called StartPipeline, but the PPS master
-						// hasn't processed the update yet
+					// True if the user has called StartPipeline, but the PPS master
+					// hasn't processed the update yet
 					pipelinePartiallyUnpaused := !pipelineInfo.Stopped &&
 						pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED
-						// True if the user has called StopPipeline, and the PPS master
-						// has processed the update yet
+					// True if the user has called StopPipeline, and the PPS master
+					// has processed the update yet
 					pipelineFullyPaused := pipelineInfo.Stopped &&
 						pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED
 					// True if the pipeline has been restarted (regardless of any change
@@ -578,21 +578,27 @@ func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInf
 		tracing.FinishAnySpan(span)
 	}()
 
-	rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
-
-	workerRc, err := rc.Get(
-		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-		metav1.GetOptions{})
-	if err != nil {
+	return backoff.RetryNotify(func() error {
+		rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
+		workerRc, err := rc.Get(
+			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+			metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		workerRc.Spec.Replicas = &zero
+		_, err = rc.Update(workerRc)
+		if err != nil {
+			return fmt.Errorf("could not update scaled-down pipeline (%q) RC: %v",
+				pipelineInfo.Pipeline.Name, err)
+		}
+		return nil
+	}, backoff.New10sBackOff(), func(err error, _ time.Duration) error {
+		if err != nil && strings.Contains(err.Error(), "try again") {
+			return nil
+		}
 		return err
-	}
-	workerRc.Spec.Replicas = &zero
-	_, err = rc.Update(workerRc)
-	if err != nil {
-		return fmt.Errorf("could not update scaled-down pipeline (%q) RC: %v",
-			pipelineInfo.Pipeline.Name, err)
-	}
-	return nil
+	})
 }
 
 func (a *apiServer) scaleUpWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
@@ -602,21 +608,28 @@ func (a *apiServer) scaleUpWorkersForPipeline(ctx context.Context, pipelineInfo 
 		tracing.FinishAnySpan(span)
 	}()
 
-	rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
-	workerRc, err := rc.Get(
-		ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-		metav1.GetOptions{})
-	if err != nil {
+	return backoff.RetryNotify(func() error {
+		rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
+		workerRc, err := rc.Get(
+			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
+			metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
+		if err != nil {
+			log.Errorf("error getting number of workers, default to 1 worker: %v", err)
+			parallelism = 1
+		}
+		*workerRc.Spec.Replicas = int32(parallelism)
+		_, err = rc.Update(workerRc)
 		return err
-	}
-	parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
-	if err != nil {
-		log.Errorf("error getting number of workers, default to 1 worker: %v", err)
-		parallelism = 1
-	}
-	*workerRc.Spec.Replicas = int32(parallelism)
-	_, err = rc.Update(workerRc)
-	return err
+	}, backoff.New10sBackOff(), func(err error, _ time.Duration) error {
+		if err != nil && strings.Contains(err.Error(), "try again") {
+			return nil
+		}
+		return err
+	})
 }
 
 func notifyCtx(ctx context.Context, name string) func(error, time.Duration) error {
