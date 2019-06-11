@@ -117,7 +117,7 @@ func Cmds() []*cobra.Command {
 	getContext := &cobra.Command{
 		Short: "Gets a context.",
 		Long:  "Gets the config of a context by its name.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			cfg, err := config.Read()
 			if err != nil {
 				return err
