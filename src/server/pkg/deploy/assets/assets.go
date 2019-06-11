@@ -627,11 +627,8 @@ func PachdService(opts *AssetOpts) *v1.Service {
 				"app": pachdName,
 			},
 			Ports: []v1.ServicePort{
-				{
-					Port:     600, // also set in cmd/pachd/main.go
-					Name:     "s3gateway-port",
-					NodePort: 30600,
-				},
+				// NOTE: do not put any new ports before `api-grpc-port`, as
+				// it'll change k8s SERVICE_PORT env var values
 				{
 					Port:     650, // also set in cmd/pachd/main.go
 					Name:     "api-grpc-port",
@@ -656,6 +653,11 @@ func PachdService(opts *AssetOpts) *v1.Service {
 					Port:     githook.GitHookPort,
 					Name:     "api-git-port",
 					NodePort: githook.NodePort(),
+				},
+				{
+					Port:     600, // also set in cmd/pachd/main.go
+					Name:     "s3gateway-port",
+					NodePort: 30600,
 				},
 			},
 		},
