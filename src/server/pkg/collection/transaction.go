@@ -299,7 +299,7 @@ func (s *stm) fetch(key string) *v3.GetResponse {
 		return resp
 	}
 
-	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/Get")
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd.stm/Get", "key", key)
 	defer tracing.FinishAnySpan(span)
 	resp, err := s.client.Get(ctx, key, s.getOpts...)
 	if err != nil {
@@ -502,7 +502,7 @@ func (s *stm) fetchTTL(iface STM, key string) (int64, error) {
 		s.ttlset[key] = 0 // 0 is default value, but now 'ok' will be true on check
 		return 0, nil
 	}
-	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd/TimeToLive")
+	span, ctx := tracing.AddSpanToAnyExisting(s.ctx, "/etcd.stm/TimeToLive", "key", key)
 	defer tracing.FinishAnySpan(span)
 	leaseResp, err := s.client.TimeToLive(ctx, leaseID)
 	if err != nil {

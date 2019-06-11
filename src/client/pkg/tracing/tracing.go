@@ -37,11 +37,28 @@ const shortTraceEnvVar = "PACH_TRACE"
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
 
-// TagAnySpan tags 'span' with 'kvs' (if it's non-nil)
-func TagAnySpan(span opentracing.Span, kvs ...interface{}) opentracing.Span {
+// TagAnySpan tags any span associated with 'spanBox' (which must be either a
+// span itself or a context.Context) with 'kvs'
+func TagAnySpan(spanBox interface{}, kvs ...interface{}) opentracing.Span {
+	if spanBox == nil {
+		return nil
+	}
+
+	// extract span from 'spanBox'
+	var span opentracing.Span
+	switch v := spanBox.(type) {
+	case opentracing.Span:
+		span = v
+	case context.Context:
+		span = opentracing.SpanFromContext(v) // may return nil
+	default:
+		log.Errorf("invalid type %T passed to TagAnySpan", spanBox)
+	}
 	if span == nil {
 		return nil
 	}
+
+	// tag 'span'
 	for i := 0; i < len(kvs); i += 2 {
 		if len(kvs) == i+1 {
 			span = span.SetTag("extra", kvs[i]) // likely forgot key or value--best effort
