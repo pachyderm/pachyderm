@@ -21,6 +21,8 @@ const (
 	WindowSize = 64
 )
 
+var initialWindow = make([]byte, WindowSize)
+
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 // (bryce) The chunking/hashing/uploading could be made concurrent by reading ahead a certain amount and splitting the data among chunking/hashing/uploading workers
@@ -29,10 +31,10 @@ const (
 // correct for the file index.
 // - An improvement to this would be to just append WindowSize bytes to the prior worker's data, then stitch together the correct chunks.
 //   It doesn't make sense to roll the window over the same data twice.
+// (bryce) have someone else double check the hash resetting strategy. It should be fine in terms of consistent hashing, but may result with a little bit less deduplication across different files, not sure. This resetting strategy allows me to avoid reading the tail end of a copied chunk to get the correct hasher state for the following data (if it is not another copied chunk).
 type Writer struct {
 	ctx        context.Context
 	objC       obj.Client
-	prefix     string
 	cbs        []func([]*DataRef) error
 	buf        *bytes.Buffer
 	hash       *buzhash64.Buzhash64
@@ -44,19 +46,23 @@ type Writer struct {
 }
 
 // newWriter creates a new Writer.
-func newWriter(ctx context.Context, objC obj.Client, prefix string) *Writer {
+func newWriter(ctx context.Context, objC obj.Client) *Writer {
 	// Initialize buzhash64 with WindowSize window.
 	hash := buzhash64.New()
-	hash.Write(make([]byte, WindowSize))
+	hash.Write(initialWindow)
 	return &Writer{
 		ctx:       ctx,
 		objC:      objC,
-		prefix:    prefix,
 		cbs:       []func([]*DataRef) error{},
 		buf:       &bytes.Buffer{},
 		hash:      hash,
 		splitMask: (1 << uint64(AverageBits)) - 1,
 	}
+}
+
+func (w *Writer) resetHash() {
+	w.hash.Reset()
+	w.hash.Write(initialWindow)
 }
 
 // StartRange specifies the start of a range within the byte stream that is meaningful to the caller.
@@ -80,6 +86,8 @@ func (w *Writer) finishRange() {
 	data := w.buf.Bytes()[lastDataRef.OffsetBytes:w.buf.Len()]
 	lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
 	w.done = append(w.done, w.dataRefs)
+	// Reset hash between ranges.
+	w.resetHash()
 }
 
 // RangeSize returns the size of the current range.
@@ -108,6 +116,8 @@ func (w *Writer) Write(data []byte) (int, error) {
 				return 0, err
 			}
 			w.buf.Reset()
+			// Reset hash between chunks.
+			w.resetHash()
 			offset = i + 1
 			size = 0
 		}
@@ -119,7 +129,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 
 func (w *Writer) put() error {
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(w.buf.Bytes()))}
-	path := path.Join(w.prefix, chunk.Hash)
+	path := path.Join(prefix, chunk.Hash)
 	// If it does not exist, compress and write it.
 	if !w.objC.Exists(w.ctx, path) {
 		objW, err := w.objC.Writer(w.ctx, path)

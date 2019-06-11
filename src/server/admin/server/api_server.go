@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
@@ -460,6 +461,7 @@ func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_9) error
 			return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
 		}
 	case op.Repo != nil:
+		op.Repo.Repo.Name = ancestry.SanitizeName(op.Repo.Repo.Name)
 		if _, err := pachClient.PfsAPIClient.CreateRepo(pachClient.Ctx(), op.Repo); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating repo: %v", grpcutil.ScrubGRPC(err))
 		}
@@ -469,21 +471,30 @@ func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_9) error
 		}
 	case op.Branch != nil:
 		if op.Branch.Branch == nil {
-			op.Branch.Branch = client.NewBranch(op.Branch.Head.Repo.Name, op.Branch.SBranch)
+			op.Branch.Branch = client.NewBranch(op.Branch.Head.Repo.Name, ancestry.SanitizeName(op.Branch.SBranch))
 		}
 		if _, err := pachClient.PfsAPIClient.CreateBranch(pachClient.Ctx(), op.Branch); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating branch: %v", grpcutil.ScrubGRPC(err))
 		}
 	case op.Pipeline != nil:
-		if op.Pipeline.Salt != "" {
-			// clear salt so we don't re-use old datum hashtrees (which may have an invalid format)
-			op.Pipeline.Salt = ""
-		}
+		sanitizePipeline(op.Pipeline)
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
 		}
 	}
 	return nil
+}
+
+func sanitizePipeline(req *pps.CreatePipelineRequest) {
+	req.Pipeline.Name = ancestry.SanitizeName(req.Pipeline.Name)
+	pps.VisitInput(req.Input, func(input *pps.Input) {
+		if input.Pfs != nil {
+			if input.Pfs.Branch != "" {
+				input.Pfs.Branch = ancestry.SanitizeName(input.Pfs.Branch)
+			}
+			input.Pfs.Repo = ancestry.SanitizeName(input.Pfs.Repo)
+		}
+	})
 }
 
 func (a *apiServer) getPachClient() *client.APIClient {

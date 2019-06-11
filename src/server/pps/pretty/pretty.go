@@ -21,7 +21,7 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "NAME\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
+	PipelineHeader = "NAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "ID\tPIPELINE\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// DatumHeader is the header for datums
@@ -29,11 +29,6 @@ const (
 	// jobReasonLen is the amount of the job reason that we print
 	jobReasonLen = 25
 )
-
-// PrintJobHeader prints a job header.
-func PrintJobHeader(w io.Writer) {
-	fmt.Fprint(w, JobHeader)
-}
 
 func safeTrim(s string, l int) string {
 	if len(s) < l {
@@ -71,14 +66,10 @@ func PrintJobInfo(w io.Writer, jobInfo *ppsclient.JobInfo, fullTimestamps bool) 
 	}
 }
 
-// PrintPipelineHeader prints a pipeline header.
-func PrintPipelineHeader(w io.Writer) {
-	fmt.Fprint(w, PipelineHeader)
-}
-
 // PrintPipelineInfo pretty-prints pipeline info.
 func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTimestamps bool) {
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
+	fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
 	fmt.Fprintf(w, "%s\t", ShorthandInput(pipelineInfo.Input))
 	if fullTimestamps {
 		fmt.Fprintf(w, "%s\t", pipelineInfo.CreatedAt.String())
@@ -233,11 +224,6 @@ Job Counts:
 		return err
 	}
 	return nil
-}
-
-// PrintDatumInfoHeader prints a file info header.
-func PrintDatumInfoHeader(w io.Writer) {
-	fmt.Fprint(w, DatumHeader)
 }
 
 // PrintDatumInfo pretty-prints file info.

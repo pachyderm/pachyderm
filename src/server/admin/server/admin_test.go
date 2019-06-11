@@ -144,7 +144,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 
 	// Make sure recreated jobs all succeeded
 	backoff.Retry(func() error {
-		jis, err := c.ListJob("", nil, nil) // make sure jobs all succeeded
+		jis, err := c.ListJob("", nil, nil, -1, true) // make sure jobs all succeeded
 		require.NoError(t, err)
 		for _, ji := range jis {
 			// race--we may call listJob between when a job's output commit is closed

@@ -32,7 +32,7 @@ These operations are supported by the gateway:
 * Getting objects: Gets file contents on the HEAD of a branch.
 
 For details on what's going on under the hood and current peculiarities, see the
-[s3gateway API](../reference/s3gateway_api.md).
+[s3gateway API](../reference/s3gateway_api.html).
 
 ## Unsupported operations
 

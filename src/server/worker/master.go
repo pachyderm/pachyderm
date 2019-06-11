@@ -133,7 +133,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		}
 		// Check if a job was previously created for this commit. If not, make one
 		var jobInfo *pps.JobInfo
-		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit)
+		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
 		if err != nil {
 			return err
 		}
@@ -141,10 +141,7 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 			if len(jobInfos) > 1 {
 				return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
 			}
-			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
-			if err != nil {
-				return err
-			}
+			jobInfo = jobInfos[0]
 		} else {
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
@@ -559,26 +556,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 			}
 		}()
-		// Handle the case when there are no datums
-		if df.Len() == 0 {
-			if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
-				return err
-			}
-			if jobInfo.EnableStats {
-				if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit:    statsCommit,
-					Trees:     statsTrees,
-					SizeBytes: statsSize,
-				}); err != nil {
-					return err
-				}
-			}
-			_, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit: jobInfo.OutputCommit,
-				Empty:  true,
-			})
-			return err
-		}
 		// Watch the chunks in order
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 		var failedDatumID string
@@ -836,8 +813,8 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 				// start commit
 				commit, err := a.pachClient.PfsAPIClient.StartCommit(a.pachClient.Ctx(), &pfs.StartCommitRequest{
 					Parent:     client.NewCommit(repo, ""),
-					Branch:     "master",
-					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, "master", a.pipelineInfo.SpecCommit.ID)},
+					Branch:     a.pipelineInfo.OutputBranch,
+					Provenance: []*pfs.CommitProvenance{client.NewCommitProvenance(ppsconsts.SpecRepo, a.pipelineInfo.OutputBranch, a.pipelineInfo.SpecCommit.ID)},
 				})
 				if err != nil {
 					return err

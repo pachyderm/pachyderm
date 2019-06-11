@@ -33,6 +33,7 @@ import (
 	logutil "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/metrics"
 	ppscmds "github.com/pachyderm/pachyderm/src/server/pps/cmds"
+	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
 	prefixed "github.com/x-cray/logrus-prefixed-formatter"
 
 	log "github.com/sirupsen/logrus"
@@ -488,7 +489,11 @@ This resets the cluster to its initial state.`,
 				return err
 			}
 			if bytes[0] == 'y' || bytes[0] == 'Y' {
-				return client.DeleteAll()
+				err = client.DeleteAll()
+				if err != nil {
+					return err
+				}
+				return txncmds.ClearActiveTransaction()
 			}
 			return nil
 		}),
@@ -721,6 +726,18 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(restartDocs, "restart"))
 
+	resumeDocs := &cobra.Command{
+		Short: "Resume a stopped task.",
+		Long:  "Resume a stopped task.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(resumeDocs, "resume"))
+
+	runDocs := &cobra.Command{
+		Short: "Manually run a Pachyderm resource.",
+		Long:  "Manually run a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(runDocs, "run"))
+
 	editDocs := &cobra.Command{
 		Short: "Edit the value of an existing Pachyderm resource.",
 		Long:  "Edit the value of an existing Pachyderm resource.",
@@ -734,6 +751,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, enterprisecmds.Cmds(&noMetrics, &noPortForwarding)...)
 	subcommands = append(subcommands, admincmds.Cmds(&noMetrics, &noPortForwarding)...)
 	subcommands = append(subcommands, debugcmds.Cmds(&noMetrics, &noPortForwarding)...)
+	subcommands = append(subcommands, txncmds.Cmds(&noMetrics, &noPortForwarding)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

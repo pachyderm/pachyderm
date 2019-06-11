@@ -231,7 +231,9 @@ docker-build-gpu:
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-build-kafka:
-	docker build -t kafka-demo examples/kafka
+	cp -R src/server/vendor/github.com/segmentio/kafka-go etc/testing/kafka
+	docker build -t kafka-demo etc/testing/kafka || { rm -r etc/testing/kafka/kafka-go; exit 1; }
+	rm -r etc/testing/kafka/kafka-go
 
 docker-push-gpu:
 	docker push pachyderm/nvidia_driver_install
@@ -474,6 +476,8 @@ test-pfs-cmds:
 
 test-pfs-storage:
 	go test ./src/server/pkg/storage/chunk -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset/index -count 1 -timeout $(TIMEOUT)
+	go test ./src/server/pkg/storage/fileset -count 1 -timeout $(TIMEOUT)
 
 test-deploy-cmds:
 	go test ./src/server/pkg/deploy/cmds -count 1 -timeout $(TIMEOUT)
@@ -487,7 +491,10 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 	# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v ./src/server -parallel 1 -count 1 -timeout $(TIMEOUT) $(RUN) && \
-	  go test ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+	  go test -v ./src/server/pps/cmds -count 1 -timeout $(TIMEOUT)
+
+test-transaction:
+	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
 
 test-client:
 	rm -rf src/client/vendor
@@ -517,7 +524,7 @@ test-vault:
 
 test-s3gateway-integration:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
-	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1 | grep -v 'INFO pfs.'
+	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
 
 test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
 	./etc/testing/s3gateway/conformance.py

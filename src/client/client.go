@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/admin"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/debug"
-	"github.com/pachyderm/pachyderm/src/client/deploy"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/health"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -33,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/client/transaction"
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 )
 
@@ -64,14 +64,14 @@ type ObjectAPIClient pfs.ObjectAPIClient
 // AuthAPIClient is an alias of auth.APIClient
 type AuthAPIClient auth.APIClient
 
-// DeployAPIClient is an alias of auth.APIClient
-type DeployAPIClient deploy.APIClient
-
 // VersionAPIClient is an alias of versionpb.APIClient
 type VersionAPIClient versionpb.APIClient
 
 // AdminAPIClient is an alias of admin.APIClient
 type AdminAPIClient admin.APIClient
+
+// TransactionAPIClient is an alias of transaction.APIClient
+type TransactionAPIClient transaction.APIClient
 
 // DebugClient is an alias of debug.DebugClient
 type DebugClient debug.DebugClient
@@ -82,9 +82,9 @@ type APIClient struct {
 	PpsAPIClient
 	ObjectAPIClient
 	AuthAPIClient
-	DeployAPIClient
 	VersionAPIClient
 	AdminAPIClient
+	TransactionAPIClient
 	DebugClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 
@@ -440,6 +440,7 @@ func (c *APIClient) Close() error {
 
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
+// TODO: rewrite this to use transactions
 func (c APIClient) DeleteAll() error {
 	if _, err := c.AuthAPIClient.Deactivate(
 		c.Ctx(),
@@ -456,6 +457,12 @@ func (c APIClient) DeleteAll() error {
 	if _, err := c.PfsAPIClient.DeleteAll(
 		c.Ctx(),
 		&types.Empty{},
+	); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if _, err := c.TransactionAPIClient.DeleteAll(
+		c.Ctx(),
+		&transaction.DeleteAllRequest{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
@@ -519,9 +526,9 @@ func (c *APIClient) connect(timeout time.Duration) error {
 	c.ObjectAPIClient = pfs.NewObjectAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.Enterprise = enterprise.NewAPIClient(clientConn)
-	c.DeployAPIClient = deploy.NewAPIClient(clientConn)
 	c.VersionAPIClient = versionpb.NewAPIClient(clientConn)
 	c.AdminAPIClient = admin.NewAPIClient(clientConn)
+	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = health.NewHealthClient(clientConn)

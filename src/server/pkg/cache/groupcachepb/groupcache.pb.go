@@ -10,8 +10,11 @@ import (
 	github_com_golang_protobuf_proto "github.com/golang/protobuf/proto"
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
+	math_bits "math/bits"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -201,6 +204,14 @@ type GroupCacheServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 }
 
+// UnimplementedGroupCacheServer can be embedded to have forward compatible implementations.
+type UnimplementedGroupCacheServer struct {
+}
+
+func (*UnimplementedGroupCacheServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+
 func RegisterGroupCacheServer(s *grpc.Server, srv GroupCacheServer) {
 	s.RegisterService(&_GroupCache_serviceDesc, srv)
 }
@@ -355,14 +366,7 @@ func (m *GetResponse) Size() (n int) {
 }
 
 func sovGroupcache(x uint64) (n int) {
-	for {
-		n++
-		x >>= 7
-		if x == 0 {
-			break
-		}
-	}
-	return n
+	return (math_bits.Len64(x|1) + 6) / 7
 }
 func sozGroupcache(x uint64) (n int) {
 	return sovGroupcache(uint64((x << 1) ^ uint64((int64(x) >> 63))))

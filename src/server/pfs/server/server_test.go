@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
+	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sql"
@@ -179,6 +181,78 @@ func TestBranch(t *testing.T) {
 	commitInfo, err = c.InspectCommit(repo, "master")
 	require.NoError(t, err)
 	require.NotNil(t, commitInfo.ParentCommit)
+}
+
+func TestToggleBranchProvenance(t *testing.T) {
+	c := GetPachClient(t)
+
+	require.NoError(t, c.CreateRepo("in"))
+	require.NoError(t, c.CreateRepo("out"))
+	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{
+		pclient.NewBranch("in", "master"),
+	}))
+
+	// Create initial input commit, and make sure we get an output commit
+	_, err := c.PutFile("in", "master", "1", strings.NewReader("1"))
+	require.NoError(t, err)
+	cis, err := c.ListCommit("out", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	require.NoError(t, c.FinishCommit("out", "master"))
+	// make sure output commit has the right provenance
+	ci, err := c.InspectCommit("in", "master")
+	require.NoError(t, err)
+	expectedProv := map[string]bool{
+		path.Join("in", ci.Commit.ID): true,
+	}
+	ci, err = c.InspectCommit("out", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+
+	// Toggle out@master provenance off
+	require.NoError(t, c.CreateBranch("out", "master", "master", nil))
+
+	// Create new input commit & make sure no new output commit is created
+	_, err = c.PutFile("in", "master", "2", strings.NewReader("2"))
+	require.NoError(t, err)
+	cis, err = c.ListCommit("out", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	// make sure output commit still has the right provenance
+	ci, err = c.InspectCommit("in", "master~1") // old input commit
+	require.NoError(t, err)
+	expectedProv = map[string]bool{
+		path.Join("in", ci.Commit.ID): true,
+	}
+	ci, err = c.InspectCommit("out", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+
+	// Toggle out@master provenance back on, creating a new output commit
+	require.NoError(t, c.CreateBranch("out", "master", "master", []*pfs.Branch{
+		pclient.NewBranch("in", "master"),
+	}))
+	cis, err = c.ListCommit("out", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+	// make sure new output commit has the right provenance
+	ci, err = c.InspectCommit("in", "master") // newest input commit
+	require.NoError(t, err)
+	expectedProv = map[string]bool{
+		path.Join("in", ci.Commit.ID): true,
+	}
+	ci, err = c.InspectCommit("out", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
 }
 
 func TestCreateAndInspectRepo(t *testing.T) {
@@ -725,7 +799,7 @@ func TestAncestrySyntax(t *testing.T) {
 
 	commit1, err := client.StartCommit(repo, "master")
 	require.NoError(t, err)
-	_, err = client.PutFileOverwrite(repo, commit1.ID, "file", strings.NewReader("1"), 0)
+	_, err = client.PutFileOverwrite(repo, "master", "file", strings.NewReader("1"), 0)
 	require.NoError(t, err)
 	require.NoError(t, client.FinishCommit(repo, commit1.ID))
 
@@ -773,6 +847,18 @@ func TestAncestrySyntax(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commit1, commitInfo.Commit)
 
+	commitInfo, err = client.InspectCommit(repo, "master.1")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.2")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.3")
+	require.NoError(t, err)
+	require.Equal(t, commit3, commitInfo.Commit)
+
 	commitInfo, err = client.InspectCommit(repo, "master^^^")
 	require.YesError(t, err)
 
@@ -799,6 +885,33 @@ func TestAncestrySyntax(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, client.GetFile(repo, ancestry.Add("master", 2), "file", 0, 0, &buffer))
 	require.Equal(t, "1", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -1), "file", 0, 0, &buffer))
+	require.Equal(t, "1", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -2), "file", 0, 0, &buffer))
+	require.Equal(t, "2", buffer.String())
+	buffer.Reset()
+	require.NoError(t, client.GetFile(repo, ancestry.Add("master", -3), "file", 0, 0, &buffer))
+	require.Equal(t, "3", buffer.String())
+
+	// Adding a bunch of commits to the head of the branch shouldn't change the forward references.
+	// (It will change backward references.)
+	for i := 0; i < 10; i++ {
+		_, err = client.PutFileOverwrite(repo, "master", "file", strings.NewReader(fmt.Sprintf("%d", i+4)), 0)
+		require.NoError(t, err)
+	}
+	commitInfo, err = client.InspectCommit(repo, "master.1")
+	require.NoError(t, err)
+	require.Equal(t, commit1, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.2")
+	require.NoError(t, err)
+	require.Equal(t, commit2, commitInfo.Commit)
+
+	commitInfo, err = client.InspectCommit(repo, "master.3")
+	require.NoError(t, err)
+	require.Equal(t, commit3, commitInfo.Commit)
 }
 
 // TestProvenance implements the following DAG
@@ -4673,7 +4786,6 @@ func TestPutFileCommitOverwrite(t *testing.T) {
 
 func TestStartCommitOutputBranch(t *testing.T) {
 	c := GetPachClient(t)
-
 	require.NoError(t, c.CreateRepo("in"))
 	require.NoError(t, c.CreateRepo("out"))
 	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
@@ -4903,8 +5015,9 @@ func TestPutObjectAsync(t *testing.T) {
 	w, err := client.PutObjectAsync([]*pfs.Tag{tag})
 	require.NoError(t, err)
 	expected := []byte(generateRandomString(30 * MB))
-	_, err = w.Write(expected)
+	n, err := w.Write(expected)
 	require.NoError(t, err)
+	require.Equal(t, len(expected), n)
 	require.NoError(t, w.Close())
 	// Check actual results of write.
 	actual := &bytes.Buffer{}
@@ -4937,4 +5050,348 @@ func TestDeferredProcessing(t *testing.T) {
 	commits, err = client.FlushCommitAll([]*pfs.Commit{pclient.NewCommit("input", "staging")}, nil)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commits))
+}
+
+// TestMultiInputWithDeferredProcessing tests this DAG:
+//
+// input1 ─▶ deferred-output ─▶ final-output
+//                              ▲
+// input2 ──────────────────────╯
+//
+// For this test to pass, commits in 'final-output' must include commits from
+// the provenance of 'deferred-output', *even if 'deferred-output@master' isn't
+// the branch being propagated*
+func TestMultiInputWithDeferredProcessing(t *testing.T) {
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("input1"))
+	require.NoError(t, client.CreateRepo("deferred-output"))
+	require.NoError(t, client.CreateRepo("input2"))
+	require.NoError(t, client.CreateRepo("final-output"))
+	require.NoError(t, client.CreateBranch("deferred-output", "staging", "",
+		[]*pfs.Branch{pclient.NewBranch("input1", "master")}))
+	require.NoError(t, client.CreateBranch("final-output", "master", "",
+		[]*pfs.Branch{
+			pclient.NewBranch("input2", "master"),
+			pclient.NewBranch("deferred-output", "master"),
+		}))
+	_, err := client.PutFile("input1", "master", "1", strings.NewReader("1"))
+	require.NoError(t, err)
+	_, err = client.PutFile("input2", "master", "2", strings.NewReader("2"))
+
+	// There should be an open commit in "staging" but not "master"
+	cis, err := client.ListCommit("deferred-output", "staging", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	require.NoError(t, client.FinishCommit("deferred-output", "staging"))
+	cis, err = client.ListCommit("deferred-output", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(cis))
+
+	// There shouldn't be one output commit in "final-output@master", but with no
+	// provenance in deferred-output or input1 (only in input2)
+	cis, err = client.ListCommit("final-output", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(cis))
+	require.NoError(t, client.FinishCommit("final-output", "master"))
+	ci, err := client.InspectCommit("input2", "master")
+	require.NoError(t, err)
+	expectedProv := map[string]bool{
+		path.Join("input2", ci.Commit.ID): true,
+	}
+	ci, err = client.InspectCommit("final-output", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+
+	// 1) Move master branch and create second output commit (first w/ full prov)
+	require.NoError(t, client.CreateBranch("deferred-output", "master", "staging", nil))
+	require.NoError(t, err)
+	cis, err = client.ListCommit("final-output", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(cis))
+	require.NoError(t, client.FinishCommit("final-output", "master"))
+
+	// Make sure the final output (triggered by deferred-downstream) has the right
+	// commit provenance
+	expectedProv = make(map[string]bool)
+	for _, r := range []string{"input1", "input2", "deferred-output"} {
+		ci, err := client.InspectCommit(r, "master")
+		require.NoError(t, err)
+		expectedProv[path.Join(r, ci.Commit.ID)] = true
+	}
+	ci, err = client.InspectCommit("final-output", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+
+	// 2) Commit to input2 and create second output commit
+	_, err = client.PutFile("input2", "master", "3", strings.NewReader("3"))
+	require.NoError(t, err)
+	cis, err = client.ListCommit("final-output", "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(cis))
+	require.NoError(t, client.FinishCommit("final-output", "master"))
+
+	// Make sure the final output (triggered by second input) has the right
+	// commit provenance
+	expectedProv = make(map[string]bool)
+	for _, r := range []string{"input1", "input2", "deferred-output"} {
+		ci, err := client.InspectCommit(r, "master")
+		require.NoError(t, err)
+		expectedProv[path.Join(r, ci.Commit.ID)] = true
+	}
+	ci, err = client.InspectCommit("final-output", "master")
+	require.NoError(t, err)
+	require.Equal(t, len(expectedProv), len(ci.Provenance))
+	for _, c := range ci.Provenance {
+		require.True(t, expectedProv[path.Join(c.Commit.Repo.Name, c.Commit.ID)])
+	}
+}
+
+func seedStr(seed int64) string {
+	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
+}
+
+func monkeyRetry(t *testing.T, f func() error, errMsg string) {
+	backoff.Retry(func() error {
+		err := f()
+		if err != nil {
+			require.True(t, obj.IsMonkeyError(err), errMsg)
+		}
+		return err
+	}, backoff.NewInfiniteBackOff())
+}
+
+func TestMonkeyObjectStorage(t *testing.T) {
+	seed := time.Now().UTC().UnixNano()
+	obj.InitMonkeyTest(seed)
+	client := GetPachClient(t)
+	iterations := 25
+	repo := "input"
+	require.NoError(t, client.CreateRepo(repo), seedStr(seed))
+	filePrefix := "file"
+	dataPrefix := "data"
+	var commit *pfs.Commit
+	var err error
+	buf := &bytes.Buffer{}
+	obj.EnableMonkeyTest()
+	defer obj.DisableMonkeyTest()
+	for i := 0; i < iterations; i++ {
+		file := filePrefix + strconv.Itoa(i)
+		data := dataPrefix + strconv.Itoa(i)
+		// Retry start commit until it eventually succeeds.
+		monkeyRetry(t, func() error {
+			commit, err = client.StartCommit(repo, "")
+			return err
+		}, seedStr(seed))
+		// Retry put file until it eventually succeeds.
+		monkeyRetry(t, func() error {
+			_, err = client.PutFile(repo, commit.ID, file, strings.NewReader(data))
+			if err != nil {
+				// Verify that the file does not exist if an error occurred.
+				obj.DisableMonkeyTest()
+				defer obj.EnableMonkeyTest()
+				buf.Reset()
+				err := client.GetFile(repo, commit.ID, file, 0, 0, buf)
+				require.Matches(t, "not found", err.Error(), seedStr(seed))
+			}
+			return err
+		}, seedStr(seed))
+		// Retry get file until it eventually succeeds (before commit is finished).
+		monkeyRetry(t, func() error {
+			buf.Reset()
+			if err = client.GetFile(repo, commit.ID, file, 0, 0, buf); err != nil {
+				return err
+			}
+			require.Equal(t, data, buf.String(), seedStr(seed))
+			return nil
+		}, seedStr(seed))
+		// Retry finish commit until it eventually succeeds.
+		monkeyRetry(t, func() error {
+			return client.FinishCommit(repo, commit.ID)
+		}, seedStr(seed))
+		// Retry get file until it eventually succeeds (after commit is finished).
+		monkeyRetry(t, func() error {
+			buf.Reset()
+			if err = client.GetFile(repo, commit.ID, file, 0, 0, buf); err != nil {
+				return err
+			}
+			require.Equal(t, data, buf.String(), seedStr(seed))
+			return nil
+		}, seedStr(seed))
+	}
+}
+
+const (
+	inputRepo          = iota // create a new input repo
+	inputBranch               // create a new branch on an existing input repo
+	deleteInputBranch         // delete an input branch
+	commit                    // commit to an input branch
+	deleteCommit              // delete a commit from an input branch
+	outputRepo                // create a new output repo, with master branch subscribed to random other branches
+	outputBranch              // create a new output branch on an existing output repo
+	deleteOutputBranch        // delete an output branch
+)
+
+func TestFuzzProvenance(t *testing.T) {
+	seed := time.Now().UnixNano()
+	t.Log("Random seed is", seed)
+	r := rand.New(rand.NewSource(seed))
+
+	client := GetPachClient(t)
+	_, err := client.PfsAPIClient.DeleteAll(client.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+	nOps := 300
+	opShares := []int{
+		1, // inputRepo
+		1, // inputBranch
+		1, // deleteInputBranch
+		5, // commit
+		3, // deleteCommit
+		1, // outputRepo
+		2, // outputBranch
+		1, // deleteOutputBranch
+	}
+	total := 0
+	for _, v := range opShares {
+		total += v
+	}
+	var (
+		inputRepos     []string
+		inputBranches  []*pfs.Branch
+		commits        []*pfs.Commit
+		outputRepos    []string
+		outputBranches []*pfs.Branch
+	)
+OpLoop:
+	for i := 0; i < nOps; i++ {
+		println("\niter", i)
+		roll := r.Intn(total)
+		if i < 0 {
+			roll = inputRepo
+		}
+		var op int
+		for _op, v := range opShares {
+			roll -= v
+			if roll < 0 {
+				op = _op
+				break
+			}
+		}
+		switch op {
+		case inputRepo:
+			println("inputRepo")
+			repo := tu.UniqueString("repo")
+			require.NoError(t, client.CreateRepo(repo))
+			inputRepos = append(inputRepos, repo)
+			require.NoError(t, client.CreateBranch(repo, "master", "", nil))
+			inputBranches = append(inputBranches, pclient.NewBranch(repo, "master"))
+		case inputBranch:
+			println("inputBranch")
+			if len(inputRepos) == 0 {
+				continue OpLoop
+			}
+			repo := inputRepos[r.Intn(len(inputRepos))]
+			branch := tu.UniqueString("branch")
+			require.NoError(t, client.CreateBranch(repo, branch, "", nil))
+			inputBranches = append(inputBranches, pclient.NewBranch(repo, branch))
+		case deleteInputBranch:
+			println("deleteInputBranch")
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			i := r.Intn(len(inputBranches))
+			branch := inputBranches[i]
+			inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
+			err = client.DeleteBranch(branch.Repo.Name, branch.Name, false)
+			// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
+			if err != nil && !strings.Contains(err.Error(), "break") {
+				require.NoError(t, err)
+			}
+		case commit:
+			println("commit")
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			branch := inputBranches[r.Intn(len(inputBranches))]
+			commit, err := client.StartCommit(branch.Repo.Name, branch.Name)
+			require.NoError(t, err)
+			require.NoError(t, client.FinishCommit(branch.Repo.Name, branch.Name))
+			commits = append(commits, commit)
+		case deleteCommit:
+			println("deleteCommit")
+			if len(commits) == 0 {
+				continue OpLoop
+			}
+			i := r.Intn(len(commits))
+			commit := commits[i]
+			commits = append(commits[:i], commits[i+1:]...)
+			require.NoError(t, client.DeleteCommit(commit.Repo.Name, commit.ID))
+		case outputRepo:
+			println("outputRepo")
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			repo := tu.UniqueString("repo")
+			require.NoError(t, client.CreateRepo(repo))
+			outputRepos = append(outputRepos, repo)
+			var provBranches []*pfs.Branch
+			for num, i := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
+				provBranches = append(provBranches, inputBranches[i])
+				if num > 1 {
+					break
+				}
+			}
+
+			require.NoError(t, client.CreateBranch(repo, "master", "", provBranches))
+			outputBranches = append(outputBranches, pclient.NewBranch(repo, "master"))
+		case outputBranch:
+			println("outputBranch")
+			if len(outputRepos) == 0 {
+				continue OpLoop
+			}
+			if len(inputBranches) == 0 {
+				continue OpLoop
+			}
+			repo := outputRepos[r.Intn(len(outputRepos))]
+			branch := tu.UniqueString("branch")
+			var provBranches []*pfs.Branch
+			for num, i := range r.Perm(len(inputBranches))[:r.Intn(len(inputBranches))] {
+				provBranches = append(provBranches, inputBranches[i])
+				if num > 1 {
+					break
+				}
+			}
+
+			if len(outputBranches) > 0 {
+				for num, i := range r.Perm(len(outputBranches))[:r.Intn(len(outputBranches))] {
+					provBranches = append(provBranches, outputBranches[i])
+					if num > 1 {
+						break
+					}
+				}
+			}
+			require.NoError(t, client.CreateBranch(repo, branch, "", provBranches))
+			outputBranches = append(outputBranches, pclient.NewBranch(repo, branch))
+		case deleteOutputBranch:
+			println("deleteOutputBranch")
+			if len(outputBranches) == 0 {
+				continue OpLoop
+			}
+			i := r.Intn(len(outputBranches))
+			branch := outputBranches[i]
+			outputBranches = append(outputBranches[:i], outputBranches[i+1:]...)
+			err = client.DeleteBranch(branch.Repo.Name, branch.Name, false)
+			// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
+			if err != nil && !strings.Contains(err.Error(), "break") {
+				require.NoError(t, err)
+			}
+		}
+		_, err = client.Fsck(client.Ctx(), &types.Empty{})
+		require.NoError(t, err)
+	}
 }
