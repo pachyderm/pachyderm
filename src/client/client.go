@@ -393,10 +393,8 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 				return nil, fmt.Errorf("could not connect (note: port is usually "+
 					"%s or %s, but is currently set to %q--is this right?): %v", DefaultPachdNodePort, DefaultPachdPort, port, err)
 			}
-			if strings.HasPrefix(addr, "0.0.0.0") ||
-				strings.HasPrefix(addr, "127.0.0.1") ||
-				strings.HasPrefix(addr, "[::1]") ||
-				strings.HasPrefix(addr, "localhost") {
+			isLoopback := strings.HasPrefix(addr, "0.0.0.0") || strings.HasPrefix(addr, "127.0.0.1") || strings.HasPrefix(addr, "[::1]") || strings.HasPrefix(addr, "localhost")
+			if fw == nil && isLoopback {
 				return nil, fmt.Errorf("could not connect (note: address %q looks "+
 					"like loopback, check that 'pachctl port-forward' is running): %v",
 					addr, err)
