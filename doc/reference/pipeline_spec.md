@@ -153,7 +153,9 @@ create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
 
 ```
 
-In practice, you rarely need to specify all the fields.  Most fields either come with sensible defaults or can be nil.  Following is an example of a minimal spec:
+In practice, you rarely need to specify all the fields.
+Most fields either come with sensible defaults or can be empty.
+The following text is an example of a minimum spec:
 
 ```json
 {
@@ -173,99 +175,106 @@ In practice, you rarely need to specify all the fields.  Most fields either come
 }
 ```
 
-Following is a walk-through of all the fields.
-
 ### Name (required)
 
-`pipeline.name` is the name of the pipeline that you are creating.  Each
-pipeline needs to have a unique name. Pipeline names must:
+`pipeline.name` is the name of the pipeline that you are creating. Each
+pipeline needs to have a unique name. Pipeline names must meet the following
+prerequisites:
 
-- contain only alphanumeric characters, `_` and `-`
-- begin or end with only alphanumeric characters (not `_` or `-`)
-- be no more than 50 characters in length
+- Include only alphanumeric characters, `_` and `-`.
+- Begin or end with only alphanumeric characters (not `_` or `-`).
+- Do not exceed 50 characters in length.
 
 ### Description (optional)
 
-`description` is an optional text field where you can put documentation about the pipeline.
+`description` is an optional text field where you can add information
+about the pipeline.
 
 ### Transform (required)
 
-`transform.image` is the name of the Docker image that your jobs run in.
+`transform.image` is the name of the Docker image that your jobs use.
 
-`transform.cmd` is the command passed to the Docker run invocation.  Note that
-as with Docker, cmd is not run inside a shell which means that things like
-wildcard globbing (`*`), pipes (`|`) and file redirects (`>` and `>>`) will not
-work.  To get that behavior, you can set `cmd` to be a shell of your choice
-(e.g. `sh`) and pass a shell script to stdin.
+`transform.cmd` is the command passed to the Docker run invocation. Similarly
+to Docker, `cmd` is not run inside a shell which means that
+wildcard globbing (`*`), pipes (`|`), and file redirects (`>` and `>>`) does
+not work. To specify these settings, you can set `cmd` to be a shell of your
+choice, such as `sh` and pass a shell script to `stdin`.
 
-`transform.stdin` is an array of lines that are sent to your command on stdin.
-Lines need not end in newline characters.
+`transform.stdin` is an array of lines that are sent to your command on
+`stdin`.
+Lines do not have to end in newline characters.
 
-`transform.err_cmd` is an optional command that will only get run on datums which fail.
-If the err_cmd is successful (returns 0 error code), it won't prevent the job from succeeding.
-This means that it can be used to ignore failed datums while still writing successful datums to the output repo,
-instead of failing the whole job when some datums fail. It has the same limitations as `transform.cmd`.
+`transform.err_cmd` is an optional command that is executed on failed datums.
+If the `err_cmd` is successful and returns 0 error code, it does not prevent
+the job from succeeding.
+This behavior means that `transform.err_cmd` can be used to ignore
+failed datums while still writing successful datums to the output repo,
+instead of failing the whole job when some datums fail. The `transform.err_cmd`
+command has the same limitations as `transform.cmd`.
 
-`transform.err_stdin` is an array of lines that are sent to your error command on stdin.
-Lines need not end in newline characters.
+`transform.err_stdin` is an array of lines that are sent to your error command
+on `stdin`.
+Lines do not have to end in newline characters.
 
-`transform.env` is a map from key to value of environment variables that will be
-injected into the container
+`transform.env` is a key-value map of environment variables that
+Pachyderm injects into the container.
 
-Note: there are environment variables that are automatically injected into the
-container, for a comprehensive list of them see the [Environment
+**Note:** There are environment variables that are automatically injected
+into the container, for a comprehensive list of them see the [Environment
 Variables](#environment-variables) section below.
 
-`transform.secrets` is an array of secrets, they are useful for embedding
-sensitive data such as credentials. Secrets reference Kubernetes secrets by
-name and specify a path that the secrets should be mounted to, or an
-environment variable (`env_var`) that the value should be bound to. Secrets
+`transform.secrets` is an array of secrets. You can use the secrets to
+embed sensitive data, such as credentials. The secrets reference
+Kubernetes secrets by name and specify a path to map the secrets or
+an environment variable (`env_var`) that the value should be bound to. Secrets
 must set `name` which should be the name of a secret in Kubernetes. Secrets
-must also specify either `mount_path` or `env_var` and `key`. See more information about kubernetes secrets [here](https://kubernetes.io/docs/concepts/configuration/secret/).
+must also specify either `mount_path` or `env_var` and `key`. See more
+information about Kubernetes secrets [here](https://kubernetes.io/docs/concepts/configuration/secret/).
 
 `transform.image_pull_secrets` is an array of image pull secrets, image pull
-secrets are similar to secrets except that they're mounted before the
+secrets are similar to secrets except that they are mounted before the
 containers are created so they can be used to provide credentials for image
 pulling. For example, if you are using a private Docker registry for your
-images, you can specify it via:
+images, you can specify it by running the following command:
 
 ```sh
 $ kubectl create secret docker-registry myregistrykey --docker-server=DOCKER_REGISTRY_SERVER --docker-username=DOCKER_USER --docker-password=DOCKER_PASSWORD --docker-email=DOCKER_EMAIL
 ```
 
-And then tell your pipeline about it via `"image_pull_secrets": [ "myregistrykey" ]`. Read more about image pull secrets
+And then, notify your pipeline about it by using
+`"image_pull_secrets": [ "myregistrykey" ]`. Read more about image pull secrets
 [here](https://kubernetes.io/docs/concepts/containers/images/#specifying-imagepullsecrets-on-a-pod).
 
-`transform.accept_return_code` is an array of return codes (i.e. exit codes)
-from your docker command that are considered acceptable, which means that
-if your docker command exits with one of the codes in this array, it will
-be considered a successful run for the purpose of setting job status.  `0`
+`transform.accept_return_code` is an array of return codes, such as exit codes
+from your Docker command that are considered acceptable.
+If your Docker command exits with one of the codes in this array, it is
+considered a successful run to set job status. `0`
 is always considered a successful exit code.
 
 `transform.debug` turns on added debug logging for the pipeline.
 
 `transform.user` sets the user that your code runs as, this can also be
-accomplished with a `USER` directive in your Dockerfile.
+accomplished with a `USER` directive in your `Dockerfile`.
 
-`transform.working_dir` sets the directory that your command will be run from,
-this can also be accomplished with a `WORKDIR` directive in your Dockerfile.
+`transform.working_dir` sets the directory that your command runs from. You
+can also specify the `WORKDIR` directive in your `Dockerfile`.
 
-`transform.dockerfile` is the path to the Dockerfile used with the `--build`
+`transform.dockerfile` is the path to the `Dockerfile` used with the `--build`
 flag. This defaults to `./Dockerfile`.
 
 ### Parallelism Spec (optional)
 
-`parallelism_spec` describes how Pachyderm should parallelize your pipeline.
+`parallelism_spec` describes how Pachyderm parallelizes your pipeline.
 Currently, Pachyderm has two parallelism strategies: `constant` and
 `coefficient`.
 
-If you set the `constant` field, Pachyderm will start the number of workers
+If you set the `constant` field, Pachyderm starts the number of workers
 that you specify. For example, set `"constant":10` to use 10 workers.
 
-If you set the `coefficient` field, Pachyderm will start a number of workers
+If you set the `coefficient` field, Pachyderm starts a number of workers
 that is a multiple of your Kubernetes cluster’s size. For example, if your
 Kubernetes cluster has 10 nodes, and you set `"coefficient": 0.5`, Pachyderm
-will start five workers. If you set it to 2.0, Pachyderm will start 20 workers
+starts five workers. If you set it to 2.0, Pachyderm starts 20 workers
 (two per Kubernetes node).
 
 The default if left unset is "constant=1".
@@ -274,42 +283,43 @@ The default if left unset is "constant=1".
 
 `resource_requests` describes the amount of resources you expect the
 workers for a given pipeline to consume. Knowing this in advance
-lets us schedule big jobs on separate machines, so that they don't
+lets Pachyderm schedule big jobs on separate machines, so that they do not
 conflict and either slow down or die.
 
 The `memory` field is a string that describes the amount of memory, in bytes,
-each worker needs (with allowed SI suffixes (M, K, G, Mi, Ki, Gi, etc). For
-example, a worker that needs to read a 1GB file into memory might set
-`"memory": "1.2G"` (with a little extra for the code to use in addition to the
-file. Workers for this pipeline will only be placed on machines with at least
+each worker needs (with allowed SI suffixes (M, K, G, Mi, Ki, Gi, and so on).
+For example, a worker that needs to read a 1GB file into memory might set
+`"memory": "1.2G"` with a little extra for the code to use in addition to the
+file. Workers for this pipeline will be placed on machines with at least
 1.2GB of free memory, and other large workers will be prevented from using it
 (if they also set their `resource_requests`).
 
-The `cpu` field is a number that describes the amount of CPU time (in (cpu
-seconds)/(real seconds) each worker needs. Setting `"cpu": 0.5` indicates that
+The `cpu` field is a number that describes the amount of CPU time in `cpu
+seconds/real seconds` that each worker needs. Setting `"cpu": 0.5` indicates that
 the worker should get 500ms of CPU time per second. Setting `"cpu": 2`
-indicates that the worker should get 2000ms of CPU time per second (i.e. it's
-using 2 CPUs, essentially, though worker threads might spend e.g. 500ms on four
-physical CPUs instead of one second on two physical CPUs).
+indicates that the worker gets 2000ms of CPU time per second. In other words,
+it is using 2 CPUs, though worker threads might spend 500ms on four
+physical CPUs instead of one second on two physical CPUs.
 
 The `disk` field is a string that describes the amount of ephemeral disk space,
-in bytes, each worker needs (with allowed SI suffixes (M, K, G, Mi, Ki, Gi,
-etc).
+in bytes, each worker needs with allowed SI suffixes (M, K, G, Mi, Ki, Gi,
+and so on).
 
 In both cases, the resource requests are not upper bounds. If the worker uses
-more memory than it's requested, it will not (necessarily) be killed.  However,
-if the whole node runs out of memory, Kubernetes will start killing pods that
-have been placed on it and exceeded their memory request, to reclaim memory.
-To prevent your worker getting killed, you must set your `memory` request to
+more memory than it is requested, it does not mean that it will be shut down.
+However, if the whole node runs out of memory, Kubernetes starts deleting
+pods that have been placed on it and exceeded their memory request,
+to reclaim memory.
+To prevent deletion of your worker node, you must set your `memory` request to
 a sufficiently large value. However, if the total memory requested by all
-workers in the system is too large, Kubernetes will be unable to schedule new
-workers (because no machine will have enough unclaimed memory). `cpu` works
+workers in the system is too large, Kubernetes cannot schedule new
+workers because no machine has enough unclaimed memory. `cpu` works
 similarly, but for CPU time.
 
 By default, workers are scheduled with an effective resource request of 0 (to
 avoid scheduling problems that prevent users from being unable to run
-pipelines).  This means that if a node runs out of memory, any such worker
-might be killed.
+pipelines). This means that if a node runs out of memory, any such worker
+might be destroyed.
 
 For more information about resource requests and limits see the
 [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
@@ -371,7 +381,9 @@ these fields be set for any instantiation of the object.
 
 #### PFS Input
 
-**Note:** Atom inputs were renamed to PFS inputs in 1.8.1. If you are on an older version of Pachyderm, replace every instance of `pfs` with `atom`, and it will function the same way.
+**Note:** Atom inputs were renamed to PFS inputs in version 1.8.1. If you are using an
+older version of Pachyderm, replace every instance of `pfs` with
+`atom` in the code below.
 
 PFS inputs are the simplest inputs, they take input from a single branch on a
 single repo.
@@ -387,38 +399,54 @@ single repo.
 }
 ```
 
-`input.pfs.name` is the name of the input.  An input with name `XXX` will be
-visible under the path `/pfs/XXX` when a job runs.  Input names must be unique
-if the inputs are crossed, but they may be duplicated between `PFSInput`s that are unioned.  This is because when `PFSInput`s are unioned, you'll only ever see a datum from one input at a time. Overlapping the names of unioned inputs allows
-you to write simpler code since you no longer need to consider which input directory a particular datum come from.  If an input's name is not specified, it defaults to the name of the repo.  Therefore, if you have two crossed inputs from the same repo, you'll be required to give at least one of them a unique name.
+`input.pfs.name` is the name of the input. An input with the name `XXX` is
+visible under the path `/pfs/XXX` when a job runs. Input names must be unique
+if the inputs are crossed, but they may be duplicated between `PFSInput`s that
+are combined by using the `union` operator. This is because when
+`PFSInput`s are combined, you only ever see a datum from one input
+at a time. Overlapping the names of combined inputs allows
+you to write simpler code since you no longer need to consider which
+input directory a particular datum comes from. If an input's name is not
+specified, it defaults to the name of the repo. Therefore, if you have two
+crossed inputs from the same repo, you must give at least one of them a unique name.
 
 `input.pfs.repo` is the `repo` to be used for the input.
 
-`input.pfs.branch` is the `branch` to watch for commits on, it may be left blank in
-which case `"master"` will be used.
+`input.pfs.branch` is the `branch` to watch for commits. If left blank,
+`master` is used by default.
 
-`input.pfs.glob` is a glob pattern that's used to determine how the input data
-is partitioned.  It's explained in detail in the next section.
+`input.pfs.glob` is a glob pattern that is used to determine how the
+input data is partitioned. It is explained in detail in the next section.
 
 `input.pfs.lazy` controls how the data is exposed to jobs. The default is `false`
-which means the job will eagerly download the data it needs to process and it
-will be exposed as normal files on disk. If lazy is set to `true`, data will be
-exposed as named pipes instead and no data will be downloaded until the job
-opens the pipe and reads it, if the pipe is never opened then no data will be
-downloaded. Some applications won't work with pipes, for example if they make
-syscalls such as `Seek` which pipes don't support. Applications that can work
-with pipes should use them since they're more performant, the difference will
+which means the job eagerly downloads the data it needs to process and
+exposes it as normal files on disk. If lazy is set to `true`, data is
+exposed as named pipes instead, and no data is downloaded until the job
+opens the pipe and reads it. If the pipe is never opened, then no data is
+downloaded.
+
+Some applications do not work with pipes. For example, pipes do not support
+applications that makes `syscalls` such as `Seek`. Applications that can work
+with pipes must use them since they are more performant. The difference will
 be especially notable if the job only reads a subset of the files that are
-available to it.  Note that `lazy` currently doesn't support datums that
+available to it.
+
+**Note:** `lazy` currently does not support datums that
 contain more than 10000 files.
 
-`input.pfs.empty_files` controls how files are exposed to jobs. If true, it will
-cause files from this PFS to be presented as empty files. This is useful in shuffle
-pipelines where you want to read the names of files and reorganize them using symlinks.
+`input.pfs.empty_files` controls how files are exposed to jobs. If
+set to `true`, it causes files from this PFS to be presented as empty files.
+This is useful in shuffle pipelines where you want to read the names of
+files and reorganize them by using symlinks.
 
 #### Union Input
 
-Union inputs take the union of other inputs. For example:
+Union inputs take the union of other inputs. In the example
+below, each input includes individual datums, such as if  `foo` and `bar`
+were in the same repository with the glob pattern set to `/*`.
+Alternatively, each of these datums might have come from separate repositories
+with the glob pattern set to `/` and being the only filesystm objects in these
+repositories.
 
 ```
 | inputA | inputB | inputA ∪ inputB |
@@ -429,24 +457,29 @@ Union inputs take the union of other inputs. For example:
 |        |        | buzz            |
 ```
 
-Notice that union inputs, do not take a name and maintain the names of the
-sub-inputs. In the above example you would see files under
+The union inputs do not take a name and maintain the names of the
+sub-inputs. In the example above, you would see files under
 `/pfs/inputA/...` or `/pfs/inputB/...`, but never both at the same time.
-This can be annoying to write code for since the first thing your code
-needs to do is figure out which input directory is present. As of 1.5.3
-the recommended way to fix this is to give your inputs the same `Name`,
-that way your code only needs to handle data being present in that
-directory. This, of course, only works if your code doesn't need to be
+When you write code to address this behavior, make sure that
+your code first determines which input directory is present. Starting
+with Pachyderm 1.5.3, we recommend that you give your inputs the
+same `Name`. That way your code only needs to handle data being present
+in that directory. This only works if your code does not need to be
 aware of which of the underlying inputs the data comes from.
 
-`input.union` is an array of inputs to union, note that these need not be
-`pfs` inputs, they can also be `union` and `cross` inputs. Although there's no
-reason to take a union of unions since union is associative.
+`input.union` is an array of inputs to a union. The inputs do not have to be
+`pfs` inputs. They can also be `union` and `cross` inputs. Although, there is
+no reason to take a union of unions because union is associative.
 
 #### Cross Input
 
-Cross inputs take the cross product of other inputs, in other words it creates
-tuples of the datums in the inputs. For example:
+Cross inputs create the cross product of other inputs. In other words,
+a cross input creates tuples of the datums in the inputs. In the example
+below, each input includes individual datums, such as if  `foo` and `bar`
+were in the same repository with the glob pattern set to `/*`.
+Alternatively, each of these datums might have come from separate repositories
+with the glob pattern set to `/` and being the only filesystm objects in these
+repositories.
 
 ```
 | inputA | inputB | inputA ⨯ inputB |
@@ -457,22 +490,25 @@ tuples of the datums in the inputs. For example:
 |        |        | (bar, buzz)     |
 ```
 
-Notice that cross inputs, do not take a name and maintain the names of the sub-inputs.
-In the above example you would see files under `/pfs/inputA/...` and `/pfs/inputB/...`.
+The cross inputs above do not take a name and maintain
+the names of the sub-inputs.
+In the example above, you would see files under `/pfs/inputA/...`
+and `/pfs/inputB/...`.
 
-`input.cross` is an array of inputs to cross, note that these need not be
-`pfs` inputs, they can also be `union` and `cross` inputs. Although there's no
-reason to take a cross of crosses since cross products are associative.
+`input.cross` is an array of inputs to cross.
+The inputs do not have to be `pfs` inputs. They can also be
+`union` and `cross` inputs. Although, there is
+ no reason to take a union of unions because union is associative.
 
 #### Cron Input
 
-Cron inputs allow you to trigger pipelines based on time. It's based on the
-unix utility `cron`. When you create a pipeline with one or more Cron Inputs
-pachd will create a repo for each of them. When a cron input triggers,
-that is when the present time satisfies its spec, pachd will commit
-a single file, named by the current [RFC
-3339 timestamp](https://www.ietf.org/rfc/rfc3339.txt) to the repo which contains the time which
-satisfied the spec.
+Cron inputs allow you to trigger pipelines based on time. A Cron input is
+based on the Unix utility called `cron`. When you create a pipeline with
+one or more Cron Inputs, `pachd` creates a repo for each of them. When
+a cron input triggers, that is when the present time satisfies its spec,
+`pachd` commits a single file, named by the current [RFC
+3339 timestamp](https://www.ietf.org/rfc/rfc3339.txt) to the repo which
+contains the time which satisfied the spec.
 
 ```
 {
@@ -484,32 +520,33 @@ satisfied the spec.
 }
 ```
 
-`input.cron.name` is the name for the input, its semantics are similar to
-those of `input.pfs.name`. Except that it's not optional.
+`input.cron.name` is the name for the input. Its semantics is similar to
+those of `input.pfs.name`. Except that it is not optional.
 
 `input.cron.spec` is a cron expression which specifies the schedule on
-which to trigger the pipeline. To learn more about how to write schedules
+which to trigger the pipeline. To learn more about how to write schedules,
 see the [Wikipedia page on cron](https://en.wikipedia.org/wiki/Cron).
-Pachyderm supports Nonstandard schedules such as `"@daily"`.
+Pachyderm supports non-standard schedules, such as `"@daily"`.
 
-`input.cron.repo` is the repo which will be created for the input. It is
-optional, if it's not specified then `"<pipeline-name>_<input-name>"` will
-be used.
+`input.cron.repo` is the repo which Pachyderm creates for the input. This
+parameter is optional. If you do not specify this parameter, then
+`"<pipeline-name>_<input-name>"` is used by default.
 
-`input.cron.start` is the time to start counting from for the input. It is
-optional, if it's not specified then the present time (when the pipeline
-is created) will be used. Specifying a time allows you to run on matching
-times from the past or, skip times from the present and only start running
-on matching times in the future. Times should be formatted according to [RFC
+`input.cron.start` is the time to start counting from for the input. This
+parameter is optional. If you do not specify this parameter, then the
+time when the pipeline was created is used by default. Specifying a
+time enables you to run on matching times from the past or skip times
+from the present and only start running
+on matching times in the future. Format the time value according to [RFC
 3339](https://www.ietf.org/rfc/rfc3339.txt).
 
 `input.cron.overwrite` is a flag to specify whether you want the timestamp file
-to be overwritten on each tick. It is optional, and if not specified it will
-default to simply writing new files each tick. What this means is that by
-default, pachd expects only the new information to be written out for each tick, 
-and will combine that data with the data from the previous ticks. If `"overwrite"`
-is set to `true`, it expects the full dataset to be written out for each tick and 
-will replace previous outputs with the new data written out.
+to be overwritten on each tick. This parameter is optional, and if you do not
+specify it, it defaults to simply writing new files on each tick. By default,
+`pachd` expects only the new information to be written out on each tick
+and combines that data with the data from the previous ticks. If `"overwrite"`
+is set to `true`, it expects the full dataset to be written out for each tick and
+replaces previous outputs with the new data written out.
 
 #### Git Input (alpha feature)
 
