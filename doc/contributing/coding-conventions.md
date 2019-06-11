@@ -56,9 +56,14 @@ for more info.
 
 ### Docs
 
-- PRs for code should update docs to make them reflect the code that's being merged in
-rather than be done in separate PRs.
+- PRs for code must include documentation updates that reflect the changes
+that the code introduces.
 
-- Docs-only PRs (such as typos) of course a great place to start and we welcome your help!
+- When writing documentation, follow the [Style Guide](docs-style-guide.md)
+conventions.
 
-- For most docs PRs, you'll need to `make assets` and push the new assets.go file as well. 
+- PRs that have only documentation changes, such as typos, is a great place
+to start and we welcome your help!
+
+- For most documentation  PRs, you need to `make assets` and push the new
+`assets.go` file as well.
