@@ -301,13 +301,16 @@ func TestFuzz(t *testing.T) {
 			reservedChunks = append(reservedChunks, chunk.Chunk{Hash: hash})
 		}
 
+		fmt.Printf("client job (%s) reserving %d chunks\n", job.id, len(reservedChunks))
 		if err := gcc.ReserveChunks(ctx, job.id, reservedChunks); err != nil {
 			return err
 		}
 
 		// Pretend we write to object storage here
+		fmt.Printf("client job (%s) sleeping\n", job.id)
 		time.Sleep(time.Duration(rand.Float32()*50) * time.Millisecond)
 
+		fmt.Printf("client job (%s) updating references, %d add, %d remove\n", job.id, len(job.add), len(job.remove))
 		return gcc.UpdateReferences(ctx, job.add, job.remove, job.id)
 	}
 
@@ -319,9 +322,11 @@ func TestFuzz(t *testing.T) {
 				gcc := makeClient(t, ctx, server)
 				for x := range jobChannel {
 					if err := runJob(ctx, gcc, x); err != nil {
+						fmt.Printf("client failed: %v\n", err)
 						return err
 					}
 				}
+				fmt.Printf("client graceful exit")
 				return nil
 			})
 		}
@@ -329,7 +334,104 @@ func TestFuzz(t *testing.T) {
 	}
 
 	// Global ref registry to track what the database should look like
-	chunkRefs := map[string][]Reference{}
+	chunkRefs := map[int][]Reference{}
+	freeChunkIds := []int{}
+	maxId := -1
+
+	usedChunkId := func(lowerBound int) int {
+		ids := []int{}
+		// TODO: this might get annoyingly slow, but go doesn't have good sorted data structures
+		for id := range chunkRefs {
+			if id >= lowerBound {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) == 0 {
+			return 0
+		}
+		return ids[rand.Intn(len(ids))]
+	}
+
+	unusedChunkId := func(lowerBound int) int {
+		for i, id := range freeChunkIds {
+			if id >= lowerBound {
+				freeChunkIds = append(freeChunkIds[0:i], freeChunkIds[i+1:len(freeChunkIds)]...)
+				return id
+			}
+		}
+		maxId++
+		return maxId
+	}
+
+	addRef := func() Reference {
+		var dest int
+		ref := Reference{}
+		roll := rand.Float32()
+		if len(chunkRefs) == 0 || roll > 0.9 {
+			// Make a new chunk with a semantic reference
+			dest = unusedChunkId(0)
+			ref.sourcetype = "semantic"
+			ref.source = testutil.UniqueString("semantic-")
+			ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
+		} else if roll > 0.6 {
+			// Add a semantic reference to an existing chunk
+			dest = usedChunkId(0)
+			ref.sourcetype = "semantic"
+			ref.source = testutil.UniqueString("semantic-")
+			ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
+		} else {
+			source := usedChunkId(0)
+			ref.sourcetype = "chunk"
+			ref.source = fmt.Sprintf("chunk-%d", source)
+			if roll > 0.5 {
+				// Add a cross-chunk reference to a new chunk
+				dest = unusedChunkId(source + 1)
+				ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
+			} else {
+				// Add a cross-chunk reference to an existing chunk
+				dest = usedChunkId(source + 1)
+				if dest == 0 {
+					dest = unusedChunkId(source + 1)
+				}
+				ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
+			}
+		}
+
+		existingChunkRefs := chunkRefs[dest]
+		if existingChunkRefs == nil {
+			fmt.Printf("adding new chunk: %d\n", dest)
+			chunkRefs[dest] = []Reference{ref}
+		} else {
+			fmt.Printf("adding to existing chunk: %d\n", dest)
+			chunkRefs[dest] = append(existingChunkRefs, ref)
+		}
+
+		return ref
+	}
+
+	removeRef := func() Reference {
+		if len(chunkRefs) == 0 {
+			panic("no references to remove")
+		}
+
+		i := rand.Intn(len(chunkRefs))
+		for k, v := range chunkRefs {
+			if i == 0 {
+				j := rand.Intn(len(v))
+				ref := v[j]
+				chunkRefs[k] = append(v[0:j], v[j+1:len(v)]...)
+				remaining := len(chunkRefs[k]) // TODO: delete, for debugging
+				if len(chunkRefs[k]) == 0 {
+					delete(chunkRefs, k)
+					freeChunkIds = append(freeChunkIds, k)
+				}
+				fmt.Printf("removing existing ref on chunk: %d, %d refs remaining on it\n", k, remaining)
+				return ref
+			}
+			i--
+		}
+		panic("unreachable")
+	}
 
 	makeJobData := func() jobData {
 		jd := jobData{id: testutil.UniqueString("job-")}
@@ -338,14 +440,14 @@ func TestFuzz(t *testing.T) {
 		for rand.Float32() > 0.5 {
 			numAdds := rand.Intn(10)
 			for i := 0; i < numAdds; i++ {
-				jd.add = append(jd.add, newRef)
+				jd.add = append(jd.add, addRef())
 			}
 		}
 
-		for rand.Float32() > 0.6 {
+		for rand.Float32() > 0.6 && len(chunkRefs) > 0 {
 			numRemoves := rand.Intn(7)
 			for i := 0; i < numRemoves; i++ {
-				jd.remove = append(jd.remove, existingRef)
+				jd.remove = append(jd.remove, removeRef())
 			}
 		}
 
@@ -353,6 +455,7 @@ func TestFuzz(t *testing.T) {
 	}
 
 	verifyData := func() {
+		fmt.Printf("verifyData\n")
 	}
 
 	// Occasionally halt all goroutines and check data consistency
