@@ -509,13 +509,13 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	}
 	if request.Job == nil && request.OutputCommit == nil {
 		return nil, fmt.Errorf("must specify either a Job or an OutputCommit")
+	} else if request.Job != nil && request.OutputCommit != nil {
+		return nil, fmt.Errorf("can't set both Job and OutputCommit")
 	}
 
 	jobs := a.jobs.ReadOnly(ctx)
 	if request.OutputCommit != nil {
-		if request.Job != nil {
-			return nil, fmt.Errorf("can't set both Job and OutputCommit")
-		}
+		// lookup related job & put in request.Job
 		ci, err := pachClient.InspectCommit(request.OutputCommit.Repo.Name, request.OutputCommit.ID)
 		if err != nil {
 			return nil, err
