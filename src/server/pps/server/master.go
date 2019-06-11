@@ -522,7 +522,7 @@ func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pi
 }
 
 func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
-	log.Infof("PPS master: deleting resources for failed pipeline %q", pipelineName)
+	log.Infof("PPS master: deleting resources for pipeline %q", pipelineName)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
 		"/pps.Master/DeletePipelineResources", "pipeline", pipelineName)
 	defer func() {
