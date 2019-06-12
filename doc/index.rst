@@ -49,12 +49,12 @@ email at support@pachyderm.io.
    cookbook/index.rst
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Reference and APIs
 
    reference/pipeline_spec.md
    reference/clients.md
    s3gateway_api.md
    pachctl/index.rst
-   examples/index.md
+   examples/examples.md
 
