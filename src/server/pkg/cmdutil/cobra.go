@@ -324,7 +324,11 @@ func SetDocsUsage(command *cobra.Command, pattern string) {
 {{.UsageString}}
 `)
 
+	originalUsageFunc := command.UsageFunc()
 	command.SetUsageFunc(func(cmd *cobra.Command) error {
+		if cmd != command {
+			return originalUsageFunc(cmd)
+		}
 		rootCmd := cmd.Root()
 
 		// Walk the command tree, finding commands with the documented word
