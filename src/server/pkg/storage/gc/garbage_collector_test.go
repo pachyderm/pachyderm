@@ -40,10 +40,14 @@ func makeClient(t *testing.T, ctx context.Context, server Server) *ClientImpl {
 	return gcc.(*ClientImpl)
 }
 
-func initialize(t *testing.T, ctx context.Context) *ClientImpl {
-	gcc := makeClient(t, ctx, nil)
+func clearData(t *testing.T, ctx context.Context, gcc *ClientImpl) {
 	_, err := gcc.db.QueryContext(ctx, "delete from chunks *; delete from refs *;")
 	require.NoError(t, err)
+}
+
+func initialize(t *testing.T, ctx context.Context) *ClientImpl {
+	gcc := makeClient(t, ctx, nil)
+	clearData(t, ctx, gcc)
 	return gcc
 }
 
@@ -301,23 +305,23 @@ func TestFuzz(t *testing.T) {
 			reservedChunks = append(reservedChunks, chunk.Chunk{Hash: hash})
 		}
 
-		fmt.Printf("client job (%s) reserving %d chunks: %v\n", job.id, len(reservedChunks), reservedChunks)
 		if err := gcc.ReserveChunks(ctx, job.id, reservedChunks); err != nil {
 			return err
 		}
 
 		// Pretend we write to object storage here
-		fmt.Printf("client job (%s) sleeping\n", job.id)
 		time.Sleep(time.Duration(rand.Float32()*50) * time.Millisecond)
 
-		fmt.Printf("client job (%s) updating references, %d add, %d remove\n", job.id, len(job.add), len(job.remove))
 		return gcc.UpdateReferences(ctx, job.add, job.remove, job.id)
 	}
 
 	server := makeServer(t)
-	startClients := func(numClients int, jobChannel chan jobData) *errgroup.Group {
+	client := makeClient(t, context.Background(), server)
+	clearData(t, context.Background(), client)
+
+	startWorkers := func(numWorkers int, jobChannel chan jobData) *errgroup.Group {
 		eg, ctx := errgroup.WithContext(context.Background())
-		for i := 0; i < numClients; i++ {
+		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
 				gcc := makeClient(t, ctx, server)
 				for x := range jobChannel {
@@ -326,7 +330,6 @@ func TestFuzz(t *testing.T) {
 						return err
 					}
 				}
-				fmt.Printf("client graceful exit")
 				return nil
 			})
 		}
@@ -463,12 +466,12 @@ func TestFuzz(t *testing.T) {
 		fmt.Printf("verifyData\n")
 	}
 
-	numClients := 3
-	numJobs := 1000
+	numWorkers := 3
+	numJobs := 100
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
 		jobChan := make(chan jobData, numJobs)
-		eg := startClients(numClients, jobChan)
+		eg := startWorkers(numWorkers, jobChan)
 		for i := 0; i < numJobs; i++ {
 			jobChan <- makeJobData()
 		}

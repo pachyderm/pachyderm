@@ -159,7 +159,6 @@ select chunk from added_chunks where deleting is not null;
 			return err
 		}
 
-		fmt.Printf("running query: %v, parameters: %v\n", query, parameters)
 		cursor, err := txn.QueryContext(ctx, query, parameters...)
 		if err != nil {
 			if isRetriableError(err) {
@@ -186,6 +185,7 @@ select chunk from added_chunks where deleting is not null;
 			}
 			return err
 		}
+		break
 	}
 
 	return gcc.server.FlushDeletes(ctx, chunksToFlush)
