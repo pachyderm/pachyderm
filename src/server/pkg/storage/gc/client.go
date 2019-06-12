@@ -111,9 +111,9 @@ func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
 
 func isRetriableError(err error) bool {
 	if err, ok := err.(*pq.Error); ok {
-		name := err.Code.Name()
+		name := err.Code.Class().Name()
 		fmt.Printf("pq error: %v, %v\n", name, err.Error())
-		return name == "deadlock_detected" || name == "serialization_failure"
+		return name == "transaction_rollback"
 	}
 	return false
 }
