@@ -109,20 +109,23 @@ func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
 	return chunks
 }
 
+func isRetriableError(err error) bool {
+	if err, ok := err.(*pq.Error); ok {
+		name := err.Code.Name()
+		fmt.Printf("pq error: %v, %v\n", name, err.Error())
+		return name == "deadlock_detected" || name == "serialization_failure"
+	}
+	return false
+}
+
 func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) error {
 	if len(chunks) == 0 {
 		return nil
 	}
 
-	// TODO: check for conflict errors and retry in a loop
-	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		return err
-	}
-
 	questions := []string{}
 	for i := 0; i < len(chunks); i++ {
-		questions = append(questions, fmt.Sprintf("($%d)", 2+i))
+		questions = append(questions, fmt.Sprintf("($%d)", i+2))
 	}
 
 	query := `
@@ -136,7 +139,7 @@ added_chunks as (
 added_refs as (
  insert into refs (chunk, source, sourcetype)
   select
-   chunk, '` + job + `', 'job'::reftype
+   chunk, $1, 'job'::reftype
   from added_chunks where
    deleting is null
 )
@@ -149,52 +152,46 @@ select chunk from added_chunks where deleting is not null;
 		parameters = append(parameters, chunk.Hash)
 	}
 
-	cursor, err := txn.QueryContext(ctx, query, parameters...)
-	if err != nil {
-		return err
-	}
+	var chunksToFlush []chunk.Chunk
+	for {
+		txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+		if err != nil {
+			return err
+		}
 
-	// Flush returned chunks through the server
-	chunksToFlush := readChunksFromCursor(cursor)
-	cursor.Close()
-	if err := cursor.Err(); err != nil {
-		txn.Rollback()
-		return err
-	}
+		fmt.Printf("running query: %v, parameters: %v\n", query, parameters)
+		cursor, err := txn.QueryContext(ctx, query, parameters...)
+		if err != nil {
+			if isRetriableError(err) {
+				continue
+			}
+			return err
+		}
 
-	if err := txn.Commit(); err != nil {
-		return err
+		// Flush returned chunks through the server
+		chunksToFlush = readChunksFromCursor(cursor)
+		cursor.Close()
+		if err := cursor.Err(); err != nil {
+			txn.Rollback()
+			if isRetriableError(err) {
+				continue
+			}
+			return err
+		}
+
+		if err := txn.Commit(); err != nil {
+			txn.Rollback()
+			if isRetriableError(err) {
+				continue
+			}
+			return err
+		}
 	}
 
 	return gcc.server.FlushDeletes(ctx, chunksToFlush)
 }
 
 func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) error {
-	// TODO: check for conflict errors and retry in a loop
-	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-	if err != nil {
-		return err
-	}
-
-	insertStmt, err := txn.Prepare(pq.CopyIn("refs", "sourcetype", "source", "chunk"))
-	if err != nil {
-		txn.Rollback()
-		return err
-	}
-	defer insertStmt.Close()
-	for _, ref := range add {
-		_, err := insertStmt.Exec(ref.sourcetype, ref.source, ref.chunk.Hash)
-		if err != nil {
-			txn.Rollback()
-			return err
-		}
-	}
-	_, err = insertStmt.Exec()
-	if err != nil {
-		txn.Rollback()
-		return err
-	}
-
 	var removeStr string
 	if len(remove) == 0 {
 		removeStr = "null"
@@ -210,14 +207,14 @@ func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, re
 	if releaseJob == "" {
 		jobStr = "null"
 	} else {
-		jobStr = fmt.Sprintf("'%s'", releaseJob)
+		jobStr = fmt.Sprintf("('job', '%s')", releaseJob)
 	}
 
 	query := `
 with
 del_refs as (
  delete from refs where
-  (sourcetype, source, chunk) in (` + removeStr + `) or 
+  (sourcetype, source, chunk) in (` + removeStr + `) or
 	(sourcetype, source) in (` + jobStr + `)
  returning chunk
 ),
@@ -233,25 +230,70 @@ from counts where
 returning chunks.chunk;
 	`
 
-	cursor, err := txn.QueryContext(ctx, query)
-	if err != nil {
-		txn.Rollback()
-		return err
-	}
+	// TODO: check for conflict errors and retry in a loop
+	var chunksToDelete []chunk.Chunk
+	for {
+		txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+		if err != nil {
+			return err
+		}
 
-	chunksToDelete := readChunksFromCursor(cursor)
-	cursor.Close()
-	if err := cursor.Err(); err != nil {
-		txn.Rollback()
-		return err
-	}
+		insertStmt, err := txn.Prepare(pq.CopyIn("refs", "sourcetype", "source", "chunk"))
+		if err != nil {
+			txn.Rollback()
+			if isRetriableError(err) {
+				continue
+			}
+			return err
+		}
+		defer insertStmt.Close()
+		for _, ref := range add {
+			_, err := insertStmt.Exec(ref.sourcetype, ref.source, ref.chunk.Hash)
+			if err != nil {
+				txn.Rollback()
+				if isRetriableError(err) {
+					continue
+				}
+				return err
+			}
+		}
+		_, err = insertStmt.Exec()
+		if err != nil {
+			txn.Rollback()
+			if isRetriableError(err) {
+				continue
+			}
+			return err
+		}
 
-	if err := txn.Commit(); err != nil {
-		return err
-	}
+		cursor, err := txn.QueryContext(ctx, query)
+		if err != nil {
+			txn.Rollback()
+			if isRetriableError(err) {
+				continue
+			}
+			return err
+		}
 
-	// TODO: Verify that the rows are not removing, deleting, or missing - if so,
-	// return an error - the user will need to reserve the chunks then try again
+		chunksToDelete = readChunksFromCursor(cursor)
+		cursor.Close()
+		if err := cursor.Err(); err != nil {
+			txn.Rollback()
+			if isRetriableError(err) {
+				continue
+			}
+			return err
+		}
+
+		if err := txn.Commit(); err != nil {
+			txn.Rollback()
+			if isRetriableError(err) {
+				continue
+			}
+			return err
+		}
+		break
+	}
 
 	return gcc.server.DeleteChunks(ctx, chunksToDelete)
 }

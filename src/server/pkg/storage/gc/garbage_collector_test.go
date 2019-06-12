@@ -301,7 +301,7 @@ func TestFuzz(t *testing.T) {
 			reservedChunks = append(reservedChunks, chunk.Chunk{Hash: hash})
 		}
 
-		fmt.Printf("client job (%s) reserving %d chunks\n", job.id, len(reservedChunks))
+		fmt.Printf("client job (%s) reserving %d chunks: %v\n", job.id, len(reservedChunks), reservedChunks)
 		if err := gcc.ReserveChunks(ctx, job.id, reservedChunks); err != nil {
 			return err
 		}
@@ -399,10 +399,17 @@ func TestFuzz(t *testing.T) {
 
 		existingChunkRefs := chunkRefs[dest]
 		if existingChunkRefs == nil {
-			fmt.Printf("adding new chunk: %d\n", dest)
 			chunkRefs[dest] = []Reference{ref}
 		} else {
-			fmt.Printf("adding to existing chunk: %d\n", dest)
+			// Make sure ref isn't a duplicate
+			for _, x := range existingChunkRefs {
+				if ref.sourcetype == x.sourcetype && ref.source == x.source {
+					ref.sourcetype = "semantic"
+					ref.source = testutil.UniqueString("semantic-")
+					break
+				}
+			}
+
 			chunkRefs[dest] = append(existingChunkRefs, ref)
 		}
 
@@ -420,12 +427,10 @@ func TestFuzz(t *testing.T) {
 				j := rand.Intn(len(v))
 				ref := v[j]
 				chunkRefs[k] = append(v[0:j], v[j+1:len(v)]...)
-				remaining := len(chunkRefs[k]) // TODO: delete, for debugging
 				if len(chunkRefs[k]) == 0 {
 					delete(chunkRefs, k)
 					freeChunkIds = append(freeChunkIds, k)
 				}
-				fmt.Printf("removing existing ref on chunk: %d, %d refs remaining on it\n", k, remaining)
 				return ref
 			}
 			i--
@@ -444,9 +449,9 @@ func TestFuzz(t *testing.T) {
 			}
 		}
 
-		for rand.Float32() > 0.6 && len(chunkRefs) > 0 {
+		for rand.Float32() > 0.6 {
 			numRemoves := rand.Intn(7)
-			for i := 0; i < numRemoves; i++ {
+			for i := 0; i < numRemoves && len(chunkRefs) > 0; i++ {
 				jd.remove = append(jd.remove, removeRef())
 			}
 		}
@@ -458,14 +463,16 @@ func TestFuzz(t *testing.T) {
 		fmt.Printf("verifyData\n")
 	}
 
+	numClients := 3
+	numJobs := 1000
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
-		jobs := make(chan jobData)
-		eg := startClients(3, jobs)
-		for i := 0; i < 1000; i++ {
-			jobs <- makeJobData()
+		jobChan := make(chan jobData, numJobs)
+		eg := startClients(numClients, jobChan)
+		for i := 0; i < numJobs; i++ {
+			jobChan <- makeJobData()
 		}
-		close(jobs)
+		close(jobChan)
 		require.NoError(t, eg.Wait())
 
 		verifyData()
