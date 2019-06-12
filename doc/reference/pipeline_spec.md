@@ -183,7 +183,7 @@ prerequisites:
 
 - Include only alphanumeric characters, `_` and `-`.
 - Begin or end with only alphanumeric characters (not `_` or `-`).
-- Do not exceed 50 characters in length.
+- Not exceed 50 characters in length.
 
 ### Description (optional)
 
@@ -196,7 +196,7 @@ about the pipeline.
 
 `transform.cmd` is the command passed to the Docker run invocation. Similarly
 to Docker, `cmd` is not run inside a shell which means that
-wildcard globbing (`*`), pipes (`|`), and file redirects (`>` and `>>`) does
+wildcard globbing (`*`), pipes (`|`), and file redirects (`>` and `>>`) do
 not work. To specify these settings, you can set `cmd` to be a shell of your
 choice, such as `sh` and pass a shell script to `stdin`.
 
@@ -319,7 +319,7 @@ similarly, but for CPU time.
 By default, workers are scheduled with an effective resource request of 0 (to
 avoid scheduling problems that prevent users from being unable to run
 pipelines). This means that if a node runs out of memory, any such worker
-might be destroyed.
+might be terminated.
 
 For more information about resource requests and limits see the
 [Kubernetes docs](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/)
@@ -467,7 +467,7 @@ same `Name`. That way your code only needs to handle data being present
 in that directory. This only works if your code does not need to be
 aware of which of the underlying inputs the data comes from.
 
-`input.union` is an array of inputs to a union. The inputs do not have to be
+`input.union` is an array of inputs to combine. The inputs do not have to be
 `pfs` inputs. They can also be `union` and `cross` inputs. Although, there is
 no reason to take a union of unions because union is associative.
 
@@ -504,8 +504,9 @@ The inputs do not have to be `pfs` inputs. They can also be
 
 Cron inputs allow you to trigger pipelines based on time. A Cron input is
 based on the Unix utility called `cron`. When you create a pipeline with
-one or more Cron Inputs, `pachd` creates a repo for each of them. When
-a cron input triggers, that is when the present time satisfies its spec,
+one or more Cron inputs, `pachd` creates a repo for each of them. The start
+time for Cron input is specified in its spec.
+When a Cron input triggers,
 `pachd` commits a single file, named by the current [RFC
 3339 timestamp](https://www.ietf.org/rfc/rfc3339.txt) to the repo which
 contains the time which satisfied the spec.
