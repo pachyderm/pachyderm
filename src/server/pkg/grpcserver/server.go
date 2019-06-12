@@ -13,8 +13,10 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	pachlog "github.com/pachyderm/pachyderm/src/server/pkg/log"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -42,7 +44,6 @@ type ServerOptions struct {
 	//   then this will serve GRPC traffic over TLS.
 	// - If either the signed cert or the key are missing, then this will
 	//   serve GRPC traffic over unencrypted HTTP,
-
 	//
 	// TODO make the TLS cert and key path a parameter, as pachd will need
 	// multiple certificates for multiple ports
@@ -68,8 +69,14 @@ func Serve(
 				MinTime:             5 * time.Second,
 				PermitWithoutStream: true,
 			}),
-			grpc.UnaryInterceptor(tracing.UnaryServerInterceptor()),
-			grpc.StreamInterceptor(tracing.StreamServerInterceptor()),
+			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+				grpc.UnaryServerInterceptor(pachlog.UnaryInterceptor),
+				tracing.UnaryServerInterceptor(),
+			)),
+			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+				grpc.StreamServerInterceptor(pachlog.StreamInterceptor),
+				tracing.StreamServerInterceptor(),
+			)),
 		}
 		if server.PublicPortTLSAllowed {
 			// Validate environment
