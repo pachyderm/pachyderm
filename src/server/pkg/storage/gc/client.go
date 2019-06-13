@@ -161,6 +161,9 @@ select chunk from added_chunks where deleting is not null;
 
 		cursor, err := txn.QueryContext(ctx, query, parameters...)
 		if err != nil {
+			if err := txn.Rollback(); err != nil {
+				return err
+			}
 			if isRetriableError(err) {
 				continue
 			}
@@ -171,7 +174,9 @@ select chunk from added_chunks where deleting is not null;
 		chunksToFlush = readChunksFromCursor(cursor)
 		cursor.Close()
 		if err := cursor.Err(); err != nil {
-			txn.Rollback()
+			if err := txn.Rollback(); err != nil {
+				return err
+			}
 			if isRetriableError(err) {
 				continue
 			}
@@ -179,7 +184,6 @@ select chunk from added_chunks where deleting is not null;
 		}
 
 		if err := txn.Commit(); err != nil {
-			txn.Rollback()
 			if isRetriableError(err) {
 				continue
 			}
@@ -257,7 +261,9 @@ returning chunks.chunk;
 
 		cursor, err := txn.QueryContext(ctx, query)
 		if err != nil {
-			txn.Rollback()
+			if err := txn.Rollback(); err != nil {
+				return err
+			}
 			if isRetriableError(err) {
 				continue
 			}
@@ -267,7 +273,9 @@ returning chunks.chunk;
 		chunksToDelete = readChunksFromCursor(cursor)
 		cursor.Close()
 		if err := cursor.Err(); err != nil {
-			txn.Rollback()
+			if err := txn.Rollback(); err != nil {
+				return err
+			}
 			if isRetriableError(err) {
 				continue
 			}
@@ -275,7 +283,6 @@ returning chunks.chunk;
 		}
 
 		if err := txn.Commit(); err != nil {
-			txn.Rollback()
 			if isRetriableError(err) {
 				continue
 			}

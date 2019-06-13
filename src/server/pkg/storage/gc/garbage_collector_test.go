@@ -324,6 +324,8 @@ func TestFuzz(t *testing.T) {
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
 				gcc := makeClient(t, ctx, server)
+				gcc.db.SetMaxOpenConns(1)
+				gcc.db.SetMaxIdleConns(1)
 				for x := range jobChannel {
 					if err := runJob(ctx, gcc, x); err != nil {
 						fmt.Printf("client failed: %v\n", err)
@@ -470,8 +472,8 @@ func TestFuzz(t *testing.T) {
 		fmt.Printf("verifyData\n")
 	}
 
-	numWorkers := 5
-	numJobs := 1000
+	numWorkers := 10
+	numJobs := 100
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
 		jobChan := make(chan jobData, numJobs)
