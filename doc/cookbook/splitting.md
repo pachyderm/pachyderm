@@ -1,6 +1,6 @@
 # Splitting Data for Distributed Processing
 
-Before your read this section, make sure that you understand
+Before you read this section, make sure that you understand
 the concepts described in
 [Distributed Computing](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html).
 
@@ -9,11 +9,13 @@ that data can be split up into multiple *datums*.  However, in many
 cases, you might have a dataset that you want or need to commit
 into Pachyderm as a single file rather than a bunch of smaller
 files that are easily mapped to datums, such as one file per record.
-For these cases, Pachyderm provides an easy way to automatically
-split your dataset for subsequent distributed computing.
+For such cases, Pachyderm provides an easy way to prepare your dataset
+for subsequent distributed computing by splitting it upon uploading
+to a Pachyderm repository.
 
-For example, you have a dataset that consists of information about your
-users. This data is in `CSV` format in a single file called `user_data.csv`
+In this example, you have a dataset that consists of information about your
+users and a repository called `user`.
+This data is in `CSV` format in a single file called `user_data.csv`
 with one record per line:
 
 ```
@@ -31,10 +33,11 @@ $ head user_data.csv
 ```
 
 If you put this data into Pachyderm as a single
-file, you cannot process each of
+file, Pachyderm processes them a single datum.
+It cannot process each of
 these user records in parallel as separate `datums`.
-Potentially, you can manually separate each of
-these user records into separate files before you
+Potentially, you can manually separate
+these user records into standalone files before you
 commit them into the `users` repository or through
 a pipeline stage dedicated to this splitting task.
 However, Pachyderm provides an optimized way of completing
@@ -42,59 +45,75 @@ this task.
 
 The `put file` API includes an option for splitting
 the file into separate datums automatically. You can use
-the `--split` flag with the `put file` command. For
-example, to automatically split the `user_data.csv` file
-into separate datums for each line, run the
-following command:
+the `--split` flag with the `put file` command.
 
-```
-$ pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
-```
+To complete this example, follow the steps below:
 
-The `--split line` argument specifies that Pachyderm
-splits this file into lines, and the `--target-file-datums 1`
-argument specifies that each resulting file must include
-at most one datum or one line.
-If you run `pachctl list file` command for the master branch
-in the users repository, Pachyderm
-still shows the `user_data.csv` entity to you as one
-entity in the repo:
+1. Create a `users` repository by running:
 
-```
-$ pachctl list file users@master
-NAME                 TYPE                SIZE
-user_data.csv   dir                 5.346 KiB
-```
+   ```bash
+   pachctl create repo users
+   ```
 
-However, this entity is now a directory that contains all
-of the split records. To view the detailed information about
+1. Create a file called `user_data.csv` with the
+contents listed above.
+
+1. Put your `user_data.csv` file into Pachyderm and
+automatically split it into separate datums for each line:
+
+   ```
+   $ pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
+   ```
+
+   The `--split line` argument specifies that Pachyderm
+   splits this file into lines, and the `--target-file-datums 1`
+   argument specifies that each resulting file must include
+   at most one datum or one line.
+
+1. View the list of files in the master branch of the `users`
+repository:
+
+   ```bash
+   $ pachctl list file users@master
+   NAME                 TYPE                SIZE
+   user_data.csv   dir                 5.346 KiB
+   ```
+
+   If you run `pachctl list file` command for the master branch
+   in the `users` repository, Pachyderm
+   still shows the `user_data.csv` entity to you as one
+   entity in the repo
+   However, this entity is now a directory that contains all
+   of the split records.
+
+1. To view the detailed information about
 the `user_data.csv` file, run the command with the file name
-specified after a colon: 
+specified after a colon:
 
-```
-$ pachctl list file users@master:user_data.csv
-NAME                             TYPE                SIZE
-user_data.csv/0000000000000000   file                43 B
-user_data.csv/0000000000000001   file                39 B
-user_data.csv/0000000000000002   file                37 B
-user_data.csv/0000000000000003   file                34 B
-user_data.csv/0000000000000004   file                35 B
-user_data.csv/0000000000000005   file                41 B
-user_data.csv/0000000000000006   file                32 B
-etc...
-```
+   ```
+   $ pachctl list file users@master:user_data.csv
+   NAME                             TYPE                SIZE
+   user_data.csv/0000000000000000   file                43 B
+   user_data.csv/0000000000000001   file                39 B
+   user_data.csv/0000000000000002   file                37 B
+   user_data.csv/0000000000000003   file                34 B
+   user_data.csv/0000000000000004   file                35 B
+   user_data.csv/0000000000000005   file                41 B
+   user_data.csv/0000000000000006   file                32 B
+   etc...
+   ```
 
-Then, a pipeline that takes the repo `users` as input
-with a glob pattern of `/user_data.csv/*` processes each
-user record, such as each line in the CSV file in parallel.
+   Then, a pipeline that takes the repo `users` as input
+   with a glob pattern of `/user_data.csv/*` processes each
+   user record, such as each line in the CSV file in parallel.
 
-### Examples
+### JSON and Text File Splitting Examples
 
-Pachyderm supports this type of splitting on lines or on
+Pachyderm supports this type of splitting for lines or
 JSON blobs as well. See the examples below.
 
 * Split a `json` file on `json` blobs by putting each `json`
-blob into its own file.
+blob into a separate file.
 
   ```bash
   $ pachctl put file users@master -f user_data.json --split json --target-file-datums 1
@@ -116,18 +135,19 @@ the split files.
 
 ## Specifying a Header or Footer
 
-Additionally, if your data has a common header or footer, you can specify these
-manually via `pachctl put-header` or `pachctl put-footer`. This is helpful for CSV data.
+Additionally, if your data has a common header or footer, you can specify them
+manually by using `pachctl put-header` or `pachctl put-footer`. This
+functionality is helpful for CSV data.
 
-To do this, you need to specify the header and footer in the
-`_parent directory_` of your data. By specifying the header or
-footer or both you are embedding them into the directory. Then
+To do this, you need to specify a header and footer in the
+`_parent directory_` of your data. By specifying a header or
+footer or both, you are embedding them into the directory. Then,
 Pachyderm applies that header or footer or both to all the files in
 that directory.
 
-The example below demonstrates splitting of an CSV file
+The example below demonstrates the splitting of a CSV file
 with a header and then setting the header explicitly.
-Once you set the header, whenever you get a file under that directory,
+After you set the header, whenever you get a file under that directory,
 the header is applied. You can still use glob patterns to get all
 the data under the directory. In that case, the header is still applied.
 
@@ -159,9 +179,9 @@ files:
 
    ```bash
    $ pachctl list file bar@master:users/
-   NAME                    TYPE SIZE 
-   /users/0000000000000000 file 22B  
-   /users/0000000000000001 file 20B  
+   NAME                    TYPE SIZE
+   /users/0000000000000000 file 22B
+   /users/0000000000000001 file 20B
    ```
 1. Read the file:
 
@@ -238,7 +258,7 @@ When you use `pachctl put file --split sql ...`, Pachyderm
 splits you `pgdump` file into three parts - the header, rows,
 and the footer. The header contains all the SQL statements
 in the `pgdump` file that set up the schema and tables.
-The rows are split into individual files, or, if you specify
+The rows are split into individual files, or if you specify
 the `--target-file-datums` or `--target-file-bytes`, multiple
 rows per file. The footer contains the remaining
 SQL statements for setting up the tables.
@@ -264,7 +284,7 @@ steps:
    $ pg_dump -t users -f users.pgdump
    ```
 
-1. View the `pddump` file
+1. View the `pgdump` file
 
    **Example:**
 
@@ -318,11 +338,12 @@ steps:
    --
    ```
 
-1. Ingest SQL data using split file
+1. Ingest the SQL data by using the `pachctl put file` command
+with the `--split` file:
 
    ```bash
    $ pachctl put file data@master -f users.pgdump --split sql
-   $ pachctl put file data@master:users --split sql -f users.pgdump 
+   $ pachctl put file data@master:users --split sql -f users.pgdump
    ```
 
 1. View the information about your repository:
@@ -330,21 +351,21 @@ steps:
    ```bash
 
    $ pachctl list file data@master
-   NAME         TYPE SIZE 
-   users        dir  914B 
+   NAME         TYPE SIZE
+   users        dir  914B
    ```
 
-   The `users` pgdump file is added to the master branch in the `data`
+   The `users.pgdump` file is added to the master branch in the `data`
    repository.
 
-1. View the information about the `users` pgdump file:
+1. View the information about the `users.pgdump` file:
 
    ```bash
 
    $ pachctl list file data@master:users
-   NAME                           TYPE SIZE 
-   /users/0000000000000000        file 20B  
-   /users/0000000000000001        file 18B  
+   NAME                           TYPE SIZE
+   /users/0000000000000000        file 20B
+   /users/0000000000000001        file 18B
    ```
 
 1. In your pipeline, where you have started and forked PostgreSQL,
@@ -354,10 +375,10 @@ you can load the data by running the following or a similar script:
    $ cat /pfs/data/users/* | sudo -u postgres psql
    ```
 
-   By using the glob pattern `/*` this code loads each raw PostgreSQL chunk
+   By using the glob pattern `/*`, this code loads each raw PostgreSQL chunk
    into your PostgreSQL instance for processing by your pipeline.
 
 
-   **Tip:** For this use case, you might want to use `--target-file-datums` or 
-   `--target-file-bytes` because you might want to run your queries
+   **Tip:** For this use case, you might want to use `--target-file-datums` or
+   `--target-file-bytes` because these commands enable your queries to run
    against many rows at a time.
