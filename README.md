@@ -59,10 +59,3 @@ Send us PRs, we would love to see what you do! You can also check our GH issues 
 ### Join Us
 
 WE'RE HIRING! Love Docker, Go and distributed systems? Learn more about [our open positions](https://jobs.lever.co/pachyderm/) or email us at jobs@pachyderm.io.
-
-## Usage Metrics
-
-Pachyderm automatically reports anonymized usage metrics. These metrics help us
-understand how people are using Pachyderm and make it better.  They can be
-disabled by setting the env variable `METRICS` to `false` in the pachd
-container.
