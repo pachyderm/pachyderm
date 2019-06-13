@@ -2,7 +2,7 @@
 
 Sometimes you need to see the result of merging different commits
 to analyze and identify correct combinations and potential flows in
-data collection and processing. Or, you just want to re-rerun a failed job
+data collection and processing. Or, you just want to rerun a failed job
 manually.
 
 Pachyderm enables you to run your pipelines with old commits or in different
