@@ -203,6 +203,22 @@ func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, re
 		removeStr = strings.Join(removes, ",")
 	}
 
+	var addStr string
+	if len(add) == 0 {
+		addStr = ""
+	} else {
+		adds := []string{}
+		for _, ref := range add {
+			adds = append(adds, fmt.Sprintf("('%s', '%s', '%s')", ref.sourcetype, ref.source, ref.chunk.Hash))
+		}
+		addStr = `
+added_refs as (
+ insert into refs (sourcetype, source, chunk) values ` + strings.Join(adds, ",") + `
+ on conflict do nothing
+),
+		`
+	}
+
 	var jobStr string
 	if releaseJob == "" {
 		jobStr = "null"
@@ -212,6 +228,7 @@ func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, re
 
 	query := `
 with
+` + addStr + `
 del_refs as (
  delete from refs where
   (sourcetype, source, chunk) in (` + removeStr + `) or
@@ -235,34 +252,6 @@ returning chunks.chunk;
 	for {
 		txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 		if err != nil {
-			return err
-		}
-
-		insertStmt, err := txn.Prepare(pq.CopyIn("refs", "sourcetype", "source", "chunk"))
-		if err != nil {
-			txn.Rollback()
-			if isRetriableError(err) {
-				continue
-			}
-			return err
-		}
-		defer insertStmt.Close()
-		for _, ref := range add {
-			_, err := insertStmt.Exec(ref.sourcetype, ref.source, ref.chunk.Hash)
-			if err != nil {
-				txn.Rollback()
-				if isRetriableError(err) {
-					continue
-				}
-				return err
-			}
-		}
-		_, err = insertStmt.Exec()
-		if err != nil {
-			txn.Rollback()
-			if isRetriableError(err) {
-				continue
-			}
 			return err
 		}
 
