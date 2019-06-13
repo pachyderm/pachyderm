@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.9.0
+
+- `pachctl` now has a new, more consistent syntax that's more inline with other container clis such as `kubectl`. (#3617)
+- Pachyderm now exposes an s3 interface to the data stored in pfs. (#3411, #3432, #3508)
+- Pachyderm now supports transactional PFS operations. (#3658)
+- The `--history` flag has been extended to `list job` and `list pipeline` (in addition to `list file`.) (#3692)
+- The ancestry syntax for accessing branches (`master^`) has been extended to include forward references i.e. `master.1`. (#3692)
+- You can now define service annotations and service type in your pipeline specs. (#3755, thanks to @cfga and @DanielMorales9)
+- You can now define error handlers for your pipelines. (#3611)
+- Pachyderm has a new command, `fsck` which will check pfs for corruption issues. (#3691)
+- Pachyderm has a new command, `run pipeline` which allows you to manually trigger a pipelined on a set of commits. (#3642)
+- Commits now store the original branch that they were created on. (#3583)
+- Pachyderm now exposes tracing via Jaeger. (#3541)
+
+- Fixes several issues that could lead to object store corruption, particularly on alternative object stores. (#3797)
+- Fixes several issues that could cause pipelines to get hung under heavy load. (#3788)
+- Fixes an issue that caused jobs downstream from jobs that output nothing to fail. (#3787)
+- Fixes a bug that prevent stats from being toggled on after a pipeline had already run. (#3744)
+- Fixes a bug that caused `pachctl` to crash in `list commit`. (#3699)
+- Fixes a bug that caused provenance to get corrupted on `delete commit`. (#3696)
+- A few minor bugs in the output and erroring behavior of `list file` have been fixed. (#3601, #3596)
+- Preflight object store tests have been revamped and their error output made less confusing. (#3592)
+- A bug that causes stopping a pipeline to create a new job has been fixed. (#3585)
+- Fixes a bug that caused pachd to panic if the `input` field of a pipeline was nil. (#3580)
+- The performance of `list job` has been greatly improved. (#3557)
+
+- `atom` inputs have been removed and use `pfs` inputs instead. (#3639)
+- The `ADDRESS` env var for connecting to pachd has been removed, use `PACHD_ADDRESS` instead. (#3638)
+
+
 ## 1.8.6
 
 - The semantics of Cron inputs have changed slightly, each tick will now be a separate file unless the `Overwrite` flag is set to true, which will get you the old behavior. The name of the emitted file is now the timestamp that triggered the cron, rather than a static filename. Pipelines that use cron will need to be updated to work in 1.8.6. See [the docs](https://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#cron-input) for more info. (#3509)
