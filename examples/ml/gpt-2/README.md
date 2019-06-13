@@ -17,7 +17,8 @@ run to get our tweets to train on.
 
 ## Tweet scraping
 
-The first step in our pipeline is scraping tweets off of twitter. We named this step `tweets` and the code for it is in [tweets.py](./tweets.py):
+The first step in our pipeline is scraping tweets off of twitter. We named this
+step `tweets` and the code for it is in [tweets.py](./tweets.py):
 
 ```python
 #!/usr/local/bin/python3
@@ -157,7 +158,7 @@ scraping tweets:
         "name": "train"
     },
     "transform": {
-        "image": "gpt-2-example",
+        "image": "pachyderm/gpt-2-example",
         "cmd": ["/train.py"]
     },
     "input": {
@@ -165,13 +166,31 @@ scraping tweets:
             "repo": "tweets",
             "glob": "/*"
         }
-    }
+    },
+    "resource_limits": {
+        "gpu": {
+            "type": "nvidia.com/gpu",
+            "number": 1
+        },
+        "memory": "10G",
+        "cpu": 1
+    },
+    "resource_requests": {
+        "memory": "10G",
+        "cpu": 1
+    },
+    "standby": true
 }
 ```
 
-The only thing that's change is that we're taking the `tweets` repo as input, rather
-than `queries` and we're running a different script in our transform. You can
-create this pipeline with:
+A few things have changed from the `tweets` pipeline. First we're taking the
+`tweets` repo as input, rather than `queries` and we're running a different
+script in our transform. We've also added a `resource_limits` section, because
+this is a much more computationally intensive task than we did in the tweets
+pipeline, so it makes sense to give it a gpu and a large chunk of memory to
+train on. We also enable `standby`, which prevents the pipeline from holding
+onto those resources when it's not processing data. You can create this
+pipeline with:
 
 ```sh
 $ pachctl create pipeline -f train.json
@@ -229,7 +248,7 @@ The pipeline spec to run this on Pachyderm should look familiar by now:
         "name": "generate"
     },
     "transform": {
-        "image": "gpt-2-example",
+        "image": "pachyderm/gpt-2-example",
         "cmd": ["/generate.py"]
     },
     "input": {
@@ -237,7 +256,20 @@ The pipeline spec to run this on Pachyderm should look familiar by now:
             "repo": "train",
             "glob": "/*"
         }
-    }
+    },
+    "resource_limits": {
+        "gpu": {
+            "type": "nvidia.com/gpu",
+            "number": 1
+        },
+        "memory": "10G",
+        "cpu": 1
+    },
+    "resource_requests": {
+        "memory": "10G",
+        "cpu": 1
+    },
+    "standby": true
 }
 ```
 

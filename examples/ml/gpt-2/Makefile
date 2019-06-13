@@ -1,9 +1,9 @@
 
 docker-build:
-	docker build -t jdoliner/gpt-2-example:6 .
+	docker build -t pachyderm/gpt-2-example .
 
 docker-push: docker-build
-	docker push jdoliner/gpt-2-example:6
+	docker push pachyderm/gpt-2-example
 
 deploy:
 	pachctl update repo queries

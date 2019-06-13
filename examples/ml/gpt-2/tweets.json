@@ -3,7 +3,7 @@
         "name": "tweets"
     },
     "transform": {
-        "image": "jdoliner/gpt-2-example:6",
+        "image": "pachyderm/gpt-2-example",
         "cmd": ["/tweets.py"]
     },
     "input": {
