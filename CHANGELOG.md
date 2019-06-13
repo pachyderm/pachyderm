@@ -13,7 +13,6 @@
 - Pachyderm has a new command, `run pipeline` which allows you to manually trigger a pipelined on a set of commits. (#3642)
 - Commits now store the original branch that they were created on. (#3583)
 - Pachyderm now exposes tracing via Jaeger. (#3541)
-
 - Fixes several issues that could lead to object store corruption, particularly on alternative object stores. (#3797)
 - Fixes several issues that could cause pipelines to get hung under heavy load. (#3788)
 - Fixes an issue that caused jobs downstream from jobs that output nothing to fail. (#3787)
@@ -25,7 +24,6 @@
 - A bug that causes stopping a pipeline to create a new job has been fixed. (#3585)
 - Fixes a bug that caused pachd to panic if the `input` field of a pipeline was nil. (#3580)
 - The performance of `list job` has been greatly improved. (#3557)
-
 - `atom` inputs have been removed and use `pfs` inputs instead. (#3639)
 - The `ADDRESS` env var for connecting to pachd has been removed, use `PACHD_ADDRESS` instead. (#3638)
 
