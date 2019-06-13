@@ -1,8 +1,14 @@
 # Running pipelines on passed commits
 
-Sometimes you might decide to run the same pipeline on different branches, and
-you need to use the data from all the branches in different variations in
-your pipeline. Such a pipeline is called *cross pipeline* or *cross-pipe*.
+Sometimes you need to see the result of merging different commits
+to analyze and identify correct combinations and potential flows in
+data collection and processing. Or, you just want to re-rerun a failed job
+manually.
+
+Pachyderm enables you to run your pipelines with old commits or in different
+handpicked combinations of old commits that are stored in separate
+repositories or branches. This functionality is particularly useful for
+cross-pipelines, but you can also use it with other types of pipelines.
 
 For example, you have branches `A`, `B`, and `C`. Each of these branches has
 had commits on it at various times, and each new commit
