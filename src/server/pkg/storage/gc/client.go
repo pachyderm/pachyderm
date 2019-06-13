@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/lib/pq"
@@ -109,10 +110,10 @@ func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
 	return chunks
 }
 
-func isRetriableError(err error) bool {
+func isRetriableError(err error, loc string) bool {
 	if err, ok := err.(*pq.Error); ok {
 		name := err.Code.Class().Name()
-		fmt.Printf("pq error: %v, %v\n", name, err.Error())
+		fmt.Printf("pq error (%s): %v, %v\n", loc, name, err.Error())
 		return name == "transaction_rollback"
 	}
 	return false
@@ -123,16 +124,17 @@ func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []c
 		return nil
 	}
 
-	questions := []string{}
-	for i := 0; i < len(chunks); i++ {
-		questions = append(questions, fmt.Sprintf("($%d)", i+2))
+	chunkIds := []string{}
+	for _, chunk := range chunks {
+		chunkIds = append(chunkIds, fmt.Sprintf("('%s')", chunk.Hash))
 	}
+	sort.Strings(chunkIds)
 
 	query := `
 with
 added_chunks as (
  insert into chunks (chunk)
-  values ` + strings.Join(questions, ",") + `
+  values ` + strings.Join(chunkIds, ",") + `
  on conflict (chunk) do update set chunk = excluded.chunk
  returning chunk, deleting
 ),
@@ -142,6 +144,7 @@ added_refs as (
    chunk, $1, 'job'::reftype
   from added_chunks where
    deleting is null
+	order by 1
 )
 
 select chunk from added_chunks where deleting is not null;
@@ -159,12 +162,12 @@ select chunk from added_chunks where deleting is not null;
 			return err
 		}
 
-		cursor, err := txn.QueryContext(ctx, query, parameters...)
+		cursor, err := txn.QueryContext(ctx, query, job)
 		if err != nil {
 			if err := txn.Rollback(); err != nil {
 				return err
 			}
-			if isRetriableError(err) {
+			if isRetriableError(err, "reserve query") {
 				continue
 			}
 			return err
@@ -177,14 +180,14 @@ select chunk from added_chunks where deleting is not null;
 			if err := txn.Rollback(); err != nil {
 				return err
 			}
-			if isRetriableError(err) {
+			if isRetriableError(err, "reserve cursor") {
 				continue
 			}
 			return err
 		}
 
 		if err := txn.Commit(); err != nil {
-			if isRetriableError(err) {
+			if isRetriableError(err, "reserve commit") {
 				continue
 			}
 			return err
@@ -230,17 +233,26 @@ added_refs as (
 		jobStr = fmt.Sprintf("('job', '%s')", releaseJob)
 	}
 
+	// TODO: delete refs and update chunks in sorted order to prevent deadlocks
 	query := `
 with
 ` + addStr + `
 del_refs as (
- delete from refs where
-  (sourcetype, source, chunk) in (` + removeStr + `) or
-	(sourcetype, source) in (` + jobStr + `)
- returning chunk
+ delete from refs using (
+	 select sourcetype, source, chunk from refs
+	 where
+		(sourcetype, source, chunk) in (` + removeStr + `) or
+		(sourcetype, source) in (` + jobStr + `)
+	 order by 1, 2, 3
+ ) del
+ where
+  refs.sourcetype = del.sourcetype and
+	refs.source = del.source and
+	refs.chunk = del.chunk
+ returning refs.chunk
 ),
 counts as (
- select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1
+ select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1 order by 1
 )
 
 update chunks set
@@ -264,7 +276,7 @@ returning chunks.chunk;
 			if err := txn.Rollback(); err != nil {
 				return err
 			}
-			if isRetriableError(err) {
+			if isRetriableError(err, "update query") {
 				continue
 			}
 			return err
@@ -276,14 +288,14 @@ returning chunks.chunk;
 			if err := txn.Rollback(); err != nil {
 				return err
 			}
-			if isRetriableError(err) {
+			if isRetriableError(err, "update cursor") {
 				continue
 			}
 			return err
 		}
 
 		if err := txn.Commit(); err != nil {
-			if isRetriableError(err) {
+			if isRetriableError(err, "update commit") {
 				continue
 			}
 			return err

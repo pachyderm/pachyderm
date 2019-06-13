@@ -472,7 +472,7 @@ func TestFuzz(t *testing.T) {
 		fmt.Printf("verifyData\n")
 	}
 
-	numWorkers := 10
+	numWorkers := 20
 	numJobs := 100
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
