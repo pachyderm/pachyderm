@@ -1,6 +1,7 @@
 package server
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -6632,6 +6633,8 @@ func TestService(t *testing.T) {
 		return address
 	}()
 
+	fmt.Println("target: ", serviceAddr)
+
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
 		if err != nil {
@@ -6657,6 +6660,8 @@ func TestService(t *testing.T) {
 		port = "30652" // default NodePort port for Pachd's HTTP API
 	}
 	httpAPIAddr := net.JoinHostPort(host, port)
+	fmt.Println("target2: ", httpAPIAddr)
+
 	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := http.Get(url)
@@ -6698,6 +6703,183 @@ func TestService(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
+}
+
+func TestServiceHTTP(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	commit1, err := c.StartCommit(dataRepo, "master")
+	_, err = c.PutFile(dataRepo, commit1.ID, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
+
+	annotations := map[string]string{"foo": "bar"}
+
+	pipeline := tu.UniqueString("pipelineservice")
+	// This pipeline sleeps for 10 secs per datum
+	require.NoError(t, c.CreatePipelineService(
+		pipeline,
+		"trinitronx/python-simplehttpserver",
+		[]string{"sh"},
+		[]string{
+			"cd /pfs",
+			"exec python -m SimpleHTTPServer 8000",
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(dataRepo, "/"),
+		false,
+		8000,
+		31800,
+		annotations,
+	))
+	time.Sleep(10 * time.Second)
+
+	serviceAddr := net.JoinHostPort("0.0.0.0", "31800")
+
+	resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
+	require.NoError(t, err)
+	require.Equal(t, 200, resp.StatusCode)
+
+	content, err := ioutil.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, "foo", string(content))
+}
+
+func TestServiceNC(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestSpoutService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	annotations := map[string]string{"foo": "bar"}
+
+	pipeline := tu.UniqueString("pipelineservice")
+	// // This pipeline sleeps for 10 secs per datum
+	// require.NoError(t, c.CreatePipelineService(
+	// 	pipeline,
+	// 	"spoutservice:latest",
+	// 	[]string{"sh"},
+	// 	[]string{
+	// 		"cd /pfs",
+	// 		// "mkdir -p ./tmpdir",
+	// 		// "sleep 600",
+	// 		// "nc -s 127.0.0.1 -l 8000 > ./tmpdir/dummy",
+	// 		// "nc -l 8000 | tar -C ./tmpdir -xvf -",
+	// 		"socat - TCP-LISTEN:8000 | tar -C ./tmpdir -xvf -",
+	// 	},
+	// 	&pps.ParallelismSpec{
+	// 		Constant: 1,
+	// 	},
+	// 	client.NewPFSInput(dataRepo, "/"),
+	// 	false,
+	// 	8000,
+	// 	31800,
+	// 	annotations,
+	// ))
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				// Image: "pachyderm/ubuntuplusnetcat:latest",
+				Image: "spoutservice:latest",
+				Cmd: []string{"sh"},
+				Stdin: []string{
+					"netcat -l -s 0.0.0.0 -p 8000 >/pfs/out",
+				},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{
+				Constant: 1,
+			},
+			Input:  client.NewPFSInput(dataRepo, "/"),
+			Update: false,
+			Spout: &pps.Spout{
+				Service: &pps.Service{
+					InternalPort: 8000,
+					ExternalPort: 31800,
+					Annotations:  annotations,
+				},
+			},
+
+			// Service: &pps.Service{
+			// 	InternalPort: 8000,
+			// 	ExternalPort: 31800,
+			// 	Annotations:  annotations,
+			// },
+		})
+	require.NoError(t, err)
+	time.Sleep(20 * time.Second)
+	// backoff.Retry(func() error {
+	// 	ris, err := c.ListRepo()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	if len(ris) != 2 {
+	// 		return errors.New("pipeline service not ready yet")
+	// 	}
+	// 	return nil
+	// }, backoff.NewTestingBackOff())
+	fmt.Println("ready")
+
+	host, _, err := net.SplitHostPort(c.GetAddress())
+	serviceAddr := net.JoinHostPort(host, "31800")
+
+	backoff.Retry(func() error {
+		raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
+		if err != nil {
+			return err
+		}
+
+		conn, err := net.DialTCP("tcp", nil, raddr)
+		if err != nil {
+			return err
+		}
+		tarwriter := tar.NewWriter(conn)
+		defer tarwriter.Close()
+		headerinfo := &tar.Header{
+			Name: "file1",
+			Size: int64(len("foo")),
+		}
+
+		err = tarwriter.WriteHeader(headerinfo)
+		if err != nil {
+			return err
+		}
+
+		_, err = tarwriter.Write([]byte("foo"))
+		if err != nil {
+			return err
+		}
+		return nil
+	}, backoff.NewTestingBackOff())
+	time.Sleep(10 * time.Second)
+
+	iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+	require.NoError(t, err)
+
+	commitInfo, err := iter.Next()
+	require.NoError(t, err)
+	files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+
+	var buf bytes.Buffer
+	err = c.GetFile(pipeline, commitInfo.Commit.ID, files[0].File.Path, 0, 0, &buf)
+	require.NoError(t, err)
+	require.Equal(t, buf.String(), "foo")
 }
 
 func TestChunkSpec(t *testing.T) {
@@ -8948,6 +9130,126 @@ func TestNewHeaderCausesReprocess(t *testing.T) {
 			require.Equal(t, int64(0), jobInfo.DataSkipped)
 			return nil
 		})
+}
+
+func TestSpoutService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestSpoutService_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	annotations := map[string]string{"foo": "bar"}
+
+	// create a spout/service pipeline
+	pipeline := tu.UniqueString("pipelinespoutservice")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "spoutservice:latest",
+				// Cmd:   []string{"/bin/sh"},
+				// Stdin: []string{},
+			},
+			Spout: &pps.Spout{}, // this needs to be non-nil to make it a spout
+
+			// Input: client.NewPFSInput(dataRepo, "/"),
+			Service: &pps.Service{
+				InternalPort: 8000,
+				ExternalPort: 31900,
+				Annotations:  annotations,
+			},
+		})
+	require.NoError(t, err)
+	time.Sleep(10 * time.Second)
+
+	// clientAddr := c.GetAddress()
+	// host, _, err := net.SplitHostPort(clientAddr)
+	// require.NoError(t, err)
+	// target := net.JoinHostPort(host, "31900")
+
+	// Lookup the address for 'pipelineservice' (different inside vs outside k8s)
+	serviceAddr := func() string {
+		// Hack: detect if running inside the cluster by looking for this env var
+		if _, ok := os.LookupEnv("KUBERNETES_PORT"); !ok {
+			// Outside cluster: Re-use external IP and external port defined above
+			clientAddr := c.GetAddress()
+			host, _, err := net.SplitHostPort(clientAddr)
+			require.NoError(t, err)
+			return net.JoinHostPort(host, "31900")
+			// return net.JoinHostPort(host, "30652")
+		}
+		// Get k8s service corresponding to pachyderm service above--must access
+		// via internal cluster IP, but we don't know what that is
+		var address string
+		kubeClient := tu.GetKubeClient(t)
+		backoff.Retry(func() error {
+			svcs, err := kubeClient.CoreV1().Services("default").List(metav1.ListOptions{})
+			require.NoError(t, err)
+			for _, svc := range svcs.Items {
+				// Pachyderm actually generates two services for pipelineservice: one
+				// for pachyderm (a ClusterIP service) and one for the user container
+				// (a NodePort service, which is the one we want)
+				rightName := strings.Contains(svc.Name, "pipelineservice")
+				rightType := svc.Spec.Type == v1.ServiceTypeNodePort
+				if !rightName || !rightType {
+					continue
+				}
+				host := svc.Spec.ClusterIP
+				port := fmt.Sprintf("%d", svc.Spec.Ports[0].Port)
+				address = net.JoinHostPort(host, port)
+
+				actualAnnotations := svc.Annotations
+				delete(actualAnnotations, "pipelineName")
+				if !reflect.DeepEqual(actualAnnotations, annotations) {
+					return fmt.Errorf(
+						"expected service annotations map %#v, got %#v",
+						annotations,
+						actualAnnotations,
+					)
+				}
+
+				return nil
+			}
+			return fmt.Errorf("no matching k8s service found")
+		}, backoff.NewTestingBackOff())
+
+		require.NotEqual(t, "", address)
+		return address
+	}()
+	// time.Sleep(10 * time.Second)
+
+	fmt.Println("target: ", serviceAddr)
+	raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
+	require.NoError(t, err)
+	conn, err := net.DialTCP("tcp", nil, raddr)
+	require.NoError(t, err)
+
+	tarwriter := tar.NewWriter(conn)
+	headerinfo := &tar.Header{
+		Name: "file1",
+		Size: int64(len("foo")),
+	}
+
+	err = tarwriter.WriteHeader(headerinfo)
+	require.NoError(t, err)
+
+	_, err = tarwriter.Write([]byte("foo"))
+	require.NoError(t, err)
+
+	// cmd := exec.Command("tar", "-cvf", "-", "file", "|", "nc", "localhost", "31900")
+	// err = cmd.Run()
+	// require.NoError(t, err)
+
+	time.Sleep(10 * time.Second)
+
+	// c.GetFile("pipeline")
+	fmt.Println("done spout service")
+
 }
 
 func TestSpout(t *testing.T) {
