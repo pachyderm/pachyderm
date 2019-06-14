@@ -6633,8 +6633,6 @@ func TestService(t *testing.T) {
 		return address
 	}()
 
-	fmt.Println("target: ", serviceAddr)
-
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := http.Get(fmt.Sprintf("http://%s/%s/file1", serviceAddr, dataRepo))
 		if err != nil {
@@ -6660,8 +6658,6 @@ func TestService(t *testing.T) {
 		port = "30652" // default NodePort port for Pachd's HTTP API
 	}
 	httpAPIAddr := net.JoinHostPort(host, port)
-	fmt.Println("target2: ", httpAPIAddr)
-
 	url := fmt.Sprintf("http://%s/v1/pps/services/%s/%s/file1", httpAPIAddr, pipeline, dataRepo)
 	require.NoError(t, backoff.Retry(func() error {
 		resp, err := http.Get(url)
