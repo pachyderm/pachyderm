@@ -38,6 +38,11 @@ func (s *Storage) NewWriter(ctx context.Context) *Writer {
 	return newWriter(ctx, s.objC)
 }
 
+// List lists all of the chunks in object storage.
+func (s *Storage) List(ctx context.Context, f func(string) error) error {
+	return s.objC.Walk(ctx, prefix, f)
+}
+
 // DeleteAll deletes all of the chunks in object storage.
 func (s *Storage) DeleteAll(ctx context.Context) error {
 	return s.objC.Walk(ctx, prefix, func(hash string) error {

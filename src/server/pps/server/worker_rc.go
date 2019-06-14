@@ -8,16 +8,22 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+const (
+	pipelineNameLabel = "pipelineName"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -259,7 +265,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
-	labels["pipelineName"] = pipelineName
+	labels[pipelineNameLabel] = pipelineName
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -389,6 +395,13 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	if a.iamRole != "" {
 		annotations["iam.amazonaws.com/role"] = a.iamRole
 	}
+	if service != nil {
+		for k, v := range service.Annotations {
+			if k != "pipelineName" && k != "iam.amazonaws.com/role" {
+				annotations[k] = v
+			}
+		}
+	}
 
 	return &workerOptions{
 		rcName:           rcName,
@@ -410,7 +423,15 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	}
 }
 
-func (a *apiServer) createWorkerRc(options *workerOptions) error {
+func (a *apiServer) createWorkerRc(ctx context.Context, options *workerOptions) (retErr error) {
+	log.Infof("PPS master: upserting workers for %q", options.labels[pipelineNameLabel])
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC",
+		"pipeline", options.labels[pipelineNameLabel])
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
+
 	podSpec, err := a.workerPodSpec(options)
 	if err != nil {
 		return err
@@ -479,26 +500,31 @@ func (a *apiServer) createWorkerRc(options *workerOptions) error {
 	}
 
 	if options.service != nil {
+		var servicePort = []v1.ServicePort{
+			{
+				Port:       options.service.ExternalPort,
+				TargetPort: intstr.FromInt(int(options.service.InternalPort)),
+				Name:       "user-port",
+			},
+		}
+		var serviceType = v1.ServiceType(options.service.Type)
+		if serviceType == v1.ServiceTypeNodePort {
+			servicePort[0].NodePort = options.service.ExternalPort
+		}
 		service := &v1.Service{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Service",
 				APIVersion: "v1",
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:   options.rcName + "-user",
-				Labels: options.labels,
+				Name:        options.rcName + "-user",
+				Labels:      options.labels,
+				Annotations: options.annotations,
 			},
 			Spec: v1.ServiceSpec{
 				Selector: options.labels,
-				Type:     v1.ServiceTypeNodePort,
-				Ports: []v1.ServicePort{
-					{
-						Port:       options.service.ExternalPort,
-						TargetPort: intstr.FromInt(int(options.service.InternalPort)),
-						Name:       "user-port",
-						NodePort:   options.service.ExternalPort,
-					},
-				},
+				Type:     serviceType,
+				Ports:    servicePort,
 			},
 		}
 		if _, err := a.env.GetKubeClient().CoreV1().Services(a.namespace).Create(service); err != nil {

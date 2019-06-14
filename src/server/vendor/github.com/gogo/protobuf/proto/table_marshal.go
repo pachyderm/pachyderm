@@ -248,16 +248,13 @@ func (u *marshalInfo) marshal(b []byte, ptr pointer, deterministic bool) ([]byte
 	// If the message can marshal itself, let it do it, for compatibility.
 	// NOTE: This is not efficient.
 	if u.hasmarshaler {
-		if deterministic {
-			return nil, errors.New("proto: deterministic not supported by the Marshal method of " + u.typ.String())
-		}
 		m := ptr.asPointerTo(u.typ).Interface().(Marshaler)
 		b1, err := m.Marshal()
 		b = append(b, b1...)
 		return b, err
 	}
 
-	var err, errreq error
+	var err, errLater error
 	// The old marshaler encodes extensions at beginning.
 	if u.extensions.IsValid() {
 		e := ptr.offset(u.extensions).toExtensions()
@@ -282,11 +279,13 @@ func (u *marshalInfo) marshal(b []byte, ptr pointer, deterministic bool) ([]byte
 		b = append(b, s...)
 	}
 	for _, f := range u.fields {
-		if f.required && errreq == nil {
+		if f.required {
 			if f.isPointer && ptr.offset(f.field).getPointer().isNil() {
 				// Required field is not set.
 				// We record the error but keep going, to give a complete marshaling.
-				errreq = &RequiredNotSetError{f.name}
+				if errLater == nil {
+					errLater = &RequiredNotSetError{f.name}
+				}
 				continue
 			}
 		}
@@ -299,8 +298,8 @@ func (u *marshalInfo) marshal(b []byte, ptr pointer, deterministic bool) ([]byte
 			if err1, ok := err.(*RequiredNotSetError); ok {
 				// Required field in submessage is not set.
 				// We record the error but keep going, to give a complete marshaling.
-				if errreq == nil {
-					errreq = &RequiredNotSetError{f.name + "." + err1.field}
+				if errLater == nil {
+					errLater = &RequiredNotSetError{f.name + "." + err1.field}
 				}
 				continue
 			}
@@ -308,8 +307,11 @@ func (u *marshalInfo) marshal(b []byte, ptr pointer, deterministic bool) ([]byte
 				err = errors.New("proto: repeated field " + f.name + " has nil element")
 			}
 			if err == errInvalidUTF8 {
-				fullName := revProtoTypes[reflect.PtrTo(u.typ)] + "." + f.name
-				err = fmt.Errorf("proto: string field %q contains invalid UTF-8", fullName)
+				if errLater == nil {
+					fullName := revProtoTypes[reflect.PtrTo(u.typ)] + "." + f.name
+					errLater = &invalidUTF8Error{fullName}
+				}
+				continue
 			}
 			return b, err
 		}
@@ -318,7 +320,7 @@ func (u *marshalInfo) marshal(b []byte, ptr pointer, deterministic bool) ([]byte
 		s := *ptr.offset(u.unrecognized).toBytes()
 		b = append(b, s...)
 	}
-	return b, errreq
+	return b, errLater
 }
 
 // computeMarshalInfo initializes the marshal info.
@@ -489,7 +491,7 @@ func (fi *marshalFieldInfo) computeMarshalFieldInfo(f *reflect.StructField) {
 
 func (fi *marshalFieldInfo) computeOneofFieldInfo(f *reflect.StructField, oneofImplementers []interface{}) {
 	fi.field = toField(f)
-	fi.wiretag = 1<<31 - 1 // Use a large tag number, make oneofs sorted at the end. This tag will not appear on the wire.
+	fi.wiretag = math.MaxInt32 // Use a large tag number, make oneofs sorted at the end. This tag will not appear on the wire.
 	fi.isPointer = true
 	fi.sizer, fi.marshaler = makeOneOfMarshaler(fi, f)
 	fi.oneofElems = make(map[reflect.Type]*marshalElemInfo)
@@ -584,6 +586,7 @@ func typeMarshaler(t reflect.Type, tags []string, nozero, oneof bool) (sizer, ma
 	isTime := false
 	isDuration := false
 	isWktPointer := false
+	validateUTF8 := true
 	for i := 2; i < len(tags); i++ {
 		if tags[i] == "packed" {
 			packed = true
@@ -604,6 +607,7 @@ func typeMarshaler(t reflect.Type, tags []string, nozero, oneof bool) (sizer, ma
 			isWktPointer = true
 		}
 	}
+	validateUTF8 = validateUTF8 && proto3
 	if !proto3 && !pointer && !slice {
 		nozero = false
 	}
@@ -950,6 +954,18 @@ func typeMarshaler(t reflect.Type, tags []string, nozero, oneof bool) (sizer, ma
 		}
 		return sizeFloat64Value, appendFloat64Value
 	case reflect.String:
+		if validateUTF8 {
+			if pointer {
+				return sizeStringPtr, appendUTF8StringPtr
+			}
+			if slice {
+				return sizeStringSlice, appendUTF8StringSlice
+			}
+			if nozero {
+				return sizeStringValueNoZero, appendUTF8StringValueNoZero
+			}
+			return sizeStringValue, appendUTF8StringValue
+		}
 		if pointer {
 			return sizeStringPtr, appendStringPtr
 		}
@@ -2206,9 +2222,6 @@ func appendBoolPackedSlice(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byt
 }
 func appendStringValue(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, error) {
 	v := *ptr.toString()
-	if !utf8.ValidString(v) {
-		return nil, errInvalidUTF8
-	}
 	b = appendVarint(b, wiretag)
 	b = appendVarint(b, uint64(len(v)))
 	b = append(b, v...)
@@ -2218,9 +2231,6 @@ func appendStringValueNoZero(b []byte, ptr pointer, wiretag uint64, _ bool) ([]b
 	v := *ptr.toString()
 	if v == "" {
 		return b, nil
-	}
-	if !utf8.ValidString(v) {
-		return nil, errInvalidUTF8
 	}
 	b = appendVarint(b, wiretag)
 	b = appendVarint(b, uint64(len(v)))
@@ -2233,9 +2243,6 @@ func appendStringPtr(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, err
 		return b, nil
 	}
 	v := *p
-	if !utf8.ValidString(v) {
-		return nil, errInvalidUTF8
-	}
 	b = appendVarint(b, wiretag)
 	b = appendVarint(b, uint64(len(v)))
 	b = append(b, v...)
@@ -2244,12 +2251,74 @@ func appendStringPtr(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, err
 func appendStringSlice(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, error) {
 	s := *ptr.toStringSlice()
 	for _, v := range s {
+		b = appendVarint(b, wiretag)
+		b = appendVarint(b, uint64(len(v)))
+		b = append(b, v...)
+	}
+	return b, nil
+}
+func appendUTF8StringValue(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, error) {
+	var invalidUTF8 bool
+	v := *ptr.toString()
+	if !utf8.ValidString(v) {
+		invalidUTF8 = true
+	}
+	b = appendVarint(b, wiretag)
+	b = appendVarint(b, uint64(len(v)))
+	b = append(b, v...)
+	if invalidUTF8 {
+		return b, errInvalidUTF8
+	}
+	return b, nil
+}
+func appendUTF8StringValueNoZero(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, error) {
+	var invalidUTF8 bool
+	v := *ptr.toString()
+	if v == "" {
+		return b, nil
+	}
+	if !utf8.ValidString(v) {
+		invalidUTF8 = true
+	}
+	b = appendVarint(b, wiretag)
+	b = appendVarint(b, uint64(len(v)))
+	b = append(b, v...)
+	if invalidUTF8 {
+		return b, errInvalidUTF8
+	}
+	return b, nil
+}
+func appendUTF8StringPtr(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, error) {
+	var invalidUTF8 bool
+	p := *ptr.toStringPtr()
+	if p == nil {
+		return b, nil
+	}
+	v := *p
+	if !utf8.ValidString(v) {
+		invalidUTF8 = true
+	}
+	b = appendVarint(b, wiretag)
+	b = appendVarint(b, uint64(len(v)))
+	b = append(b, v...)
+	if invalidUTF8 {
+		return b, errInvalidUTF8
+	}
+	return b, nil
+}
+func appendUTF8StringSlice(b []byte, ptr pointer, wiretag uint64, _ bool) ([]byte, error) {
+	var invalidUTF8 bool
+	s := *ptr.toStringSlice()
+	for _, v := range s {
 		if !utf8.ValidString(v) {
-			return nil, errInvalidUTF8
+			invalidUTF8 = true
 		}
 		b = appendVarint(b, wiretag)
 		b = appendVarint(b, uint64(len(v)))
 		b = append(b, v...)
+	}
+	if invalidUTF8 {
+		return b, errInvalidUTF8
 	}
 	return b, nil
 }
@@ -2329,7 +2398,8 @@ func makeGroupSliceMarshaler(u *marshalInfo) (sizer, marshaler) {
 		},
 		func(b []byte, ptr pointer, wiretag uint64, deterministic bool) ([]byte, error) {
 			s := ptr.getPointerSlice()
-			var err, errreq error
+			var err error
+			var nerr nonFatal
 			for _, v := range s {
 				if v.isNil() {
 					return b, errRepeatedHasNil
@@ -2337,22 +2407,14 @@ func makeGroupSliceMarshaler(u *marshalInfo) (sizer, marshaler) {
 				b = appendVarint(b, wiretag) // start group
 				b, err = u.marshal(b, v, deterministic)
 				b = appendVarint(b, wiretag+(WireEndGroup-WireStartGroup)) // end group
-				if err != nil {
-					if _, ok := err.(*RequiredNotSetError); ok {
-						// Required field in submessage is not set.
-						// We record the error but keep going, to give a complete marshaling.
-						if errreq == nil {
-							errreq = err
-						}
-						continue
-					}
+				if !nerr.Merge(err) {
 					if err == ErrNil {
 						err = errRepeatedHasNil
 					}
 					return b, err
 				}
 			}
-			return b, errreq
+			return b, nerr.E
 		}
 }
 
@@ -2396,7 +2458,8 @@ func makeMessageSliceMarshaler(u *marshalInfo) (sizer, marshaler) {
 		},
 		func(b []byte, ptr pointer, wiretag uint64, deterministic bool) ([]byte, error) {
 			s := ptr.getPointerSlice()
-			var err, errreq error
+			var err error
+			var nerr nonFatal
 			for _, v := range s {
 				if v.isNil() {
 					return b, errRepeatedHasNil
@@ -2405,22 +2468,15 @@ func makeMessageSliceMarshaler(u *marshalInfo) (sizer, marshaler) {
 				siz := u.cachedsize(v)
 				b = appendVarint(b, uint64(siz))
 				b, err = u.marshal(b, v, deterministic)
-				if err != nil {
-					if _, ok := err.(*RequiredNotSetError); ok {
-						// Required field in submessage is not set.
-						// We record the error but keep going, to give a complete marshaling.
-						if errreq == nil {
-							errreq = err
-						}
-						continue
-					}
+
+				if !nerr.Merge(err) {
 					if err == ErrNil {
 						err = errRepeatedHasNil
 					}
 					return b, err
 				}
 			}
-			return b, errreq
+			return b, nerr.E
 		}
 }
 
@@ -2434,15 +2490,18 @@ func makeMapMarshaler(f *reflect.StructField) (sizer, marshaler) {
 	tags := strings.Split(f.Tag.Get("protobuf"), ",")
 	keyTags := strings.Split(f.Tag.Get("protobuf_key"), ",")
 	valTags := strings.Split(f.Tag.Get("protobuf_val"), ",")
+	stdOptions := false
 	for _, t := range tags {
 		if strings.HasPrefix(t, "customtype=") {
 			valTags = append(valTags, t)
 		}
 		if t == "stdtime" {
 			valTags = append(valTags, t)
+			stdOptions = true
 		}
 		if t == "stdduration" {
 			valTags = append(valTags, t)
+			stdOptions = true
 		}
 		if t == "wktptr" {
 			valTags = append(valTags, t)
@@ -2459,6 +2518,25 @@ func makeMapMarshaler(f *reflect.StructField) (sizer, marshaler) {
 	// value.
 	// Key cannot be pointer-typed.
 	valIsPtr := valType.Kind() == reflect.Ptr
+
+	// If value is a message with nested maps, calling
+	// valSizer in marshal may be quadratic. We should use
+	// cached version in marshal (but not in size).
+	// If value is not message type, we don't have size cache,
+	// but it cannot be nested either. Just use valSizer.
+	valCachedSizer := valSizer
+	if valIsPtr && !stdOptions && valType.Elem().Kind() == reflect.Struct {
+		u := getMarshalInfo(valType.Elem())
+		valCachedSizer = func(ptr pointer, tagsize int) int {
+			// Same as message sizer, but use cache.
+			p := ptr.getPointer()
+			if p.isNil() {
+				return 0
+			}
+			siz := u.cachedsize(p)
+			return siz + SizeVarint(uint64(siz)) + tagsize
+		}
+	}
 	return func(ptr pointer, tagsize int) int {
 			m := ptr.asPointerTo(t).Elem() // the map
 			n := 0
@@ -2479,24 +2557,26 @@ func makeMapMarshaler(f *reflect.StructField) (sizer, marshaler) {
 			if len(keys) > 1 && deterministic {
 				sort.Sort(mapKeys(keys))
 			}
+
+			var nerr nonFatal
 			for _, k := range keys {
 				ki := k.Interface()
 				vi := m.MapIndex(k).Interface()
 				kaddr := toAddrPointer(&ki, false)    // pointer to key
 				vaddr := toAddrPointer(&vi, valIsPtr) // pointer to value
 				b = appendVarint(b, tag)
-				siz := keySizer(kaddr, 1) + valSizer(vaddr, 1) // tag of key = 1 (size=1), tag of val = 2 (size=1)
+				siz := keySizer(kaddr, 1) + valCachedSizer(vaddr, 1) // tag of key = 1 (size=1), tag of val = 2 (size=1)
 				b = appendVarint(b, uint64(siz))
 				b, err = keyMarshaler(b, kaddr, keyWireTag, deterministic)
-				if err != nil {
+				if !nerr.Merge(err) {
 					return b, err
 				}
 				b, err = valMarshaler(b, vaddr, valWireTag, deterministic)
-				if err != nil && err != ErrNil { // allow nil value in map
+				if err != ErrNil && !nerr.Merge(err) { // allow nil value in map
 					return b, err
 				}
 			}
-			return b, nil
+			return b, nerr.E
 		}
 }
 
@@ -2569,6 +2649,7 @@ func (u *marshalInfo) appendExtensions(b []byte, ext *XXX_InternalExtensions, de
 	defer mu.Unlock()
 
 	var err error
+	var nerr nonFatal
 
 	// Fast-path for common cases: zero or one extensions.
 	// Don't bother sorting the keys.
@@ -2588,11 +2669,11 @@ func (u *marshalInfo) appendExtensions(b []byte, ext *XXX_InternalExtensions, de
 			v := e.value
 			p := toAddrPointer(&v, ei.isptr)
 			b, err = ei.marshaler(b, p, ei.wiretag, deterministic)
-			if err != nil {
+			if !nerr.Merge(err) {
 				return b, err
 			}
 		}
-		return b, nil
+		return b, nerr.E
 	}
 
 	// Sort the keys to provide a deterministic encoding.
@@ -2619,11 +2700,11 @@ func (u *marshalInfo) appendExtensions(b []byte, ext *XXX_InternalExtensions, de
 		v := e.value
 		p := toAddrPointer(&v, ei.isptr)
 		b, err = ei.marshaler(b, p, ei.wiretag, deterministic)
-		if err != nil {
+		if !nerr.Merge(err) {
 			return b, err
 		}
 	}
-	return b, nil
+	return b, nerr.E
 }
 
 // message set format is:
@@ -2680,6 +2761,7 @@ func (u *marshalInfo) appendMessageSet(b []byte, ext *XXX_InternalExtensions, de
 	defer mu.Unlock()
 
 	var err error
+	var nerr nonFatal
 
 	// Fast-path for common cases: zero or one extensions.
 	// Don't bother sorting the keys.
@@ -2706,12 +2788,12 @@ func (u *marshalInfo) appendMessageSet(b []byte, ext *XXX_InternalExtensions, de
 			v := e.value
 			p := toAddrPointer(&v, ei.isptr)
 			b, err = ei.marshaler(b, p, 3<<3|WireBytes, deterministic)
-			if err != nil {
+			if !nerr.Merge(err) {
 				return b, err
 			}
 			b = append(b, 1<<3|WireEndGroup)
 		}
-		return b, nil
+		return b, nerr.E
 	}
 
 	// Sort the keys to provide a deterministic encoding.
@@ -2745,11 +2827,11 @@ func (u *marshalInfo) appendMessageSet(b []byte, ext *XXX_InternalExtensions, de
 		p := toAddrPointer(&v, ei.isptr)
 		b, err = ei.marshaler(b, p, 3<<3|WireBytes, deterministic)
 		b = append(b, 1<<3|WireEndGroup)
-		if err != nil {
+		if !nerr.Merge(err) {
 			return b, err
 		}
 	}
-	return b, nil
+	return b, nerr.E
 }
 
 // sizeV1Extensions computes the size of encoded data for a V1-API extension field.
@@ -2792,6 +2874,7 @@ func (u *marshalInfo) appendV1Extensions(b []byte, m map[int32]Extension, determ
 	sort.Ints(keys)
 
 	var err error
+	var nerr nonFatal
 	for _, k := range keys {
 		e := m[int32(k)]
 		if e.value == nil || e.desc == nil {
@@ -2808,11 +2891,11 @@ func (u *marshalInfo) appendV1Extensions(b []byte, m map[int32]Extension, determ
 		v := e.value
 		p := toAddrPointer(&v, ei.isptr)
 		b, err = ei.marshaler(b, p, ei.wiretag, deterministic)
-		if err != nil {
+		if !nerr.Merge(err) {
 			return b, err
 		}
 	}
-	return b, nil
+	return b, nerr.E
 }
 
 // newMarshaler is the interface representing objects that can marshal themselves.
@@ -2877,6 +2960,11 @@ func Marshal(pb Message) ([]byte, error) {
 // a Buffer for most applications.
 func (p *Buffer) Marshal(pb Message) error {
 	var err error
+	if p.deterministic {
+		if _, ok := pb.(Marshaler); ok {
+			return fmt.Errorf("proto: deterministic not supported by the Marshal method of %T", pb)
+		}
+	}
 	if m, ok := pb.(newMarshaler); ok {
 		siz := m.XXX_Size()
 		p.grow(siz) // make sure buf has enough capacity

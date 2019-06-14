@@ -13,13 +13,10 @@ import (
 	"strings"
 	"syscall"
 
-	units "github.com/docker/go-units"
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -27,6 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
+	units "github.com/docker/go-units"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
@@ -143,15 +144,12 @@ $ {{alias}} -p foo -i bar@YYY`,
 			defer client.Close()
 
 			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
-					if err := marshaller.Marshal(os.Stdout, ji); err != nil {
-						return err
-					}
-					return nil
+				return client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
+					return marshaller.Marshal(os.Stdout, ji)
 				})
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, history, func(ji *ppsclient.JobInfo) error {
+			if err := client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
 				pretty.PrintJobInfo(writer, ji, fullTimestamps)
 				return nil
 			}); err != nil {
@@ -486,6 +484,41 @@ All jobs created by a pipeline will create commits in the pipeline's output repo
 	updatePipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(updatePipeline, "update pipeline"))
 
+	runPipeline := &cobra.Command{
+		Use:   "{{alias}} <pipeline> [commits...]",
+		Short: "Run an existing Pachyderm pipeline on the specified commits or branches.",
+		Long:  "Run a Pachyderm pipeline on the datums from specific commits. Note: pipelines run automatically when data is committed to them. This command is for the case where you want to run the pipeline on a specific set of data, or if you want to rerun the pipeline.",
+		Example: `
+		# Rerun the latest job for the "filter" pipeline
+		$ {{alias}} filter
+
+		# Reprocess the pipeline "filter" on the data from commits a23e4 and bf363
+		$ {{alias}} filter a23e4 and bf363
+
+		# Run the pipeline "filter" on the data from the "staging" branch
+		$ {{alias}} filter staging`,
+		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
+			client, err := pachdclient.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			provCommits, err := cmdutil.ParseCommits(args[1:])
+			if err != nil {
+				return err
+			}
+			prov := make([]*pfs.CommitProvenance, 0, len(args[1:]))
+			for _, commit := range provCommits {
+				prov = append(prov, &pfs.CommitProvenance{
+					Commit: commit,
+				})
+			}
+			client.RunPipeline(args[0], prov)
+			return nil
+		}),
+	}
+	commands = append(commands, cmdutil.CreateAlias(runPipeline, "run pipeline"))
+
 	inspectPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Return info about a pipeline.",
@@ -791,6 +824,11 @@ func pipelineHelper(metrics bool, portForwarding bool, reprocess bool, build boo
 		} else if err != nil {
 			return err
 		}
+		// Add trace if env var is set
+		if ctx, ok := extended.StartAnyExtendedTrace(client.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name); ok {
+			client = client.WithCtx(ctx)
+		}
+
 		if update {
 			request.Update = true
 			request.Reprocess = reprocess

@@ -30,6 +30,7 @@ import (
 
 const oneDayInSeconds = 60 * 60 * 24
 const twoDaysInSeconds = 60 * 60 * 48
+const maxRetries = 10
 
 var (
 	// By default, objects uploaded to a bucket are only accessible to the
@@ -165,11 +166,12 @@ type AmazonCreds struct {
 	VaultToken   string
 }
 
-func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, reversed ...bool) (*amazonClient, error) {
+func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistribution string, endpoint string, reversed ...bool) (*amazonClient, error) {
 	// set up aws config, including credentials (if neither creds.ID nor
 	// creds.VaultAddress are set, then this will use the EC2 metadata service
 	awsConfig := &aws.Config{
-		Region: aws.String(region),
+		Region:     aws.String(region),
+		MaxRetries: aws.Int(maxRetries),
 	}
 	if creds.ID != "" {
 		awsConfig.Credentials = credentials.NewStaticCredentials(creds.ID, creds.Secret, creds.Token)
@@ -185,6 +187,11 @@ func newAmazonClient(region, bucket string, creds *AmazonCreds, cloudfrontDistri
 			vaultClient: vaultClient,
 			vaultRole:   creds.VaultRole,
 		})
+	}
+	// Set custom endpoint for a custom deployment.
+	if endpoint != "" {
+		awsConfig.Endpoint = aws.String(endpoint)
+		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
 
 	// Create new session using awsConfig
@@ -319,11 +326,14 @@ func (c *amazonClient) Reader(ctx context.Context, name string, offset uint64, s
 		}
 		reader = resp.Body
 	} else {
-		getObjectOutput, err := c.s3.GetObject(&s3.GetObjectInput{
+		objIn := &s3.GetObjectInput{
 			Bucket: aws.String(c.bucket),
 			Key:    aws.String(name),
-			Range:  aws.String(byteRange),
-		})
+		}
+		if byteRange != "" {
+			objIn.Range = aws.String(byteRange)
+		}
+		getObjectOutput, err := c.s3.GetObject(objIn)
 		if err != nil {
 			return nil, err
 		}
@@ -420,6 +430,9 @@ func newWriter(ctx context.Context, client *amazonClient, name string) *amazonWr
 			Key:             aws.String(name),
 			ContentEncoding: aws.String("application/octet-stream"),
 		})
+		if err != nil {
+			w.pipe.CloseWithError(err)
+		}
 		w.errChan <- err
 	}()
 	return w

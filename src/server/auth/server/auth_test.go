@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -1127,6 +1128,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, err)
 	doneCh := make(chan struct{})
 	go func() {
+		defer close(doneCh)
 		iter, err = aliceClient.FlushCommit(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
@@ -1134,7 +1136,6 @@ func TestPipelineRevoke(t *testing.T) {
 		require.NoError(t, err)
 		_, err = iter.Next()
 		require.NoError(t, err)
-		close(doneCh)
 	}()
 	select {
 	case <-doneCh:
@@ -1157,6 +1158,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, err)
 	doneCh = make(chan struct{})
 	go func() {
+		defer close(doneCh)
 		iter, err = aliceClient.FlushCommit(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
@@ -1164,7 +1166,6 @@ func TestPipelineRevoke(t *testing.T) {
 		require.NoError(t, err)
 		_, err = iter.Next()
 		require.NoError(t, err)
-		close(doneCh)
 	}()
 	select {
 	case <-doneCh:
@@ -1185,8 +1186,15 @@ func TestPipelineRevoke(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := iter.Next()
-		return err
+		for { // flushCommit yields two output commits (one from the prev pipeline)
+			_, err = iter.Next()
+			if err == io.EOF {
+				return nil
+			} else if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 
@@ -1734,7 +1742,7 @@ func TestListDatum(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true /* full */)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(jobs))
 	jobID := jobs[0].Job.ID
@@ -1846,17 +1854,17 @@ func TestListJob(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	jobID := jobs[0].Job.ID
 
 	// bob cannot call ListJob on 'pipeline'
-	_, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/)
+	_, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
 	// bob can call blank ListJob, but gets no results
-	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/)
+	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobs))
 
@@ -1868,10 +1876,10 @@ func TestListJob(t *testing.T) {
 		Repo:     repo,
 	})
 	require.NoError(t, err)
-	_, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/)
+	_, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.True(t, auth.IsErrNotAuthorized(err), err.Error())
-	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/)
+	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 0, len(jobs))
 
@@ -1889,11 +1897,11 @@ func TestListJob(t *testing.T) {
 		Repo:     pipeline,
 	})
 	require.NoError(t, err)
-	jobs, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/)
+	jobs, err = bobClient.ListJob(pipeline, nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
-	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/)
+	jobs, err = bobClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	require.Equal(t, jobID, jobs[0].Job.ID)
@@ -1940,7 +1948,7 @@ func TestInspectDatum(t *testing.T) {
 		_, err := iter.Next()
 		return err
 	})
-	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	jobID := jobs[0].Job.ID
@@ -2099,7 +2107,7 @@ func TestGetLogsFromStats(t *testing.T) {
 		_, err := commitItr.Next()
 		return err
 	})
-	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/)
+	jobs, err := aliceClient.ListJob(pipeline, nil /*inputs*/, nil /*output*/, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 	jobID := jobs[0].Job.ID
@@ -2488,17 +2496,17 @@ func TestGetJobsBugFix(t *testing.T) {
 	require.NoError(t, err)
 
 	// alice calls 'list job'
-	jobs, err := aliceClient.ListJob("", nil, nil, -1 /*history*/)
+	jobs, err := aliceClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
 	// anonClient calls 'list job'
-	_, err = anonClient.ListJob("", nil, nil, -1 /*history*/)
+	_, err = anonClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
 
 	// alice calls 'list job' again, and the existing job must still be present
-	jobs2, err := aliceClient.ListJob("", nil, nil, -1 /*history*/)
+	jobs2, err := aliceClient.ListJob("", nil, nil, -1 /*history*/, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs2))
 	require.Equal(t, jobs[0].Job.ID, jobs2[0].Job.ID)
