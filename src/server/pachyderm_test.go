@@ -9157,6 +9157,9 @@ func TestSpout(t *testing.T) {
 
 		annotations := map[string]string{"foo": "bar"}
 
+		// Create a pipeline that listens for tcp connections
+		// on internal port 8000 and dumps whatever it receives
+		// (should be in the form of a tar strea) to /pfs/out.
 		pipeline := tu.UniqueString("pipelineservicespout")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
@@ -9189,6 +9192,9 @@ func TestSpout(t *testing.T) {
 		host, _, err := net.SplitHostPort(c.GetAddress())
 		serviceAddr := net.JoinHostPort(host, "31800")
 
+		// Write a tar stream with a single file to
+		// the tcp connection of the pipeline service's
+		// external port.
 		backoff.Retry(func() error {
 			raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
 			if err != nil {
@@ -9226,6 +9232,8 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
+		// Confirm that a commit is made with the file
+		// written to the external port of the pipeline's service.
 		var buf bytes.Buffer
 		err = c.GetFile(pipeline, commitInfo.Commit.ID, files[0].File.Path, 0, 0, &buf)
 		require.NoError(t, err)
