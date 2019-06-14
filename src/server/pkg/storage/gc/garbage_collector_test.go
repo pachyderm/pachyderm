@@ -473,7 +473,7 @@ func TestFuzz(t *testing.T) {
 	}
 
 	numWorkers := 20
-	numJobs := 100
+	numJobs := 1000
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
 		jobChan := make(chan jobData, numJobs)

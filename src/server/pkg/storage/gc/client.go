@@ -113,17 +113,13 @@ func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
 func isRetriableError(err error, loc string) bool {
 	if err, ok := err.(*pq.Error); ok {
 		name := err.Code.Class().Name()
-		fmt.Printf("pq error (%s): %v, %v\n", loc, name, err.Error())
+		// fmt.Printf("pq error (%s): %v, %v\n", loc, name, err.Error())
 		return name == "transaction_rollback"
 	}
 	return false
 }
 
-func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) error {
-	if len(chunks) == 0 {
-		return nil
-	}
-
+func (gcc *ClientImpl) reserveChunksInternal(ctx context.Context, job string, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
 	chunkIds := []string{}
 	for _, chunk := range chunks {
 		chunkIds = append(chunkIds, fmt.Sprintf("('%s')", chunk.Hash))
@@ -159,18 +155,29 @@ select chunk from added_chunks where deleting is not null;
 	for {
 		txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
 		if err != nil {
-			return err
+			return nil, err
+		}
+
+		_, err = txn.ExecContext(ctx, "set local synchronous_commit = off;")
+		if err != nil {
+			if err := txn.Rollback(); err != nil {
+				return nil, err
+			}
+			if isRetriableError(err, "reserve set local") {
+				continue
+			}
+			return nil, err
 		}
 
 		cursor, err := txn.QueryContext(ctx, query, job)
 		if err != nil {
 			if err := txn.Rollback(); err != nil {
-				return err
+				return nil, err
 			}
 			if isRetriableError(err, "reserve query") {
 				continue
 			}
-			return err
+			return nil, err
 		}
 
 		// Flush returned chunks through the server
@@ -178,24 +185,45 @@ select chunk from added_chunks where deleting is not null;
 		cursor.Close()
 		if err := cursor.Err(); err != nil {
 			if err := txn.Rollback(); err != nil {
-				return err
+				return nil, err
 			}
 			if isRetriableError(err, "reserve cursor") {
 				continue
 			}
-			return err
+			return nil, err
 		}
 
 		if err := txn.Commit(); err != nil {
 			if isRetriableError(err, "reserve commit") {
 				continue
 			}
-			return err
+			return nil, err
 		}
 		break
 	}
 
-	return gcc.server.FlushDeletes(ctx, chunksToFlush)
+	return chunksToFlush, nil
+}
+
+func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) error {
+	if len(chunks) == 0 {
+		return nil
+	}
+
+	var err error
+	for len(chunks) > 0 {
+		chunks, err = gcc.reserveChunksInternal(ctx, job, chunks)
+		if err != nil {
+			return err
+		}
+
+		if len(chunks) > 0 {
+			if err := gcc.server.FlushDeletes(ctx, chunks); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) error {
@@ -233,7 +261,6 @@ added_refs as (
 		jobStr = fmt.Sprintf("('job', '%s')", releaseJob)
 	}
 
-	// TODO: delete refs and update chunks in sorted order to prevent deadlocks
 	query := `
 with
 ` + addStr + `
@@ -263,7 +290,6 @@ from counts where
 returning chunks.chunk;
 	`
 
-	// TODO: check for conflict errors and retry in a loop
 	var chunksToDelete []chunk.Chunk
 	for {
 		txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
@@ -303,5 +329,8 @@ returning chunks.chunk;
 		break
 	}
 
-	return gcc.server.DeleteChunks(ctx, chunksToDelete)
+	if len(chunksToDelete) > 0 {
+		return gcc.server.DeleteChunks(ctx, chunksToDelete)
+	}
+	return nil
 }
