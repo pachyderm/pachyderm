@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/satori/go.uuid"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 const configEnvVar = "PACH_CONFIG"
@@ -27,18 +26,6 @@ func configPath() string {
 		return env
 	}
 	return defaultConfigPath
-}
-
-// ActiveKubeContext gets the current kube context from the kube config
-func ActiveKubeContext() (string, error) {
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	overrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
-	rawKubeConfig, err := kubeConfig.RawConfig()
-	if err != nil {
-		return "", err
-	}
-	return rawKubeConfig.CurrentContext, nil
 }
 
 // ActiveContext gets the active context in the config
@@ -94,6 +81,7 @@ func Read() (*Config, error) {
 
 		if value.V2 == nil {
 			updated = true
+			fmt.Fprintln(os.Stderr, "No config V2 present in config - generating a new one.")
 			if err := value.initV2(); err != nil {
 				readErr = err
 				return
@@ -115,33 +103,25 @@ func Read() (*Config, error) {
 }
 
 func (c *Config) initV2() error {
-	kubeContext, err := ActiveKubeContext()
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(os.Stderr, "No config V2 present in config - generating a new one off of the kube context '%s'.\n", kubeContext)
-
 	c.V2 = &ConfigV2{
-		ActiveContext: kubeContext,
+		ActiveContext: "default",
 		Contexts:      map[string]*Context{},
 		Metrics:       true,
 	}
 
 	if c.V1 != nil {
-		c.V2.Contexts[kubeContext] = &Context{
+		c.V2.Contexts["default"] = &Context{
 			Source:            ContextSource_CONFIG_V1,
 			PachdAddress:      c.V1.PachdAddress,
 			ServerCAs:         c.V1.ServerCAs,
 			SessionToken:      c.V1.SessionToken,
 			ActiveTransaction: c.V1.ActiveTransaction,
-			KubeContext:       kubeContext,
 		}
 
 		c.V1 = nil
 	} else {
-		c.V2.Contexts[kubeContext] = &Context{
-			Source:      ContextSource_NONE,
-			KubeContext: kubeContext,
+		c.V2.Contexts["default"] = &Context{
+			Source: ContextSource_NONE,
 		}
 	}
 	return nil

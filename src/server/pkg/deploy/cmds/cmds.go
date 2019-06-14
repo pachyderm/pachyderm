@@ -133,22 +133,26 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) e
 	return nil
 }
 
-func contextCreate(deploymentName string) error {
-	kubeContext, err := config.ActiveKubeContext()
-	if err != nil {
-		return err
-	}
-
+func contextCreate(contextPrefix string) error {
 	cfg, err := config.Read()
 	if err != nil {
 		return err
 	}
 
-	cfg.V2.Contexts[kubeContext] = &config.Context{
-		Source:      config.ContextSource_NONE,
-		KubeContext: kubeContext,
+	contextName := contextPrefix
+	for i := 0; i < 10000; i++ {
+		if i > 0 {
+			contextName = fmt.Sprintf("%s-%d", contextPrefix, i)
+		}
+		if _, ok := cfg.V2.Contexts[contextName]; !ok {
+			break
+		}
 	}
-	cfg.V2.ActiveContext = kubeContext
+
+	cfg.V2.Contexts[contextName] = &config.Context{
+		Source: config.ContextSource_NONE,
+	}
+	cfg.V2.ActiveContext = contextName
 
 	return cfg.Write()
 }
@@ -171,6 +175,7 @@ func deployCmds() []*cobra.Command {
 
 	var dryRun bool
 	var outputFormat string
+	var contextName string
 
 	var dev bool
 	var hostPath string
@@ -210,7 +215,10 @@ func deployCmds() []*cobra.Command {
 				return err
 			}
 			if !dryRun {
-				if err := contextCreate("local"); err != nil {
+				if contextName == "" {
+					contextName = "local"
+				}
+				if err := contextCreate(contextName); err != nil {
 					return err
 				}
 			}
@@ -258,7 +266,10 @@ func deployCmds() []*cobra.Command {
 				return err
 			}
 			if !dryRun {
-				if err := contextCreate("gcs"); err != nil {
+				if contextName == "" {
+					contextName = "gcs"
+				}
+				if err := contextCreate(contextName); err != nil {
 					return err
 				}
 			}
@@ -294,7 +305,10 @@ If <object store backend> is \"s3\", then the arguments are:
 				return err
 			}
 			if !dryRun {
-				if err := contextCreate("custom"); err != nil {
+				if contextName == "" {
+					contextName = "custom"
+				}
+				if err := contextCreate(contextName); err != nil {
 					return err
 				}
 			}
@@ -405,7 +419,10 @@ If <object store backend> is \"s3\", then the arguments are:
 				return err
 			}
 			if !dryRun {
-				if err := contextCreate("aws"); err != nil {
+				if contextName == "" {
+					contextName = "aws"
+				}
+				if err := contextCreate(contextName); err != nil {
 					return err
 				}
 			}
@@ -459,7 +476,10 @@ If <object store backend> is \"s3\", then the arguments are:
 				return err
 			}
 			if !dryRun {
-				if err := contextCreate("azure"); err != nil {
+				if contextName == "" {
+					contextName = "azure"
+				}
+				if err := contextCreate(contextName); err != nil {
 					return err
 				}
 			}
@@ -678,7 +698,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().StringVar(&etcdVolume, "static-etcd-volume", "", "Deploy etcd as a ReplicationController with one pod.  The pod uses the given persistent volume.")
 	deploy.PersistentFlags().StringVar(&etcdStorageClassName, "etcd-storage-class", "", "If set, the name of an existing StorageClass to use for etcd storage. Ignored if --static-etcd-volume is set.")
 	deploy.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Don't actually deploy pachyderm to Kubernetes, instead just print the manifest.")
-	deploy.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output formmat. One of: json|yaml")
+	deploy.PersistentFlags().StringVarP(&outputFormat, "output", "o", "json", "Output format. One of: json|yaml")
 	deploy.PersistentFlags().StringVar(&logLevel, "log-level", "info", "The level of log messages to print options are, from least to most verbose: \"error\", \"info\", \"debug\".")
 	deploy.PersistentFlags().BoolVar(&dashOnly, "dashboard-only", false, "Only deploy the Pachyderm UI (experimental), without the rest of pachyderm. This is for launching the UI adjacent to an existing Pachyderm cluster. After deployment, run \"pachctl port-forward\" to connect")
 	deploy.PersistentFlags().BoolVar(&noDash, "no-dashboard", false, "Don't deploy the Pachyderm UI alongside Pachyderm (experimental).")
@@ -693,6 +713,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
 	deploy.PersistentFlags().BoolVar(&newHashTree, "new-hash-tree-flag", false, "(feature flag) Do not set, used for testing")
+	deploy.PersistentFlags().StringVarP(&contextName, "context", "c", "", "Name of the context to add to the pachyderm config.")
 
 	// Flags for setting pachd resource requests. These should rarely be set --
 	// only if we get the defaults wrong, or users have an unusual access pattern
