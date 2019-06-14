@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,15 +26,18 @@ func (td *testDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
 	return nil
 }
 
-func makeServer(t *testing.T) Server {
-	server, err := MakeServer(&testDeleter{}, "localhost", 32228)
+func makeServer(t *testing.T, deleter Deleter) Server {
+	if deleter == nil {
+		deleter = &testDeleter{}
+	}
+	server, err := MakeServer(deleter, "localhost", 32228)
 	require.NoError(t, err)
 	return server
 }
 
 func makeClient(t *testing.T, ctx context.Context, server Server) *ClientImpl {
 	if server == nil {
-		server = makeServer(t)
+		server = makeServer(t, nil)
 	}
 	gcc, err := MakeClient(ctx, server, "localhost", 32228)
 	require.NoError(t, err)
@@ -284,7 +288,80 @@ func TestUpdateReferences(t *testing.T) {
 	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
 }
 
+type fuzzDeleter struct {
+	mutex sync.Mutex
+	users map[string]int
+}
+
+func (fd *fuzzDeleter) forEach(chunks []chunk.Chunk, cb func(string) error) error {
+	fd.mutex.Lock()
+	defer fd.mutex.Unlock()
+
+	for _, chunk := range chunks {
+		if err := cb(chunk.Hash); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Delete will make sure that only one thing tries to delete or use the chunk
+// at one time.
+func (fd *fuzzDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
+	err := fd.forEach(chunks, func(hash string) error {
+		if fd.users[hash] != 0 {
+			return fmt.Errorf("Failed to delete chunk, already in use: %d", fd.users[hash])
+		}
+		fd.users[hash] = -1
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(time.Duration(rand.Float32()*50) * time.Millisecond)
+
+	err = fd.forEach(chunks, func(hash string) error {
+		if fd.users[hash] != -1 {
+			return fmt.Errorf("Failed to release chunk, something changed it during deletion: %d", fd.users[hash])
+		}
+		delete(fd.users, hash)
+		return nil
+	})
+	return err
+}
+
+// updating will make sure the chunks are not deleted during the call to cb
+func (fd *fuzzDeleter) updating(chunks []chunk.Chunk) error {
+	err := fd.forEach(chunks, func(hash string) error {
+		if fd.users[hash] == -1 {
+			return fmt.Errorf("Failed to use chunk, currently being deleted")
+		}
+		fd.users[hash] += 1
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(time.Duration(rand.Float32()*50) * time.Millisecond)
+
+	err = fd.forEach(chunks, func(hash string) error {
+		if fd.users[hash] < 1 {
+			return fmt.Errorf("Failed to release chunk, inconsistency")
+		}
+		fd.users[hash] -= 1
+		return nil
+	})
+	return err
+}
+
 func TestFuzz(t *testing.T) {
+	deleter := &fuzzDeleter{users: make(map[string]int)}
+	server := makeServer(t, deleter)
+	client := makeClient(t, context.Background(), server)
+	clearData(t, context.Background(), client)
+
 	type jobData struct {
 		id     string
 		add    []Reference
@@ -293,7 +370,7 @@ func TestFuzz(t *testing.T) {
 
 	runJob := func(ctx context.Context, gcc Client, job jobData) error {
 		// Make a list of chunks we'll be referencing and reserve them
-		chunkMap := map[string]bool{}
+		chunkMap := make(map[string]bool)
 		for _, item := range job.add {
 			chunkMap[item.chunk.Hash] = true
 			if item.sourcetype == "chunk" {
@@ -309,15 +386,13 @@ func TestFuzz(t *testing.T) {
 			return err
 		}
 
-		// Pretend we write to object storage here
-		time.Sleep(time.Duration(rand.Float32()*50) * time.Millisecond)
+		// Check that no one deletes the chunk while we have it reserved
+		if err := deleter.updating(reservedChunks); err != nil {
+			return err
+		}
 
 		return gcc.UpdateReferences(ctx, job.add, job.remove, job.id)
 	}
-
-	server := makeServer(t)
-	client := makeClient(t, context.Background(), server)
-	clearData(t, context.Background(), client)
 
 	startWorkers := func(numWorkers int, jobChannel chan jobData) *errgroup.Group {
 		eg, ctx := errgroup.WithContext(context.Background())
@@ -343,7 +418,7 @@ func TestFuzz(t *testing.T) {
 	}
 
 	// Global ref registry to track what the database should look like
-	chunkRefs := map[int][]Reference{}
+	chunkRefs := make(map[int][]Reference)
 	freeChunkIds := []int{}
 	maxId := -1
 

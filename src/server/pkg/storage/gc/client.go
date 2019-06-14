@@ -282,12 +282,7 @@ counts as (
  select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1 order by 1
 )
 
-update chunks set
- deleting = now()
-from counts where
- counts.chunk = chunks.chunk and
- count = 0
-returning chunks.chunk;
+select chunk from counts where count = 0
 	`
 
 	var chunksToDelete []chunk.Chunk
