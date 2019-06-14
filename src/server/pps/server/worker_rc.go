@@ -49,7 +49,6 @@ type workerOptions struct {
 	// Secrets that we mount in the worker container (e.g. for reading/writing to
 	// s3)
 	imagePullSecrets []v1.LocalObjectReference
-	spout            *pps.Spout
 	service          *pps.Service
 }
 
@@ -261,7 +260,7 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 
 func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
 	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
-	transform *pps.Transform, cacheSize string, spout *pps.Spout, service *pps.Service,
+	transform *pps.Transform, cacheSize string, service *pps.Service,
 	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string, podPatch string) *workerOptions {
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
@@ -417,7 +416,6 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		volumeMounts:     volumeMounts,
 		imagePullSecrets: imagePullSecrets,
 		cacheSize:        cacheSize,
-		spout:            spout,
 		service:          service,
 		schedulingSpec:   schedulingSpec,
 		podSpec:          podSpec,
@@ -501,24 +499,17 @@ func (a *apiServer) createWorkerRc(ctx context.Context, options *workerOptions) 
 		}
 	}
 
-	var svc *pps.Service
-	switch {
-	case options.service != nil:
-		svc = options.service
-	case options.spout.Service != nil:
-		svc = options.spout.Service
-	}
-	if svc != nil {
+	if options.service != nil {
 		var servicePort = []v1.ServicePort{
 			{
-				Port:       svc.ExternalPort,
-				TargetPort: intstr.FromInt(int(svc.InternalPort)),
+				Port:       options.service.ExternalPort,
+				TargetPort: intstr.FromInt(int(options.service.InternalPort)),
 				Name:       "user-port",
 			},
 		}
-		var serviceType = v1.ServiceType(svc.Type)
+		var serviceType = v1.ServiceType(options.service.Type)
 		if serviceType == v1.ServiceTypeNodePort {
-			servicePort[0].NodePort = svc.ExternalPort
+			servicePort[0].NodePort = options.service.ExternalPort
 		}
 		service := &v1.Service{
 			TypeMeta: metav1.TypeMeta{
