@@ -2,10 +2,14 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// Note: Some changes have been made to this file
+// to better support Pachyderm.
+
 package tar
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strconv"
@@ -32,6 +36,7 @@ type fileReader interface {
 	io.Reader
 	fileState
 
+	Skip(int64) error
 	WriteTo(io.Writer) (int64, error)
 }
 
@@ -630,6 +635,16 @@ func (tr *Reader) Read(b []byte) (int, error) {
 	return n, err
 }
 
+// Skip skips a certain number of bytes to read.
+// This is necessary because tar expects the number of bytes read to equal
+// the size field in the header that was read.
+func (tr *Reader) Skip(n int64) error {
+	if tr.err != nil {
+		return tr.err
+	}
+	return tr.curr.Skip(n)
+}
+
 // writeTo writes the content of the current file to w.
 // The bytes written matches the number of remaining bytes in the current file.
 //
@@ -673,6 +688,15 @@ func (fr *regFileReader) Read(b []byte) (n int, err error) {
 	default:
 		return n, err
 	}
+}
+
+// Skip skips a certain number of bytes to read.
+func (fr *regFileReader) Skip(n int64) error {
+	if n > fr.nb {
+		return io.ErrUnexpectedEOF
+	}
+	fr.nb -= n
+	return nil
 }
 
 func (fr *regFileReader) WriteTo(w io.Writer) (int64, error) {
@@ -732,6 +756,14 @@ func (sr *sparseFileReader) Read(b []byte) (n int, err error) {
 	default:
 		return n, nil
 	}
+}
+
+// Skip skips a certain number of bytes to read.
+func (sr *sparseFileReader) Skip(n int64) error {
+	// This code path has no use for Pachyderm. We
+	// should never be here. This is implemented
+	// just to satisfy the fileReader interface.
+	return fmt.Errorf("in Skip function of sparseFileReader - this is probably a bug")
 }
 
 func (sr *sparseFileReader) WriteTo(w io.Writer) (n int64, err error) {

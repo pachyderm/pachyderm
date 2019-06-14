@@ -1,12 +1,12 @@
 package fileset
 
 import (
-	"archive/tar"
 	"context"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
 
 // Writer writes the serialized format of a fileset.
