@@ -63,6 +63,7 @@ message Service {
 
 message Spout {
   bool overwrite = 1;
+  Service service = 2;
 }
 
 message PFSInput {

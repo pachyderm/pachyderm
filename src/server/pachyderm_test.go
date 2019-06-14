@@ -6719,7 +6719,7 @@ func TestServiceSpout(t *testing.T) {
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pipeline),
 			Transform: &pps.Transform{
-				Image: "spoutservice:latest",
+				Image: "pachyderm/ubuntuplusnetcat:latest",
 				Cmd:   []string{"sh"},
 				Stdin: []string{
 					"netcat -l -s 0.0.0.0 -p 8000 >/pfs/out",
@@ -6730,12 +6730,13 @@ func TestServiceSpout(t *testing.T) {
 			},
 			Input:  client.NewPFSInput(dataRepo, "/"),
 			Update: false,
-			Spout:  &pps.Spout{},
-
-			Service: &pps.Service{
-				InternalPort: 8000,
-				ExternalPort: 31800,
-				Annotations:  annotations,
+			Spout: &pps.Spout{
+				Service: &pps.Service{
+					InternalPort: 8000,
+					ExternalPort: 31800,
+					Type:         "NodePort",
+					Annotations:  annotations,
+				},
 			},
 		})
 	require.NoError(t, err)

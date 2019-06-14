@@ -443,6 +443,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 			resourceLimits,
 			pipelineInfo.Transform,
 			pipelineInfo.CacheSize,
+			pipelineInfo.Spout,
 			pipelineInfo.Service,
 			pipelineInfo.SpecCommit.ID,
 			pipelineInfo.SchedulingSpec,
