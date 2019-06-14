@@ -207,8 +207,6 @@ files:
 
    When you read an individual file now, you see the header and the contents.
 
-#  If you issue a 'get file' on the directory, it returns just the header/footer
-
 1. Run `get file` on the directory:
 
    ```bash
