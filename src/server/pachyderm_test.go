@@ -9159,7 +9159,7 @@ func TestSpout(t *testing.T) {
 
 		// Create a pipeline that listens for tcp connections
 		// on internal port 8000 and dumps whatever it receives
-		// (should be in the form of a tar strea) to /pfs/out.
+		// (should be in the form of a tar stream) to /pfs/out.
 		pipeline := tu.UniqueString("pipelineservicespout")
 		_, err := c.PpsAPIClient.CreatePipeline(
 			c.Ctx(),
@@ -9181,13 +9181,12 @@ func TestSpout(t *testing.T) {
 					Service: &pps.Service{
 						InternalPort: 8000,
 						ExternalPort: 31800,
-						Type:         "NodePort",
 						Annotations:  annotations,
 					},
 				},
 			})
 		require.NoError(t, err)
-		time.Sleep(10 * time.Second)
+		time.Sleep(20 * time.Second)
 
 		host, _, err := net.SplitHostPort(c.GetAddress())
 		serviceAddr := net.JoinHostPort(host, "31800")

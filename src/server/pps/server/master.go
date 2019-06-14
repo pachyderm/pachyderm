@@ -438,9 +438,9 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 		// A service can be present either directly on the pipeline spec
 		// or on the spout field of the spec.
 		var service *pps.Service
-		if pipelineInfo.Spout.Service != nil && pipelineInfo.Service != nil {
-			return errors.New("only one of pipeline.service or pipeline.spout.service can be set")
-		} else if pipelineInfo.Spout.Service != nil {
+		if pipelineInfo.Spout != nil && pipelineInfo.Service != nil {
+			return errors.New("only one of pipeline.service or pipeline.spout can be set")
+		} else if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil {
 			service = pipelineInfo.Spout.Service
 		} else {
 			service = pipelineInfo.Service
