@@ -9,6 +9,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type Reference struct {
@@ -23,8 +24,12 @@ type Client interface {
 }
 
 type ClientImpl struct {
-	server Server
-	db     *sql.DB
+	server                    Server
+	db                        *sql.DB
+	reserveChunksCounter      *prometheus.CounterVec
+	reserveChunksHistogram    prometheus.Histogram
+	updateReferencesCounter   *prometheus.CounterVec
+	updateReferencesHistogram prometheus.Histogram
 }
 
 func initializeDb(ctx context.Context, db *sql.DB) error {
@@ -77,7 +82,7 @@ create index if not exists idx_sourcetype_source on refs (sourcetype, source)
 	return nil
 }
 
-func MakeClient(ctx context.Context, server Server, host string, port int16) (Client, error) {
+func MakeClient(ctx context.Context, server Server, host string, port int16, metrics prometheus.Registerer) (Client, error) {
 	connStr := fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port)
 	connector, err := pq.NewConnector(connStr)
 	if err != nil {
@@ -92,9 +97,34 @@ func MakeClient(ctx context.Context, server Server, host string, port int16) (Cl
 		return nil, err
 	}
 
+	reserveChunksCounter, reserveChunksHistogram := makeCollectors("reserve_chunks", "", []string{})
+	updateReferencesCounter, updateReferencesHistogram := makeCollectors("update_references", "", []string{})
+
+	if metrics != nil {
+		collectors := []prometheus.Collector{
+			reserveChunksCounter,
+			reserveChunksHistogram,
+			updateReferencesCounter,
+			updateReferencesHistogram,
+		}
+
+		for _, c := range collectors {
+			if err := metrics.Register(c); err != nil {
+				// metrics may be redundantly registered; ignore these errors
+				if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+					fmt.Errorf("error registering prometheus metric: %v", err)
+				}
+			}
+		}
+	}
+
 	return &ClientImpl{
-		db:     db,
-		server: server,
+		db:                        db,
+		server:                    server,
+		reserveChunksCounter:      reserveChunksCounter,
+		reserveChunksHistogram:    reserveChunksHistogram,
+		updateReferencesCounter:   updateReferencesCounter,
+		updateReferencesHistogram: updateReferencesHistogram,
 	}, nil
 }
 
@@ -113,7 +143,6 @@ func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
 func isRetriableError(err error, loc string) bool {
 	if err, ok := err.(*pq.Error); ok {
 		name := err.Code.Class().Name()
-		// fmt.Printf("pq error (%s): %v, %v\n", loc, name, err.Error())
 		return name == "transaction_rollback"
 	}
 	return false

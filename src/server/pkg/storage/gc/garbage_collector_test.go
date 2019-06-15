@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
+	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -26,7 +27,7 @@ func (td *testDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
 	return nil
 }
 
-func makeServer(t *testing.T, deleter Deleter) Server {
+func makeServer(t *testing.T, deleter Deleter, metrics prometheus.Registerer) Server {
 	if deleter == nil {
 		deleter = &testDeleter{}
 	}
@@ -35,11 +36,11 @@ func makeServer(t *testing.T, deleter Deleter) Server {
 	return server
 }
 
-func makeClient(t *testing.T, ctx context.Context, server Server) *ClientImpl {
+func makeClient(t *testing.T, ctx context.Context, server Server, metrics prometheus.Registerer) *ClientImpl {
 	if server == nil {
-		server = makeServer(t, nil)
+		server = makeServer(t, nil, metrics)
 	}
-	gcc, err := MakeClient(ctx, server, "localhost", 32228)
+	gcc, err := MakeClient(ctx, server, "localhost", 32228, metrics)
 	require.NoError(t, err)
 	return gcc.(*ClientImpl)
 }
@@ -50,7 +51,7 @@ func clearData(t *testing.T, ctx context.Context, gcc *ClientImpl) {
 }
 
 func initialize(t *testing.T, ctx context.Context) *ClientImpl {
-	gcc := makeClient(t, ctx, nil)
+	gcc := makeClient(t, ctx, nil, nil)
 	clearData(t, ctx, gcc)
 	return gcc
 }
@@ -358,8 +359,8 @@ func (fd *fuzzDeleter) updating(chunks []chunk.Chunk) error {
 
 func TestFuzz(t *testing.T) {
 	deleter := &fuzzDeleter{users: make(map[string]int)}
-	server := makeServer(t, deleter)
-	client := makeClient(t, context.Background(), server)
+	server := makeServer(t, deleter, nil)
+	client := makeClient(t, context.Background(), server, nil)
 	clearData(t, context.Background(), client)
 
 	type jobData struct {
@@ -398,7 +399,7 @@ func TestFuzz(t *testing.T) {
 		eg, ctx := errgroup.WithContext(context.Background())
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
-				gcc := makeClient(t, ctx, server)
+				gcc := makeClient(t, ctx, server, nil)
 				gcc.db.SetMaxOpenConns(1)
 				gcc.db.SetMaxIdleConns(1)
 				for x := range jobChannel {
@@ -547,7 +548,7 @@ func TestFuzz(t *testing.T) {
 		fmt.Printf("verifyData\n")
 	}
 
-	numWorkers := 20
+	numWorkers := 10
 	numJobs := 1000
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
