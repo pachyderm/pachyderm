@@ -574,6 +574,12 @@
 			"revisionTime": "2016-06-04T00:29:25Z"
 		},
 		{
+			"checksumSHA1": "lT/hy5HfhxpMqSMDdtrSrVgtwgs=",
+			"path": "github.com/glenn-brown/golang-pkg-pcre/src/pkg/pcre",
+			"revision": "48bb82a8b8ceea98f4e97825b43870f6ba1970d6",
+			"revisionTime": "2012-05-22T22:36:59Z"
+		},
+		{
 			"checksumSHA1": "FfdxnQ4CZVJJvG4BC1fWavgperI=",
 			"path": "github.com/go-ini/ini",
 			"revision": "72ba3e6b9e6b87e0c74c9a7a4dc86e8dd8ba4355",
@@ -602,42 +608,6 @@
 			"path": "github.com/go-openapi/swag",
 			"revision": "c98c5a1cc708d9860aeeceea6391da6f223d479c",
 			"revisionTime": "2016-09-25T05:07:47Z"
-		},
-		{
-			"checksumSHA1": "/RE0VzeaXdaBUNeNMUXWqzly7qY=",
-			"path": "github.com/gobwas/glob",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "OIV3k+Xbx7u4rP0TSgxzY2Xn4MI=",
-			"path": "github.com/gobwas/glob/compiler",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "WHQ6bs/IWj0Oj2FMVR5uis5FWno=",
-			"path": "github.com/gobwas/glob/match",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "2KhDNUE98XhHnIgg2S9E4gcWoig=",
-			"path": "github.com/gobwas/glob/syntax",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "0aauhx71LcqUSUbdb/mr8DC0XCw=",
-			"path": "github.com/gobwas/glob/syntax/ast",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "umyztSrQrQIl9JgwhDDb6wrSLeI=",
-			"path": "github.com/gobwas/glob/syntax/lexer",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
 		},
 		{
 			"checksumSHA1": "vux29fN5O22F3QPLOnjQ37278vg=",
@@ -1273,6 +1243,36 @@
 			"path": "github.com/opentracing/opentracing-go/log",
 			"revision": "25a84ff92183e2f8ac018ba1db54f8a07b3c0e04",
 			"revisionTime": "2019-02-18T02:30:34Z"
+		},
+		{
+			"checksumSHA1": "Z06Kk42KIul0ML2BiTZGh2RN3cE=",
+			"path": "github.com/pachyderm/glob",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
+		},
+		{
+			"checksumSHA1": "gkwrU+t33K1OKHZPal2Xk6PC6VM=",
+			"path": "github.com/pachyderm/glob/compiler",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
+		},
+		{
+			"checksumSHA1": "qEVc3yQmC22mAGKIbI0fIiCSDYg=",
+			"path": "github.com/pachyderm/glob/syntax",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
+		},
+		{
+			"checksumSHA1": "4YESKZkHyH4crnmvHdDB+xPt7k8=",
+			"path": "github.com/pachyderm/glob/syntax/ast",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
+		},
+		{
+			"checksumSHA1": "/K+Nikh2dwIeRBIEbhdTYlfeduU=",
+			"path": "github.com/pachyderm/glob/syntax/lexer",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
 		},
 		{
 			"checksumSHA1": "O192ejjwL6eTl1QjM06RtlDJB5U=",

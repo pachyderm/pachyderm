@@ -21,6 +21,8 @@ const (
 	RangeBetween
 	TermsOpen
 	TermsClose
+	CaptureOpen
+	CaptureClose
 )
 
 func (tt TokenType) String() string {
@@ -72,6 +74,12 @@ func (tt TokenType) String() string {
 
 	case TermsClose:
 		return "terms_close"
+
+	case CaptureOpen:
+		return "capture_open"
+
+	case CaptureClose:
+		return "capture_close"
 
 	default:
 		return "undef"
