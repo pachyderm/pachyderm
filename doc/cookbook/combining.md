@@ -86,9 +86,11 @@ unique names that correspond to the source:
   B.json
 ```
 
-When you group your data, set the following parameters:
+When you group your data, set the following parameters in the pipeline
+specification:
 
-- Set `"lazy": true` to avoid unnecessary downloads of data.
+- In the "pfs" section, set `"empty_files": true` to avoid
+unnecessary downloads of data.
 
 - Use symlinks to avoid unnecessary uploads of data and unnecessary data
 duplication.
