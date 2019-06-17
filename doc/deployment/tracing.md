@@ -76,7 +76,7 @@ collected traces.
 
 2. If you see a trace appear in Jaeger with no subtraces, like so:
 
-    ![Trace with no children](no-traces.png)
+    ![Trace with no children](images/no-traces.png)
 
     ...this likely means that `pachd` has not connected to Jaeger, but
     `pachctl` has. Make sure to restart the `pachd` pods *after* creating the
