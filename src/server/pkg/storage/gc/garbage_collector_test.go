@@ -358,9 +358,10 @@ func (fd *fuzzDeleter) updating(chunks []chunk.Chunk) error {
 }
 
 func TestFuzz(t *testing.T) {
+	metrics := prometheus.NewRegistry()
 	deleter := &fuzzDeleter{users: make(map[string]int)}
-	server := makeServer(t, deleter, nil)
-	client := makeClient(t, context.Background(), server, nil)
+	server := makeServer(t, deleter, metrics)
+	client := makeClient(t, context.Background(), server, metrics)
 	clearData(t, context.Background(), client)
 
 	type jobData struct {
@@ -549,7 +550,7 @@ func TestFuzz(t *testing.T) {
 	}
 
 	numWorkers := 10
-	numJobs := 1000
+	numJobs := 100
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
 		jobChan := make(chan jobData, numJobs)

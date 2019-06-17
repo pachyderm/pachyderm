@@ -140,7 +140,7 @@ func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
 	return chunks
 }
 
-func isRetriableError(err error, loc string) bool {
+func isRetriableError(err error, counter) bool {
 	if err, ok := err.(*pq.Error); ok {
 		name := err.Code.Class().Name()
 		return name == "transaction_rollback"
