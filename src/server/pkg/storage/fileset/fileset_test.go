@@ -145,7 +145,7 @@ func TestCopyN(t *testing.T) {
 	// Copy intial file set to a new copy file set.
 	r := fileSets.NewReader(context.Background(), testPath, "")
 	wCopy := fileSets.NewWriter(context.Background(), testPath+"Copy")
-	for _ = range fileNames {
+	for range fileNames {
 		hdr, err := r.Next()
 		require.NoError(t, err, seedStr(seed))
 		hdr.Idx = nil
