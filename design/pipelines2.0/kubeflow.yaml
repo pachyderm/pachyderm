@@ -1,0 +1,20 @@
+apiVersion: "stable.example.com/v1"
+kind: Pipeline
+metadata:
+    name: my-new-cron-object
+spec:
+    nodes:
+        clean:
+            transform: <pod_spec>
+            input:
+                cross:
+                    - {pfs: {repo: "<repo1>", glob: "/*"}}
+                    - {pfs: {repo: "<repo2>", glob: "/*"}}
+        train:
+            tf_job: <tf_job>
+            input: {node: "clean"}
+        serve:
+            service:
+                - <rc>
+                - <service>
+            input: {node: "train"}
