@@ -680,43 +680,43 @@ from commits with 'get file'.`,
 		Long:  "Put a file into the filesystem.  This supports a number of ways to insert data into pfs.",
 		Example: `
 # Put data from stdin as repo/branch/path:
-$ echo "data" | {{alias}} repo branch path
+$ echo "data" | {{alias}} repo@branch:/path
 
 # Put data from stdin as repo/branch/path and start / finish a new commit on the branch.
-$ echo "data" | {{alias}} -c repo branch path
+$ echo "data" | {{alias}} -c repo@branch:/path
 
 # Put a file from the local filesystem as repo/branch/path:
-$ {{alias}} repo branch path -f file
+$ {{alias}} repo@branch:/path -f file
 
 # Put a file from the local filesystem as repo/branch/file:
-$ {{alias}} repo branch -f file
+$ {{alias}} repo@branch -f file
 
 # Put the contents of a directory as repo/branch/path/dir/file:
-$ {{alias}} -r repo branch path -f dir
+$ {{alias}} -r repo@branch:/path -f dir
 
 # Put the contents of a directory as repo/branch/dir/file:
-$ {{alias}} -r repo branch -f dir
+$ {{alias}} -r repo@branch -f dir
 
 # Put the contents of a directory as repo/branch/file, i.e. put files at the top level:
-$ {{alias}} -r repo branch / -f dir
+$ {{alias}} -r repo@branch:/ -f dir
 
 # Put the data from a URL as repo/branch/path:
-$ {{alias}} repo branch path -f http://host/path
+$ {{alias}} repo@branch:/path -f http://host/path
 
 # Put the data from a URL as repo/branch/path:
-$ {{alias}} repo branch -f http://host/path
+$ {{alias}} repo@branch -f http://host/path
 
 # Put the data from an S3 bucket as repo/branch/s3_object:
-$ {{alias}} repo branch -r -f s3://my_bucket
+$ {{alias}} repo@branch -r -f s3://my_bucket
 
 # Put several files or URLs that are listed in file.
 # Files and URLs should be newline delimited.
-$ {{alias}} repo branch -i file
+$ {{alias}} repo@branch -i file
 
 # Put several files or URLs that are listed at URL.
 # NOTE this URL can reference local files, so it could cause you to put sensitive
 # files into your Pachyderm cluster.
-$ {{alias}} repo branch -i http://host/path`,
+$ {{alias}} repo@branch -i http://host/path`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			file, err := cmdutil.ParseFile(args[0])
 			if err != nil {
@@ -727,6 +727,8 @@ $ {{alias}} repo branch -i http://host/path`,
 				return err
 			}
 			defer c.Close()
+
+			// load data into pachyderm
 			pfc, err := c.NewPutFileClient()
 			if err != nil {
 				return err
@@ -980,9 +982,13 @@ $ {{alias}} foo@master --history all`,
 					return marshaller.Marshal(os.Stdout, fi)
 				})
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
+			header := pretty.FileHeader
+			if history != 0 {
+				header = pretty.FileHeaderWithCommit
+			}
+			writer := tabwriter.NewWriter(os.Stdout, header)
 			if err := c.ListFileF(file.Commit.Repo.Name, file.Commit.ID, file.Path, history, func(fi *pfsclient.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi, fullTimestamps)
+				pretty.PrintFileInfo(writer, fi, fullTimestamps, history != 0)
 				return nil
 			}); err != nil {
 				return err
@@ -1031,7 +1037,7 @@ $ {{alias}} "foo@master:data/*"`,
 			}
 			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 			}
 			return writer.Flush()
 		}),
@@ -1085,7 +1091,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				fmt.Println("New Files:")
 				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range newFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 				}
 				if err := writer.Flush(); err != nil {
 					return err
@@ -1095,7 +1101,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				fmt.Println("Old Files:")
 				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
 				for _, fileInfo := range oldFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps)
+					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
 				}
 				if err := writer.Flush(); err != nil {
 					return err

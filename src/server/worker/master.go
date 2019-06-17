@@ -131,32 +131,56 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 		if commitInfo.Finished != nil {
 			continue // commit finished after queueing
 		}
+
 		// Check if a job was previously created for this commit. If not, make one
-		var jobInfo *pps.JobInfo
-		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1)
+		var jobInfo *pps.JobInfo // job for commitInfo (new or old)
+		jobInfos, err := pachClient.ListJob("", nil, commitInfo.Commit, -1, true)
 		if err != nil {
 			return err
 		}
-		if len(jobInfos) > 0 {
-			if len(jobInfos) > 1 {
-				return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
-			}
-			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
-			if err != nil {
-				return err
-			}
-		} else {
+		if len(jobInfos) > 1 {
+			return fmt.Errorf("multiple jobs found for commit: %s/%s", commitInfo.Commit.Repo.Name, commitInfo.Commit.ID)
+		} else if len(jobInfos) < 1 {
 			job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
 			if err != nil {
 				return err
 			}
+			logger.Logf("creating new job %q for output commit %q", job.ID, commitInfo.Commit.ID)
+			// get jobInfo to look up spec commit, pipeline version, etc (if this
+			// worker is stale and about to be killed, the new job may have a newer
+			// pipeline version than the master. Or if the commit is stale, it may
+			// have an older pipeline version than the master)
 			jobInfo, err = pachClient.InspectJob(job.ID, false)
 			if err != nil {
 				return err
 			}
+		} else {
+			// get latest job state
+			jobInfo, err = pachClient.InspectJob(jobInfos[0].Job.ID, false)
+			logger.Logf("found existing job %q for output commit %q", jobInfo.Job.ID, commitInfo.Commit.ID)
+			if err != nil {
+				return err
+			}
 		}
-		if ppsutil.IsTerminal(jobInfo.State) {
-			// previously-created job has finished, but commit has not been closed yet
+
+		switch {
+		case ppsutil.IsTerminal(jobInfo.State):
+			// ignore finished jobs (e.g. old pipeline & already killed)
+			continue
+		case jobInfo.PipelineVersion < a.pipelineInfo.Version:
+			// kill unfinished jobs from old pipelines (should generally be cleaned
+			// up by PPS master, but the PPS master can fail, and if these jobs
+			// aren't killed, future jobs will hang indefinitely waiting for their
+			// parents to finish)
+			if err := a.updateJobState(pachClient.Ctx(), jobInfo, nil,
+				pps.JobState_JOB_KILLED, "pipeline has been updated"); err != nil {
+				return fmt.Errorf("could not kill stale job: %v", err)
+			}
+			continue
+		case jobInfo.PipelineVersion > a.pipelineInfo.Version:
+			return fmt.Errorf("job %s's version (%d) greater than pipeline's "+
+				"version (%d), this should automatically resolve when the worker "+
+				"is updated", jobInfo.Job.ID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
 			continue
 		}
 
@@ -391,7 +415,7 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
 func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
-	logger.Logf("waitJob: %s", jobInfo.Job.ID)
+	logger.Logf("waiting on job %q (pipeline version: %d, state: %s)", jobInfo.Job.ID, jobInfo.PipelineVersion, jobInfo.State)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
 
@@ -547,6 +571,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}); err != nil {
 			return err
 		}
+
 		defer func() {
 			if retErr == nil {
 				if _, err := col.NewSTM(ctx, a.etcdClient, func(stm col.STM) error {
@@ -559,26 +584,6 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 				}
 			}
 		}()
-		// Handle the case when there are no datums
-		if df.Len() == 0 {
-			if err := a.updateJobState(ctx, jobInfo, nil, pps.JobState_JOB_SUCCESS, ""); err != nil {
-				return err
-			}
-			if jobInfo.EnableStats {
-				if _, err = pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-					Commit:    statsCommit,
-					Trees:     statsTrees,
-					SizeBytes: statsSize,
-				}); err != nil {
-					return err
-				}
-			}
-			_, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
-				Commit: jobInfo.OutputCommit,
-				Empty:  true,
-			})
-			return err
-		}
 		// Watch the chunks in order
 		chunks := a.chunks(jobInfo.Job.ID).ReadOnly(ctx)
 		var failedDatumID string

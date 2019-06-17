@@ -33,6 +33,7 @@ type Event struct {
 	PrevValue []byte
 	Type      EventType
 	Rev       int64
+	Ver       int64
 	Err       error
 	Template  proto.Message
 }
@@ -136,6 +137,7 @@ func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix str
 				Value:    etcdKv.Value,
 				Type:     EventPut,
 				Rev:      etcdKv.ModRevision,
+				Ver:      etcdKv.Version,
 				Template: template,
 			}
 		}
@@ -152,7 +154,12 @@ func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix str
 					return err
 				}
 				etcdWatcher = etcd.NewWatcher(client)
-				rch = etcdWatcher.Watch(ctx, prefix, etcd.WithPrefix(), etcd.WithRev(nextRevision))
+				// use new "nextRevision"
+				options := []etcd.OpOption{etcd.WithPrefix(), etcd.WithRev(nextRevision)}
+				for _, opt := range opts {
+					options = append(options, etcd.OpOption(opt))
+				}
+				rch = etcdWatcher.Watch(ctx, prefix, options...)
 				continue
 			}
 			if err := resp.Err(); err != nil {
@@ -163,6 +170,7 @@ func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix str
 					Key:      bytes.TrimPrefix(etcdEv.Kv.Key, []byte(trimPrefix)),
 					Value:    etcdEv.Kv.Value,
 					Rev:      etcdEv.Kv.ModRevision,
+					Ver:      etcdEv.Kv.Version,
 					Template: template,
 				}
 				if etcdEv.PrevKv != nil {

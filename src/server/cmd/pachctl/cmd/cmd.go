@@ -321,9 +321,9 @@ func PachctlCmd() *cobra.Command {
 Environment variables:
   PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
   PACH_CONFIG=<path>, the path where pachctl will attempt to load your pach config.
-  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_ENABLE_TRACING is set
-  PACH_ENABLE_TRACING={true,false}, If true, and JAEGER_ENDPOINT is set, attach a
-    Jaeger trace to all outgoing RPCs
+  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_TRACE is set
+  PACH_TRACE={true,false}, If true, and JAEGER_ENDPOINT is set, attach a
+    Jaeger trace to any outgoing RPCs
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			log.SetFormatter(new(prefixed.TextFormatter))
@@ -725,6 +725,18 @@ This resets the cluster to its initial state.`,
 		Long:  "Cancel and restart an ongoing task.",
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(restartDocs, "restart"))
+
+	resumeDocs := &cobra.Command{
+		Short: "Resume a stopped task.",
+		Long:  "Resume a stopped task.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(resumeDocs, "resume"))
+
+	runDocs := &cobra.Command{
+		Short: "Manually run a Pachyderm resource.",
+		Long:  "Manually run a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(runDocs, "run"))
 
 	editDocs := &cobra.Command{
 		Short: "Edit the value of an existing Pachyderm resource.",

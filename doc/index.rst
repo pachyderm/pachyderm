@@ -36,6 +36,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     fundamentals/distributed_computing
     fundamentals/incrementality
     fundamentals/spouts
+    fundamentals/history
 
 .. toctree::
     :maxdepth: 1
@@ -71,7 +72,8 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     managing_pachyderm/autoscaling
     managing_pachyderm/data_management
     managing_pachyderm/sharing_gpu_resources
-    managing_pachyderm/backup_restore_and_migrate
+    managing_pachyderm/backup_restore
+    managing_pachyderm/upgrades_migrations
     managing_pachyderm/general_troubleshooting
     managing_pachyderm/pipeline_troubleshooting
 

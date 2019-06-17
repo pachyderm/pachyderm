@@ -8,7 +8,7 @@ Deploy credentials for the Amazon S3 storage provider.
 Deploy credentials for the Amazon S3 storage provider, so that Pachyderm can ingress data from and egress data to it.
 
 ```
-pachctl deploy storage amazon <region> <bucket-id> <secret> [<token>]
+pachctl deploy storage amazon <region> <access-key-id> <secret-access-key> [<session-token>]
 ```
 
 ### Options inherited from parent commands

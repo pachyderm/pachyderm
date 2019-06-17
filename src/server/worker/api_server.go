@@ -42,6 +42,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -313,6 +315,15 @@ func (logger *taggedLogger) userLogger() *taggedLogger {
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreeStorage string) (*APIServer, error) {
 	initPrometheus()
+
+	span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
+		etcdClient, pipelineInfo.Pipeline.Name, "/worker/Start")
+	oldPachClient := pachClient // don't use tracing in apiServer.pachClient
+	if span != nil {
+		pachClient = pachClient.WithCtx(ctx)
+	}
+	defer tracing.FinishAnySpan(span)
+
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
@@ -322,7 +333,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, err
 	}
 	server := &APIServer{
-		pachClient:   pachClient,
+		pachClient:   oldPachClient,
 		kubeClient:   kubeClient,
 		etcdClient:   etcdClient,
 		etcdPrefix:   etcdPrefix,
@@ -1155,7 +1166,6 @@ func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan,
 			if e.Type == watch.EventError {
 				return fmt.Errorf("chunk watch error: %v", e.Err)
 			}
-			return nil
 		case <-ctx.Done():
 			return ctx.Err()
 		}
@@ -1211,7 +1221,7 @@ func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APICl
 				}
 			}
 			ctx, _ := joincontext.Join(jobCtx, a.shardCtx)
-			objClient, err := obj.NewClientFromEnv(a.hashtreeStorage)
+			objClient, err := obj.NewClientFromSecret(a.hashtreeStorage)
 			if err != nil {
 				return err
 			}
@@ -1468,6 +1478,7 @@ func (a *APIServer) merge(pachClient *client.APIClient, objClient obj.Client, st
 }
 
 func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.APIClient, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	outputCommitID := commit.ID
 	commitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 		&pfs.InspectCommitRequest{
 			Commit: commit,
@@ -1476,6 +1487,8 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
+		a.getWorkerLogger().Logf("blocking on parent commit %q before writing to output commit %q",
+			commitInfo.ParentCommit.ID, outputCommitID)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
 				Commit:     commitInfo.ParentCommit,
@@ -1653,9 +1666,11 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 						return fmt.Errorf("worker: error unmarshalling while watching job state (%v)", err)
 					}
 					if ppsutil.IsTerminal(jobPtr.State) {
+						logger.Logf("job %q put in terminal state %q; cancelling", jobID, jobPtr.State)
 						jobCancel() // cancel the job
 					}
 				case watch.EventDelete:
+					logger.Logf("job %q deleted; cancelling", jobID)
 					jobCancel() // cancel the job
 				case watch.EventError:
 					return fmt.Errorf("job state watch error: %v", e.Err)
@@ -1748,6 +1763,7 @@ func (a *APIServer) worker() {
 				return fmt.Errorf("error from InspectJob(%v): %+v", jobID, err)
 			}
 			if jobInfo.PipelineVersion < a.pipelineInfo.Version {
+				logger.Logf("skipping job %v as it uses old pipeline version %d", jobID, jobInfo.PipelineVersion)
 				continue
 			}
 			if jobInfo.PipelineVersion > a.pipelineInfo.Version {
@@ -1755,11 +1771,12 @@ func (a *APIServer) worker() {
 					"version (%d), this should automatically resolve when the worker "+
 					"is updated", jobID, jobInfo.PipelineVersion, a.pipelineInfo.Version)
 			}
+			logger.Logf("processing job %v", jobID)
 
 			// Read the chunks laid out by the master and create the datum factory
 			plan := &Plan{}
 			if err := a.plans.ReadOnly(jobCtx).GetBlock(jobInfo.Job.ID, plan); err != nil {
-				return err
+				return fmt.Errorf("error reading job chunks: %v", err)
 			}
 			df, err := NewDatumFactory(pachClient, jobInfo.Input)
 			if err != nil {
@@ -1879,7 +1896,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 		}
 	}()
 	ctx := pachClient.Ctx()
-	objClient, err := obj.NewClientFromEnv(a.hashtreeStorage)
+	objClient, err := obj.NewClientFromSecret(a.hashtreeStorage)
 	if err != nil {
 		return nil, err
 	}

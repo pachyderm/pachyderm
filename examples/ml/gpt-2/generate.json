@@ -1,0 +1,28 @@
+{
+    "pipeline": {
+        "name": "generate"
+    },
+    "transform": {
+        "image": "pachyderm/gpt-2-example",
+        "cmd": ["/generate.py"]
+    },
+    "input": {
+        "pfs": {
+            "repo": "train",
+            "glob": "/*"
+        }
+    },
+    "resource_limits": {
+        "gpu": {
+            "type": "nvidia.com/gpu",
+            "number": 1
+        },
+        "memory": "10G",
+        "cpu": 1
+    },
+    "resource_requests": {
+        "memory": "10G",
+        "cpu": 1
+    },
+    "standby": true
+}
