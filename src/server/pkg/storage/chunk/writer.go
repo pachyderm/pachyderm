@@ -170,6 +170,10 @@ func (w *Writer) put() error {
 // Close closes the writer and flushes the remaining bytes to a chunk and finishes
 // the final range.
 func (w *Writer) Close() error {
+	// No range created / data written.
+	if w.dataRefs == nil {
+		return nil
+	}
 	w.finishRange()
 	return w.put()
 }
