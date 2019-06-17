@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -434,6 +435,17 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 			}
 		}
 
+		// A service can be present either directly on the pipeline spec
+		// or on the spout field of the spec.
+		var service *pps.Service
+		if pipelineInfo.Spout != nil && pipelineInfo.Service != nil {
+			return errors.New("only one of pipeline.service or pipeline.spout can be set")
+		} else if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil {
+			service = pipelineInfo.Spout.Service
+		} else {
+			service = pipelineInfo.Service
+		}
+
 		// Generate options for new RC
 		options := a.getWorkerOptions(
 			pipelineInfo.Pipeline.Name,
@@ -443,7 +455,7 @@ func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *
 			resourceLimits,
 			pipelineInfo.Transform,
 			pipelineInfo.CacheSize,
-			pipelineInfo.Service,
+			service,
 			pipelineInfo.SpecCommit.ID,
 			pipelineInfo.SchedulingSpec,
 			pipelineInfo.PodSpec,

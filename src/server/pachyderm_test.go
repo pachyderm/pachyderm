@@ -1,6 +1,7 @@
 package server
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -9149,6 +9150,93 @@ func TestSpout(t *testing.T) {
 				require.Equal(t, provenanceID, provenance.ID)
 			}
 		}
+	})
+	t.Run("ServiceSpout", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestServiceSpout_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		annotations := map[string]string{"foo": "bar"}
+
+		// Create a pipeline that listens for tcp connections
+		// on internal port 8000 and dumps whatever it receives
+		// (should be in the form of a tar stream) to /pfs/out.
+		pipeline := tu.UniqueString("pipelineservicespout")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Image: "pachyderm/ubuntuplusnetcat:latest",
+					Cmd:   []string{"sh"},
+					Stdin: []string{
+						"netcat -l -s 0.0.0.0 -p 8000 >/pfs/out",
+					},
+				},
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Input:  client.NewPFSInput(dataRepo, "/"),
+				Update: false,
+				Spout: &pps.Spout{
+					Service: &pps.Service{
+						InternalPort: 8000,
+						ExternalPort: 31800,
+						Annotations:  annotations,
+					},
+				},
+			})
+		require.NoError(t, err)
+		time.Sleep(20 * time.Second)
+
+		host, _, err := net.SplitHostPort(c.GetAddress())
+		serviceAddr := net.JoinHostPort(host, "31800")
+
+		// Write a tar stream with a single file to
+		// the tcp connection of the pipeline service's
+		// external port.
+		backoff.Retry(func() error {
+			raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
+			if err != nil {
+				return err
+			}
+
+			conn, err := net.DialTCP("tcp", nil, raddr)
+			if err != nil {
+				return err
+			}
+			tarwriter := tar.NewWriter(conn)
+			defer tarwriter.Close()
+			headerinfo := &tar.Header{
+				Name: "file1",
+				Size: int64(len("foo")),
+			}
+
+			err = tarwriter.WriteHeader(headerinfo)
+			if err != nil {
+				return err
+			}
+
+			_, err = tarwriter.Write([]byte("foo"))
+			if err != nil {
+				return err
+			}
+			return nil
+		}, backoff.NewTestingBackOff())
+		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+		files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		// Confirm that a commit is made with the file
+		// written to the external port of the pipeline's service.
+		var buf bytes.Buffer
+		err = c.GetFile(pipeline, commitInfo.Commit.ID, files[0].File.Path, 0, 0, &buf)
+		require.NoError(t, err)
+		require.Equal(t, buf.String(), "foo")
 	})
 }
 

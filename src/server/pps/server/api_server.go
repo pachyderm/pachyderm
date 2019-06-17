@@ -2135,6 +2135,9 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 			pipelineInfo.Service.Type = string(v1.ServiceTypeNodePort)
 		}
 	}
+	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil && pipelineInfo.Spout.Service.Type == "" {
+		pipelineInfo.Spout.Service.Type = string(v1.ServiceTypeNodePort)
+	}
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
