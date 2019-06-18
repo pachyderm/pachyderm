@@ -81,10 +81,7 @@ func (gcc *ClientImpl) runReserveSql(ctx context.Context, query string) ([]chunk
 		// Flush returned chunks through the server
 		chunksToFlush = readChunksFromCursor(cursor)
 		cursor.Close()
-		if err := cursor.Err(); err != nil {
-			return err
-		}
-		return nil
+		return cursor.Err()
 	}()
 	if err != nil {
 		return nil, err
@@ -131,8 +128,9 @@ select chunk from added_chunks where deleting is not null;
 	var chunksToFlush []chunk.Chunk
 	var err error
 	for {
+		start := time.Now()
 		chunksToFlush, err = gcc.runReserveSql(ctx, query)
-		applySqlMetrics("ReserveChunks", err)
+		applySqlMetrics("reserveChunks", err, start)
 		if err == nil {
 			break
 		}
@@ -164,6 +162,39 @@ func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []c
 		}
 	}
 	return nil
+}
+
+func (gcc *ClientImpl) runUpdateSql(ctx context.Context, query string) ([]chunk.Chunk, error) {
+	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return nil, err
+	}
+
+	var chunksToDelete []chunk.Chunk
+	err = func() (retErr error) {
+		defer func() {
+			if retErr != nil {
+				txn.Rollback()
+			}
+		}()
+
+		cursor, err := txn.QueryContext(ctx, query)
+		if err != nil {
+			return err
+		}
+
+		chunksToDelete = readChunksFromCursor(cursor)
+		cursor.Close()
+		return cursor.Err()
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := txn.Commit(); err != nil {
+		return nil, err
+	}
+	return chunksToDelete, nil
 }
 
 func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) (retErr error) {
@@ -228,42 +259,17 @@ select chunk from counts where count = 0
 	`
 
 	var chunksToDelete []chunk.Chunk
+	var err error
 	for {
-		txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-		if err != nil {
+		start := time.Now()
+		chunksToDelete, err = gcc.runUpdateSql(ctx, query)
+		applySqlMetrics("updateReferences", err, start)
+		if err == nil {
+			break
+		}
+		if !isRetriableError(err) {
 			return err
 		}
-
-		cursor, err := txn.QueryContext(ctx, query)
-		if err != nil {
-			if err := txn.Rollback(); err != nil {
-				return err
-			}
-			if isRetriableError(err) {
-				continue
-			}
-			return err
-		}
-
-		chunksToDelete = readChunksFromCursor(cursor)
-		cursor.Close()
-		if err := cursor.Err(); err != nil {
-			if err := txn.Rollback(); err != nil {
-				return err
-			}
-			if isRetriableError(err) {
-				continue
-			}
-			return err
-		}
-
-		if err := txn.Commit(); err != nil {
-			if isRetriableError(err) {
-				continue
-			}
-			return err
-		}
-		break
 	}
 
 	if len(chunksToDelete) > 0 {

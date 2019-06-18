@@ -581,15 +581,18 @@ func printMetrics(t *testing.T, metrics prometheus.Gatherer) {
 				labels = append(labels, fmt.Sprintf("%s:%s", *pair.Name, *pair.Value))
 			}
 			labelStr := strings.Join(labels, ",")
+			if len(labelStr) == 0 {
+				labelStr = "no labels"
+			}
 
 			if metric.Counter != nil {
 				fmt.Printf(" %s: %d\n", labelStr, int64(*metric.Counter.Value))
 			}
 
-			if metric.Histogram != nil {
-				fmt.Printf(" %s: %d, %f\n", labelStr, *metric.Histogram.SampleCount, *metric.Histogram.SampleSum)
-				for _, bucket := range metric.Histogram.Bucket {
-					fmt.Printf(" upper bound: %f, count: %d\n", *bucket.UpperBound, *bucket.CumulativeCount)
+			if metric.Summary != nil {
+				fmt.Printf(" %s: %d, %f\n", labelStr, *metric.Summary.SampleCount, *metric.Summary.SampleSum)
+				for _, quantile := range metric.Summary.Quantile {
+					fmt.Printf("  %f: %f\n", *quantile.Quantile, *quantile.Value)
 				}
 			}
 		}
@@ -614,26 +617,5 @@ func TestMetrics(t *testing.T) {
 
 	counter.WithLabelValues("five").Inc()
 
-	stats, err := metrics.Gather()
-	require.NoError(t, err)
-	fmt.Printf("stats: %v\n", stats)
-	for _, family := range stats {
-		fmt.Printf("%s (%d)\n", *family.Name, len(family.Metric))
-		for _, metric := range family.Metric {
-			labels := []string{}
-			for _, pair := range metric.Label {
-				labels = append(labels, fmt.Sprintf("%s:%s", *pair.Name, *pair.Value))
-			}
-			labelStr := strings.Join(labels, ",")
-			if metric.Counter != nil {
-				fmt.Printf(" %s: %d\n", labelStr, int64(*metric.Counter.Value))
-			}
-			if metric.Histogram != nil {
-				fmt.Printf(" totals: %d, %f\n", *metric.Histogram.SampleCount, *metric.Histogram.SampleSum)
-				for _, bucket := range metric.Histogram.Bucket {
-					fmt.Printf(" upper bound: %f, count: %d\n", *bucket.UpperBound, *bucket.CumulativeCount)
-				}
-			}
-		}
-	}
+	printMetrics(t, metrics)
 }

@@ -77,7 +77,7 @@ func isRetriableError(err error) bool {
 	return false
 }
 
-func applyRequestMetrics(request string, err error, startTime time.Time) {
+func applyRequestMetrics(request string, err error, start time.Time) {
 	var result string
 	switch err {
 	//TODO: add more resolution here
@@ -87,11 +87,11 @@ func applyRequestMetrics(request string, err error, startTime time.Time) {
 		result = "error"
 	}
 	requestResults.WithLabelValues(request, result).Inc()
-	requestTime.WithLabelValues(request).Observe(float64(time.Since(startTime).Seconds()))
+	requestTime.WithLabelValues(request).Observe(float64(time.Since(start).Seconds()))
 }
 
 // TODO: include time spent in sql
-func applySqlMetrics(operation string, err error) {
+func applySqlMetrics(operation string, err error, start time.Time) {
 	var result string
 	switch x := err.(type) {
 	case nil:
@@ -102,4 +102,19 @@ func applySqlMetrics(operation string, err error) {
 		result = "unknown"
 	}
 	sqlResults.WithLabelValues(operation, result).Inc()
+	sqlTime.WithLabelValues(operation).Observe(float64(time.Since(start).Seconds()))
+}
+
+func applyDeleteMetrics(err error, start time.Time) {
+	var result string
+	switch x := err.(type) {
+	case nil:
+		result = "success"
+	case *pq.Error:
+		result = x.Code.Name()
+	default:
+		result = "unknown"
+	}
+	deleteResults.WithLabelValues(result).Inc()
+	deleteTime.Observe(float64(time.Since(start).Seconds()))
 }

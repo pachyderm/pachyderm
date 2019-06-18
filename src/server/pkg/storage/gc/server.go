@@ -185,7 +185,7 @@ func retry(name string, maxAttempts int, fn func() error) {
 }
 
 func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
-	defer func(startTime time.Time) { applyRequestMetrics("DeleteChunks", retErr, startTime) }(time.Now())
+	defer func(start time.Time) { applyRequestMetrics("DeleteChunks", retErr, start) }(time.Now())
 	// Spawn goroutine to do this all async
 	go func() {
 		trigger := newTrigger()
@@ -211,7 +211,8 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 
 		// set the chunks as deleting
 		toDelete := []chunk.Chunk{}
-		retry("markChunksDeleting", 10, func() error {
+		retry("markChunksDeleting", 10, func() (retErr error) {
+			defer func(start time.Time) { applySqlMetrics("markChunksDeleting", retErr, start) }(time.Now())
 			var err error
 			toDelete, err = si.markChunksDeleting(context.Background(), candidates)
 			return err
@@ -219,12 +220,14 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 
 		if len(toDelete) > 0 {
 			// delete objects from object storage
-			retry("deleter.Delete", 10, func() error {
+			retry("deleter.Delete", 10, func() (retErr error) {
+				defer func(start time.Time) { applyDeleteMetrics(retErr, start) }(time.Now())
 				return si.deleter.Delete(context.Background(), toDelete)
 			})
 
 			// delete the rows from the db
-			retry("removeChunkRows", 10, func() error {
+			retry("removeChunkRows", 10, func() (retErr error) {
+				defer func(start time.Time) { applySqlMetrics("removeChunkRows", retErr, start) }(time.Now())
 				return si.removeChunkRows(context.Background(), toDelete)
 			})
 		}
@@ -244,7 +247,7 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 }
 
 func (si *serverImpl) FlushDeletes(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
-	defer func(startTime time.Time) { applyRequestMetrics("FlushDeletes", retErr, startTime) }(time.Now())
+	defer func(start time.Time) { applyRequestMetrics("FlushDeletes", retErr, start) }(time.Now())
 
 	triggers := func() []*trigger {
 		si.mutex.Lock()

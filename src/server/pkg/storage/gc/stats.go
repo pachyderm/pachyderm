@@ -30,8 +30,11 @@ const (
 // remove_chunk_row_time
 
 var (
-	bucketFactor = 2.0
-	bucketCount  = 20 // Which makes the max bucket 2^20 milliseconds
+	summaryObjectives = map[float64]float64{
+		0.5:  0.05,
+		0.9:  0.01,
+		0.99: 0.001,
+	}
 
 	requestResults = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -41,6 +44,17 @@ var (
 			Help:      "garbage collector requests, count by request and result type",
 		},
 		[]string{"request", "result"},
+	)
+
+	requestTime = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Namespace:  "pachyderm",
+			Subsystem:  "gc",
+			Name:       "request_time",
+			Help:       "time spent in request by type, histogram by duration (seconds)",
+			Objectives: summaryObjectives,
+		},
+		[]string{"request"},
 	)
 
 	sqlResults = prometheus.NewCounterVec(
@@ -53,24 +67,34 @@ var (
 		[]string{"operation", "result"},
 	)
 
-	requestTime = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "pachyderm",
-			Subsystem: "gc",
-			Name:      "request_time",
-			Help:      "time spent in request by type, histogram by duration (milliseconds)",
-			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
+	sqlTime = prometheus.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Namespace:  "pachyderm",
+			Subsystem:  "gc",
+			Name:       "sql_time",
+			Help:       "time spent in sql by operation type, histogram by duration (seconds)",
+			Objectives: summaryObjectives,
 		},
-		[]string{"request"},
+		[]string{"operation"},
 	)
 
-	deleteTime = prometheus.NewHistogram(
-		prometheus.HistogramOpts{
+	deleteResults = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
 			Namespace: "pachyderm",
 			Subsystem: "gc",
-			Name:      "delete_time",
-			Help:      "time spent deleting objects from object storage, histogram by duration (milliseconds)",
-			Buckets:   prometheus.ExponentialBuckets(1.0, bucketFactor, bucketCount),
+			Name:      "delete_results",
+			Help:      "garbage collector batch deletes to object storage, count by result type",
+		},
+		[]string{"result"},
+	)
+
+	deleteTime = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Namespace:  "pachyderm",
+			Subsystem:  "gc",
+			Name:       "delete_time",
+			Help:       "time spent deleting objects from object storage, histogram by duration (seconds)",
+			Objectives: summaryObjectives,
 		},
 	)
 )
@@ -78,8 +102,10 @@ var (
 func initPrometheus(registry prometheus.Registerer) {
 	metrics := []prometheus.Collector{
 		requestResults,
-		sqlResults,
 		requestTime,
+		sqlResults,
+		sqlTime,
+		deleteResults,
 		deleteTime,
 	}
 	for _, metric := range metrics {
