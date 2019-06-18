@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -32,56 +33,6 @@ type ClientImpl struct {
 	updateReferencesHistogram prometheus.Histogram
 }
 
-func initializeDb(ctx context.Context, db *sql.DB) error {
-	// TODO: move initialization somewhere more consistent
-	_, err := db.ExecContext(ctx, `
-do $$ begin
- create type reftype as enum ('chunk', 'job', 'semantic');
-exception
- when duplicate_object then null;
-end $$
-  `)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(ctx, `
-create table if not exists refs (
- sourcetype reftype not null,
- source text not null,
- chunk text not null,
- primary key(sourcetype, source, chunk)
-)`)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(ctx, `
-create table if not exists chunks (
- chunk text primary key,
- deleting timestamp
-)`)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(ctx, `
-create index if not exists idx_chunk on refs (chunk)
-`)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(ctx, `
-create index if not exists idx_sourcetype_source on refs (sourcetype, source)
-`)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func MakeClient(ctx context.Context, server Server, host string, port int16, metrics prometheus.Registerer) (Client, error) {
 	connStr := fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port)
 	connector, err := pq.NewConnector(connStr)
@@ -97,25 +48,14 @@ func MakeClient(ctx context.Context, server Server, host string, port int16, met
 		return nil, err
 	}
 
-	reserveChunksCounter, reserveChunksHistogram := makeCollectors("reserve_chunks", "")
-	updateReferencesCounter, updateReferencesHistogram := makeCollectors("update_references", "")
+	reserveChunksCounter, reserveChunksHistogram := makeCollectors("reserve_chunks", "reserve chunks help")
+	updateReferencesCounter, updateReferencesHistogram := makeCollectors("update_references", "update references help")
 
 	if metrics != nil {
-		collectors := []prometheus.Collector{
-			reserveChunksCounter,
-			reserveChunksHistogram,
-			updateReferencesCounter,
-			updateReferencesHistogram,
-		}
-
-		for _, c := range collectors {
-			if err := metrics.Register(c); err != nil {
-				// metrics may be redundantly registered; ignore these errors
-				if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
-					fmt.Errorf("error registering prometheus metric: %v", err)
-				}
-			}
-		}
+		reserveChunksCounter = registerOrGetExisting(metrics, reserveChunksCounter).(*prometheus.CounterVec)
+		reserveChunksHistogram = registerOrGetExisting(metrics, reserveChunksHistogram).(prometheus.Histogram)
+		updateReferencesCounter = registerOrGetExisting(metrics, updateReferencesCounter).(*prometheus.CounterVec)
+		updateReferencesHistogram = registerOrGetExisting(metrics, updateReferencesHistogram).(prometheus.Histogram)
 	}
 
 	return &ClientImpl{
@@ -126,28 +66,6 @@ func MakeClient(ctx context.Context, server Server, host string, port int16, met
 		updateReferencesCounter:   updateReferencesCounter,
 		updateReferencesHistogram: updateReferencesHistogram,
 	}, nil
-}
-
-func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
-	chunks := []chunk.Chunk{}
-	for cursor.Next() {
-		var hash string
-		if err := cursor.Scan(&hash); err != nil {
-			return nil
-		}
-		chunks = append(chunks, chunk.Chunk{Hash: hash})
-	}
-	return chunks
-}
-
-func isRetriableError(err error, counter *prometheus.CounterVec) bool {
-	if err, ok := err.(*pq.Error); ok {
-		fmt.Printf("error: %s\n", err.Code.Name())
-		counter.With(prometheus.Labels{"result": err.Code.Name()}).Add(1)
-		name := err.Code.Class().Name()
-		return name == "transaction_rollback"
-	}
-	return false
 }
 
 func (gcc *ClientImpl) runReserveSql(ctx context.Context, query string) ([]chunk.Chunk, error) {
@@ -192,6 +110,20 @@ func (gcc *ClientImpl) runReserveSql(ctx context.Context, query string) ([]chunk
 	return chunksToFlush, nil
 }
 
+func countResult(err error, counter *prometheus.CounterVec) {
+	resultLabel := func() string {
+		switch x := err.(type) {
+		case nil:
+			return "success"
+		case *pq.Error:
+			return x.Code.Name()
+		default:
+			return "unknown"
+		}
+	}()
+	counter.WithLabelValues(resultLabel).Add(1)
+}
+
 func (gcc *ClientImpl) reserveChunksInDatabase(ctx context.Context, job string, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
 	chunkIds := []string{}
 	for _, chunk := range chunks {
@@ -225,22 +157,24 @@ select chunk from added_chunks where deleting is not null;
 	}
 
 	var chunksToFlush []chunk.Chunk
+	var err error
 	for {
-		var err error
 		chunksToFlush, err = gcc.runReserveSql(ctx, query)
+		countResult(err, gcc.reserveChunksCounter)
 		if err == nil {
 			break
 		}
-		if !isRetriableError(err, gcc.reserveChunksCounter) {
+		if !isRetriableError(err) {
 			return nil, err
 		}
 	}
 
-	gcc.reserveChunksCounter.With(prometheus.Labels{"result": "success"}).Add(1)
-	return chunksToFlush, nil
+	return chunksToFlush, err
 }
 
 func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) error {
+	defer func(start time.Time) { gcc.reserveChunksHistogram.Observe(float64(time.Since(start).Nanoseconds())) }(time.Now())
+	gcc.operationCounter.WithLabelValues("reserveChunks").Inc()
 	if len(chunks) == 0 {
 		return nil
 	}
@@ -262,6 +196,9 @@ func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []c
 }
 
 func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) error {
+	defer func(start time.Time) { gcc.updateReferencesHistogram.Observe(float64(time.Since(start).Nanoseconds())) }(time.Now())
+	gcc.operationCounter.WithLabelValues("updateReferences").Inc()
+
 	var removeStr string
 	if len(remove) == 0 {
 		removeStr = "null"
@@ -332,7 +269,7 @@ select chunk from counts where count = 0
 			if err := txn.Rollback(); err != nil {
 				return err
 			}
-			if isRetriableError(err, gcc.updateReferencesCounter) {
+			if isRetriableError(err) {
 				continue
 			}
 			return err
@@ -344,14 +281,14 @@ select chunk from counts where count = 0
 			if err := txn.Rollback(); err != nil {
 				return err
 			}
-			if isRetriableError(err, gcc.updateReferencesCounter) {
+			if isRetriableError(err) {
 				continue
 			}
 			return err
 		}
 
 		if err := txn.Commit(); err != nil {
-			if isRetriableError(err, gcc.updateReferencesCounter) {
+			if isRetriableError(err) {
 				continue
 			}
 			return err

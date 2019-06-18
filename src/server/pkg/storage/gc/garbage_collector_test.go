@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"math/rand"
 	"strings"
 	"sync"
@@ -20,6 +21,7 @@ import (
 
 var _ = fmt.Printf // TODO: remove after debugging is done
 var _ = sql.OpenDB
+var _ = math.Abs
 
 // Dummy deleter object for testing, so we don't need an object storage
 type testDeleter struct{}
@@ -401,7 +403,7 @@ func TestFuzz(t *testing.T) {
 		eg, ctx := errgroup.WithContext(context.Background())
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
-				gcc := makeClient(t, ctx, server, nil)
+				gcc := makeClient(t, ctx, server, metrics)
 				gcc.db.SetMaxOpenConns(1)
 				gcc.db.SetMaxIdleConns(1)
 				for x := range jobChannel {
@@ -551,7 +553,7 @@ func TestFuzz(t *testing.T) {
 	}
 
 	numWorkers := 10
-	numJobs := 100
+	numJobs := 1000
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 5; i++ {
 		jobChan := make(chan jobData, numJobs)
@@ -576,7 +578,46 @@ func TestFuzz(t *testing.T) {
 			}
 			labelStr := strings.Join(labels, ",")
 			if metric.Counter != nil {
-				fmt.Printf(" %s: %d\n", labelStr, metric.Counter.Value)
+				fmt.Printf(" %s: %d\n", labelStr, int64(*metric.Counter.Value))
+			}
+			if metric.Histogram != nil {
+				fmt.Printf(" histogram\n")
+			}
+		}
+	}
+}
+
+func TestMetrics(t *testing.T) {
+	metrics := prometheus.NewRegistry()
+	counter :=
+		prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Namespace: "pachyderm",
+				Subsystem: "gc",
+				Name:      "test_counter",
+				Help:      "disregard this",
+			},
+			[]string{"result"},
+		)
+
+	err := metrics.Register(counter)
+	require.NoError(t, err)
+
+	counter.WithLabelValues("five").Inc()
+
+	stats, err := metrics.Gather()
+	require.NoError(t, err)
+	fmt.Printf("stats: %v\n", stats)
+	for _, family := range stats {
+		fmt.Printf("%s (%d)\n", *family.Name, len(family.Metric))
+		for _, metric := range family.Metric {
+			labels := []string{}
+			for _, pair := range metric.Label {
+				labels = append(labels, fmt.Sprintf("%s:%s", *pair.Name, *pair.Value))
+			}
+			labelStr := strings.Join(labels, ",")
+			if metric.Counter != nil {
+				fmt.Printf(" %s: %d\n", labelStr, int64(*metric.Counter.Value))
 			}
 			if metric.Histogram != nil {
 				fmt.Printf(" histogram\n")
