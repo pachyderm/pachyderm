@@ -52,7 +52,7 @@ To complete this example, follow the steps below:
 1. Create a `users` repository by running:
 
    ```bash
-   pachctl create repo users
+   $ pachctl create repo users
    ```
 
 1. Create a file called `user_data.csv` with the
@@ -61,7 +61,7 @@ contents listed above.
 1. Put your `user_data.csv` file into Pachyderm and
 automatically split it into separate datums for each line:
 
-   ```
+   ```bash
    $ pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
    ```
 
@@ -90,7 +90,7 @@ repository:
 the `user_data.csv` file, run the command with the file name
 specified after a colon:
 
-   ```
+   ```bash
    $ pachctl list file users@master:user_data.csv
    NAME                             TYPE                SIZE
    user_data.csv/0000000000000000   file                43 B
@@ -137,7 +137,7 @@ the split files.
 
 If your data has a common header, you can specify it
 manually by using `pachctl put file` with the `--header-records` flag.
-You can use this functionality with SQL and CSV data.
+You can use this functionality with JSON and CSV data.
 
 To specify a header, complete the following steps:
 
@@ -150,27 +150,21 @@ from the section above with the following header:
 
 1. Create a new repository or use an existing one:
 
-   **Example:**
-
    ```bash
-   pachctl create repo users
+   $ pachctl create repo users
    ```
 
 1. Put your file into the repository by separating the header from
 other lines:
 
-   **Example:**
-
    ```bash
-   pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
+   $ pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
    ```
 
 1. Verify that the file was added and split:
 
-   **Example:**
-
    ```bash
-   pachctl list file users@master:/user_data.csv
+   $ pachctl list file users@master:/user_data.csv
    ```
 
    **Example:**
@@ -191,19 +185,15 @@ other lines:
 
 1. Get the first file from the repository:
 
-   **Example:**
-
    ```bash
-   pachctl get file users@master:/user_data.csv/0000000000000000
+   $ pachctl get file users@master:/user_data.csv/0000000000000000
    NUMBER,EMAIL,IP_ADDRESS
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    ```
 1. Get all files:
 
-   **Example:**
-
    ```bash
-   pachctl get file users@master:/user_data.csv/*
+   $ pachctl get file users@master:/user_data.csv/*
    NUMBER,EMAIL,IP_ADDRESS
    1,cyukhtin0@stumbleupon.com,144.155.176.12
    2,csisneros1@over-blog.com,26.119.26.5
