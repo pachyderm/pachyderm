@@ -89,39 +89,39 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 		objClient, err := obj.NewClientFromURLAndSecret(url, false)
 		if err != nil {
-			return err
+			return fmt.Errorf("error initializing object client: %v", err)
 		}
 		objW, err := objClient.Writer(extractServer.Context(), url.Object)
 		if err != nil {
-			return err
+			return fmt.Errorf("error initializing object writer: %v", err)
 		}
 		defer func() {
 			if err := objW.Close(); err != nil && retErr == nil {
-				retErr = err
+				retErr = fmt.Errorf("error closing object writer: %v", err)
 			}
 		}()
 		snappyW := snappy.NewBufferedWriter(objW)
 		defer func() {
 			if err := snappyW.Close(); err != nil && retErr == nil {
-				retErr = err
+				retErr = fmt.Errorf("error closing snappy writer: %v", err)
 			}
 		}()
 		w := pbutil.NewWriter(snappyW)
 		writeOp = func(op *admin.Op) error {
 			_, err := w.Write(op)
-			return err
+			return fmt.Errorf("error writing protobuf to snappy stream: %v", err)
 		}
 	}
 	if !request.NoObjects {
 		w := extractObjectWriter(writeOp)
 		if err := pachClient.ListObject(func(object *pfs.Object) error {
 			if err := pachClient.GetObject(object.Hash, w); err != nil {
-				return err
+				return fmt.Errorf("error getting object: %v", err)
 			}
 			// empty PutObjectRequest to indicate EOF
 			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{}}})
 		}); err != nil {
-			return err
+			return fmt.Errorf("error listing objects: %v", err)
 		}
 		if err := pachClient.ListTag(func(resp *pfs.ListTagsResponse) error {
 			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{
@@ -131,20 +131,20 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 				},
 			}})
 		}); err != nil {
-			return err
+			return fmt.Errorf("error listing tags: %v", err)
 		}
 	}
 	var repos []*pfs.Repo
 	if !request.NoRepos {
 		ris, err := pachClient.ListRepo()
 		if err != nil {
-			return err
+			return fmt.Errorf("error listing repos: %v", err)
 		}
 	repos:
 		for _, ri := range ris {
 			bis, err := pachClient.ListBranch(ri.Repo.Name)
 			if err != nil {
-				return err
+				return fmt.Errorf("error listing branches: %v", err)
 			}
 			for _, bi := range bis {
 				if len(bi.Provenance) > 0 {
@@ -157,7 +157,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 					Description: ri.Description,
 				}},
 			}); err != nil {
-				return err
+				return fmt.Errorf("write CreateRepo error: %v", err)
 			}
 			repos = append(repos, ri.Repo)
 		}
@@ -165,12 +165,12 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	if !request.NoPipelines {
 		pis, err := pachClient.ListPipeline()
 		if err != nil {
-			return err
+			return fmt.Errorf("ListPipeline error: %v", err)
 		}
 		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}); err != nil {
-				return err
+				return fmt.Errorf("write CreatePipeline error: %v", err)
 			}
 		}
 	}
@@ -179,15 +179,15 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	for _, repo := range repos {
 		cis, err := pachClient.ListCommit(repo.Name, "", "", 0)
 		if err != nil {
-			return err
+			return fmt.Errorf("ListCommit error: %v", err)
 		}
 		bis, err := pachClient.ListBranch(repo.Name)
 		if err != nil {
-			return err
+			return fmt.Errorf("ListBranch error: %v", err)
 		}
 		for _, bcr := range buildCommitRequests(cis, bis) {
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: bcr}}); err != nil {
-				return err
+				return fmt.Errorf("write Commit error: %v", err)
 			}
 		}
 		for _, bi := range bis {
@@ -197,7 +197,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 					Branch: bi.Branch,
 				},
 			}}); err != nil {
-				return err
+				return fmt.Errorf("write CreateBranch error: %v", err)
 			}
 		}
 	}
