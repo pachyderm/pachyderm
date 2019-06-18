@@ -1,15 +1,14 @@
-## Overview
+## Setting up SAML
 
-This guide will walk through testing Pachyderm's experimental SAML support.
-These features aren't integrated into mainline Pachyderm yet and aren't
-available in any official releases. This will describe the process of:
+This guide walks you through testing Pachyderm's SAML support,
+including the following topics:
 
-1. Activating Pachyderm enterprise and Pachyderm auth
+1. Activating Pachyderm enterprise and Pachyderm auth.
 1. Configuring Pachyderm's auth system and enabling its SAML ACS (Assertion
    Consumer Service—the HTTP endpoint to which users will forward SAML
    assertions).
-1. Logging in to both the dash and CLI
-1. Enabling debug logging in case anything goes wrong
+1. Logging in to both the dash and CLI.
+1. Enabling debug logging in case of issues.
 
 ## Activation
 
@@ -31,9 +30,10 @@ confirm)
 
 Users will either need to set the `--initial-admin` admin flag or have one
 GitHub-based user in the system. The reason:
-1. Pachyderm requires there to be at least one cluster admin if auth is
-   activated
-1. Pachyderm uses GitHub for authentication by default. Without this flag,
+
+1. If you activate auth, Pachyderm requires that you configure
+at least one cluster admin.
+1. By default, Pachyderm uses GitHub for authentication. Without this flag,
    Pachyderm asks the caller to go through an OAuth flow with GitHub, and then
    at the conclusion, makes the caller the cluster admin. Then whoever
    activated Pachyderm's auth system can assume admin status by

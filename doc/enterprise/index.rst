@@ -11,6 +11,6 @@ in the Pachyderm Enterprise Edition.
 
    overview.md
    deployment.md
-   auth.md
+   auth/index.rst
    stats.md
    s3gateway.md

@@ -1,11 +1,11 @@
-## Overview
+# Using SAML
 
-This guide will walk through an example of using Pachyderm's experimental SAML
-support. We'll describe:
+This guide walks you through an example of using Pachyderm's SAML
+support, including the following topics:
 
-1. Authenticating via a SAML ID Provider
-1. Authenticating in the CLI
-1. Authorizing a user or group to access data
+1. Authenticating by using a SAML ID Provider.
+1. Authenticating in the CLI.
+1. Authorizing a user or group to access data.
 
 ## Setup
 
