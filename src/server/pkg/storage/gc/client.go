@@ -97,8 +97,8 @@ func MakeClient(ctx context.Context, server Server, host string, port int16, met
 		return nil, err
 	}
 
-	reserveChunksCounter, reserveChunksHistogram := makeCollectors("reserve_chunks", "", []string{})
-	updateReferencesCounter, updateReferencesHistogram := makeCollectors("update_references", "", []string{})
+	reserveChunksCounter, reserveChunksHistogram := makeCollectors("reserve_chunks", "")
+	updateReferencesCounter, updateReferencesHistogram := makeCollectors("update_references", "")
 
 	if metrics != nil {
 		collectors := []prometheus.Collector{
@@ -140,15 +140,59 @@ func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
 	return chunks
 }
 
-func isRetriableError(err error, counter) bool {
+func isRetriableError(err error, counter *prometheus.CounterVec) bool {
 	if err, ok := err.(*pq.Error); ok {
+		fmt.Printf("error: %s\n", err.Code.Name())
+		counter.With(prometheus.Labels{"result": err.Code.Name()}).Add(1)
 		name := err.Code.Class().Name()
 		return name == "transaction_rollback"
 	}
 	return false
 }
 
-func (gcc *ClientImpl) reserveChunksInternal(ctx context.Context, job string, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
+func (gcc *ClientImpl) runReserveSql(ctx context.Context, query string) ([]chunk.Chunk, error) {
+	txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+	if err != nil {
+		return nil, err
+	}
+
+	var chunksToFlush []chunk.Chunk
+	err = func() (retErr error) {
+		defer func() {
+			if retErr != nil {
+				txn.Rollback()
+			}
+		}()
+
+		_, err = txn.ExecContext(ctx, "set local synchronous_commit = off;")
+		if err != nil {
+			return err
+		}
+
+		cursor, err := txn.QueryContext(ctx, query)
+		if err != nil {
+			return err
+		}
+
+		// Flush returned chunks through the server
+		chunksToFlush = readChunksFromCursor(cursor)
+		cursor.Close()
+		if err := cursor.Err(); err != nil {
+			return err
+		}
+		return nil
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := txn.Commit(); err != nil {
+		return nil, err
+	}
+	return chunksToFlush, nil
+}
+
+func (gcc *ClientImpl) reserveChunksInDatabase(ctx context.Context, job string, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
 	chunkIds := []string{}
 	for _, chunk := range chunks {
 		chunkIds = append(chunkIds, fmt.Sprintf("('%s')", chunk.Hash))
@@ -166,7 +210,7 @@ added_chunks as (
 added_refs as (
  insert into refs (chunk, source, sourcetype)
   select
-   chunk, $1, 'job'::reftype
+   chunk, '` + job + `', 'job'::reftype
   from added_chunks where
    deleting is null
 	order by 1
@@ -182,55 +226,17 @@ select chunk from added_chunks where deleting is not null;
 
 	var chunksToFlush []chunk.Chunk
 	for {
-		txn, err := gcc.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-		if err != nil {
+		var err error
+		chunksToFlush, err = gcc.runReserveSql(ctx, query)
+		if err == nil {
+			break
+		}
+		if !isRetriableError(err, gcc.reserveChunksCounter) {
 			return nil, err
 		}
-
-		_, err = txn.ExecContext(ctx, "set local synchronous_commit = off;")
-		if err != nil {
-			if err := txn.Rollback(); err != nil {
-				return nil, err
-			}
-			if isRetriableError(err, "reserve set local") {
-				continue
-			}
-			return nil, err
-		}
-
-		cursor, err := txn.QueryContext(ctx, query, job)
-		if err != nil {
-			if err := txn.Rollback(); err != nil {
-				return nil, err
-			}
-			if isRetriableError(err, "reserve query") {
-				continue
-			}
-			return nil, err
-		}
-
-		// Flush returned chunks through the server
-		chunksToFlush = readChunksFromCursor(cursor)
-		cursor.Close()
-		if err := cursor.Err(); err != nil {
-			if err := txn.Rollback(); err != nil {
-				return nil, err
-			}
-			if isRetriableError(err, "reserve cursor") {
-				continue
-			}
-			return nil, err
-		}
-
-		if err := txn.Commit(); err != nil {
-			if isRetriableError(err, "reserve commit") {
-				continue
-			}
-			return nil, err
-		}
-		break
 	}
 
+	gcc.reserveChunksCounter.With(prometheus.Labels{"result": "success"}).Add(1)
 	return chunksToFlush, nil
 }
 
@@ -241,7 +247,7 @@ func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []c
 
 	var err error
 	for len(chunks) > 0 {
-		chunks, err = gcc.reserveChunksInternal(ctx, job, chunks)
+		chunks, err = gcc.reserveChunksInDatabase(ctx, job, chunks)
 		if err != nil {
 			return err
 		}
@@ -326,7 +332,7 @@ select chunk from counts where count = 0
 			if err := txn.Rollback(); err != nil {
 				return err
 			}
-			if isRetriableError(err, "update query") {
+			if isRetriableError(err, gcc.updateReferencesCounter) {
 				continue
 			}
 			return err
@@ -338,14 +344,14 @@ select chunk from counts where count = 0
 			if err := txn.Rollback(); err != nil {
 				return err
 			}
-			if isRetriableError(err, "update cursor") {
+			if isRetriableError(err, gcc.updateReferencesCounter) {
 				continue
 			}
 			return err
 		}
 
 		if err := txn.Commit(); err != nil {
-			if isRetriableError(err, "update commit") {
+			if isRetriableError(err, gcc.updateReferencesCounter) {
 				continue
 			}
 			return err
@@ -354,7 +360,10 @@ select chunk from counts where count = 0
 	}
 
 	if len(chunksToDelete) > 0 {
-		return gcc.server.DeleteChunks(ctx, chunksToDelete)
+		if err := gcc.server.DeleteChunks(ctx, chunksToDelete); err != nil {
+			return err
+		}
 	}
+	gcc.reserveChunksCounter.With(prometheus.Labels{"result": "success"}).Add(1)
 	return nil
 }

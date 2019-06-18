@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func makeServer(t *testing.T, deleter Deleter, metrics prometheus.Registerer) Se
 	if deleter == nil {
 		deleter = &testDeleter{}
 	}
-	server, err := MakeServer(deleter, "localhost", 32228)
+	server, err := MakeServer(deleter, "localhost", 32228, metrics)
 	require.NoError(t, err)
 	return server
 }
@@ -562,5 +563,24 @@ func TestFuzz(t *testing.T) {
 		require.NoError(t, eg.Wait())
 
 		verifyData()
+	}
+
+	stats, err := metrics.Gather()
+	require.NoError(t, err)
+	for _, family := range stats {
+		fmt.Printf("%s (%d)\n", *family.Name, len(family.Metric))
+		for _, metric := range family.Metric {
+			labels := []string{}
+			for _, pair := range metric.Label {
+				labels = append(labels, fmt.Sprintf("%s:%s", *pair.Name, *pair.Value))
+			}
+			labelStr := strings.Join(labels, ",")
+			if metric.Counter != nil {
+				fmt.Printf(" %s: %d\n", labelStr, metric.Counter.Value)
+			}
+			if metric.Histogram != nil {
+				fmt.Printf(" histogram\n")
+			}
+		}
 	}
 }
