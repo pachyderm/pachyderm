@@ -567,6 +567,10 @@ func TestFuzz(t *testing.T) {
 		verifyData()
 	}
 
+	printMetrics(t, metrics)
+}
+
+func printMetrics(t *testing.T, metrics prometheus.Gatherer) {
 	stats, err := metrics.Gather()
 	require.NoError(t, err)
 	for _, family := range stats {
@@ -577,11 +581,16 @@ func TestFuzz(t *testing.T) {
 				labels = append(labels, fmt.Sprintf("%s:%s", *pair.Name, *pair.Value))
 			}
 			labelStr := strings.Join(labels, ",")
+
 			if metric.Counter != nil {
 				fmt.Printf(" %s: %d\n", labelStr, int64(*metric.Counter.Value))
 			}
+
 			if metric.Histogram != nil {
-				fmt.Printf(" histogram\n")
+				fmt.Printf(" %s: %d, %f\n", labelStr, *metric.Histogram.SampleCount, *metric.Histogram.SampleSum)
+				for _, bucket := range metric.Histogram.Bucket {
+					fmt.Printf(" upper bound: %f, count: %d\n", *bucket.UpperBound, *bucket.CumulativeCount)
+				}
 			}
 		}
 	}
@@ -620,7 +629,10 @@ func TestMetrics(t *testing.T) {
 				fmt.Printf(" %s: %d\n", labelStr, int64(*metric.Counter.Value))
 			}
 			if metric.Histogram != nil {
-				fmt.Printf(" histogram\n")
+				fmt.Printf(" totals: %d, %f\n", *metric.Histogram.SampleCount, *metric.Histogram.SampleSum)
+				for _, bucket := range metric.Histogram.Bucket {
+					fmt.Printf(" upper bound: %f, count: %d\n", *bucket.UpperBound, *bucket.CumulativeCount)
+				}
 			}
 		}
 	}
