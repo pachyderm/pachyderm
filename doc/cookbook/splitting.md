@@ -133,6 +133,92 @@ the split files.
   $ pachctl put file users@master -f user_data.txt --split line --target-file-bytes 100
   ```
 
+## Specifying a Header
+
+If your data has a common header, you can specify it
+manually by using `pachctl put file` with the `--header-records` flag.
+You can use this functionality with SQL and CSV data.
+
+To specify a header, complete the following steps:
+
+1. Create a new or use an existing data file. For example, the `user_data.csv`
+from the section above with the following header:
+
+   ```bash
+   NUMBER,EMAIL,IP_ADDRESS
+   ```
+
+1. Create a new repository or use an existing one:
+
+   **Example:**
+
+   ```bash
+   pachctl create repo users
+   ```
+
+1. Put your file into the repository by separating the header from
+other lines:
+
+   **Example:**
+
+   ```bash
+   pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
+   ```
+
+1. Verify that the file was added and split:
+
+   **Example:**
+
+   ```bash
+   pachctl list file users@master:/user_data.csv
+   ```
+
+   **Example:**
+
+   ```bash
+   NAME                            TYPE SIZE
+   /user_data.csv/0000000000000000 file 70B
+   /user_data.csv/0000000000000001 file 66B
+   /user_data.csv/0000000000000002 file 64B
+   /user_data.csv/0000000000000003 file 61B
+   /user_data.csv/0000000000000004 file 62B
+   /user_data.csv/0000000000000005 file 68B
+   /user_data.csv/0000000000000006 file 59B
+   /user_data.csv/0000000000000007 file 59B
+   /user_data.csv/0000000000000008 file 71B
+   /user_data.csv/0000000000000009 file 65B
+   ```
+
+1. Get the first file from the repository:
+
+   **Example:**
+
+   ```bash
+   pachctl get file users@master:/user_data.csv/0000000000000000
+   NUMBER,EMAIL,IP_ADDRESS
+   1,cyukhtin0@stumbleupon.com,144.155.176.12
+   ```
+1. Get all files:
+
+   **Example:**
+
+   ```bash
+   pachctl get file users@master:/user_data.csv/*
+   NUMBER,EMAIL,IP_ADDRESS
+   1,cyukhtin0@stumbleupon.com,144.155.176.12
+   2,csisneros1@over-blog.com,26.119.26.5
+   3,jeye2@instagram.com,13.165.230.106
+   4,rnollet3@hexun.com,58.52.147.83
+   5,bposkitt4@irs.gov,51.247.120.167
+   6,vvenmore5@hubpages.com,161.189.245.212
+   7,lcoyte6@ask.com,56.13.147.134
+   8,atuke7@psu.edu,78.178.247.163
+   9,nmorrell8@howstuffworks.com,28.172.10.170
+   10,afynn9@google.com.au,166.14.112.65
+   ```
+
+For more information, type `pachctl put file --help`.
+
 ## Ingesting PostgresSQL data
 
 Pachyderm supports direct data ingestion from PostgreSQL.
