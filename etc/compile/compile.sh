@@ -10,7 +10,8 @@ BINARY="${1}"
 LD_FLAGS="${2}"
 PROFILE="${3}"
 
-TMP="$(mktemp -d -p . build.XXXXXXXXXX)"
+TMP=docker_build_${BINARY}.tmpdir
+mkdir -p "${TMP}"
 CGO_ENABLED=0 GOOS=linux go build \
   -installsuffix netgo \
   -tags netgo \
