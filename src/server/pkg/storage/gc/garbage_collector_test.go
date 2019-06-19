@@ -39,11 +39,11 @@ func makeServer(t *testing.T, deleter Deleter, metrics prometheus.Registerer) Se
 	return server
 }
 
-func makeClient(t *testing.T, ctx context.Context, server Server, metrics prometheus.Registerer) *ClientImpl {
+func makeClient(t *testing.T, server Server, metrics prometheus.Registerer) *ClientImpl {
 	if server == nil {
 		server = makeServer(t, nil, metrics)
 	}
-	gcc, err := MakeClient(ctx, server, "localhost", 32228, metrics)
+	gcc, err := MakeClient(context.Background(), server, "localhost", 32228, metrics)
 	require.NoError(t, err)
 	return gcc.(*ClientImpl)
 }
@@ -54,7 +54,7 @@ func clearData(t *testing.T, ctx context.Context, gcc *ClientImpl) {
 }
 
 func initialize(t *testing.T, ctx context.Context) *ClientImpl {
-	gcc := makeClient(t, ctx, nil, nil)
+	gcc := makeClient(t, nil, nil)
 	clearData(t, ctx, gcc)
 	return gcc
 }
@@ -364,7 +364,7 @@ func TestFuzz(t *testing.T) {
 	metrics := prometheus.NewRegistry()
 	deleter := &fuzzDeleter{users: make(map[string]int)}
 	server := makeServer(t, deleter, metrics)
-	client := makeClient(t, context.Background(), server, metrics)
+	client := makeClient(t, server, metrics)
 	clearData(t, context.Background(), client)
 
 	type jobData struct {
@@ -403,7 +403,7 @@ func TestFuzz(t *testing.T) {
 		eg, ctx := errgroup.WithContext(context.Background())
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
-				gcc := makeClient(t, ctx, server, metrics)
+				gcc := makeClient(t, server, metrics)
 				gcc.db.SetMaxOpenConns(1)
 				gcc.db.SetMaxIdleConns(1)
 				for x := range jobChannel {
@@ -618,4 +618,10 @@ func TestMetrics(t *testing.T) {
 	counter.WithLabelValues("five").Inc()
 
 	printMetrics(t, metrics)
+}
+
+func TestGorm(t *testing.T) {
+	db, err := openDatabase("localhost", 32228)
+	require.NoError(t, err)
+	initializeDb(db)
 }

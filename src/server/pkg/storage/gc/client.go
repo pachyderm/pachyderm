@@ -39,10 +39,12 @@ func MakeClient(ctx context.Context, server Server, host string, port int16, reg
 	// Opening a connection is done lazily, initialization will connect
 	db := sql.OpenDB(connector)
 
-	err = initializeDb(ctx, db)
-	if err != nil {
-		return nil, err
-	}
+	/*
+		err = initializeDb(db)
+		if err != nil {
+			return nil, err
+		}
+	*/
 
 	if registry != nil {
 		initPrometheus(registry)

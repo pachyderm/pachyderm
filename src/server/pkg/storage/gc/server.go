@@ -5,11 +5,10 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jinzhu/gorm"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -56,28 +55,24 @@ func (t *trigger) Wait() {
 
 type serverImpl struct {
 	deleter  Deleter
-	db       *sql.DB
+	db       *gorm.DB
 	mutex    sync.Mutex
 	deleting map[string]*trigger
 }
 
 func MakeServer(deleter Deleter, host string, port uint16, registry prometheus.Registerer) (Server, error) {
-	connStr := fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port)
-	connector, err := pq.NewConnector(connStr)
-	if err != nil {
-		return nil, err
-	}
-
 	if registry != nil {
 		initPrometheus(registry)
 	}
 
-	// Opening a connection is done lazily - next DeleteChunks call will connect
-	db := sql.OpenDB(connector)
+	db, err := openDatabase(host, port)
+	if err != nil {
+		return nil, err
+	}
 
 	// TODO: determine reasonable values for this
-	db.SetMaxOpenConns(3)
-	db.SetMaxIdleConns(2)
+	db.DB().SetMaxOpenConns(3)
+	db.DB().SetMaxIdleConns(2)
 	return &serverImpl{
 		deleter:  deleter,
 		db:       db,
@@ -92,67 +87,31 @@ func (si *serverImpl) markChunksDeleting(ctx context.Context, chunks []chunk.Chu
 	}
 	sort.Strings(chunkIds)
 
-	query := `
-update chunks set 
-  deleting = now()
-where
-  chunk in (` + strings.Join(chunkIds, ",") + `) and
-  chunk not in (
-		select distinct chunk from refs
-    where chunk in (` + strings.Join(chunkIds, ",") + `)
-	)
-returning chunk
-	`
-
 	for {
-		txn, err := si.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-		if err != nil {
-			return nil, err
+		// TODO: wrap with retriable error check
+		txn := si.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+		if txn.Error != nil {
+			return nil, txn.Error
 		}
 
-		if err != nil {
-			if err := txn.Rollback(); err != nil {
-				return nil, err
-			}
-			if isRetriableError(err) {
-				continue
-			}
-			return nil, err
+		refQuery := txn.Table(refTable).Select("distinct chunk").Where("chunk in (?)", chunkIds).QueryExpr()
+
+		txn.Table(chunkTable).Where("chunk in (?)", chunkIds).Where("chunk not in (?)", refQuery).Update("deleting", gorm.Expr("now()"))
+		if txn.Error != nil {
+			return nil, txn.Error
 		}
 
-		cursor, err := txn.QueryContext(ctx, query)
-		if err != nil {
-			if err := txn.Rollback(); err != nil {
-				return nil, err
-			}
-			if isRetriableError(err) {
-				continue
-			}
-			return nil, err
+		result := []chunkModel{}
+		txn.Where("chunk in (?)", chunkIds).Find(&result)
+		if txn.Error != nil {
+			return nil, txn.Error
 		}
 
-		// Flush returned chunks through the server
-		chunks = readChunksFromCursor(cursor)
-		cursor.Close()
-		if err := cursor.Err(); err != nil {
-			if err := txn.Rollback(); err != nil {
-				return nil, err
-			}
-			if isRetriableError(err) {
-				continue
-			}
-			return nil, err
+		if err := txn.Commit().Error; err != nil {
+			return nil, txn.Error
 		}
-
-		if err := txn.Commit(); err != nil {
-			if isRetriableError(err) {
-				continue
-			}
-			return nil, err
-		}
-		break
+		return convertChunks(result), nil
 	}
-	return chunks, nil
 }
 
 func (si *serverImpl) removeChunkRows(ctx context.Context, chunks []chunk.Chunk) error {
@@ -162,15 +121,7 @@ func (si *serverImpl) removeChunkRows(ctx context.Context, chunks []chunk.Chunk)
 	}
 	sort.Strings(chunkIds)
 
-	query := `
-delete from chunks
-where
-  chunk in (` + strings.Join(chunkIds, ",") + `) and
-	deleting is not null
-	`
-
-	_, err := si.db.ExecContext(ctx, query)
-	return err
+	return si.db.Where("chunk in (?)", chunkIds).Where("deleting is not null").Delete(&chunkModel{}).Error
 }
 
 func retry(name string, maxAttempts int, fn func() error) {

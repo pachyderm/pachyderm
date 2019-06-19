@@ -1,14 +1,16 @@
 package gc
 
 import (
-	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
+	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
+/*
 func initializeDb(ctx context.Context, db *sql.DB) error {
 	_, err := db.ExecContext(ctx, `
 do $$ begin
@@ -56,6 +58,12 @@ create index if not exists idx_sourcetype_source on refs (sourcetype, source)
 	}
 
 	return nil
+}
+*/
+
+// TODO: connection options
+func openDatabase(host string, port uint16) (*gorm.DB, error) {
+	return gorm.Open("postgres", fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port))
 }
 
 func readChunksFromCursor(cursor *sql.Rows) []chunk.Chunk {
