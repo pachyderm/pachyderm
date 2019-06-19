@@ -1,6 +1,6 @@
 # Azure
 
-To deploy Pachyderm to Azure, you need to:
+To deploy Pachyderm to Azure™, you need to:
 
 1. [Install Prerequisites](#prerequisites)
 2. [Deploy Kubernetes](#deploy-kubernetes)
@@ -19,14 +19,36 @@ Install the following prerequisites:
 
 The easiest way to deploy a Kubernetes cluster is through the [Azure Container Service (AKS)](https://docs.microsoft.com/azure/aks/tutorial-kubernetes-deploy-cluster). To create a new AKS Kubernetes cluster using the Azure CLI `az`, run:
 
-```sh
-$ RESOURCE_GROUP=<a unique name for the resource group where Pachyderm will be deployed, e.g. "pach-resource-group">
+<style type="text/css">
+.tg  {border-collapse:collapse;border-spacing:0;border-color:#ccc;}
+.tg td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#fff;}
+.tg th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#f0f0f0;}
+.tg .tg-0pky{border-color:inherit;text-align:left;vertical-align:top}
+</style>
+<table class="tg">
+  <tr>
+    <th class="tg-0pky">Variable</th>
+    <th class="tg-0pky">Description</th>
+  </tr>
+  <tr>
+    <td class="tg-0pky">`RESOURCE_GROUP`</td>
+    <td class="tg-0pky">A unique name for the resource group where Pachyderm is deployed. For example, `pach-resource-group`.</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">`LOCATION`</td>
+    <td class="tg-0pky">An Azure availability zone where AKS is available. For example, `Central US`.</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">`NODE_SIZE`</td>
+    <td class="tg-0pky">The size of the Kubernetes virtual machine (VM) instances. To avoid performance issues, Pachyderm recommends that you
+    set this value to at least `Standard_DS4_v2` which gives you 8 CPUs, 28 Gib of Memory, 56 Gib SSD.</td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">`CLUSTER_NAME`</td>
+    <td class="tg-0pky">A unique name for the Pachyderm cluster. For example, `pach-aks-cluster`.</td>
+  </tr>
+</table>
 
-$ LOCATION=<a Azure availability zone where AKS is available, e.g, "Central US">
-
-$ NODE_SIZE=<size for the k8s instances, we recommend at least "Standard_DS4_v2">
-
-$ CLUSTER_NAME=<unique name for the cluster, e.g., "pach-aks-cluster">
 
 # Create the Azure resource group.
 $ az group create --name=${RESOURCE_GROUP} --location=${LOCATION}
@@ -44,6 +66,10 @@ Server Version: version.Info{Major:"1", Minor:"7", GitVersion:"v1.7.9", GitCommi
 ```
 
 **Note** - Azure AKS is still a relatively new managed service. As such, we have had some issues consistently deploying AKS clusters in certain availability zones. If you get timeouts or issues when provisioning an AKS cluster, we recommend trying in a fresh resource group and possibly trying a different zone.
+
+- [Azure Virtual Machine sizes](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/sizes-general)
+
+
 
 ## Deploy Pachyderm
 
