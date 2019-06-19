@@ -1,27 +1,4 @@
-# Access Controls
-
-The access controls features of Pachyderm Enterprise
-let you create and manage users that interact
-with your Pachyderm cluster. You can restrict
-access to individual data repositories on a
-per user basis and, as a result, limit the
-subscription of pipelines to those data repositories.
-
-This document guides you through the following sections:
-
-* [Understanding Pachyderm access controls](#understanding-pachyderm-access-controls)
-* [Activating access control features](#activating-access-control)
-* [Logging in to Pachyderm](#logging-into-pachyderm)
-* [Managing and updating user access to data repositories](#managing-and-updating-user-access)
-* [Uisng SAML]
-
-
-Also, this document covers the following topics:
-
-- [The behavior of pipelines when you use access control](#behavior-of-pipelines-as-related-to-access-control)
-- [The behavior of a cluster when access control is deactivated, or an enterprise token expires](#activation-code-expiration-and-de-activation)
-
-## Understanding Pachyderm access controls
+# Understanding Pachyderm access controls
 
 If access controls are activated, each data repository, or repo,
 in Pachyderm has an Access Control List (ACL) associated with it.
@@ -42,7 +19,7 @@ By default, Pachyderm defines one hardcoded group called `admin`.
 Users in the `admin` group can perform any
 action on the cluster including appointing other admins.
 Furthermore, only the cluster admins can manage a repository
-a repo without ACL.
+without ACL.
 
 ## Enabling access control
 
@@ -66,12 +43,6 @@ the steps in one of these sections:
 
    * [Activating Access Control in the Dashboard](#activating-access-controls-with-the-dashboard)
    * [Activating Access Control in pachctl](#activating-access-controls-with-pachctl)
-
-However, before executing that command, we should decide
-on at least one user that will have admin privileges on the
-cluster. Pachyderm admins will be able to modify the scope
-of access for any non-admin users on the cluster.
-Pachyderm identifies all users by their GitHub usernames.
 
 ### Activating access controls with the dashboard
 
@@ -104,9 +75,12 @@ specify them as a comma-separated list.
 
 ## Logging in to Pachyderm
 
-After you activate access control, log in to your cluster.
-When using the Pachyderm dashboard, you need to [log in to the dashboard](#login-on-the-dashboard).
-When using the `pachctl` CLI, you need to [log in by using the CLI](#login-using-pachctl).
+After you activate access control, log in to your cluster either
+through the dashboard or CLI. The CLI and the dashboard have
+independent login workflows:
+
+- [Log in to the dashboard](#login-on-the-dashboard).
+- [Log in by using the CLI](#login-using-pachctl).
 
 ### Log in to the dashboard
 
@@ -131,7 +105,7 @@ user in the upper left-hand corner of the dashboard:
 ![alt tag](auth_dash3.png)
 
 
-### Log in by using `pachctl`
+### Log in to the CLI
 
 To authenticate by using `pachctl`, run the following
 command:
@@ -169,7 +143,7 @@ command:
 
    You are now logged in to Pachyderm!
 
-## Managing and updating user access
+## Manage and update user access
 
 You can manage user access in the UI and CLI.
 For example, when you log in to Pachyderm as the user `dwhitena`, you
@@ -217,7 +191,7 @@ set as an `OWNER` of that pipeline's output repo.
 - The initial `OWNER` of a pipeline's output repo, or an admin,
 needs to set the scope of access for other users to that output repo.
 
-## Activation code expiration and de-activation
+## Manage the Activation Code
 
 When an enterprise activation code expires, an auth-activated
 Pachyderm cluster goes into an `admin-only` state. In this

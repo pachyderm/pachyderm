@@ -17,9 +17,3 @@ This document guides you through the following sections:
 
    auth.md
    saml/index.rst
-
-
-Also, this document covers the following topics:
-
- - [The behavior of pipelines when you use access control](#behavior-of-pipelines-as-related-to-access-control)
- - [The behavior of a cluster when access control is deactivated, or an enterprise token expires](#activation-code-       expiration-and-de-activation)
