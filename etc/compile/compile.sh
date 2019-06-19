@@ -10,6 +10,12 @@ BINARY="${1}"
 LD_FLAGS="${2}"
 PROFILE="${3}"
 
+# Note that github.com/pachyderm/pachyderm is mounted into the
+# {pachd,worker}_compile docker container that this script is running in, so
+# 'mkdir' below actually creates a dir on the host machine. The dir name
+# includes ${BINARY} so that it doesn't collide with any concurrently-running
+# pachyderm builds (e.g. when we build pachd and worker concurrently in 'make
+# docker-build'). See https://github.com/pachyderm/pachyderm/issues/3845
 TMP=docker_build_${BINARY}.tmpdir
 mkdir -p "${TMP}"
 CGO_ENABLED=0 GOOS=linux go build \
