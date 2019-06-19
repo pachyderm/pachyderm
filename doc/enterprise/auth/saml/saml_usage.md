@@ -1,143 +1,184 @@
-# Using SAML
+# Manage access
 
-This guide walks you through an example of using Pachyderm's SAML
-support, including the following topics:
+This section walks you through an example of configuring
+Pachyderm authentication with an ID provider and
+setting up permissions for other users,
+including the following topics:
 
-1. Authenticating by using a SAML ID Provider.
+1. Authenticating by using a SAML ID provider.
 1. Authenticating in the CLI.
 1. Authorizing a user or group to access data.
 
-## Setup
+Before completing the tasks in this section, configure Pachyderm
+authentication and an ID provider
+as described in in [Seting up SAML](saml.html).
 
-Follow the instructions in [saml_setup](saml_setup.md) to enable auth in a
-Pachyderm cluster and connect it to a SAML ID provider. Then, we'll authenticate
-as a cluster admin in one console and set up our [open CV
-demo](../examples/opencv/README.md).
+Walk through the [Creating an OpenCV pipeline](../examples/opencv/README.md)
+example or by following the steps below.
 
-In the CLI, that would look like:
-```
-(admin)$ pachctl auth use-auth-token
-Please paste your Pachyderm auth token:
-<auth token>
+To complete this example in CLI, follow these steps:
 
-(admin)$ pachctl auth whoami
-You are "robot:admin"
-You are an administrator of this Pachyderm cluster
+1. In the CLI, log in as a cluster admin:
 
-(admin)$ pachctl create repo images
-(admin)$ pachctl create pipeline -f examples/opencv/edges.json
-(admin)$ pachctl create pipeline -f examples/opencv/montage.json
-(admin)$ pachctl put file images@master -i examples/opencv/images.txt
-(admin)$ pachctl put file images@master -i examples/opencv/images2.txt
+   ```bash
+   (admin)$ pachctl auth use-auth-token
+   Please paste your Pachyderm auth token:
+   <auth token>
+   ```
 
-(admin)$ pachctl list repo
-NAME    CREATED       SIZE (MASTER) ACCESS LEVEL
-montage 2 minutes ago 1.653MiB      OWNER
-edges   2 minutes ago 133.6KiB      OWNER
-images  2 minutes ago 238.3KiB      OWNER
+1. Verify that you have been successfully authenticated:
 
-(admin)$ pachctl list job
-ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
-023a478b16e849b4996c19632fee6782 montage/e3dd7e9cacc5450c92e0e62ab844bd26 2 minutes ago 8 seconds 0       1 + 0 / 1 371.9KiB 1.283MiB success
-fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minutes ago 5 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success
-152cb8a0b0854d44affb4bf4bd57228f montage/82a49260595246fe8f6a7d381e092650 2 minutes ago 5 seconds 0       1 + 0 / 1 79.49KiB 378.6KiB success
-86e6eb4ae1e74745b993c2e47eba05e9 edges/ee7ebdddd31d46d1af10cee25f17870b   2 minutes ago 4 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
-```
+   ```bash
+   (admin)$ pachctl auth whoami
+   You are "robot:admin"
+   You are an administrator of this Pachyderm cluster
+   ```
 
-## Authenticating via a SAML ID Provider (in the dashboard)
-Before authenticating, navigating to the dash will yield a blank screen:
+1. Complete the OpenCV example:
+
+   1. Create a repository called `images`:
+
+      ```bash
+      (admin)$ pachctl create repo images
+      ```
+   1. Create the `edges.json` and `montage.json` pipelines:
+
+      ```bash
+      (admin)$ pachctl create pipeline -f examples/opencv/edges.json
+      (admin)$ pachctl create pipeline -f examples/opencv/montage.json
+      ```
+
+   1. Put the `images` and `image2` files to the `images` repository:
+
+      ```bash
+      (admin)$ pachctl put file images@master -i examples/opencv/images.txt
+      (admin)$ pachctl put file images@master -i examples/opencv/images2.txt
+      ```
+
+   1. View the list of repositories:
+
+      ```bash
+      (admin)$ pachctl list repo
+      NAME    CREATED       SIZE (MASTER) ACCESS LEVEL
+      montage 2 minutes ago 1.653MiB      OWNER
+      edges   2 minutes ago 133.6KiB      OWNER
+      images  2 minutes ago 238.3KiB      OWNER
+      ```
+
+   1. View the list of jobs:
+
+      ```bash
+      (admin)$ pachctl list job
+      ID                               OUTPUT COMMIT                            STARTED       DURATION  RESTART PROGRESS  DL       UL       STATE
+      023a478b16e849b4996c19632fee6782 montage/e3dd7e9cacc5450c92e0e62ab844bd26 2 minutes ago 8 seconds 0       1 + 0 / 1 371.9KiB 1.283MiB success
+      fe8b409e0db54f96bbb757d4d0679186 edges/9cc634a63f794a14a78e931bea47fa73   2 minutes ago 5 seconds 0       2 + 1 / 3 181.1KiB 111.4KiB success
+      152cb8a0b0854d44affb4bf4bd57228f montage/82a49260595246fe8f6a7d381e092650 2 minutes ago 5 seconds 0       1 + 0 / 1 79.49KiB 378.6KiB success
+      86e6eb4ae1e74745b993c2e47eba05e9 edges/ee7ebdddd31d46d1af10cee25f17870b   2 minutes ago 4 seconds 0       1 + 0 / 1 57.27KiB 22.22KiB success
+      ```
+
+## Authenticate by using the UI
+
+Before you authenticate, opening the dashboard results in a blank screen:
 
 ![Blocked-out dash](images/saml_log_in.png)
 
-Even through the dash suggests logging in via GitHub, we will log in using a
-SAML IdP (which has hopefully already been configured). To see your Pachyderm
-DAG, navigate to your SAML ID provider and sign in to your Pachyderm cluster
-there (currently Pachyderm only supports IdP-initiate SAML authentication).
+Before completing the steps in this section, you must have a SAML IDP
+configured.
+
+To authenticate by using a SAML ID provider, follow the steps below:
+
+1. In the ID provider UI, find your Pachyderm cluster and sign in.
 
 ![SSO image](images/saml_okta_with_app.png)
 
-Once you've authenticated, you'll be redirected to the Pachyderm dash (the
-redirect URL is configured in the Pachyderm auth system). You'll be given the
-opportunity to generate a one-time password (OTP), though you can always do this
-later from the settings panel.
+1. After you authenticate, the browser redirects you to the
+Pachyderm dashboard. The redirect URL is configured in the
+Pachyderm auth system.
 
-![Dash logged in](images/saml_successfully_logged_in.png)
+1. (Optional) Generate a one-time password (OTP). You can also do this
+later from the **Settings** panel.
 
-After closing the OTP panel, you'll be able to see the Pachyderm DAG, but you
-may not have access to any of the repos inside (a repo that you cannot read is
-indicated by a lock symbol):
+![Dashboard logged in](images/saml_successfully_logged_in.png)
 
-![Dash with locked repos](images/saml_dag.png)
+1. After you close the OTP panel, the Pachyderm cluster displays. You
+might not have access to any of the repos inside the cluster. A repo that you
+cannot read is indicated by a lock symbol.
 
-## Authenticating in the CLI
-After authenticating in the dash, you'll be given the opportunity to generate a
-one-time password (OTP) and sign in on the CLI. You can also generate an OTP
-from the settings panel:
+![Dashboard with locked repos](images/saml_dag.png)
+
+## Authenticate by using the CLI
+
+After you authenticate in the dashboard, you can generate an OTP and
+sign in to the CLI. You can also generate an OTP from the **Settings**
+panel:
 
 ![OTP Image](images/saml_display_otp.png)
 
-```
+**Example:**
+
+```bash
 (user)$ pachctl auth login --code auth_code:73db4686e3e142508fa74aae920cc58b
 (user)$ pachctl auth whoami
 You are "saml:msteffen@pachyderm.io"
 session expires: 14 Sep 18 20:55 PDT
 ```
 
-Note that this session expires after 8 hours. The duration of sessions is
-configurable in the Pachyderm auth config, but it's important that they be
-relatively short, as SAML group memberships are only updated when users sign in.
-If a user is removed from a group, they'll still be able to access the group's
-resources until their session expires.
+Based on the configuration that you have set up in [Configure a SAML application](saml_setup.md),
+a SAML session expires after eight hours. You can modify the duration of
+sessions in the Pachyderm auth config file. For security reasons, keep
+SAML sessions relatively short because SAML group memberships are only
+updated when users sign in. If you remove a user from a group, they can
+still access the group's resources until their session expires.
 
-## Authorizing a user or group to access data
+## Authorize a user or group to access data
 
-First, we'll give the example of an admin granting a user access. This can be
-accomplished on the CLI like so:
+An admin can grant other users access to data.
 
-```
-(admin)$ pachctl auth set saml:msteffen@pachyderm.io reader images
-```
+To grant access to data to other users, complete the following steps:
 
-Now, the `images` repo is no longer locked when that user views the DAG:
+1. Authorize the user `msteffen@pachyderm.io` read access to the `images`
+repository:
 
-![Unlocked images repo image](images/saml_dag_images_readable.png)
+   ```bash
+   (admin)$ pachctl auth set saml:msteffen@pachyderm.io reader images
+   ```
 
-At this point, you can click on the `images` repo and preview data inside:
+   The `images` repo is no longer locked when the user
+   `msteffen@pachyderm.io` views it in the dashboard:
 
-![Unlocked images repo image](images/saml_dag_reading_from_images.png)
+   ![Unlocked images repo image](images/saml_dag_images_readable.png)
 
-Likewise, you can grant access to repos via groups. You'll need a SAML ID
-provider that supports group attributes, and you'll need to put the name of that
-attribute in the Pachyderm auth config. Here, we'll grant access to the Everyone
-group:
+1. Click on the `images` repo to preview the data that is stored inside:
 
-```
-(admin)$ pachctl auth set group/saml:Everyone owner edges
-```
+   ![Unlocked images repo image](images/saml_dag_reading_from_images.png)
 
-Now, the edges repo is also not locked:
+1. If your SAML ID provider supports group attributes, you can configure
+access for groups by supplying the name of the group in the `pachctl auth set`
+command. The following example grants owner access to the `edges` repository
+to the `Everyone` group:
 
-![Unlocked edges repo](images/saml_dag_images_and_edges_readable.png)
+   ```bash
+   (admin)$ pachctl auth set group/saml:Everyone owner edges
+   ```
 
-Also, becase `msteffen@pachyderm.io` has OWNER provileges in the `edges` repo
-(via the Everyone group), the ACL for `edges` can be edited.
-`msteffen@pachyderm.io` will use OWNER privileges gained via the Everyone group
-to add `msteffen@pachyderm.io` (the user principal) directly to that ACL:
+   The edges repo is now unlocked:
 
-![Adding user to ACL image](images/saml_editing_acl.png)
+   ![Unlocked edges repo](images/saml_dag_images_and_edges_readable.png)
 
-this change is reflected in the CLI as well:
-```
-(admin)$ pachctl auth get edges
-pipeline:edges: WRITER
-pipeline:montage: READER
-group/saml:Everyone: OWNER
-saml:msteffen@pachyderm.io: READER
-robot:admin: OWNER
-```
+   Because `msteffen@pachyderm.io` has `OWNER` privileges in the `edges` repo
+   through the `Everyone` group, they can modify the ACL for `edges`.
+   `msteffen@pachyderm.io` can use `OWNER` privileges in the `Everyone` group
+   to add themselves directly to `edges` ACL:
 
-## Conclusion
+   ![Adding user to the ACL image](images/saml_editing_acl.png)
 
-This is just an example of Pachyderm's auth system, meant to illustrate the
-general nature of available features. Hopefully, it clarifies whether Pachyderm
-can meet your requirements.
+   To view this change in the CLI, run the following command:
+
+   ```
+   (admin)$ pachctl auth get edges
+   pipeline:edges: WRITER
+   pipeline:montage: READER
+   group/saml:Everyone: OWNER
+   saml:msteffen@pachyderm.io: READER
+   robot:admin: OWNER
+   ```
