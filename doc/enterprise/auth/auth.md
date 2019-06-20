@@ -10,10 +10,24 @@ additions, deletions, or modifications of data into the repo.
 - `OWNERs` - users with READER and WRITER access who can also
 modify the repo's ACL.
 
-Currently, Pachyderm accounts correspond to GitHub users, who
-authenticate to Pachyderm by using OAuth integration with
-GitHub. Pachyderm user accounts are identified within
-Pachyderm by using their GitHub usernames.
+Pachyderm defines the following user account types:
+
+* **GitHub user** is a user account that is associated with
+a GitHub account and logs in through the GitHub OAuth flow. If you do not
+use any third-party identity provider, you use this option. When a user tries
+to log in with a GitHub account, the system verifies the identity and
+sends a Pachyderm token for that account.
+* **Robot user** is a user account that logs by using a pach-generated authentication
+token. Typically, you create a user in simplified workflow scenarios, such
+as initial SAML configuration.
+* **Pipeline** is a user account that Pachyderm creates for your
+data pipelines. Pipelines inherit access control from its creator.
+* **SAML user** is a user account that is associated with a Security Assertion
+Markup Language (SAML) identity provider, such as Okta.
+When a user tries to log in through a SAML ID provider, the system
+confirms the identity, associates
+that identity with a SAML identity provider account, and responds with
+the SAML identity provider token for that user.
 
 By default, Pachyderm defines one hardcoded group called `admin`.
 Users in the `admin` group can perform any
@@ -90,7 +104,7 @@ in [this section](#activating-access-controls-with-the-dashboard).
 
 To log in to the dashboard, complete the following steps:
 
-1. To log in, click the **Get GitHub token** button. If you
+1. Click the **Get GitHub token** button. If you
 have not previously authorized Pachyderm on GitHub, an option
 to **Authorize Pachyderm** appears. After you authorize
 Pachyderm, a Pachyderm user token appears:
@@ -182,14 +196,21 @@ the users easily one by one:
 
 In Pachyderm, you do not explicitly set the scope of access
 for users on pipelines. Instead, pipelines infer access from
-the repositories that are input to the pipeline, as follows:
+the repositories that are input to the pipeline. Pipelines
+read their inputs and write their outputs. A user can
+give a pipeline the same access rights as he has themselves.
 
 - An `OWNER`, `WRITER`, or `READER` of a repo can subscribe a
 pipeline to that repo.
-- When a user subscribes a pipeline to a repo, they are
-set as an `OWNER` of that pipeline's output repo.
-- The initial `OWNER` of a pipeline's output repo, or an admin,
-needs to set the scope of access for other users to that output repo.
+- When a user subscribes a pipeline to a repo, Pachyderm sets
+that user as an `OWNER` of that pipeline's output repo.
+- If additional users need access to the output repository,
+the initial `OWNER` of a pipeline's output repo, or an admin,
+needs to configure these access rules.
+- To update a pipeline, you must have `WRITER` access to the
+pipeline's output repos and `READER` access to the
+pipeline's input repos.
+
 
 ## Manage the Activation Code
 
