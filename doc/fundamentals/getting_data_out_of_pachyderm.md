@@ -58,7 +58,7 @@ In addition to getting data out of Pachyderm by using
 to your [pipeline specification](../reference/pipeline_spec.html).
 `egress` enables you to push the results of a pipeline to an
 external datastore such as Amazon S3, Google Cloud Storage, or
-Azure Blob Storage. After the user code has finished running but
+Azure Blob Storage. After the user code has finished running, but
 before the job is marked as successful, Pachyderm pushes the data
 to the specified destination.
 
@@ -75,25 +75,38 @@ corresponding storage:
   <tr>
     <th class="tg-0pky">Cloud Platform</th>
     <th class="tg-0pky">Protocol</th>
-    <th class="tg-0pky">Example</th>
+    <th class="tg-0pky">Description</th>
+    <th class="tg-0pky">Syntax</th>
   </tr>
   <tr>
     <td class="tg-0pky">Google Cloud Storage</td>
     <td class="tg-0pky"><code>gs://</code></td>
-    <td class="tg-0pky"><code>gs://gs-bucket/file </code></td>
+    <td class="tg-0pky">GCP uses the utility called <code>gsutil</code> to access GCP storage resources from a CLI. This utility uses the <gs://> prefix to access those resources.</td>
+    <td class="tg-0pky"><code>gs://gs-bucket/gs-dir </code></td>
   </tr>
   <tr>
     <td class="tg-0pky">Amazon S3</td>
     <td class="tg-0pky"><code>s3://</code></td>
-    <td class="tg-0pky"><code>s3://s3-endpoint/s3-bucket/s3-dir/file </code></td>
+    <td class="tg-0pky">The Amazon S3 storage protocol requires you to specify an <code>s3://</code> prefix before the address of an Amazon resource. A valid address must include an endpoint and a bucket, and, optionally, a directory in your Amazon storage.</td>
+    <td class="tg-0pky"><code>s3://s3-endpoint/s3-bucket/s3-dir </code></td>
   </tr>
   <tr>
     <td class="tg-0pky">Azure Blob Storage</td>
     <td class="tg-0pky"><code>wasb://</code></td>
-    <td class="tg-0pky"><code>wasb://default-container@storage-account/az-dir/file </code></td>
+    <td class="tg-0pky">Windows Azure Storage Blob (WASB) is the default Azure filesystem that outputs your data through HDInsight. To output your data to Azure Blob Storage, use the <code>wasb://</code> prefix, the container name, and your storage account in the path to your directory.</td>
+    <td class="tg-0pky"><code>wasb://default-container@storage-account/az-dir </code></td>
   </tr>
 </table>
 <br>
+
+**Example:**
+
+```bash
+ "output_branch": string,
+  "egress": {
+    "URL": "s3://bucket/dir"
+  },
+```
 
 ## Other ways to view, interact with, or export data in Pachyderm
 

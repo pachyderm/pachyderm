@@ -587,6 +587,8 @@ store such as s3, Google Cloud Storage or Azure Storage. Data will be pushed
 after the user code has finished running but before the job is marked as
 successful.
 
+For more information, see [Exporting Data by using egress](../fundamentals/getting_data_out_of_pachyderm.html#exporting-data-by-using-egress)
+
 ### Standby (optional)
 
 `standby` indicates that the pipeline should be put into "standby" when there's
