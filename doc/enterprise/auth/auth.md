@@ -10,7 +10,7 @@ additions, deletions, or modifications of data into the repo.
 - `OWNERs` - users with READER and WRITER access who can also
 modify the repo's ACL.
 
-Pachyderm defines the following user account types:
+Pachyderm defines the following account types:
 
 * **GitHub user** is a user account that is associated with
 a GitHub account and logs in through the GitHub OAuth flow. If you do not
@@ -20,7 +20,7 @@ sends a Pachyderm token for that account.
 * **Robot user** is a user account that logs by using a pach-generated authentication
 token. Typically, you create a user in simplified workflow scenarios, such
 as initial SAML configuration.
-* **Pipeline** is a user account that Pachyderm creates for your
+* **Pipeline** is an account that Pachyderm creates for
 data pipelines. Pipelines inherit access control from its creator.
 * **SAML user** is a user account that is associated with a Security Assertion
 Markup Language (SAML) identity provider, such as Okta.
