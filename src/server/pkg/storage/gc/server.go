@@ -2,7 +2,6 @@ package gc
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"sort"
 	"sync"
@@ -71,6 +70,7 @@ func MakeServer(deleter Deleter, host string, port uint16, registry prometheus.R
 	}
 
 	// TODO: determine reasonable values for this
+	db.LogMode(false)
 	db.DB().SetMaxOpenConns(3)
 	db.DB().SetMaxIdleConns(2)
 	return &serverImpl{
@@ -83,45 +83,61 @@ func MakeServer(deleter Deleter, host string, port uint16, registry prometheus.R
 func (si *serverImpl) markChunksDeleting(ctx context.Context, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
 	chunkIds := []string{}
 	for _, chunk := range chunks {
-		chunkIds = append(chunkIds, fmt.Sprintf("'%s'", chunk.Hash))
+		chunkIds = append(chunkIds, chunk.Hash)
 	}
 	sort.Strings(chunkIds)
 
-	for {
-		// TODO: wrap with retriable error check
-		txn := si.db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
-		if txn.Error != nil {
-			return nil, txn.Error
-		}
+	result := []chunkModel{}
+	statements := []stmtCallback{
+		func(txn *gorm.DB) *gorm.DB {
+			refQuery := txn.Table(refTable).Select("distinct chunk").Where("chunk in (?)", chunkIds).QueryExpr()
 
-		refQuery := txn.Table(refTable).Select("distinct chunk").Where("chunk in (?)", chunkIds).QueryExpr()
-
-		txn.Table(chunkTable).Where("chunk in (?)", chunkIds).Where("chunk not in (?)", refQuery).Update("deleting", gorm.Expr("now()"))
-		if txn.Error != nil {
-			return nil, txn.Error
-		}
-
-		result := []chunkModel{}
-		txn.Where("chunk in (?)", chunkIds).Find(&result)
-		if txn.Error != nil {
-			return nil, txn.Error
-		}
-
-		if err := txn.Commit().Error; err != nil {
-			return nil, txn.Error
-		}
-		return convertChunks(result), nil
+			return txn.Raw(`
+update chunks set deleting = now()
+where chunk in (?) and chunk not in (?)
+returning chunk`, chunkIds, refQuery).Scan(&result)
+		},
 	}
+
+	if err := runTransaction(si.db, ctx, statements, markChunksDeletingStats); err != nil {
+		return nil, err
+	}
+	return convertChunks(result), nil
 }
 
-func (si *serverImpl) removeChunkRows(ctx context.Context, chunks []chunk.Chunk) error {
+func (si *serverImpl) removeChunkRows(ctx context.Context, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
 	chunkIds := []string{}
 	for _, chunk := range chunks {
-		chunkIds = append(chunkIds, fmt.Sprintf("'%s'", chunk.Hash))
+		chunkIds = append(chunkIds, chunk.Hash)
 	}
 	sort.Strings(chunkIds)
 
-	return si.db.Where("chunk in (?)", chunkIds).Where("deleting is not null").Delete(&chunkModel{}).Error
+	// TODO: remove refs from these chunks to others, start a new delete process
+	result := []chunkModel{}
+	statements := []stmtCallback{
+		func(txn *gorm.DB) *gorm.DB {
+
+			return txn.Raw(`
+with del_chunks as (
+	delete from chunks
+	where chunk in (?) and deleting is not null
+	returning chunk
+), del_refs as (
+	delete from refs using del_chunks
+	where refs.sourcetype = 'chunk' and refs.source = del_chunks.chunk
+	returning refs.chunk
+), counts as (
+  select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1 order by 1
+)
+
+select chunk from counts where count = 0`, chunkIds).Scan(&result)
+		},
+	}
+
+	if err := runTransaction(si.db, ctx, statements, removeChunkRowsStats); err != nil {
+		return nil, err
+	}
+	return convertChunks(result), nil
 }
 
 func retry(name string, maxAttempts int, fn func() error) {
@@ -136,7 +152,7 @@ func retry(name string, maxAttempts int, fn func() error) {
 }
 
 func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
-	defer func(start time.Time) { applyRequestMetrics("DeleteChunks", retErr, start) }(time.Now())
+	defer func(start time.Time) { applyRequestStats("DeleteChunks", retErr, start) }(time.Now())
 	// Spawn goroutine to do this all async
 	go func() {
 		trigger := newTrigger()
@@ -163,7 +179,7 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 		// set the chunks as deleting
 		toDelete := []chunk.Chunk{}
 		retry("markChunksDeleting", 10, func() (retErr error) {
-			defer func(start time.Time) { applySqlMetrics("markChunksDeleting", retErr, start) }(time.Now())
+			defer func(start time.Time) { applySqlStats("markChunksDeleting", retErr, start) }(time.Now())
 			var err error
 			toDelete, err = si.markChunksDeleting(context.Background(), candidates)
 			return err
@@ -172,15 +188,23 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 		if len(toDelete) > 0 {
 			// delete objects from object storage
 			retry("deleter.Delete", 10, func() (retErr error) {
-				defer func(start time.Time) { applyDeleteMetrics(retErr, start) }(time.Now())
+				defer func(start time.Time) { applyDeleteStats(retErr, start) }(time.Now())
 				return si.deleter.Delete(context.Background(), toDelete)
 			})
 
 			// delete the rows from the db
+			transitiveDeletes := []chunk.Chunk{}
 			retry("removeChunkRows", 10, func() (retErr error) {
-				defer func(start time.Time) { applySqlMetrics("removeChunkRows", retErr, start) }(time.Now())
-				return si.removeChunkRows(context.Background(), toDelete)
+				defer func(start time.Time) { applySqlStats("removeChunkRows", retErr, start) }(time.Now())
+				var err error
+				transitiveDeletes, err = si.removeChunkRows(context.Background(), toDelete)
+				return err
 			})
+
+			// Pass transitive deletes to a new RPC
+			if len(transitiveDeletes) > 0 {
+				si.DeleteChunks(context.Background(), transitiveDeletes)
+			}
 		}
 
 		func() {
@@ -198,7 +222,7 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 }
 
 func (si *serverImpl) FlushDeletes(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
-	defer func(start time.Time) { applyRequestMetrics("FlushDeletes", retErr, start) }(time.Now())
+	defer func(start time.Time) { applyRequestStats("FlushDeletes", retErr, start) }(time.Now())
 
 	triggers := func() []*trigger {
 		si.mutex.Lock()

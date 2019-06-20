@@ -1,6 +1,7 @@
 package gc
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
@@ -85,44 +86,69 @@ func isRetriableError(err error) bool {
 	return false
 }
 
-func applyRequestMetrics(request string, err error, start time.Time) {
-	var result string
-	switch err {
-	//TODO: add more resolution here
-	case nil:
-		result = "success"
-	default:
-		result = "error"
-	}
-	requestResults.WithLabelValues(request, result).Inc()
-	requestTime.WithLabelValues(request).Observe(float64(time.Since(start).Seconds()))
+// stats callbacks for use with runTransaction
+func markChunksDeletingStats(err error, start time.Time) {
+	applySqlStats("markChunksDeleting", err, start)
+}
+func removeChunkRowsStats(err error, start time.Time) {
+	applySqlStats("removeChunkRows", err, start)
+}
+func reserveChunksStats(err error, start time.Time) {
+	applySqlStats("reserveChunks", err, start)
+}
+func updateReferencesStats(err error, start time.Time) {
+	applySqlStats("updateReferences", err, start)
 }
 
-// TODO: include time spent in sql
-func applySqlMetrics(operation string, err error, start time.Time) {
-	var result string
-	switch x := err.(type) {
-	case nil:
-		result = "success"
-	case *pq.Error:
-		result = x.Code.Name()
-	default:
-		result = "unknown"
+type stmtCallback func(*gorm.DB) *gorm.DB
+
+func runTransaction(
+	db *gorm.DB,
+	ctx context.Context,
+	statements []stmtCallback,
+	statsCallback func(error, time.Time),
+) error {
+	for {
+		start := time.Now()
+		err := tryTransaction(db, ctx, statements)
+		statsCallback(err, start)
+		if err == nil {
+			return nil
+		} else if !isRetriableError(err) {
+			return err
+		}
 	}
-	sqlResults.WithLabelValues(operation, result).Inc()
-	sqlTime.WithLabelValues(operation).Observe(float64(time.Since(start).Seconds()))
 }
 
-func applyDeleteMetrics(err error, start time.Time) {
-	var result string
-	switch x := err.(type) {
-	case nil:
-		result = "success"
-	case *pq.Error:
-		result = x.Code.Name()
-	default:
-		result = "unknown"
+func tryTransaction(
+	db *gorm.DB,
+	ctx context.Context,
+	statements []stmtCallback,
+) error {
+	txn := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})
+
+	// So we don't leak in case of a panic somewhere unexpected
+	defer func() {
+		if r := recover(); r != nil {
+			txn.Rollback()
+		}
+	}()
+
+	if err := txn.Error; err != nil {
+		return err
 	}
-	deleteResults.WithLabelValues(result).Inc()
-	deleteTime.Observe(float64(time.Since(start).Seconds()))
+
+	for _, stmt := range statements {
+		if err := stmt(txn).Error; err != nil {
+			txn.Rollback()
+			return err
+		}
+	}
+
+	if err := txn.Commit().Error; err != nil {
+		txn.Rollback()
+		return err
+	}
+
+	return nil
 }

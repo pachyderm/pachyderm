@@ -2,7 +2,9 @@ package gc
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -116,4 +118,45 @@ func initPrometheus(registry prometheus.Registerer) {
 			}
 		}
 	}
+}
+
+func applyRequestStats(request string, err error, start time.Time) {
+	var result string
+	switch err {
+	//TODO: add more resolution here
+	case nil:
+		result = "success"
+	default:
+		result = "error"
+	}
+	requestResults.WithLabelValues(request, result).Inc()
+	requestTime.WithLabelValues(request).Observe(float64(time.Since(start).Seconds()))
+}
+
+func applySqlStats(operation string, err error, start time.Time) {
+	var result string
+	switch x := err.(type) {
+	case nil:
+		result = "success"
+	case *pq.Error:
+		result = x.Code.Name()
+	default:
+		fmt.Printf("SQL error in %s: %v\n", operation, err)
+		result = "unknown"
+	}
+	sqlResults.WithLabelValues(operation, result).Inc()
+	sqlTime.WithLabelValues(operation).Observe(float64(time.Since(start).Seconds()))
+}
+
+func applyDeleteStats(err error, start time.Time) {
+	var result string
+	switch err {
+	// TODO: add more resolution here
+	case nil:
+		result = "success"
+	default:
+		result = "unknown"
+	}
+	deleteResults.WithLabelValues(result).Inc()
+	deleteTime.Observe(float64(time.Since(start).Seconds()))
 }

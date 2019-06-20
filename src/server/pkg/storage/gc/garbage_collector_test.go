@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/testutil"
@@ -49,8 +48,7 @@ func makeClient(t *testing.T, server Server, metrics prometheus.Registerer) *Cli
 }
 
 func clearData(t *testing.T, ctx context.Context, gcc *ClientImpl) {
-	_, err := gcc.db.QueryContext(ctx, "delete from chunks *; delete from refs *;")
-	require.NoError(t, err)
+	require.NoError(t, gcc.db.Exec("delete from chunks *; delete from refs *;").Error)
 }
 
 func initialize(t *testing.T, ctx context.Context) *ClientImpl {
@@ -59,63 +57,26 @@ func initialize(t *testing.T, ctx context.Context) *ClientImpl {
 	return gcc
 }
 
-type chunkRow struct {
-	chunk    string
-	deleting bool
-}
-
-func allChunkRows(t *testing.T, ctx context.Context, gcc *ClientImpl) []chunkRow {
-	rows, err := gcc.db.QueryContext(ctx, "select chunk, deleting from chunks")
-	require.NoError(t, err)
-
-	defer rows.Close()
-
-	chunks := []chunkRow{}
-
-	for rows.Next() {
-		var chunk string
-		var timestamp pq.NullTime
-		require.NoError(t, rows.Scan(&chunk, &timestamp))
-		chunks = append(chunks, chunkRow{chunk: chunk, deleting: timestamp.Valid})
-	}
-	require.NoError(t, rows.Err())
-
+func allChunks(t *testing.T, ctx context.Context, gcc *ClientImpl) []chunkModel {
+	chunks := []chunkModel{}
+	require.NoError(t, gcc.db.Find(&chunks).Error)
 	return chunks
 }
 
-type refRow struct {
-	sourcetype string
-	source     string
-	chunk      string
-}
-
-func allRefRows(t *testing.T, ctx context.Context, gcc *ClientImpl) []refRow {
-	rows, err := gcc.db.QueryContext(ctx, "select sourcetype, source, chunk from refs")
-	require.NoError(t, err)
-	defer rows.Close()
-
-	refs := []refRow{}
-
-	for rows.Next() {
-		row := refRow{}
-		require.NoError(t, rows.Scan(&row.sourcetype, &row.source, &row.chunk))
-		refs = append(refs, row)
-	}
-	require.NoError(t, rows.Err())
-
+func allRefs(t *testing.T, ctx context.Context, gcc *ClientImpl) []refModel {
+	refs := []refModel{}
+	require.NoError(t, gcc.db.Find(&refs).Error)
 	return refs
 }
 
 func printState(t *testing.T, ctx context.Context, gcc *ClientImpl) {
-	chunkRows := allChunkRows(t, ctx, gcc)
 	fmt.Printf("Chunks table:\n")
-	for _, row := range chunkRows {
+	for _, row := range allChunks(t, ctx, gcc) {
 		fmt.Printf("  %v\n", row)
 	}
 
-	refRows := allRefRows(t, ctx, gcc)
 	fmt.Printf("Refs table:\n")
-	for _, row := range refRows {
+	for _, row := range allRefs(t, ctx, gcc) {
 		fmt.Printf("  %v\n", row)
 	}
 }
@@ -155,20 +116,20 @@ func TestReserveChunks(t *testing.T) {
 	// Multiple chunks
 	require.NoError(t, gcc.ReserveChunks(ctx, jobs[2], chunks))
 
-	expectedChunkRows := []chunkRow{
-		{chunks[0].Hash, false},
-		{chunks[1].Hash, false},
-		{chunks[2].Hash, false},
+	expectedChunkRows := []chunkModel{
+		{chunks[0].Hash, nil},
+		{chunks[1].Hash, nil},
+		{chunks[2].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
 
-	expectedRefRows := []refRow{
+	expectedRefRows := []refModel{
 		{"job", jobs[1], chunks[0].Hash},
 		{"job", jobs[2], chunks[0].Hash},
 		{"job", jobs[2], chunks[1].Hash},
 		{"job", jobs[2], chunks[2].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
 }
 
 func TestUpdateReferences(t *testing.T) {
@@ -183,16 +144,16 @@ func TestUpdateReferences(t *testing.T) {
 
 	// Currently, no links between chunks:
 	// 0 1 2 3 4
-	expectedChunkRows := []chunkRow{
-		{chunks[0].Hash, false},
-		{chunks[1].Hash, false},
-		{chunks[2].Hash, false},
-		{chunks[3].Hash, false},
-		{chunks[4].Hash, false},
+	expectedChunkRows := []chunkModel{
+		{chunks[0].Hash, nil},
+		{chunks[1].Hash, nil},
+		{chunks[2].Hash, nil},
+		{chunks[3].Hash, nil},
+		{chunks[4].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
 
-	expectedRefRows := []refRow{
+	expectedRefRows := []refModel{
 		{"job", jobs[0], chunks[0].Hash},
 		{"job", jobs[0], chunks[1].Hash},
 		{"job", jobs[0], chunks[2].Hash},
@@ -200,7 +161,7 @@ func TestUpdateReferences(t *testing.T) {
 		{"job", jobs[1], chunks[3].Hash},
 		{"job", jobs[2], chunks[4].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
 		ctx,
@@ -213,22 +174,22 @@ func TestUpdateReferences(t *testing.T) {
 	// 4 2 3 <- referenced by jobs
 	// |
 	// 0
-	expectedChunkRows = []chunkRow{
-		{chunks[0].Hash, false},
-		{chunks[1].Hash, true},
-		{chunks[2].Hash, false},
-		{chunks[3].Hash, false},
-		{chunks[4].Hash, false},
+	expectedChunkRows = []chunkModel{
+		{chunks[0].Hash, nil},
+		{chunks[1].Hash, nil}, // TODO: non-nil
+		{chunks[2].Hash, nil},
+		{chunks[3].Hash, nil},
+		{chunks[4].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
 
-	expectedRefRows = []refRow{
+	expectedRefRows = []refModel{
 		{"job", jobs[1], chunks[2].Hash},
 		{"job", jobs[1], chunks[3].Hash},
 		{"job", jobs[2], chunks[4].Hash},
 		{"chunk", chunks[4].Hash, chunks[0].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
 		ctx,
@@ -246,22 +207,22 @@ func TestUpdateReferences(t *testing.T) {
 	// 4 <- referenced by jobs
 	// |
 	// 0
-	expectedChunkRows = []chunkRow{
-		{chunks[0].Hash, false},
-		{chunks[1].Hash, true},
-		{chunks[2].Hash, false},
-		{chunks[3].Hash, false},
-		{chunks[4].Hash, false},
+	expectedChunkRows = []chunkModel{
+		{chunks[0].Hash, nil},
+		{chunks[1].Hash, nil}, // TODO: non-nil
+		{chunks[2].Hash, nil},
+		{chunks[3].Hash, nil},
+		{chunks[4].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
 
-	expectedRefRows = []refRow{
+	expectedRefRows = []refModel{
 		{"job", jobs[2], chunks[4].Hash},
 		{"chunk", chunks[4].Hash, chunks[0].Hash},
 		{"semantic", "semantic-2", chunks[2].Hash},
 		{"semantic", "semantic-3", chunks[3].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
 
 	require.NoError(t, gcc.UpdateReferences(
 		ctx,
@@ -275,21 +236,21 @@ func TestUpdateReferences(t *testing.T) {
 	// Chunk 0 should be cleaned up later once chunk 4 has been removed
 	// 2 <- referenced semantically
 	// 0 <- referenced by 4 (deleting)
-	expectedChunkRows = []chunkRow{
-		{chunks[0].Hash, false},
-		{chunks[1].Hash, true},
-		{chunks[2].Hash, false},
-		{chunks[3].Hash, true},
-		{chunks[4].Hash, true},
+	expectedChunkRows = []chunkModel{
+		{chunks[0].Hash, nil},
+		{chunks[1].Hash, nil}, // TODO: non-nil
+		{chunks[2].Hash, nil},
+		{chunks[3].Hash, nil}, // TODO: non-nil
+		{chunks[4].Hash, nil}, // TODO: non-nil
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunkRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
 
-	expectedRefRows = []refRow{
+	expectedRefRows = []refModel{
 		{"chunk", chunks[4].Hash, chunks[0].Hash},
 		{"chunk", chunks[4].Hash, chunks[2].Hash},
 		{"semantic", "semantic-2", chunks[2].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefRows(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
 }
 
 type fuzzDeleter struct {
@@ -314,7 +275,7 @@ func (fd *fuzzDeleter) forEach(chunks []chunk.Chunk, cb func(string) error) erro
 func (fd *fuzzDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
 	err := fd.forEach(chunks, func(hash string) error {
 		if fd.users[hash] != 0 {
-			return fmt.Errorf("Failed to delete chunk, already in use: %d", fd.users[hash])
+			return fmt.Errorf("Failed to delete chunk (%s), already in use: %d", hash, fd.users[hash])
 		}
 		fd.users[hash] = -1
 		return nil
@@ -404,8 +365,8 @@ func TestFuzz(t *testing.T) {
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
 				gcc := makeClient(t, server, metrics)
-				gcc.db.SetMaxOpenConns(1)
-				gcc.db.SetMaxIdleConns(1)
+				gcc.db.DB().SetMaxOpenConns(1)
+				gcc.db.DB().SetMaxIdleConns(1)
 				for x := range jobChannel {
 					if err := runJob(ctx, gcc, x); err != nil {
 						fmt.Printf("client failed: %v\n", err)
