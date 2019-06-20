@@ -154,33 +154,33 @@ func retry(name string, maxAttempts int, fn func() error) {
 
 func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
 	defer func(start time.Time) { applyRequestStats("DeleteChunks", retErr, start) }(time.Now())
-	// Spawn goroutine to do this all async
-	go func() {
-		trigger := newTrigger()
 
-		// Check if we have outstanding deletes for these chunks and save the trigger
-		candidates := func() []chunk.Chunk {
-			si.mutex.Lock()
-			defer si.mutex.Unlock()
+	trigger := newTrigger()
 
-			result := []chunk.Chunk{}
-			for _, c := range chunks {
-				if _, ok := si.deleting[c.Hash]; !ok {
-					si.deleting[c.Hash] = trigger
-					result = append(result, c)
-				}
+	// Check if we have outstanding deletes for these chunks and save the trigger
+	candidates := func() []chunk.Chunk {
+		si.mutex.Lock()
+		defer si.mutex.Unlock()
+
+		result := []chunk.Chunk{}
+		for _, c := range chunks {
+			if _, ok := si.deleting[c.Hash]; !ok {
+				si.deleting[c.Hash] = trigger
+				result = append(result, c)
 			}
-			return result
-		}()
-
-		if len(candidates) == 0 {
-			return
 		}
+		return result
+	}()
 
+	if len(candidates) == 0 {
+		return
+	}
+
+	// Spawn goroutine to do all the remote calls async
+	go func() {
 		// set the chunks as deleting
 		toDelete := []chunk.Chunk{}
 		retry("markChunksDeleting", 10, func() (retErr error) {
-			defer func(start time.Time) { applySqlStats("markChunksDeleting", retErr, start) }(time.Now())
 			var err error
 			toDelete, err = si.markChunksDeleting(context.Background(), candidates)
 			return err
@@ -196,7 +196,6 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 			// delete the rows from the db
 			transitiveDeletes := []chunk.Chunk{}
 			retry("removeChunkRows", 10, func() (retErr error) {
-				defer func(start time.Time) { applySqlStats("removeChunkRows", retErr, start) }(time.Now())
 				var err error
 				transitiveDeletes, err = si.removeChunkRows(context.Background(), toDelete)
 				return err
@@ -211,8 +210,8 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 		func() {
 			si.mutex.Lock()
 			defer si.mutex.Unlock()
-			for _, chunk := range chunks {
-				delete(si.deleting, chunk.Hash)
+			for _, c := range candidates {
+				delete(si.deleting, c.Hash)
 			}
 		}()
 

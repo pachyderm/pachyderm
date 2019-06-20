@@ -138,6 +138,11 @@ func TestUpdateReferences(t *testing.T) {
 	jobs := makeJobs(3)
 	chunks := makeChunks(5)
 
+	// deletes are handled asynchronously on the server, flush everything to avoid race conditions
+	flush := func() {
+		require.NoError(t, gcc.server.FlushDeletes(ctx, chunks))
+	}
+
 	require.NoError(t, gcc.ReserveChunks(ctx, jobs[0], chunks[0:3])) // 0, 1, 2
 	require.NoError(t, gcc.ReserveChunks(ctx, jobs[1], chunks[2:4])) // 2, 3
 	require.NoError(t, gcc.ReserveChunks(ctx, jobs[2], chunks[4:5])) // 4
@@ -169,6 +174,7 @@ func TestUpdateReferences(t *testing.T) {
 		[]Reference{},
 		jobs[0],
 	))
+	flush()
 
 	// Chunk 1 should be cleaned up as unreferenced
 	// 4 2 3 <- referenced by jobs
@@ -176,7 +182,6 @@ func TestUpdateReferences(t *testing.T) {
 	// 0
 	expectedChunkRows = []chunkModel{
 		{chunks[0].Hash, nil},
-		{chunks[1].Hash, nil}, // TODO: non-nil
 		{chunks[2].Hash, nil},
 		{chunks[3].Hash, nil},
 		{chunks[4].Hash, nil},
@@ -200,6 +205,7 @@ func TestUpdateReferences(t *testing.T) {
 		[]Reference{},
 		jobs[1],
 	))
+	flush()
 
 	// No chunks should be cleaned up, the job reference to 2 and 3 were replaced
 	// with semantic references
@@ -209,7 +215,6 @@ func TestUpdateReferences(t *testing.T) {
 	// 0
 	expectedChunkRows = []chunkModel{
 		{chunks[0].Hash, nil},
-		{chunks[1].Hash, nil}, // TODO: non-nil
 		{chunks[2].Hash, nil},
 		{chunks[3].Hash, nil},
 		{chunks[4].Hash, nil},
@@ -231,23 +236,21 @@ func TestUpdateReferences(t *testing.T) {
 		jobs[2],
 	))
 
+	// We do two flushes because this update does a transitive delete and we
+	// don't want this test to be flaky by landing on an intermediary state
+	flush()
+	flush()
+
 	// Chunk 3 should be cleaned up as the semantic reference was removed
 	// Chunk 4 should be cleaned up as the job reference was removed
 	// Chunk 0 should be cleaned up later once chunk 4 has been removed
 	// 2 <- referenced semantically
-	// 0 <- referenced by 4 (deleting)
 	expectedChunkRows = []chunkModel{
-		{chunks[0].Hash, nil},
-		{chunks[1].Hash, nil}, // TODO: non-nil
 		{chunks[2].Hash, nil},
-		{chunks[3].Hash, nil}, // TODO: non-nil
-		{chunks[4].Hash, nil}, // TODO: non-nil
 	}
 	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
 
 	expectedRefRows = []refModel{
-		{"chunk", chunks[4].Hash, chunks[0].Hash},
-		{"chunk", chunks[4].Hash, chunks[2].Hash},
 		{"semantic", "semantic-2", chunks[2].Hash},
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))

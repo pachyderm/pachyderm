@@ -60,7 +60,7 @@ func (gcc *ClientImpl) reserveChunksInDatabase(ctx context.Context, job string, 
 	}
 	sort.Strings(chunkIds)
 
-	var chunksToFlush []chunk.Chunk
+	var chunksToFlush []chunkModel
 	statements := []stmtCallback{
 		func(txn *gorm.DB) *gorm.DB {
 			return txn.Exec("set local synchronous_commit = off;")
@@ -91,7 +91,7 @@ select chunk from added_chunks where deleting is not null;
 		return nil, err
 	}
 
-	return chunksToFlush, nil
+	return convertChunks(chunksToFlush), nil
 }
 
 func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) (retErr error) {
@@ -129,11 +129,11 @@ func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, re
 		addValues = append(addValues, []interface{}{ref.sourcetype, ref.source, ref.chunk.Hash})
 	}
 
-	var chunksToDelete []chunk.Chunk
+	var chunksToDelete []chunkModel
 	statements := []stmtCallback{
 		func(txn *gorm.DB) *gorm.DB {
 			if len(addValues) > 0 {
-				return txn.Raw(`
+				return txn.Exec(`
 insert into refs (sourcetype, source, chunk) values ?
 on conflict do nothing
 				`, addValues)
@@ -175,7 +175,7 @@ select chunk from counts where count = 0
 	}
 
 	if len(chunksToDelete) > 0 {
-		if err := gcc.server.DeleteChunks(ctx, chunksToDelete); err != nil {
+		if err := gcc.server.DeleteChunks(ctx, convertChunks(chunksToDelete)); err != nil {
 			return err
 		}
 	}

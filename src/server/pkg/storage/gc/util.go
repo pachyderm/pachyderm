@@ -11,57 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 )
 
-/*
-func initializeDb(ctx context.Context, db *sql.DB) error {
-	_, err := db.ExecContext(ctx, `
-do $$ begin
- create type reftype as enum ('chunk', 'job', 'semantic');
-exception
- when duplicate_object then null;
-end $$
-  `)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(ctx, `
-create table if not exists refs (
- sourcetype reftype not null,
- source text not null,
- chunk text not null,
- primary key(sourcetype, source, chunk)
-)`)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(ctx, `
-create table if not exists chunks (
- chunk text primary key,
- deleting timestamp
-)`)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(ctx, `
-create index if not exists idx_chunk on refs (chunk)
-`)
-	if err != nil {
-		return err
-	}
-
-	_, err = db.ExecContext(ctx, `
-create index if not exists idx_sourcetype_source on refs (sourcetype, source)
-`)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-*/
-
 // TODO: connection options
 func openDatabase(host string, port uint16) (*gorm.DB, error) {
 	return gorm.Open("postgres", fmt.Sprintf("host=%s port=%d dbname=pgc user=pachyderm password=elephantastic sslmode=disable", host, port))
