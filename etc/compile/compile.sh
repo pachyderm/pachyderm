@@ -10,7 +10,7 @@ LD_FLAGS="${2}"
 PROFILE="${3}"
 
 mkdir -p _tmp
-CGO_ENABLED=0 GOOS=linux go build \
+CGO_ENABLED=0 GOOS=linux GO111MODULE=on go build \
   -installsuffix netgo \
   -tags netgo \
   -o _tmp/${BINARY} \

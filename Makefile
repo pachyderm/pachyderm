@@ -20,7 +20,8 @@ COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=
 # Label it w the go version we bundle in:
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+# LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
+LD_FLAGS = -X src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 GC_FLAGS = "all=-trimpath=${PWD}"
 export DOCKER_BUILD_FLAGS
 
@@ -81,7 +82,8 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	# GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	GO111MODULE=on go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
@@ -163,11 +165,19 @@ docker-clean-worker:
 	docker stop worker_compile || true
 	docker rm worker_compile || true
 
+# docker-build-worker: docker-clean-worker
+# 	docker run \
+# 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+# 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
+# 		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+
 docker-build-worker: docker-clean-worker
 	docker run \
-		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
+		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+
 
 docker-wait-worker:
 	etc/compile/wait.sh worker_compile
@@ -178,9 +188,16 @@ docker-clean-pachd:
 
 docker-build-pachd: docker-clean-pachd
 	docker run  \
-		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
+		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+
+# docker-build-pachd: docker-clean-pachd
+# 	docker run  \
+# 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+# 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
+# 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-clean-test:
 	docker stop test_compile || true
@@ -783,3 +800,26 @@ goxc-build:
 	goxc-build \
 	launch-test-rethinkdb \
 	clean-launch-test-rethinkdb
+
+
+
+# docker-build-pachd: docker-clean-pachd
+# 	docker run  \
+# 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+# 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
+# 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
+
+# docker-build-worker: docker-clean-worker
+# 	docker run \
+# 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
+# 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
+# 		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
+
+# docker-build-helper: enterprise-code-checkin-test
+# 	@# run these in separate make process so that if
+# 	@# 'enterprise-code-checkin-test' fails, the rest of the build process aborts
+# 	@make docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
+
+# docker-build:
+# 	docker pull $(COMPILE_IMAGE)
+# 	make docker-build-helper

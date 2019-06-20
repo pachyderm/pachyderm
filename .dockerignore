@@ -1,2 +1,4 @@
 *
 !etc/compile/GO_VERSION
+!go.mod
+!go.sum
