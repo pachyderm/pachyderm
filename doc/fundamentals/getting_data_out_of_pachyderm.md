@@ -51,9 +51,49 @@ REPO                ID                                 PARENT                   
 edges               026536b547a44a8daa2db9d25bf88b79   754542b89c1c47a5b657e60381c06c71   3 minutes ago       Less than a second   133.6 KiB
 ```
 
-## Exporting data via `egress`
+## Exporting data by using `egress`
 
-In addition to getting data out of Pachyderm with `pachctl get file`, you can add an optional `egress` field to your [pipeline specification](../reference/pipeline_spec.html).  `egress` allows you to push the results of a Pipeline to an external data store such as S3, Google Cloud Storage or Azure Blob Storage. Data will be pushed after the user code has finished running but before the job is marked as successful.
+In addition to getting data out of Pachyderm by using
+`pachctl get file`, you can add an optional `egress` field
+to your [pipeline specification](../reference/pipeline_spec.html).
+`egress` enables you to push the results of a pipeline to an
+external datastore such as Amazon S3, Google Cloud Storage, or
+Azure Blob Storage. After the user code has finished running but
+before the job is marked as successful, Pachyderm pushes the data
+to the specified destination.
+
+You can specify the following `egress` protocols for the
+corresponding storage:
+
+<style type="text/css">
+.tg  {border-collapse:collapse;border-spacing:0;border-color:#ccc;}
+.tg td{font-family:Arial, sans-serif;font-size:14px;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#fff;}
+.tg th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:10px 5px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#f0f0f0;}
+.tg .tg-0pky{border-color:inherit;text-align:left;vertical-align:top}
+</style>
+<table class="tg">
+  <tr>
+    <th class="tg-0pky">Cloud Platform</th>
+    <th class="tg-0pky">Protocol</th>
+    <th class="tg-0pky">Example</th>
+  </tr>
+  <tr>
+    <td class="tg-0pky">Google Cloud Storage</td>
+    <td class="tg-0pky"><code>gs://</code></td>
+    <td class="tg-0pky"><code>gs://gs-bucket/file </code></td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">Amazon S3</td>
+    <td class="tg-0pky"><code>s3://</code></td>
+    <td class="tg-0pky"><code>s3://s3-endpoint/s3-bucket/s3-dir/file </code></td>
+  </tr>
+  <tr>
+    <td class="tg-0pky">Azure Blob Storage</td>
+    <td class="tg-0pky"><code>wasb://</code></td>
+    <td class="tg-0pky"><code>wasb://default-container@storage-account/az-dir/file </code></td>
+  </tr>
+</table>
+<br>
 
 ## Other ways to view, interact with, or export data in Pachyderm
 
