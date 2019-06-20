@@ -248,7 +248,7 @@ docker-build-gpu:
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
 docker-build-kafka:
-	cp -R src/server/vendor/github.com/segmentio/kafka-go etc/testing/kafka
+	cp -R vendor/github.com/segmentio/kafka-go etc/testing/kafka
 	docker build -t kafka-demo etc/testing/kafka || { rm -r etc/testing/kafka/kafka-go; exit 1; }
 	rm -r etc/testing/kafka/kafka-go
 
