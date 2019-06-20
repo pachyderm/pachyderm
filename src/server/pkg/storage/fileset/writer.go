@@ -73,6 +73,16 @@ func (w *Writer) Write(data []byte) (int, error) {
 	return n, err
 }
 
+func (w *Writer) writeTags(tags []*index.Tag) error {
+	w.hdr.Idx.DataOp.Tags = append(w.hdr.Idx.DataOp.Tags, tags...)
+	var numBytes int64
+	for _, tag := range tags {
+		numBytes += tag.SizeBytes
+	}
+	w.hdr.Idx.SizeBytes += numBytes
+	return w.tw.Skip(numBytes)
+}
+
 // Close closes the writer.
 // (bryce) is not closing the tar writer the right choice here?
 // We cannot include it in the last file's range because it will
