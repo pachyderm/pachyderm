@@ -70,6 +70,7 @@ Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `he
     :caption: Manage Pachyderm
 
     managing_pachyderm/autoscaling
+    managing_pachyderm/Batching_Pachyderm_with_Transactions
     managing_pachyderm/data_management
     managing_pachyderm/sharing_gpu_resources
     managing_pachyderm/backup_restore

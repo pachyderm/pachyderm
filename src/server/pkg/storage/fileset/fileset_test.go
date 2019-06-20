@@ -190,7 +190,7 @@ func TestCopyN(t *testing.T) {
 	testPathCopy := testPath + "Copy"
 	r := fileSets.NewReader(context.Background(), testPath, "")
 	wCopy := fileSets.NewWriter(context.Background(), testPathCopy)
-	for _ = range fileNames {
+	for range fileNames {
 		hdr, err := r.Next()
 		require.NoError(t, err, msg)
 		require.NoError(t, wCopy.WriteHeader(hdr), msg)

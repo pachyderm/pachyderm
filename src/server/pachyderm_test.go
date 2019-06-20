@@ -1,6 +1,7 @@
 package server
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -1971,16 +1972,29 @@ func TestDeletePipeline(t *testing.T) {
 		))
 		time.Sleep(10 * time.Second)
 		// Wait for the pipeline to start running
-		require.NoError(t, backoff.Retry(func() error {
+		require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
+			pipelineInfos, err := c.ListPipeline()
+			if err != nil {
+				return err
+			}
+			// Check number of pipelines
+			names := make([]string, 0, len(pipelineInfos))
+			for _, pi := range pipelineInfos {
+				names = append(names, fmt.Sprintf("(%s, %s)", pi.Pipeline.Name, pi.State))
+			}
+			if len(pipelineInfos) != 2 {
+				return fmt.Errorf("Expected two pipelines, but got: %+v", names)
+			}
+			// make sure second pipeline is running
 			pipelineInfo, err := c.InspectPipeline(pipelines[1])
 			if err != nil {
 				return err
 			}
 			if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
-				return fmt.Errorf("no running pipeline")
+				return fmt.Errorf("no running pipeline (only %+v)", names)
 			}
 			return nil
-		}, backoff.NewTestingBackOff()))
+		})
 	}
 
 	createPipelines()
@@ -2690,6 +2704,71 @@ func TestUpdatePipeline(t *testing.T) {
 	buffer.Reset()
 	require.NoError(t, c.GetFile(pipelineName, "master", "file", 0, 0, &buffer))
 	require.Equal(t, "buzz\n", buffer.String())
+}
+
+// TestManyPipelineUpdate updates a single pipeline several (currently 8) times,
+// and watches the jobs it creates to make sure they start and run successfully.
+// This catches issues with output commit provenance, and any other basic
+// problems with updating pipelines. It's very slow, so it can only be run
+// manually
+func TestManyPipelineUpdate(t *testing.T) {
+	t.Skip(t.Name() + " should only be run manually; it takes ~10m and is too " +
+		"slow for CI")
+
+	testUpdates := func(reprocess bool) func(t *testing.T) {
+		return func(t *testing.T) {
+			c := getPachClient(t)
+			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.GarbageCollect(0))
+
+			dataRepo := tu.UniqueString("input-")
+			require.NoError(t, c.CreateRepo(dataRepo))
+			_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader(fmt.Sprintf("-")))
+			require.NoError(t, err)
+
+			pipeline := "p"
+			count := 8
+			jobsSeen := 0
+			for i := 0; i < count; i++ {
+				fmt.Printf("creating pipeline %d (reprocess: %t)...", i, reprocess)
+				require.NoError(t, c.CreatePipeline(
+					pipeline,
+					"",
+					[]string{"bash"},
+					[]string{fmt.Sprintf("echo %d >/pfs/out/f", i)},
+					&pps.ParallelismSpec{
+						Constant: 1,
+					},
+					client.NewPFSInput(dataRepo, "/*"),
+					"",
+					true,
+				))
+				fmt.Printf("flushing commit...")
+				require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+					iter, err := c.FlushCommit([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+					require.NoError(t, err)
+					_, err = iter.Next()
+					if err != nil {
+						if err == io.EOF {
+							return fmt.Errorf("expected %d commits, but only got %d", jobsSeen+1, i)
+						}
+						return err
+					}
+
+					jis, err := c.ListJob(pipeline, []*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil, 0, false)
+					require.NoError(t, err)
+					if len(jis) < 1 {
+						return fmt.Errorf("expected to see %d jobs, but only saw %d", jobsSeen+1, len(jis))
+					}
+					jobsSeen = len(jis)
+					return nil
+				})
+				fmt.Printf("done\n")
+			}
+		}
+	}
+	t.Run("Reprocess", testUpdates(true))
+	t.Run("NoReprocess", testUpdates(false))
 }
 
 func TestUpdateFailedPipeline(t *testing.T) {
@@ -5061,8 +5140,9 @@ func TestGarbageCollection(t *testing.T) {
 	require.Equal(t, 0, len(originalObjects))
 	require.Equal(t, 0, len(originalTags))
 
-	dataRepo := tu.UniqueString("TestGarbageCollection")
-	pipeline := tu.UniqueString("TestGarbageCollectionPipeline")
+	dataRepo := tu.UniqueString(t.Name())
+	pipeline := tu.UniqueString(t.Name() + "Pipeline")
+	failurePipeline := tu.UniqueString(t.Name() + "FailurePipeline")
 
 	var commit *pfs.Commit
 	var err error
@@ -5077,6 +5157,18 @@ func TestGarbageCollection(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, c.FinishCommit(dataRepo, "master"))
 
+		// This pipeline fails immediately (to test that GC succeeds in the
+		// presence of failed pipelines
+		require.NoError(t, c.CreatePipeline(
+			failurePipeline,
+			"nonexistant-image",
+			[]string{"bash"},
+			[]string{"exit 1"},
+			nil,
+			client.NewPFSInput(dataRepo, "/"),
+			"",
+			false,
+		))
 		// This pipeline copies foo and modifies bar
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
@@ -5107,7 +5199,9 @@ func TestGarbageCollection(t *testing.T) {
 
 	// Now stop the pipeline  and GC
 	require.NoError(t, c.StopPipeline(pipeline))
-	require.NoError(t, backoff.Retry(func() error { return c.GarbageCollect(0) }, backoff.NewTestingBackOff()))
+	require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
+		return c.GarbageCollect(0)
+	})
 
 	// Check that data still exists in the input repo
 	var buf bytes.Buffer
@@ -5119,7 +5213,7 @@ func TestGarbageCollection(t *testing.T) {
 
 	pis, err := c.ListPipeline()
 	require.NoError(t, err)
-	require.Equal(t, 1, len(pis))
+	require.Equal(t, 2, len(pis))
 
 	buf.Reset()
 	require.NoError(t, c.GetFile(pipeline, "master", "foo", 0, 0, &buf))
@@ -5142,20 +5236,31 @@ func TestGarbageCollection(t *testing.T) {
 	objectsBefore = objectsAfter
 	tagsBefore = tagsAfter
 
-	// Now delete the pipeline and GC
+	// Now delete both pipelines and GC
 	require.NoError(t, c.DeletePipeline(pipeline, false))
+	require.NoError(t, c.DeletePipeline(failurePipeline, false))
 	require.NoError(t, c.GarbageCollect(0))
 
-	// We should've deleted one tag since the pipeline has only processed
+	// We should've deleted one tag since the functioning pipeline only processed
 	// one datum.
-	// We should've deleted 3 objects: the object referenced by
-	// the tag, the modified "bar" file and the pipeline's spec.
-	objectsAfter = getAllObjects(t, c)
 	tagsAfter = getAllTags(t, c)
-
 	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
-	require.True(t, len(objectsAfter) < len(objectsBefore))
-	require.Equal(t, 7, len(objectsAfter))
+
+	// We should've deleted 2 objects:
+	// - the hashtree referenced by the tag (datum hashtree)
+	//   - Note that the hashtree for the output commit is the same object as the
+	//     datum hashtree. It contains the same metadata, and b/c hashtrees are
+	//     stored as objects, it's deduped with the datum hashtree
+	//   - The "datums" object attached to 'pipeline's output commit
+	// Note that deleting a pipeline doesn't delete the spec commits
+	objectsAfter = getAllObjects(t, c)
+	require.Equal(t, 2, len(objectsBefore)-len(objectsAfter))
+	// The 9 remaining objects are:
+	// - hashtree for input commit
+	// - object w/ contents of /foo + object w/ contents of /bar
+	// - 6 objects in __spec__:
+	//   (hashtree + /spec file) * (2 'pipeline' commits + 1 'failurePipeline' commit)
+	require.Equal(t, 9, len(objectsAfter))
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
@@ -8564,7 +8669,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	pipeline := tu.UniqueString("TestRapidUpdatePipelines")
+	pipeline := tu.UniqueString(t.Name() + "-pipeline-")
 	cronInput := client.NewCronInput("time", "@every 30s")
 	cronInput.Cron.Overwrite = true
 	require.NoError(t, c.CreatePipeline(
@@ -8577,7 +8682,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		"",
 		false,
 	))
-
+	// TODO(msteffen): remove all sleeps from tests
 	time.Sleep(10 * time.Second)
 
 	for i := 0; i < 20; i++ {
@@ -8595,6 +8700,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 			})
 		require.NoError(t, err)
 	}
+	// TODO ideally this test would not take 5 minutes (or even 3 minutes)
 	require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
 		jis, err := c.ListJob(pipeline, nil, nil, -1, true)
 		if err != nil {
@@ -8603,7 +8709,7 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		if len(jis) < 6 {
 			return fmt.Errorf("should have more than 6 jobs in 5 minutes")
 		}
-		for i := 0; i < 5; i++ {
+		for i := 0; i+1 < len(jis); i++ {
 			difference := jis[i].Started.Seconds - jis[i+1].Started.Seconds
 			if difference < 15 {
 				return fmt.Errorf("jobs too close together")
@@ -9044,6 +9150,93 @@ func TestSpout(t *testing.T) {
 				require.Equal(t, provenanceID, provenance.ID)
 			}
 		}
+	})
+	t.Run("ServiceSpout", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestServiceSpout_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		annotations := map[string]string{"foo": "bar"}
+
+		// Create a pipeline that listens for tcp connections
+		// on internal port 8000 and dumps whatever it receives
+		// (should be in the form of a tar stream) to /pfs/out.
+		pipeline := tu.UniqueString("pipelineservicespout")
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pipeline),
+				Transform: &pps.Transform{
+					Image: "pachyderm/ubuntuplusnetcat:latest",
+					Cmd:   []string{"sh"},
+					Stdin: []string{
+						"netcat -l -s 0.0.0.0 -p 8000 >/pfs/out",
+					},
+				},
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Input:  client.NewPFSInput(dataRepo, "/"),
+				Update: false,
+				Spout: &pps.Spout{
+					Service: &pps.Service{
+						InternalPort: 8000,
+						ExternalPort: 31800,
+						Annotations:  annotations,
+					},
+				},
+			})
+		require.NoError(t, err)
+		time.Sleep(20 * time.Second)
+
+		host, _, err := net.SplitHostPort(c.GetAddress())
+		serviceAddr := net.JoinHostPort(host, "31800")
+
+		// Write a tar stream with a single file to
+		// the tcp connection of the pipeline service's
+		// external port.
+		backoff.Retry(func() error {
+			raddr, err := net.ResolveTCPAddr("tcp", serviceAddr)
+			if err != nil {
+				return err
+			}
+
+			conn, err := net.DialTCP("tcp", nil, raddr)
+			if err != nil {
+				return err
+			}
+			tarwriter := tar.NewWriter(conn)
+			defer tarwriter.Close()
+			headerinfo := &tar.Header{
+				Name: "file1",
+				Size: int64(len("foo")),
+			}
+
+			err = tarwriter.WriteHeader(headerinfo)
+			if err != nil {
+				return err
+			}
+
+			_, err = tarwriter.Write([]byte("foo"))
+			if err != nil {
+				return err
+			}
+			return nil
+		}, backoff.NewTestingBackOff())
+		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		require.NoError(t, err)
+
+		commitInfo, err := iter.Next()
+		require.NoError(t, err)
+		files, err := c.ListFile(pipeline, commitInfo.Commit.ID, "")
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		// Confirm that a commit is made with the file
+		// written to the external port of the pipeline's service.
+		var buf bytes.Buffer
+		err = c.GetFile(pipeline, commitInfo.Commit.ID, files[0].File.Path, 0, 0, &buf)
+		require.NoError(t, err)
+		require.Equal(t, buf.String(), "foo")
 	})
 }
 
