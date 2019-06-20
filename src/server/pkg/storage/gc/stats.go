@@ -133,7 +133,7 @@ func applyRequestStats(request string, err error, start time.Time) {
 	requestTime.WithLabelValues(request).Observe(float64(time.Since(start).Seconds()))
 }
 
-func applySqlStats(operation string, err error, start time.Time) {
+func applySQLStats(operation string, err error, start time.Time) {
 	var result string
 	switch x := err.(type) {
 	case nil:

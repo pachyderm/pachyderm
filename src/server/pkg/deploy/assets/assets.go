@@ -820,6 +820,9 @@ func EtcdStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
 	return makeStorageClass(opts, backend, defaultEtcdStorageClassName, labels(etcdName))
 }
 
+// PostgresStorageClass creates a storage class used for dynamic volume
+// provisioning.  Currently dynamic volume provisioning only works
+// on AWS and GCE.
 func PostgresStorageClass(opts *AssetOpts, backend backend) (interface{}, error) {
 	return makeStorageClass(opts, backend, defaultPostgresStorageClassName, labels(postgresName))
 }
@@ -862,6 +865,7 @@ func EtcdVolume(persistentDiskBackend backend, opts *AssetOpts,
 	return makePersistentVolume(persistentDiskBackend, opts, hostPath, name, size, etcdVolumeName, labels(etcdName))
 }
 
+// PostgresVolume creates a persistent volume backed by a volume with name "name"
 func PostgresVolume(persistentDiskBackend backend, opts *AssetOpts,
 	hostPath string, name string, size int) (*v1.PersistentVolume, error) {
 	return makePersistentVolume(persistentDiskBackend, opts, hostPath, name, size, postgresVolumeName, labels(postgresName))
@@ -939,6 +943,10 @@ func EtcdVolumeClaim(size int, opts *AssetOpts) *v1.PersistentVolumeClaim {
 	return makeVolumeClaim(size, opts, etcdVolumeName, etcdVolumeClaimName, labels(etcdName))
 }
 
+// PostgresVolumeClaim creates a persistent volume claim of 'size' GB.
+//
+// Note that if you're controlling Postgres with a Stateful Set, this is
+// unnecessary (the stateful set controller will create PVCs automatically).
 func PostgresVolumeClaim(size int, opts *AssetOpts) *v1.PersistentVolumeClaim {
 	return makeVolumeClaim(size, opts, postgresVolumeName, postgresVolumeClaimName, labels(postgresName))
 }
@@ -1256,6 +1264,7 @@ func DashService(opts *AssetOpts) *v1.Service {
 	}
 }
 
+// PostgresDeployment generates a Deployment for the pachyderm postgres instance.
 func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	cpu := resource.MustParse(opts.PostgresCPURequest)
 	mem := resource.MustParse(opts.PostgresMemRequest)
@@ -1347,6 +1356,7 @@ func PostgresDeployment(opts *AssetOpts, hostPath string) *apps.Deployment {
 	}
 }
 
+// PostgresService generates a Service for the pachyderm postgres instance.
 func PostgresService(local bool, opts *AssetOpts) *v1.Service {
 	var clientNodePort int32
 	if local {

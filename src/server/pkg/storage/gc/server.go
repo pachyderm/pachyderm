@@ -8,16 +8,18 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
-	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Server is the interface that the garbage collector service provides to clients
 type Server interface {
 	DeleteChunks(context.Context, []chunk.Chunk) error
 	FlushDeletes(context.Context, []chunk.Chunk) error
 }
 
+// Deleter is an interface that must be provided when creating the garbage
+// collector server, it handles removing chunks from the backing object storage.
 type Deleter interface {
 	Delete(context.Context, []chunk.Chunk) error
 }
@@ -60,12 +62,25 @@ type serverImpl struct {
 	deleting map[string]*trigger
 }
 
-func MakeServer(deleter Deleter, host string, port uint16, registry prometheus.Registerer) (Server, error) {
+// MakeServer constructs a garbage collector server:
+//  * deleter - an object implementing the Deleter interface that will be
+//      called for deleting chunks from object storage
+//  * postgresHost, postgresPort - the host and port of the postgres instance
+//      which is used for coordinating garbage collection reference counts with
+//      the garbage collector clients
+//  * registry (optional) - a Prometheus stats registry for tracking usage and
+//    performance
+func MakeServer(
+	deleter Deleter,
+	postgresHost string,
+	postgresPort uint16,
+	registry prometheus.Registerer,
+) (Server, error) {
 	if registry != nil {
 		initPrometheus(registry)
 	}
 
-	db, err := openDatabase(host, port)
+	db, err := openDatabase(postgresHost, postgresPort)
 	if err != nil {
 		return nil, err
 	}
@@ -82,38 +97,37 @@ func MakeServer(deleter Deleter, host string, port uint16, registry prometheus.R
 }
 
 func (si *serverImpl) markChunksDeleting(ctx context.Context, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
-	chunkIds := []string{}
+	chunkIDs := []string{}
 	for _, chunk := range chunks {
-		chunkIds = append(chunkIds, chunk.Hash)
+		chunkIDs = append(chunkIDs, chunk.Hash)
 	}
-	sort.Strings(chunkIds)
+	sort.Strings(chunkIDs)
 
 	result := []chunkModel{}
 	statements := []stmtCallback{
 		func(txn *gorm.DB) *gorm.DB {
-			refQuery := txn.Debug().Table(refTable).Select("distinct chunk").Where("chunk in (?)", chunkIds).QueryExpr()
+			refQuery := txn.Debug().Table(refTable).Select("distinct chunk").Where("chunk in (?)", chunkIDs).QueryExpr()
 
 			return txn.Raw(`
 update chunks set deleting = now()
 where chunk in (?) and chunk not in (?)
-returning chunk`, chunkIds, refQuery).Scan(&result)
+returning chunk`, chunkIDs, refQuery).Scan(&result)
 		},
 	}
 
-	if err := runTransaction(si.db, ctx, statements, markChunksDeletingStats); err != nil {
+	if err := runTransaction(ctx, si.db, statements, markChunksDeletingStats); err != nil {
 		return nil, err
 	}
 	return convertChunks(result), nil
 }
 
 func (si *serverImpl) removeChunkRows(ctx context.Context, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
-	chunkIds := []string{}
+	chunkIDs := []string{}
 	for _, chunk := range chunks {
-		chunkIds = append(chunkIds, chunk.Hash)
+		chunkIDs = append(chunkIDs, chunk.Hash)
 	}
-	sort.Strings(chunkIds)
+	sort.Strings(chunkIDs)
 
-	// TODO: remove refs from these chunks to others, start a new delete process
 	result := []chunkModel{}
 	statements := []stmtCallback{
 		func(txn *gorm.DB) *gorm.DB {
@@ -131,11 +145,11 @@ with del_chunks as (
   select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1 order by 1
 )
 
-select chunk from counts where count = 0`, chunkIds).Scan(&result)
+select chunk from counts where count = 0`, chunkIDs).Scan(&result)
 		},
 	}
 
-	if err := runTransaction(si.db, ctx, statements, removeChunkRowsStats); err != nil {
+	if err := runTransaction(ctx, si.db, statements, removeChunkRowsStats); err != nil {
 		return nil, err
 	}
 	return convertChunks(result), nil

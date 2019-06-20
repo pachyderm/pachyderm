@@ -37,29 +37,29 @@ func isRetriableError(err error) bool {
 
 // stats callbacks for use with runTransaction
 func markChunksDeletingStats(err error, start time.Time) {
-	applySqlStats("markChunksDeleting", err, start)
+	applySQLStats("markChunksDeleting", err, start)
 }
 func removeChunkRowsStats(err error, start time.Time) {
-	applySqlStats("removeChunkRows", err, start)
+	applySQLStats("removeChunkRows", err, start)
 }
 func reserveChunksStats(err error, start time.Time) {
-	applySqlStats("reserveChunks", err, start)
+	applySQLStats("reserveChunks", err, start)
 }
 func updateReferencesStats(err error, start time.Time) {
-	applySqlStats("updateReferences", err, start)
+	applySQLStats("updateReferences", err, start)
 }
 
 type stmtCallback func(*gorm.DB) *gorm.DB
 
 func runTransaction(
-	db *gorm.DB,
 	ctx context.Context,
+	db *gorm.DB,
 	statements []stmtCallback,
 	statsCallback func(error, time.Time),
 ) error {
 	for {
 		start := time.Now()
-		err := tryTransaction(db, ctx, statements)
+		err := tryTransaction(ctx, db, statements)
 		statsCallback(err, start)
 		if err == nil {
 			return nil
@@ -70,8 +70,8 @@ func runTransaction(
 }
 
 func tryTransaction(
-	db *gorm.DB,
 	ctx context.Context,
+	db *gorm.DB,
 	statements []stmtCallback,
 ) error {
 	txn := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelSerializable})

@@ -2,9 +2,7 @@ package gc
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
-	"math"
 	"math/rand"
 	"strings"
 	"sync"
@@ -18,9 +16,47 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-var _ = fmt.Printf // TODO: remove after debugging is done
-var _ = sql.OpenDB
-var _ = math.Abs
+// Helper functions for when debugging
+func printMetrics(t *testing.T, metrics prometheus.Gatherer) {
+	stats, err := metrics.Gather()
+	require.NoError(t, err)
+	for _, family := range stats {
+		fmt.Printf("%s (%d)\n", *family.Name, len(family.Metric))
+		for _, metric := range family.Metric {
+			labels := []string{}
+			for _, pair := range metric.Label {
+				labels = append(labels, fmt.Sprintf("%s:%s", *pair.Name, *pair.Value))
+			}
+			labelStr := strings.Join(labels, ",")
+			if len(labelStr) == 0 {
+				labelStr = "no labels"
+			}
+
+			if metric.Counter != nil {
+				fmt.Printf(" %s: %d\n", labelStr, int64(*metric.Counter.Value))
+			}
+
+			if metric.Summary != nil {
+				fmt.Printf(" %s: %d, %f\n", labelStr, *metric.Summary.SampleCount, *metric.Summary.SampleSum)
+				for _, quantile := range metric.Summary.Quantile {
+					fmt.Printf("  %f: %f\n", *quantile.Quantile, *quantile.Value)
+				}
+			}
+		}
+	}
+}
+
+func printState(t *testing.T, client *clientImpl) {
+	fmt.Printf("Chunks table:\n")
+	for _, row := range allChunks(t, client) {
+		fmt.Printf("  %v\n", row)
+	}
+
+	fmt.Printf("Refs table:\n")
+	for _, row := range allRefs(t, client) {
+		fmt.Printf("  %v\n", row)
+	}
+}
 
 // Dummy deleter object for testing, so we don't need an object storage
 type testDeleter struct{}
@@ -38,47 +74,35 @@ func makeServer(t *testing.T, deleter Deleter, metrics prometheus.Registerer) Se
 	return server
 }
 
-func makeClient(t *testing.T, server Server, metrics prometheus.Registerer) *ClientImpl {
+func makeClient(t *testing.T, server Server, metrics prometheus.Registerer) *clientImpl {
 	if server == nil {
 		server = makeServer(t, nil, metrics)
 	}
-	gcc, err := MakeClient(context.Background(), server, "localhost", 32228, metrics)
+	client, err := MakeClient(server, "localhost", 32228, metrics)
 	require.NoError(t, err)
-	return gcc.(*ClientImpl)
+	return client.(*clientImpl)
 }
 
-func clearData(t *testing.T, ctx context.Context, gcc *ClientImpl) {
-	require.NoError(t, gcc.db.Exec("delete from chunks *; delete from refs *;").Error)
+func clearData(t *testing.T, client *clientImpl) {
+	require.NoError(t, client.db.Exec("delete from chunks *; delete from refs *;").Error)
 }
 
-func initialize(t *testing.T, ctx context.Context) *ClientImpl {
-	gcc := makeClient(t, nil, nil)
-	clearData(t, ctx, gcc)
-	return gcc
+func initialize(t *testing.T) *clientImpl {
+	client := makeClient(t, nil, nil)
+	clearData(t, client)
+	return client
 }
 
-func allChunks(t *testing.T, ctx context.Context, gcc *ClientImpl) []chunkModel {
+func allChunks(t *testing.T, client *clientImpl) []chunkModel {
 	chunks := []chunkModel{}
-	require.NoError(t, gcc.db.Find(&chunks).Error)
+	require.NoError(t, client.db.Find(&chunks).Error)
 	return chunks
 }
 
-func allRefs(t *testing.T, ctx context.Context, gcc *ClientImpl) []refModel {
+func allRefs(t *testing.T, client *clientImpl) []refModel {
 	refs := []refModel{}
-	require.NoError(t, gcc.db.Find(&refs).Error)
+	require.NoError(t, client.db.Find(&refs).Error)
 	return refs
-}
-
-func printState(t *testing.T, ctx context.Context, gcc *ClientImpl) {
-	fmt.Printf("Chunks table:\n")
-	for _, row := range allChunks(t, ctx, gcc) {
-		fmt.Printf("  %v\n", row)
-	}
-
-	fmt.Printf("Refs table:\n")
-	for _, row := range allRefs(t, ctx, gcc) {
-		fmt.Printf("  %v\n", row)
-	}
 }
 
 func makeJobs(count int) []string {
@@ -98,30 +122,30 @@ func makeChunks(count int) []chunk.Chunk {
 }
 
 func TestConnectivity(t *testing.T) {
-	initialize(t, context.Background())
+	initialize(t)
 }
 
 func TestReserveChunks(t *testing.T) {
 	ctx := context.Background()
-	gcc := initialize(t, ctx)
+	client := initialize(t)
 	jobs := makeJobs(3)
 	chunks := makeChunks(3)
 
 	// No chunks
-	require.NoError(t, gcc.ReserveChunks(ctx, jobs[0], chunks[0:0]))
+	require.NoError(t, client.ReserveChunks(ctx, jobs[0], chunks[0:0]))
 
 	// One chunk
-	require.NoError(t, gcc.ReserveChunks(ctx, jobs[1], chunks[0:1]))
+	require.NoError(t, client.ReserveChunks(ctx, jobs[1], chunks[0:1]))
 
 	// Multiple chunks
-	require.NoError(t, gcc.ReserveChunks(ctx, jobs[2], chunks))
+	require.NoError(t, client.ReserveChunks(ctx, jobs[2], chunks))
 
 	expectedChunkRows := []chunkModel{
 		{chunks[0].Hash, nil},
 		{chunks[1].Hash, nil},
 		{chunks[2].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows := []refModel{
 		{"job", jobs[1], chunks[0].Hash},
@@ -129,23 +153,23 @@ func TestReserveChunks(t *testing.T) {
 		{"job", jobs[2], chunks[1].Hash},
 		{"job", jobs[2], chunks[2].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 }
 
 func TestUpdateReferences(t *testing.T) {
 	ctx := context.Background()
-	gcc := initialize(t, ctx)
+	client := initialize(t)
 	jobs := makeJobs(3)
 	chunks := makeChunks(5)
 
 	// deletes are handled asynchronously on the server, flush everything to avoid race conditions
 	flush := func() {
-		require.NoError(t, gcc.server.FlushDeletes(ctx, chunks))
+		require.NoError(t, client.server.FlushDeletes(ctx, chunks))
 	}
 
-	require.NoError(t, gcc.ReserveChunks(ctx, jobs[0], chunks[0:3])) // 0, 1, 2
-	require.NoError(t, gcc.ReserveChunks(ctx, jobs[1], chunks[2:4])) // 2, 3
-	require.NoError(t, gcc.ReserveChunks(ctx, jobs[2], chunks[4:5])) // 4
+	require.NoError(t, client.ReserveChunks(ctx, jobs[0], chunks[0:3])) // 0, 1, 2
+	require.NoError(t, client.ReserveChunks(ctx, jobs[1], chunks[2:4])) // 2, 3
+	require.NoError(t, client.ReserveChunks(ctx, jobs[2], chunks[4:5])) // 4
 
 	// Currently, no links between chunks:
 	// 0 1 2 3 4
@@ -156,7 +180,7 @@ func TestUpdateReferences(t *testing.T) {
 		{chunks[3].Hash, nil},
 		{chunks[4].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows := []refModel{
 		{"job", jobs[0], chunks[0].Hash},
@@ -166,9 +190,9 @@ func TestUpdateReferences(t *testing.T) {
 		{"job", jobs[1], chunks[3].Hash},
 		{"job", jobs[2], chunks[4].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 
-	require.NoError(t, gcc.UpdateReferences(
+	require.NoError(t, client.UpdateReferences(
 		ctx,
 		[]Reference{{"chunk", chunks[4].Hash, chunks[0]}},
 		[]Reference{},
@@ -186,7 +210,7 @@ func TestUpdateReferences(t *testing.T) {
 		{chunks[3].Hash, nil},
 		{chunks[4].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows = []refModel{
 		{"job", jobs[1], chunks[2].Hash},
@@ -194,9 +218,9 @@ func TestUpdateReferences(t *testing.T) {
 		{"job", jobs[2], chunks[4].Hash},
 		{"chunk", chunks[4].Hash, chunks[0].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 
-	require.NoError(t, gcc.UpdateReferences(
+	require.NoError(t, client.UpdateReferences(
 		ctx,
 		[]Reference{
 			{"semantic", "semantic-3", chunks[3]},
@@ -219,7 +243,7 @@ func TestUpdateReferences(t *testing.T) {
 		{chunks[3].Hash, nil},
 		{chunks[4].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows = []refModel{
 		{"job", jobs[2], chunks[4].Hash},
@@ -227,9 +251,9 @@ func TestUpdateReferences(t *testing.T) {
 		{"semantic", "semantic-2", chunks[2].Hash},
 		{"semantic", "semantic-3", chunks[3].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 
-	require.NoError(t, gcc.UpdateReferences(
+	require.NoError(t, client.UpdateReferences(
 		ctx,
 		[]Reference{{"chunk", chunks[4].Hash, chunks[2]}},
 		[]Reference{{"semantic", "semantic-3", chunks[3]}},
@@ -248,12 +272,12 @@ func TestUpdateReferences(t *testing.T) {
 	expectedChunkRows = []chunkModel{
 		{chunks[2].Hash, nil},
 	}
-	require.ElementsEqual(t, expectedChunkRows, allChunks(t, ctx, gcc))
+	require.ElementsEqual(t, expectedChunkRows, allChunks(t, client))
 
 	expectedRefRows = []refModel{
 		{"semantic", "semantic-2", chunks[2].Hash},
 	}
-	require.ElementsEqual(t, expectedRefRows, allRefs(t, ctx, gcc))
+	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 }
 
 type fuzzDeleter struct {
@@ -305,7 +329,7 @@ func (fd *fuzzDeleter) updating(chunks []chunk.Chunk) error {
 		if fd.users[hash] == -1 {
 			return fmt.Errorf("Failed to use chunk, currently being deleted")
 		}
-		fd.users[hash] += 1
+		fd.users[hash]++
 		return nil
 	})
 	if err != nil {
@@ -318,7 +342,7 @@ func (fd *fuzzDeleter) updating(chunks []chunk.Chunk) error {
 		if fd.users[hash] < 1 {
 			return fmt.Errorf("Failed to release chunk, inconsistency")
 		}
-		fd.users[hash] -= 1
+		fd.users[hash]--
 		return nil
 	})
 	return err
@@ -329,7 +353,7 @@ func TestFuzz(t *testing.T) {
 	deleter := &fuzzDeleter{users: make(map[string]int)}
 	server := makeServer(t, deleter, metrics)
 	client := makeClient(t, server, metrics)
-	clearData(t, context.Background(), client)
+	clearData(t, client)
 
 	type jobData struct {
 		id     string
@@ -337,7 +361,7 @@ func TestFuzz(t *testing.T) {
 		remove []Reference
 	}
 
-	runJob := func(ctx context.Context, gcc Client, job jobData) error {
+	runJob := func(ctx context.Context, client Client, job jobData) error {
 		// Make a list of chunks we'll be referencing and reserve them
 		chunkMap := make(map[string]bool)
 		for _, item := range job.add {
@@ -351,7 +375,7 @@ func TestFuzz(t *testing.T) {
 			reservedChunks = append(reservedChunks, chunk.Chunk{Hash: hash})
 		}
 
-		if err := gcc.ReserveChunks(ctx, job.id, reservedChunks); err != nil {
+		if err := client.ReserveChunks(ctx, job.id, reservedChunks); err != nil {
 			return err
 		}
 
@@ -360,27 +384,27 @@ func TestFuzz(t *testing.T) {
 			return err
 		}
 
-		return gcc.UpdateReferences(ctx, job.add, job.remove, job.id)
+		return client.UpdateReferences(ctx, job.add, job.remove, job.id)
 	}
 
 	startWorkers := func(numWorkers int, jobChannel chan jobData) *errgroup.Group {
 		eg, ctx := errgroup.WithContext(context.Background())
 		for i := 0; i < numWorkers; i++ {
 			eg.Go(func() error {
-				gcc := makeClient(t, server, metrics)
-				gcc.db.DB().SetMaxOpenConns(1)
-				gcc.db.DB().SetMaxIdleConns(1)
+				client := makeClient(t, server, metrics)
+				client.db.DB().SetMaxOpenConns(1)
+				client.db.DB().SetMaxIdleConns(1)
 				for x := range jobChannel {
-					if err := runJob(ctx, gcc, x); err != nil {
+					if err := runJob(ctx, client, x); err != nil {
 						fmt.Printf("client failed: %v\n", err)
-						closeErr := gcc.db.Close()
+						closeErr := client.db.Close()
 						if closeErr != nil {
 							fmt.Printf("error when closing: %v\n", closeErr)
 						}
 						return err
 					}
 				}
-				return gcc.db.Close()
+				return client.db.Close()
 			})
 		}
 		return eg
@@ -388,10 +412,10 @@ func TestFuzz(t *testing.T) {
 
 	// Global ref registry to track what the database should look like
 	chunkRefs := make(map[int][]Reference)
-	freeChunkIds := []int{}
-	maxId := -1
+	freeChunkIDs := []int{}
+	maxID := -1
 
-	usedChunkId := func(lowerBound int) int {
+	usedChunkID := func(lowerBound int) int {
 		ids := []int{}
 		// TODO: this might get annoyingly slow, but go doesn't have good sorted data structures
 		for id := range chunkRefs {
@@ -405,15 +429,15 @@ func TestFuzz(t *testing.T) {
 		return ids[rand.Intn(len(ids))]
 	}
 
-	unusedChunkId := func(lowerBound int) int {
-		for i, id := range freeChunkIds {
+	unusedChunkID := func(lowerBound int) int {
+		for i, id := range freeChunkIDs {
 			if id >= lowerBound {
-				freeChunkIds = append(freeChunkIds[0:i], freeChunkIds[i+1:len(freeChunkIds)]...)
+				freeChunkIDs = append(freeChunkIDs[0:i], freeChunkIDs[i+1:len(freeChunkIDs)]...)
 				return id
 			}
 		}
-		maxId++
-		return maxId
+		maxID++
+		return maxID
 	}
 
 	addRef := func() Reference {
@@ -422,29 +446,29 @@ func TestFuzz(t *testing.T) {
 		roll := rand.Float32()
 		if len(chunkRefs) == 0 || roll > 0.9 {
 			// Make a new chunk with a semantic reference
-			dest = unusedChunkId(0)
+			dest = unusedChunkID(0)
 			ref.sourcetype = "semantic"
 			ref.source = testutil.UniqueString("semantic-")
 			ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
 		} else if roll > 0.6 {
 			// Add a semantic reference to an existing chunk
-			dest = usedChunkId(0)
+			dest = usedChunkID(0)
 			ref.sourcetype = "semantic"
 			ref.source = testutil.UniqueString("semantic-")
 			ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
 		} else {
-			source := usedChunkId(0)
+			source := usedChunkID(0)
 			ref.sourcetype = "chunk"
 			ref.source = fmt.Sprintf("chunk-%d", source)
 			if roll > 0.5 {
 				// Add a cross-chunk reference to a new chunk
-				dest = unusedChunkId(source + 1)
+				dest = unusedChunkID(source + 1)
 				ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
 			} else {
 				// Add a cross-chunk reference to an existing chunk
-				dest = usedChunkId(source + 1)
+				dest = usedChunkID(source + 1)
 				if dest == 0 {
-					dest = unusedChunkId(source + 1)
+					dest = unusedChunkID(source + 1)
 				}
 				ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
 			}
@@ -482,7 +506,7 @@ func TestFuzz(t *testing.T) {
 				chunkRefs[k] = append(v[0:j], v[j+1:len(v)]...)
 				if len(chunkRefs[k]) == 0 {
 					delete(chunkRefs, k)
-					freeChunkIds = append(freeChunkIds, k)
+					freeChunkIDs = append(freeChunkIDs, k)
 				}
 				return ref
 			}
@@ -534,58 +558,5 @@ func TestFuzz(t *testing.T) {
 	printMetrics(t, metrics)
 }
 
-func printMetrics(t *testing.T, metrics prometheus.Gatherer) {
-	stats, err := metrics.Gather()
-	require.NoError(t, err)
-	for _, family := range stats {
-		fmt.Printf("%s (%d)\n", *family.Name, len(family.Metric))
-		for _, metric := range family.Metric {
-			labels := []string{}
-			for _, pair := range metric.Label {
-				labels = append(labels, fmt.Sprintf("%s:%s", *pair.Name, *pair.Value))
-			}
-			labelStr := strings.Join(labels, ",")
-			if len(labelStr) == 0 {
-				labelStr = "no labels"
-			}
-
-			if metric.Counter != nil {
-				fmt.Printf(" %s: %d\n", labelStr, int64(*metric.Counter.Value))
-			}
-
-			if metric.Summary != nil {
-				fmt.Printf(" %s: %d, %f\n", labelStr, *metric.Summary.SampleCount, *metric.Summary.SampleSum)
-				for _, quantile := range metric.Summary.Quantile {
-					fmt.Printf("  %f: %f\n", *quantile.Quantile, *quantile.Value)
-				}
-			}
-		}
-	}
-}
-
 func TestMetrics(t *testing.T) {
-	metrics := prometheus.NewRegistry()
-	counter :=
-		prometheus.NewCounterVec(
-			prometheus.CounterOpts{
-				Namespace: "pachyderm",
-				Subsystem: "gc",
-				Name:      "test_counter",
-				Help:      "disregard this",
-			},
-			[]string{"result"},
-		)
-
-	err := metrics.Register(counter)
-	require.NoError(t, err)
-
-	counter.WithLabelValues("five").Inc()
-
-	printMetrics(t, metrics)
-}
-
-func TestGorm(t *testing.T) {
-	db, err := openDatabase("localhost", 32228)
-	require.NoError(t, err)
-	initializeDb(db)
 }

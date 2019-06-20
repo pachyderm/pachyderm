@@ -8,30 +8,66 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
-	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Reference describes a reference to a chunk in chunk storage.  If a chunk has
+// no references, it will be deleted.
+//  * sourcetype - the type of reference, one of:
+//   * 'job' - a temporary reference to the chunk, tied to the lifetime of a job
+//   * 'chunk' - a cross-chunk reference, from one chunk to another
+//   * 'semantic' - a reference to a chunk by some semantic name
+//  * source - the source of the reference, this may be a job id, chunk id, or a
+//    semantic name
+//  * chunk - the target chunk being referenced
 type Reference struct {
 	sourcetype string
 	source     string
 	chunk      chunk.Chunk
 }
 
+// Client is the interface provided by the garbage collector client, for use on
+// worker nodes.  It will directly perform reference-counting operations on the
+// cluster's postgres database, but synchronize chunk deletions with the
+// garbage collector service running in pachd.
 type Client interface {
-	ReserveChunks(context.Context, string, []chunk.Chunk) error
-	UpdateReferences(context.Context, []Reference, []Reference, string) error
+	// ReserveChunks ensures that chunks are not deleted during the course of a
+	// job.  It will add a temporary reference to each of the given chunks, even
+	// if they don't exist yet.  If one of the specified chunks is currently
+	// being deleted, this call will block while it flushes the deletes through
+	// the garbage collector service running in pachd.
+	ReserveChunks(ctx context.Context, jobID string, chunks []chunk.Chunk) error
+
+	// UpdateReferences should be run _after_ ReserveChunks, once new chunks have
+	// be written to object storage.  This will add and remove the specified
+	// references, and remove all references held by the given job ID.  Any
+	// chunks which are no longer referenced will be forwarded to the garbage
+	// collector service in pachd for summary destruction.
+	UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJobID string) error
 }
 
-type ClientImpl struct {
+type clientImpl struct {
 	server Server
 	db     *gorm.DB
 }
 
-func MakeClient(ctx context.Context, server Server, host string, port uint16, registry prometheus.Registerer) (Client, error) {
+// MakeClient constructs a garbage collector server:
+//  * server - an object implementing the Server interface that will be
+//      called for forwarding deletion candidates and flushing deletes.
+//  * postgresHost, postgresPort - the host and port of the postgres instance
+//      which is used for coordinating garbage collection reference counts with
+//      the garbage collector clients
+//  * registry (optional) - a Prometheus stats registry for tracking usage and
+//    performance
+func MakeClient(
+	server Server,
+	postgresHost string,
+	postgresPort uint16,
+	registry prometheus.Registerer,
+) (Client, error) {
 	// Opening a connection is done lazily, initialization will connect
-	db, err := openDatabase(host, port)
+	db, err := openDatabase(postgresHost, postgresPort)
 	if err != nil {
 		return nil, err
 	}
@@ -47,18 +83,18 @@ func MakeClient(ctx context.Context, server Server, host string, port uint16, re
 		initPrometheus(registry)
 	}
 
-	return &ClientImpl{
+	return &clientImpl{
 		db:     db,
 		server: server,
 	}, nil
 }
 
-func (gcc *ClientImpl) reserveChunksInDatabase(ctx context.Context, job string, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
-	chunkIds := []string{}
+func (ci *clientImpl) reserveChunksInDatabase(ctx context.Context, job string, chunks []chunk.Chunk) ([]chunk.Chunk, error) {
+	chunkIDs := []string{}
 	for _, chunk := range chunks {
-		chunkIds = append(chunkIds, fmt.Sprintf("('%s')", chunk.Hash))
+		chunkIDs = append(chunkIDs, fmt.Sprintf("('%s')", chunk.Hash))
 	}
-	sort.Strings(chunkIds)
+	sort.Strings(chunkIDs)
 
 	var chunksToFlush []chunkModel
 	statements := []stmtCallback{
@@ -69,7 +105,7 @@ func (gcc *ClientImpl) reserveChunksInDatabase(ctx context.Context, job string, 
 			return txn.Raw(`
 with
 added_chunks as (
- insert into chunks (chunk) values `+strings.Join(chunkIds, ",")+`
+ insert into chunks (chunk) values `+strings.Join(chunkIDs, ",")+`
  on conflict (chunk) do update set chunk = excluded.chunk
  returning chunk, deleting
 ),
@@ -87,14 +123,14 @@ select chunk from added_chunks where deleting is not null;
 		},
 	}
 
-	if err := runTransaction(gcc.db, ctx, statements, reserveChunksStats); err != nil {
+	if err := runTransaction(ctx, ci.db, statements, reserveChunksStats); err != nil {
 		return nil, err
 	}
 
 	return convertChunks(chunksToFlush), nil
 }
 
-func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) (retErr error) {
+func (ci *clientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) (retErr error) {
 	defer func(startTime time.Time) { applyRequestStats("ReserveChunks", retErr, startTime) }(time.Now())
 	if len(chunks) == 0 {
 		return nil
@@ -102,13 +138,13 @@ func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []c
 
 	var err error
 	for len(chunks) > 0 {
-		chunks, err = gcc.reserveChunksInDatabase(ctx, job, chunks)
+		chunks, err = ci.reserveChunksInDatabase(ctx, job, chunks)
 		if err != nil {
 			return err
 		}
 
 		if len(chunks) > 0 {
-			if err := gcc.server.FlushDeletes(ctx, chunks); err != nil {
+			if err := ci.server.FlushDeletes(ctx, chunks); err != nil {
 				return err
 			}
 		}
@@ -116,7 +152,7 @@ func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []c
 	return nil
 }
 
-func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) (retErr error) {
+func (ci *clientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) (retErr error) {
 	defer func(startTime time.Time) { applyRequestStats("UpdateReferences", retErr, startTime) }(time.Now())
 
 	removeValues := make([][]interface{}, 0, len(remove))
@@ -170,12 +206,12 @@ select chunk from counts where count = 0
 		},
 	}
 
-	if err := runTransaction(gcc.db, ctx, statements, updateReferencesStats); err != nil {
+	if err := runTransaction(ctx, ci.db, statements, updateReferencesStats); err != nil {
 		return err
 	}
 
 	if len(chunksToDelete) > 0 {
-		if err := gcc.server.DeleteChunks(ctx, convertChunks(chunksToDelete)); err != nil {
+		if err := ci.server.DeleteChunks(ctx, convertChunks(chunksToDelete)); err != nil {
 			return err
 		}
 	}
