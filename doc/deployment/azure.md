@@ -39,7 +39,7 @@ Install the following prerequisites:
    ```bash
    $ brew tap pachyderm/tap && brew install pachyderm/tap/pachctl@1.9
    ```
- * To install on Linux 64-bit or Windows 10 or later:
+ * To install on Linux 64-bit or Windows 10 or later, run the following command:
 
    ```bash
    $ curl -o /tmp/pachctl.deb -L https://github.com/pachyderm/pachyderm/releases/download/v1.9.0/pachctl_1.9.0_amd64.deb &&  sudo dpkg -i /tmp/pachctl.deb
