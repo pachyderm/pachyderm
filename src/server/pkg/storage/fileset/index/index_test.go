@@ -1,7 +1,6 @@
 package index
 
 import (
-	"archive/tar"
 	"context"
 	"io"
 	"strings"
@@ -10,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
 
 const (

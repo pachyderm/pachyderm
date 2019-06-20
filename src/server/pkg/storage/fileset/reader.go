@@ -1,12 +1,12 @@
 package fileset
 
 import (
-	"archive/tar"
 	"context"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
 
 // Reader reads the serialized format of a fileset.
@@ -36,8 +36,9 @@ func (r *Reader) Next() (*index.Header, error) {
 	}
 	r.cr.NextRange(hdr.Idx.DataOp.DataRefs)
 	r.tr = tar.NewReader(r.cr)
-	// Remove tar header from content stream.
-	if _, err := r.tr.Next(); err != nil {
+	// Replace tar header from index with tar header from content stream.
+	hdr.Hdr, err = r.tr.Next()
+	if err != nil {
 		return nil, err
 	}
 	return hdr, nil
