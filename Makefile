@@ -800,26 +800,3 @@ goxc-build:
 	goxc-build \
 	launch-test-rethinkdb \
 	clean-launch-test-rethinkdb
-
-
-
-# docker-build-pachd: docker-clean-pachd
-# 	docker run  \
-# 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
-# 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-# 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
-
-# docker-build-worker: docker-clean-worker
-# 	docker run \
-# 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
-# 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-# 		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
-
-# docker-build-helper: enterprise-code-checkin-test
-# 	@# run these in separate make process so that if
-# 	@# 'enterprise-code-checkin-test' fails, the rest of the build process aborts
-# 	@make docker-build-worker docker-build-pachd docker-wait-worker docker-wait-pachd
-
-# docker-build:
-# 	docker pull $(COMPILE_IMAGE)
-# 	make docker-build-helper
