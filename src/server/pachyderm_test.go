@@ -5299,7 +5299,7 @@ func TestGarbageCollection(t *testing.T) {
 	//   - Note that the hashtree for the output commit is the same object as the
 	//     datum hashtree. It contains the same metadata, and b/c hashtrees are
 	//     stored as objects, it's deduped with the datum hashtree
-	//   - The "datums" object attached to 'pipeline's output commit
+	// - The "datums" object attached to 'pipeline's output commit
 	// Note that deleting a pipeline doesn't delete the spec commits
 	objectsAfter = getAllObjects(t, c)
 	require.Equal(t, 2, len(objectsBefore)-len(objectsAfter))
