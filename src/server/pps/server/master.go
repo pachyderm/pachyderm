@@ -614,6 +614,7 @@ func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInf
 }
 
 func (a *apiServer) scaleUpWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
+	log.Infof("scaling up workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleUpWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)

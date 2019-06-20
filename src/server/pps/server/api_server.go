@@ -1837,7 +1837,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// propagate trace info (doesn't affect intra-RPC trace)
 	ctx = extended.TraceIn2Out(ctx)
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // GetPachClient propagates auth info
+	ctx = pachClient.Ctx() // GetPachClient propagates auth info to inner ctx
 	pfsClient := pachClient.PfsAPIClient
 	if request.Salt == "" {
 		request.Salt = uuid.NewWithoutDashes()
