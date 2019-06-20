@@ -5,11 +5,11 @@ Service environment and use Azure's resource to run your Pachyderm
 workloads. 
 To deploy Pachyderm to AKS, you need to:
 
-1. [Prerequisites](#prerequisites)
+1. [Install Prerequisites](#install-prerequisites)
 2. [Deploy Kubernetes](#deploy-kubernetes)
 3. [Deploy Pachyderm](#deploy-pachyderm)
 
-## Prerequisites
+## Install Prerequisites
 
 Before you can deploy Pachyderm on Azure, you need to configure a few
 prerequisites on your client machine. If not explicitly specified, use the
