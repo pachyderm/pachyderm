@@ -26,16 +26,17 @@ var initialWindow = make([]byte, WindowSize)
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
 type Writer struct {
-	ctx        context.Context
-	objC       obj.Client
-	cbs        []func([]*DataRef) error
-	buf        *bytes.Buffer
-	hash       *buzhash64.Buzhash64
-	splitMask  uint64
-	dataRefs   []*DataRef
-	done       [][]*DataRef
-	rangeSize  int64
-	rangeCount int64
+	ctx         context.Context
+	objC        obj.Client
+	cbs         []func([]*DataRef) error
+	buf         *bytes.Buffer
+	hash        *buzhash64.Buzhash64
+	splitMask   uint64
+	dataRefs    []*DataRef
+	done        [][]*DataRef
+	rangeSize   int64
+	rangeCount  int64
+	bytesCopied int64
 }
 
 // newWriter creates a new Writer.
@@ -92,6 +93,12 @@ func (w *Writer) RangeSize() int64 {
 // the writer.
 func (w *Writer) RangeCount() int64 {
 	return w.rangeCount
+}
+
+// BytesCopied is the number of bytes that were "written" by copying data
+// references.
+func (w *Writer) BytesCopied() int64 {
+	return w.bytesCopied
 }
 
 // Write rolls through the data written, calling c.f when a chunk is found.
@@ -165,6 +172,17 @@ func (w *Writer) put() error {
 	// Setup DataRef for next chunk.
 	w.dataRefs = append(w.dataRefs, &DataRef{})
 	return nil
+}
+
+func (w *Writer) atSplit() bool {
+	return w.buf.Len() == 0
+}
+
+func (w *Writer) writeDataRef(dataRef *DataRef) {
+	w.dataRefs[len(w.dataRefs)-1] = dataRef
+	w.dataRefs = append(w.dataRefs, &DataRef{})
+	w.rangeSize += dataRef.SizeBytes
+	w.bytesCopied += dataRef.SizeBytes
 }
 
 // Close closes the writer and flushes the remaining bytes to a chunk and finishes

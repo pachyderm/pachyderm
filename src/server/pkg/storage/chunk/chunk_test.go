@@ -73,7 +73,7 @@ func BenchmarkWriter(b *testing.B) {
 	}
 }
 
-func TestCopyN(t *testing.T) {
+func TestWriteToN(t *testing.T) {
 	objC, chunks := LocalStorage(t)
 	defer Cleanup(objC, chunks)
 	// Write the initial data and count the chunks.
@@ -95,11 +95,11 @@ func TestCopyN(t *testing.T) {
 	}
 	w.StartRange(cb)
 	mid := r1.Len() / 2
-	require.NoError(t, CopyN(w, r1, r1.Len()-mid))
-	require.NoError(t, CopyN(w, r1, mid))
+	require.NoError(t, r1.WriteToN(w, r1.Len()-mid))
+	require.NoError(t, r1.WriteToN(w, mid))
 	mid = r2.Len() / 2
-	require.NoError(t, CopyN(w, r2, r2.Len()-mid))
-	require.NoError(t, CopyN(w, r2, mid))
+	require.NoError(t, r2.WriteToN(w, r2.Len()-mid))
+	require.NoError(t, r2.WriteToN(w, mid))
 	require.NoError(t, w.Close())
 	// Check that the initial data equals the final data.
 	buf := &bytes.Buffer{}
@@ -114,4 +114,5 @@ func TestCopyN(t *testing.T) {
 		return nil
 	}))
 	require.Equal(t, initialChunkCount+1, finalChunkCount)
+	require.True(t, w.BytesCopied() > 0)
 }

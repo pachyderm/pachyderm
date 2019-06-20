@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"io"
+	"math"
 	"path"
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
@@ -68,7 +69,6 @@ func (r *Reader) Read(data []byte) (int, error) {
 		}
 	}
 	return totalRead, nil
-
 }
 
 func (r *Reader) nextDataRef() error {
@@ -102,6 +102,40 @@ func (r *Reader) readChunk(chunk *Chunk) error {
 		return err
 	}
 	return nil
+}
+
+// WriteToN writes n bytes from the reader to the passed in writer. These writes are
+// data reference copies when full chunks are being written to the writer.
+func (r *Reader) WriteToN(w *Writer, n int64) error {
+	for {
+		// Read from the current data reference first.
+		if r.r.Len() > 0 {
+			nCopied, err := io.CopyN(w, r, int64(math.Min(float64(n), float64(r.r.Len()))))
+			n -= nCopied
+			if err != nil {
+				return err
+			}
+		}
+		// Done when there are no bytes left to write.
+		if n == 0 {
+			return nil
+		}
+		// A data reference can be cheaply copied when:
+		// - The writer is at a split point.
+		// - The data reference is a full chunk reference.
+		// - The size of the chunk is less than or equal to the number of bytes left.
+		if w.atSplit() {
+			for r.dataRefs[0].Hash == "" && r.dataRefs[0].SizeBytes <= n {
+				w.writeDataRef(r.dataRefs[0])
+				n -= r.dataRefs[0].SizeBytes
+				r.dataRefs = r.dataRefs[1:]
+			}
+		}
+		// Setup next data reference for reading.
+		if err := r.nextDataRef(); err != nil {
+			return err
+		}
+	}
 }
 
 // Close closes the reader.
