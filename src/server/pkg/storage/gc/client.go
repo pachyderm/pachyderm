@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
+	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -118,28 +119,15 @@ func (gcc *ClientImpl) ReserveChunks(ctx context.Context, job string, chunks []c
 func (gcc *ClientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) (retErr error) {
 	defer func(startTime time.Time) { applyRequestStats("UpdateReferences", retErr, startTime) }(time.Now())
 
-	removeValues := func() *[][]string {
-		if len(remove) == 0 {
-			return nil
-		}
-		values := make([][]string, 0, len(remove))
-		for _, ref := range remove {
-			values = append(values, []string{ref.sourcetype, ref.source, ref.chunk.Hash})
-		}
-		return &values
-	}()
-
-	addValues := make([][]string, len(add))
-	for _, ref := range add {
-		addValues = append(addValues, []string{ref.sourcetype, ref.source, ref.chunk.Hash})
+	removeValues := make([][]interface{}, 0, len(remove))
+	for _, ref := range remove {
+		removeValues = append(removeValues, []interface{}{ref.sourcetype, ref.source, ref.chunk.Hash})
 	}
 
-	jobValue := func() *[]string {
-		if releaseJob == "" {
-			return nil
-		}
-		return &[]string{"job", releaseJob}
-	}()
+	addValues := make([][]interface{}, len(add))
+	for _, ref := range add {
+		addValues = append(addValues, []interface{}{ref.sourcetype, ref.source, ref.chunk.Hash})
+	}
 
 	var chunksToDelete []chunk.Chunk
 	statements := []stmtCallback{
@@ -153,7 +141,17 @@ on conflict do nothing
 			return txn
 		},
 		func(txn *gorm.DB) *gorm.DB {
-			refQuery := txn.Table(refTable).Where("(sourcetype, source, chunk) in (?)", removeValues).Or("(sourcetype, source) in (?)", jobValue).Order("sourcetype").Order("source").Order("chunk").QueryExpr()
+			builder := txn.Table(refTable)
+			if len(removeValues) > 0 {
+				builder = builder.Where("(sourcetype, source, chunk) in (?)", removeValues)
+			} else {
+				builder = builder.Where("(sourcetype, source, chunk) in (?)", nil)
+			}
+			if releaseJob != "" {
+				builder = builder.Or("sourcetype = 'job' AND source = ?", releaseJob)
+			}
+			refQuery := builder.Order("sourcetype").Order("source").Order("chunk").QueryExpr()
+
 			return txn.Raw(`
 with del_refs as (
  delete from refs using (?) del

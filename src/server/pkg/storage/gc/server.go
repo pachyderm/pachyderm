@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jinzhu/gorm"
+	_ "github.com/lib/pq"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -90,7 +91,7 @@ func (si *serverImpl) markChunksDeleting(ctx context.Context, chunks []chunk.Chu
 	result := []chunkModel{}
 	statements := []stmtCallback{
 		func(txn *gorm.DB) *gorm.DB {
-			refQuery := txn.Table(refTable).Select("distinct chunk").Where("chunk in (?)", chunkIds).QueryExpr()
+			refQuery := txn.Debug().Table(refTable).Select("distinct chunk").Where("chunk in (?)", chunkIds).QueryExpr()
 
 			return txn.Raw(`
 update chunks set deleting = now()
