@@ -85,7 +85,7 @@ To activate access controls by using `pachctl`, follow these steps:
 1. Activate access by specifying one or mote admin users:
 
    ```bash
-   $ pachctl auth activate --admins=<user>
+   $ pachctl auth activate --initial-admin=<user>
    ```
   If you want the Pachyderm cluster to have more than one admin,
   specify them as a comma-separated list.
