@@ -7,7 +7,6 @@ require (
 	github.com/Azure/azure-sdk-for-go v5.0.0-beta+incompatible
 	github.com/Azure/go-autorest/autorest v0.2.0 // indirect
 	github.com/LK4D4/joincontext v0.0.0-20171026170139-1724345da6d5
-	github.com/Microsoft/go-winio v0.4.12 // indirect
 	github.com/Microsoft/hcsshim v0.8.6 // indirect
 	github.com/OneOfOne/xxhash v1.2.5
 	github.com/aws/aws-lambda-go v1.11.1
@@ -27,8 +26,7 @@ require (
 	github.com/cpuguy83/go-md2man v1.0.10 // indirect
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
 	github.com/docker/distribution v2.7.1+incompatible // indirect
-	github.com/docker/docker v0.7.3-0.20190618200816-384c782721c7 // indirect
-	github.com/docker/go-connections v0.4.0 // indirect
+	github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d // indirect
 	github.com/docker/go-units v0.4.0
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20190604154631-fc5a7d91d54c // indirect
 	github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96 // indirect
@@ -39,7 +37,7 @@ require (
 	github.com/fatih/camelcase v1.0.0
 	github.com/fatih/color v1.7.0
 	github.com/fatih/structs v1.1.0 // indirect
-	github.com/fsouza/go-dockerclient v0.0.0-20161008020944-4bae70ae9767
+	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-ini/ini v1.42.0 // indirect
 	github.com/go-test/deep v1.0.1 // indirect
@@ -88,9 +86,6 @@ require (
 	github.com/montanaflynn/stats v0.5.0
 	github.com/onsi/ginkgo v1.7.0 // indirect
 	github.com/onsi/gomega v1.4.3 // indirect
-	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
-	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
@@ -105,7 +100,7 @@ require (
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect
 	github.com/segmentio/kafka-go v0.2.4
-	github.com/sirupsen/logrus v1.2.0
+	github.com/sirupsen/logrus v1.3.0
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -138,7 +133,6 @@ require (
 	gopkg.in/ini.v1 v1.42.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.12.0
-	gotest.tools v2.2.0+incompatible // indirect
 	k8s.io/api v0.0.0-20181130031204-d04500c8c3dd
 	k8s.io/apimachinery v0.0.0-20181128191346-49ce2735e507
 	k8s.io/client-go v0.0.0-20181213230135-6924ba6dfc02

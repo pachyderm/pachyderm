@@ -5,7 +5,7 @@
 package docker
 
 import (
-	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -14,46 +14,46 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
-
-	"golang.org/x/net/context"
 )
 
 // APIImages represent an image returned in the ListImages call.
 type APIImages struct {
-	ID          string            `json:"Id" yaml:"Id"`
-	RepoTags    []string          `json:"RepoTags,omitempty" yaml:"RepoTags,omitempty"`
-	Created     int64             `json:"Created,omitempty" yaml:"Created,omitempty"`
-	Size        int64             `json:"Size,omitempty" yaml:"Size,omitempty"`
-	VirtualSize int64             `json:"VirtualSize,omitempty" yaml:"VirtualSize,omitempty"`
-	ParentID    string            `json:"ParentId,omitempty" yaml:"ParentId,omitempty"`
-	RepoDigests []string          `json:"RepoDigests,omitempty" yaml:"RepoDigests,omitempty"`
-	Labels      map[string]string `json:"Labels,omitempty" yaml:"Labels,omitempty"`
+	ID          string            `json:"Id" yaml:"Id" toml:"Id"`
+	RepoTags    []string          `json:"RepoTags,omitempty" yaml:"RepoTags,omitempty" toml:"RepoTags,omitempty"`
+	Created     int64             `json:"Created,omitempty" yaml:"Created,omitempty" toml:"Created,omitempty"`
+	Size        int64             `json:"Size,omitempty" yaml:"Size,omitempty" toml:"Size,omitempty"`
+	VirtualSize int64             `json:"VirtualSize,omitempty" yaml:"VirtualSize,omitempty" toml:"VirtualSize,omitempty"`
+	ParentID    string            `json:"ParentId,omitempty" yaml:"ParentId,omitempty" toml:"ParentId,omitempty"`
+	RepoDigests []string          `json:"RepoDigests,omitempty" yaml:"RepoDigests,omitempty" toml:"RepoDigests,omitempty"`
+	Labels      map[string]string `json:"Labels,omitempty" yaml:"Labels,omitempty" toml:"Labels,omitempty"`
 }
 
 // RootFS represents the underlying layers used by an image
 type RootFS struct {
-	Type   string   `json:"Type,omitempty" yaml:"Type,omitempty"`
-	Layers []string `json:"Layers,omitempty" yaml:"Layers,omitempty"`
+	Type   string   `json:"Type,omitempty" yaml:"Type,omitempty" toml:"Type,omitempty"`
+	Layers []string `json:"Layers,omitempty" yaml:"Layers,omitempty" toml:"Layers,omitempty"`
 }
 
 // Image is the type representing a docker image and its various properties
 type Image struct {
-	ID              string    `json:"Id" yaml:"Id"`
-	RepoTags        []string  `json:"RepoTags,omitempty" yaml:"RepoTags,omitempty"`
-	Parent          string    `json:"Parent,omitempty" yaml:"Parent,omitempty"`
-	Comment         string    `json:"Comment,omitempty" yaml:"Comment,omitempty"`
-	Created         time.Time `json:"Created,omitempty" yaml:"Created,omitempty"`
-	Container       string    `json:"Container,omitempty" yaml:"Container,omitempty"`
-	ContainerConfig Config    `json:"ContainerConfig,omitempty" yaml:"ContainerConfig,omitempty"`
-	DockerVersion   string    `json:"DockerVersion,omitempty" yaml:"DockerVersion,omitempty"`
-	Author          string    `json:"Author,omitempty" yaml:"Author,omitempty"`
-	Config          *Config   `json:"Config,omitempty" yaml:"Config,omitempty"`
+	ID              string    `json:"Id" yaml:"Id" toml:"Id"`
+	RepoTags        []string  `json:"RepoTags,omitempty" yaml:"RepoTags,omitempty" toml:"RepoTags,omitempty"`
+	Parent          string    `json:"Parent,omitempty" yaml:"Parent,omitempty" toml:"Parent,omitempty"`
+	Comment         string    `json:"Comment,omitempty" yaml:"Comment,omitempty" toml:"Comment,omitempty"`
+	Created         time.Time `json:"Created,omitempty" yaml:"Created,omitempty" toml:"Created,omitempty"`
+	Container       string    `json:"Container,omitempty" yaml:"Container,omitempty" toml:"Container,omitempty"`
+	ContainerConfig Config    `json:"ContainerConfig,omitempty" yaml:"ContainerConfig,omitempty" toml:"ContainerConfig,omitempty"`
+	DockerVersion   string    `json:"DockerVersion,omitempty" yaml:"DockerVersion,omitempty" toml:"DockerVersion,omitempty"`
+	Author          string    `json:"Author,omitempty" yaml:"Author,omitempty" toml:"Author,omitempty"`
+	Config          *Config   `json:"Config,omitempty" yaml:"Config,omitempty" toml:"Config,omitempty"`
 	Architecture    string    `json:"Architecture,omitempty" yaml:"Architecture,omitempty"`
-	Size            int64     `json:"Size,omitempty" yaml:"Size,omitempty"`
-	VirtualSize     int64     `json:"VirtualSize,omitempty" yaml:"VirtualSize,omitempty"`
-	RepoDigests     []string  `json:"RepoDigests,omitempty" yaml:"RepoDigests,omitempty"`
-	RootFS          *RootFS   `json:"RootFS,omitempty" yaml:"RootFS,omitempty"`
+	Size            int64     `json:"Size,omitempty" yaml:"Size,omitempty" toml:"Size,omitempty"`
+	VirtualSize     int64     `json:"VirtualSize,omitempty" yaml:"VirtualSize,omitempty" toml:"VirtualSize,omitempty"`
+	RepoDigests     []string  `json:"RepoDigests,omitempty" yaml:"RepoDigests,omitempty" toml:"RepoDigests,omitempty"`
+	RootFS          *RootFS   `json:"RootFS,omitempty" yaml:"RootFS,omitempty" toml:"RootFS,omitempty"`
+	OS              string    `json:"Os,omitempty" yaml:"Os,omitempty" toml:"Os,omitempty"`
 }
 
 // ImagePre012 serves the same purpose as the Image type except that it is for
@@ -95,7 +95,7 @@ var (
 
 // ListImagesOptions specify parameters to the ListImages function.
 //
-// See https://goo.gl/xBe1u3 for more details.
+// See https://goo.gl/BVzauZ for more details.
 type ListImagesOptions struct {
 	Filters map[string][]string
 	All     bool
@@ -106,7 +106,7 @@ type ListImagesOptions struct {
 
 // ListImages returns the list of available images in the server.
 //
-// See https://goo.gl/xBe1u3 for more details.
+// See https://goo.gl/BVzauZ for more details.
 func (c *Client) ListImages(opts ListImagesOptions) ([]APIImages, error) {
 	path := "/images/json?" + queryString(opts)
 	resp, err := c.do("GET", path, doOptions{context: opts.Context})
@@ -124,16 +124,16 @@ func (c *Client) ListImages(opts ListImagesOptions) ([]APIImages, error) {
 // ImageHistory represent a layer in an image's history returned by the
 // ImageHistory call.
 type ImageHistory struct {
-	ID        string   `json:"Id" yaml:"Id"`
-	Tags      []string `json:"Tags,omitempty" yaml:"Tags,omitempty"`
-	Created   int64    `json:"Created,omitempty" yaml:"Created,omitempty"`
-	CreatedBy string   `json:"CreatedBy,omitempty" yaml:"CreatedBy,omitempty"`
-	Size      int64    `json:"Size,omitempty" yaml:"Size,omitempty"`
+	ID        string   `json:"Id" yaml:"Id" toml:"Id"`
+	Tags      []string `json:"Tags,omitempty" yaml:"Tags,omitempty" toml:"Tags,omitempty"`
+	Created   int64    `json:"Created,omitempty" yaml:"Created,omitempty" toml:"Tags,omitempty"`
+	CreatedBy string   `json:"CreatedBy,omitempty" yaml:"CreatedBy,omitempty" toml:"CreatedBy,omitempty"`
+	Size      int64    `json:"Size,omitempty" yaml:"Size,omitempty" toml:"Size,omitempty"`
 }
 
 // ImageHistory returns the history of the image by its name or ID.
 //
-// See https://goo.gl/8bnTId for more details.
+// See https://goo.gl/fYtxQa for more details.
 func (c *Client) ImageHistory(name string) ([]ImageHistory, error) {
 	resp, err := c.do("GET", "/images/"+name+"/history", doOptions{})
 	if err != nil {
@@ -152,7 +152,7 @@ func (c *Client) ImageHistory(name string) ([]ImageHistory, error) {
 
 // RemoveImage removes an image by its name or ID.
 //
-// See https://goo.gl/V3ZWnK for more details.
+// See https://goo.gl/Vd2Pck for more details.
 func (c *Client) RemoveImage(name string) error {
 	resp, err := c.do("DELETE", "/images/"+name, doOptions{})
 	if err != nil {
@@ -168,7 +168,7 @@ func (c *Client) RemoveImage(name string) error {
 // RemoveImageOptions present the set of options available for removing an image
 // from a registry.
 //
-// See https://goo.gl/V3ZWnK for more details.
+// See https://goo.gl/Vd2Pck for more details.
 type RemoveImageOptions struct {
 	Force   bool `qs:"force"`
 	NoPrune bool `qs:"noprune"`
@@ -178,7 +178,7 @@ type RemoveImageOptions struct {
 // RemoveImageExtended removes an image by its name or ID.
 // Extra params can be passed, see RemoveImageOptions
 //
-// See https://goo.gl/V3ZWnK for more details.
+// See https://goo.gl/Vd2Pck for more details.
 func (c *Client) RemoveImageExtended(name string, opts RemoveImageOptions) error {
 	uri := fmt.Sprintf("/images/%s?%s", name, queryString(&opts))
 	resp, err := c.do("DELETE", uri, doOptions{context: opts.Context})
@@ -194,7 +194,7 @@ func (c *Client) RemoveImageExtended(name string, opts RemoveImageOptions) error
 
 // InspectImage returns an image by its name or ID.
 //
-// See https://goo.gl/jHPcg6 for more details.
+// See https://goo.gl/ncLTG8 for more details.
 func (c *Client) InspectImage(name string) (*Image, error) {
 	resp, err := c.do("GET", "/images/"+name+"/json", doOptions{})
 	if err != nil {
@@ -236,7 +236,7 @@ func (c *Client) InspectImage(name string) (*Image, error) {
 
 // PushImageOptions represents options to use in the PushImage method.
 //
-// See https://goo.gl/zPtZaT for more details.
+// See https://goo.gl/BZemGg for more details.
 type PushImageOptions struct {
 	// Name of the image
 	Name string
@@ -259,7 +259,7 @@ type PushImageOptions struct {
 // An empty instance of AuthConfiguration may be used for unauthenticated
 // pushes.
 //
-// See https://goo.gl/zPtZaT for more details.
+// See https://goo.gl/BZemGg for more details.
 func (c *Client) PushImage(opts PushImageOptions, auth AuthConfiguration) error {
 	if opts.Name == "" {
 		return ErrNoSuchImage
@@ -284,7 +284,7 @@ func (c *Client) PushImage(opts PushImageOptions, auth AuthConfiguration) error 
 // PullImageOptions present the set of options available for pulling an image
 // from a registry.
 //
-// See https://goo.gl/iJkZjD for more details.
+// See https://goo.gl/qkoSsn for more details.
 type PullImageOptions struct {
 	Repository string `qs:"fromImage"`
 	Tag        string
@@ -303,7 +303,7 @@ type PullImageOptions struct {
 // PullImage pulls an image from a remote registry, logging progress to
 // opts.OutputStream.
 //
-// See https://goo.gl/iJkZjD for more details.
+// See https://goo.gl/qkoSsn for more details.
 func (c *Client) PullImage(opts PullImageOptions, auth AuthConfiguration) error {
 	if opts.Repository == "" {
 		return ErrNoSuchImage
@@ -312,6 +312,11 @@ func (c *Client) PullImage(opts PullImageOptions, auth AuthConfiguration) error 
 	headers, err := headersWithAuth(auth)
 	if err != nil {
 		return err
+	}
+	if opts.Tag == "" && strings.Contains(opts.Repository, "@") {
+		parts := strings.SplitN(opts.Repository, "@", 2)
+		opts.Repository = parts[0]
+		opts.Tag = parts[1]
 	}
 	return c.createImage(queryString(&opts), headers, nil, opts.OutputStream, opts.RawJSONStream, opts.InactivityTimeout, opts.Context)
 }
@@ -331,26 +336,28 @@ func (c *Client) createImage(qs string, headers map[string]string, in io.Reader,
 
 // LoadImageOptions represents the options for LoadImage Docker API Call
 //
-// See https://goo.gl/JyClMX for more details.
+// See https://goo.gl/rEsBV3 for more details.
 type LoadImageOptions struct {
-	InputStream io.Reader
-	Context     context.Context
+	InputStream  io.Reader
+	OutputStream io.Writer
+	Context      context.Context
 }
 
 // LoadImage imports a tarball docker image
 //
-// See https://goo.gl/JyClMX for more details.
+// See https://goo.gl/rEsBV3 for more details.
 func (c *Client) LoadImage(opts LoadImageOptions) error {
 	return c.stream("POST", "/images/load", streamOptions{
 		setRawTerminal: true,
 		in:             opts.InputStream,
+		stdout:         opts.OutputStream,
 		context:        opts.Context,
 	})
 }
 
 // ExportImageOptions represent the options for ExportImage Docker API call.
 //
-// See https://goo.gl/le7vK8 for more details.
+// See https://goo.gl/AuySaA for more details.
 type ExportImageOptions struct {
 	Name              string
 	OutputStream      io.Writer
@@ -360,7 +367,7 @@ type ExportImageOptions struct {
 
 // ExportImage exports an image (as a tar file) into the stream.
 //
-// See https://goo.gl/le7vK8 for more details.
+// See https://goo.gl/AuySaA for more details.
 func (c *Client) ExportImage(opts ExportImageOptions) error {
 	return c.stream("GET", fmt.Sprintf("/images/%s/get", opts.Name), streamOptions{
 		setRawTerminal:    true,
@@ -372,7 +379,7 @@ func (c *Client) ExportImage(opts ExportImageOptions) error {
 
 // ExportImagesOptions represent the options for ExportImages Docker API call
 //
-// See https://goo.gl/huC7HA for more details.
+// See https://goo.gl/N9XlDn for more details.
 type ExportImagesOptions struct {
 	Names             []string
 	OutputStream      io.Writer     `qs:"-"`
@@ -382,7 +389,7 @@ type ExportImagesOptions struct {
 
 // ExportImages exports one or more images (as a tar file) into the stream
 //
-// See https://goo.gl/huC7HA for more details.
+// See https://goo.gl/N9XlDn for more details.
 func (c *Client) ExportImages(opts ExportImagesOptions) error {
 	if opts.Names == nil || len(opts.Names) == 0 {
 		return ErrMustSpecifyNames
@@ -397,7 +404,7 @@ func (c *Client) ExportImages(opts ExportImagesOptions) error {
 // ImportImageOptions present the set of informations available for importing
 // an image from a source file or the stdin.
 //
-// See https://goo.gl/iJkZjD for more details.
+// See https://goo.gl/qkoSsn for more details.
 type ImportImageOptions struct {
 	Repository string `qs:"repo"`
 	Source     string `qs:"fromSrc"`
@@ -412,7 +419,7 @@ type ImportImageOptions struct {
 
 // ImportImage imports an image from a url, a file or stdin
 //
-// See https://goo.gl/iJkZjD for more details.
+// See https://goo.gl/qkoSsn for more details.
 func (c *Client) ImportImage(opts ImportImageOptions) error {
 	if opts.Repository == "" {
 		return ErrNoSuchImage
@@ -435,22 +442,19 @@ func (c *Client) ImportImage(opts ImportImageOptions) error {
 // image from a tarfile with a Dockerfile in it.
 //
 // For more details about the Docker building process, see
-// http://goo.gl/tlPXPu.
+// https://goo.gl/4nYHwV.
 type BuildImageOptions struct {
+	Context             context.Context
 	Name                string             `qs:"t"`
 	Dockerfile          string             `qs:"dockerfile"`
-	NoCache             bool               `qs:"nocache"`
-	SuppressOutput      bool               `qs:"q"`
-	Pull                bool               `qs:"pull"`
-	RmTmpContainer      bool               `qs:"rm"`
-	ForceRmTmpContainer bool               `qs:"forcerm"`
-	RawJSONStream       bool               `qs:"-"`
+	CacheFrom           []string           `qs:"-"`
 	Memory              int64              `qs:"memory"`
 	Memswap             int64              `qs:"memswap"`
 	CPUShares           int64              `qs:"cpushares"`
 	CPUQuota            int64              `qs:"cpuquota"`
 	CPUPeriod           int64              `qs:"cpuperiod"`
 	CPUSetCPUs          string             `qs:"cpusetcpus"`
+	Labels              map[string]string  `qs:"labels"`
 	InputStream         io.Reader          `qs:"-"`
 	OutputStream        io.Writer          `qs:"-"`
 	Remote              string             `qs:"remote"`
@@ -459,24 +463,33 @@ type BuildImageOptions struct {
 	ContextDir          string             `qs:"-"`
 	Ulimits             []ULimit           `qs:"-"`
 	BuildArgs           []BuildArg         `qs:"-"`
+	NetworkMode         string             `qs:"networkmode"`
 	InactivityTimeout   time.Duration      `qs:"-"`
-	Context             context.Context
+	CgroupParent        string             `qs:"cgroupparent"`
+	SecurityOpt         []string           `qs:"securityopt"`
+	Target              string             `gs:"target"`
+	NoCache             bool               `qs:"nocache"`
+	SuppressOutput      bool               `qs:"q"`
+	Pull                bool               `qs:"pull"`
+	RmTmpContainer      bool               `qs:"rm"`
+	ForceRmTmpContainer bool               `qs:"forcerm"`
+	RawJSONStream       bool               `qs:"-"`
 }
 
 // BuildArg represents arguments that can be passed to the image when building
 // it from a Dockerfile.
 //
 // For more details about the Docker building process, see
-// http://goo.gl/tlPXPu.
+// https://goo.gl/4nYHwV.
 type BuildArg struct {
-	Name  string `json:"Name,omitempty" yaml:"Name,omitempty"`
-	Value string `json:"Value,omitempty" yaml:"Value,omitempty"`
+	Name  string `json:"Name,omitempty" yaml:"Name,omitempty" toml:"Name,omitempty"`
+	Value string `json:"Value,omitempty" yaml:"Value,omitempty" toml:"Value,omitempty"`
 }
 
 // BuildImage builds an image from a tarball's url or a Dockerfile in the input
 // stream.
 //
-// See https://goo.gl/xySxCe for more details.
+// See https://goo.gl/4nYHwV for more details.
 func (c *Client) BuildImage(opts BuildImageOptions) error {
 	if opts.OutputStream == nil {
 		return ErrMissingOutputStream
@@ -503,8 +516,16 @@ func (c *Client) BuildImage(opts BuildImageOptions) error {
 			return err
 		}
 	}
-
 	qs := queryString(&opts)
+
+	if c.serverAPIVersion.GreaterThanOrEqualTo(apiVersion125) && len(opts.CacheFrom) > 0 {
+		if b, err := json.Marshal(opts.CacheFrom); err == nil {
+			item := url.Values(map[string][]string{})
+			item.Add("cachefrom", string(b))
+			qs = fmt.Sprintf("%s&%s", qs, item.Encode())
+		}
+	}
+
 	if len(opts.Ulimits) > 0 {
 		if b, err := json.Marshal(opts.Ulimits); err == nil {
 			item := url.Values(map[string][]string{})
@@ -536,7 +557,7 @@ func (c *Client) BuildImage(opts BuildImageOptions) error {
 	})
 }
 
-func (c *Client) versionedAuthConfigs(authConfigs AuthConfigurations) interface{} {
+func (c *Client) versionedAuthConfigs(authConfigs AuthConfigurations) registryAuth {
 	if c.serverAPIVersion == nil {
 		c.checkAPIVersion()
 	}
@@ -548,7 +569,7 @@ func (c *Client) versionedAuthConfigs(authConfigs AuthConfigurations) interface{
 
 // TagImageOptions present the set of options to tag an image.
 //
-// See https://goo.gl/98ZzkU for more details.
+// See https://goo.gl/prHrvo for more details.
 type TagImageOptions struct {
 	Repo    string
 	Tag     string
@@ -558,7 +579,7 @@ type TagImageOptions struct {
 
 // TagImage adds a tag to the image identified by the given name.
 //
-// See https://goo.gl/98ZzkU for more details.
+// See https://goo.gl/prHrvo for more details.
 func (c *Client) TagImage(name string, opts TagImageOptions) error {
 	if name == "" {
 		return ErrNoSuchImage
@@ -566,7 +587,6 @@ func (c *Client) TagImage(name string, opts TagImageOptions) error {
 	resp, err := c.do("POST", "/images/"+name+"/tag?"+queryString(&opts), doOptions{
 		context: opts.Context,
 	})
-
 	if err != nil {
 		return err
 	}
@@ -588,24 +608,18 @@ func isURL(u string) bool {
 	return p.Scheme == "http" || p.Scheme == "https"
 }
 
-func headersWithAuth(auths ...interface{}) (map[string]string, error) {
+func headersWithAuth(auths ...registryAuth) (map[string]string, error) {
 	var headers = make(map[string]string)
 
 	for _, auth := range auths {
-		switch auth.(type) {
-		case AuthConfiguration:
-			var buf bytes.Buffer
-			if err := json.NewEncoder(&buf).Encode(auth); err != nil {
-				return nil, err
-			}
-			headers["X-Registry-Auth"] = base64.URLEncoding.EncodeToString(buf.Bytes())
-		case AuthConfigurations, AuthConfigurations119:
-			var buf bytes.Buffer
-			if err := json.NewEncoder(&buf).Encode(auth); err != nil {
-				return nil, err
-			}
-			headers["X-Registry-Config"] = base64.URLEncoding.EncodeToString(buf.Bytes())
+		if auth.isEmpty() {
+			continue
 		}
+		data, err := json.Marshal(auth)
+		if err != nil {
+			return nil, err
+		}
+		headers[auth.headerKey()] = base64.URLEncoding.EncodeToString(data)
 	}
 
 	return headers, nil
@@ -613,18 +627,18 @@ func headersWithAuth(auths ...interface{}) (map[string]string, error) {
 
 // APIImageSearch reflect the result of a search on the Docker Hub.
 //
-// See https://goo.gl/AYjyrF for more details.
+// See https://goo.gl/KLO9IZ for more details.
 type APIImageSearch struct {
-	Description string `json:"description,omitempty" yaml:"description,omitempty"`
-	IsOfficial  bool   `json:"is_official,omitempty" yaml:"is_official,omitempty"`
-	IsAutomated bool   `json:"is_automated,omitempty" yaml:"is_automated,omitempty"`
-	Name        string `json:"name,omitempty" yaml:"name,omitempty"`
-	StarCount   int    `json:"star_count,omitempty" yaml:"star_count,omitempty"`
+	Description string `json:"description,omitempty" yaml:"description,omitempty" toml:"description,omitempty"`
+	IsOfficial  bool   `json:"is_official,omitempty" yaml:"is_official,omitempty" toml:"is_official,omitempty"`
+	IsAutomated bool   `json:"is_automated,omitempty" yaml:"is_automated,omitempty" toml:"is_automated,omitempty"`
+	Name        string `json:"name,omitempty" yaml:"name,omitempty" toml:"name,omitempty"`
+	StarCount   int    `json:"star_count,omitempty" yaml:"star_count,omitempty" toml:"star_count,omitempty"`
 }
 
 // SearchImages search the docker hub with a specific given term.
 //
-// See https://goo.gl/AYjyrF for more details.
+// See https://goo.gl/KLO9IZ for more details.
 func (c *Client) SearchImages(term string) ([]APIImageSearch, error) {
 	resp, err := c.do("GET", "/images/search?term="+term, doOptions{})
 	if err != nil {
@@ -640,7 +654,7 @@ func (c *Client) SearchImages(term string) ([]APIImageSearch, error) {
 
 // SearchImagesEx search the docker hub with a specific given term and authentication.
 //
-// See https://goo.gl/AYjyrF for more details.
+// See https://goo.gl/KLO9IZ for more details.
 func (c *Client) SearchImagesEx(term string, auth AuthConfiguration) ([]APIImageSearch, error) {
 	headers, err := headersWithAuth(auth)
 	if err != nil {
@@ -662,4 +676,37 @@ func (c *Client) SearchImagesEx(term string, auth AuthConfiguration) ([]APIImage
 	}
 
 	return searchResult, nil
+}
+
+// PruneImagesOptions specify parameters to the PruneImages function.
+//
+// See https://goo.gl/qfZlbZ for more details.
+type PruneImagesOptions struct {
+	Filters map[string][]string
+	Context context.Context
+}
+
+// PruneImagesResults specify results from the PruneImages function.
+//
+// See https://goo.gl/qfZlbZ for more details.
+type PruneImagesResults struct {
+	ImagesDeleted  []struct{ Untagged, Deleted string }
+	SpaceReclaimed int64
+}
+
+// PruneImages deletes images which are unused.
+//
+// See https://goo.gl/qfZlbZ for more details.
+func (c *Client) PruneImages(opts PruneImagesOptions) (*PruneImagesResults, error) {
+	path := "/images/prune?" + queryString(opts)
+	resp, err := c.do("POST", path, doOptions{context: opts.Context})
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	var results PruneImagesResults
+	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
+		return nil, err
+	}
+	return &results, nil
 }

@@ -1,38 +1,33 @@
+dist: xenial
 language: go
-sudo: required
 go:
-  - 1.6.3
-  - 1.7.1
-  - tip
+  - 1.11.x
+  - 1.12.x
 os:
   - linux
   - osx
+  - windows
 env:
   matrix:
-    - GOARCH=amd64 DOCKER_VERSION=1.10.3
-    - GOARCH=386   DOCKER_VERSION=1.10.3
-    - GOARCH=amd64 DOCKER_VERSION=1.11.2
-    - GOARCH=386   DOCKER_VERSION=1.11.2
-    - GOARCH=amd64 DOCKER_VERSION=1.12.1
-    - GOARCH=386   DOCKER_VERSION=1.12.1
+    - GOARCH=amd64 DEP_TOOL=mod GO111MODULE=on
+    - GOARCH=386 DEP_TOOL=mod GO111MODULE=on
+    - GOARCH=amd64 DEP_TOOL=dep GO111MODULE=off
+    - GOARCH=386 DEP_TOOL=dep GO111MODULE=off
   global:
-    - GO_TEST_FLAGS=-race
-    - DOCKER_HOST=tcp://127.0.0.1:2375
+    - GOPROXY=https://proxy.golang.org
 install:
-  - make testdeps
-  - travis_retry travis-scripts/install-docker.bash
+  - travis-scripts/win-setup.bash
+  - make testdeps DEP_TOOL=${DEP_TOOL}
 script:
-  - travis-scripts/run-tests.bash
+  - travis_wait 25 travis-scripts/run-tests.bash
 services:
   - docker
 matrix:
   fast_finish: true
   exclude:
     - os: osx
-      env: GOARCH=amd64 DOCKER_VERSION=1.10.3
+      env: GOARCH=386 DEP_TOOL=dep GO111MODULE=off
     - os: osx
-      env: GOARCH=386   DOCKER_VERSION=1.10.3
-    - os: osx
-      env: GOARCH=amd64 DOCKER_VERSION=1.11.2
-    - os: osx
-      env: GOARCH=386   DOCKER_VERSION=1.11.2
+      env: GOARCH=386 DEP_TOOL=mod GO111MODULE=on
+  allow_failures:
+    - os: windows
