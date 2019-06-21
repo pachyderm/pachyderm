@@ -269,6 +269,9 @@ func (a *apiServer) validateInput(pachClient *client.APIClient, pipelineName str
 }
 
 func validateTransform(transform *pps.Transform) error {
+	if transform == nil {
+		return fmt.Errorf("pipeline must specify a transform")
+	}
 	return nil
 }
 
