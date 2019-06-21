@@ -14,17 +14,17 @@ import (
 
 // Reference describes a reference to a chunk in chunk storage.  If a chunk has
 // no references, it will be deleted.
-//  * sourcetype - the type of reference, one of:
+//  * Sourcetype - the type of reference, one of:
 //   * 'job' - a temporary reference to the chunk, tied to the lifetime of a job
 //   * 'chunk' - a cross-chunk reference, from one chunk to another
 //   * 'semantic' - a reference to a chunk by some semantic name
-//  * source - the source of the reference, this may be a job id, chunk id, or a
+//  * Source - the source of the reference, this may be a job id, chunk id, or a
 //    semantic name
-//  * chunk - the target chunk being referenced
+//  * Chunk - the target chunk being referenced
 type Reference struct {
-	sourcetype string
-	source     string
-	chunk      chunk.Chunk
+	Sourcetype string
+	Source     string
+	Chunk      chunk.Chunk
 }
 
 // Client is the interface provided by the garbage collector client, for use on
@@ -108,8 +108,7 @@ added_chunks as (
  insert into chunks (chunk) values `+strings.Join(chunkIDs, ",")+`
  on conflict (chunk) do update set chunk = excluded.chunk
  returning chunk, deleting
-),
-added_refs as (
+), added_refs as (
  insert into refs (chunk, source, sourcetype)
   select
    chunk, ?, 'job'::reftype
@@ -132,6 +131,11 @@ select chunk from added_chunks where deleting is not null;
 
 func (ci *clientImpl) ReserveChunks(ctx context.Context, job string, chunks []chunk.Chunk) (retErr error) {
 	defer func(startTime time.Time) { applyRequestStats("ReserveChunks", retErr, startTime) }(time.Now())
+	chunkIDs := []string{}
+	for _, c := range chunks {
+		chunkIDs = append(chunkIDs, c.Hash)
+	}
+	fmt.Printf("ReserveChunks (%s): %v\n", job, strings.Join(chunkIDs, ", "))
 	if len(chunks) == 0 {
 		return nil
 	}
@@ -154,15 +158,24 @@ func (ci *clientImpl) ReserveChunks(ctx context.Context, job string, chunks []ch
 
 func (ci *clientImpl) UpdateReferences(ctx context.Context, add []Reference, remove []Reference, releaseJob string) (retErr error) {
 	defer func(startTime time.Time) { applyRequestStats("UpdateReferences", retErr, startTime) }(time.Now())
+	addStr := []string{}
+	removeStr := []string{}
+	for _, ref := range add {
+		addStr = append(addStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk.Hash))
+	}
+	for _, ref := range remove {
+		removeStr = append(removeStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk.Hash))
+	}
+	fmt.Printf("UpdateReferences (%s): add: %v, remove: %v\n", releaseJob, strings.Join(addStr, ", "), strings.Join(removeStr, ", "))
 
 	removeValues := make([][]interface{}, 0, len(remove))
 	for _, ref := range remove {
-		removeValues = append(removeValues, []interface{}{ref.sourcetype, ref.source, ref.chunk.Hash})
+		removeValues = append(removeValues, []interface{}{ref.Sourcetype, ref.Source, ref.Chunk.Hash})
 	}
 
 	addValues := make([][]interface{}, len(add))
 	for _, ref := range add {
-		addValues = append(addValues, []interface{}{ref.sourcetype, ref.source, ref.chunk.Hash})
+		addValues = append(addValues, []interface{}{ref.Sourcetype, ref.Source, ref.Chunk.Hash})
 	}
 
 	var chunksToDelete []chunkModel
@@ -196,12 +209,13 @@ with del_refs as (
 	refs.source = del.source and
 	refs.chunk = del.chunk
  returning refs.chunk
-),
-counts as (
- select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1 order by 1
+), deleted as (
+ select chunk, count(*) from del_refs group by 1 order by 1
+), before as (
+ select chunk, count(*) as count from refs join deleted using (chunk) group by 1 order by 1
 )
 
-select chunk from counts where count = 0
+select chunk from before join deleted using (chunk) where before.count - deleted.count = 0
       `, refQuery).Scan(&chunksToDelete)
 		},
 	}

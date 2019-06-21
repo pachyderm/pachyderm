@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -240,6 +241,7 @@ func TestUpdateReferences(t *testing.T) {
 		[]Reference{
 			{"semantic", "semantic-3", chunks[3]},
 			{"semantic", "semantic-2", chunks[2]},
+			{"chunk", chunks[2].Hash, chunks[3]},
 		},
 		[]Reference{},
 		jobs[1],
@@ -248,7 +250,10 @@ func TestUpdateReferences(t *testing.T) {
 
 	// No chunks should be cleaned up, the job reference to 2 and 3 were replaced
 	// with semantic references
-	// 2 3 <- referenced semantically
+	// 2 <- referenced semantically
+	// |
+	// 3 <- referenced semantically
+	//
 	// 4 <- referenced by jobs
 	// |
 	// 0
@@ -265,13 +270,14 @@ func TestUpdateReferences(t *testing.T) {
 		{"chunk", chunks[4].Hash, chunks[0].Hash},
 		{"semantic", "semantic-2", chunks[2].Hash},
 		{"semantic", "semantic-3", chunks[3].Hash},
+		{"chunk", chunks[2].Hash, chunks[3].Hash},
 	}
 	require.ElementsEqual(t, expectedRefRows, allRefs(t, client))
 
 	require.NoError(t, client.UpdateReferences(
 		ctx,
 		[]Reference{{"chunk", chunks[4].Hash, chunks[2]}},
-		[]Reference{{"semantic", "semantic-3", chunks[3]}},
+		[]Reference{{"semantic", "semantic-3", chunks[3]}, {"chunk", chunks[2].Hash, chunks[3]}},
 		jobs[2],
 	))
 	flushAllDeletes(client.server)
@@ -376,9 +382,9 @@ func TestFuzz(t *testing.T) {
 		// Make a list of chunks we'll be referencing and reserve them
 		chunkMap := make(map[string]bool)
 		for _, item := range job.add {
-			chunkMap[item.chunk.Hash] = true
-			if item.sourcetype == "chunk" {
-				chunkMap[item.source] = true
+			chunkMap[item.Chunk.Hash] = true
+			if item.Sourcetype == "chunk" {
+				chunkMap[item.Source] = true
 			}
 		}
 		reservedChunks := []chunk.Chunk{}
@@ -458,30 +464,30 @@ func TestFuzz(t *testing.T) {
 		if len(chunkRefs) == 0 || roll > 0.9 {
 			// Make a new chunk with a semantic reference
 			dest = unusedChunkID(0)
-			ref.sourcetype = "semantic"
-			ref.source = testutil.UniqueString("semantic-")
-			ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
+			ref.Sourcetype = "semantic"
+			ref.Source = testutil.UniqueString("semantic-")
+			ref.Chunk = chunk.Chunk{Hash: fmt.Sprintf("%d", dest)}
 		} else if roll > 0.6 {
 			// Add a semantic reference to an existing chunk
 			dest = usedChunkID(0)
-			ref.sourcetype = "semantic"
-			ref.source = testutil.UniqueString("semantic-")
-			ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
+			ref.Sourcetype = "semantic"
+			ref.Source = testutil.UniqueString("semantic-")
+			ref.Chunk = chunk.Chunk{Hash: fmt.Sprintf("%d", dest)}
 		} else {
 			source := usedChunkID(0)
-			ref.sourcetype = "chunk"
-			ref.source = fmt.Sprintf("chunk-%d", source)
+			ref.Sourcetype = "chunk"
+			ref.Source = fmt.Sprintf("%d", source)
 			if roll > 0.5 {
 				// Add a cross-chunk reference to a new chunk
 				dest = unusedChunkID(source + 1)
-				ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
+				ref.Chunk = chunk.Chunk{Hash: fmt.Sprintf("%d", dest)}
 			} else {
 				// Add a cross-chunk reference to an existing chunk
 				dest = usedChunkID(source + 1)
 				if dest == 0 {
 					dest = unusedChunkID(source + 1)
 				}
-				ref.chunk = chunk.Chunk{Hash: fmt.Sprintf("chunk-%d", dest)}
+				ref.Chunk = chunk.Chunk{Hash: fmt.Sprintf("%d", dest)}
 			}
 		}
 
@@ -491,9 +497,9 @@ func TestFuzz(t *testing.T) {
 		} else {
 			// Make sure ref isn't a duplicate
 			for _, x := range existingChunkRefs {
-				if ref.sourcetype == x.sourcetype && ref.source == x.source {
-					ref.sourcetype = "semantic"
-					ref.source = testutil.UniqueString("semantic-")
+				if ref.Sourcetype == x.Sourcetype && ref.Source == x.Source {
+					ref.Sourcetype = "semantic"
+					ref.Source = testutil.UniqueString("semantic-")
 					break
 				}
 			}
@@ -502,6 +508,32 @@ func TestFuzz(t *testing.T) {
 		}
 
 		return ref
+	}
+
+	// Recursively remove references from the specified chunk (simulating a delete)
+	var cleanupRef func(id int)
+	cleanupRef = func(id int) {
+		require.Equal(t, 0, len(chunkRefs[id]))
+		delete(chunkRefs, id)
+		freeChunkIDs = append(freeChunkIDs, id)
+
+		for recursiveID, refs := range chunkRefs {
+			idStr := fmt.Sprintf("%d", id)
+			i := 0
+			for _, ref := range refs {
+				if ref.Source != idStr {
+					refs[i] = ref
+					i++
+				}
+			}
+			refs = refs[:i]
+			chunkRefs[recursiveID] = refs
+
+			if len(refs) == 0 {
+				fmt.Printf("recursive cleanup %d\n", recursiveID)
+				cleanupRef(recursiveID)
+			}
+		}
 	}
 
 	removeRef := func() Reference {
@@ -516,8 +548,8 @@ func TestFuzz(t *testing.T) {
 				ref := v[j]
 				chunkRefs[k] = append(v[0:j], v[j+1:len(v)]...)
 				if len(chunkRefs[k]) == 0 {
-					delete(chunkRefs, k)
-					freeChunkIDs = append(freeChunkIDs, k)
+					fmt.Printf("cleanup %d\n", k)
+					cleanupRef(k)
 				}
 				return ref
 			}
@@ -529,38 +561,72 @@ func TestFuzz(t *testing.T) {
 	makeJobData := func() jobData {
 		jd := jobData{id: testutil.UniqueString("job-")}
 
-		// Run random add/remove operations, only allow references to go from lower numbers to higher numbers to keep it acyclic
-		for rand.Float32() > 0.5 {
-			numAdds := rand.Intn(10)
-			for i := 0; i < numAdds; i++ {
-				jd.add = append(jd.add, addRef())
+		for len(jd.add) == 0 && len(jd.remove) == 0 {
+			// Run random add/remove operations, only allow references to go from lower numbers to higher numbers to keep it acyclic
+			for rand.Float32() > 0.6 {
+				numRemoves := rand.Intn(7)
+				for i := 0; i < numRemoves && len(chunkRefs) > 0; i++ {
+					jd.remove = append(jd.remove, removeRef())
+				}
 			}
-		}
 
-		for rand.Float32() > 0.6 {
-			numRemoves := rand.Intn(7)
-			for i := 0; i < numRemoves && len(chunkRefs) > 0; i++ {
-				jd.remove = append(jd.remove, removeRef())
+			for rand.Float32() > 0.5 {
+				numAdds := rand.Intn(10)
+				for i := 0; i < numAdds; i++ {
+					jd.add = append(jd.add, addRef())
+				}
 			}
 		}
 
 		return jd
 	}
 
+	// chunkRefs := make(map[int][]Reference)
 	verifyData := func() {
-		/*
-			chunks := allChunks(t, client)
-			refs := allRefs(t, client)
+		chunks := allChunks(t, client)
+		//refs := allRefs(t, client)
 
-			chunksById := make(map[int]bool)
-			fmt.Printf("verifyData\n")
-		*/
+		chunkIDs := []int{}
+		chunksByID := make(map[int]bool)
+		expectedChunkIDs := []int{}
+		expectedChunksByID := make(map[int]bool)
+
+		for _, c := range chunks {
+			require.Nil(t, c.Deleting)
+			id, err := strconv.ParseInt(c.Chunk, 10, 64)
+			require.NoError(t, err)
+			chunkIDs = append(chunkIDs, int(id))
+			chunksByID[int(id)] = true
+		}
+
+		for id := range chunkRefs {
+			expectedChunkIDs = append(expectedChunkIDs, id)
+			expectedChunksByID[id] = true
+		}
+
+		for id := range chunksByID {
+			if !expectedChunksByID[id] {
+				fmt.Printf("Extra chunk in database: %v\n", id)
+			}
+		}
+
+		for id := range expectedChunksByID {
+			if !chunksByID[id] {
+				fmt.Printf("Missing chunk in database: %v\n", id)
+			}
+		}
+
+		require.ElementsEqual(t, expectedChunkIDs, chunkIDs)
+
+		//for _, r := range refs {
+		//	// Do a thing
+		//}
 	}
 
-	numWorkers := 10
-	numJobs := 1000
+	numWorkers := 1
+	numJobs := 10
 	// Occasionally halt all goroutines and check data consistency
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 1; i++ {
 		jobChan := make(chan jobData, numJobs)
 		eg := startWorkers(numWorkers, jobChan)
 		for i := 0; i < numJobs; i++ {
@@ -568,6 +634,25 @@ func TestFuzz(t *testing.T) {
 		}
 		close(jobChan)
 		require.NoError(t, eg.Wait())
+
+		// Prune any unreferenced chunks (since our job generation doesn't do this)
+		/*
+			referenced := make(map[int]bool)
+			for _, refs := range chunkRefs {
+				for _, ref := range refs {
+					target, err := strconv.ParseInt(ref.Chunk.Hash, 10, 64)
+					require.NoError(t, err)
+					referenced[int(target)] = true
+				}
+			}
+
+			for id := range chunkRefs {
+				if !referenced[id] {
+					fmt.Printf("removing unreferenced chunk: %d\n", id)
+					delete(chunkRefs, id)
+				}
+			}
+		*/
 
 		flushAllDeletes(server)
 		verifyData()

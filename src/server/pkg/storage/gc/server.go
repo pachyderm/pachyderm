@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -141,11 +142,14 @@ with del_chunks as (
 	delete from refs using del_chunks
 	where refs.sourcetype = 'chunk' and refs.source = del_chunks.chunk
 	returning refs.chunk
-), counts as (
-  select chunk, count(*) - 1 as count from refs join del_refs using (chunk) group by 1 order by 1
+), deleted as (
+ select chunk, count(*) from del_refs group by 1 order by 1
+), before as (
+ select chunk, count(*) as count from refs join deleted using (chunk) group by 1 order by 1
 )
 
-select chunk from counts where count = 0`, chunkIDs).Scan(&result)
+select chunk from before join deleted using (chunk) where before.count - deleted.count = 0
+		`, chunkIDs).Scan(&result)
 		},
 	}
 
@@ -168,6 +172,7 @@ func retry(name string, maxAttempts int, fn func() error) {
 
 func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
 	defer func(start time.Time) { applyRequestStats("DeleteChunks", retErr, start) }(time.Now())
+	fmt.Printf("DeleteChunks: %v\n", chunks)
 
 	trigger := newTrigger()
 
@@ -204,6 +209,11 @@ func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (r
 			// delete objects from object storage
 			retry("deleter.Delete", 10, func() (retErr error) {
 				defer func(start time.Time) { applyDeleteStats(retErr, start) }(time.Now())
+				chunkIDs := []string{}
+				for _, c := range toDelete {
+					chunkIDs = append(chunkIDs, c.Hash)
+				}
+				fmt.Printf("deleting chunks: %v\n", strings.Join(chunkIDs, ", "))
 				return si.deleter.Delete(context.Background(), toDelete)
 			})
 
