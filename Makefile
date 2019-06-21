@@ -12,9 +12,9 @@
 ifndef TESTPKGS
 	TESTPKGS = ./src/...
 endif
-ifdef VENDOR_ALL
-	VENDOR_IGNORE_DIRS =
-endif
+# ifdef VENDOR_ALL
+# 	VENDOR_IGNORE_DIRS =
+# endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
@@ -56,23 +56,30 @@ version:
 	go run /tmp/pachyderm_version.go
 
 deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
+	go get -d -v ./src/... ./.
 
-update-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
+update-deps: 
+	go get -d -v -u ./src/... ./.
+# deps:
+# 	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
 
-test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/... ./.
+# update-deps:
+# 	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
 
-update-test-deps:
-	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
+# test-deps:
+# 	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/... ./.
+
+# update-test-deps:
+# 	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
 
 build-clean-vendored-client:
 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 build:
-	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
-	GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
+	# GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
+	# GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
+	GO111MODULE=on go build -mod vendor $$(go list ./src/client/... | grep -v '/src/client$$')
+	# GO111MODULE=on go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 
 pachd:
 	go build ./src/server/cmd/pachd
@@ -87,7 +94,7 @@ install:
 
 install-mac:
 	# Result will be in $GOPATH/bin/darwin_amd64/pachctl (if building on linux)
-	GO15VENDOREXPERIMENT=1 GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
+	GO111MODULE=on GOOS=darwin GOARCH=amd64 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-clean:
 	@# Need to blow away pachctl binary if its already there
@@ -95,7 +102,8 @@ install-clean:
 	@make install
 
 install-doc:
-	GO15VENDOREXPERIMENT=1 go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
+	# GO15VENDOREXPERIMENT=1 go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
+	GO111MODULE=on go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
 	# The latest docker client requires server api version >= 1.24.
