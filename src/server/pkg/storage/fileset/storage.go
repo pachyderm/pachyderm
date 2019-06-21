@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	prefix = "pfs"
+	prefix    = "pfs"
+	headerTag = ""
 )
 
 // Storage is the abstraction that manages fileset storage.

@@ -25,13 +25,6 @@ var initialWindow = make([]byte, WindowSize)
 
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
-// (bryce) The chunking/hashing/uploading could be made concurrent by reading ahead a certain amount and splitting the data among chunking/hashing/uploading workers
-// in a circular array where the first identified chunk (or whole chunk if there is no chunk split point) in a worker is appended to the prior workers data. This would
-// handle chunk splits that show up when the rolling hash window is across the data splits. The callback would still be executed sequentially so that the order would be
-// correct for the file index.
-// - An improvement to this would be to just append WindowSize bytes to the prior worker's data, then stitch together the correct chunks.
-//   It doesn't make sense to roll the window over the same data twice.
-// (bryce) have someone else double check the hash resetting strategy. It should be fine in terms of consistent hashing, but may result with a little bit less deduplication across different files, not sure. This resetting strategy allows me to avoid reading the tail end of a copied chunk to get the correct hasher state for the following data (if it is not another copied chunk).
 type Writer struct {
 	ctx        context.Context
 	objC       obj.Client

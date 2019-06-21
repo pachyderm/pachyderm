@@ -16,6 +16,7 @@ type Writer struct {
 	cw    *chunk.Writer
 	iw    *index.Writer
 	first bool
+	hdr   *index.Header
 }
 
 func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string) *Writer {
@@ -37,23 +38,39 @@ func (w *Writer) WriteHeader(hdr *index.Header) error {
 		}
 	}
 	w.first = false
-	w.cw.StartRange(w.callback(hdr))
-	return w.tw.WriteHeader(hdr.Hdr)
+	// Setup index header for next file.
+	// (bryce) might want to deep copy the passed in header.
+	w.hdr = &index.Header{
+		Hdr: hdr.Hdr,
+		Idx: &index.Index{DataOp: &index.DataOp{}},
+	}
+	w.cw.StartRange(w.callback(w.hdr))
+	if err := w.tw.WriteHeader(w.hdr.Hdr); err != nil {
+		return err
+	}
+	// Setup first tag for header.
+	w.hdr.Idx.DataOp.Tags = []*index.Tag{&index.Tag{Id: headerTag, SizeBytes: w.cw.RangeSize()}}
+	return nil
 }
 
 func (w *Writer) callback(hdr *index.Header) func([]*chunk.DataRef) error {
 	return func(dataRefs []*chunk.DataRef) error {
-		if hdr.Idx == nil {
-			hdr.Idx = &index.Index{}
-		}
-		hdr.Idx.DataOp = &index.DataOp{DataRefs: dataRefs}
+		hdr.Idx.DataOp.DataRefs = dataRefs
 		return w.iw.WriteHeader(hdr)
 	}
 }
 
+// StartTag starts a tag for the next set of bytes (used for the reverse index, mapping file output to datums).
+func (w *Writer) StartTag(id string) {
+	w.hdr.Idx.DataOp.Tags = append(w.hdr.Idx.DataOp.Tags, &index.Tag{Id: id})
+}
+
 // Write writes to the current file in the tar stream.
 func (w *Writer) Write(data []byte) (int, error) {
-	return w.tw.Write(data)
+	n, err := w.tw.Write(data)
+	w.hdr.Idx.SizeBytes += int64(n)
+	w.hdr.Idx.DataOp.Tags[len(w.hdr.Idx.DataOp.Tags)-1].SizeBytes += int64(n)
+	return n, err
 }
 
 // Close closes the writer.
