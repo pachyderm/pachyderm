@@ -172,7 +172,11 @@ func retry(name string, maxAttempts int, fn func() error) {
 
 func (si *serverImpl) DeleteChunks(ctx context.Context, chunks []chunk.Chunk) (retErr error) {
 	defer func(start time.Time) { applyRequestStats("DeleteChunks", retErr, start) }(time.Now())
-	fmt.Printf("DeleteChunks: %v\n", chunks)
+	chunkIDs := []string{}
+	for _, c := range chunks {
+		chunkIDs = append(chunkIDs, c.Hash)
+	}
+	fmt.Printf("DeleteChunks: %v\n", strings.Join(chunkIDs, ", "))
 
 	trigger := newTrigger()
 

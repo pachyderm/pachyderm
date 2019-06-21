@@ -563,17 +563,17 @@ func TestFuzz(t *testing.T) {
 
 		for len(jd.add) == 0 && len(jd.remove) == 0 {
 			// Run random add/remove operations, only allow references to go from lower numbers to higher numbers to keep it acyclic
-			for rand.Float32() > 0.6 {
-				numRemoves := rand.Intn(7)
-				for i := 0; i < numRemoves && len(chunkRefs) > 0; i++ {
-					jd.remove = append(jd.remove, removeRef())
-				}
-			}
-
 			for rand.Float32() > 0.5 {
 				numAdds := rand.Intn(10)
 				for i := 0; i < numAdds; i++ {
 					jd.add = append(jd.add, addRef())
+				}
+			}
+
+			for rand.Float32() > 0.6 {
+				numRemoves := rand.Intn(7)
+				for i := 0; i < numRemoves && len(chunkRefs) > 0; i++ {
+					jd.remove = append(jd.remove, removeRef())
 				}
 			}
 		}
@@ -624,7 +624,7 @@ func TestFuzz(t *testing.T) {
 	}
 
 	numWorkers := 1
-	numJobs := 10
+	numJobs := 1000
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 1; i++ {
 		jobChan := make(chan jobData, numJobs)

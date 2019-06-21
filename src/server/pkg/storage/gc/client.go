@@ -166,7 +166,15 @@ func (ci *clientImpl) UpdateReferences(ctx context.Context, add []Reference, rem
 	for _, ref := range remove {
 		removeStr = append(removeStr, fmt.Sprintf("%s/%s:%s", ref.Sourcetype, ref.Source, ref.Chunk.Hash))
 	}
-	fmt.Printf("UpdateReferences (%s): add: %v, remove: %v\n", releaseJob, strings.Join(addStr, ", "), strings.Join(removeStr, ", "))
+	fmt.Printf("UpdateReferences (%s):\n", releaseJob)
+	fmt.Printf("  add:\n")
+	for _, x := range addStr {
+		fmt.Printf("    %v\n", x)
+	}
+	fmt.Printf("  remove:\n")
+	for _, x := range removeStr {
+		fmt.Printf("    %v\n", x)
+	}
 
 	removeValues := make([][]interface{}, 0, len(remove))
 	for _, ref := range remove {
