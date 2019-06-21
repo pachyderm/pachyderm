@@ -65,6 +65,26 @@ func (td *testDeleter) Delete(ctx context.Context, chunks []chunk.Chunk) error {
 	return nil
 }
 
+// Helper function to ensure the server is done deleting to avoid races
+func flushAllDeletes(server Server) {
+	// bork bork
+	si := server.(*serverImpl)
+	for {
+		t := func() *trigger {
+			si.mutex.Lock()
+			defer si.mutex.Unlock()
+			for _, t := range si.deleting {
+				return t
+			}
+			return nil
+		}()
+		if t == nil {
+			return
+		}
+		t.Wait()
+	}
+}
+
 func makeServer(t *testing.T, deleter Deleter, metrics prometheus.Registerer) Server {
 	if deleter == nil {
 		deleter = &testDeleter{}
@@ -162,11 +182,6 @@ func TestUpdateReferences(t *testing.T) {
 	jobs := makeJobs(3)
 	chunks := makeChunks(5)
 
-	// deletes are handled asynchronously on the server, flush everything to avoid race conditions
-	flush := func() {
-		require.NoError(t, client.server.FlushDeletes(ctx, chunks))
-	}
-
 	require.NoError(t, client.ReserveChunks(ctx, jobs[0], chunks[0:3])) // 0, 1, 2
 	require.NoError(t, client.ReserveChunks(ctx, jobs[1], chunks[2:4])) // 2, 3
 	require.NoError(t, client.ReserveChunks(ctx, jobs[2], chunks[4:5])) // 4
@@ -198,7 +213,7 @@ func TestUpdateReferences(t *testing.T) {
 		[]Reference{},
 		jobs[0],
 	))
-	flush()
+	flushAllDeletes(client.server)
 
 	// Chunk 1 should be cleaned up as unreferenced
 	// 4 2 3 <- referenced by jobs
@@ -229,7 +244,7 @@ func TestUpdateReferences(t *testing.T) {
 		[]Reference{},
 		jobs[1],
 	))
-	flush()
+	flushAllDeletes(client.server)
 
 	// No chunks should be cleaned up, the job reference to 2 and 3 were replaced
 	// with semantic references
@@ -259,11 +274,7 @@ func TestUpdateReferences(t *testing.T) {
 		[]Reference{{"semantic", "semantic-3", chunks[3]}},
 		jobs[2],
 	))
-
-	// We do two flushes because this update does a transitive delete and we
-	// don't want this test to be flaky by landing on an intermediary state
-	flush()
-	flush()
+	flushAllDeletes(client.server)
 
 	// Chunk 3 should be cleaned up as the semantic reference was removed
 	// Chunk 4 should be cleaned up as the job reference was removed
@@ -537,7 +548,13 @@ func TestFuzz(t *testing.T) {
 	}
 
 	verifyData := func() {
-		fmt.Printf("verifyData\n")
+		/*
+			chunks := allChunks(t, client)
+			refs := allRefs(t, client)
+
+			chunksById := make(map[int]bool)
+			fmt.Printf("verifyData\n")
+		*/
 	}
 
 	numWorkers := 10
@@ -552,6 +569,7 @@ func TestFuzz(t *testing.T) {
 		close(jobChan)
 		require.NoError(t, eg.Wait())
 
+		flushAllDeletes(server)
 		verifyData()
 	}
 

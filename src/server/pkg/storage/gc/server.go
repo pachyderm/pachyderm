@@ -252,8 +252,8 @@ func (si *serverImpl) FlushDeletes(ctx context.Context, chunks []chunk.Chunk) (r
 		return res
 	}()
 
-	for _, trigger := range triggers {
-		trigger.Wait()
+	for _, t := range triggers {
+		t.Wait()
 	}
 
 	return nil
