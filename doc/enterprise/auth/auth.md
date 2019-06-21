@@ -23,17 +23,19 @@ as initial SAML configuration.
 * **Pipeline** is an account that Pachyderm creates for
 data pipelines. Pipelines inherit access control from its creator.
 * **SAML user** is a user account that is associated with a Security Assertion
-Markup Language (SAML) identity provider, such as Okta.
+Markup Language (SAML) identity provider.
 When a user tries to log in through a SAML ID provider, the system
 confirms the identity, associates
 that identity with a SAML identity provider account, and responds with
-the SAML identity provider token for that user.
+the SAML identity provider token for that user. Pachyderm verifies the token,
+drops it, and creates a new internal token that encapsulates the information
+about the user.
 
 By default, Pachyderm defines one hardcoded group called `admin`.
 Users in the `admin` group can perform any
 action on the cluster including appointing other admins.
 Furthermore, only the cluster admins can manage a repository
-without ACL.
+without ACLs.
 
 ## Enabling access control
 
@@ -77,15 +79,26 @@ that asks you to log in to Pachyderm:
 
 ### Activating access controls by using `pachctl`
 
-To activate access controls by using `pachctl`, run the following
-command:
+To activate access controls by using `pachctl`, follow these steps:
 
-```
-$ pachctl auth activate --admins=<user>
-```
 
-If you want the Pachyderm cluster to have more than one admin,
-specify them as a comma-separated list.
+1. Activate access by specifying one or mote admin users:
+
+   ```bash
+   $ pachctl auth activate --admins=<user>
+   ```
+  If you want the Pachyderm cluster to have more than one admin,
+  specify them as a comma-separated list.
+
+1. Activate access with a GitHub account:
+
+   ```bash
+   $ pachctl auth activate
+   ```
+
+   Pachyderm prompts you to log in with your GitHub account. The
+   GitHub account you sign in with, is the only admin until
+   you add additional users.
 
 ## Logging in to Pachyderm
 
@@ -124,28 +137,15 @@ user in the upper left-hand corner of the dashboard:
 To authenticate by using `pachctl`, run the following
 command:
 
-1. Log in with your user name:
+1. Log in by typing the following command:
 
    ```bash
-   pachctl auth login <username>
+   pachctl auth login
    ```
 
    When you run this command, `pachctl` provides
-   you with a GitHub link to authenticate as the provided
+   you with a GitHub link to authenticate as a
    GitHub user.
-
-   **Example:**
-
-   ```bash
-   $ pachctl auth login dwhitena
-   (1) Please paste this link into a browser:
-
-   https://github.com/login/oauth/authorize?client_id=d3481e92b4f09ea74ff8&redirect_uri=https%3A%2F%2Fpachyderm.io%2Flogin-hook%2Fdisplay-token.html
-
-   (You will be directed to GitHub and asked to authorize Pachyderm's login app on Github. If you accept, you will be given a token to paste here, which will give you an externally verified account in this Pachyderm cluster)
-
-   (2) Please paste the token you receive from GitHub here:
-   ```
 
    If you have not previously authorized Pachyderm on GitHub, an option
    to **Authorize Pachyderm** appears. After you authorize Pachyderm,
@@ -153,7 +153,7 @@ command:
 
    ![alt tag](auth.png)
 
-   1. Copy and paste this token back into the terminal and press enter.
+1. Copy and paste this token back into the terminal and press enter.
 
    You are now logged in to Pachyderm!
 
@@ -194,11 +194,14 @@ the users easily one by one:
 
 ## Behavior of pipelines as related to access control
 
-In Pachyderm, you do not explicitly set the scope of access
-for users on pipelines. Instead, pipelines infer access from
-the repositories that are input to the pipeline. Pipelines
-read their inputs and write their outputs. A user can
-give a pipeline the same access rights as he has themselves.
+In Pachyderm, you do not explicitly grant users access to
+pipelines. Instead, pipelines infer access from their input
+and output repositories. To update a pipeline, you must have
+at least `READER`-level access to all pipeline inputs and at
+least `WRITER`-level access to the pipeline output. This is
+because pipelines read from their input repos and write
+to their output repos, and you cannot grant a pipeline
+more access than you have yourself.
 
 - An `OWNER`, `WRITER`, or `READER` of a repo can subscribe a
 pipeline to that repo.
