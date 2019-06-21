@@ -16,4 +16,3 @@ This document guides you through the following sections:
    maxdepth 2
 
    auth.md
-   saml/index.rst
