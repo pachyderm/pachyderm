@@ -15,9 +15,9 @@ Pachyderm defines the following account types:
 * **GitHub user** is a user account that is associated with
 a GitHub account and logs in through the GitHub OAuth flow. If you do not
 use any third-party identity provider, you use this option. When a user tries
-to log in with a GitHub account, the system verifies the identity and
+to log in with a GitHub account, Pachyderm verifies the identity and
 sends a Pachyderm token for that account.
-* **Robot user** is a user account that logs by using a pach-generated authentication
+* **Robot user** is a user account that logs in with a pach-generated authentication
 token. Typically, you create a user in simplified workflow scenarios, such
 as initial SAML configuration.
 * **Pipeline** is an account that Pachyderm creates for
@@ -57,8 +57,8 @@ by running the following `pachctl` command:
 1. Activate the Enterprise access control features by completing
 the steps in one of these sections:
 
-   * [Activating Access Control in the Dashboard](#activating-access-controls-with-the-dashboard)
-   * [Activating Access Control in pachctl](#activating-access-controls-with-pachctl)
+   * [Activating Access Control with the Dashboard](#activating-access-controls-with-the-dashboard)
+   * [Activating Access Control with pachctl](#activating-access-controls-with-pachctl)
 
 ### Activating access controls with the dashboard
 
@@ -77,41 +77,46 @@ that asks you to log in to Pachyderm:
 
 ![alt tag](auth_dash2.png)
 
-### Activating access controls by using `pachctl`
+### Activating access controls with `pachctl`
 
-To activate access controls by using `pachctl`, follow these steps:
+To activate access controls with `pachctl`, choose one of these options:
 
 
-1. Activate access by specifying one or mote admin users:
+1. Activate access controls by specifying an initial admin user:
 
    ```bash
-   $ pachctl auth activate --initial-admin=<user>
+   $ pachctl auth activate --initial-admin=<prefix>:<user>
    ```
-  If you want the Pachyderm cluster to have more than one admin,
-  specify them as a comma-separated list.
+  Note that you must prefix the username with the appropriate account
+  type, i.e. either `github:<user>`, or `robot:<user>`. If the latter
+  is used, Pachyderm will generate and return a Pachyderm auth token
+  that may be used to authenticate as the initial robot admin via
+  `pachctl auth use-auth-token` (see below). This can be useful in cases
+  where GitHub isn't an acceptable identity provider.
+  
 
-1. Activate access with a GitHub account:
+1. Activate access controls with a GitHub account:
 
    ```bash
    $ pachctl auth activate
    ```
 
    Pachyderm prompts you to log in with your GitHub account. The
-   GitHub account you sign in with, is the only admin until
-   you add additional users.
+   GitHub account you sign in with is the only admin until
+   you add more via `pachctl auth modify-admins`.
 
 ## Logging in to Pachyderm
 
-After you activate access control, log in to your cluster either
+After you activate access controls, log in to your cluster either
 through the dashboard or CLI. The CLI and the dashboard have
 independent login workflows:
 
-- [Log in to the dashboard](#login-on-the-dashboard).
-- [Log in by using the CLI](#login-using-pachctl).
+- [Log in to the dashboard](#log-in-to-the-dashboard).
+- [Log in to the CLI](#log-in-to-the-cli).
 
 ### Log in to the dashboard
 
-After you have authorized access controls for Pachyderm, you
+After you have activated access controls for Pachyderm, you
 need to log in to use the Pachyderm dashboard as shown above
 in [this section](#activating-access-controls-with-the-dashboard).
 
@@ -126,7 +131,7 @@ Pachyderm, a Pachyderm user token appears:
 
 1. Copy and paste this token back into the Pachyderm login
 screen and press **Enter**. You are now logged in to Pachyderm,
-and you must see your GitHub avatar and an indication of your
+and you should see your GitHub avatar and an indication of your
 user in the upper left-hand corner of the dashboard:
 
 ![alt tag](auth_dash3.png)
@@ -134,10 +139,9 @@ user in the upper left-hand corner of the dashboard:
 
 ### Log in to the CLI
 
-To authenticate by using `pachctl`, run the following
-command:
+To log in to `pachctl`, complete the following steps:
 
-1. Log in by typing the following command:
+1. Type the following command:
 
    ```bash
    pachctl auth login
@@ -157,12 +161,22 @@ command:
 
    You are now logged in to Pachyderm!
 
+Alternatively, you may run the command:
+
+```bash
+pachctl auth use-auth-token
+```
+
+and then paste an authentication token recieved from
+`pachctl auth activate --initial-admin=robot:<user>` or
+`pachctl auth get-auth-token`
+
 ## Manage and update user access
 
 You can manage user access in the UI and CLI.
-For example, when you log in to Pachyderm as the user `dwhitena`, you
-have a repository called `test`.  Because the user `dwhitena` created
-this repository, `dwhitena` has full read and write access to the repo.
+For example, imagine you've logged in to Pachyderm as the user `dwhitena`
+and have a repository called `test`.  Because the user `dwhitena` created
+this repository, `dwhitena` has full `OWNER`-level access to the repo.
 You can confirm this on the dashboard by navigating to or clicking on
 the repo `test`:
 
@@ -180,12 +194,12 @@ OWNER
 ```
 
 An OWNER of `test` or a cluster admin can then set other user’s
-scope of access to the repo by using
+level of access to the repo by using
 the `pachctl auth set ...` command or through the dashboard.
 
 For example, to give the GitHub users `JoeyZwicker` and
 `msteffen` `READER`, but not `WRITER` or `OWNER`, access to
-`test` and `jdoliner`, `WRITER`, but not `OWNER`, access,
+`test` and `jdoliner` `WRITER`, but not `OWNER`, access,
 click on **Modify access controls** under the repo details
 in the dashboard. This functionality allows you to add
 the users easily one by one:
