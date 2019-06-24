@@ -87,13 +87,13 @@ To activate access controls with `pachctl`, choose one of these options:
    ```bash
    $ pachctl auth activate --initial-admin=<prefix>:<user>
    ```
-  Note that you must prefix the username with the appropriate account
-  type, i.e. either `github:<user>`, or `robot:<user>`. If the latter
-  is used, Pachyderm will generate and return a Pachyderm auth token
-  that may be used to authenticate as the initial robot admin via
-  `pachctl auth use-auth-token` (see below). This can be useful in cases
-  where GitHub isn't an acceptable identity provider.
-  
+  **Note:** You must prefix the username with the appropriate account
+  type, such as `github:<user>` or `robot:<user>`. If you select the
+  latter, Pachyderm generates and returns a Pachyderm auth token
+  that might be used to authenticate as the initial robot admin by using
+  `pachctl auth use-auth-token`. You can use this option when
+  you cannot use GitHub as an identity provider.
+
 
 1. Activate access controls with a GitHub account:
 
@@ -102,8 +102,8 @@ To activate access controls with `pachctl`, choose one of these options:
    ```
 
    Pachyderm prompts you to log in with your GitHub account. The
-   GitHub account you sign in with is the only admin until
-   you add more via `pachctl auth modify-admins`.
+   GitHub account that you sign in with is the only admin until
+   you add more by running `pachctl auth modify-admins`.
 
 ## Logging in to Pachyderm
 
@@ -161,23 +161,23 @@ To log in to `pachctl`, complete the following steps:
 
    You are now logged in to Pachyderm!
 
-Alternatively, you may run the command:
+   1. Alternatively, you can run the command:
 
-```bash
-pachctl auth use-auth-token
-```
+      ```bash
+      pachctl auth use-auth-token
+      ```
 
-and then paste an authentication token recieved from
-`pachctl auth activate --initial-admin=robot:<user>` or
-`pachctl auth get-auth-token`
+   1. Paste an authentication token recieved from
+      `pachctl auth activate --initial-admin=robot:<user>` or
+      `pachctl auth get-auth-token`
 
 ## Manage and update user access
 
 You can manage user access in the UI and CLI.
-For example, imagine you've logged in to Pachyderm as the user `dwhitena`
+For example, you are logged in to Pachyderm as the user `dwhitena`
 and have a repository called `test`.  Because the user `dwhitena` created
 this repository, `dwhitena` has full `OWNER`-level access to the repo.
-You can confirm this on the dashboard by navigating to or clicking on
+You can confirm this in the dashboard by navigating to or clicking on
 the repo `test`:
 
 ![alt tag](auth_dash4.png)
