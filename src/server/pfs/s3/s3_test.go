@@ -275,12 +275,18 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	_, err := c.PutObject(fmt.Sprintf("branch.%s", repo), "file", strings.NewReader("content1"), 16, minio.PutObjectOptions{ContentType: "text/plain"})
+	r := strings.NewReader("content1")
+	fmt.Println("len 1", int64(r.Len()))
+	n, err := c.PutObject(fmt.Sprintf("branch.%s", repo), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
+	fmt.Println("n 1", n)
 
 	// this should act as a PFS PutFileOverwrite
-	_, err = c.PutObject(fmt.Sprintf("branch.%s", repo), "file", strings.NewReader("content2"), 16, minio.PutObjectOptions{ContentType: "text/plain"})
+	r2 := strings.NewReader("content2")
+	fmt.Println("len 2", int64(r2.Len()))
+	n2, err := c.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
+	fmt.Println("n2", n2)
 
 	fetchedContent, err := getObject(t, c, repo, "branch", "file")
 	require.NoError(t, err)
