@@ -120,7 +120,7 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) e
 		Stderr: os.Stderr,
 	}
 	// we set --validate=false due to https://github.com/kubernetes/kubernetes/issues/53309
-	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false"); err != nil {
+	if err := cmdutil.RunIO(io, "kubectl", "apply", "-f", "-", "--validate=false", "--namespace", opts.Namespace); err != nil {
 		return err
 	}
 
@@ -520,7 +520,7 @@ If <object store backend> is \"s3\", then the arguments are:
 
 		// it can't unmarshal it from stdin in the given format for some reason, so we pass it in directly
 		s := string(manifest.Buffer().Bytes())
-		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--type=merge")
+		return cmdutil.RunIO(io, `kubectl`, "patch", "secret", "pachyderm-storage-secret", "-p", s, "--namespace", opts.Namespace, "--type=merge")
 	}
 
 	deployStorageAmazon := &cobra.Command{
@@ -629,6 +629,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	var imagePullSecret string
 	var localRoles bool
 	var logLevel string
+	var namespace string
 	var newHashTree bool
 	var noDash bool
 	var noExposeDockerSocket bool
@@ -673,6 +674,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				NoGuaranteed:            noGuaranteed,
 				NoRBAC:                  noRBAC,
 				LocalRoles:              localRoles,
+				Namespace:               namespace,
 				NoExposeDockerSocket:    noExposeDockerSocket,
 				ExposeObjectAPI:         exposeObjectAPI,
 			}
@@ -706,6 +708,7 @@ If <object store backend> is \"s3\", then the arguments are:
 	deploy.PersistentFlags().BoolVar(&noGuaranteed, "no-guaranteed", false, "Don't use guaranteed QoS for etcd and pachd deployments. Turning this on (turning guaranteed QoS off) can lead to more stable local clusters (such as a on Minikube), it should normally be used for production clusters.")
 	deploy.PersistentFlags().BoolVar(&noRBAC, "no-rbac", false, "Don't deploy RBAC roles for Pachyderm. (for k8s versions prior to 1.8)")
 	deploy.PersistentFlags().BoolVar(&localRoles, "local-roles", false, "Use namespace-local roles instead of cluster roles. Ignored if --no-rbac is set.")
+	deploy.PersistentFlags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to deploy Pachyderm to.")
 	deploy.PersistentFlags().BoolVar(&noExposeDockerSocket, "no-expose-docker-socket", false, "Don't expose the Docker socket to worker containers. This limits the privileges of workers which prevents them from automatically setting the container's working dir and user.")
 	deploy.PersistentFlags().BoolVar(&exposeObjectAPI, "expose-object-api", false, "If set, instruct pachd to serve its object/block API on its public port (not safe with auth enabled, do not set in production).")
 	deploy.PersistentFlags().StringVar(&tlsCertKey, "tls", "", "string of the form \"<cert path>,<key path>\" of the signed TLS certificate and private key that Pachd should use for TLS authentication (enables TLS-encrypted communication with Pachd)")
@@ -750,6 +753,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, deployCmds()...)
 
 	var all bool
+	var namespace string
 	undeploy := &cobra.Command{
 		Short: "Tear down a deployed Pachyderm cluster.",
 		Long:  "Tear down a deployed Pachyderm cluster.",
@@ -794,7 +798,7 @@ underlying volume will not be removed.
 					}...)
 				}
 				for _, asset := range assets {
-					if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm"); err != nil {
+					if err := cmdutil.RunIO(io, "kubectl", "delete", asset, "-l", "suite=pachyderm", "--namespace", namespace); err != nil {
 						return err
 					}
 				}
@@ -810,6 +814,7 @@ removed, making metadata such repos, commits, pipelines, and jobs
 unrecoverable. If your persistent volume was manually provisioned (i.e. if
 you used the "--static-etcd-volume" flag), the underlying volume will not be
 removed.`)
+	undeploy.Flags().StringVar(&namespace, "namespace", "default", "Kubernetes namespace to undeploy Pachyderm from.")
 	commands = append(commands, cmdutil.CreateAlias(undeploy, "undeploy"))
 
 	var updateDashDryRun bool
