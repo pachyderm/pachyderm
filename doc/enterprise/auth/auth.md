@@ -88,7 +88,7 @@ To activate access controls with `pachctl`, choose one of these options:
    $ pachctl auth activate --initial-admin=<prefix>:<user>
    ```
   **Note:** You must prefix the username with the appropriate account
-  type, such as `github:<user>` or `robot:<user>`. If you select the
+  type, either `github:<user>` or `robot:<user>`. If you select the
   latter, Pachyderm generates and returns a Pachyderm auth token
   that might be used to authenticate as the initial robot admin by using
   `pachctl auth use-auth-token`. You can use this option when
