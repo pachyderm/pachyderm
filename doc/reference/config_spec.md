@@ -13,7 +13,6 @@ reference. If you wish to change a config value, you should do so via
     "active_context": string,
     "contexts": {
       string: {
-        "kube_context": string,
         "pachd_address": string,
         "server_cas": string,
         "session_token": string,
@@ -33,11 +32,9 @@ example of a simple config:
 {
   "user_id": "514cbe16-e615-46fe-92d9-3156f12885d7",
   "v2": {
-    "active_context": "docker-for-desktop",
+    "active_context": "default",
     "contexts": {
-      "docker-for-desktop": {
-        "kube_context": "docker-for-desktop"
-      }
+      "default": {}
     },
     "metrics": true
   }
@@ -64,10 +61,6 @@ context, as specified in `v2.contexts`.
 A map of context names to their configurations. Pachyderm contexts are akin to
 kubernetes contexts (and in fact reference the kubernetes context that they're
 associated with.)
-
-#### Kube Context
-
-The kubernetes context that this pachyderm context is associated with.
 
 #### Pachd Address
 
