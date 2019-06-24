@@ -13,6 +13,6 @@ subscription of pipelines to those data repositories.
 This document guides you through the following sections:
 
 .. toctree::
-   maxdepth 2
+   :maxdepth: 2
 
    auth.md

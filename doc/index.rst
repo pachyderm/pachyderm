@@ -54,7 +54,7 @@ email at support@pachyderm.io.
 
    reference/pipeline_spec.md
    reference/clients.md
-   s3gateway_api.md
+   reference/s3gateway_api.md
    pachctl/index.rst
    examples/examples.md
 
