@@ -727,6 +727,8 @@ $ {{alias}} repo@branch -i http://host/path`,
 				return err
 			}
 			defer c.Close()
+
+			// load data into pachyderm
 			pfc, err := c.NewPutFileClient()
 			if err != nil {
 				return err

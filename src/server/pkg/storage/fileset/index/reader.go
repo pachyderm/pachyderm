@@ -1,7 +1,6 @@
 package index
 
 import (
-	"archive/tar"
 	"bytes"
 	"context"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
+	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/tar"
 )
 
 type levelReader struct {

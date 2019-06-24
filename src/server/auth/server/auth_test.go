@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -1127,6 +1128,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, err)
 	doneCh := make(chan struct{})
 	go func() {
+		defer close(doneCh)
 		iter, err = aliceClient.FlushCommit(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
@@ -1134,7 +1136,6 @@ func TestPipelineRevoke(t *testing.T) {
 		require.NoError(t, err)
 		_, err = iter.Next()
 		require.NoError(t, err)
-		close(doneCh)
 	}()
 	select {
 	case <-doneCh:
@@ -1157,6 +1158,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, err)
 	doneCh = make(chan struct{})
 	go func() {
+		defer close(doneCh)
 		iter, err = aliceClient.FlushCommit(
 			[]*pfs.Commit{client.NewCommit(repo, "master")},
 			[]*pfs.Repo{client.NewRepo(pipeline)},
@@ -1164,7 +1166,6 @@ func TestPipelineRevoke(t *testing.T) {
 		require.NoError(t, err)
 		_, err = iter.Next()
 		require.NoError(t, err)
-		close(doneCh)
 	}()
 	select {
 	case <-doneCh:
@@ -1185,8 +1186,15 @@ func TestPipelineRevoke(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
-		_, err := iter.Next()
-		return err
+		for { // flushCommit yields two output commits (one from the prev pipeline)
+			_, err = iter.Next()
+			if err == io.EOF {
+				return nil
+			} else if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }
 

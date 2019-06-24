@@ -8,16 +8,22 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	client "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/worker"
 
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+)
+
+const (
+	pipelineNameLabel = "pipelineName"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -259,7 +265,7 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
 	labels["version"] = version.PrettyVersion()
-	labels["pipelineName"] = pipelineName
+	labels[pipelineNameLabel] = pipelineName
 	userImage := transform.Image
 	if userImage == "" {
 		userImage = DefaultUserImage
@@ -417,7 +423,15 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	}
 }
 
-func (a *apiServer) createWorkerRc(options *workerOptions) error {
+func (a *apiServer) createWorkerRc(ctx context.Context, options *workerOptions) (retErr error) {
+	log.Infof("PPS master: upserting workers for %q", options.labels[pipelineNameLabel])
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC",
+		"pipeline", options.labels[pipelineNameLabel])
+	defer func() {
+		tracing.TagAnySpan(span, "err", retErr)
+		tracing.FinishAnySpan(span)
+	}()
+
 	podSpec, err := a.workerPodSpec(options)
 	if err != nil {
 		return err

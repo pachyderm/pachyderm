@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package extended;
+option go_package = "github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended";
+
+import "gogoproto/gogo.proto";
+
+// TraceProto contains information identifying a Jaeger trace. It's used to
+// propagate traces that follow the lifetime of a long operation (e.g. creating
+// a pipeline or running a job), and which live longer than any single RPC.
+message TraceProto {
+  // serialized_trace contains the info identifying a trace in Jaeger (a
+  // (trace ID, span ID, sampled) tuple, basically)
+  map<string, string> serialized_trace = 1;
+
+  // pipeline specifies the target pipeline of this trace; this would be set for
+  // a trace created by 'pachctl create-pipeline' or 'pachctl update-pipeline'
+  // and would include the kubernetes RPCs involved in creating a pipeline
+  string pipeline = 2;
+}

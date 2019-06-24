@@ -13,13 +13,10 @@ import (
 	"strings"
 	"syscall"
 
-	units "github.com/docker/go-units"
-	docker "github.com/fsouza/go-dockerclient"
-	"github.com/gogo/protobuf/jsonpb"
-	"github.com/gogo/protobuf/proto"
 	pachdclient "github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
@@ -27,6 +24,10 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pps/pretty"
 
+	units "github.com/docker/go-units"
+	docker "github.com/fsouza/go-dockerclient"
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/proto"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/crypto/ssh/terminal"
@@ -823,6 +824,11 @@ func pipelineHelper(reprocess bool, build bool, pushImages bool, registry string
 		} else if err != nil {
 			return err
 		}
+		// Add trace if env var is set
+		if ctx, ok := extended.StartAnyExtendedTrace(client.Ctx(), "/pps.API/CreatePipeline", request.Pipeline.Name); ok {
+			client = client.WithCtx(ctx)
+		}
+
 		if update {
 			request.Update = true
 			request.Reprocess = reprocess

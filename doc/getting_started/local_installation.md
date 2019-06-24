@@ -77,8 +77,8 @@ Try `pachctl version` to make sure everything is working.
 ```shell
 $ pachctl version
 COMPONENT           VERSION
-pachctl             1.8.2
-pachd               1.8.2
+pachctl             1.9.0
+pachd               1.9.0
 ```
 We're good to go!
 
