@@ -46,20 +46,19 @@ type PortForwarder struct {
 }
 
 // NewPortForwarder creates a new port forwarder
-func NewPortForwarder() (*PortForwarder, error) {
+func NewPortForwarder(namespace string) (*PortForwarder, error) {
+	if namespace == "" {
+		namespace = "default"
+	}
+
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
 	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
-
-	namespace, _, err := kubeConfig.Namespace()
-	if err != nil {
-		return nil, err
-	}
-
 	config, err := kubeConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
+
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
