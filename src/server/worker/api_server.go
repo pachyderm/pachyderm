@@ -525,7 +525,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			logger.Logf("finished downloading data after %v", time.Since(start))
 		}
 	}(time.Now())
-	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
+	dir := filepath.Join(client.PPSInputPrefix, client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
 	if a.pipelineInfo.Spout != nil {
@@ -564,6 +564,10 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 }
 
 func (a *APIServer) linkData(inputs []*Input, dir string) error {
+	// Make sure that previously symlinked outputs are removed.
+	if err := a.unlinkData(inputs); err != nil {
+		return err
+	}
 	for _, input := range inputs {
 		src := filepath.Join(dir, input.Name)
 		dst := filepath.Join(client.PPSInputPrefix, input.Name)
@@ -575,12 +579,19 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 }
 
 func (a *APIServer) unlinkData(inputs []*Input) error {
-	for _, input := range inputs {
-		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, input.Name)); err != nil {
+	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
+	if err != nil {
+		return fmt.Errorf("ioutil.ReadDir: %v", err)
+	}
+	for _, d := range dirs {
+		if d.Name() == client.PPSScratchSpace {
+			continue // don't delete scratch space
+		}
+		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, d.Name())); err != nil {
 			return err
 		}
 	}
-	return os.RemoveAll(filepath.Join(client.PPSInputPrefix, "out"))
+	return nil
 }
 
 func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
