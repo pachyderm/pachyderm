@@ -525,7 +525,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 			logger.Logf("finished downloading data after %v", time.Since(start))
 		}
 	}(time.Now())
-	dir := filepath.Join(client.PPSScratchSpace, uuid.NewWithoutDashes())
+	dir := filepath.Join(client.PPSInputPrefix, client.PPSScratchSpace, uuid.NewWithoutDashes())
 	// Create output directory (currently /pfs/out)
 	outPath := filepath.Join(dir, "out")
 	if a.pipelineInfo.Spout != nil {
@@ -584,6 +584,9 @@ func (a *APIServer) unlinkData(inputs []*Input) error {
 		return fmt.Errorf("ioutil.ReadDir: %v", err)
 	}
 	for _, d := range dirs {
+		if d.Name() == client.PPSScratchSpace {
+			continue // don't delete scratch space
+		}
 		if err := os.RemoveAll(filepath.Join(client.PPSInputPrefix, d.Name())); err != nil {
 			return err
 		}
