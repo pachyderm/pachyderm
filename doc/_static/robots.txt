@@ -1,0 +1,15 @@
+User-agent: *
+
+Allow: /en/latest/
+Allow: /en/1.9.0/
+
+Disallow: /en/v1.1.*/
+Disallow: /en/v1.2.*/
+Disallow: /en/v1.3.*/
+Disallow: /en/v1.4.*/
+Disallow: /en/v1.5.*/
+Disallow: /en/v1.6.*/
+Disallow: /en/v1.7.*/
+Disallow: /en/v1.8.*/
+
+
