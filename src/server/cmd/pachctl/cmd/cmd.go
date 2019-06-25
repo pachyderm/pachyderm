@@ -400,10 +400,8 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				// TODO(ys): metrics used to be force-disabled here, do we still want that?
 				pachClient, err = client.NewOnUserMachine("user", client.WithDialTimeout(timeout))
 			} else {
-				// TODO(ys): metrics used to be force-disabled here, do we still want that?
 				pachClient, err = client.NewOnUserMachine("user")
 			}
 			if err != nil {
