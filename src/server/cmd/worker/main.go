@@ -89,10 +89,16 @@ func main() {
 		return nil
 	}); err != nil {
 		// Should never happen
-		log.Warnf("could not copy /pach-bin/certs to /etc/ssl/certs: %v", err)
+		log.Warnf("could not copy /pach-bin/certs to /etc/ssl/certs (might cause "+
+			"the worker binary to error while communicating with object storage for "+
+			"egress pipelines or for merging pipeline outputs): %v", err)
 	}
 	if copyErr {
-		log.Warnf("Errors were encountered while copying /pach-bin/certs to /etc/ssl/certs (see above--might result in subsequent SSL/TLS errors)")
+		log.Warnf(
+			"pachyderm's worker binary encountered errors while copying " +
+				"/pach-bin/certs to /etc/ssl/certs (see above). This might cause the " +
+				"worker binary to error while communicating with object storage for " +
+				"egress pipelines or for merging pipeline outputs")
 	}
 	cmdutil.Main(do, &serviceenv.WorkerFullConfiguration{})
 }
