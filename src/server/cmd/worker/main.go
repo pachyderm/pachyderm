@@ -88,10 +88,9 @@ func main() {
 		}
 		return nil
 	}); err != nil {
-		// Should never happen
-		log.Warnf("could not copy /pach-bin/certs to /etc/ssl/certs (might cause "+
-			"the worker binary to error while communicating with object storage for "+
-			"egress pipelines or for merging pipeline outputs): %v", err)
+		// Should never happen, but just log if it does
+		copyErr = true
+		log.Warnf("walk failed with: %v", err)
 	}
 	if copyErr {
 		log.Warnf(
