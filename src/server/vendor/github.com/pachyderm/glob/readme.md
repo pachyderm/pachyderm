@@ -1,10 +1,10 @@
 # Go Capture Globbing Library
 
-This library allows you to use capture groups in globs
-by using the extended globbing functions.
+This library allows you to use capture groups in globs,
+by using the extended globbing functions (except for the `!` quantifier, which requires a non-regular expression).
 
 This is implemented by compiling the glob patterns to regex,
-and then doing the matching and capturing with the Perl Compatible Regular Expression library.
+and then doing the matching and capturing with the Go regexp library.
 
 The parser, lexer, and general structure for this library are derived from the excellent https://github.com/gobwas/glob library.
 
@@ -147,8 +147,8 @@ func main() {
 This library is created for compile-once patterns. This means that the compilation could take time, but
 string matching is done faster, compared to the case when the template is compiled each time.
 
-Since it uses the PCRE library to do the matching and capturing, it performs about on par with regular expressions. 
-If you need something faster, and don't need capture groups, we recommend https://github.com/gobwas/glob.
+Since it uses the Go regexp library to do the matching and capturing, it performs about on par with the
+regexp functions. If you need something faster, and don't need capture groups, we recommend https://github.com/gobwas/glob.
 
 ## Syntax
 

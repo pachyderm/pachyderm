@@ -574,12 +574,6 @@
 			"revisionTime": "2016-06-04T00:29:25Z"
 		},
 		{
-			"checksumSHA1": "lT/hy5HfhxpMqSMDdtrSrVgtwgs=",
-			"path": "github.com/glenn-brown/golang-pkg-pcre/src/pkg/pcre",
-			"revision": "48bb82a8b8ceea98f4e97825b43870f6ba1970d6",
-			"revisionTime": "2012-05-22T22:36:59Z"
-		},
-		{
 			"checksumSHA1": "FfdxnQ4CZVJJvG4BC1fWavgperI=",
 			"path": "github.com/go-ini/ini",
 			"revision": "72ba3e6b9e6b87e0c74c9a7a4dc86e8dd8ba4355",
@@ -1245,10 +1239,10 @@
 			"revisionTime": "2019-02-18T02:30:34Z"
 		},
 		{
-			"checksumSHA1": "Z06Kk42KIul0ML2BiTZGh2RN3cE=",
+			"checksumSHA1": "7QjcHsE8jRaFBjQ/S/ObpbEogZY=",
 			"path": "github.com/pachyderm/glob",
-			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
-			"revisionTime": "2019-06-14T23:44:43Z"
+			"revision": "0fc448624fade8b0fd22e1d80dea4436f169eafb",
+			"revisionTime": "2019-06-26T00:52:09Z"
 		},
 		{
 			"checksumSHA1": "gkwrU+t33K1OKHZPal2Xk6PC6VM=",
