@@ -6,7 +6,8 @@ option go_package = "github.com/pachyderm/pachyderm/src/server/pkg/storage/files
 import "server/pkg/storage/chunk/chunk.proto";
 
 message Range {
-  string last_path = 1;
+  int64 offset = 1;
+  string last_path = 2;
   // bloom filter, stats, etc.
 }
 
