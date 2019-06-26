@@ -15,43 +15,51 @@ import (
 const (
 	// MB is Megabytes.
 	MB = 1024 * 1024
-	// AverageBits determines the average chunk size (2^AverageBits).
-	AverageBits = 23
 	// WindowSize is the size of the rolling hash window.
 	WindowSize = 64
 )
 
 var initialWindow = make([]byte, WindowSize)
 
+type WriterFunc func([]*DataRef, []*Annotation) error
+
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
 // Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
+// (bryce) need to clean up how the two modes of operation are exposed (callbacks on ranges that are used for file set content and a callback for each chunk
+// that is used for the indexing process).
 type Writer struct {
-	ctx         context.Context
-	objC        obj.Client
-	cbs         []func([]*DataRef) error
-	buf         *bytes.Buffer
-	hash        *buzhash64.Buzhash64
-	splitMask   uint64
-	dataRefs    []*DataRef
-	done        [][]*DataRef
-	rangeSize   int64
-	rangeCount  int64
-	bytesCopied int64
+	ctx                    context.Context
+	objC                   obj.Client
+	cbs                    []WriterFunc
+	buf                    *bytes.Buffer
+	hash                   *buzhash64.Buzhash64
+	splitMask              uint64
+	dataRefs               []*DataRef
+	done                   [][]*DataRef
+	rangeSize              int64
+	rangeCount, chunkCount int64
+	bytesCopied            int64
+	f                      WriterFunc
+	annotations            []*Annotation
 }
 
 // newWriter creates a new Writer.
-func newWriter(ctx context.Context, objC obj.Client) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, averageBits int, f ...WriterFunc) *Writer {
 	// Initialize buzhash64 with WindowSize window.
 	hash := buzhash64.New()
 	hash.Write(initialWindow)
-	return &Writer{
+	w := &Writer{
 		ctx:       ctx,
 		objC:      objC,
-		cbs:       []func([]*DataRef) error{},
 		buf:       &bytes.Buffer{},
 		hash:      hash,
-		splitMask: (1 << uint64(AverageBits)) - 1,
+		splitMask: (1 << uint64(averageBits)) - 1,
 	}
+	if len(f) > 0 {
+		w.dataRefs = []*DataRef{&DataRef{}}
+		w.f = f[0]
+	}
+	return w
 }
 
 func (w *Writer) resetHash() {
@@ -62,7 +70,7 @@ func (w *Writer) resetHash() {
 // StartRange specifies the start of a range within the byte stream that is meaningful to the caller.
 // When this range has ended (by calling StartRange again or Close) and all of the necessary chunks are written, the
 // callback given during initialization will be called with DataRefs that can be used for accessing that range.
-func (w *Writer) StartRange(cb func([]*DataRef) error) {
+func (w *Writer) StartRange(cb WriterFunc) {
 	// Finish prior range.
 	if w.dataRefs != nil {
 		w.finishRange()
@@ -89,10 +97,21 @@ func (w *Writer) RangeSize() int64 {
 	return w.rangeSize
 }
 
-// RangeCount returns a count of the number of ranges associated with
+func (w *Writer) Annotate(a *Annotation) {
+	a.Offset = int64(w.buf.Len())
+	w.annotations = append(w.annotations, a)
+}
+
+// RangeCount returns a count of the number of ranges created by
 // the writer.
 func (w *Writer) RangeCount() int64 {
 	return w.rangeCount
+}
+
+// ChunkCount returns a count of the number of chunks created/referenced by
+// the writer.
+func (w *Writer) ChunkCount() int64 {
+	return w.chunkCount
 }
 
 // BytesCopied is the number of bytes that were "written" by copying data
@@ -144,6 +163,7 @@ func (w *Writer) put() error {
 			return err
 		}
 	}
+	w.chunkCount++
 	// Update chunk and run callback for ranges within the current chunk.
 	for _, dataRefs := range w.done {
 		lastDataRef := dataRefs[len(dataRefs)-1]
@@ -154,7 +174,7 @@ func (w *Writer) put() error {
 			// Set chunk for last DataRef (from current chunk).
 			lastDataRef.Chunk = chunk
 		}
-		if err := w.cbs[0](dataRefs); err != nil {
+		if err := w.cbs[0](dataRefs, nil); err != nil {
 			return err
 		}
 		w.cbs = w.cbs[1:]
@@ -169,6 +189,14 @@ func (w *Writer) put() error {
 		lastDataRef.Hash = hash.EncodeHash(hash.Sum(data))
 	}
 	lastDataRef.SizeBytes = int64(w.buf.Len()) - lastDataRef.OffsetBytes
+	// Execute callback.
+	if w.f != nil {
+		if err := w.f(w.dataRefs, w.annotations); err != nil {
+			return err
+		}
+		w.dataRefs = nil
+		w.annotations = nil
+	}
 	// Setup DataRef for next chunk.
 	w.dataRefs = append(w.dataRefs, &DataRef{})
 	return nil
@@ -192,6 +220,8 @@ func (w *Writer) Close() error {
 	if w.dataRefs == nil {
 		return nil
 	}
-	w.finishRange()
+	if w.f == nil {
+		w.finishRange()
+	}
 	return w.put()
 }

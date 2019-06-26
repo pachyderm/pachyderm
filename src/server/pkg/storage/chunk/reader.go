@@ -12,6 +12,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
+type ReaderFunc func() ([]*DataRef, error)
+
 // Reader reads a set of DataRefs from chunk storage.
 type Reader struct {
 	ctx      context.Context
@@ -21,15 +23,18 @@ type Reader struct {
 	buf      *bytes.Buffer
 	r        *bytes.Reader
 	len      int64
+	f        ReaderFunc
 }
 
-func newReader(ctx context.Context, objC obj.Client, dataRefs ...*DataRef) *Reader {
+func newReader(ctx context.Context, objC obj.Client, f ...ReaderFunc) *Reader {
 	r := &Reader{
 		ctx:  ctx,
 		objC: objC,
 		buf:  &bytes.Buffer{},
 	}
-	r.NextRange(dataRefs)
+	if len(f) > 0 {
+		r.f = f[0]
+	}
 	return r
 }
 
@@ -59,10 +64,6 @@ func (r *Reader) Read(data []byte) (int, error) {
 		data = data[n:]
 		totalRead += n
 		if err != nil {
-			// If all DataRefs have been read, then io.EOF.
-			if len(r.dataRefs) == 0 {
-				return totalRead, io.EOF
-			}
 			if err := r.nextDataRef(); err != nil {
 				return totalRead, err
 			}
@@ -72,6 +73,18 @@ func (r *Reader) Read(data []byte) (int, error) {
 }
 
 func (r *Reader) nextDataRef() error {
+	// If all DataRefs have been read, then io.EOF.
+	if len(r.dataRefs) == 0 {
+		if r.f != nil {
+			var err error
+			r.dataRefs, err = r.f()
+			if err != nil {
+				return err
+			}
+		} else {
+			return io.EOF
+		}
+	}
 	// Get next chunk if necessary.
 	if r.curr == nil || r.curr.Chunk.Hash != r.dataRefs[0].Chunk.Hash {
 		if err := r.readChunk(r.dataRefs[0].Chunk); err != nil {

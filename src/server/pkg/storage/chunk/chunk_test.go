@@ -9,12 +9,16 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
+const (
+	averageBits = 23
+)
+
 func Write(t *testing.T, chunks *Storage, n, rangeSize int) ([]*DataRef, []byte) {
 	var finalDataRefs []*DataRef
 	var seq []byte
 	t.Run("Write", func(t *testing.T) {
-		w := chunks.NewWriter(context.Background())
-		cb := func(dataRefs []*DataRef) error {
+		w := chunks.NewWriter(context.Background(), averageBits)
+		cb := func(dataRefs []*DataRef, _ []*Annotation) error {
 			finalDataRefs = append(finalDataRefs, dataRefs...)
 			return nil
 		}
@@ -36,7 +40,8 @@ func TestWriteThenRead(t *testing.T) {
 	mid := len(finalDataRefs) / 2
 	initialRefs := finalDataRefs[:mid]
 	streamRefs := finalDataRefs[mid:]
-	r := chunks.NewReader(context.Background(), initialRefs...)
+	r := chunks.NewReader(context.Background())
+	r.NextRange(initialRefs)
 	buf := &bytes.Buffer{}
 	t.Run("ReadInitial", func(t *testing.T) {
 		_, err := io.Copy(buf, r)
@@ -62,8 +67,8 @@ func BenchmarkWriter(b *testing.B) {
 	b.SetBytes(100 * MB)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w := chunks.NewWriter(context.Background())
-		cb := func(dataRefs []*DataRef) error { return nil }
+		w := chunks.NewWriter(context.Background(), averageBits)
+		cb := func(dataRefs []*DataRef, _ []*Annotation) error { return nil }
 		for i := 0; i < 100; i++ {
 			w.StartRange(cb)
 			_, err := w.Write(seq[i*MB : (i+1)*MB])
@@ -85,11 +90,13 @@ func TestWriteToN(t *testing.T) {
 		return nil
 	}))
 	// Copy data from readers into new writer.
-	w := chunks.NewWriter(context.Background())
-	r1 := chunks.NewReader(context.Background(), dataRefs1...)
-	r2 := chunks.NewReader(context.Background(), dataRefs2...)
+	w := chunks.NewWriter(context.Background(), averageBits)
+	r1 := chunks.NewReader(context.Background())
+	r1.NextRange(dataRefs1)
+	r2 := chunks.NewReader(context.Background())
+	r2.NextRange(dataRefs2)
 	var finalDataRefs []*DataRef
-	cb := func(dataRefs []*DataRef) error {
+	cb := func(dataRefs []*DataRef, _ []*Annotation) error {
 		finalDataRefs = append(finalDataRefs, dataRefs...)
 		return nil
 	}
@@ -103,7 +110,8 @@ func TestWriteToN(t *testing.T) {
 	require.NoError(t, w.Close())
 	// Check that the initial data equals the final data.
 	buf := &bytes.Buffer{}
-	finalR := chunks.NewReader(context.Background(), finalDataRefs...)
+	finalR := chunks.NewReader(context.Background())
+	finalR.NextRange(finalDataRefs)
 	_, err := io.Copy(buf, finalR)
 	require.NoError(t, err)
 	require.Equal(t, append(seq1, seq2...), buf.Bytes())
