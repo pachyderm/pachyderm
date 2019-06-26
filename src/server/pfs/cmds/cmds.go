@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	gosync "sync"
@@ -1087,23 +1089,63 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				return err
 			}
 
-			if len(newFiles) > 0 {
-				fmt.Println("New Files:")
-				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-				for _, fileInfo := range newFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
+			nI, oI := 0, 0
+
+			for {
+				if nI == len(newFiles) && oI == len(oldFiles) {
+					break
 				}
-				if err := writer.Flush(); err != nil {
-					return err
-				}
-			}
-			if len(oldFiles) > 0 {
-				fmt.Println("Old Files:")
-				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-				for _, fileInfo := range oldFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
-				}
-				if err := writer.Flush(); err != nil {
+				if err := func() (retErr error) {
+					nF, oF := "/dev/null", "/dev/null"
+					switch {
+					case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
+						nF, err = dlFile(c, newFiles[nI].File)
+						if err != nil {
+							return err
+						}
+						nI++
+					case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
+						oF, err = dlFile(c, oldFiles[oI].File)
+						if err != nil {
+							return err
+						}
+						oI++
+					case newFiles[nI].File.Path == oldFiles[oI].File.Path:
+						nF, err = dlFile(c, newFiles[nI].File)
+						if err != nil {
+							return err
+						}
+						nI++
+						oF, err = dlFile(c, oldFiles[oI].File)
+						if err != nil {
+							return err
+						}
+						oI++
+					}
+					if nF != "/dev/null" {
+						defer func() {
+							if err := os.RemoveAll(nF); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+					}
+					if oF != "/dev/null" {
+						defer func() {
+							if err := os.RemoveAll(oF); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+					}
+					cmd := exec.Command("git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index", oF, nF)
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					// Diff returns exit code 1 when it finds differences
+					// between the files, so we catch it.
+					if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
+						return err
+					}
+					return nil
+				}(); err != nil {
 					return err
 				}
 			}
@@ -1417,4 +1459,23 @@ func joinPaths(prefix, filePath string) string {
 		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)
+}
+
+func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr error) {
+	if err := os.MkdirAll(filepath.Join(os.TempDir(), filepath.Dir(f.Path)), 0777); err != nil {
+		return "", err
+	}
+	file, err := ioutil.TempFile("", f.Path+"_")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err := file.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := pachClient.GetFile(f.Commit.Repo.Name, f.Commit.ID, f.Path, 0, 0, file); err != nil {
+		return "", err
+	}
+	return file.Name(), nil
 }
