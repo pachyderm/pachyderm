@@ -3,8 +3,10 @@ package ast
 import (
 	"errors"
 	"fmt"
-	"github.com/gobwas/glob/syntax/lexer"
+	"strings"
 	"unicode/utf8"
+
+	"github.com/pachyderm/glob/syntax/lexer"
 )
 
 type Lexer interface {
@@ -43,7 +45,7 @@ func parserMain(tree *Node, lex Lexer) (parseFn, *Node, error) {
 			return nil, tree, errors.New(token.Raw)
 
 		case lexer.Text:
-			Insert(tree, NewNode(KindText, Text{token.Raw}))
+			Insert(tree, NewNode(KindText, Text{Text: token.Raw}))
 			return parserMain, tree, nil
 
 		case lexer.Any:
@@ -70,6 +72,15 @@ func parserMain(tree *Node, lex Lexer) (parseFn, *Node, error) {
 
 			return parserMain, p, nil
 
+		case lexer.CaptureOpen:
+			a := NewNode(KindCapture, Capture{token.Raw[:1]})
+			Insert(tree, a)
+
+			p := NewNode(KindPattern, nil)
+			Insert(a, p)
+
+			return parserMain, p, nil
+
 		case lexer.Separator:
 			p := NewNode(KindPattern, nil)
 			Insert(tree.Parent, p)
@@ -77,6 +88,9 @@ func parserMain(tree *Node, lex Lexer) (parseFn, *Node, error) {
 			return parserMain, p, nil
 
 		case lexer.TermsClose:
+			return parserMain, tree.Parent.Parent, nil
+
+		case lexer.CaptureClose:
 			return parserMain, tree.Parent.Parent, nil
 
 		default:
@@ -113,7 +127,7 @@ func parserRange(tree *Node, lex Lexer) (parseFn, *Node, error) {
 			lo = r
 
 		case lexer.RangeBetween:
-			//
+			// do nothing
 
 		case lexer.RangeHi:
 			r, w := utf8.DecodeRuneInString(token.Raw)
@@ -133,12 +147,21 @@ func parserRange(tree *Node, lex Lexer) (parseFn, *Node, error) {
 		case lexer.RangeClose:
 			isRange := lo != 0 && hi != 0
 			isChars := chars != ""
+			isPOSIX := false
+			if len(chars) >= 2 && chars[:1] == ":" && chars[len(chars)-1:] == ":" {
+				isPOSIX = true
+			}
 
 			if isChars == isRange {
 				return nil, tree, fmt.Errorf("could not parse range")
 			}
 
-			if isRange {
+			if isPOSIX {
+				Insert(tree, NewNode(KindPOSIX, POSIX{
+					Not:   strings.ContainsAny(chars, "^!") || not,
+					Class: strings.Trim(chars, "[:]^!"),
+				}))
+			} else if isRange {
 				Insert(tree, NewNode(KindRange, Range{
 					Lo:  lo,
 					Hi:  hi,
