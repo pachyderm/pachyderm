@@ -1,8 +1,6 @@
 FROM ubuntu:18.04
 LABEL maintainer="jdoliner@pachyderm.io"
 
-# ARG GO111MODULE=on
-
 RUN \
   apt-get update -yq && \
   apt-get install -yq --no-install-recommends \
@@ -18,7 +16,6 @@ COPY etc/compile/GO_VERSION GO_VERSION
 RUN \
   curl -fsSL https://get.docker.com/builds/Linux/x86_64/docker-1.12.1.tgz | tar -C /bin -xz docker/docker --strip-components=1 && \
   chmod +x /bin/docker
-
 RUN \
   curl -sSL https://storage.googleapis.com/golang/$(cat GO_VERSION).linux-amd64.tar.gz | tar -C /tmp -xz && \
   mkdir -p /usr/local/go && \
@@ -33,12 +30,4 @@ RUN \
   mkdir -p /go/bin
 ENV PATH /go/bin:/usr/local/go/bin:$PATH
 ENV GOPATH /go
-# ENV GO15VENDOREXPERIMENT 1
-# COPY go.mod .
-# COPY go.sum .
-# RUN go mod download
-
-# Import the code from the context.
-# COPY ./ ./
-
 RUN go get github.com/kisielk/errcheck golang.org/x/lint/golint
