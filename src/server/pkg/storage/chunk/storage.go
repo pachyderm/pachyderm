@@ -10,6 +10,8 @@ const (
 	prefix = "chunks"
 )
 
+// Annotation is used to associate information with a set of bytes
+// written into the chunk storage layer.
 type Annotation struct {
 	Offset      int64
 	RefDataRefs []*DataRef

@@ -21,6 +21,7 @@ const (
 
 var initialWindow = make([]byte, WindowSize)
 
+// WriterFunc is a callback that returns a data reference to the next chunk and the annotations within the chunk.
 type WriterFunc func(*DataRef, []*Annotation) error
 
 // Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
@@ -58,6 +59,7 @@ func (w *Writer) resetHash() {
 	w.hash.Write(initialWindow)
 }
 
+// Annotate associates an annotation with the next set of bytes that are written.
 func (w *Writer) Annotate(a *Annotation) {
 	a.Offset = int64(w.buf.Len())
 	// Handle the edge case when the last annotation from the prior chunk

@@ -12,6 +12,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 )
 
+// ReaderFunc is a callback that returns the next set of data references
+// to a reader.
 type ReaderFunc func() ([]*DataRef, error)
 
 // Reader reads a set of DataRefs from chunk storage.
