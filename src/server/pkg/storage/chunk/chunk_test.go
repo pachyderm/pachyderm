@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/src/client/pkg/require"
 )
 
@@ -81,6 +82,23 @@ func BenchmarkWriter(b *testing.B) {
 			require.NoError(b, err)
 		}
 		require.NoError(b, w.Close())
+	}
+}
+
+func BenchmarkRollingHash(b *testing.B) {
+	seq := RandSeq(100 * MB)
+	b.SetBytes(100 * MB)
+	hash := buzhash64.New()
+	splitMask := uint64((1 << uint64(23)) - 1)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		hash.Reset()
+		hash.Write(initialWindow)
+		for _, bt := range seq {
+			hash.Roll(bt)
+			if hash.Sum64()&splitMask == 0 {
+			}
+		}
 	}
 }
 
