@@ -102,17 +102,17 @@ func tagMergeFunc(w *Writer) mergeFunc {
 	}
 }
 
-type mergePQ struct {
-	q    []stream
-	f    mergeFunc
-	size int
+type mergePriorityQueue struct {
+	queue []stream
+	f     mergeFunc
+	size  int
 }
 
-func (mq *mergePQ) key(i int) string {
-	return mq.q[i].key()
+func (mq *mergePriorityQueue) key(i int) string {
+	return mq.queue[i].key()
 }
 
-func (mq *mergePQ) insert(s stream) error {
+func (mq *mergePriorityQueue) insert(s stream) error {
 	// Get next in stream and insert it.
 	if err := s.next(); err != nil {
 		if err == io.EOF {
@@ -120,7 +120,7 @@ func (mq *mergePQ) insert(s stream) error {
 		}
 		return err
 	}
-	mq.q[mq.size+1] = s
+	mq.queue[mq.size+1] = s
 	mq.size++
 	// Propagate insert up the queue
 	i := mq.size
@@ -134,33 +134,33 @@ func (mq *mergePQ) insert(s stream) error {
 	return nil
 }
 
-func (mq *mergePQ) next() []stream {
-	ss := []stream{mq.q[1]}
+func (mq *mergePriorityQueue) next() []stream {
+	ss := []stream{mq.queue[1]}
 	mq.fill()
 	// Keep popping streams off the queue if they have the same key.
-	for mq.q[1] != nil && strings.Compare(mq.key(1), ss[0].key()) == 0 {
-		ss = append(ss, mq.q[1])
+	for mq.queue[1] != nil && strings.Compare(mq.key(1), ss[0].key()) == 0 {
+		ss = append(ss, mq.queue[1])
 		mq.fill()
 	}
 	return ss
 }
 
-func (mq *mergePQ) fill() {
+func (mq *mergePriorityQueue) fill() {
 	// Replace first stream with last
-	mq.q[1] = mq.q[mq.size]
-	mq.q[mq.size] = nil
+	mq.queue[1] = mq.queue[mq.size]
+	mq.queue[mq.size] = nil
 	mq.size--
 	// Propagate last stream down the queue
 	i := 1
 	var next int
 	for {
-		l, r := i*2, i*2+1
-		if l > mq.size {
+		left, right := i*2, i*2+1
+		if left > mq.size {
 			break
-		} else if r > mq.size || strings.Compare(mq.key(l), mq.key(r)) <= 0 {
-			next = l
+		} else if right > mq.size || strings.Compare(mq.key(left), mq.key(right)) <= 0 {
+			next = left
 		} else {
-			next = r
+			next = right
 		}
 		if strings.Compare(mq.key(i), mq.key(next)) <= 0 {
 			break
@@ -170,22 +170,22 @@ func (mq *mergePQ) fill() {
 	}
 }
 
-func (mq *mergePQ) swap(i, j int) {
-	mq.q[i], mq.q[j] = mq.q[j], mq.q[i]
+func (mq *mergePriorityQueue) swap(i, j int) {
+	mq.queue[i], mq.queue[j] = mq.queue[j], mq.queue[i]
 }
 
 func merge(ss []stream, f func([]stream) error) error {
 	if len(ss) == 0 {
 		return nil
 	}
-	mq := &mergePQ{q: make([]stream, len(ss)+1)}
+	mq := &mergePriorityQueue{queue: make([]stream, len(ss)+1)}
 	// Insert streams.
 	for _, s := range ss {
 		if err := mq.insert(s); err != nil {
 			return err
 		}
 	}
-	for mq.q[1] != nil {
+	for mq.queue[1] != nil {
 		// Get next streams and merge them.
 		ss := mq.next()
 		if err := f(ss); err != nil {
