@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
@@ -1090,66 +1091,80 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 
 			nI, oI := 0, 0
+			var eg errgroup.Group
+			r, w := io.Pipe()
+			if err != nil {
+				return err
+			}
 
-			for {
-				if nI == len(newFiles) && oI == len(oldFiles) {
-					break
-				}
-				if err := func() (retErr error) {
-					nF, oF := "/dev/null", "/dev/null"
-					switch {
-					case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
-						nF, err = dlFile(c, newFiles[nI].File)
-						if err != nil {
-							return err
-						}
-						nI++
-					case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
-						oF, err = dlFile(c, oldFiles[oI].File)
-						if err != nil {
-							return err
-						}
-						oI++
-					case newFiles[nI].File.Path == oldFiles[oI].File.Path:
-						nF, err = dlFile(c, newFiles[nI].File)
-						if err != nil {
-							return err
-						}
-						nI++
-						oF, err = dlFile(c, oldFiles[oI].File)
-						if err != nil {
-							return err
-						}
-						oI++
+			eg.Go(func() (retErr error) {
+				defer func() {
+					if err := w.Close(); err != nil && retErr == nil {
+						retErr = err
 					}
-					if nF != "/dev/null" {
-						defer func() {
-							if err := os.RemoveAll(nF); err != nil && retErr == nil {
-								retErr = err
+				}()
+				for {
+					if nI == len(newFiles) && oI == len(oldFiles) {
+						break
+					}
+					if err := func() (retErr error) {
+						nF, oF := "/dev/null", "/dev/null"
+						switch {
+						case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
+							nF, err = dlFile(c, newFiles[nI].File)
+							if err != nil {
+								return err
 							}
-						}()
-					}
-					if oF != "/dev/null" {
-						defer func() {
-							if err := os.RemoveAll(oF); err != nil && retErr == nil {
-								retErr = err
+							nI++
+						case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
+							oF, err = dlFile(c, oldFiles[oI].File)
+							if err != nil {
+								return err
 							}
-						}()
-					}
-					cmd := exec.Command("git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index", oF, nF)
-					cmd.Stdout = os.Stdout
-					cmd.Stderr = os.Stderr
-					// Diff returns exit code 1 when it finds differences
-					// between the files, so we catch it.
-					if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
+							oI++
+						case newFiles[nI].File.Path == oldFiles[oI].File.Path:
+							nF, err = dlFile(c, newFiles[nI].File)
+							if err != nil {
+								return err
+							}
+							nI++
+							oF, err = dlFile(c, oldFiles[oI].File)
+							if err != nil {
+								return err
+							}
+							oI++
+						}
+						if nF != "/dev/null" {
+							defer func() {
+								if err := os.RemoveAll(nF); err != nil && retErr == nil {
+									retErr = err
+								}
+							}()
+						}
+						if oF != "/dev/null" {
+							defer func() {
+								if err := os.RemoveAll(oF); err != nil && retErr == nil {
+									retErr = err
+								}
+							}()
+						}
+						cmd := exec.Command("git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index", oF, nF)
+						cmd.Stdout = w
+						cmd.Stderr = os.Stderr
+						// Diff returns exit code 1 when it finds differences
+						// between the files, so we catch it.
+						if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
+							return err
+						}
+						return nil
+					}(); err != nil {
 						return err
 					}
-					return nil
-				}(); err != nil {
-					return err
 				}
-			}
-			return nil
+				return nil
+			})
+			eg.Go(func() error { return pager.Page(r, os.Stdout) })
+			return eg.Wait()
 		}),
 	}
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
