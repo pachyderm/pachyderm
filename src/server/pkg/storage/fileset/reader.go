@@ -61,6 +61,8 @@ func (r *Reader) next() (*index.Header, error) {
 	indexToContentHeader(hdr)
 	return hdr, nil
 }
+
+// Peek returns the next header without progressing the reader.
 func (r *Reader) Peek() (*index.Header, error) {
 	if r.peekHdr != nil {
 		return r.peekHdr, nil
@@ -73,6 +75,7 @@ func (r *Reader) Peek() (*index.Header, error) {
 	return hdr, err
 }
 
+// PeekTag returns the next tag without progressing the reader.
 func (r *Reader) PeekTag() (*index.Tag, error) {
 	if len(r.tags) == 0 {
 		return nil, io.EOF
