@@ -84,10 +84,10 @@ $ kubectl get svc/pach -o json >pach_service_backup_30650.json
 $ kubectl get svc/pachd -o json | sed 's/30650/30649/g' | kc apply -f -
 
 # Modify your environment so that *you* can talk to pachd on this new port
-$ export PACHD_ADDRESS="${PACHD_ADDRESS/30650/30649}"
+$ pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30649
 
 # Make sure you can talk to pachd (if not, firewall rules are a common culprit)
-$ pc version
+$ pachctl version
 COMPONENT           VERSION
 pachctl             1.7.11
 pachd               1.7.11
@@ -180,7 +180,7 @@ $ kubectl get svc/pach -o json >pach_service_backup_30649.json
 $ kubectl get svc/pachd -o json | sed 's/30649/30650/g' | kc apply -f -
 
 # Modify your environment so that *you* can talk to pachd on the old port
-$ export PACHD_ADDRESS="${PACHD_ADDRESS/30649/30650}"
+$ pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650
 
 # Make sure you can talk to pachd (if not, firewall rules are a common culprit)
 $ pc version

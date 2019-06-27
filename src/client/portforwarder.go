@@ -10,15 +10,15 @@ import (
 	"path"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/config"
+
 	"github.com/facebookgo/pidfile"
 	log "github.com/sirupsen/logrus"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" // enables support for configs with auth
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 )
@@ -47,19 +47,21 @@ type PortForwarder struct {
 
 // NewPortForwarder creates a new port forwarder
 func NewPortForwarder(namespace string) (*PortForwarder, error) {
+	kubeConfig := config.KubeConfig()
 	if namespace == "" {
-		namespace = "default"
+		var err error
+		namespace, err = config.KubeNamespace(kubeConfig)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	overrides := &clientcmd.ConfigOverrides{}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
-	config, err := kubeConfig.ClientConfig()
+	kubeClientConfig, err := kubeConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
 
-	client, err := kubernetes.NewForConfig(config)
+	client, err := kubernetes.NewForConfig(kubeClientConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +71,7 @@ func NewPortForwarder(namespace string) (*PortForwarder, error) {
 	return &PortForwarder{
 		core:          core,
 		client:        core.RESTClient(),
-		config:        config,
+		config:        kubeClientConfig,
 		namespace:     namespace,
 		logger:        log.StandardLogger().Writer(),
 		stopChansLock: &sync.Mutex{},
