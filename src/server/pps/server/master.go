@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"path"
 	"strings"
@@ -17,17 +16,14 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube_watch "k8s.io/apimachinery/pkg/watch"
-	kube "k8s.io/client-go/kubernetes"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
-	"github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
-	"github.com/pachyderm/pachyderm/src/server/pkg/deploy/assets"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
@@ -66,7 +62,9 @@ func (a *apiServer) master() {
 
 		log.Infof("PPS master: launching master process")
 
-		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch(watch.WithPrevKV())
+		// TODO(msteffen) requestly only keys, since pipeline_controller.go reads
+		// fresh values for each event anyway
+		pipelineWatcher, err := a.pipelines.ReadOnly(ctx).Watch()
 		if err != nil {
 			return fmt.Errorf("error creating watch: %+v", err)
 		}
@@ -93,23 +91,7 @@ func (a *apiServer) master() {
 			defer kubePipelineWatch.Stop()
 		}
 
-		// Watch for new pipeline creates/updates
-		var (
-			span          opentracing.Span
-			oldCtx        = ctx
-			oldPachClient = pachClient
-		)
-		defer func() {
-			// Finish any dangling span
-			// Note: cannot do 'defer tracing.FinishAnySpan(span)' b/c that would
-			// evaluate 'span' before the "for" loop below runs
-			tracing.FinishAnySpan(span) // finish any dangling span
-		}()
 		for {
-			// finish span from previous pipeline operation
-			tracing.FinishAnySpan(span)
-			span = nil
-
 			select {
 			case event := <-pipelineWatcher.Watch():
 				if event.Err != nil {
@@ -117,180 +99,10 @@ func (a *apiServer) master() {
 				}
 				switch event.Type {
 				case watch.EventPut:
-					var pipelineName string
-					var prevPipelinePtr pps.EtcdPipelineInfo
-					var pipelinePtr pps.EtcdPipelineInfo
-					if err := event.Unmarshal(&pipelineName, &pipelinePtr); err != nil {
-						return err
-					}
-					if event.PrevKey != nil {
-						if err := event.UnmarshalPrev(&pipelineName, &prevPipelinePtr); err != nil {
-							return err
-						}
-					}
-					log.Infof("PPS master: pipeline %q: %s -> %s", pipelineName, prevPipelinePtr.State, pipelinePtr.State)
-					var prevSpecCommit string
-					if prevPipelinePtr.SpecCommit != nil {
-						prevSpecCommit = prevPipelinePtr.SpecCommit.ID
-					}
-					var curSpecCommit = pipelinePtr.SpecCommit.ID
-
-					// Handle tracing (pipelineRestarted is used to maybe delete trace)
-					if span, ctx = extended.AddPipelineSpanToAnyTrace(oldCtx,
-						a.env.GetEtcdClient(), pipelineName, "/pps.Master/ProcessPipelineUpdate",
-						"key-version", event.Ver,
-						"mod-revision", event.Rev,
-						"prev-key", string(event.PrevKey),
-						"old-state", prevPipelinePtr.State.String(),
-						"old-spec-commit", prevSpecCommit,
-						"new-state", pipelinePtr.State.String(),
-						"new-spec-commit", curSpecCommit,
-					); span != nil {
-						pachClient = oldPachClient.WithCtx(ctx)
-					} else {
-						pachClient = oldPachClient
-					}
-
-					// Retrieve pipelineInfo (and prev pipeline's pipelineInfo) from the
-					// spec repo
-					var pipelineInfo, prevPipelineInfo *pps.PipelineInfo
-					if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-						var err error
-						pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &pipelinePtr)
-						if err != nil {
-							return err
-						}
-
-						if prevPipelinePtr.SpecCommit != nil {
-							prevPipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, &prevPipelinePtr)
-							if err != nil {
-								return err
-							}
-						}
-						return nil
-					}); err != nil {
-						return fmt.Errorf("watch event had no pipelineInfo: %v", err)
-					}
-
-					// True if the pipeline has a git input
-					var hasGitInput bool
-					pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
-						if input.Git != nil {
-							hasGitInput = true
-						}
-					})
-					// True if the user has called StopPipeline, but the PPS master hasn't
-					// processed the update yet (PPS master sets the pipeline state to
-					// PAUSED)
-					pipelinePartiallyPaused := pipelineInfo.Stopped &&
-						pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED
-					// True if the user has called StartPipeline, but the PPS master
-					// hasn't processed the update yet
-					pipelinePartiallyUnpaused := !pipelineInfo.Stopped &&
-						pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED
-					// True if the user has called StopPipeline, and the PPS master
-					// has processed the update yet
-					pipelineFullyPaused := pipelineInfo.Stopped &&
-						pipelineInfo.State == pps.PipelineState_PIPELINE_PAUSED
-					// True if the pipeline has been restarted (regardless of any change
-					// to the pipeline spec)
-					pipelineRestarted := !pipelineInfo.Stopped &&
-						event.PrevKey != nil && prevPipelineInfo.Stopped
-					// True if auth has been activated or deactivated
-					authActivationChanged := (pipelinePtr.AuthToken == "") !=
-						(prevPipelinePtr.AuthToken == "")
-					// True if the pipeline has been created or updated
-					pipelineNewSpecCommit := func() bool {
-						var prevSpecCommit string
-						if prevPipelinePtr.SpecCommit != nil {
-							prevSpecCommit = prevPipelinePtr.SpecCommit.ID
-						}
-						return pipelinePtr.SpecCommit.ID != prevSpecCommit &&
-							!pipelineInfo.Stopped
-					}()
-
-					// Handle cases where pipeline isn't running anymore
-					if pipelineInfo.State == pps.PipelineState_PIPELINE_FAILURE {
-						// pipeline fails if docker image isn't found OR if pipeline RC is
-						// missing
-						if err := a.finishPipelineOutputCommits(pachClient, pipelineInfo); err != nil {
-							return err
-						}
-						if err := a.deletePipelineResources(ctx, pipelineName); err != nil {
-							return err
-						}
-						continue
-					} else if pipelinePartiallyPaused {
-						// Clusters can get into broken state where pipeline exists but
-						// RC is deleted by user--causes master() to crashloop trying to
-						// scale up/down workers repeatedly. Break the cycle here
-						if err := a.scaleDownWorkersForPipeline(ctx, pipelineInfo); err != nil {
-							if failErr := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, err.Error()); failErr != nil {
-								return failErr
-							}
-							return err
-						}
-						// Mark the pipeline paused, thus fully stopping it (Note: this will
-						// generate another etcd event, which is ignored below, under
-						// pipelineFullyPaused)
-						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_PAUSED, ""); err != nil {
-							return err
-						}
-						continue
-					} else if pipelinePartiallyUnpaused {
-						// Mark the pipeline RUNNING, which will generate another etcd
-						// event, which triggers a.scaleUpWorkersForPipeline, below
-						if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING, ""); err != nil {
-							return err
-						}
-						continue
-					} else if pipelineFullyPaused {
-						continue // pipeline has already been paused -- nothing to do
-					}
-
-					// Handle cases where pipeline is still running
-					if pipelineRestarted || authActivationChanged || pipelineNewSpecCommit {
-						if (pipelineNewSpecCommit || authActivationChanged) && event.PrevKey != nil {
-							if err := a.deletePipelineResources(ctx, prevPipelineInfo.Pipeline.Name); err != nil {
-								return err
-							}
-						}
-						if (pipelineNewSpecCommit || pipelineRestarted) && hasGitInput {
-							if err := a.checkOrDeployGithookService(); err != nil {
-								return err
-							}
-						}
-						if err := a.upsertWorkersForPipeline(ctx, pipelineInfo); err != nil {
-							log.Errorf("error upserting workers for new/restarted pipeline %q: %v", pipelineName, err)
-							if err := a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_STARTING, fmt.Sprintf("failed to create workers: %s", err.Error())); err != nil {
-								return err
-							}
-							// We return the error here, this causes us to go
-							// into backoff and try again from scratch. This
-							// means that we'll try creating this pipeline
-							// again and also gives a chance for another node,
-							// which might actually be able to talk to k8s, to
-							// get a chance at creating the workers.
-							return err
-						}
-					}
-					if pipelineInfo.State == pps.PipelineState_PIPELINE_RUNNING {
-						if err := a.scaleUpWorkersForPipeline(ctx, pipelineInfo); err != nil {
-							// See note above (under "if pipelinePartiallyStopped")
-							if failErr := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, err.Error()); failErr != nil {
-								return failErr
-							}
-							return err
-						}
-					}
-					if pipelineInfo.State == pps.PipelineState_PIPELINE_STANDBY {
-						if err := a.scaleDownWorkersForPipeline(ctx, pipelineInfo); err != nil {
-							// See note above (under "if pipelinePartiallyStopped")
-							if failErr := a.setPipelineFailure(ctx, pipelineInfo.Pipeline.Name, err.Error()); failErr != nil {
-								return failErr
-							}
-							return err
-						}
+					pipeline := string(event.Key)
+					// Create/Modify/Delete pipeline resources as needed per new state
+					if err := a.step(pachClient, pipeline, event.Ver, event.Rev); err != nil {
+						log.Errorf("PPS master: error stepping %q: %v", pipeline, err)
 					}
 				}
 			case event := <-watchChan:
@@ -351,188 +163,6 @@ func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string,
 	return ppsutil.FailPipeline(ctx, a.env.GetEtcdClient(), a.pipelines, pipelineName, reason)
 }
 
-func (a *apiServer) checkOrDeployGithookService() error {
-	kubeClient := a.env.GetKubeClient()
-	_, err := getGithookService(kubeClient, a.namespace)
-	if err != nil {
-		if _, ok := err.(*errGithookServiceNotFound); ok {
-			svc := assets.GithookService(a.namespace)
-			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
-			return err
-		}
-		return err
-	}
-	// service already exists
-	return nil
-}
-
-func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Service, error) {
-	labels := map[string]string{
-		"app":   "githook",
-		"suite": suite,
-	}
-	serviceList, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ListOptions",
-			APIVersion: "v1",
-		},
-		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
-	})
-	if err != nil {
-		return nil, err
-	}
-	if len(serviceList.Items) != 1 {
-		return nil, &errGithookServiceNotFound{
-			fmt.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
-		}
-	}
-	return &serviceList.Items[0], nil
-}
-
-func (a *apiServer) upsertWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
-	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/UpsertWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
-	defer func(span opentracing.Span) {
-		tracing.TagAnySpan(span, "err", retErr)
-		tracing.FinishAnySpan(span)
-	}(span) // bind span eagerly, as it's overwritten below
-	var errCount int
-	if err := backoff.RetryNotify(func() error {
-		var resourceRequests *v1.ResourceList
-		var resourceLimits *v1.ResourceList
-		if pipelineInfo.ResourceRequests != nil {
-			var err error
-			resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
-			if err != nil {
-				return err
-			}
-		}
-		if pipelineInfo.ResourceLimits != nil {
-			var err error
-			resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
-			if err != nil {
-				return err
-			}
-		}
-
-		// Retrieve the current state of the RC.  If the RC is scaled down,
-		// we want to ensure that it remains scaled down.
-		span, _ = tracing.AddSpanToAnyExisting(ctx, "/kube.RC/Get", "pipeline", pipelineInfo.Pipeline.Name)
-		rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
-		workerRc, err := rc.Get(
-			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-			metav1.GetOptions{})
-		tracing.FinishAnySpan(span)
-		var rcFound bool
-		if err != nil && !isNotFoundErr(err) {
-			return err
-		} else if err == nil {
-			rcFound = true
-		}
-		if rcFound && workerRc.ObjectMeta.Labels["version"] != version.PrettyVersion() {
-			if err := a.deletePipelineResources(ctx, pipelineInfo.Pipeline.Name); err != nil {
-				return err
-			}
-		}
-
-		// A service can be present either directly on the pipeline spec
-		// or on the spout field of the spec.
-		var service *pps.Service
-		if pipelineInfo.Spout != nil && pipelineInfo.Service != nil {
-			return errors.New("only one of pipeline.service or pipeline.spout can be set")
-		} else if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil {
-			service = pipelineInfo.Spout.Service
-		} else {
-			service = pipelineInfo.Service
-		}
-
-		// Generate options for new RC
-		options := a.getWorkerOptions(
-			pipelineInfo.Pipeline.Name,
-			pipelineInfo.Version,
-			0,
-			resourceRequests,
-			resourceLimits,
-			pipelineInfo.Transform,
-			pipelineInfo.CacheSize,
-			service,
-			pipelineInfo.SpecCommit.ID,
-			pipelineInfo.SchedulingSpec,
-			pipelineInfo.PodSpec,
-			pipelineInfo.PodPatch)
-		// Set the pipeline name env
-		options.workerEnv = append(options.workerEnv, v1.EnvVar{
-			Name:  client.PPSPipelineNameEnv,
-			Value: pipelineInfo.Pipeline.Name,
-		})
-		return a.createWorkerRc(ctx, options)
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		errCount++
-		if errCount >= 3 {
-			return err
-		}
-		log.Errorf("error creating workers for pipeline %v: %v; retrying in %v", pipelineInfo.Pipeline.Name, err, d)
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	// Start monitorPipeline() for this pipeline, which controls the new workers
-	a.monitorCancelsMu.Lock()
-	defer a.monitorCancelsMu.Unlock()
-	if _, ok := a.monitorCancels[pipelineInfo.Pipeline.Name]; !ok {
-		ctx, cancel := context.WithCancel(context.Background())
-		a.monitorCancels[pipelineInfo.Pipeline.Name] = cancel
-		pachClient := a.env.GetPachClient(ctx)
-
-		go a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-			a.monitorPipeline(superUserClient, pipelineInfo)
-			return nil
-		})
-	}
-	return nil
-}
-
-// finishPipelineOutputCommits finishes any output commits of
-// 'pipelineInfo.Pipeline' with an empty tree.
-// TODO(msteffen) Note that if the pipeline has any jobs (which can happen if
-// the user manually deletes the pipeline's RC, failing the pipeline, after it
-// has created jobs) those will not be updated. TODO is to mark jobs FAILED
-func (a *apiServer) finishPipelineOutputCommits(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) (retErr error) {
-	pipelineName := pipelineInfo.Pipeline.Name
-	log.Infof("PPS master: finishing output commits for pipeline %q", pipelineName)
-	span, _ctx := tracing.AddSpanToAnyExisting(pachClient.Ctx(), "/pps.Master/FinishPipelineOutputCommits", "pipeline", pipelineName)
-	if span != nil {
-		pachClient = pachClient.WithCtx(_ctx) // copy auth info from input to output
-	}
-	defer func() {
-		tracing.TagAnySpan(span, "err", retErr)
-		tracing.FinishAnySpan(span)
-	}()
-
-	return a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-		commitInfos, err := superUserClient.ListCommit(pipelineName, pipelineInfo.OutputBranch, "", 0)
-		if err != nil {
-			return fmt.Errorf("could not list output commits of %q to finish them: %v", pipelineName, err)
-		}
-
-		var finishCommitErr error
-		for _, ci := range commitInfos {
-			if ci.Finished != nil {
-				continue // nothing needs to be done
-			}
-			if _, err := superUserClient.PfsAPIClient.FinishCommit(superUserClient.Ctx(),
-				&pfs.FinishCommitRequest{
-					Commit: client.NewCommit(pipelineName, ci.Commit.ID),
-					Empty:  true,
-				}); err != nil && finishCommitErr == nil {
-				finishCommitErr = err
-			}
-		}
-		return finishCommitErr
-	})
-}
-
 func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", pipelineName)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
@@ -580,69 +210,6 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 		}
 	}
 	return nil
-}
-
-func (a *apiServer) scaleDownWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
-	log.Infof("scaling down workers for %q", pipelineInfo.Pipeline.Name)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleDownWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
-	defer func() {
-		tracing.TagAnySpan(span, "err", retErr)
-		tracing.FinishAnySpan(span)
-	}()
-
-	return backoff.RetryNotify(func() error {
-		rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
-		workerRc, err := rc.Get(
-			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-			metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		workerRc.Spec.Replicas = &zero
-		_, err = rc.Update(workerRc)
-		if err != nil {
-			return fmt.Errorf("could not update scaled-down pipeline (%q) RC: %v",
-				pipelineInfo.Pipeline.Name, err)
-		}
-		return nil
-	}, backoff.New10sBackOff(), func(err error, _ time.Duration) error {
-		if err != nil && strings.Contains(err.Error(), "try again") {
-			return nil
-		}
-		return err
-	})
-}
-
-func (a *apiServer) scaleUpWorkersForPipeline(ctx context.Context, pipelineInfo *pps.PipelineInfo) (retErr error) {
-	log.Infof("scaling up workers for %q", pipelineInfo.Pipeline.Name)
-	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/ScaleUpWorkersForPipeline", "pipeline", pipelineInfo.Pipeline.Name)
-	defer func() {
-		tracing.TagAnySpan(span, "err", retErr)
-		tracing.FinishAnySpan(span)
-	}()
-
-	return backoff.RetryNotify(func() error {
-		rc := a.env.GetKubeClient().CoreV1().ReplicationControllers(a.namespace)
-		workerRc, err := rc.Get(
-			ppsutil.PipelineRcName(pipelineInfo.Pipeline.Name, pipelineInfo.Version),
-			metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		parallelism, err := ppsutil.GetExpectedNumWorkers(a.env.GetKubeClient(), pipelineInfo.ParallelismSpec)
-		if err != nil {
-			log.Errorf("error getting number of workers, default to 1 worker: %v", err)
-			parallelism = 1
-		}
-		*workerRc.Spec.Replicas = int32(parallelism)
-		_, err = rc.Update(workerRc)
-		return err
-	}, backoff.New10sBackOff(), func(err error, _ time.Duration) error {
-		if err != nil && strings.Contains(err.Error(), "try again") {
-			return nil
-		}
-		return err
-	})
 }
 
 func notifyCtx(ctx context.Context, name string) func(error, time.Duration) error {
@@ -709,24 +276,7 @@ func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *
 			})
 		}
 	})
-	if !pipelineInfo.Standby {
-		// Standby is false so simply put it in RUNNING and leave it there.  This is
-		// only done with eg.Go so that we can handle all the errors in the
-		// same way below, it should be a very quick operation so there's no
-		// good reason to do it concurrently.
-		eg.Go(func() error {
-			return backoff.RetryNotify(func() error {
-				span, ctx := extended.AddPipelineSpanToAnyTrace(pachClient.Ctx(),
-					a.env.GetEtcdClient(), pipelineInfo.Pipeline.Name, "/pps.Master/MonitorPipeline",
-					"standby", pipelineInfo.Standby)
-				if span != nil {
-					pachClient = pachClient.WithCtx(ctx)
-				}
-				defer tracing.FinishAnySpan(span)
-				return a.setPipelineState(pachClient, pipelineInfo, pps.PipelineState_PIPELINE_RUNNING, "")
-			}, backoff.NewInfiniteBackOff(), notifyCtx(pachClient.Ctx(), "set running (Standby = false)"))
-		})
-	} else {
+	if pipelineInfo.Standby {
 		// Capacity 1 gives us a bit of buffer so we don't needlessly go into
 		// standby when SubscribeCommit takes too long to return.
 		ciChan := make(chan *pfs.CommitInfo, 1)

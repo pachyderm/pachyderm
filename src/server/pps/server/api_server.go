@@ -2476,6 +2476,8 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		return nil, err
 	}
 
+	// TODO(msteffen): can I get rid of this and have the PPS master make the
+	// change?
 	pipelineInfo.Stopped = false
 	commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
 	if err != nil {
