@@ -4,7 +4,7 @@ Babel==2.3.4
 CommonMark==0.5.4
 docutils==0.12
 imagesize==0.7.1
-Jinja2==2.8
+Jinja2==2.9.6
 line-profiler==1.0
 livereload==2.4.1
 MarkupSafe==0.23
@@ -18,5 +18,5 @@ six==1.10.0
 snowballstemmer==1.2.1
 Sphinx==1.4.4
 sphinx-autobuild==0.6.0
-sphinx_rtd_theme==0.4.1
+sphinx_rtd_theme==0.4.3
 #-e git://github.com/snide/sphinx_rtd_theme.git@26c82648c42bd422df48220cfbdbef36b4a165a6#egg=sphinx_rtd_theme

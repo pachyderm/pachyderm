@@ -81,7 +81,7 @@ Pass the new admin token to Pachyderm:
 ```
 vault write pachyderm/config \
     admin_token="${ADMIN_TOKEN}" \
-    pachd_address="${PACHD_ADDRESS:-127.0.0.1:30650}" \
+    pachd_address="127.0.0.1:30650" \
     ttl=5m # optional
 ```
 4) Test the plugin
@@ -142,7 +142,8 @@ The response metadata contains the `user_token` that you need to use to connect 
 Again, if you wanted to use this Pachyderm token on the command line:
 ```
 $ echo "aa425375f03d4a5bb0f529379d82aa39" | pachctl auth use-auth-token
-$ PACHD_ADDRESS=127.0.0.1:30650 pachctl list repo
+$ pachctl config update context `pachctl config get active-context` --pachd-address=127.0.0.1:30650
+$ pachctl list repo
 ```
 
 The TTL is tied to the vault lease in `lease_id`, which can be inspected or revoked

@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/version/versionpb"
 	admincmds "github.com/pachyderm/pachyderm/src/server/admin/cmds"
 	authcmds "github.com/pachyderm/pachyderm/src/server/auth/cmds"
+	configcmds "github.com/pachyderm/pachyderm/src/server/config"
 	debugcmds "github.com/pachyderm/pachyderm/src/server/debug/cmds"
 	enterprisecmds "github.com/pachyderm/pachyderm/src/server/enterprise/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/src/server/pfs/cmds"
@@ -305,8 +306,6 @@ __custom_func() {
 // interact with them (it implements the pachctl binary).
 func PachctlCmd() *cobra.Command {
 	var verbose bool
-	var noMetrics bool
-	var noPortForwarding bool
 
 	raw := false
 	rawFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
@@ -321,9 +320,9 @@ func PachctlCmd() *cobra.Command {
 Environment variables:
   PACHD_ADDRESS=<host>:<port>, the pachd server to connect to (e.g. 127.0.0.1:30650).
   PACH_CONFIG=<path>, the path where pachctl will attempt to load your pach config.
-  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_ENABLE_TRACING is set
-  PACH_ENABLE_TRACING={true,false}, If true, and JAEGER_ENDPOINT is set, attach a
-    Jaeger trace to all outgoing RPCs
+  JAEGER_ENDPOINT=<host>:<port>, the Jaeger server to connect to, if PACH_TRACE is set
+  PACH_TRACE={true,false}, If true, and JAEGER_ENDPOINT is set, attach a
+    Jaeger trace to any outgoing RPCs
 `,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			log.SetFormatter(new(prefixed.TextFormatter))
@@ -350,8 +349,6 @@ Environment variables:
 		BashCompletionFunction: bashCompletionFunc,
 	}
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Output verbose logs")
-	rootCmd.PersistentFlags().BoolVarP(&noMetrics, "no-metrics", "", false, "Don't report user metrics for this command")
-	rootCmd.PersistentFlags().BoolVarP(&noPortForwarding, "no-port-forwarding", "", false, "Disable implicit port forwarding")
 
 	var subcommands []*cobra.Command
 
@@ -371,15 +368,14 @@ Environment variables:
 				}
 				return nil
 			}
-			if !noMetrics {
-				start := time.Now()
-				startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
-				defer startMetricsWait()
-				defer func() {
-					finishMetricsWait := metrics.FinishReportAndFlushUserAction("Version", retErr, start)
-					finishMetricsWait()
-				}()
-			}
+
+			start := time.Now()
+			startMetricsWait := metrics.StartReportAndFlushUserAction("Version", start)
+			defer startMetricsWait()
+			defer func() {
+				finishMetricsWait := metrics.FinishReportAndFlushUserAction("Version", retErr, start)
+				finishMetricsWait()
+			}()
 
 			// Print header + client version
 			writer := ansiterm.NewTabWriter(os.Stdout, 20, 1, 3, ' ', 0)
@@ -404,9 +400,9 @@ Environment variables:
 				if err != nil {
 					return fmt.Errorf("could not parse timeout duration %q: %v", timeout, err)
 				}
-				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user", client.WithDialTimeout(timeout))
+				pachClient, err = client.NewOnUserMachine("user", client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = client.NewOnUserMachine(false, !noPortForwarding, "user")
+				pachClient, err = client.NewOnUserMachine("user")
 			}
 			if err != nil {
 				return err
@@ -454,7 +450,7 @@ Environment variables:
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := client.NewOnUserMachine(!noMetrics, !noPortForwarding, "user")
+			client, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -744,19 +740,20 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(editDocs, "edit"))
 
-	subcommands = append(subcommands, pfscmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, ppscmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, deploycmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, authcmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, enterprisecmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, admincmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, debugcmds.Cmds(&noMetrics, &noPortForwarding)...)
-	subcommands = append(subcommands, txncmds.Cmds(&noMetrics, &noPortForwarding)...)
+	subcommands = append(subcommands, pfscmds.Cmds()...)
+	subcommands = append(subcommands, ppscmds.Cmds()...)
+	subcommands = append(subcommands, deploycmds.Cmds()...)
+	subcommands = append(subcommands, authcmds.Cmds()...)
+	subcommands = append(subcommands, enterprisecmds.Cmds()...)
+	subcommands = append(subcommands, admincmds.Cmds()...)
+	subcommands = append(subcommands, debugcmds.Cmds()...)
+	subcommands = append(subcommands, txncmds.Cmds()...)
+	subcommands = append(subcommands, configcmds.Cmds()...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
 	applyRootUsageFunc(rootCmd)
-	applyCommandCompat1_8(rootCmd, &noMetrics, &noPortForwarding)
+	applyCommandCompat1_8(rootCmd)
 
 	return rootCmd
 }

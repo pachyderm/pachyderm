@@ -1,33 +1,78 @@
 # Combining/Merging/Joining Data
 
-There are a variety of use cases in which you would want to match datums from multiple data repositories to do some combined processing, joining, or aggregation.  For example, you may need to process multiple records corresponding to a certain user, a certain experiment, or a certain device together.  In these scenarios, we recommend a 2-stage method of merging your data:
+Before you read this section, make sure you understand the concepts
+described in [Distributed Processing](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html)
 
-1. [A first pipeline](#grouping-records-that-need-to-be-processed-together) that groups all of the records for a specific key/index.
+In some of your projects, you might need to match datums from
+multiple data repositories to process, join, or aggregate. For example,
+you might need to process multiple records that correspond to a certain
+user, experiment, or device together. In these scenarios, you can use
+the following approach:
 
-2. [A second pipeline](#processing-the-grouped-records) that takes that grouped output and performs the merging, joining, or other processing for the group.
+1. Create a pipeline that groups all of the records for a specific
+key and index.
 
-## 1. Grouping records that need to be processed together
+2. Create another pipeline that takes that grouped output and performs
+the merging, joining, or other processing for the group.
+
+You can use these two data-combining pipelines for
+merging or grouped processing of data from various experiments,
+devices, and so on. You can also apply the same pattern to
+perform distributed joins of tabular data or data from database
+tables. For example, you can join user email records together
+with user IP records on the key/index of a user ID.
+
+You can parallelize each of the stages across workers to
+scale with the size of your data and the number of data
+sources that you want to merge.
+
+**Tip:** If your data is not split into separate files for
+each record. In these cases, you can split it automatically as described in
+[Splitting Data for Distributed Processing](splitting.html) to
+prepare your data for this sort of distributed merging.
+
+## Grouping the records that need to be processed together
+
+In this example, you have two repositories `A` and `B` both
+with JSON records.
+These repositories may correspond to two experiments, two geographic
+regions, two different devices that generate data, or other.
 
 ![alt tag](join1.png)
 
-Let's say that we have two repositories containing JSON records, `A` and `B`.  These repositories may correspond to two experiments, two geographic regions, two different devices generating data, etc.  In any event, the repositories look similar to:
+The repository `A` has the following structure:
 
-```
+```bash
 $ pachctl list file A@master
-NAME                TYPE                SIZE                
-1.json              file                39 B                
-2.json              file                39 B                
-3.json              file                39 B                
-$ pachctl list file B@master
-NAME                TYPE                SIZE                
-1.json              file                39 B                
-2.json              file                39 B                
-3.json              file                39 B                
+NAME                TYPE                SIZE
+1.json              file                39 B
+2.json              file                39 B
+3.json              file                39 B
 ```
 
-We need to process `A/1.json` with `B/1.json` to merge their contents or otherwise process them together.  Thus, we need to group each set of JSON records into respective "datums" that can each be processed together by our [second pipeline](#processing-the-grouped-records) (read more about datums and distributed processing [here](http://pachyderm.readthedocs.io/en/latest/fundamentals/distributed_computing.html)).
+The repository `B` has the following structure:
 
-The first pipeline takes a union of `A` and `B` as inputs, each with glob pattern `/*`.  As each JSON file is processed, it is copied to a folder in the output corresponding to the key/index for that record (in this case, just the number in the file name).  It is also re-named to a unique name corresponding to it's source:
+```bash
+$ pachctl list file B@master
+NAME                TYPE                SIZE
+1.json              file                39 B
+2.json              file                39 B
+3.json              file                39 B
+```
+
+If you want to process `A/1.json` with `B/1.json` to merge
+their contents or otherwise process them together, you need to
+group each set of JSON records into respective datums that
+the pipelines that you create in
+[Processing the grouped records](#processing-the-grouped-records)
+can process together.
+
+The grouping pipeline takes a union of `A` and `B` as inputs,
+each with glob pattern `/*`. As the pipeline processes a JSON file,
+the data is copied to a folder in the output corresponding to the
+key and index for that record. In this example, it is just the
+number in the file name. Pachyderm also renames the files to
+unique names that correspond to the source:
 
 ```
 /1
@@ -41,33 +86,34 @@ The first pipeline takes a union of `A` and `B` as inputs, each with glob patter
   B.json
 ```
 
-Note, that when performing this grouping:
+When you group your data, set the following parameters in the pipeline
+specification:
 
-- You should use `"lazy": true` to avoid unnecessary downloads of data.
+- In the "pfs" section, set `"empty_files": true` to avoid
+unnecessary downloads of data.
 
-- You should use sym-links to avoid unnecessary uploads of data and unnecessary duplication of data (see more information on "copy elision" [here](http://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html)).
+- Use symlinks to avoid unnecessary uploads of data and unnecessary data
+duplication.
 
+For more information, read about *copy elision* in [Data Management](http://pachyderm.readthedocs.io/en/latest/managing_pachyderm/data_management.html).
 
-## 2. Processing the grouped records
+## Processing grouped records
 
 ![alt tag](join2.png)
 
-Once the records that need to be processed together are grouped by the first pipeline, our second pipeline can take the `group` repository as input with a glob pattern of `/*`.  This will let the second pipeline process each grouping of records in parallel.
+After you group the records together by using the grouping pipeline, use
+the pipeline in this section on the `group` repository. This pipeline
+as input with a glob pattern of `/*`. By using the glob pattern of `/*`
+the pipeline can process each grouping of records in parallel.
 
-The second pipeline will perform any merging, aggregation, or other processing on the respective grouping of records and could, for example, output each respective result to the root of the output directory:
+The second pipeline performs merging, aggregation, or other
+processing on the respective grouping of records. It can also
+output each respective result to the root of the output directory:
 
 ```
 $ pachctl list file merge@master
-NAME                TYPE                SIZE                
-result_1.json              file                39 B                
-result_2.json              file                39 B                
-result_3.json              file                39 B                
-```  
-
-## Implications and Notes
-
-- This 2-stage pattern of combining data could be used for merging or grouped processing of data from various experiments, devices, etc. However, the same pattern can be applied to perform distributed joins of tabular data or data from database tables.  For example, you could join user email records together with user IP records on the key/index of a user ID.
-
-- Each of the 2 stages can be parallelized across workers to scaled with the size of your data and the number of data sources that you are merging.
-
-- In some cases, your data may not be split into separate files for each record.  In these cases, you can utilize [Pachyderm splitting functionality](splitting.html) to prepare your data for this sort of distributed merging/joining. 
+NAME                TYPE          SIZE
+result_1.json       file          39 B
+result_2.json       file          39 B
+result_3.json       file          39 B
+```

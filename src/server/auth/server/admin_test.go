@@ -1432,3 +1432,78 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	// Make sure DeleteAll() succeeds
 	require.NoError(t, aliceClient.DeleteAll())
 }
+
+// TestDeleteRCInStandby creates a pipeline, waits for it to enter standby, and
+// then deletes its RC. This should not crash the PPS master, and the
+// flush-commit run on an input commit should eventually return (though the
+// pipeline may fail rather than processing anything in this state)
+//
+// Note: Like 'TestNoOutputRepoDoesntCrashPPSMaster', this test doesn't use the
+// admin client at all, but it uses the kubernetes client, so out of prudence it
+// shouldn't be run in parallel with any other test
+func TestDeleteRCInStandby(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	c := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Image: "ubuntu:16.04",
+				Cmd:   []string{"bash"},
+				Stdin: []string{"cp /pfs/*/* /pfs/out"},
+			},
+			ParallelismSpec: &pps.ParallelismSpec{Constant: 1},
+			Input:           client.NewPFSInput(repo, "/*"),
+			Standby:         true,
+		})
+	require.NoError(t, err)
+
+	// Wait for pipeline to process input commit & go into standby
+	iter, err := c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pi.State != pps.PipelineState_PIPELINE_STANDBY {
+			return fmt.Errorf("pipeline should be in standby, but is in %s", pi.State.String())
+		}
+		return nil
+	})
+
+	// delete pipeline RC
+	tu.DeletePipelineRC(t, pipeline)
+
+	// Create new input commit (to force pipeline out of standby) & make sure
+	// flush-commit returns (pipeline either fails or restarts RC & finishes)
+	_, err = c.PutFile(repo, "master", "/file.2", strings.NewReader("1"))
+	require.NoError(t, err)
+	iter, err = c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+}

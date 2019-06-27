@@ -102,7 +102,7 @@ type ReadonlyCollection interface {
 	GetByIndex(index *Index, indexVal interface{}, val proto.Message, opts *Options, f func(key string) error) error
 	// GetBlock is like Get but waits for the key to exist if it doesn't already.
 	GetBlock(key string, val proto.Message) error
-	// TTL returns the amount of time that 'key' will continue to exist in the
+	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	TTL(key string) (int64, error)
 	List(val proto.Message, opts *Options, f func(key string) error) error

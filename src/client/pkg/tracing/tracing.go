@@ -11,6 +11,7 @@ import (
 
 	otgrpc "github.com/opentracing-contrib/go-grpc"
 	opentracing "github.com/opentracing/opentracing-go"
+	log "github.com/sirupsen/logrus"
 	"github.com/uber/jaeger-client-go"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	"google.golang.org/grpc"
@@ -31,12 +32,33 @@ const JaegerServiceName = "pachd"
 // traces hard to find in Jaeger, so you may not want this variable set for
 // every call.
 const jaegerEndpointEnvVar = "JAEGER_ENDPOINT"
-const pachdTracingEnvVar = "PACH_ENABLE_TRACING"
+const shortTraceEnvVar = "PACH_TRACE"
 
 // jaegerOnce is used to ensure that the Jaeger tracer is only initialized once
 var jaegerOnce sync.Once
 
-func tagSpan(span opentracing.Span, kvs []interface{}) opentracing.Span {
+// TagAnySpan tags any span associated with 'spanBox' (which must be either a
+// span itself or a context.Context) with 'kvs'
+func TagAnySpan(spanBox interface{}, kvs ...interface{}) opentracing.Span {
+	if spanBox == nil {
+		return nil
+	}
+
+	// extract span from 'spanBox'
+	var span opentracing.Span
+	switch v := spanBox.(type) {
+	case opentracing.Span:
+		span = v
+	case context.Context:
+		span = opentracing.SpanFromContext(v) // may return nil
+	default:
+		log.Errorf("invalid type %T passed to TagAnySpan", spanBox)
+	}
+	if span == nil {
+		return nil
+	}
+
+	// tag 'span'
 	for i := 0; i < len(kvs); i += 2 {
 		if len(kvs) == i+1 {
 			span = span.SetTag("extra", kvs[i]) // likely forgot key or value--best effort
@@ -57,7 +79,7 @@ func tagSpan(span opentracing.Span, kvs []interface{}) opentracing.Span {
 func AddSpanToAnyExisting(ctx context.Context, operation string, kvs ...interface{}) (opentracing.Span, context.Context) {
 	if parentSpan := opentracing.SpanFromContext(ctx); parentSpan != nil {
 		span := opentracing.StartSpan(operation, opentracing.ChildOf(parentSpan.Context()))
-		tagSpan(span, kvs)
+		span = TagAnySpan(span, kvs...)
 		return span, opentracing.ContextWithSpan(ctx, span)
 	}
 	return nil, ctx
@@ -71,10 +93,8 @@ func FinishAnySpan(span opentracing.Span) {
 	}
 }
 
-// InstallJaegerTracerFromEnv installs a Jaeger client as then opentracing
-// global tracer, relying on environment variables to configure the client. It
-// returns the address used to initialize the global tracer, if any
-// initialization occurred
+// InstallJaegerTracerFromEnv installs a Jaeger client as the opentracing global
+// tracer, relying on environment variables to configure the client
 func InstallJaegerTracerFromEnv() {
 	jaegerOnce.Do(func() {
 		jaegerEndpoint, onUserMachine := os.LookupEnv(jaegerEndpointEnvVar)
@@ -95,7 +115,7 @@ func InstallJaegerTracerFromEnv() {
 		cfg := jaegercfg.Configuration{
 			// Configure Jaeger to sample every call, but use the SpanInclusionFunc
 			// addTraceIfTracingEnabled (defined below) to skip sampling every RPC
-			// unless the PACH_ENABLE_TRACING environment variable is set
+			// unless the PACH_TRACE environment variable is set
 			Sampler: &jaegercfg.SamplerConfig{
 				Type:  "const",
 				Param: 1,
@@ -121,20 +141,23 @@ func InstallJaegerTracerFromEnv() {
 		// (below) and call 'Close()' on it there.
 		tracer, _, err := cfg.New(JaegerServiceName, jaegercfg.Logger(logger))
 		if err != nil {
-			panic(fmt.Sprintf("could not install Jaeger tracer: %v", err))
+			log.Errorf("jaeger-collector service is deployed, but Pachyderm could not install Jaeger tracer: %v", err)
+			return
 		}
 		opentracing.SetGlobalTracer(tracer)
 	})
 }
 
-// addTraceIfTracingEnabled is an otgrpc interceptor option that propagates
+// addTraceIfTracingEnabled is an otgrpc span inclusion func that propagates
 // existing traces, but won't start any new ones
-var addTraceIfTracingEnabled otgrpc.SpanInclusionFunc = func(
+func addTraceIfTracingEnabled(
 	parentSpanCtx opentracing.SpanContext,
 	method string,
 	req, resp interface{}) bool {
-	// Always trace if PACH_ENABLE_TRACING is on
-	if _, ok := os.LookupEnv(jaegerEndpointEnvVar); ok && os.Getenv(pachdTracingEnvVar) == "true" {
+	// Always trace if PACH_TRACE is on
+	_, hasJaegerEndpoint := os.LookupEnv(jaegerEndpointEnvVar)
+	_, shortTracingOn := os.LookupEnv(shortTraceEnvVar)
+	if hasJaegerEndpoint && shortTracingOn {
 		return true
 	}
 
@@ -160,25 +183,25 @@ func IsActive() bool {
 // UnaryClientInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func UnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return otgrpc.OpenTracingClientInterceptor(opentracing.GlobalTracer(),
-		otgrpc.IncludingSpans(addTraceIfTracingEnabled))
+		otgrpc.IncludingSpans(otgrpc.SpanInclusionFunc(addTraceIfTracingEnabled)))
 }
 
 // StreamClientInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func StreamClientInterceptor() grpc.StreamClientInterceptor {
 	return otgrpc.OpenTracingStreamClientInterceptor(opentracing.GlobalTracer(),
-		otgrpc.IncludingSpans(addTraceIfTracingEnabled))
+		otgrpc.IncludingSpans(otgrpc.SpanInclusionFunc(addTraceIfTracingEnabled)))
 }
 
 // UnaryServerInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return otgrpc.OpenTracingServerInterceptor(opentracing.GlobalTracer(),
-		otgrpc.IncludingSpans(addTraceIfTracingEnabled))
+		otgrpc.IncludingSpans(otgrpc.SpanInclusionFunc(addTraceIfTracingEnabled)))
 }
 
 // StreamServerInterceptor returns a GRPC interceptor for non-streaming GRPC RPCs
 func StreamServerInterceptor() grpc.StreamServerInterceptor {
 	return otgrpc.OpenTracingStreamServerInterceptor(opentracing.GlobalTracer(),
-		otgrpc.IncludingSpans(addTraceIfTracingEnabled))
+		otgrpc.IncludingSpans(otgrpc.SpanInclusionFunc(addTraceIfTracingEnabled)))
 }
 
 // CloseAndReportTraces tries to close the global tracer, which, in the case of
