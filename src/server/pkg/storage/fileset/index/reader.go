@@ -141,7 +141,6 @@ func (r *Reader) Close() error {
 			return err
 		}
 	}
-	r.levels = r.levels[:1]
 	return nil
 }
 

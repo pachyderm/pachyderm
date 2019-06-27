@@ -137,6 +137,7 @@ func TestWriteThenRead(t *testing.T) {
 		for _, fileName := range fileNames {
 			checkNextFile(t, r, files[fileName], msg)
 		}
+		require.NoError(t, r.Close(), msg)
 		// Change one random file
 		for fileName := range files {
 			data := chunk.RandSeq(rand.Intn(max))
@@ -186,11 +187,13 @@ func TestWriteTo(t *testing.T) {
 	wCopy := fileSets.NewWriter(context.Background(), testPathCopy)
 	require.NoError(t, r.WriteToFiles(wCopy), msg)
 	require.NoError(t, wCopy.Close(), msg)
+	require.NoError(t, r.Close(), msg)
 	// Compare initial file set and copy file set.
 	rCopy := fileSets.NewReader(context.Background(), testPathCopy, "")
 	for _, fileName := range fileNames {
 		checkNextFile(t, rCopy, files[fileName], msg)
 	}
+	require.NoError(t, rCopy.Close(), msg)
 	// No new chunks should get created by the copy.
 	var finalChunkCount int64
 	require.NoError(t, chunks.List(context.Background(), func(_ string) error {
@@ -273,9 +276,13 @@ func TestMerge(t *testing.T) {
 	w := fileSets.NewWriter(context.Background(), testPath)
 	require.NoError(t, merge(fileStreams, contentMergeFunc(w)), msg)
 	require.NoError(t, w.Close(), msg)
+	for _, r := range rs {
+		require.NoError(t, r.Close(), msg)
+	}
 	// Check the results of the merge against the files.
 	r := fileSets.NewReader(context.Background(), testPath, "")
 	for _, fileName := range fileNames {
 		checkNextFile(t, r, files[fileName], msg)
 	}
+	require.NoError(t, r.Close(), msg)
 }

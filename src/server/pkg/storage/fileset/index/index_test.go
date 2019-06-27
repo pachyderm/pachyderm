@@ -32,6 +32,9 @@ func Write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []st
 
 func Actual(tb testing.TB, objC obj.Client, chunks *chunk.Storage, prefix string) []string {
 	ir := NewReader(context.Background(), objC, chunks, testPath, prefix)
+	defer func() {
+		require.NoError(tb, ir.Close())
+	}()
 	result := []string{}
 	for {
 		hdr, err := ir.Next()

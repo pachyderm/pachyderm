@@ -164,3 +164,10 @@ func (r *Reader) WriteToTags(w *Writer, tagBound ...string) error {
 	r.tags = r.tags[idx:]
 	return r.tr.Skip(numBytes)
 }
+
+func (r *Reader) Close() error {
+	if err := r.cr.Close(); err != nil {
+		return err
+	}
+	return r.ir.Close()
+}
