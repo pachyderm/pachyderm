@@ -282,3 +282,26 @@ setting it to `true` would be like having the `--overwrite` flag specified on ev
 With the spec written, we would then use `pachctl create pipeline -f my-spout.json` to install the spout.
 It would begin processing messages
 and placing them in the `my-spout` repo.
+
+## Combine a Spout with a Service
+
+You can create a pipeline that can act as both a spout and a service.
+If you want your spout pipeline to combine these two functionalities, add
+the following to the spout pipeline specification:
+
+```bash
+
+"spout": {
+    "overwrite": false,
+    "service": {
+        "internal_port": 8200,
+        "external_port": 31467,
+        "annotations": {
+            "foo": "bar"
+        }
+    }
+}
+ ```
+
+This specification creates an endpoint that can read and serve
+data from Pachyderm and write data back into a Pachyderm repository.
