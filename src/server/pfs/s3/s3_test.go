@@ -39,7 +39,7 @@ func clients(t testing.TB) (*client.APIClient, *minio.Client) {
 		pachClient, err = client.NewOnUserMachine(false, false, "user")
 		require.NoError(t, err)
 
-		minioClient, err = minio.New("127.0.0.1:30600", "id", "secret", false)
+		minioClient, err = minio.NewV2("127.0.0.1:30600", "id", "secret", false)
 		require.NoError(t, err)
 	})
 	return pachClient, minioClient
@@ -337,7 +337,7 @@ func TestRemoveObject(t *testing.T) {
 
 // 	// first ensure that putting into a repo that doesn't exist triggers an
 // 	// error
-// 	_, err = c.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), minio.PutObjectOptions{ContetType: "text/plain"})
+// 	_, err = c.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), minio.PutObjectOptions{ContentType: "text/plain"})
 // 	bucketNotFoundError(t, err)
 
 // 	// now try putting into a legit repo
@@ -349,7 +349,7 @@ func TestRemoveObject(t *testing.T) {
 // 	// everything went OK. If multipart were ever implemented, `FPutObject`
 // 	// will default to using that instead, and will return `io.EOF` if
 // 	// everything went OK instead.
-// 	l, err := c.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), minio.PutObjectOptions{ContetType: "text/plain"})
+// 	l, err := c.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), minio.PutObjectOptions{ContentType: "text/plain"})
 // 	require.NoError(t, err)
 // 	require.Equal(t, int(l), 68157450)
 
