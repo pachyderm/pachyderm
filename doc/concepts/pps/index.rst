@@ -18,7 +18,7 @@ PPS comprises the following main components:
    :maxdepth: 2
 
    pipeline.md
+   spout.md
    job.md
-   spouts.md
    services.md
 
