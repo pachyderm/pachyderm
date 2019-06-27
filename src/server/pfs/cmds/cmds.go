@@ -53,6 +53,10 @@ func Cmds() []*cobra.Command {
 	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
 	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
 
+	noPager := false
+	noPagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	noPagerFlags.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
+
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	repoDocs := &cobra.Command{
@@ -1091,7 +1095,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 
 			nI, oI := 0, 0
-			return pager.Page(false, os.Stdout, func(w io.Writer) error {
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
 				for {
 					if nI == len(newFiles) && oI == len(oldFiles) {
 						break
@@ -1156,6 +1160,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	}
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
 	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
+	diffFile.Flags().AddFlagSet(noPagerFlags)
 	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
 
 	deleteFile := &cobra.Command{
