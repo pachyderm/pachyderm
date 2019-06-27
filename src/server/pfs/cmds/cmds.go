@@ -1078,24 +1078,23 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					return err
 				}
 			}
-
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			newFiles, oldFiles, err := c.DiffFile(
-				newFile.Commit.Repo.Name, newFile.Commit.ID, newFile.Path,
-				oldFile.Commit.Repo.Name, oldFile.Commit.ID, oldFile.Path,
-				shallow,
-			)
-			if err != nil {
-				return err
-			}
-
-			nI, oI := 0, 0
 			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+				newFiles, oldFiles, err := c.DiffFile(
+					newFile.Commit.Repo.Name, newFile.Commit.ID, newFile.Path,
+					oldFile.Commit.Repo.Name, oldFile.Commit.ID, oldFile.Path,
+					shallow,
+				)
+				if err != nil {
+					return err
+				}
+
+				nI, oI := 0, 0
 				for {
 					if nI == len(newFiles) && oI == len(oldFiles) {
 						break
