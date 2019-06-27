@@ -165,6 +165,7 @@ func (r *Reader) WriteToTags(w *Writer, tagBound ...string) error {
 	return r.tr.Skip(numBytes)
 }
 
+// Close closes the reader.
 func (r *Reader) Close() error {
 	if err := r.cr.Close(); err != nil {
 		return err
