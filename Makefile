@@ -3,8 +3,6 @@
 # DOCKER_OPTS: docker-compose options for run, test, launch-*
 # TESTPKGS: packages for test, default ./src/...
 # TESTFLAGS: flags for test
-# VENDOR_ALL: do not ignore some vendors when updating vendor directory
-# VENDOR_IGNORE_DIRS: ignore vendor dirs
 # KUBECTLFLAGS: flags for kubectl
 # DOCKER_BUILD_FLAGS: flags for 'docker build'
 ####
@@ -12,15 +10,11 @@
 ifndef TESTPKGS
 	TESTPKGS = ./src/...
 endif
-# ifdef VENDOR_ALL
-# 	VENDOR_IGNORE_DIRS =
-# endif
 
 COMPILE_RUN_ARGS = -d -v /var/run/docker.sock:/var/run/docker.sock --privileged=true
 # Label it w the go version we bundle in:
 COMPILE_IMAGE = "pachyderm/compile:$(shell cat etc/compile/GO_VERSION)"
 export VERSION_ADDITIONAL = -$(shell git log --pretty=format:%H | head -n 1)
-# LD_FLAGS = -X github.com/pachyderm/pachyderm/src/server/vendor/github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 LD_FLAGS = -X github.com/pachyderm/pachyderm/src/client/version.AdditionalVersion=$(VERSION_ADDITIONAL)
 GC_FLAGS = "all=-trimpath=${PWD}"
 export DOCKER_BUILD_FLAGS
@@ -60,27 +54,9 @@ deps:
 
 update-deps: 
 	go get -d -v -u ./src/... ./.
-# deps:
-# 	GO15VENDOREXPERIMENT=0 go get -d -v ./src/... ./.
-
-# update-deps:
-# 	GO15VENDOREXPERIMENT=0 go get -d -v -u -f ./src/... ./.
-
-# test-deps:
-# 	GO15VENDOREXPERIMENT=0 go get -d -v -t ./src/... ./.
-
-# update-test-deps:
-# 	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
-
-# TODO: fix/verify (rm?)
-# build-clean-vendored-client:
-# 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 build:
-	# GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
-	# GO15VENDOREXPERIMENT=1 go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 	GO111MODULE=on go build -mod vendor $$(go list ./src/client/... | grep -v '/src/client$$')
-	# GO111MODULE=on go build $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server$$')
 
 pachd:
 	go build ./src/server/cmd/pachd
@@ -90,7 +66,6 @@ worker:
 
 install:
 	# GOPATH/bin must be on your PATH to access these binaries:
-	# GO15VENDOREXPERIMENT=1 go install -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 	GO111MODULE=on go install -mod vendor -ldflags "$(LD_FLAGS)" -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl
 
 install-mac:
@@ -103,7 +78,6 @@ install-clean:
 	@make install
 
 install-doc:
-	# GO15VENDOREXPERIMENT=1 go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 	GO111MODULE=on go install -gcflags "$(GC_FLAGS)" ./src/server/cmd/pachctl-doc
 
 check-docker-version:
@@ -174,12 +148,6 @@ docker-clean-worker:
 	docker stop worker_compile || true
 	docker rm worker_compile || true
 
-# docker-build-worker: docker-clean-worker
-# 	docker run \
-# 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
-# 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-# 		--name worker_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh worker "$(LD_FLAGS)"
-
 docker-build-worker: docker-clean-worker
 	docker run \
 		-v $(PWD):/go/src/github.com/pachyderm/pachyderm \
@@ -201,12 +169,6 @@ docker-build-pachd: docker-clean-pachd
 		-v $$GOPATH/pkg:/go/pkg \
 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
-
-# docker-build-pachd: docker-clean-pachd
-# 	docker run  \
-# 		-v $$GOPATH/src/github.com/pachyderm/pachyderm:/go/src/github.com/pachyderm/pachyderm \
-# 		-v $$HOME/.cache/go-build:/root/.cache/go-build \
-# 		--name pachd_compile $(COMPILE_RUN_ARGS) $(COMPILE_IMAGE) /go/src/github.com/pachyderm/pachyderm/etc/compile/compile.sh pachd "$(LD_FLAGS)"
 
 docker-clean-test:
 	docker stop test_compile || true
@@ -452,7 +414,6 @@ integration-tests:
 test-proto-static:
 	./etc/proto/test_no_changes.sh
 
-# TODO: fix/verify (vendor no longer exists in src, done)
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
 	| xargs tar cf - \
@@ -465,10 +426,8 @@ pachd-profiling-binary: docker-clean-pachd docker-build-compile
 	| tar xf -
 	# Binary emitted to ./pachd
 
-# TODO: fix/verify (removed references to vendor, wtf is this doing? not sure if broken or not, ask)
 pretest:
 	go get -v github.com/kisielk/errcheck
-	#rm -rf src/server/vendor
 	go vet -n ./src/... | while read line; do \
 		modified=$$(echo $$line | sed "s/ [a-z0-9_/]*\.pb\.gw\.go//g"); \
 		$$modified; \
@@ -476,7 +435,6 @@ pretest:
 		exit 1; \
 		fi; \
 		done
-	#git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
@@ -523,14 +481,6 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 test-transaction:
 	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
 
-# TODO: fix/verify, (dicovery_test.go:89 had errors, fixed now)
-# test-client:
-# 	rm -rf src/client/vendor
-# 	rm -rf src/server/vendor/github.com/pachyderm
-# 	cp -R src/server/vendor src/client/
-# 	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
-# 	rm -rf src/client/vendor
-# 	git checkout src/server/vendor/github.com/pachyderm
 test-client:
 	GO111MODULE=on go test -cover $$(go list ./src/client/...)
 
@@ -559,14 +509,11 @@ test-s3gateway-integration:
 test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
 	./etc/testing/s3gateway/conformance.py
 
-# TODO: fix/verify (broken, ask)
 test-fuse:
-	# CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 	CGOENABLED=0 GO111MODULE=on go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
 
-# TODO: fix/verify (broken, ask)
 test-local:
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+	CGOENABLED=0 GO111MODULE=on go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-auth:
 	yes | pachctl delete all
@@ -751,11 +698,7 @@ goxc-build:
 .PHONY: all \
 	version \
 	deps \
-	deps-client \
 	update-deps \
-	test-deps \
-	update-test-deps \
-	build-clean-vendored-client \
 	build \
 	install \
 	install-clean \
