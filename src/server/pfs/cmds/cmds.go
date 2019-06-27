@@ -1054,6 +1054,7 @@ $ {{alias}} "foo@master:data/*"`,
 	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
 
 	var shallow bool
+	var nameOnly bool
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
 		Short: "Return a diff of two file trees.",
@@ -1100,47 +1101,42 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 						break
 					}
 					if err := func() (retErr error) {
-						nF, oF := "/dev/null", "/dev/null"
+						var nF *pfsclient.File
+						var oF *pfsclient.File
 						switch {
 						case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
-							nF, err = dlFile(c, newFiles[nI].File)
-							if err != nil {
-								return err
-							}
+							nF = newFiles[nI].File
 							nI++
 						case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
-							oF, err = dlFile(c, oldFiles[oI].File)
-							if err != nil {
-								return err
-							}
+							oF = oldFiles[oI].File
 							oI++
 						case newFiles[nI].File.Path == oldFiles[oI].File.Path:
-							nF, err = dlFile(c, newFiles[nI].File)
-							if err != nil {
-								return err
-							}
+							nF = newFiles[nI].File
 							nI++
-							oF, err = dlFile(c, oldFiles[oI].File)
-							if err != nil {
-								return err
-							}
+							oF = oldFiles[oI].File
 							oI++
 						}
-						if nF != "/dev/null" {
+						nPath, oPath := "/dev/null", "/dev/null"
+						if nF != nil {
+							nPath, err = dlFile(c, nF)
+							if err != nil {
+								return err
+							}
 							defer func() {
-								if err := os.RemoveAll(nF); err != nil && retErr == nil {
+								if err := os.RemoveAll(nPath); err != nil && retErr == nil {
 									retErr = err
 								}
 							}()
 						}
-						if oF != "/dev/null" {
+						if oF != nil {
+							oPath, err = dlFile(c, oF)
 							defer func() {
-								if err := os.RemoveAll(oF); err != nil && retErr == nil {
+								if err := os.RemoveAll(oPath); err != nil && retErr == nil {
 									retErr = err
 								}
 							}()
 						}
-						cmd := exec.Command("git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index", oF, nF)
+						cmd := exec.Command("git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index", oPath, nPath)
 						cmd.Stdout = w
 						cmd.Stderr = os.Stderr
 						// Diff returns exit code 1 when it finds differences
@@ -1157,7 +1153,8 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			})
 		}),
 	}
-	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
+	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Don't descend into sub directories.")
+	diffFile.Flags().BoolVar(&nameOnly, "name-only", false, "Show only the names of changed files.")
 	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
 	diffFile.Flags().AddFlagSet(noPagerFlags)
 	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
