@@ -1091,18 +1091,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 
 			nI, oI := 0, 0
-			var eg errgroup.Group
-			r, w := io.Pipe()
-			if err != nil {
-				return err
-			}
-
-			eg.Go(func() (retErr error) {
-				defer func() {
-					if err := w.Close(); err != nil && retErr == nil {
-						retErr = err
-					}
-				}()
+			return pager.Page(false, os.Stdout, func(w io.Writer) error {
 				for {
 					if nI == len(newFiles) && oI == len(oldFiles) {
 						break
@@ -1163,8 +1152,6 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				}
 				return nil
 			})
-			eg.Go(func() error { return pager.Page(r, os.Stdout) })
-			return eg.Wait()
 		}),
 	}
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")

@@ -4,20 +4,33 @@ import (
 	"io"
 	"os"
 	"os/exec"
+
+	"golang.org/x/sync/errgroup"
 )
 
 const (
 	defaultPager = "less"
 )
 
-func Page(in io.Reader, out io.Writer) error {
-	pager := os.Getenv("PAGER")
-	if pager == "" {
-		pager = defaultPager
+func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
+	if noop {
+		return run(out)
 	}
-	cmd := exec.Command(pager)
-	cmd.Stdin = in
-	cmd.Stdout = out
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+	var eg errgroup.Group
+	r, w := io.Pipe()
+	eg.Go(func() (retErr error) {
+		return w.CloseWithError(run(w))
+	})
+	eg.Go(func() error {
+		pager := os.Getenv("PAGER")
+		if pager == "" {
+			pager = defaultPager
+		}
+		cmd := exec.Command(pager)
+		cmd.Stdin = r
+		cmd.Stdout = out
+		cmd.Stderr = os.Stderr
+		return cmd.Run()
+	})
+	return eg.Wait()
 }
