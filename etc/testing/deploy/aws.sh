@@ -98,9 +98,10 @@ echo -e "Zone: ${ZONE}"
 set -x
 case "${OP}" in
   create)
+    pachctl config set metrics false
     aws_sh="$(dirname "${0}")/../../deploy/aws.sh"
     aws_sh="$(realpath "${aws_sh}")"
-    cmd=("${aws_sh}" --zone=${ZONE} --state=${KOPS_BUCKET} --no-metrics)
+    cmd=("${aws_sh}" --zone=${ZONE} --state=${KOPS_BUCKET})
     if [[ "${DEPLOY_PACHD}" == "false" ]]; then
       cmd+=("--no-pachyderm")
     fi

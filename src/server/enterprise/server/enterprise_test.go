@@ -32,7 +32,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 		if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
 			pachClient, err = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewOnUserMachine(false, false, "user")
+			pachClient, err = client.NewForTest()
 		}
 		if err != nil {
 			t.Fatalf("error getting Pachyderm client: %s", err.Error())
@@ -147,5 +147,39 @@ func TestDeactivate(t *testing.T) {
 		}
 		return nil
 	}, backoff.NewTestingBackOff()))
+}
 
+// TestDoubleDeactivate makes sure calling Deactivate() when there is no
+// enterprise token works. Fixes
+// https://github.com/pachyderm/pachyderm/issues/3013
+func TestDoubleDeactivate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	client := getPachClient(t)
+
+	// Deactivate cluster and make sure its state is NONE (enterprise might be
+	// active at the start of this test?)
+	_, err := client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
+	require.NoError(t, backoff.Retry(func() error {
+		resp, err := client.Enterprise.GetState(context.Background(),
+			&enterprise.GetStateRequest{})
+		if err != nil {
+			return err
+		}
+		if resp.State != enterprise.State_NONE {
+			return fmt.Errorf("expected enterprise state to be NONE but was %v", resp.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	// Deactivate the cluster again to make sure deactivation with no token works
+	_, err = client.Enterprise.Deactivate(context.Background(),
+		&enterprise.DeactivateRequest{})
+	require.NoError(t, err)
+	resp, err := client.Enterprise.GetState(context.Background(),
+		&enterprise.GetStateRequest{})
+	require.Equal(t, enterprise.State_NONE, resp.State)
 }

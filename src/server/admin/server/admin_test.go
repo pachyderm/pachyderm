@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -41,7 +42,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 		if addr := os.Getenv("PACHD_PORT_650_TCP_ADDR"); addr != "" {
 			pachClient, err = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewOnUserMachine(false, false, "user")
+			pachClient, err = client.NewForTest()
 		}
 		require.NoError(t, err)
 	})
@@ -142,15 +143,24 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	commitInfos = collectCommitInfos(t, commitIter)
 	require.Equal(t, numPipelines, len(commitInfos))
 
-	// Make sure recreated jobs all succeeded
-	backoff.Retry(func() error {
-		jis, err := c.ListJob("", nil, nil, -1, true) // make sure jobs all succeeded
-		require.NoError(t, err)
-		for _, ji := range jis {
+	// Confirm all the recreated jobs passed
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		jobInfos, err := c.ListJob("", nil, nil, -1, true) // make sure jobs all succeeded
+		if err != nil {
+			return err
+		}
+		// Extract places commits before pipelines, so that all commits are processed
+		// after Restore() (thus |jobInfos| = nCommits * numPipelines)
+		if len(jobInfos) != nCommits*numPipelines {
+			return fmt.Errorf("expected %d commits, but only encountered %d",
+				nCommits*numPipelines, len(jobInfos))
+		}
+		for _, ji := range jobInfos {
 			// race--we may call listJob between when a job's output commit is closed
 			// and when its state is updated
-			if ji.State.String() == "JOB_RUNNING" || ji.State.String() == "JOB_MERGING" {
-				return fmt.Errorf("output commit is closed but job state hasn't been updated")
+			if ji.State != pps.JobState_JOB_SUCCESS {
+				return fmt.Errorf("expected job %q to be in state JOB_SUCCESS but was %q",
+					ji.Job.ID, ji.State.String())
 			}
 			// Job must ultimately succeed
 			require.Equal(t, "JOB_SUCCESS", ji.State.String())

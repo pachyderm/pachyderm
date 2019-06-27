@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/server/pkg/hashtree"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/serviceenv"
@@ -408,7 +409,12 @@ func (a *apiServer) CopyFile(ctx context.Context, request *pfs.CopyFileRequest) 
 // GetFile implements the protobuf pfs.GetFile RPC
 func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.API_GetFileServer) (retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		tracing.TagAnySpan(apiGetFileServer.Context(), "file", fmt.Sprintf("%s@%s:%s",
+			request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
+			"err", retErr)
+		a.Log(request, nil, retErr, time.Since(start))
+	}(time.Now())
 
 	file, err := a.driver.getFile(a.env.GetPachClient(apiGetFileServer.Context()), request.File, request.OffsetBytes, request.SizeBytes)
 	if err != nil {
@@ -420,7 +426,12 @@ func (a *apiServer) GetFile(request *pfs.GetFileRequest, apiGetFileServer pfs.AP
 // InspectFile implements the protobuf pfs.InspectFile RPC
 func (a *apiServer) InspectFile(ctx context.Context, request *pfs.InspectFileRequest) (response *pfs.FileInfo, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
+	defer func(start time.Time) {
+		a.Log(request, response, retErr, time.Since(start))
+		tracing.TagAnySpan(ctx, "file", fmt.Sprintf("%s@%s:%s",
+			request.File.Commit.Repo.Name, request.File.Commit.ID, request.File.Path),
+			"err", retErr)
+	}(time.Now())
 
 	return a.driver.inspectFile(a.env.GetPachClient(ctx), request.File)
 }

@@ -147,14 +147,13 @@ This might happen when re-deploying the enterprise dashboard, for example. These
 ### `pachctl` connnection problems
 
 When you upgrade Pachyderm versions, you may lose your local `port-forward` to connect `pachctl` to your cluster. 
-If you are not using `port-forward` 
-and you are instead setting the `PACHD_ADDRESS` environmental variable manually to connect `pachctl` to your cluster, 
+If you are not using `port-forward` and you are instead setting pachd address config value to connect `pachctl` to your cluster, 
 the IP address for Pachyderm may have changed. 
 
 To fix problems with connections to `pachd` after upgrading, you can perform the appropriate remedy for your situation:
 
 - Re-run `pachctl port-forward &`, or
-- Set the `PACHD_ADDRESS` environmental variable to the update value, e.g., `export PACHD_ADDRESS=<k8s master IP>:30650`.
+- Set the pachd address config value to the updated value, e.g.: ```pachctl config update context `pachctl config get active-context` --pachd-address=<cluster ip>:30650```
 
 
 
