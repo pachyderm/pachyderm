@@ -23,6 +23,31 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
+type ContextSource int32
+
+const (
+	ContextSource_NONE      ContextSource = 0
+	ContextSource_CONFIG_V1 ContextSource = 1
+)
+
+var ContextSource_name = map[int32]string{
+	0: "NONE",
+	1: "CONFIG_V1",
+}
+
+var ContextSource_value = map[string]int32{
+	"NONE":      0,
+	"CONFIG_V1": 1,
+}
+
+func (x ContextSource) String() string {
+	return proto.EnumName(ContextSource_name, int32(x))
+}
+
+func (ContextSource) EnumDescriptor() ([]byte, []int) {
+	return fileDescriptor_60f651abce1dcdf3, []int{0}
+}
+
 // Config specifies the pachyderm config that is read and interpreted by the
 // pachctl command-line tool. Right now, this is stored at
 // $HOME/.pachyderm/config.
@@ -38,6 +63,7 @@ type Config struct {
 	// Configuration options. Exactly one of these fields should be set
 	// (depending on which version of the config is being used)
 	V1                   *ConfigV1 `protobuf:"bytes,2,opt,name=v1,proto3" json:"v1,omitempty"`
+	V2                   *ConfigV2 `protobuf:"bytes,3,opt,name=v2,proto3" json:"v2,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
 	XXX_unrecognized     []byte    `json:"-"`
 	XXX_sizecache        int32     `json:"-"`
@@ -90,7 +116,14 @@ func (m *Config) GetV1() *ConfigV1 {
 	return nil
 }
 
-// ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - present)
+func (m *Config) GetV2() *ConfigV2 {
+	if m != nil {
+		return m.V2
+	}
+	return nil
+}
+
+// ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)
 // DO NOT change or remove field numbers from this proto, as if you do, v1 user
 // configs will become unparseable.
 type ConfigV1 struct {
@@ -175,35 +208,203 @@ func (m *ConfigV1) GetActiveTransaction() string {
 	return ""
 }
 
+// ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
+type ConfigV2 struct {
+	ActiveContext        string              `protobuf:"bytes,1,opt,name=active_context,json=activeContext,proto3" json:"active_context,omitempty"`
+	Contexts             map[string]*Context `protobuf:"bytes,2,rep,name=contexts,proto3" json:"contexts,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Metrics              bool                `protobuf:"varint,3,opt,name=metrics,proto3" json:"metrics,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}            `json:"-"`
+	XXX_unrecognized     []byte              `json:"-"`
+	XXX_sizecache        int32               `json:"-"`
+}
+
+func (m *ConfigV2) Reset()         { *m = ConfigV2{} }
+func (m *ConfigV2) String() string { return proto.CompactTextString(m) }
+func (*ConfigV2) ProtoMessage()    {}
+func (*ConfigV2) Descriptor() ([]byte, []int) {
+	return fileDescriptor_60f651abce1dcdf3, []int{2}
+}
+func (m *ConfigV2) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConfigV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConfigV2.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConfigV2) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigV2.Merge(m, src)
+}
+func (m *ConfigV2) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConfigV2) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigV2.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigV2 proto.InternalMessageInfo
+
+func (m *ConfigV2) GetActiveContext() string {
+	if m != nil {
+		return m.ActiveContext
+	}
+	return ""
+}
+
+func (m *ConfigV2) GetContexts() map[string]*Context {
+	if m != nil {
+		return m.Contexts
+	}
+	return nil
+}
+
+func (m *ConfigV2) GetMetrics() bool {
+	if m != nil {
+		return m.Metrics
+	}
+	return false
+}
+
+type Context struct {
+	// Where this context came from
+	Source ContextSource `protobuf:"varint,1,opt,name=source,proto3,enum=config.ContextSource" json:"source,omitempty"`
+	// The hostname or IP address pointing pachd at a pachyderm cluster.
+	PachdAddress string `protobuf:"bytes,2,opt,name=pachd_address,json=pachdAddress,proto3" json:"pachd_address,omitempty"`
+	// Trusted root certificates (overrides installed certificates), formatted
+	// as base64-encoded PEM
+	ServerCAs string `protobuf:"bytes,3,opt,name=server_cas,json=serverCas,proto3" json:"server_cas,omitempty"`
+	// A secret token identifying the current pachctl user within their
+	// pachyderm cluster. This is included in all RPCs sent by pachctl, and used
+	// to determine if pachctl actions are authorized.
+	SessionToken string `protobuf:"bytes,4,opt,name=session_token,json=sessionToken,proto3" json:"session_token,omitempty"`
+	// The currently active transaction for batching together pachctl commands.
+	// This can be set or cleared via many of the `pachctl * transaction` commands.
+	// This is the ID of the transaction object stored in the pachyderm etcd.
+	ActiveTransaction    string   `protobuf:"bytes,5,opt,name=active_transaction,json=activeTransaction,proto3" json:"active_transaction,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Context) Reset()         { *m = Context{} }
+func (m *Context) String() string { return proto.CompactTextString(m) }
+func (*Context) ProtoMessage()    {}
+func (*Context) Descriptor() ([]byte, []int) {
+	return fileDescriptor_60f651abce1dcdf3, []int{3}
+}
+func (m *Context) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Context) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Context.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalTo(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Context) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Context.Merge(m, src)
+}
+func (m *Context) XXX_Size() int {
+	return m.Size()
+}
+func (m *Context) XXX_DiscardUnknown() {
+	xxx_messageInfo_Context.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Context proto.InternalMessageInfo
+
+func (m *Context) GetSource() ContextSource {
+	if m != nil {
+		return m.Source
+	}
+	return ContextSource_NONE
+}
+
+func (m *Context) GetPachdAddress() string {
+	if m != nil {
+		return m.PachdAddress
+	}
+	return ""
+}
+
+func (m *Context) GetServerCAs() string {
+	if m != nil {
+		return m.ServerCAs
+	}
+	return ""
+}
+
+func (m *Context) GetSessionToken() string {
+	if m != nil {
+		return m.SessionToken
+	}
+	return ""
+}
+
+func (m *Context) GetActiveTransaction() string {
+	if m != nil {
+		return m.ActiveTransaction
+	}
+	return ""
+}
+
 func init() {
+	proto.RegisterEnum("config.ContextSource", ContextSource_name, ContextSource_value)
 	proto.RegisterType((*Config)(nil), "config.Config")
 	proto.RegisterType((*ConfigV1)(nil), "config.ConfigV1")
+	proto.RegisterType((*ConfigV2)(nil), "config.ConfigV2")
+	proto.RegisterMapType((map[string]*Context)(nil), "config.ConfigV2.ContextsEntry")
+	proto.RegisterType((*Context)(nil), "config.Context")
 }
 
 func init() { proto.RegisterFile("client/pkg/config/config.proto", fileDescriptor_60f651abce1dcdf3) }
 
 var fileDescriptor_60f651abce1dcdf3 = []byte{
-	// 305 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x64, 0x90, 0x41, 0x4a, 0x03, 0x31,
-	0x14, 0x86, 0x4d, 0x95, 0xd1, 0x89, 0x2d, 0x68, 0x70, 0x31, 0xb8, 0x98, 0x96, 0x76, 0xd3, 0x85,
-	0x76, 0xa8, 0x7a, 0x81, 0xb6, 0x22, 0x74, 0x25, 0x8c, 0xd5, 0x85, 0x9b, 0x61, 0x9a, 0xc4, 0x69,
-	0xa8, 0x26, 0x43, 0x5e, 0x3a, 0xe0, 0x4d, 0xbc, 0x86, 0xb7, 0x70, 0xe9, 0x09, 0x8a, 0x8c, 0x17,
-	0x91, 0x24, 0x2d, 0x0a, 0xae, 0xe6, 0x9f, 0xef, 0x7b, 0x79, 0xef, 0xf1, 0x70, 0x4c, 0x9f, 0x05,
-	0x97, 0x26, 0x29, 0x97, 0x45, 0x42, 0x95, 0x7c, 0x12, 0xdb, 0xcf, 0xa0, 0xd4, 0xca, 0x28, 0x12,
-	0xf8, 0xbf, 0xd3, 0x93, 0x42, 0x15, 0xca, 0xa1, 0xc4, 0x26, 0x6f, 0xbb, 0xb7, 0x38, 0x98, 0x38,
-	0x4f, 0x7a, 0x78, 0x7f, 0x05, 0x5c, 0x67, 0x82, 0x45, 0xa8, 0x83, 0xfa, 0xe1, 0x18, 0xd7, 0xeb,
-	0x76, 0x70, 0x0f, 0x5c, 0x4f, 0xaf, 0xd3, 0xc0, 0xaa, 0x29, 0x23, 0x1d, 0xdc, 0xa8, 0x86, 0x51,
-	0xa3, 0x83, 0xfa, 0x87, 0x17, 0x47, 0x83, 0xcd, 0x1c, 0xdf, 0xe0, 0x61, 0x98, 0x36, 0xaa, 0x61,
-	0xf7, 0x1d, 0xe1, 0x83, 0x2d, 0x20, 0x3d, 0xdc, 0x2a, 0x73, 0xba, 0x60, 0x59, 0xce, 0x98, 0xe6,
-	0x00, 0xee, 0x65, 0x98, 0x36, 0x1d, 0x1c, 0x79, 0x46, 0xce, 0x30, 0x06, 0xae, 0x2b, 0xae, 0x33,
-	0x9a, 0x43, 0xb4, 0xeb, 0x66, 0xb7, 0xea, 0x75, 0x3b, 0xbc, 0x73, 0x74, 0x32, 0x82, 0x34, 0xf4,
-	0x05, 0x93, 0x1c, 0x6c, 0x4b, 0xe0, 0x00, 0x42, 0xc9, 0xcc, 0xa8, 0x25, 0x97, 0x7e, 0xd9, 0xb4,
-	0xb9, 0x81, 0x33, 0xcb, 0xc8, 0x39, 0x26, 0x39, 0x35, 0xa2, 0xe2, 0x99, 0xd1, 0xb9, 0x04, 0x9b,
-	0x95, 0x8c, 0xf6, 0x5c, 0xe5, 0xb1, 0x37, 0xb3, 0x5f, 0x31, 0xbe, 0xf9, 0xa8, 0x63, 0xf4, 0x59,
-	0xc7, 0xe8, 0xab, 0x8e, 0xd1, 0xdb, 0x77, 0xbc, 0xf3, 0x78, 0x55, 0x08, 0xb3, 0x58, 0xcd, 0x07,
-	0x54, 0xbd, 0x24, 0x76, 0xd9, 0x57, 0xc6, 0xf5, 0xdf, 0x04, 0x9a, 0x26, 0xff, 0xee, 0x3e, 0x0f,
-	0xdc, 0x4d, 0x2f, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x4e, 0x3f, 0x0b, 0x0f, 0x93, 0x01, 0x00,
-	0x00,
+	// 485 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x53, 0x41, 0x6f, 0xd3, 0x30,
+	0x14, 0x9e, 0xb3, 0x2e, 0x6d, 0xde, 0x96, 0x51, 0x2c, 0x90, 0xa2, 0x1d, 0xb2, 0xaa, 0xd3, 0xa4,
+	0x0a, 0xb1, 0x46, 0x0d, 0x1c, 0xd0, 0x6e, 0x6b, 0xd8, 0x50, 0x25, 0xd4, 0x49, 0xde, 0xd8, 0x81,
+	0x4b, 0x94, 0x39, 0xa6, 0x8b, 0xba, 0xc5, 0xc5, 0x76, 0x23, 0xfa, 0x4f, 0xf8, 0x1b, 0xfc, 0x0b,
+	0x8e, 0x5c, 0xb8, 0x0e, 0x14, 0xfe, 0x08, 0x8a, 0x9d, 0x6e, 0x63, 0x80, 0xc4, 0x89, 0x93, 0x9f,
+	0xbf, 0xef, 0x7b, 0xdf, 0x7b, 0xcf, 0x4f, 0x06, 0x9f, 0x5e, 0x66, 0x2c, 0x57, 0xc1, 0x6c, 0x3a,
+	0x09, 0x28, 0xcf, 0xdf, 0x65, 0xcb, 0xa3, 0x3f, 0x13, 0x5c, 0x71, 0x6c, 0x9b, 0xdb, 0xd6, 0xa3,
+	0x09, 0x9f, 0x70, 0x0d, 0x05, 0x55, 0x64, 0xd8, 0xee, 0x7b, 0xb0, 0x23, 0xcd, 0xe3, 0x1d, 0x68,
+	0xce, 0x25, 0x13, 0x71, 0x96, 0x7a, 0xa8, 0x83, 0x7a, 0xce, 0x10, 0xca, 0xeb, 0x6d, 0xfb, 0x8d,
+	0x64, 0x62, 0xf4, 0x92, 0xd8, 0x15, 0x35, 0x4a, 0x71, 0x07, 0xac, 0x62, 0xe0, 0x59, 0x1d, 0xd4,
+	0x5b, 0x0f, 0xdb, 0xfd, 0xba, 0x8e, 0x31, 0x38, 0x1b, 0x10, 0xab, 0x18, 0x68, 0x45, 0xe8, 0xad,
+	0xfe, 0x51, 0x11, 0x12, 0xab, 0x08, 0xbb, 0x9f, 0x10, 0xb4, 0x96, 0x29, 0x78, 0x07, 0xdc, 0x59,
+	0x42, 0x2f, 0xd2, 0x38, 0x49, 0x53, 0xc1, 0xa4, 0xd4, 0xde, 0x0e, 0xd9, 0xd0, 0xe0, 0x81, 0xc1,
+	0xf0, 0x53, 0x00, 0xc9, 0x44, 0xc1, 0x44, 0x4c, 0x13, 0xa9, 0xbd, 0x9d, 0xa1, 0x5b, 0x5e, 0x6f,
+	0x3b, 0x27, 0x1a, 0x8d, 0x0e, 0x24, 0x71, 0x8c, 0x20, 0x4a, 0x64, 0x65, 0x29, 0x99, 0x94, 0x19,
+	0xcf, 0x63, 0xc5, 0xa7, 0x2c, 0x37, 0xe3, 0x90, 0x8d, 0x1a, 0x3c, 0xad, 0x30, 0xbc, 0x07, 0x38,
+	0xa1, 0x2a, 0x2b, 0x58, 0xac, 0x44, 0x92, 0xcb, 0x2a, 0xe6, 0xb9, 0xd7, 0xd0, 0xca, 0x87, 0x86,
+	0x39, 0xbd, 0x25, 0xba, 0x5f, 0x6f, 0x7b, 0x0e, 0xf1, 0x2e, 0x6c, 0xd6, 0xb9, 0x94, 0xe7, 0x8a,
+	0x7d, 0x50, 0x75, 0x05, 0xd7, 0xa0, 0x91, 0x01, 0xf1, 0x3e, 0xb4, 0x6a, 0xbe, 0x9a, 0x6a, 0xb5,
+	0xb7, 0x1e, 0xfa, 0xf7, 0xdf, 0xa3, 0x5f, 0x6b, 0xe5, 0x61, 0xae, 0xc4, 0x82, 0xdc, 0xe8, 0xb1,
+	0x07, 0xcd, 0x2b, 0xa6, 0x44, 0x46, 0xcd, 0xb8, 0x2d, 0xb2, 0xbc, 0x6e, 0xbd, 0x06, 0xf7, 0x97,
+	0x24, 0xdc, 0x86, 0xd5, 0x29, 0x5b, 0xd4, 0x2d, 0x54, 0x21, 0xde, 0x85, 0xb5, 0x22, 0xb9, 0x9c,
+	0xb3, 0x7a, 0x4f, 0x0f, 0xee, 0x54, 0xad, 0xf2, 0x88, 0x61, 0xf7, 0xad, 0x17, 0xa8, 0xfb, 0x0d,
+	0x41, 0x73, 0xd9, 0xef, 0x1e, 0xd8, 0x92, 0xcf, 0x05, 0x65, 0xda, 0x6b, 0x33, 0x7c, 0x7c, 0x2f,
+	0xef, 0x44, 0x93, 0xa4, 0x16, 0xfd, 0x97, 0xcd, 0x35, 0xfe, 0x79, 0x73, 0x6b, 0x7f, 0xd9, 0xdc,
+	0x93, 0xde, 0xcd, 0x7b, 0x99, 0xfe, 0x71, 0x0b, 0x1a, 0xe3, 0xe3, 0xf1, 0x61, 0x7b, 0x05, 0xbb,
+	0xe0, 0x44, 0xc7, 0xe3, 0xa3, 0xd1, 0xab, 0xf8, 0x6c, 0xd0, 0x46, 0xc3, 0xa3, 0xcf, 0xa5, 0x8f,
+	0xbe, 0x94, 0x3e, 0xfa, 0x5e, 0xfa, 0xe8, 0xe3, 0x0f, 0x7f, 0xe5, 0xed, 0xf3, 0x49, 0xa6, 0x2e,
+	0xe6, 0xe7, 0x7d, 0xca, 0xaf, 0x82, 0x6a, 0xac, 0x45, 0xca, 0xc4, 0xdd, 0x48, 0x0a, 0x1a, 0xfc,
+	0xf6, 0xfb, 0xce, 0x6d, 0xfd, 0xb3, 0x9e, 0xfd, 0x0c, 0x00, 0x00, 0xff, 0xff, 0x30, 0xdc, 0xf3,
+	0xfe, 0x99, 0x03, 0x00, 0x00,
 }
 
 func (m *Config) Marshal() (dAtA []byte, err error) {
@@ -236,6 +437,16 @@ func (m *Config) MarshalTo(dAtA []byte) (int, error) {
 			return 0, err1
 		}
 		i += n1
+	}
+	if m.V2 != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.V2.Size()))
+		n2, err2 := m.V2.MarshalTo(dAtA[i:])
+		if err2 != nil {
+			return 0, err2
+		}
+		i += n2
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(dAtA[i:], m.XXX_unrecognized)
@@ -288,6 +499,121 @@ func (m *ConfigV1) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
+func (m *ConfigV2) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConfigV2) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ActiveContext) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ActiveContext)))
+		i += copy(dAtA[i:], m.ActiveContext)
+	}
+	if len(m.Contexts) > 0 {
+		for k, _ := range m.Contexts {
+			dAtA[i] = 0x12
+			i++
+			v := m.Contexts[k]
+			msgSize := 0
+			if v != nil {
+				msgSize = v.Size()
+				msgSize += 1 + sovConfig(uint64(msgSize))
+			}
+			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
+			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			if v != nil {
+				dAtA[i] = 0x12
+				i++
+				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
+				n3, err3 := v.MarshalTo(dAtA[i:])
+				if err3 != nil {
+					return 0, err3
+				}
+				i += n3
+			}
+		}
+	}
+	if m.Metrics {
+		dAtA[i] = 0x18
+		i++
+		if m.Metrics {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i++
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *Context) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Context) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Source != 0 {
+		dAtA[i] = 0x8
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(m.Source))
+	}
+	if len(m.PachdAddress) > 0 {
+		dAtA[i] = 0x12
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.PachdAddress)))
+		i += copy(dAtA[i:], m.PachdAddress)
+	}
+	if len(m.ServerCAs) > 0 {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServerCAs)))
+		i += copy(dAtA[i:], m.ServerCAs)
+	}
+	if len(m.SessionToken) > 0 {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.SessionToken)))
+		i += copy(dAtA[i:], m.SessionToken)
+	}
+	if len(m.ActiveTransaction) > 0 {
+		dAtA[i] = 0x2a
+		i++
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ActiveTransaction)))
+		i += copy(dAtA[i:], m.ActiveTransaction)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
@@ -311,6 +637,10 @@ func (m *Config) Size() (n int) {
 		l = m.V1.Size()
 		n += 1 + l + sovConfig(uint64(l))
 	}
+	if m.V2 != nil {
+		l = m.V2.Size()
+		n += 1 + l + sovConfig(uint64(l))
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -332,6 +662,69 @@ func (m *ConfigV1) Size() (n int) {
 		n += 1 + l + sovConfig(uint64(l))
 	}
 	l = len(m.ServerCAs)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.ActiveTransaction)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ConfigV2) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.ActiveContext)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	if len(m.Contexts) > 0 {
+		for k, v := range m.Contexts {
+			_ = k
+			_ = v
+			l = 0
+			if v != nil {
+				l = v.Size()
+				l += 1 + sovConfig(uint64(l))
+			}
+			mapEntrySize := 1 + len(k) + sovConfig(uint64(len(k))) + l
+			n += mapEntrySize + 1 + sovConfig(uint64(mapEntrySize))
+		}
+	}
+	if m.Metrics {
+		n += 2
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Context) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Source != 0 {
+		n += 1 + sovConfig(uint64(m.Source))
+	}
+	l = len(m.PachdAddress)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.ServerCAs)
+	if l > 0 {
+		n += 1 + l + sovConfig(uint64(l))
+	}
+	l = len(m.SessionToken)
 	if l > 0 {
 		n += 1 + l + sovConfig(uint64(l))
 	}
@@ -445,6 +838,42 @@ func (m *Config) Unmarshal(dAtA []byte) error {
 				m.V1 = &ConfigV1{}
 			}
 			if err := m.V1.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field V2", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.V2 == nil {
+				m.V2 = &ConfigV2{}
+			}
+			if err := m.V2.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -599,6 +1028,442 @@ func (m *ConfigV1) Unmarshal(dAtA []byte) error {
 			m.ServerCAs = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ActiveTransaction", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ActiveTransaction = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConfigV2) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConfigV2: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConfigV2: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ActiveContext", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ActiveContext = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Contexts", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Contexts == nil {
+				m.Contexts = make(map[string]*Context)
+			}
+			var mapkey string
+			var mapvalue *Context
+			for iNdEx < postIndex {
+				entryPreIndex := iNdEx
+				var wire uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowConfig
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					wire |= uint64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				fieldNum := int32(wire >> 3)
+				if fieldNum == 1 {
+					var stringLenmapkey uint64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						stringLenmapkey |= uint64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					intStringLenmapkey := int(stringLenmapkey)
+					if intStringLenmapkey < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postStringIndexmapkey := iNdEx + intStringLenmapkey
+					if postStringIndexmapkey < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if postStringIndexmapkey > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
+					iNdEx = postStringIndexmapkey
+				} else if fieldNum == 2 {
+					var mapmsglen int
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowConfig
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						mapmsglen |= int(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					if mapmsglen < 0 {
+						return ErrInvalidLengthConfig
+					}
+					postmsgIndex := iNdEx + mapmsglen
+					if postmsgIndex < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if postmsgIndex > l {
+						return io.ErrUnexpectedEOF
+					}
+					mapvalue = &Context{}
+					if err := mapvalue.Unmarshal(dAtA[iNdEx:postmsgIndex]); err != nil {
+						return err
+					}
+					iNdEx = postmsgIndex
+				} else {
+					iNdEx = entryPreIndex
+					skippy, err := skipConfig(dAtA[iNdEx:])
+					if err != nil {
+						return err
+					}
+					if skippy < 0 {
+						return ErrInvalidLengthConfig
+					}
+					if (iNdEx + skippy) > postIndex {
+						return io.ErrUnexpectedEOF
+					}
+					iNdEx += skippy
+				}
+			}
+			m.Contexts[mapkey] = mapvalue
+			iNdEx = postIndex
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Metrics", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Metrics = bool(v != 0)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipConfig(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, dAtA[iNdEx:iNdEx+skippy]...)
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *Context) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowConfig
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Context: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Context: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Source", wireType)
+			}
+			m.Source = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Source |= ContextSource(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PachdAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PachdAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServerCAs", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServerCAs = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SessionToken", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowConfig
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthConfig
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthConfig
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SessionToken = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field ActiveTransaction", wireType)
 			}

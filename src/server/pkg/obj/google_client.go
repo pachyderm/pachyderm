@@ -16,7 +16,6 @@ type googleClient struct {
 }
 
 func newGoogleClient(bucket string, opts []option.ClientOption) (*googleClient, error) {
-	// Use context.Background() b/c newGoogleClient only called at pachd startup
 	opts = append(opts, option.WithScopes(storage.ScopeFullControl))
 	client, err := storage.NewClient(context.Background(), opts...)
 	if err != nil {

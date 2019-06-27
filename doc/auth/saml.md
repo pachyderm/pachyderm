@@ -71,13 +71,11 @@ Note that this example assumes
 # read-modify-write conflicts between admins
 live_config_version="$(pachctl auth get-config | jq .live_config_version)"
 live_config_version="${live_config_version:-0}"
-
 # Set the Pachyderm config
 pachctl auth set-config <<EOF
 {
   # prevent read-modify-write conflicts by explicitly specifying live version
   "live_config_version": ${live_config_version},
-
   "id_providers": [
     {
       "name": "okta",
@@ -88,7 +86,6 @@ pachctl auth set-config <<EOF
       }
     }
   ],
-
   "saml_svc_options": {
     # These URLs work if using pachctl port-forward
     "acs_url": "http://localhost:30654/saml/acs",

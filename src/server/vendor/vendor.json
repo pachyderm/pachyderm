@@ -604,42 +604,6 @@
 			"revisionTime": "2016-09-25T05:07:47Z"
 		},
 		{
-			"checksumSHA1": "/RE0VzeaXdaBUNeNMUXWqzly7qY=",
-			"path": "github.com/gobwas/glob",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "OIV3k+Xbx7u4rP0TSgxzY2Xn4MI=",
-			"path": "github.com/gobwas/glob/compiler",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "WHQ6bs/IWj0Oj2FMVR5uis5FWno=",
-			"path": "github.com/gobwas/glob/match",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "2KhDNUE98XhHnIgg2S9E4gcWoig=",
-			"path": "github.com/gobwas/glob/syntax",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "0aauhx71LcqUSUbdb/mr8DC0XCw=",
-			"path": "github.com/gobwas/glob/syntax/ast",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
-			"checksumSHA1": "umyztSrQrQIl9JgwhDDb6wrSLeI=",
-			"path": "github.com/gobwas/glob/syntax/lexer",
-			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
-			"revisionTime": "2017-02-12T20:01:51Z"
-		},
-		{
 			"checksumSHA1": "vux29fN5O22F3QPLOnjQ37278vg=",
 			"path": "github.com/gobwas/glob/util/runes",
 			"revision": "51eb1ee00b6d931c66d229ceeb7c31b985563420",
@@ -652,10 +616,10 @@
 			"revisionTime": "2017-02-12T20:01:51Z"
 		},
 		{
-			"checksumSHA1": "mN5AxdMghViLNJmW23xy+DSu1J4=",
+			"checksumSHA1": "rasgUuf7DVFShc3hKeh9wjWBWO0=",
 			"path": "github.com/gogo/protobuf/gogoproto",
-			"revision": "07eab6a8298cf32fac45cceaac59424f98421bbc",
-			"revisionTime": "2018-11-16T12:34:45Z"
+			"revision": "67e450fba6944c63d2f80b7553b0ef522d345962",
+			"revisionTime": "2019-04-15T06:16:11Z"
 		},
 		{
 			"checksumSHA1": "6slf0S5ruHiSGTpgRNff5YfyNTE=",
@@ -664,10 +628,10 @@
 			"revisionTime": "2018-11-16T12:34:45Z"
 		},
 		{
-			"checksumSHA1": "D801O79vbqb3Oj8ffY4xOnSg814=",
+			"checksumSHA1": "jyCYGbN0KvpV6PasLXLOmNsaA3s=",
 			"path": "github.com/gogo/protobuf/proto",
-			"revision": "07eab6a8298cf32fac45cceaac59424f98421bbc",
-			"revisionTime": "2018-11-16T12:34:45Z"
+			"revision": "67e450fba6944c63d2f80b7553b0ef522d345962",
+			"revisionTime": "2019-04-15T06:16:11Z"
 		},
 		{
 			"checksumSHA1": "4R7X2wRYYOxdXsoXOEcyBoCakb8=",
@@ -732,8 +696,8 @@
 		{
 			"checksumSHA1": "Y2MOwzNZfl4NRNDbLCZa6sgx7O0=",
 			"path": "github.com/golang/protobuf/proto",
-			"revision": "1d3f30b51784bec5aad268e59fd3c2fc1c2fe73f",
-			"revisionTime": "2018-11-28T19:23:52Z"
+			"revision": "e91709a02e0e8ff8b86b7aa913fdc9ae9498e825",
+			"revisionTime": "2019-04-09T05:09:43Z"
 		},
 		{
 			"checksumSHA1": "WOkXetG3AqJnfVVuqTJvdukcHps=",
@@ -1275,6 +1239,36 @@
 			"revisionTime": "2019-02-18T02:30:34Z"
 		},
 		{
+			"checksumSHA1": "7QjcHsE8jRaFBjQ/S/ObpbEogZY=",
+			"path": "github.com/pachyderm/glob",
+			"revision": "0fc448624fade8b0fd22e1d80dea4436f169eafb",
+			"revisionTime": "2019-06-26T00:52:09Z"
+		},
+		{
+			"checksumSHA1": "gkwrU+t33K1OKHZPal2Xk6PC6VM=",
+			"path": "github.com/pachyderm/glob/compiler",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
+		},
+		{
+			"checksumSHA1": "qEVc3yQmC22mAGKIbI0fIiCSDYg=",
+			"path": "github.com/pachyderm/glob/syntax",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
+		},
+		{
+			"checksumSHA1": "4YESKZkHyH4crnmvHdDB+xPt7k8=",
+			"path": "github.com/pachyderm/glob/syntax/ast",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
+		},
+		{
+			"checksumSHA1": "/K+Nikh2dwIeRBIEbhdTYlfeduU=",
+			"path": "github.com/pachyderm/glob/syntax/lexer",
+			"revision": "ef2c819a811ae45f2942329448471d76b569af9e",
+			"revisionTime": "2019-06-14T23:44:43Z"
+		},
+		{
 			"checksumSHA1": "O192ejjwL6eTl1QjM06RtlDJB5U=",
 			"path": "github.com/pachyderm/pachyderm",
 			"revision": "17aa575b5a3852be491eabc1667d244c171c6e1c",
@@ -1647,8 +1641,8 @@
 		{
 			"checksumSHA1": "GtamqiJoL7PGHsN454AoffBFMa8=",
 			"path": "golang.org/x/net/context",
-			"revision": "16b79f2e4e95ea23b2bf9903c9809ff7b013ce85",
-			"revisionTime": "2019-03-01T08:36:47Z"
+			"revision": "eb5bcb51f2a31c7d5141d810b70815c05d9c9146",
+			"revisionTime": "2019-04-03T01:06:53Z"
 		},
 		{
 			"checksumSHA1": "aFpql3G+Nw8zkzfqLWQJNZC8pu0=",

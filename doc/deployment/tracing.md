@@ -40,14 +40,14 @@ To use tracing in Pachyderm, you need to:
 
 3. Send Pachyderm a traced request
 
-    Just set the `PACH_ENABLE_TRACING` environment variable to "true" before
+    Just set the `PACH_TRACE` environment variable to "true" before
     running any `pachctl` command (note that `JAEGER_ENDPOINT` must also be
     set/exported):
     ```
-    PACH_ENABLE_TRACING=true pachctl list job # for example
+    PACH_TRACE=true pachctl list job # for example
     ```
 
-    We generally don't recommend exporting `PACH_ENABLE_TRACING` because
+    We generally don't recommend exporting `PACH_TRACE` because
     tracing calls can slow them down somewhat and make interesting traces hard
     to find in Jaeger.  Therefore you may only want to set this variable for
     the specific calls you want to trace.
@@ -76,7 +76,7 @@ collected traces.
 
 2. If you see a trace appear in Jaeger with no subtraces, like so:
 
-    ![Trace with no children](no-traces.png)
+    ![Trace with no children](images/no-traces.png)
 
     ...this likely means that `pachd` has not connected to Jaeger, but
     `pachctl` has. Make sure to restart the `pachd` pods *after* creating the

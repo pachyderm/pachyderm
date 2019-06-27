@@ -18,10 +18,10 @@ pachctl run pipeline <pipeline> [commits...]
 
 		# Rerun the latest job for the "filter" pipeline
 		$ pachctl run pipeline filter
-		
+
 		# Reprocess the pipeline "filter" on the data from commits a23e4 and bf363
 		$ pachctl run pipeline filter a23e4 and bf363
-		
+
 		# Run the pipeline "filter" on the data from the "staging" branch
 		$ pachctl run pipeline filter staging
 ```

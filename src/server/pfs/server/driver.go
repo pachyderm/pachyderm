@@ -24,7 +24,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 
-	globlib "github.com/gobwas/glob"
+	globlib "github.com/pachyderm/glob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/limit"
@@ -2403,10 +2403,11 @@ func (d *driver) checkFilePath(path string) error {
 // store the state of a file in an open commit.  Once the commit is finished,
 // the scratch space is removed.
 func (d *driver) scratchFilePrefix(file *pfs.File) (string, error) {
-	if err := d.checkFilePath(file.Path); err != nil {
+	cleanedPath := path.Clean("/" + file.Path)
+	if err := d.checkFilePath(cleanedPath); err != nil {
 		return "", err
 	}
-	return path.Join(d.scratchCommitPrefix(file.Commit), file.Path), nil
+	return path.Join(d.scratchCommitPrefix(file.Commit), cleanedPath), nil
 }
 
 func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error {
