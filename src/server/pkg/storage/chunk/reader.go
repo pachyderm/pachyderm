@@ -139,7 +139,9 @@ func (r *Reader) WriteToN(w *Writer, n int64) error {
 		// - The size of the chunk is less than or equal to the number of bytes left.
 		if w.atSplit() {
 			for r.dataRefs[0].Hash == "" && r.dataRefs[0].SizeBytes <= n {
-				w.writeDataRef(r.dataRefs[0])
+				if err := w.writeChunk(r.dataRefs[0]); err != nil {
+					return err
+				}
 				n -= r.dataRefs[0].SizeBytes
 				r.dataRefs = r.dataRefs[1:]
 			}

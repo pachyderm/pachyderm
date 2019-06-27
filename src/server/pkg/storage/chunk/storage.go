@@ -11,8 +11,9 @@ const (
 )
 
 type Annotation struct {
-	RefDataRefs []*DataRef
 	Offset      int64
+	RefDataRefs []*DataRef
+	NextDataRef *DataRef
 	Meta        interface{}
 }
 
@@ -40,8 +41,8 @@ func (s *Storage) NewReader(ctx context.Context, f ...ReaderFunc) *Reader {
 // Chunks are created based on the content, then hashed and deduplicated/uploaded to
 // object storage.
 // The callback arguments are the chunk hash and content.
-func (s *Storage) NewWriter(ctx context.Context, averageBits int, f ...WriterFunc) *Writer {
-	return newWriter(ctx, s.objC, averageBits, f...)
+func (s *Storage) NewWriter(ctx context.Context, averageBits int, f WriterFunc) *Writer {
+	return newWriter(ctx, s.objC, averageBits, f)
 }
 
 // List lists all of the chunks in object storage.

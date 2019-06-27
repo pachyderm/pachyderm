@@ -17,14 +17,18 @@ func Write(t *testing.T, chunks *Storage, n, rangeSize int) ([]*DataRef, []byte)
 	var finalDataRefs []*DataRef
 	var seq []byte
 	t.Run("Write", func(t *testing.T) {
-		w := chunks.NewWriter(context.Background(), averageBits)
-		cb := func(dataRefs []*DataRef, _ []*Annotation) error {
-			finalDataRefs = append(finalDataRefs, dataRefs...)
+		f := func(_ *DataRef, annotations []*Annotation) error {
+			for _, a := range annotations {
+				finalDataRefs = append(finalDataRefs, a.NextDataRef)
+			}
 			return nil
 		}
+		w := chunks.NewWriter(context.Background(), averageBits, f)
 		seq = RandSeq(n * MB)
 		for i := 0; i < n/rangeSize; i++ {
-			w.StartRange(cb)
+			w.Annotate(&Annotation{
+				NextDataRef: &DataRef{},
+			})
 			_, err := w.Write(seq[i*MB*rangeSize : (i+1)*MB*rangeSize])
 			require.NoError(t, err)
 		}
@@ -67,10 +71,12 @@ func BenchmarkWriter(b *testing.B) {
 	b.SetBytes(100 * MB)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		w := chunks.NewWriter(context.Background(), averageBits)
-		cb := func(dataRefs []*DataRef, _ []*Annotation) error { return nil }
+		f := func(_ *DataRef, _ []*Annotation) error { return nil }
+		w := chunks.NewWriter(context.Background(), averageBits, f)
 		for i := 0; i < 100; i++ {
-			w.StartRange(cb)
+			w.Annotate(&Annotation{
+				NextDataRef: &DataRef{},
+			})
 			_, err := w.Write(seq[i*MB : (i+1)*MB])
 			require.NoError(b, err)
 		}
@@ -90,17 +96,21 @@ func TestWriteToN(t *testing.T) {
 		return nil
 	}))
 	// Copy data from readers into new writer.
-	w := chunks.NewWriter(context.Background(), averageBits)
+	var finalDataRefs []*DataRef
+	f := func(_ *DataRef, annotations []*Annotation) error {
+		for _, a := range annotations {
+			finalDataRefs = append(finalDataRefs, a.NextDataRef)
+		}
+		return nil
+	}
+	w := chunks.NewWriter(context.Background(), averageBits, f)
 	r1 := chunks.NewReader(context.Background())
 	r1.NextRange(dataRefs1)
 	r2 := chunks.NewReader(context.Background())
 	r2.NextRange(dataRefs2)
-	var finalDataRefs []*DataRef
-	cb := func(dataRefs []*DataRef, _ []*Annotation) error {
-		finalDataRefs = append(finalDataRefs, dataRefs...)
-		return nil
-	}
-	w.StartRange(cb)
+	w.Annotate(&Annotation{
+		NextDataRef: &DataRef{},
+	})
 	mid := r1.Len() / 2
 	require.NoError(t, r1.WriteToN(w, r1.Len()-mid))
 	require.NoError(t, r1.WriteToN(w, mid))
@@ -122,5 +132,4 @@ func TestWriteToN(t *testing.T) {
 		return nil
 	}))
 	require.Equal(t, initialChunkCount+1, finalChunkCount)
-	require.True(t, w.BytesCopied() > 0)
 }
