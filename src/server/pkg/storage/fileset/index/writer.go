@@ -25,8 +25,9 @@ type Header struct {
 }
 
 type levelWriter struct {
-	cw *chunk.Writer
-	tw *tar.Writer
+	cw      *chunk.Writer
+	tw      *tar.Writer
+	lastHdr *Header
 }
 
 type meta struct {
@@ -37,7 +38,6 @@ type meta struct {
 // Writer is used for creating a multi-level index into a serialized FileSet.
 // Each index level consists of compressed tar stream chunks.
 // Each index tar entry has the full index in the content section.
-// (bryce) need to figure out how to handle small chunk without a start point for a header.
 type Writer struct {
 	ctx    context.Context
 	objC   obj.Client
@@ -101,24 +101,35 @@ func (w *Writer) serialize(tw *tar.Writer, hdr *Header) error {
 }
 
 func (w *Writer) callback(level int) chunk.WriterFunc {
-	return func(dataRefs []*chunk.DataRef, annotations []*chunk.Annotation) error {
+	return func(chunkRef *chunk.DataRef, annotations []*chunk.Annotation) error {
+		lw := w.levels[level]
 		// Extract first and last header and setup file range.
 		hdr := annotations[0].Meta.(*meta).hdr
-		lastHdr := annotations[len(annotations)-1].Meta.(*meta).hdr
+		offset := annotations[0].Offset
+		// Edge case handling.
+		if len(annotations) > 1 {
+			// Skip the first header if it started in the previous chunk.
+			if lw.lastHdr != nil && hdr.Hdr.Name == lw.lastHdr.Hdr.Name {
+				hdr = annotations[1].Meta.(*meta).hdr
+				offset = annotations[1].Offset
+			}
+		}
+		lw.lastHdr = annotations[len(annotations)-1].Meta.(*meta).hdr
+		// Set standard fields in index header.
 		var lastPath string
-		if lastHdr.Hdr.Typeflag == indexType {
-			lastPath = lastHdr.Hdr.Name
+		if lw.lastHdr.Hdr.Typeflag == indexType {
+			lastPath = lw.lastHdr.Hdr.Name
 		} else {
-			lastPath = lastHdr.Idx.Range.LastPath
+			lastPath = lw.lastHdr.Idx.Range.LastPath
 		}
 		hdr.Hdr.Typeflag = rangeType
 		hdr.Idx.Range = &Range{
-			Offset:   annotations[0].Offset,
+			Offset:   offset,
 			LastPath: lastPath,
 		}
-		hdr.Idx.DataOp = &DataOp{DataRefs: dataRefs}
+		hdr.Idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunkRef}}
 		// Set the root header when the writer is closed and we are at the top level index.
-		if w.closed && w.levels[level].cw.ChunkCount() == 1 {
+		if w.closed && lw.cw.ChunkCount() == 1 {
 			w.root = hdr
 			return nil
 		}
