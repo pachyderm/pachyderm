@@ -129,6 +129,8 @@ create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
   etc...
 ]
 
+
+
 ------------------------------------
 "cron" input
 ------------------------------------
@@ -151,6 +153,26 @@ create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
   "branch": string
 }
 
+------------------------------------
+"spout"
+------------------------------------
+
+"env": {
+  "HOST": int,
+  "PORT": int
+},
+
+"spout": {
+  "overwrite": bool
+  \\ Optionally, you can combine a spout with a service:
+  "service": {
+        "internal_port": int,
+        "external_port": int,
+        "annotations": {
+            "foo": "bar"
+        }
+    }
+}
 ```
 
 In practice, you rarely need to specify all the fields.
@@ -574,6 +596,17 @@ Git inputs also require some additional configuration. In order for new commits 
 https://github.com/<your_org>/<your_repo>/settings/hooks/new
 ```
 Or navigate to webhooks under settings. Then you'll want to copy the `Githook URL` into the 'Payload URL' field.
+
+### Spout
+
+A spout is a type of pipeline that you can use to process streaming data.
+Unlike a union or cross pipeline, a spout pipeline does not have
+a PFS input, but instead it opens a named piped into the source of the
+streaming data that you can specify through the  `env` variable.
+You can also make a combined pipeline that acts as both service and
+spout.
+
+For more information, see [Spouts](../fundamentals/spouts.html).
 
 ### Output Branch (optional)
 

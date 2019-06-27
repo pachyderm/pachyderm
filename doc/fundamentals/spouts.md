@@ -290,7 +290,6 @@ If you want your spout pipeline to combine these two functionalities, add
 the following to the spout pipeline specification:
 
 ```bash
-
 "spout": {
     "overwrite": false,
     "service": {
@@ -302,6 +301,5 @@ the following to the spout pipeline specification:
     }
 }
  ```
-
 This specification creates an endpoint that can read and serve
 data from Pachyderm and write data back into a Pachyderm repository.
