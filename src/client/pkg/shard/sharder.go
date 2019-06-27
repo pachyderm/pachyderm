@@ -670,7 +670,7 @@ func (a *sharder) announceServers(
 			return err
 		}
 		if err := a.discoveryClient.Set(a.serverStateKey(address), encodedServerState, holdTTL); err != nil {
-			log.Error("Error setting server state: %s", err.Error())
+			log.Errorf("Error setting server state: %s", err.Error())
 		}
 		select {
 		case <-cancel:

@@ -72,8 +72,9 @@ update-deps:
 # update-test-deps:
 # 	GO15VENDOREXPERIMENT=0 go get -d -v -t -u -f ./src/... ./.
 
-build-clean-vendored-client:
-	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
+# TODO: fix/verify (rm?)
+# build-clean-vendored-client:
+# 	rm -rf src/server/vendor/github.com/pachyderm/pachyderm/src/client
 
 build:
 	# GO15VENDOREXPERIMENT=1 go build $$(go list ./src/client/... | grep -v '/src/client$$')
@@ -451,9 +452,9 @@ integration-tests:
 test-proto-static:
 	./etc/proto/test_no_changes.sh
 
+# TODO: fix/verify (vendor no longer exists in src, done)
 proto: docker-build-proto
 	find src -regex ".*\.proto" \
-	| grep -v vendor \
 	| xargs tar cf - \
 	| docker run -i pachyderm_proto \
 	| tar xf -
@@ -464,9 +465,10 @@ pachd-profiling-binary: docker-clean-pachd docker-build-compile
 	| tar xf -
 	# Binary emitted to ./pachd
 
+# TODO: fix/verify (removed references to vendor, wtf is this doing? not sure if broken or not, ask)
 pretest:
 	go get -v github.com/kisielk/errcheck
-	rm -rf src/server/vendor
+	#rm -rf src/server/vendor
 	go vet -n ./src/... | while read line; do \
 		modified=$$(echo $$line | sed "s/ [a-z0-9_/]*\.pb\.gw\.go//g"); \
 		$$modified; \
@@ -474,7 +476,7 @@ pretest:
 		exit 1; \
 		fi; \
 		done
-	git checkout src/server/vendor
+	#git checkout src/server/vendor
 	#errcheck $$(go list ./src/... | grep -v src/cmd/ppsd | grep -v src/pfs$$ | grep -v src/pps$$)
 
 local-test: docker-build launch-dev test-pfs clean-launch-dev
@@ -521,13 +523,16 @@ test-pps-helper: launch-stats launch-kafka docker-build-test-entrypoint
 test-transaction:
 	go test ./src/server/transaction/server -count 1 -timeout $(TIMEOUT)
 
+# TODO: fix/verify, (dicovery_test.go:89 had errors, fixed now)
+# test-client:
+# 	rm -rf src/client/vendor
+# 	rm -rf src/server/vendor/github.com/pachyderm
+# 	cp -R src/server/vendor src/client/
+# 	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
+# 	rm -rf src/client/vendor
+# 	git checkout src/server/vendor/github.com/pachyderm
 test-client:
-	rm -rf src/client/vendor
-	rm -rf src/server/vendor/github.com/pachyderm
-	cp -R src/server/vendor src/client/
-	GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/client/... | grep -v vendor)
-	rm -rf src/client/vendor
-	git checkout src/server/vendor/github.com/pachyderm
+	GO111MODULE=on go test -cover $$(go list ./src/client/...)
 
 test-libs:
 	go test ./src/server/pkg/collection -timeout $(TIMEOUT) -vet=off
@@ -554,9 +559,12 @@ test-s3gateway-integration:
 test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
 	./etc/testing/s3gateway/conformance.py
 
+# TODO: fix/verify (broken, ask)
 test-fuse:
-	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
+	# CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
+	CGOENABLED=0 GO111MODULE=on go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
 
+# TODO: fix/verify (broken, ask)
 test-local:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
