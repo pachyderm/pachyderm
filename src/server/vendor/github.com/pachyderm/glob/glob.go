@@ -1,13 +1,15 @@
 package glob
 
 import (
-	"github.com/gobwas/glob/compiler"
-	"github.com/gobwas/glob/syntax"
+	"regexp"
+
+	"github.com/pachyderm/glob/compiler"
+	"github.com/pachyderm/glob/syntax"
 )
 
 // Glob represents compiled glob pattern.
-type Glob interface {
-	Match(string) bool
+type Glob struct {
+	r *regexp.Regexp
 }
 
 // Compile creates Glob for given pattern and strings (if any present after pattern) as separators.
@@ -36,32 +38,55 @@ type Glob interface {
 //        pattern { `,` pattern }
 //                    comma-separated (without spaces) patterns
 //
-func Compile(pattern string, separators ...rune) (Glob, error) {
+//    extended-glob:
+//        `(` { `|` pattern } `)`
+//        `@(` { `|` pattern } `)`
+//                    capture one of pipe-separated subpatterns
+//        `*(` { `|` pattern } `)`
+//                    capture any number of of pipe-separated subpatterns
+//        `+(` { `|` pattern } `)`
+//                    capture one or more of of pipe-separated subpatterns
+//        `?(` { `|` pattern } `)`
+//                    capture zero or one of of pipe-separated subpatterns
+//
+func Compile(pattern string, separators ...rune) (*Glob, error) {
 	ast, err := syntax.Parse(pattern)
 	if err != nil {
 		return nil, err
 	}
 
-	matcher, err := compiler.Compile(ast, separators)
+	regex, err := compiler.Compile(ast, separators)
 	if err != nil {
 		return nil, err
 	}
 
-	return matcher, nil
+	r, err := regexp.Compile(regex)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Glob{r}, nil
 }
 
 // MustCompile is the same as Compile, except that if Compile returns error, this will panic
-func MustCompile(pattern string, separators ...rune) Glob {
+func MustCompile(pattern string, separators ...rune) *Glob {
 	g, err := Compile(pattern, separators...)
 	if err != nil {
 		panic(err)
 	}
-
 	return g
 }
 
+func (g *Glob) Match(fixture string) bool {
+	return g.r.MatchString(fixture)
+}
+
+func (g *Glob) Capture(fixture string) []string {
+	return g.r.FindStringSubmatch(fixture)
+}
+
 // QuoteMeta returns a string that quotes all glob pattern meta characters
-// inside the argument text; For example, QuoteMeta(`{foo*}`) returns `\[foo\*\]`.
+// inside the argument text; For example, QuoteMeta(`*(foo*)`) returns `\*\(foo\*\)`.
 func QuoteMeta(s string) string {
 	b := make([]byte, 2*len(s))
 

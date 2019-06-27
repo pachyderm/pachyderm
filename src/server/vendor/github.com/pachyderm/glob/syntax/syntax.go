@@ -1,8 +1,8 @@
 package syntax
 
 import (
-	"github.com/gobwas/glob/syntax/ast"
-	"github.com/gobwas/glob/syntax/lexer"
+	"github.com/pachyderm/glob/syntax/ast"
+	"github.com/pachyderm/glob/syntax/lexer"
 )
 
 func Parse(s string) (*ast.Node, error) {

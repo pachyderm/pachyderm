@@ -273,7 +273,7 @@ func getCertOptionsFromEnv() ([]Option, error) {
 // getUserMachineAddrAndOpts is a helper for NewOnUserMachine that uses
 // environment variables, config files, etc to figure out which address a user
 // running a command should connect to.
-func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
+func getUserMachineAddrAndOpts(context *config.Context) (string, []Option, error) {
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
 		if !strings.Contains(envAddr, ":") {
@@ -287,16 +287,16 @@ func getUserMachineAddrAndOpts(cfg *config.Config) (string, []Option, error) {
 	}
 
 	// 2) Get target address from global config if possible
-	if cfg != nil && cfg.V1 != nil && cfg.V1.PachdAddress != "" {
+	if context != nil && context.PachdAddress != "" {
 		// Also get cert info from config (if set)
-		if cfg.V1.ServerCAs != "" {
-			pemBytes, err := base64.StdEncoding.DecodeString(cfg.V1.ServerCAs)
+		if context.ServerCAs != "" {
+			pemBytes, err := base64.StdEncoding.DecodeString(context.ServerCAs)
 			if err != nil {
 				return "", nil, fmt.Errorf("could not decode server CA certs in config: %v", err)
 			}
-			return cfg.V1.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
+			return context.PachdAddress, []Option{WithAdditionalRootCAs(pemBytes)}, nil
 		}
-		return cfg.V1.PachdAddress, nil, nil
+		return context.PachdAddress, nil, nil
 	}
 
 	// 3) Use default address (broadcast) if nothing else works
@@ -333,34 +333,50 @@ func portForwarder() *PortForwarder {
 	return fw
 }
 
-// NewOnUserMachine constructs a new APIClient using env vars that may be set
-// on a user's machine (i.e. PACHD_ADDRESS), as well as
-// $HOME/.pachyderm/config if it  exists. This is primarily intended to be
-// used with the pachctl binary, but may also be useful in tests.
-//
-// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
-// pachyderm client library incompatible with Windows. We may want to move this
-// (and similar) logic into src/server and have it call a NewFromOptions()
-// constructor.
-func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read()
-	if err != nil {
-		// metrics errors are non fatal
-		log.Warningf("error loading user config from ~/.pachyderm/config: %v", err)
-	}
-
+// NewForTest constructs a new APIClient for tests.
+func NewForTest() (*APIClient, error) {
 	// create new pachctl client
-	var fw *PortForwarder
-	addr, cfgOptions, err := getUserMachineAddrAndOpts(cfg)
+	addr, cfgOptions, err := getUserMachineAddrAndOpts(nil)
 	if err != nil {
 		return nil, err
 	}
 	if addr == "" {
 		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+	}
 
-		if portForward {
-			fw = portForwarder()
-		}
+	client, err := NewFromAddress(addr, cfgOptions...)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to pachd at %q: %v", addr, err)
+	}
+	return client, nil
+}
+
+// NewOnUserMachine constructs a new APIClient using $HOME/.pachyderm/config
+// if it exists. This is intended to be used in the pachctl binary.
+//
+// TODO(msteffen) this logic is fairly linux/unix specific, and makes the
+// pachyderm client library incompatible with Windows. We may want to move this
+// (and similar) logic into src/server and have it call a NewFromOptions()
+// constructor.
+func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
+	cfg, err := config.Read()
+	if err != nil {
+		return nil, fmt.Errorf("could not read config: %v", err)
+	}
+	context, err := cfg.ActiveContext()
+	if err != nil {
+		return nil, fmt.Errorf("could not get active context: %v", err)
+	}
+
+	// create new pachctl client
+	var fw *PortForwarder
+	addr, cfgOptions, err := getUserMachineAddrAndOpts(context)
+	if err != nil {
+		return nil, err
+	}
+	if addr == "" {
+		addr = fmt.Sprintf("0.0.0.0:%s", DefaultPachdNodePort)
+		fw = portForwarder()
 	}
 
 	client, err := NewFromAddress(addr, append(options, cfgOptions...)...)
@@ -377,10 +393,8 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 				return nil, fmt.Errorf("could not connect (note: port is usually "+
 					"%s or %s, but is currently set to %q--is this right?): %v", DefaultPachdNodePort, DefaultPachdPort, port, err)
 			}
-			if strings.HasPrefix(addr, "0.0.0.0") ||
-				strings.HasPrefix(addr, "127.0.0.1") ||
-				strings.HasPrefix(addr, "[::1]") ||
-				strings.HasPrefix(addr, "localhost") {
+			isLoopback := strings.HasPrefix(addr, "0.0.0.0") || strings.HasPrefix(addr, "127.0.0.1") || strings.HasPrefix(addr, "[::1]") || strings.HasPrefix(addr, "localhost")
+			if fw == nil && isLoopback {
 				return nil, fmt.Errorf("could not connect (note: address %q looks "+
 					"like loopback, check that 'pachctl port-forward' is running): %v",
 					addr, err)
@@ -395,11 +409,11 @@ func NewOnUserMachine(reportMetrics bool, portForward bool, prefix string, optio
 
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
-	if cfg != nil && cfg.UserID != "" && reportMetrics {
+	if cfg.UserID != "" && cfg.V2.Metrics {
 		client.metricsUserID = cfg.UserID
 	}
-	if cfg != nil && cfg.V1 != nil && cfg.V1.SessionToken != "" {
-		client.authenticationToken = cfg.V1.SessionToken
+	if context.SessionToken != "" {
+		client.authenticationToken = context.SessionToken
 	}
 
 	// Add port forwarding. This will set it to nil if port forwarding is

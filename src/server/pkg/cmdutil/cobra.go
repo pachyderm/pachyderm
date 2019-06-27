@@ -3,6 +3,7 @@ package cmdutil
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,6 +22,22 @@ func RunFixedArgs(numArgs int, run func([]string) error) func(*cobra.Command, []
 			cmd.Usage()
 		} else {
 			if err := run(args); err != nil {
+				ErrorAndExit("%v", err)
+			}
+		}
+	}
+}
+
+// RunCmdFixedArgs wraps a function in a function that checks its exact
+// argument count. The only difference between this and RunFixedArgs is that
+// this passes in the cobra command.
+func RunCmdFixedArgs(numArgs int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if len(args) != numArgs {
+			fmt.Printf("expected %d arguments, got %d\n\n", numArgs, len(args))
+			cmd.Usage()
+		} else {
+			if err := run(cmd, args); err != nil {
 				ErrorAndExit("%v", err)
 			}
 		}
@@ -301,20 +318,25 @@ func MergeCommands(root *cobra.Command, children []*cobra.Command) {
 // SetDocsUsage sets the usage string for a docs-style command.  Docs commands
 // have no functionality except to output some docs and related commands, and
 // should not specify a 'Run' attribute.
-func SetDocsUsage(command *cobra.Command) {
+func SetDocsUsage(command *cobra.Command, pattern string) {
 	command.SetHelpTemplate(`{{or .Long .Short}}
 
 {{.UsageString}}
 `)
 
+	originalUsageFunc := command.UsageFunc()
 	command.SetUsageFunc(func(cmd *cobra.Command) error {
+		if cmd != command {
+			return originalUsageFunc(cmd)
+		}
 		rootCmd := cmd.Root()
 
 		// Walk the command tree, finding commands with the documented word
 		var associated []*cobra.Command
 		var walk func(*cobra.Command)
 		walk = func(cursor *cobra.Command) {
-			if cursor.Name() == cmd.Name() && cursor.CommandPath() != cmd.CommandPath() {
+			isMatch, _ := regexp.MatchString(pattern, cursor.CommandPath())
+			if isMatch && cursor.CommandPath() != cmd.CommandPath() && cursor.Runnable() {
 				associated = append(associated, cursor)
 			}
 			for _, subcmd := range cursor.Commands() {

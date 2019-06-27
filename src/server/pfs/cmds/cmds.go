@@ -42,7 +42,7 @@ const (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
+func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
 	raw := false
@@ -62,7 +62,7 @@ func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
 Repos contain version-controlled directories and files. Files can be of any size
 or type (e.g. csv, binary, images, etc).`,
 	}
-	cmdutil.SetDocsUsage(repoDocs)
+	cmdutil.SetDocsUsage(repoDocs, " repo$")
 	commands = append(commands, cmdutil.CreateAlias(repoDocs, "repo"))
 
 	var description string
@@ -71,7 +71,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Create a new repo.",
 		Long:  "Create a new repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -98,7 +98,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Update a repo.",
 		Long:  "Update a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -126,7 +126,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Return info about a repo.",
 		Long:  "Return info about a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -156,7 +156,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Return all repos.",
 		Long:  "Return all repos.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -196,7 +196,7 @@ or type (e.g. csv, binary, images, etc).`,
 		Short: "Delete a repo.",
 		Long:  "Delete a repo.",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -240,7 +240,7 @@ Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.`,
 	}
-	cmdutil.SetDocsUsage(commitDocs)
+	cmdutil.SetDocsUsage(commitDocs, " commit$")
 	commands = append(commands, cmdutil.CreateAlias(commitDocs, "commit"))
 
 	var parent string
@@ -264,7 +264,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -304,7 +304,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -336,7 +336,7 @@ $ {{alias}} test -p XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -382,7 +382,7 @@ $ {{alias}} foo@master -n 20
 # return commits in repo "foo" since commit XXX
 $ {{alias}} foo@master --from XXX`,
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -461,7 +461,7 @@ $ {{alias}} foo@XXX -r bar -r baz`,
 				return err
 			}
 
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -505,7 +505,7 @@ $ {{alias}} test@master --new`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -543,7 +543,7 @@ $ {{alias}} test@master --new`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -566,7 +566,7 @@ multiple branches can refer to the same commit.
 
 Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
-	cmdutil.SetDocsUsage(branchDocs)
+	cmdutil.SetDocsUsage(branchDocs, " branch$")
 	commands = append(commands, cmdutil.CreateAlias(branchDocs, "branch"))
 
 	var branchProvenance cmdutil.RepeatedStringArg
@@ -584,7 +584,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -606,7 +606,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 		Short: "Return all branches on a repo.",
 		Long:  "Return all branches on a repo.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -642,7 +642,7 @@ Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -664,7 +664,7 @@ Files can be of any type (e.g. csv, binary, images, etc) or size and can be
 written to started (but not finished) commits with 'put file'. Files can be read
 from commits with 'get file'.`,
 	}
-	cmdutil.SetDocsUsage(fileDocs)
+	cmdutil.SetDocsUsage(fileDocs, " file$")
 	commands = append(commands, cmdutil.CreateAlias(fileDocs, "file"))
 
 	var filePaths []string
@@ -725,7 +725,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user", client.WithMaxConcurrentStreams(parallelism))
+			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
@@ -842,7 +842,7 @@ $ {{alias}} repo@branch -i http://host/path`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user", client.WithMaxConcurrentStreams(parallelism))
+			c, err := client.NewOnUserMachine("user", client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
@@ -879,7 +879,7 @@ $ {{alias}} foo@master^2:XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -920,7 +920,7 @@ $ {{alias}} foo@master^2:XXX`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -975,7 +975,7 @@ $ {{alias}} foo@master --history all`,
 			if err != nil {
 				return fmt.Errorf("error parsing history flag: %v", err)
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1021,7 +1021,7 @@ $ {{alias}} "foo@master:data/*"`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1075,7 +1075,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				}
 			}
 
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1167,7 +1167,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			if err != nil {
 				return err
 			}
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1184,7 +1184,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 
 Objects are a low-level resource and should not be accessed directly by most users.`,
 	}
-	cmdutil.SetDocsUsage(objectDocs)
+	cmdutil.SetDocsUsage(objectDocs, " object$")
 	commands = append(commands, cmdutil.CreateAlias(objectDocs, "object"))
 
 	getObject := &cobra.Command{
@@ -1192,7 +1192,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 		Short: "Print the contents of an object.",
 		Long:  "Print the contents of an object.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1208,7 +1208,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 
 Tags are a low-level resource and should not be accessed directly by most users.`,
 	}
-	cmdutil.SetDocsUsage(tagDocs)
+	cmdutil.SetDocsUsage(tagDocs, " tag$")
 	commands = append(commands, cmdutil.CreateAlias(tagDocs, "tag"))
 
 	getTag := &cobra.Command{
@@ -1216,7 +1216,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 		Short: "Print the contents of a tag.",
 		Long:  "Print the contents of a tag.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1231,7 +1231,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 		Short: "Run a file system consistency check on pfs.",
 		Long:  "Run a file system consistency check on the pachyderm file system, ensuring the correct provenance relationships are satisfied.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -1257,7 +1257,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "fuse")
+			c, err := client.NewOnUserMachine("fuse")
 			if err != nil {
 				return err
 			}

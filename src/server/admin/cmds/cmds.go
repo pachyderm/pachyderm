@@ -12,7 +12,7 @@ import (
 )
 
 // Cmds returns a slice containing admin commands.
-func Cmds(noMetrics *bool, noPortForwarding *bool) []*cobra.Command {
+func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
 	var noObjects bool
@@ -27,7 +27,7 @@ $ {{alias}} > backup
 # Extract to s3:
 $ {{alias}} -u s3://bucket/backup`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -58,7 +58,7 @@ $ {{alias}} < backup
 # Restore from s3:
 $ {{alias}} -u s3://bucket/backup`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
@@ -83,7 +83,7 @@ $ {{alias}} -u s3://bucket/backup`,
 		Short: "Returns info about the pachyderm cluster",
 		Long:  "Returns info about the pachyderm cluster",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}

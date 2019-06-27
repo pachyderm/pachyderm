@@ -32,7 +32,7 @@ func getPachClient(t testing.TB) *client.APIClient {
 		if _, ok := os.LookupEnv("PACHD_PORT_650_TCP_ADDR"); ok {
 			pachClient, err = client.NewInCluster()
 		} else {
-			pachClient, err = client.NewOnUserMachine(false, false, "user")
+			pachClient, err = client.NewForTest()
 		}
 		if err != nil {
 			t.Fatalf("error getting Pachyderm client: %s", err.Error())
