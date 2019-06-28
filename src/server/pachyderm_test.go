@@ -5287,28 +5287,37 @@ func TestGarbageCollection(t *testing.T) {
 	// Now delete both pipelines and GC
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 	require.NoError(t, c.DeletePipeline(failurePipeline, false))
-	require.NoError(t, c.GarbageCollect(0))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		require.NoError(t, c.GarbageCollect(0))
 
-	// We should've deleted one tag since the functioning pipeline only processed
-	// one datum.
-	tagsAfter = getAllTags(t, c)
-	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
+		// We should've deleted one tag since the functioning pipeline only processed
+		// one datum.
+		tagsAfter = getAllTags(t, c)
+		if dTags := len(tagsBefore) - len(tagsAfter); dTags != 1 {
+			return fmt.Errorf("expected 1 tag after GC but found %d", dTags)
+		}
 
-	// We should've deleted 2 objects:
-	// - the hashtree referenced by the tag (datum hashtree)
-	//   - Note that the hashtree for the output commit is the same object as the
-	//     datum hashtree. It contains the same metadata, and b/c hashtrees are
-	//     stored as objects, it's deduped with the datum hashtree
-	// - The "datums" object attached to 'pipeline's output commit
-	// Note that deleting a pipeline doesn't delete the spec commits
-	objectsAfter = getAllObjects(t, c)
-	require.Equal(t, 2, len(objectsBefore)-len(objectsAfter))
-	// The 9 remaining objects are:
-	// - hashtree for input commit
-	// - object w/ contents of /foo + object w/ contents of /bar
-	// - 6 objects in __spec__:
-	//   (hashtree + /spec file) * (2 'pipeline' commits + 1 'failurePipeline' commit)
-	require.Equal(t, 9, len(objectsAfter))
+		// We should've deleted 2 objects:
+		// - the hashtree referenced by the tag (datum hashtree)
+		//   - Note that the hashtree for the output commit is the same object as the
+		//     datum hashtree. It contains the same metadata, and b/c hashtrees are
+		//     stored as objects, it's deduped with the datum hashtree
+		// - The "datums" object attached to 'pipeline's output commit
+		// Note that deleting a pipeline doesn't delete the spec commits
+		objectsAfter = getAllObjects(t, c)
+		if dObjects := len(objectsBefore) - len(objectsAfter); dObjects != 2 {
+			return fmt.Errorf("expected 3 objects but found %d", dObjects)
+		}
+		// The 9 remaining objects are:
+		// - hashtree for input commit
+		// - object w/ contents of /foo + object w/ contents of /bar
+		// - 6 objects in __spec__:
+		//   (hashtree + /spec file) * (2 'pipeline' commits + 1 'failurePipeline' commit)
+		if len(objectsAfter) != 9 {
+			return fmt.Errorf("expected 9 objects remaining, but found %d", objectsAfter)
+		}
+		return nil
+	})
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())

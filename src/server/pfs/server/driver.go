@@ -1947,6 +1947,8 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
 				continue // just skip this
+			} else if auth.IsErrNotAuthorized(err) {
+				continue // again, just skip (we can't wait on commits we can't access)
 			}
 			return err
 		}
