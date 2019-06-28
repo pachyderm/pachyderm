@@ -12,6 +12,8 @@ const (
 	defaultPager = "less"
 )
 
+// Page pages content to whichever pager is defined by the PAGER env-var
+// (normally /usr/bin/less). If noop is true it's just a pass through.
 func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
 	if noop {
 		return run(out)
