@@ -1085,7 +1085,17 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 			}
 			defer c.Close()
 
-			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) (retErr error) {
+				var writer *tabwriter.Writer
+				if nameOnly {
+					writer = tabwriter.NewWriter(w, pretty.DiffFileHeader)
+					defer func() {
+						if err := writer.Flush(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
+				}
+
 				newFiles, oldFiles, err := c.DiffFile(
 					newFile.Commit.Repo.Name, newFile.Commit.ID, newFile.Path,
 					oldFile.Commit.Repo.Name, oldFile.Commit.ID, oldFile.Path,
@@ -1101,40 +1111,51 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 						break
 					}
 					if err := func() (retErr error) {
-						var nF *pfsclient.File
-						var oF *pfsclient.File
+						var nFI *pfsclient.FileInfo
+						var oFI *pfsclient.FileInfo
 						switch {
 						case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
-							nF = newFiles[nI].File
+							nFI = newFiles[nI]
 							nI++
 						case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
-							oF = oldFiles[oI].File
+							oFI = oldFiles[oI]
 							oI++
 						case newFiles[nI].File.Path == oldFiles[oI].File.Path:
-							nF = newFiles[nI].File
+							nFI = newFiles[nI]
 							nI++
-							oF = oldFiles[oI].File
+							oFI = oldFiles[oI]
 							oI++
 						}
 						nPath, oPath := "/dev/null", "/dev/null"
-						if nF != nil {
-							nPath, err = dlFile(c, nF)
-							if err != nil {
-								return err
+						if nFI != nil {
+							if nameOnly {
+								pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
+							} else {
+								nPath, err = dlFile(c, nFI.File)
+								if err != nil {
+									return err
+								}
+								defer func() {
+									if err := os.RemoveAll(nPath); err != nil && retErr == nil {
+										retErr = err
+									}
+								}()
 							}
-							defer func() {
-								if err := os.RemoveAll(nPath); err != nil && retErr == nil {
-									retErr = err
-								}
-							}()
 						}
-						if oF != nil {
-							oPath, err = dlFile(c, oF)
-							defer func() {
-								if err := os.RemoveAll(oPath); err != nil && retErr == nil {
-									retErr = err
-								}
-							}()
+						if oFI != nil {
+							if nameOnly {
+								pretty.PrintDiffFileInfo(writer, false, oFI, fullTimestamps)
+							} else {
+								oPath, err = dlFile(c, oFI.File)
+								defer func() {
+									if err := os.RemoveAll(oPath); err != nil && retErr == nil {
+										retErr = err
+									}
+								}()
+							}
+						}
+						if nameOnly {
+							return nil
 						}
 						cmd := exec.Command("git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index", oPath, nPath)
 						cmd.Stdout = w

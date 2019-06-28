@@ -183,13 +183,10 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 // PrintDiffFileInfo pretty-prints a file info from
 func PrintDiffFileInfo(w io.Writer, new bool, fileInfo *pfs.FileInfo, fullTimestamps bool) {
 	if new {
-		color.Set(color.FgGreen)
-		fmt.Fprintf(w, "+\t")
+		fmt.Fprintf(w, color.GreenString("+\t"))
 	} else {
-		color.Set(color.FgRed)
-		fmt.Fprintf(w, "-\t")
+		fmt.Fprintf(w, color.RedString("-\t"))
 	}
-	defer color.Unset()
 	PrintFileInfo(w, fileInfo, fullTimestamps, false)
 }
 
