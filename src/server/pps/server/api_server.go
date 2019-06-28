@@ -2557,8 +2557,39 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	if err != nil {
 		return nil, err
 	}
+	key := path.Join
+	requestProv := make(map[string]*pfs.CommitProvenance)
+	for _, prov := range request.Provenance {
+		requestProv[key(prov.Branch.Repo.Name, prov.Branch.Name)] = prov
+	}
+	for _, branchProv := range append(branch.Provenance, branch.Branch) {
+		if _, ok := requestProv[key(branchProv.Repo.Name, branchProv.Name)]; !ok {
+			branchInfo, err := pfsClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
+				Branch: client.NewBranch(branchProv.Repo.Name, branchProv.Name),
+			})
+			if err != nil {
+				return nil, err
+			}
+			if branchInfo.Head == nil {
+				continue
+			}
+			headCommit, err := pfsClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+				Commit: client.NewCommit(branchProv.Repo.Name, branchInfo.Head.ID),
+			})
+			if err != nil {
+				return nil, err
+			}
+			for _, headProv := range headCommit.Provenance {
+				if _, ok := requestProv[key(headProv.Branch.Repo.Name, headProv.Branch.Name)]; !ok {
+					request.Provenance = append(request.Provenance, headProv)
+				}
+			}
+		}
+	}
+
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
+
 	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Parent: &pfs.Commit{
 			Repo: &pfs.Repo{

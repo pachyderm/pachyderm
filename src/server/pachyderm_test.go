@@ -1042,6 +1042,54 @@ func TestRunPipeline(t *testing.T) {
 			client.NewCommitProvenance(dataRepo, branchA, commitA2.ID)},
 		))
 	})
+	// Test on pipeline that should always fail
+	t.Run("RerunPipeline", func(t *testing.T) {
+		dataRepo := tu.UniqueString("TestRerunPipeline_data")
+		require.NoError(t, c.CreateRepo(dataRepo))
+
+		// jobs on this pipeline should always fail
+		pipeline := tu.UniqueString("rerun-pipeline")
+		require.NoError(t, c.CreatePipeline(
+			pipeline,
+			"",
+			[]string{"bash"},
+			[]string{"false"},
+			nil,
+			client.NewPFSInputOpts("branch-a", dataRepo, "branchA", "/*", false),
+			"",
+			false,
+		))
+
+		commitA1, err := c.StartCommit(dataRepo, "branchA")
+		require.NoError(t, err)
+		c.PutFile(dataRepo, commitA1.ID, "/file", strings.NewReader("data A1\n"))
+		c.FinishCommit(dataRepo, commitA1.ID)
+
+		iter, err := c.FlushCommit([]*pfs.Commit{commitA1}, nil)
+		require.NoError(t, err)
+		commits := collectCommitInfos(t, iter)
+		require.Equal(t, 1, len(commits))
+		// now run the pipeline
+		require.NoError(t, c.RunPipeline(pipeline, nil))
+
+		// running the pipeline should create a new job
+		require.NoError(t, backoff.Retry(func() error {
+			jobInfos, err := c.ListJob(pipeline, nil, nil, -1, true)
+			require.NoError(t, err)
+			if len(jobInfos) != 2 {
+				return fmt.Errorf("expected 2 jobs, got %d", len(jobInfos))
+			}
+
+			// but both of these jobs should fail
+			for i, job := range jobInfos {
+				if "JOB_FAILURE" != job.State.String() {
+					return fmt.Errorf("expected job %v to fail, but got %v", i, job.State.String())
+				}
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+
+	})
 
 }
 func TestPipelineFailure(t *testing.T) {
