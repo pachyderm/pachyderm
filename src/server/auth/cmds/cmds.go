@@ -490,6 +490,32 @@ func UseAuthTokenCmd() *cobra.Command {
 	return cmdutil.CreateAlias(useAuthToken, "auth use-auth-token")
 }
 
+// GetOneTimePasswordCmd returns a cobra command that lets a user get an OTP.
+func GetOneTimePasswordCmd() *cobra.Command {
+	getOneTimePassword := &cobra.Command{
+		Use:   "{{alias}} <username>",
+		Short: "Get a one-time password that authenticates the holder as \"username\"",
+		Long:  "Get a one-time password that authenticates the holder as \"username\"",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			subject := args[0]
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return fmt.Errorf("could not connect: %v", err)
+			}
+			defer c.Close()
+			resp, err := c.GetOneTimePassword(c.Ctx(), &auth.GetOneTimePasswordRequest{
+				Subject: subject,
+			})
+			if err != nil {
+				return grpcutil.ScrubGRPC(err)
+			}
+			fmt.Println(resp.Code)
+			return nil
+		}),
+	}
+	return cmdutil.CreateAlias(getOneTimePassword, "auth get-one-time-password")
+}
+
 // Cmds returns a list of cobra commands for authenticating and authorizing
 // users in an auth-enabled Pachyderm cluster.
 func Cmds() []*cobra.Command {
@@ -515,6 +541,7 @@ func Cmds() []*cobra.Command {
 	commands = append(commands, UseAuthTokenCmd())
 	commands = append(commands, GetConfigCmd())
 	commands = append(commands, SetConfigCmd())
+	commands = append(commands, GetOneTimePasswordCmd())
 
 	return commands
 }
