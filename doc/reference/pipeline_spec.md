@@ -655,7 +655,7 @@ created, you should be able to access it at
 
 `spout` is a type of pipeline that processes streaming data.
 Unlike a union or cross pipeline, a spout pipeline does not have
-a PFS input. Instead, it opens a Linux *named piped* into the source of the
+a PFS input. Instead, it opens a Linux *named pipe* into the source of the
 streaming data. Your pipeline
 can be either a spout or a service and not both. Therefore, if you added
 the `service` as a top-level object in your pipeline, you cannot add `spout`.
