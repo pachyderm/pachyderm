@@ -5414,6 +5414,6 @@ func TestLabels(t *testing.T) {
 
 	ris, err = client.PfsAPIClient.ListRepo(client.Ctx(), &pfs.ListRepoRequest{Selector: "n=2"})
 	require.NoError(t, err)
-	require.Equal(t, 2, len(ris.RepoInfo))
+	require.Equal(t, 1, len(ris.RepoInfo))
 	require.Equal(t, "repo2", ris.RepoInfo[0].Repo.Name)
 }

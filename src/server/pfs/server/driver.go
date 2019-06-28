@@ -24,6 +24,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	globlib "github.com/pachyderm/glob"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -44,10 +47,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
 	"github.com/sirupsen/logrus"
-
-	etcd "github.com/coreos/etcd/clientv3"
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/types"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -217,7 +217,7 @@ func absent(key string) etcd.Cmp {
 	return etcd.Compare(etcd.CreateRevision(key), "=", 0)
 }
 
-func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, update bool) error {
+func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, description string, labels map[string]string, update bool) error {
 	// Check that the user is logged in (user doesn't need any access level to
 	// create a repo, but they must be authenticated if auth is active)
 	whoAmI, err := txnCtx.Client.WhoAmI(txnCtx.ClientContext, &auth.WhoAmIRequest{})
@@ -270,6 +270,7 @@ func (d *driver) createRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, d
 		Repo:        repo,
 		Created:     created,
 		Description: description,
+		Labels:      labels,
 	}
 	// Only Put the new repoInfo if something has changed.  This
 	// optimization is impactful because pps will frequently update the
@@ -756,14 +757,18 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 	return nil
 }
 
-func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool) (*pfs.ListRepoResponse, error) {
+func (d *driver) listRepo(pachClient *client.APIClient, includeAuth bool, selector string) (*pfs.ListRepoResponse, error) {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
 	result := &pfs.ListRepoResponse{}
 	authSeemsActive := true
 	repoInfo := &pfs.RepoInfo{}
+	s, err := labels.Parse(selector)
+	if err != nil {
+		return nil, err
+	}
 	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
-		if repoName == ppsconsts.SpecRepo {
+		if repoName == ppsconsts.SpecRepo || !s.Matches(labels.Set(repoInfo.Labels)) {
 			return nil
 		}
 		if includeAuth && authSeemsActive {
@@ -3628,7 +3633,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 	// Note: d.listRepo() doesn't return the 'spec' repo, so it doesn't get
 	// deleted here. Instead, PPS is responsible for deleting and re-creating it
-	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth)
+	repoInfos, err := d.listRepo(txnCtx.Client, !includeAuth, "")
 	if err != nil {
 		return err
 	}

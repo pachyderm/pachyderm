@@ -72,7 +72,7 @@ func (a *apiServer) CreateRepoInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.CreateRepoRequest,
 ) error {
-	return a.driver.createRepo(txnCtx, request.Repo, request.Description, request.Update)
+	return a.driver.createRepo(txnCtx, request.Repo, request.Description, request.Labels, request.Update)
 }
 
 // CreateRepo implements the protobuf pfs.CreateRepo RPC
@@ -120,7 +120,7 @@ func (a *apiServer) ListRepo(ctx context.Context, request *pfs.ListRepoRequest) 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	repoInfos, err := a.driver.listRepo(a.env.GetPachClient(ctx), true)
+	repoInfos, err := a.driver.listRepo(a.env.GetPachClient(ctx), true, request.Selector)
 	return repoInfos, err
 }
 
