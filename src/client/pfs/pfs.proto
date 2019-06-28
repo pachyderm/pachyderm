@@ -67,6 +67,8 @@ message RepoInfo {
   // not stored in etcd. To set a user's auth scope for a repo, use the
   // Pachyderm Auth API (in src/client/auth/auth.proto)
   RepoAuthInfo auth_info = 6;
+
+  map<string, string> labels = 8;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
@@ -142,6 +144,8 @@ message CommitInfo {
   Object tree = 7;
   repeated Object trees = 13;
   Object datums = 14;
+
+  map<string, string> labels = 19;
 }
 
 enum FileType {
@@ -185,6 +189,7 @@ message CreateRepoRequest {
   Repo repo = 1;
   string description = 3;
   bool update = 4;
+  map<string, string> labels = 5;
 }
 
 message InspectRepoRequest {
@@ -193,6 +198,7 @@ message InspectRepoRequest {
 
 message ListRepoRequest {
   reserved 1;
+  string selector = 2;
 }
 
 message ListRepoResponse {
@@ -222,6 +228,7 @@ message StartCommitRequest {
   string description = 4;
   string branch = 3;
   repeated CommitProvenance provenance = 5;
+  map<string, string> labels = 6;
 }
 
 message BuildCommitRequest {
@@ -232,6 +239,7 @@ message BuildCommitRequest {
   Object tree = 3;
   // ID sets the ID of the created commit.
   string ID = 5;
+  map<string, string> labels = 7;
 }
 
 message FinishCommitRequest {
@@ -247,6 +255,7 @@ message FinishCommitRequest {
   // If set, 'commit' will be closed (its 'finished' field will be set to the
   // current time) but its 'tree' will be left nil.
   bool empty = 4;
+  map<string, string> labels = 8;
 }
 
 message InspectCommitRequest {
@@ -260,6 +269,7 @@ message ListCommitRequest {
   Commit from = 2;
   Commit to = 3;
   uint64 number = 4;
+  string selector = 5;
 }
 
 message CommitInfos {
