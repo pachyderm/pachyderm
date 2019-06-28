@@ -20,7 +20,7 @@ func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
 	}
 	var eg errgroup.Group
 	r, w := io.Pipe()
-	eg.Go(func() (retErr error) {
+	eg.Go(func() error {
 		return w.CloseWithError(run(w))
 	})
 	eg.Go(func() error {
