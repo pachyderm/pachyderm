@@ -6,7 +6,7 @@
 #     - Associated ports (5775, 5778, 6831, 6832) were all removed from the container as well
 #   - The jaeger-collector-tchannel and jaeger-collector-http ports are exported from the container
 #     (AFAICT this YAML doesn't work as written in jaegertracing/jaeger-kubernetes)
-#   - container version fixed at 1.10.1
+#   - container version fixed at 1.13.1
 # Maybe also do:
 #   - Zipkin port removed from collector service and jaeger-collector-zipkin service removed (unused)
 #   - Remove the COLLECTOR_ZIPKIN_HTTP_PORT env var from the container, and remove port 9411
@@ -54,7 +54,7 @@ items:
           -   env:
               - name: COLLECTOR_ZIPKIN_HTTP_PORT
                 value: "9411"
-              image: jaegertracing/all-in-one:1.10.1
+              image: jaegertracing/all-in-one:1.13.1
               name: jaeger
               ports:
 #                 - containerPort: 5775
