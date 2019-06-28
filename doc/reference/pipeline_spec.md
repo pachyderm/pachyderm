@@ -75,6 +75,17 @@ create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
     "internal_port": int,
     "external_port": int
   },
+  "spout": {
+  "overwrite": bool
+  \\ Optionally, you can combine a spout with a service:
+  "service": {
+        "internal_port": int,
+        "external_port": int,
+        "annotations": {
+            "foo": "bar"
+        }
+    }
+  },
   "max_queue_size": int,
   "chunk_spec": {
     "number": int,
@@ -153,26 +164,6 @@ create pipeline](../pachctl/pachctl_create_pipeline.html) doc.
   "branch": string
 }
 
-------------------------------------
-"spout"
-------------------------------------
-
-"env": {
-  "HOST": int,
-  "PORT": int
-},
-
-"spout": {
-  "overwrite": bool
-  \\ Optionally, you can combine a spout with a service:
-  "service": {
-        "internal_port": int,
-        "external_port": int,
-        "annotations": {
-            "foo": "bar"
-        }
-    }
-}
 ```
 
 In practice, you rarely need to specify all the fields.
@@ -597,17 +588,6 @@ https://github.com/<your_org>/<your_repo>/settings/hooks/new
 ```
 Or navigate to webhooks under settings. Then you'll want to copy the `Githook URL` into the 'Payload URL' field.
 
-### Spout
-
-A spout is a type of pipeline that you can use to process streaming data.
-Unlike a union or cross pipeline, a spout pipeline does not have
-a PFS input, but instead it opens a named piped into the source of the
-streaming data that you can specify through the  `env` variable.
-You can also make a combined pipeline that acts as both service and
-spout.
-
-For more information, see [Spouts](../fundamentals/spouts.html).
-
 ### Output Branch (optional)
 
 This is the branch where the pipeline outputs new commits.  By default,
@@ -664,12 +644,27 @@ in the input repos.
 `service` specifies that the pipeline should be treated as a long running
 service rather than a data transformation. This means that `transform.cmd` is
 not expected to exit, if it does it will be restarted. Furthermore, the service
-will be exposed outside the container using a kubernetes service.
+is exposed outside the container using a Kubernetes service.
 `"internal_port"` should be a port that the user code binds to inside the
-container, `"external_port"` is the port on which it is exposed, via the
-NodePorts functionality of kubernetes services. After a service has been
-created you should be able to access it at
+container, `"external_port"` is the port on which it is exposed through the
+`NodePorts` functionality of Kubernetes services. After a service has been
+created, you should be able to access it at
 `http://<kubernetes-host>:<external_port>`.
+
+### Spout (optional)
+
+`spout` is a type of pipeline that processes streaming data.
+Unlike a union or cross pipeline, a spout pipeline does not have
+a PFS input. Instead, it opens a Linux *named piped* into the source of the
+streaming data. Your pipeline
+can be either a spout or a service and not both. Therefore, if you added
+the `service` as a top-level object in your pipeline, you cannot add `spout`.
+However, you can expose a service from inside of a spout pipeline by
+specifying it as a field in the `spout` spec. Then, Kubernetes creates
+a service endpoint that you can expose externally. You can get the information
+about the service by running `kubectl get services`.
+
+For more information, see [Spouts](../fundamentals/spouts.html).
 
 ### Max Queue Size (optional)
 `max_queue_size` specifies that maximum number of datums that a worker should
