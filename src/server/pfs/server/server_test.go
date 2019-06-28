@@ -5395,3 +5395,25 @@ OpLoop:
 		require.NoError(t, err)
 	}
 }
+
+func TestLabels(t *testing.T) {
+	client := GetPachClient(t)
+	_, err := client.PfsAPIClient.CreateRepo(client.Ctx(), &pfs.CreateRepoRequest{
+		Repo:   pclient.NewRepo("repo1"),
+		Labels: map[string]string{"n": "1"},
+	})
+	_, err = client.PfsAPIClient.CreateRepo(client.Ctx(), &pfs.CreateRepoRequest{
+		Repo:   pclient.NewRepo("repo2"),
+		Labels: map[string]string{"n": "2"},
+	})
+	require.NoError(t, err)
+	ris, err := client.PfsAPIClient.ListRepo(client.Ctx(), &pfs.ListRepoRequest{Selector: "n=1"})
+	require.NoError(t, err)
+	require.Equal(t, 1, len(ris.RepoInfo))
+	require.Equal(t, "repo1", ris.RepoInfo[0].Repo.Name)
+
+	ris, err = client.PfsAPIClient.ListRepo(client.Ctx(), &pfs.ListRepoRequest{Selector: "n=2"})
+	require.NoError(t, err)
+	require.Equal(t, 2, len(ris.RepoInfo))
+	require.Equal(t, "repo2", ris.RepoInfo[0].Repo.Name)
+}
