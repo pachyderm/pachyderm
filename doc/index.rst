@@ -8,105 +8,54 @@
 Pachyderm Developer Documentation
 =================================
 
-Welcome to the Pachyderm documentation portal!  Below you'll find guides and information for beginners and experienced Pachyderm users. You'll also find API references docs. 
+Welcome to the Pachyderm documentation portal! Below you find guides
+and information for beginners and experienced Pachyderm users, as well
+as the Pachyderm API reference docs.
 
-If you can't find what you're looking for or have a an issue not mentioned here, we'd love to hear from you either on `GitHub <https://github.com/pachyderm/pachyderm>`_, our `Users Slack channel <http://slack.pachyderm.io/>`_, or email us at support@pachyderm.io. 
+If you cannot find what you are looking for or have an issue that is
+not mentioned here, we'd love to hear from you either on
+`GitHub <https://github.com/pachyderm/pachyderm>`_, in our
+`Users Slack channel <http://slack.pachyderm.io/>`_, or by
+email at support@pachyderm.io.
 
-Note: if you are using a Pachyderm version < 1.4, you can find relevant docs `here <http://docs.pachyderm.io/en/v1.3.18/>`_.
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Getting Started
-
-    getting_started/getting_started
-    getting_started/local_installation
-    getting_started/beginner_tutorial
-
-.. toctree::
-    :maxdepth: 1
-    :caption: Pachyderm Fundamentals
-
-    fundamentals/getting_data_into_pachyderm
-    fundamentals/creating_analysis_pipelines
-    fundamentals/getting_data_out_of_pachyderm
-    fundamentals/removing_data_from_pachyderm
-    fundamentals/append_overwrite
-    fundamentals/lifecycle_of_a_datum
-    fundamentals/updating_pipelines
-    fundamentals/distributed_computing
-    fundamentals/incrementality
-    fundamentals/spouts
-    fundamentals/history
+.. note:: If you are using a Pachyderm version 1.4 or earlier, you
+   can find relevant documentation published in `our old
+   documentation portal <http://docs.pachyderm.io/en/v1.3.18/>`_.
 
 .. toctree::
-    :maxdepth: 1
-    :caption: Pachyderm Enterprise Edition
+   :maxdepth: 2
+   :caption: QuickStart
 
-    enterprise/overview
-    enterprise/deployment
-    enterprise/auth
-    enterprise/stats
-    enterprise/s3gateway
+   getting_started/index.rst
+   fundamentals/index.rst
 
 .. toctree::
-    :maxdepth: 1
-    :caption: Deploy Pachyderm
+   :maxdepth: 2
+   :caption: Enterprise Edition
 
-    deployment/deploy_intro
-    deployment/google_cloud_platform
-    deployment/amazon_web_services
-    deployment/azure
-    deployment/openshift
-    deployment/on_premises
-    deployment/custom_object_stores
-    deployment/aws_cloudfront
-    deployment/upgrading
-    deployment/namespaces
-    deployment/rbac
-    deployment/deploy_troubleshooting
+   enterprise/index.rst
 
 .. toctree::
-    :maxdepth: 1
-    :caption: Manage Pachyderm
+   :maxdepth: 2
+   :caption: Admin Tasks
 
-    managing_pachyderm/autoscaling
-    managing_pachyderm/Batching_Pachyderm_with_Transactions
-    managing_pachyderm/data_management
-    managing_pachyderm/sharing_gpu_resources
-    managing_pachyderm/backup_restore
-    managing_pachyderm/upgrades_migrations
-    managing_pachyderm/general_troubleshooting
-    managing_pachyderm/pipeline_troubleshooting
+   deployment/index.rst
+   managing_pachyderm/index.rst
 
 .. toctree::
-    :maxdepth: 1
-    :caption: Full Examples
+   :maxdepth: 2
+   :caption: Cookbook and How-Tos
 
-    examples/examples
-    
+   cookbook/index.rst
+
 .. toctree::
-    :maxdepth: 1
-    :caption: Pachyderm Cookbook
+   :maxdepth: 1
+   :caption: Reference and APIs
 
-    cookbook/splitting
-    cookbook/combining
-    cookbook/example_developer_workflow
-    cookbook/cron
-    cookbook/ml
-    cookbook/time_windows
-    cookbook/ingressing_from_diff_cloud
-    cookbook/gpus
-    cookbook/deferred_processing
-    cookbook/vault
- 
-.. toctree::
-    :maxdepth: 2
-    :caption: Reference
-
-    reference/pipeline_spec
-    pachctl/pachctl
-    reference/clients
-    reference/s3gateway_api
-    
-
+   reference/pipeline_spec.md
+   reference/config_spec.md
+   reference/clients.md
+   reference/s3gateway_api.md
+   pachctl/index.rst
+   examples/examples.md
 

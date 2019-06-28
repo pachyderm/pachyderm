@@ -52,7 +52,7 @@ To complete this example, follow the steps below:
 1. Create a `users` repository by running:
 
    ```bash
-   pachctl create repo users
+   $ pachctl create repo users
    ```
 
 1. Create a file called `user_data.csv` with the
@@ -61,7 +61,7 @@ contents listed above.
 1. Put your `user_data.csv` file into Pachyderm and
 automatically split it into separate datums for each line:
 
-   ```
+   ```bash
    $ pachctl put file users@master -f user_data.csv --split line --target-file-datums 1
    ```
 
@@ -90,7 +90,7 @@ repository:
 the `user_data.csv` file, run the command with the file name
 specified after a colon:
 
-   ```
+   ```bash
    $ pachctl list file users@master:user_data.csv
    NAME                             TYPE                SIZE
    user_data.csv/0000000000000000   file                43 B
@@ -133,116 +133,81 @@ the split files.
   $ pachctl put file users@master -f user_data.txt --split line --target-file-bytes 100
   ```
 
-## Specifying a Header or Footer
+## Specifying a Header
 
-Additionally, if your data has a common header or footer, you can specify them
-manually by using `pachctl put-header` or `pachctl put-footer`. This
-functionality is helpful for CSV data.
+If your data has a common header, you can specify it
+manually by using `pachctl put file` with the `--header-records` flag.
+You can use this functionality with JSON and CSV data.
 
-To do this, you need to specify a header and footer in the
-`_parent directory_` of your data. By specifying a header or
-footer or both, you are embedding them into the directory. Then,
-Pachyderm applies that header or footer or both to all the files in
-that directory.
+To specify a header, complete the following steps:
 
-The example below demonstrates the splitting of a CSV file
-with a header and then setting the header explicitly.
-After you set the header, whenever you get a file under that directory,
-the header is applied. You can still use glob patterns to get all
-the data under the directory. In that case, the header is still applied.
-
-1. View a raw CSV file:
+1. Create a new or use an existing data file. For example, the `user_data.csv`
+from the section above with the following header:
 
    ```bash
-   $ cat users.csv
-
-   id,name,email
-   4,alice,aaa@place.com
-   7,bob,bbb@place.com
+   NUMBER,EMAIL,IP_ADDRESS
    ```
 
-1. Take the raw CSV data minus the header and split it into multiple
-files:
-
-   ``` bash
-   $ cat users.csv | tail -n +2 | pachctl put file bar@master:users --split line
-   Reading from stdin.
-   ```
-1. View the repository:
+1. Create a new repository or use an existing one:
 
    ```bash
-   $ pachctl list file bar@master
-   NAME  TYPE SIZE
-   users dir  42B
+   $ pachctl create repo users
+   ```
 
-1. View the detailed information about the file:
+1. Put your file into the repository by separating the header from
+other lines:
 
    ```bash
-   $ pachctl list file bar@master:users/
-   NAME                    TYPE SIZE
-   /users/0000000000000000 file 22B
-   /users/0000000000000001 file 20B
+   $ pachctl put file users@master -f user_data.csv --split=csv --header-records=1 --target-file-datums=1
    ```
-1. Read the file:
+
+1. Verify that the file was added and split:
 
    ```bash
-   $ pachctl get file bar@master:users/0000000000000000
-   4,alice,aaa@place.com
+   $ pachctl list file users@master:/user_data.csv
    ```
-   Before you set the header, you see raw data when you run `get file`.
 
-1. Apply a CSV header to the directory:
+   **Example:**
 
    ```bash
-   $ cat users.csv | head -n 1 | pachctl put-header bar master users
+   NAME                            TYPE SIZE
+   /user_data.csv/0000000000000000 file 70B
+   /user_data.csv/0000000000000001 file 66B
+   /user_data.csv/0000000000000002 file 64B
+   /user_data.csv/0000000000000003 file 61B
+   /user_data.csv/0000000000000004 file 62B
+   /user_data.csv/0000000000000005 file 68B
+   /user_data.csv/0000000000000006 file 59B
+   /user_data.csv/0000000000000007 file 59B
+   /user_data.csv/0000000000000008 file 71B
+   /user_data.csv/0000000000000009 file 65B
    ```
 
-1. Re-read the file:
+1. Get the first file from the repository:
 
    ```bash
-   $ pachctl get file bar@master:users/0000000000000000
-   id,name,email
-   4,alice,aaa@place.com
+   $ pachctl get file users@master:/user_data.csv/0000000000000000
+   NUMBER,EMAIL,IP_ADDRESS
+   1,cyukhtin0@stumbleupon.com,144.155.176.12
    ```
-
-   When you read an individual file now, you see the header and the contents.
-
-1. Run `get file` on the directory:
+1. Get all files:
 
    ```bash
-
-   $ pachctl get file bar@master:users
-   id,name,email
+   $ pachctl get file users@master:/user_data.csv/*
+   NUMBER,EMAIL,IP_ADDRESS
+   1,cyukhtin0@stumbleupon.com,144.155.176.12
+   2,csisneros1@over-blog.com,26.119.26.5
+   3,jeye2@instagram.com,13.165.230.106
+   4,rnollet3@hexun.com,58.52.147.83
+   5,bposkitt4@irs.gov,51.247.120.167
+   6,vvenmore5@hubpages.com,161.189.245.212
+   7,lcoyte6@ask.com,56.13.147.134
+   8,atuke7@psu.edu,78.178.247.163
+   9,nmorrell8@howstuffworks.com,28.172.10.170
+   10,afynn9@google.com.au,166.14.112.65
    ```
 
-   If you issue a 'get file' on the directory, it returns just the header or
-   footer, or both.
-
-1. Use the glob pattern flag to get the entire CSV file:
-
-   ```bash
-   $ pachctl get file bar@master:users/*
-   id,name,email
-   4,alice,aaa@place.com
-   7,bob,bbb@place.com
-   ```
-
-1. To delete the existing header, run the following command
-
-   ```bash
-   $ echo "" | pachctl put-header repo branch path -f -
-   ```
-
-1. Get the file after deleting the header:
-
-   ```
-   $ pachctl get file bar@master:users/*
-   4,alice,aaa@place.com
-   7,bob,bbb@place.com
-   ```
-
-For more information about operations with headers and footers,
-see `pachctl put-header --help`.
+For more information, type `pachctl put file --help`.
 
 ## Ingesting PostgresSQL data
 

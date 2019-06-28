@@ -36,7 +36,7 @@ func clients(t testing.TB) (*client.APIClient, *minio.Client) {
 	clientOnce.Do(func() {
 		var err error
 
-		pachClient, err = client.NewOnUserMachine(false, false, "user")
+		pachClient, err = client.NewForTest()
 		require.NoError(t, err)
 
 		minioClient, err = minio.NewV2("127.0.0.1:30600", "id", "secret", false)

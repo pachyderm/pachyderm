@@ -53,7 +53,7 @@ ACTIVE
 
 You can active Enterprise Edition directly in the dashboard. There's two ways to access the dashboard:
 
-1. If you set the `PACHD_ADDRESS` environment variable, simply point your browser to port 30080 on your kubernetes cluster's IP address.
+1. If you can directly connect, simply point your browser to port 30080 on your kubernetes cluster's IP address.
 2. You can enable port forwarding by calling `pachctl port-forward`, then point your browser to `localhost:30080`.
 
 When you first visit the dashboard, it will prompt you for your activation code:

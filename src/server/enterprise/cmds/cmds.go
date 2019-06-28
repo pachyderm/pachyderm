@@ -32,7 +32,7 @@ func parseISO8601(s string) (time.Time, error) {
 // Pachyderm within a Pachyderm cluster. All repos will go from
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
-func ActivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func ActivateCmd() *cobra.Command {
 	var expires string
 	activate := &cobra.Command{
 		Use: "{{alias}} <activation-code>",
@@ -41,7 +41,7 @@ func ActivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 		Long: "Activate the enterprise features of Pachyderm with an activation " +
 			"code",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
@@ -85,14 +85,14 @@ func ActivateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 // Pachyderm within a Pachyderm cluster. All repos will go from
 // publicly-accessible to accessible only by the owner, who can subsequently add
 // users
-func GetStateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
+func GetStateCmd() *cobra.Command {
 	getState := &cobra.Command{
 		Short: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Long: "Check whether the Pachyderm cluster has enterprise features " +
 			"activated",
 		Run: cmdutil.Run(func(args []string) error {
-			c, err := client.NewOnUserMachine(!*noMetrics, !*noPortForwarding, "user")
+			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return fmt.Errorf("could not connect: %s", err.Error())
 			}
@@ -119,7 +119,7 @@ func GetStateCmd(noMetrics, noPortForwarding *bool) *cobra.Command {
 }
 
 // Cmds returns pachctl commands related to Pachyderm Enterprise
-func Cmds(noMetrics, noPortForwarding *bool) []*cobra.Command {
+func Cmds() []*cobra.Command {
 	var commands []*cobra.Command
 
 	enterprise := &cobra.Command{
@@ -128,8 +128,8 @@ func Cmds(noMetrics, noPortForwarding *bool) []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateAlias(enterprise, "enterprise"))
 
-	commands = append(commands, ActivateCmd(noMetrics, noPortForwarding))
-	commands = append(commands, GetStateCmd(noMetrics, noPortForwarding))
+	commands = append(commands, ActivateCmd())
+	commands = append(commands, GetStateCmd())
 
 	return commands
 }
