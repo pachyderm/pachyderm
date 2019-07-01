@@ -218,7 +218,7 @@ into Pachyderm by running the `pachctl put file` with the
 `--split` flag.
 
 When you use `pachctl put file --split sql ...`, Pachyderm
-splits you `pgdump` file into three parts - the header, rows,
+splits your `pgdump` file into three parts - the header, rows,
 and the footer. The header contains all the SQL statements
 in the `pgdump` file that set up the schema and tables.
 The rows are split into individual files, or if you specify
