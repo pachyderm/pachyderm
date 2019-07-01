@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
@@ -1105,74 +1106,50 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				if err != nil {
 					return err
 				}
-
-				nI, oI := 0, 0
 				diffCmd := diffCommand(diffCmdArg)
-				for {
-					if nI == len(newFiles) && oI == len(oldFiles) {
-						break
-					}
-					if err := func() (retErr error) {
-						var nFI *pfsclient.FileInfo
-						var oFI *pfsclient.FileInfo
-						switch {
-						case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
-							nFI = newFiles[nI]
-							nI++
-						case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
-							oFI = oldFiles[oI]
-							oI++
-						case newFiles[nI].File.Path == oldFiles[oI].File.Path:
-							nFI = newFiles[nI]
-							nI++
-							oFI = oldFiles[oI]
-							oI++
+				return forEachDiffFile(newFiles, oldFiles, func(nFI, oFI *pfsclient.FileInfo) error {
+					if nameOnly {
+						if newFiles != nil {
+							pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
 						}
-						nPath, oPath := "/dev/null", "/dev/null"
-						if nFI != nil {
-							if nameOnly {
-								pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
-							} else {
-								nPath, err = dlFile(c, nFI.File)
-								if err != nil {
-									return err
-								}
-								defer func() {
-									if err := os.RemoveAll(nPath); err != nil && retErr == nil {
-										retErr = err
-									}
-								}()
-							}
-						}
-						if oFI != nil {
-							if nameOnly {
-								pretty.PrintDiffFileInfo(writer, false, oFI, fullTimestamps)
-							} else {
-								oPath, err = dlFile(c, oFI.File)
-								defer func() {
-									if err := os.RemoveAll(oPath); err != nil && retErr == nil {
-										retErr = err
-									}
-								}()
-							}
-						}
-						if nameOnly {
-							return nil
-						}
-						cmd := exec.Command(diffCmd[0], append(diffCmd[1:], oPath, nPath)...)
-						cmd.Stdout = w
-						cmd.Stderr = os.Stderr
-						// Diff returns exit code 1 when it finds differences
-						// between the files, so we catch it.
-						if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
-							return err
+						if oldFile != nil {
+							pretty.PrintDiffFileInfo(writer, false, oFI, fullTimestamps)
 						}
 						return nil
-					}(); err != nil {
+					}
+					nPath, oPath := "/dev/null", "/dev/null"
+					if nFI != nil {
+						nPath, err = dlFile(c, nFI.File)
+						if err != nil {
+							return err
+						}
+						defer func() {
+							if err := os.RemoveAll(nPath); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+					}
+					if oFI != nil {
+						oPath, err = dlFile(c, oFI.File)
+						defer func() {
+							if err := os.RemoveAll(oPath); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+					}
+					if nameOnly {
+						return nil
+					}
+					cmd := exec.Command(diffCmd[0], append(diffCmd[1:], oPath, nPath)...)
+					cmd.Stdout = w
+					cmd.Stderr = os.Stderr
+					// Diff returns exit code 1 when it finds differences
+					// between the files, so we catch it.
+					if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
 						return err
 					}
-				}
-				return nil
+					return nil
+				})
 			})
 		}),
 	}
@@ -1516,4 +1493,34 @@ func diffCommand(cmdArg string) []string {
 		return []string{"git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index"}
 	}
 	return []string{"diff"}
+}
+
+func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, oldFile *pfsclient.FileInfo) error) error {
+	nI, oI := 0, 0
+	for {
+		if nI == len(newFiles) && oI == len(oldFiles) {
+			return nil
+		}
+		var oFI *pfsclient.FileInfo
+		var nFI *pfsclient.FileInfo
+		switch {
+		case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
+			nFI = newFiles[nI]
+			nI++
+		case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
+			oFI = oldFiles[oI]
+			oI++
+		case newFiles[nI].File.Path == oldFiles[oI].File.Path:
+			nFI = newFiles[nI]
+			nI++
+			oFI = oldFiles[oI]
+			oI++
+		}
+		if err := f(nFI, oFI); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
 }
