@@ -370,7 +370,16 @@ func TestFuzz(t *testing.T) {
 	deleter := &fuzzDeleter{users: make(map[string]int)}
 	server := makeServer(t, deleter, metrics)
 	client := makeClient(t, server, metrics)
+	seed := time.Now().UTC().UnixNano()
+	seed = 1561162472664846205
+	rng := rand.New(rand.NewSource(seed))
 	clearData(t, client)
+
+	fmt.Printf("Fuzzer running with seed: %v\n", seed)
+	fmt.Printf("first 10 rng:\n")
+	for i := 0; i < 10; i++ {
+		fmt.Printf("  %d\n", rng.Intn(1000))
+	}
 
 	type jobData struct {
 		id     string
@@ -443,7 +452,7 @@ func TestFuzz(t *testing.T) {
 		if len(ids) == 0 {
 			return 0
 		}
-		return ids[rand.Intn(len(ids))]
+		return ids[rng.Intn(len(ids))]
 	}
 
 	unusedChunkID := func(lowerBound int) int {
@@ -460,7 +469,7 @@ func TestFuzz(t *testing.T) {
 	addRef := func() Reference {
 		var dest int
 		ref := Reference{}
-		roll := rand.Float32()
+		roll := rng.Float32()
 		if len(chunkRefs) == 0 || roll > 0.9 {
 			// Make a new chunk with a semantic reference
 			dest = unusedChunkID(0)
@@ -514,23 +523,26 @@ func TestFuzz(t *testing.T) {
 	var cleanupRef func(id int)
 	cleanupRef = func(id int) {
 		require.Equal(t, 0, len(chunkRefs[id]))
+
+		idStr := fmt.Sprintf("%d", id)
 		delete(chunkRefs, id)
 		freeChunkIDs = append(freeChunkIDs, id)
 
 		for recursiveID, refs := range chunkRefs {
-			idStr := fmt.Sprintf("%d", id)
 			i := 0
 			for _, ref := range refs {
 				if ref.Source != idStr {
 					refs[i] = ref
 					i++
+				} else {
+					fmt.Printf("removing chunk reference: %s/%s:%s\n", ref.Sourcetype, ref.Source, ref.Chunk.Hash)
 				}
 			}
 			refs = refs[:i]
 			chunkRefs[recursiveID] = refs
 
 			if len(refs) == 0 {
-				fmt.Printf("recursive cleanup %d\n", recursiveID)
+				fmt.Printf("recursively removing unreferenced chunk: %d\n", recursiveID)
 				cleanupRef(recursiveID)
 			}
 		}
@@ -541,14 +553,14 @@ func TestFuzz(t *testing.T) {
 			panic("no references to remove")
 		}
 
-		i := rand.Intn(len(chunkRefs))
+		i := rng.Intn(len(chunkRefs))
 		for k, v := range chunkRefs {
 			if i == 0 {
-				j := rand.Intn(len(v))
+				j := rng.Intn(len(v))
 				ref := v[j]
 				chunkRefs[k] = append(v[0:j], v[j+1:len(v)]...)
 				if len(chunkRefs[k]) == 0 {
-					fmt.Printf("cleanup %d\n", k)
+					fmt.Printf("removing unreferenced chunk: %d\n", k)
 					cleanupRef(k)
 				}
 				return ref
@@ -563,20 +575,22 @@ func TestFuzz(t *testing.T) {
 
 		for len(jd.add) == 0 && len(jd.remove) == 0 {
 			// Run random add/remove operations, only allow references to go from lower numbers to higher numbers to keep it acyclic
-			for rand.Float32() > 0.5 {
-				numAdds := rand.Intn(10)
+			for rng.Float32() > 0.5 {
+				numAdds := rng.Intn(10)
 				for i := 0; i < numAdds; i++ {
 					jd.add = append(jd.add, addRef())
 				}
 			}
 
-			for rand.Float32() > 0.6 {
-				numRemoves := rand.Intn(7)
+			for rng.Float32() > 0.6 {
+				numRemoves := rng.Intn(7)
 				for i := 0; i < numRemoves && len(chunkRefs) > 0; i++ {
 					jd.remove = append(jd.remove, removeRef())
 				}
 			}
 		}
+
+		fmt.Printf("job: %v\n", jd)
 
 		return jd
 	}
@@ -624,7 +638,7 @@ func TestFuzz(t *testing.T) {
 	}
 
 	numWorkers := 1
-	numJobs := 1000
+	numJobs := 10
 	// Occasionally halt all goroutines and check data consistency
 	for i := 0; i < 1; i++ {
 		jobChan := make(chan jobData, numJobs)
@@ -634,25 +648,6 @@ func TestFuzz(t *testing.T) {
 		}
 		close(jobChan)
 		require.NoError(t, eg.Wait())
-
-		// Prune any unreferenced chunks (since our job generation doesn't do this)
-		/*
-			referenced := make(map[int]bool)
-			for _, refs := range chunkRefs {
-				for _, ref := range refs {
-					target, err := strconv.ParseInt(ref.Chunk.Hash, 10, 64)
-					require.NoError(t, err)
-					referenced[int(target)] = true
-				}
-			}
-
-			for id := range chunkRefs {
-				if !referenced[id] {
-					fmt.Printf("removing unreferenced chunk: %d\n", id)
-					delete(chunkRefs, id)
-				}
-			}
-		*/
 
 		flushAllDeletes(server)
 		verifyData()
