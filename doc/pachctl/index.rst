@@ -24,6 +24,21 @@ This document describes Pachyderm Command Line Interface (CLI) tool
    pachctl_auth_use-auth-token.md
    pachctl_auth_whoami.md
    pachctl_completion.md
+   pachctl_config.md
+   pachctl_config_delete.md
+   pachctl_config_delete_context.md
+   pachctl_config_get.md
+   pachctl_config_get_active-context.md
+   pachctl_config_get_context.md
+   pachctl_config_get_metrics.md
+   pachctl_config_list.md
+   pachctl_config_list_context.md
+   pachctl_config_set.md
+   pachctl_config_set_active-context.md
+   pachctl_config_set_context.md
+   pachctl_config_set_metrics.md
+   pachctl_config_update.md
+   pachctl_config_update_context.md
    pachctl_copy.md
    pachctl_copy_file.md
    pachctl_create.md
