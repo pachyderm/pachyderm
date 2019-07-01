@@ -1055,6 +1055,7 @@ $ {{alias}} "foo@master:data/*"`,
 
 	var shallow bool
 	var nameOnly bool
+	var diffCmdArg string
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
 		Short: "Return a diff of two file trees.",
@@ -1106,6 +1107,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				}
 
 				nI, oI := 0, 0
+				diffCmd := diffCommand(diffCmdArg)
 				for {
 					if nI == len(newFiles) && oI == len(oldFiles) {
 						break
@@ -1157,7 +1159,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 						if nameOnly {
 							return nil
 						}
-						cmd := exec.Command("git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index", oPath, nPath)
+						cmd := exec.Command(diffCmd[0], append(diffCmd[1:], oPath, nPath)...)
 						cmd.Stdout = w
 						cmd.Stderr = os.Stderr
 						// Diff returns exit code 1 when it finds differences
@@ -1176,6 +1178,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 	}
 	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Don't descend into sub directories.")
 	diffFile.Flags().BoolVar(&nameOnly, "name-only", false, "Show only the names of changed files.")
+	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
 	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
 	diffFile.Flags().AddFlagSet(noPagerFlags)
 	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
@@ -1502,4 +1505,15 @@ func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr e
 		return "", err
 	}
 	return file.Name(), nil
+}
+
+func diffCommand(cmdArg string) []string {
+	if cmdArg != "" {
+		return strings.Fields(cmdArg)
+	}
+	_, err := exec.LookPath("git")
+	if err == nil {
+		return []string{"git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index"}
+	}
+	return []string{"diff"}
 }

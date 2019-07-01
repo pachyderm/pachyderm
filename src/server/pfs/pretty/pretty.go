@@ -180,9 +180,9 @@ func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withComm
 	fmt.Fprintf(w, "%s\t\n", units.BytesSize(float64(fileInfo.SizeBytes)))
 }
 
-// PrintDiffFileInfo pretty-prints a file info from
-func PrintDiffFileInfo(w io.Writer, new bool, fileInfo *pfs.FileInfo, fullTimestamps bool) {
-	if new {
+// PrintDiffFileInfo pretty-prints a file info from diff file.
+func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTimestamps bool) {
+	if added {
 		fmt.Fprintf(w, color.GreenString("+\t"))
 	} else {
 		fmt.Fprintf(w, color.RedString("-\t"))
