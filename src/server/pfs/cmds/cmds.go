@@ -1324,7 +1324,7 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
-			if overwrite {
+			if overwrite && reader != os.Stdin {
 				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
 			}
 			_, err := pfc.PutFile(repo, commit, path, reader)
