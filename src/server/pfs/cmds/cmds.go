@@ -1109,10 +1109,10 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 				diffCmd := diffCommand(diffCmdArg)
 				return forEachDiffFile(newFiles, oldFiles, func(nFI, oFI *pfsclient.FileInfo) error {
 					if nameOnly {
-						if newFiles != nil {
+						if nFI != nil {
 							pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
 						}
-						if oldFile != nil {
+						if oFI != nil {
 							pretty.PrintDiffFileInfo(writer, false, oFI, fullTimestamps)
 						}
 						return nil
@@ -1136,9 +1136,6 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 								retErr = err
 							}
 						}()
-					}
-					if nameOnly {
-						return nil
 					}
 					cmd := exec.Command(diffCmd[0], append(diffCmd[1:], oPath, nPath)...)
 					cmd.Stdout = w
