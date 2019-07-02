@@ -1331,6 +1331,10 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 			if overwrite && !pipe {
 				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
 			}
+			if overwrite {
+				_, err = pfc.PutFileOverwrite(repo, commit, path, reader, 0)
+				return err
+			}
 			_, err = pfc.PutFile(repo, commit, path, reader)
 			return err
 		}
