@@ -1,142 +1,102 @@
 package s3
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/base64"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/server/pkg/s3server"
+	"github.com/sirupsen/logrus"
 )
 
-type objectHandler struct {
-	pc *client.APIClient
+type objectController struct {
+	pc     *client.APIClient
+	logger *logrus.Entry
 }
 
-func newObjectHandler(pc *client.APIClient) *objectHandler {
-	return &objectHandler{pc: pc}
-}
+func (c objectController) Get(r *http.Request, bucket, file string, result *s3server.GetObjectResult) *s3server.S3Error {
+	repo, branch, s3Err := bucketArgs(r, bucket)
+	if s3Err != nil {
+		return s3Err
+	}
 
-func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r)
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+	branchInfo, err := c.pc.InspectBranch(repo, branch)
 	if err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+		return maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
-		noSuchKeyError(w, r)
-		return
+		return s3server.NoSuchKeyError(r)
 	}
 	if strings.HasSuffix(file, "/") {
-		invalidFilePathError(w, r)
-		return
+		return invalidFilePathError(r)
 	}
 
-	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
+	fileInfo, err := c.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+		return maybeNotFoundError(r, err)
 	}
 
 	timestamp, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		internalError(w, r, err)
-		return
+		return s3server.InternalError(r, err)
 	}
 
-	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", fileInfo.Hash))
-	reader, err := h.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
+	reader, err := c.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
-		internalError(w, r, err)
-		return
+		return s3server.InternalError(r, err)
 	}
 
-	http.ServeContent(w, r, file, timestamp, reader)
+	result.Name = file
+	result.Hash = fileInfo.Hash
+	result.ModTime = timestamp
+	result.Content = reader
+	return nil
 }
 
-func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r)
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) *s3server.S3Error {
+	repo, branch, s3Err := bucketArgs(r, bucket)
+	if s3Err != nil {
+		return s3Err
+	}
+
+	branchInfo, err := c.pc.InspectBranch(repo, branch)
 	if err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+		return maybeNotFoundError(r, err)
 	}
 	if strings.HasSuffix(file, "/") {
-		invalidFilePathError(w, r)
-		return
+		return invalidFilePathError(r)
 	}
 
-	expectedHash, ok := r.Header["Content-Md5"]
-	var expectedHashBytes []uint8
-	if ok && len(expectedHash) == 1 {
-		expectedHashBytes, err = base64.StdEncoding.DecodeString(expectedHash[0])
-		if err != nil || len(expectedHashBytes) != 16 {
-			invalidDigestError(w, r)
-			return
-		}
-	}
-
-	hasher := md5.New()
-	reader := io.TeeReader(r.Body, hasher)
-	success := false
-
-	_, err = h.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
+	_, err = c.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
-		internalError(w, r, err)
-		return
+		return s3server.InternalError(r, err)
 	}
 
-	defer func() {
-		// try to clean up the file if an error occurred
-		if !success {
-			if err = h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-				requestLogger(r).Errorf("could not cleanup file after an error: %v", err)
-			}
-		}
-	}()
-
-	actualHashBytes := hasher.Sum(nil)
-	if expectedHashBytes != nil && !bytes.Equal(expectedHashBytes, actualHashBytes) {
-		badDigestError(w, r)
-		return
-	}
-
-	fileInfo, err := h.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
-	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-
-	success = true
-	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", fileInfo.Hash))
-	w.WriteHeader(http.StatusOK)
+	return nil
 }
 
-func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
-	repo, branch, file := objectArgs(w, r)
-	branchInfo, err := h.pc.InspectBranch(repo, branch)
+func (c objectController) Del(r *http.Request, bucket, key string) *s3server.S3Error {
+	repo, branch, s3Err := bucketArgs(r, bucket)
+	if s3Err != nil {
+		return s3Err
+	}
+
+	branchInfo, err := c.pc.InspectBranch(repo, branch)
 	if err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+		return maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
-		noSuchKeyError(w, r)
-		return
+		return s3server.NoSuchKeyError(r)
 	}
-	if strings.HasSuffix(file, "/") {
-		invalidFilePathError(w, r)
-		return
+	if strings.HasSuffix(key, "/") {
+		return invalidFilePathError(r)
 	}
 
-	if err := h.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
-		maybeNotFoundError(w, r, err)
-		return
+	if err := c.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, key); err != nil {
+		return maybeNotFoundError(r, err)
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	return nil
 }

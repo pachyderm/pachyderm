@@ -3,57 +3,40 @@ package s3
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/sirupsen/logrus"
+
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/server/pkg/s3server"
 )
 
-// ListAllMyBucketsResult is an XML-encodable listing of repos as buckets
-type ListAllMyBucketsResult struct {
-	Owner   User     `xml:"Owner"`
-	Buckets []Bucket `xml:"Buckets>Bucket"`
+type rootController struct {
+	pc     *client.APIClient
+	logger *logrus.Entry
 }
 
-// Bucket is an XML-encodable repo, represented as an S3 bucket
-type Bucket struct {
-	Name         string    `xml:"Name"`
-	CreationDate time.Time `xml:"CreationDate"`
-}
+func (c rootController) List(r *http.Request, result *s3server.ListAllMyBucketsResult) *s3server.S3Error {
+	result.Owner = defaultUser
 
-type rootHandler struct {
-	pc *client.APIClient
-}
-
-func newRootHandler(pc *client.APIClient) rootHandler {
-	return rootHandler{pc: pc}
-}
-
-func (h rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	repos, err := h.pc.ListRepo()
+	repos, err := c.pc.ListRepo()
 	if err != nil {
-		internalError(w, r, err)
-		return
-	}
-
-	result := ListAllMyBucketsResult{
-		Owner: defaultUser,
+		return s3server.InternalError(r, err)
 	}
 
 	for _, repo := range repos {
 		t, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
-			internalError(w, r, err)
-			return
+			return s3server.InternalError(r, err)
 		}
 
 		for _, branch := range repo.Branches {
-			result.Buckets = append(result.Buckets, Bucket{
+			result.Buckets = append(result.Buckets, s3server.Bucket{
 				Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
 				CreationDate: t,
 			})
 		}
 	}
 
-	writeXML(w, r, http.StatusOK, &result)
+	return nil
 }

@@ -529,9 +529,6 @@ test-s3gateway-integration:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
 
-test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
-	./etc/testing/s3gateway/conformance.py
-
 test-fuse:
 	CGOENABLED=0 GO15VENDOREXPERIMENT=1 go test -cover $$(go list ./src/server/... | grep -v '/src/server/vendor/' | grep '/src/server/pfs/fuse')
 
