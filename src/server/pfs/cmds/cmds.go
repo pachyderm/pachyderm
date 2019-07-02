@@ -1324,10 +1324,14 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
-			if overwrite && reader != os.Stdin {
+			pipe, err := isPipe(reader)
+			if err != nil {
+				return err
+			}
+			if overwrite && !pipe {
 				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
 			}
-			_, err := pfc.PutFile(repo, commit, path, reader)
+			_, err = pfc.PutFile(repo, commit, path, reader)
 			return err
 		}
 
@@ -1417,4 +1421,16 @@ func joinPaths(prefix, filePath string) string {
 		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)
+}
+
+func isPipe(r io.ReadSeeker) (bool, error) {
+	file, ok := r.(*os.File)
+	if !ok {
+		return false, nil
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return false, err
+	}
+	return fi.Mode()&os.ModeNamedPipe != 0, nil
 }
