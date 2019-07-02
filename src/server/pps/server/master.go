@@ -102,7 +102,7 @@ func (a *apiServer) master() {
 					pipeline := string(event.Key)
 					// Create/Modify/Delete pipeline resources as needed per new state
 					if err := a.step(pachClient, pipeline, event.Ver, event.Rev); err != nil {
-						log.Errorf("PPS master: error stepping %q: %v", pipeline, err)
+						log.Errorf("PPS master: %v", err)
 					}
 				}
 			case event := <-watchChan:

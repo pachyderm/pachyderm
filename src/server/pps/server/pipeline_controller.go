@@ -51,12 +51,15 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 	// Retrieve pipelineInfo from the spec repo
 	op, err := a.newPipelineOp(pachClient, pipeline)
 	if err != nil {
+		// op is nil, so can't use op.failPipeline
+		log.Errorf("PPS master: failing pipeline %q as its op couldn't be initialized: %v", pipeline, err)
 		return a.setPipelineFailure(pachClient.Ctx(), pipeline,
 			fmt.Sprintf("couldn't initialize pipeline op: %v", err))
 	}
 	// set op.rc
+	// TODO(msteffen) should this fail the pipeline?)
 	if err := op.getRC(); err != nil && err != errRCNotFound {
-		return err
+		return op.restartPipeline(fmt.Sprintf("couldn't retrieve pipeline RC: %v", err))
 	}
 
 	// Handle tracing
@@ -66,8 +69,8 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		"mod-revision", keyRev,
 		"state", op.ptr.State.String(),
 		"spec-commit", op.ptr.SpecCommit)
-	defer tracing.FinishAnySpan(span)
 	if span != nil {
+		defer tracing.FinishAnySpan(span)
 		pachClient = pachClient.WithCtx(ctx)
 	}
 
@@ -76,9 +79,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 	case pps.PipelineState_PIPELINE_STARTING, pps.PipelineState_PIPELINE_RESTARTING:
 		if op.rc != nil && !op.rcIsFresh() {
 			// old RC is not down yet
-			log.Errorf("PPS master: restarting %q as it has an out-of-date RC", op.name)
-			op.restartPipeline()
-			return nil // step() will be called again after etcd write
+			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		} else if op.rc == nil {
 			// default: old RC (if any) is down but new RC is not up yet
 			if err := op.createPipelineResources(); err != nil {
@@ -97,8 +98,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		}
 	case pps.PipelineState_PIPELINE_RUNNING:
 		if !op.rcIsFresh() {
-			op.restartPipeline()
-			return nil // step() will be called again after etcd write
+			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
 		op.startPipelineMonitor()
 
@@ -114,9 +114,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 		return op.scaleUpPipeline()
 	case pps.PipelineState_PIPELINE_STANDBY, pps.PipelineState_PIPELINE_PAUSED:
 		if !op.rcIsFresh() {
-			log.Errorf("PPS master: restarting %q as its RC is missing or stale", op.name)
-			op.restartPipeline()
-			return nil // step() will be called again after etcd write
+			return op.restartPipeline("stale RC") // step() will be called again after etcd write
 		}
 		op.startPipelineMonitor()
 
@@ -160,14 +158,14 @@ func (a *apiServer) newPipelineOp(pachClient *client.APIClient, pipeline string)
 
 // getPipelineInfo reads the pipelineInfo associated with 'op's pipeline. This
 // should be one of the first calls made on 'op', as most other methods (e.g.
-// getRC, though not setPipelineFailure) assume that op.pipelineInfo is set.
+// getRC, though not failPipeline) assume that op.pipelineInfo is set.
 //
 // Like other functions in this file, it takes responsibility for failing op's
 // pipeline if it can't read the pipeline's info, and then returns an error to
 // the caller to indicate that the caller shouldn't continue.
 func (op *pipelineOp) getPipelineInfo() error {
 	var errCount int
-	if err := backoff.RetryNotify(func() error {
+	return backoff.RetryNotify(func() error {
 		return op.apiServer.sudo(op.pachClient, func(superUserClient *client.APIClient) error {
 			var err error
 			op.pipelineInfo, err = ppsutil.GetPipelineInfo(superUserClient, op.ptr)
@@ -175,16 +173,13 @@ func (op *pipelineOp) getPipelineInfo() error {
 		})
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
-			return fmt.Errorf("error retrieving spec for %q after %d attempts: %v",
-				op.name, maxErrCount, err)
+			// don't restart PPS master, which might not fix the problem (crashloop)
+			return op.failPipeline(fmt.Sprintf("error retrieving spec for %q after %d attempts: %v",
+				op.name, maxErrCount, err))
 		}
 		log.Errorf("PPS master: error retrieving spec for %q: %v; retrying in %v", op.name, err, d)
 		return nil
-	}); err != nil {
-		// don't restart PPS master, which might not fix the problem (crashloop)
-		op.setPipelineFailure(fmt.Sprintf("pipeline spec commit could not be read: %v", err))
-	}
-	return nil
+	})
 }
 
 // getRC reads the RC associated with 'op's pipeline. op.pipelineInfo must be
@@ -195,11 +190,6 @@ func (op *pipelineOp) getPipelineInfo() error {
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
 func (op *pipelineOp) getRC() (retErr error) {
-	defer func() {
-		if retErr != nil {
-			log.Infof("PPS master: could not retrieve RC for %q: %v", op.name, retErr)
-		}
-	}()
 	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
 		"/pps.Master/GetRC", "pipeline", op.name)
 	defer func(span opentracing.Span) {
@@ -214,8 +204,8 @@ func (op *pipelineOp) getRC() (retErr error) {
 
 	// count error types separately, so that this only errors if the pipeline is
 	// stuck and not changing
-	var notFoundErrCount, staleErrCount, tooManyErrCount int
-	backoff.RetryNotify(func() error {
+	var notFoundErrCount, staleErrCount, tooManyErrCount, otherErrCount int
+	return backoff.RetryNotify(func() error {
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
 		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
 		if err != nil && !isNotFoundErr(err) {
@@ -233,33 +223,23 @@ func (op *pipelineOp) getRC() (retErr error) {
 			return nil
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		errCount := notFoundErrCount + staleErrCount + tooManyErrCount
 		switch err {
 		case errRCNotFound:
-			if notFoundErrCount++; notFoundErrCount < maxErrCount {
-				err = nil
-			}
+			notFoundErrCount++
 		case errTooManyRCs:
-			if tooManyErrCount++; tooManyErrCount < maxErrCount {
-				err = nil
-			}
+			tooManyErrCount++
 		case errStaleRC:
-			if staleErrCount++; staleErrCount < maxErrCount {
-				err = nil
-			}
+			staleErrCount++
 		default:
-			err = nil
+			otherErrCount++
 		}
-		if err != nil {
-			log.Errorf("PPS master: restarting %q after %d attempts to retrieve an RC: %v",
-				op.name, errCount+1, err)
-			op.restartPipeline()
-			return err
+		errCount := notFoundErrCount + staleErrCount + tooManyErrCount + otherErrCount
+		if errCount >= maxErrCount {
+			return op.restartPipeline(fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
 		}
 		log.Errorf("PPS master: error retrieving RC for %q: %v; retrying in %v", op.name, err, d)
 		return nil
 	})
-	return nil
 }
 
 // rcIsFresh returns a boolean indicating whether op.rc has the right labels
@@ -304,54 +284,11 @@ func (op *pipelineOp) setPipelineState(state pps.PipelineState) error {
 		return op.apiServer.setPipelineState(op.pachClient, op.pipelineInfo, state, "")
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		if errCount++; errCount >= maxErrCount {
-			log.Errorf("PPS master: could not set pipeline state for %q to %v: %v "+
+			return fmt.Errorf("could not set pipeline state for %q to %v: %v "+
 				"(you may need to restart pachd to un-stick the pipeline)", op.name, state, err)
-			return err
 		}
 		return nil
 	})
-}
-
-// restartPipeline deletes the RC/service associated with op's pipeline, and
-// then sets its state to RESTARTING so they can be recreated (e.g. if they're
-// out of date or missing).
-//
-// Like other functions in this file, restartPipeline takes responsibility for
-// retrying and eventually failing op's pipeline if restartPipeline can't
-// restart it. Other functions return an error to the caller to indicate that
-// the caller shouldn't proceed with further operations, but restartPipeline
-// should always be the last call in a codepath and logs its own errors, so it
-// returns nothing.
-func (op *pipelineOp) restartPipeline() {
-	log.Infof("PPS master: restarting pipeline %q", op.name)
-	var errCount int
-	if err := backoff.RetryNotify(func() error {
-		if err := op.deletePipelineResources(); err != nil {
-			return err
-		}
-		return op.setPipelineState(pps.PipelineState_PIPELINE_RESTARTING)
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		if errCount++; errCount >= maxErrCount {
-			return err
-		}
-		log.Errorf("PPS master: error restarting pipeline %q: %v; retrying in %v", op.name, err, d)
-		return nil
-	}); err != nil {
-		op.setPipelineFailure(fmt.Sprintf("could not restart after %d attempts: %v", errCount, err))
-		log.Errorf("PPS master: failing pipeline %q after %d attempts to restart: %v",
-			op.name, errCount, err)
-	}
-}
-
-// setPipelineFailure fails op's pipeline. Don't return an error, as the caller
-// is likely in the middle of failing due to some other error, so there's no
-// sane handling to be done here but log. Also, this must not use
-// op.pipelineInfo, as getPipelineInfo may call setPipelineFailure in its error
-// case.
-func (op *pipelineOp) setPipelineFailure(reason string) {
-	if err := op.apiServer.setPipelineFailure(op.pachClient.Ctx(), op.name, reason); err != nil {
-		log.Errorf("PPS master: error failing pipeline %q: %v", op.name, err)
-	}
 }
 
 // createPipelineResources creates the RC and any services for op's pipeline.
@@ -370,13 +307,10 @@ func (op *pipelineOp) createPipelineResources() error {
 		switch {
 		case invalidOpts:
 			// these errors indicate invalid pipelineInfo
-			op.setPipelineFailure(fmt.Sprintf("could not generate RC options: %v", err))
-			return fmt.Errorf("could not generate RC options from pipeline info for %q: %v", op.name, err)
+			return op.failPipeline(fmt.Sprintf("could not generate RC options: %v", err))
 		case errCount >= maxErrCount:
-			op.setPipelineFailure(fmt.Sprintf(
-				"failed to create RC & services after %d attempts: %v", errCount, err))
-			return fmt.Errorf("could not create resources for pipeline %q after %d attempts: %v",
-				op.name, errCount, err)
+			return op.failPipeline(fmt.Sprintf(
+				"failed to create RC/service after %d attempts: %v", errCount, err))
 		default:
 			log.Errorf("PPS master: error creating resources for pipeline %q: %v; retrying in %v",
 				op.name, err, d)
@@ -468,7 +402,7 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 //   the pipeline will be failed. If the pipeline's resources still can't be
 //   deleted, then (per step() above) the error will be logged and the PPS
 //   master will move on
-func (op *pipelineOp) deletePipelineResources() (retErr error) {
+func (op *pipelineOp) deletePipelineResources() error {
 	return op.apiServer.deletePipelineResources(op.pachClient.Ctx(), op.name)
 }
 
@@ -504,11 +438,8 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 				return err // getRC will log & restart pipeline--just don't proceed
 			}
 		} else if errCount >= maxErrCount {
-			op.setPipelineFailure(fmt.Sprintf("failed to update RC after %d attempts: %v",
+			return op.failPipeline(fmt.Sprintf("failed to update RC after %d attempts: %v",
 				errCount, err))
-			log.Errorf("PPS master: failing pipeline %q after %d failed attempts to update RC: %v",
-				op.name, errCount, err)
-			return fmt.Errorf("failed to update RC for %q after %d attempts: %v", op.name, errCount, err)
 		}
 		log.Errorf("PPS master: error updating RC for pipeline %q: %v; retrying in %v", op.name, err, d)
 		return nil
@@ -573,4 +504,55 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 		}
 		rc.Spec.Replicas = &zero
 	})
+}
+
+// restartPipeline deletes the RC/service associated with op's pipeline, and
+// then sets its state to RESTARTING so they can be recreated (e.g. if they're
+// out of date or missing). restartPipeline is an error-handling codepath, so
+// it's guaranteed to return an error (typically wrapping 'reason', though if
+// the restart process fails that error will take precendence) so that callers
+// can use it like so:
+//
+// if errorState {
+//   return op.restartPipeline("entered error state")
+// }
+//
+// Like other functions in this file, restartPipeline takes responsibility for
+// retrying and eventually failing op's pipeline if restartPipeline can't
+// restart it.
+func (op *pipelineOp) restartPipeline(reason string) error {
+	var errCount int
+	if err := backoff.RetryNotify(func() error {
+		if err := op.deletePipelineResources(); err != nil {
+			return err
+		}
+		return op.setPipelineState(pps.PipelineState_PIPELINE_RESTARTING)
+	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		if errCount++; errCount >= maxErrCount {
+			return err
+		}
+		log.Errorf("PPS master: error restarting pipeline %q: %v; retrying in %v", op.name, err, d)
+		return nil
+	}); err != nil {
+		return op.failPipeline(fmt.Sprintf("could not restart after %d attempts: %v", errCount, err))
+	}
+	return fmt.Errorf("restarting pipeline %q: %v", op.name, reason)
+}
+
+// failPipeline fails op's pipeline. failPipeline is an error-handling codepath,
+// so it's guaranteed to return an error (typically wrapping 'reason', though if
+// the restart process fails that error will take precendence) so that callers
+// can use it like so:
+//
+// if errorState {
+//   return op.failPipeline("entered error state")
+// }
+//
+// Like other functions in this file, failPipeline takes responsibility for
+// retrying.
+func (op *pipelineOp) failPipeline(reason string) error {
+	if err := op.apiServer.setPipelineFailure(op.pachClient.Ctx(), op.name, reason); err != nil {
+		return fmt.Errorf("error failing pipeline %q: %v", op.name, err)
+	}
+	return fmt.Errorf("failing pipeline %q: %v", op.name, reason)
 }
