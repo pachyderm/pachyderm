@@ -1,4 +1,4 @@
-# Spout Pipeline
+# Spout
 
 A spout pipeline is a type of pipeline that processes
 streaming data that is continuously generated from
@@ -19,11 +19,11 @@ process it.
 One main difference from regular pipelines is that
 you cannot specify input in the spout pipeline.
 
-Another important aspect is that in spouts `pfs/out` is
+Another important aspect is that in spouts, `pfs/out` is
 a *named pipeline*, or *First in, First Out* (FIFO), and is not
 a directory like in standard pipelines. Unlike
 the traditional and familiar to most Linux users
-pipe, a *named pipe* enables two system processes to access the
+pipe, a *named pipe* enables two system processes to access
 the pipe simultaneously and gives one of the processes read-only and the other
 process write-only access. Therefore, the two processes can simultaneously
 read and write to the same pipe.
@@ -48,14 +48,13 @@ parameters:
 | ----------- | ----------- |
 | `name`      | The name of your data pipeline and the output repository. You can set an <br> arbitrary name that is meaningful to the code you want to run. |
 | `transform` | Specifies a code that you want to run against your data, such as a Python <br> or Go script and a Docker image that you want to use to run that script. |
-| `env`       | Information required to connect to the source of the streaming data, <br> such as hostname and port. For each streaming data source, these parameters might vary. <br> For example, if you are configuring Apache Kafka, you need to specify `topic`.  |
 | `overwrite` | Specifies whether to overwrite the existing content of the file <br> from previous commits or previous calls to the `put file` command <br> within this commit. The default value is `false`. |
 
 The following text is an example of a minimum specification:
 
 **Note:** The `env` property is an optional argument. You can define
 your data stream source from within the container in which you run
-your script. For simplicity, in this example `env` specifies the
+your script. For simplicity, in this example, `env` specifies the
 source of the Kafka host.
 
 ```
