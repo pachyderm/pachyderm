@@ -69,7 +69,7 @@ func (h *S3) Router(logger *logrus.Entry) *mux.Router {
 	}
 
 	router := mux.NewRouter()
-	router.Methods("GET", "HEAD").HandlerFunc(rootHandler.get)
+	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(rootHandler.get)
 
 	// Bucket-related routes. Repo validation regex is the same that the aws
 	// cli uses. There's two routers - one with a trailing a slash and one
@@ -77,13 +77,13 @@ func (h *S3) Router(logger *logrus.Entry) *mux.Router {
 	// the same as `/foo/`. This is used instead of mux's builtin "strict
 	// slash" functionality, because that uses redirects which doesn't always
 	// play nice with s3 clients.
-	trailingSlashBucketRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}/`).Subrouter()
+	trailingSlashBucketRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}/`).Subrouter()
 	attachBucketRoutes(logger, trailingSlashBucketRouter, bucketHandler)
-	bucketRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}`).Subrouter()
+	bucketRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}`).Subrouter()
 	attachBucketRoutes(logger, bucketRouter, bucketHandler)
 
 	// object-related routes
-	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}/{key:.+}`).Subrouter()
+	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}/{key:.+}`).Subrouter()
 
 	objectRouter.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(NotImplementedEndpoint(logger))
 	objectRouter.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(NotImplementedEndpoint(logger))

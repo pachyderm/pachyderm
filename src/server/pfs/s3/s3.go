@@ -74,7 +74,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 			w.Header().Set("x-amz-request-id", requestID)
 
 			// Log that a request was made
-			logger.Debugf("http request: %s %s", r.Method, r.RequestURI)
+			logger.Infof("http request: %s %s", r.Method, r.RequestURI)
 
 			// Ensure enterprise is enabled
 			now := time.Now()
