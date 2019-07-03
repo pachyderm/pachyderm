@@ -40,6 +40,26 @@ func attachBucketRoutes(logger *logrus.Entry, router *mux.Router, handler *bucke
 	router.Methods("DELETE").HandlerFunc(handler.del)
 }
 
+func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objectHandler) {
+	router.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("GET", "PUT").Queries("retention", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("GET").Queries("torrent", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("POST").Queries("restore", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("POST").Queries("select", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("POST").Queries("uploads", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("POST").Queries("uploadId", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("PUT").Queries("uploadId", "").HandlerFunc(NotImplementedEndpoint(logger))
+	router.Methods("DELETE").Queries("uploadId", "").HandlerFunc(NotImplementedEndpoint(logger))
+
+	router.Methods("GET", "HEAD").HandlerFunc(handler.get)
+	router.Methods("PUT").HandlerFunc(handler.put)
+	router.Methods("DELETE").HandlerFunc(handler.del)
+}
+
 type S3 struct {
 	Root   RootController
 	Bucket BucketController
@@ -82,26 +102,9 @@ func (h *S3) Router(logger *logrus.Entry) *mux.Router {
 	bucketRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}`).Subrouter()
 	attachBucketRoutes(logger, bucketRouter, bucketHandler)
 
-	// object-related routes
+	// Object-related routes
 	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}/{key:.+}`).Subrouter()
-
-	objectRouter.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("GET", "PUT").Queries("retention", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("GET").Queries("torrent", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("POST").Queries("restore", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("POST").Queries("select", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("POST").Queries("uploads", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("POST").Queries("uploadId", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("PUT").Queries("uploadId", "").HandlerFunc(NotImplementedEndpoint(logger))
-	objectRouter.Methods("DELETE").Queries("uploadId", "").HandlerFunc(NotImplementedEndpoint(logger))
-
-	objectRouter.Methods("GET", "HEAD").HandlerFunc(objectHandler.get)
-	objectRouter.Methods("PUT").HandlerFunc(objectHandler.put)
-	objectRouter.Methods("DELETE").HandlerFunc(objectHandler.del)
+	attachObjectRoutes(logger, objectRouter, objectHandler)
 
 	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger.Infof("method not allowed: %s %s", r.Method, r.URL.Path)
