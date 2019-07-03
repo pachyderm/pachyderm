@@ -86,7 +86,7 @@ func (c bucketController) List(r *http.Request, bucket string, result *s3server.
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
 	}
 
-	if err = c.pc.GlobFileF(result.Name, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	if err = c.pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
