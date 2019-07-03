@@ -2,6 +2,7 @@ package s3server
 
 import (
 	"encoding/xml"
+	"fmt"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -11,6 +12,7 @@ import (
 func writeXML(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, code int, v interface{}) {
 	w.Header().Set("Content-Type", "application/xml")
 	w.WriteHeader(code)
+	fmt.Fprintf(w, xml.Header)
 	encoder := xml.NewEncoder(w)
 	if err := encoder.Encode(v); err != nil {
 		// just log a message since a response has already been partially
