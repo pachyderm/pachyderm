@@ -336,7 +336,7 @@ func TestLargeObjects(t *testing.T) {
 
 	// now try putting into a legit repo
 	// NOTE: `FPutObject` will try to use multipart uploads since the file
-	// size is over 65mb. Because the s3gateway returns that
+	// size is over 64mb. Because the s3gateway returns that
 	// multipart-related endpoints are not implemented, minio gracefully
 	// degrades to a standard put object operation. When a standard put
 	// operation is performed, `FPutObject` will return no error assuming
