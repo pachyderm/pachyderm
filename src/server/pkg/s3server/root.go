@@ -20,12 +20,12 @@ type Bucket struct {
 }
 
 type RootController interface {
-	List(r *http.Request, result *ListAllMyBucketsResult) *S3Error
+	List(r *http.Request, result *ListAllMyBucketsResult) *Error
 }
 
 type UnimplementedRootController struct{}
 
-func (c UnimplementedRootController) List(r *http.Request, result *ListAllMyBucketsResult) *S3Error {
+func (c UnimplementedRootController) List(r *http.Request, result *ListAllMyBucketsResult) *Error {
 	return NotImplementedError(r)
 }
 

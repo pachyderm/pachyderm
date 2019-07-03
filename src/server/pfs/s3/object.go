@@ -16,7 +16,7 @@ type objectController struct {
 	logger *logrus.Entry
 }
 
-func (c objectController) Get(r *http.Request, bucket, file string, result *s3server.GetObjectResult) *s3server.S3Error {
+func (c objectController) Get(r *http.Request, bucket, file string, result *s3server.GetObjectResult) *s3server.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -55,7 +55,7 @@ func (c objectController) Get(r *http.Request, bucket, file string, result *s3se
 	return nil
 }
 
-func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) *s3server.S3Error {
+func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) *s3server.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -77,7 +77,7 @@ func (c objectController) Put(r *http.Request, bucket, file string, reader io.Re
 	return nil
 }
 
-func (c objectController) Del(r *http.Request, bucket, key string) *s3server.S3Error {
+func (c objectController) Del(r *http.Request, bucket, key string) *s3server.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err

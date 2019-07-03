@@ -43,7 +43,7 @@ type bucketController struct {
 	logger *logrus.Entry
 }
 
-func (c bucketController) GetLocation(r *http.Request, bucket string, result *s3server.LocationConstraint) *s3server.S3Error {
+func (c bucketController) GetLocation(r *http.Request, bucket string, result *s3server.LocationConstraint) *s3server.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -58,7 +58,7 @@ func (c bucketController) GetLocation(r *http.Request, bucket string, result *s3
 	return nil
 }
 
-func (c bucketController) List(r *http.Request, bucket string, result *s3server.ListBucketResult) *s3server.S3Error {
+func (c bucketController) List(r *http.Request, bucket string, result *s3server.ListBucketResult) *s3server.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -152,7 +152,7 @@ func (c bucketController) List(r *http.Request, bucket string, result *s3server.
 	return nil
 }
 
-func (c bucketController) Create(r *http.Request, bucket string) *s3server.S3Error {
+func (c bucketController) Create(r *http.Request, bucket string) *s3server.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -185,7 +185,7 @@ func (c bucketController) Create(r *http.Request, bucket string) *s3server.S3Err
 	return nil
 }
 
-func (c bucketController) Delete(r *http.Request, bucket string) *s3server.S3Error {
+func (c bucketController) Delete(r *http.Request, bucket string) *s3server.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err

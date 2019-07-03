@@ -21,22 +21,22 @@ type GetObjectResult struct {
 }
 
 type ObjectController interface {
-	Get(r *http.Request, bucket, key string, result *GetObjectResult) *S3Error
-	Put(r *http.Request, bucket, key string, reader io.Reader) *S3Error
-	Del(r *http.Request, bucket, key string) *S3Error
+	Get(r *http.Request, bucket, key string, result *GetObjectResult) *Error
+	Put(r *http.Request, bucket, key string, reader io.Reader) *Error
+	Del(r *http.Request, bucket, key string) *Error
 }
 
 type UnimplementedObjectController struct{}
 
-func (c UnimplementedObjectController) Get(r *http.Request, bucket, key string, result *GetObjectResult) *S3Error {
+func (c UnimplementedObjectController) Get(r *http.Request, bucket, key string, result *GetObjectResult) *Error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedObjectController) Put(r *http.Request, bucket, key string, reader io.Reader) *S3Error {
+func (c UnimplementedObjectController) Put(r *http.Request, bucket, key string, reader io.Reader) *Error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedObjectController) Del(r *http.Request, bucket, key string) *S3Error {
+func (c UnimplementedObjectController) Del(r *http.Request, bucket, key string) *Error {
 	return NotImplementedError(r)
 }
 

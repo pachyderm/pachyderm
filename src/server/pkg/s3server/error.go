@@ -7,7 +7,7 @@ import (
 )
 
 // Error is an XML-encodable error response
-type S3Error struct {
+type Error struct {
 	r          *http.Request `xml:"-"`
 	httpStatus int           `xml:"-"`
 	Code       string        `xml:"Code"`
@@ -16,8 +16,8 @@ type S3Error struct {
 	RequestID  string        `xml:"RequestId"`
 }
 
-func NewS3Error(r *http.Request, httpStatus int, code string, message string) *S3Error {
-	return &S3Error{
+func NewError(r *http.Request, httpStatus int, code string, message string) *Error {
+	return &Error{
 		r:          r,
 		httpStatus: httpStatus,
 		Code:       code,
@@ -27,54 +27,54 @@ func NewS3Error(r *http.Request, httpStatus int, code string, message string) *S
 	}
 }
 
-func (e *S3Error) Write(logger *logrus.Entry, w http.ResponseWriter) {
+func (e *Error) Write(logger *logrus.Entry, w http.ResponseWriter) {
 	writeXML(logger, w, e.r, e.httpStatus, e)
 }
 
-func BadDigestError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.")
+func BadDigestError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.")
 }
 
-func BucketNotEmptyError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusConflict, "BucketNotEmpty", "The bucket you tried to delete is not empty.")
+func BucketNotEmptyError(r *http.Request) *Error {
+	return NewError(r, http.StatusConflict, "BucketNotEmpty", "The bucket you tried to delete is not empty.")
 }
 
-func BucketAlreadyOwnedByYouError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusConflict, "BucketAlreadyOwnedByYou", "The bucket you tried to create already exists, and you own it.")
+func BucketAlreadyOwnedByYouError(r *http.Request) *Error {
+	return NewError(r, http.StatusConflict, "BucketAlreadyOwnedByYou", "The bucket you tried to create already exists, and you own it.")
 }
 
-func InternalError(r *http.Request, err error) *S3Error {
-	return NewS3Error(r, http.StatusInternalServerError, "InternalError", err.Error())
+func InternalError(r *http.Request, err error) *Error {
+	return NewError(r, http.StatusInternalServerError, "InternalError", err.Error())
 }
 
-func InvalidBucketNameError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusBadRequest, "InvalidBucketName", "The specified bucket is not valid.")
+func InvalidBucketNameError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "InvalidBucketName", "The specified bucket is not valid.")
 }
 
-func InvalidArgument(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusBadRequest, "InvalidArgument", "Invalid Argument")
+func InvalidArgument(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "InvalidArgument", "Invalid Argument")
 }
 
-func InvalidDigestError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusBadRequest, "InvalidDigest", "The Content-MD5 you specified is not valid.")
+func InvalidDigestError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "InvalidDigest", "The Content-MD5 you specified is not valid.")
 }
 
-func MalformedXMLError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or would not validate against S3's published schema.")
+func MalformedXMLError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "MalformedXML", "The XML you provided was not well-formed or would not validate against S3's published schema.")
 }
 
-func MethodNotAllowedError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.")
+func MethodNotAllowedError(r *http.Request) *Error {
+	return NewError(r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.")
 }
 
-func NoSuchBucketError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
+func NoSuchBucketError(r *http.Request) *Error {
+	return NewError(r, http.StatusNotFound, "NoSuchBucket", "The specified bucket does not exist.")
 }
 
-func NoSuchKeyError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.")
+func NoSuchKeyError(r *http.Request) *Error {
+	return NewError(r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.")
 }
 
-func NotImplementedError(r *http.Request) *S3Error {
-	return NewS3Error(r, http.StatusNotImplemented, "NotImplemented", "This functionality is not implemented.")
+func NotImplementedError(r *http.Request) *Error {
+	return NewError(r, http.StatusNotImplemented, "NotImplemented", "This functionality is not implemented.")
 }

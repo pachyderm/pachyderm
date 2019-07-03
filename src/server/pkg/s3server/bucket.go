@@ -51,27 +51,27 @@ type CommonPrefixes struct {
 }
 
 type BucketController interface {
-	GetLocation(r *http.Request, bucket string, result *LocationConstraint) *S3Error
-	List(r *http.Request, bucket string, result *ListBucketResult) *S3Error
-	Create(r *http.Request, bucket string) *S3Error
-	Delete(r *http.Request, bucket string) *S3Error
+	GetLocation(r *http.Request, bucket string, result *LocationConstraint) *Error
+	List(r *http.Request, bucket string, result *ListBucketResult) *Error
+	Create(r *http.Request, bucket string) *Error
+	Delete(r *http.Request, bucket string) *Error
 }
 
 type UnimplementedBucketController struct{}
 
-func (c UnimplementedBucketController) GetLocation(r *http.Request, bucket string, result *LocationConstraint) *S3Error {
+func (c UnimplementedBucketController) GetLocation(r *http.Request, bucket string, result *LocationConstraint) *Error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) List(r *http.Request, bucket string, result *ListBucketResult) *S3Error {
+func (c UnimplementedBucketController) List(r *http.Request, bucket string, result *ListBucketResult) *Error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) Create(r *http.Request, bucket string) *S3Error {
+func (c UnimplementedBucketController) Create(r *http.Request, bucket string) *Error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) Delete(r *http.Request, bucket string) *S3Error {
+func (c UnimplementedBucketController) Delete(r *http.Request, bucket string) *Error {
 	return NotImplementedError(r)
 }
 
