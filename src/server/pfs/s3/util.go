@@ -18,5 +18,5 @@ func bucketArgs(r *http.Request, bucket string) (string, string, *s3server.S3Err
 	if len(parts) != 2 || len(parts[0]) == 0 || len(parts[1]) == 0 {
 		return "", "", s3server.InvalidBucketNameError(r)
 	}
-	return parts[0], parts[1], nil
+	return parts[1], parts[0], nil
 }
