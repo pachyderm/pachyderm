@@ -140,17 +140,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
-	repos:
 		for _, ri := range ris {
-			bis, err := pachClient.ListBranch(ri.Repo.Name)
-			if err != nil {
-				return err
-			}
-			for _, bi := range bis {
-				if len(bi.Provenance) > 0 {
-					continue repos
-				}
-			}
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
