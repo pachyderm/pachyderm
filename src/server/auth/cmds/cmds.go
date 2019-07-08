@@ -513,7 +513,7 @@ func GetOneTimePasswordCmd() *cobra.Command {
 			return nil
 		}),
 	}
-	return cmdutil.CreateAlias(getOneTimePassword, "auth get-one-time-password")
+	return cmdutil.CreateAlias(getOneTimePassword, "auth get-otp")
 }
 
 // Cmds returns a list of cobra commands for authenticating and authorizing
