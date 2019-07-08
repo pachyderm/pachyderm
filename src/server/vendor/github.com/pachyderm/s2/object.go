@@ -15,28 +15,28 @@ import (
 
 type GetObjectResult struct {
 	Name    string
-	Hash    []byte
+	ETag    string
 	ModTime time.Time
 	Content io.ReadSeeker
 }
 
 type ObjectController interface {
-	Get(r *http.Request, bucket, key string, result *GetObjectResult) *Error
-	Put(r *http.Request, bucket, key string, reader io.Reader) *Error
-	Del(r *http.Request, bucket, key string) *Error
+	Get(r *http.Request, bucket, key string, result *GetObjectResult) error
+	Put(r *http.Request, bucket, key string, reader io.Reader) error
+	Del(r *http.Request, bucket, key string) error
 }
 
 type UnimplementedObjectController struct{}
 
-func (c UnimplementedObjectController) Get(r *http.Request, bucket, key string, result *GetObjectResult) *Error {
+func (c UnimplementedObjectController) Get(r *http.Request, bucket, key string, result *GetObjectResult) error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedObjectController) Put(r *http.Request, bucket, key string, reader io.Reader) *Error {
+func (c UnimplementedObjectController) Put(r *http.Request, bucket, key string, reader io.Reader) error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedObjectController) Del(r *http.Request, bucket, key string) *Error {
+func (c UnimplementedObjectController) Del(r *http.Request, bucket, key string) error {
 	return NotImplementedError(r)
 }
 
@@ -53,13 +53,14 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	result := &GetObjectResult{}
 
 	if err := h.controller.Get(r, bucket, key, result); err != nil {
-		err.Write(h.logger, w)
+		writeError(h.logger, r, w, err)
 		return
 	}
 
-	if result.Hash != nil {
-		w.Header().Set("ETag", fmt.Sprintf("\"%x\"", result.Hash))
+	if result.ETag != "" {
+		w.Header().Set("ETag", fmt.Sprintf("\"%s\"", result.ETag))
 	}
+
 	http.ServeContent(w, r, result.Name, result.ModTime, result.Content)
 }
 
@@ -82,7 +83,7 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 	hasher := md5.New()
 	reader := io.TeeReader(r.Body, hasher)
 	if err := h.controller.Put(r, bucket, key, reader); err != nil {
-		err.Write(h.logger, w)
+		writeError(h.logger, r, w, err)
 		return
 	}
 
@@ -108,7 +109,7 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 	key := vars["key"]
 
 	if err := h.controller.Del(r, bucket, key); err != nil {
-		err.Write(h.logger, w)
+		writeError(h.logger, r, w, err)
 		return
 	}
 

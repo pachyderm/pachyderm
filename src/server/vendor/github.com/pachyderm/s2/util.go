@@ -8,6 +8,16 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// writeError serializes an error to a response as XML
+func writeError(logger *logrus.Entry, r *http.Request, w http.ResponseWriter, err error) {
+	switch e := err.(type) {
+	case *Error:
+		e.Write(logger, w)
+	default:
+		InternalError(r, e).Write(logger, w)
+	}
+}
+
 // writeXML serializes a struct to a response as XML
 func writeXML(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, code int, v interface{}) {
 	w.Header().Set("Content-Type", "application/xml")

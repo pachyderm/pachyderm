@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -16,10 +17,10 @@ type objectController struct {
 	logger *logrus.Entry
 }
 
-func (c objectController) Get(r *http.Request, bucket, file string, result *s2.GetObjectResult) *s2.Error {
-	repo, branch, s3Err := bucketArgs(r, bucket)
-	if s3Err != nil {
-		return s3Err
+func (c objectController) Get(r *http.Request, bucket, file string, result *s2.GetObjectResult) error {
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
 	}
 
 	branchInfo, err := c.pc.InspectBranch(repo, branch)
@@ -49,16 +50,16 @@ func (c objectController) Get(r *http.Request, bucket, file string, result *s2.G
 	}
 
 	result.Name = file
-	result.Hash = fileInfo.Hash
+	result.ETag = fmt.Sprintf("%x", fileInfo.Hash)
 	result.ModTime = timestamp
 	result.Content = reader
 	return nil
 }
 
-func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) *s2.Error {
-	repo, branch, s3Err := bucketArgs(r, bucket)
-	if s3Err != nil {
-		return s3Err
+func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) error {
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
 	}
 
 	branchInfo, err := c.pc.InspectBranch(repo, branch)
@@ -77,10 +78,10 @@ func (c objectController) Put(r *http.Request, bucket, file string, reader io.Re
 	return nil
 }
 
-func (c objectController) Del(r *http.Request, bucket, key string) *s2.Error {
-	repo, branch, s3Err := bucketArgs(r, bucket)
-	if s3Err != nil {
-		return s3Err
+func (c objectController) Del(r *http.Request, bucket, key string) error {
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
 	}
 
 	branchInfo, err := c.pc.InspectBranch(repo, branch)

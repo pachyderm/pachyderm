@@ -60,21 +60,21 @@ func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objec
 	router.Methods("DELETE").HandlerFunc(handler.del)
 }
 
-type S3 struct {
+type S2 struct {
 	Root   RootController
 	Bucket BucketController
 	Object ObjectController
 }
 
-func NewS3() *S3 {
-	return &S3{
+func NewS2() *S2 {
+	return &S2{
 		Root:   UnimplementedRootController{},
 		Bucket: UnimplementedBucketController{},
 		Object: UnimplementedObjectController{},
 	}
 }
 
-func (h *S3) Router(logger *logrus.Entry) *mux.Router {
+func (h *S2) Router(logger *logrus.Entry) *mux.Router {
 	rootHandler := &rootHandler{
 		controller: h.Root,
 		logger:     logger,

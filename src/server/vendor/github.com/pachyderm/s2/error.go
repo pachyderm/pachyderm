@@ -1,6 +1,7 @@
 package s2
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/sirupsen/logrus"
@@ -25,6 +26,10 @@ func NewError(r *http.Request, httpStatus int, code string, message string) *Err
 		Resource:   r.URL.Path,
 		RequestID:  r.Header.Get("X-Request-ID"),
 	}
+}
+
+func (e *Error) Error() string {
+	return fmt.Sprintf("[%s] %s", e.Code, e.Message)
 }
 
 func (e *Error) Write(logger *logrus.Entry, w http.ResponseWriter) {

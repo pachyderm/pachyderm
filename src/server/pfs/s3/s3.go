@@ -45,20 +45,20 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	var lastEnterpriseCheck time.Time
 	isEnterprise := false
 
-	s3 := s2.NewS3()
-	s3.Root = rootController{
+	controllers := s2.NewS2()
+	controllers.Root = rootController{
 		pc:     pc,
 		logger: logger,
 	}
-	s3.Bucket = bucketController{
+	controllers.Bucket = bucketController{
 		pc:     pc,
 		logger: logger,
 	}
-	s3.Object = objectController{
+	controllers.Object = objectController{
 		pc:     pc,
 		logger: logger,
 	}
-	router := s3.Router(logger)
+	router := controllers.Router(logger)
 
 	return &http.Server{
 		Addr: fmt.Sprintf(":%d", port),

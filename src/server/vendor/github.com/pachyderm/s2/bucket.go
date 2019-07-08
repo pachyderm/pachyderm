@@ -51,27 +51,27 @@ type CommonPrefixes struct {
 }
 
 type BucketController interface {
-	GetLocation(r *http.Request, bucket string, result *LocationConstraint) *Error
-	List(r *http.Request, bucket string, result *ListBucketResult) *Error
-	Create(r *http.Request, bucket string) *Error
-	Delete(r *http.Request, bucket string) *Error
+	GetLocation(r *http.Request, bucket string, result *LocationConstraint) error
+	List(r *http.Request, bucket string, result *ListBucketResult) error
+	Create(r *http.Request, bucket string) error
+	Delete(r *http.Request, bucket string) error
 }
 
 type UnimplementedBucketController struct{}
 
-func (c UnimplementedBucketController) GetLocation(r *http.Request, bucket string, result *LocationConstraint) *Error {
+func (c UnimplementedBucketController) GetLocation(r *http.Request, bucket string, result *LocationConstraint) error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) List(r *http.Request, bucket string, result *ListBucketResult) *Error {
+func (c UnimplementedBucketController) List(r *http.Request, bucket string, result *ListBucketResult) error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) Create(r *http.Request, bucket string) *Error {
+func (c UnimplementedBucketController) Create(r *http.Request, bucket string) error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) Delete(r *http.Request, bucket string) *Error {
+func (c UnimplementedBucketController) Delete(r *http.Request, bucket string) error {
 	return NotImplementedError(r)
 }
 
@@ -87,7 +87,7 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	result := &LocationConstraint{}
 
 	if err := h.controller.GetLocation(r, bucket, result); err != nil {
-		err.Write(h.logger, w)
+		writeError(h.logger, r, w, err)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.controller.List(r, bucket, result); err != nil {
-		err.Write(h.logger, w)
+		writeError(h.logger, r, w, err)
 		return
 	}
 
@@ -148,7 +148,7 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 	bucket := vars["bucket"]
 
 	if err := h.controller.Create(r, bucket); err != nil {
-		err.Write(h.logger, w)
+		writeError(h.logger, r, w, err)
 		return
 	}
 
@@ -160,7 +160,7 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	bucket := vars["bucket"]
 
 	if err := h.controller.Delete(r, bucket); err != nil {
-		err.Write(h.logger, w)
+		writeError(h.logger, r, w, err)
 		return
 	}
 

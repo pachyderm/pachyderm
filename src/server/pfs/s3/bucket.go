@@ -43,13 +43,13 @@ type bucketController struct {
 	logger *logrus.Entry
 }
 
-func (c bucketController) GetLocation(r *http.Request, bucket string, result *s2.LocationConstraint) *s2.Error {
-	repo, branch, s3Err := bucketArgs(r, bucket)
-	if s3Err != nil {
-		return s3Err
+func (c bucketController) GetLocation(r *http.Request, bucket string, result *s2.LocationConstraint) error {
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
 	}
 
-	_, err := c.pc.InspectBranch(repo, branch)
+	_, err = c.pc.InspectBranch(repo, branch)
 	if err != nil {
 		return maybeNotFoundError(r, err)
 	}
@@ -58,10 +58,10 @@ func (c bucketController) GetLocation(r *http.Request, bucket string, result *s2
 	return nil
 }
 
-func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBucketResult) *s2.Error {
-	repo, branch, s3Err := bucketArgs(r, bucket)
-	if s3Err != nil {
-		return s3Err
+func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBucketResult) error {
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
 	}
 
 	if result.Delimiter != "" && result.Delimiter != "/" {
@@ -152,13 +152,13 @@ func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBu
 	return nil
 }
 
-func (c bucketController) Create(r *http.Request, bucket string) *s2.Error {
-	repo, branch, s3Err := bucketArgs(r, bucket)
-	if s3Err != nil {
-		return s3Err
+func (c bucketController) Create(r *http.Request, bucket string) error {
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
 	}
 
-	err := c.pc.CreateRepo(repo)
+	err = c.pc.CreateRepo(repo)
 	if err != nil {
 		if errutil.IsAlreadyExistError(err) {
 			// Bucket already exists - this is not an error so long as the
@@ -185,10 +185,10 @@ func (c bucketController) Create(r *http.Request, bucket string) *s2.Error {
 	return nil
 }
 
-func (c bucketController) Delete(r *http.Request, bucket string) *s2.Error {
-	repo, branch, s3Err := bucketArgs(r, bucket)
-	if s3Err != nil {
-		return s3Err
+func (c bucketController) Delete(r *http.Request, bucket string) error {
+	repo, branch, err := bucketArgs(r, bucket)
+	if err != nil {
+		return err
 	}
 
 	// `DeleteBranch` does not return an error if a non-existing branch is
