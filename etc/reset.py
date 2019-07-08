@@ -116,7 +116,7 @@ def parse_log_level(s):
         raise Exception("Unknown log level: {}".format(s))
 
 def redirect_to_logger(stdout, stderr):
-    for io in select.select([stdout.pipe, stderr.pipe], [], [], 1000)[0]:
+    for io in select.select([stdout.pipe, stderr.pipe], [], [], 5000)[0]:
         line = io.readline().decode().rstrip()
 
         if line == "":
