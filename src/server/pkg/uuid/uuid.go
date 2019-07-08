@@ -7,17 +7,14 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 // New returns a new uuid.
 func New() string {
 	var result string
 	backoff.RetryNotify(func() error {
-		uuid, err := uuid.NewV4()
-		if err != nil {
-			return err
-		}
+		uuid := uuid.NewV4()
 		result = uuid.String()
 		return nil
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
