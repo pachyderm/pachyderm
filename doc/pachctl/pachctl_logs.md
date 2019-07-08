@@ -43,8 +43,6 @@ $ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+  -v, --verbose   Output verbose logs
 ```
 

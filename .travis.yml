@@ -8,7 +8,7 @@ cache:
     - $HOME/cached-deps
 language: go
 go:
-- "1.12.1"
+- "1.12.6"
 env:
   global:
     - PATH=$HOME/cached-deps:$PATH
