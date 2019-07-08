@@ -14,8 +14,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
-	"github.com/pachyderm/pachyderm/src/server/pkg/s3server"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/s3server"
 )
 
 var enterpriseTimeout = 24 * time.Hour

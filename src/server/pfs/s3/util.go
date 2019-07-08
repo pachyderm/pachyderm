@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/src/server/pkg/s3server"
+	"github.com/pachyderm/s3server"
 )
 
 // The S3 storage class that all PFS content will be reported to be stored in

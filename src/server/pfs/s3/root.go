@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/server/pkg/s3server"
+	"github.com/pachyderm/s3server"
 )
 
 type rootController struct {

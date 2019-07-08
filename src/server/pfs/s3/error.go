@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/src/server/pfs"
-	"github.com/pachyderm/pachyderm/src/server/pkg/s3server"
+	"github.com/pachyderm/s3server"
 )
 
 func enterpriseDisabledError(r *http.Request) *s3server.Error {

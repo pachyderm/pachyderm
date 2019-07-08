@@ -7,7 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/pachyderm/src/server/pkg/s3server"
+	"github.com/pachyderm/s3server"
 	"github.com/sirupsen/logrus"
 )
 
