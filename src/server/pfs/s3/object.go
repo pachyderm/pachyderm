@@ -7,7 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/pachyderm/pachyderm/src/client"
-	"github.com/pachyderm/s3server"
+	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
 )
 
@@ -16,7 +16,7 @@ type objectController struct {
 	logger *logrus.Entry
 }
 
-func (c objectController) Get(r *http.Request, bucket, file string, result *s3server.GetObjectResult) *s3server.Error {
+func (c objectController) Get(r *http.Request, bucket, file string, result *s2.GetObjectResult) *s2.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -27,7 +27,7 @@ func (c objectController) Get(r *http.Request, bucket, file string, result *s3se
 		return maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
-		return s3server.NoSuchKeyError(r)
+		return s2.NoSuchKeyError(r)
 	}
 	if strings.HasSuffix(file, "/") {
 		return invalidFilePathError(r)
@@ -40,12 +40,12 @@ func (c objectController) Get(r *http.Request, bucket, file string, result *s3se
 
 	timestamp, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return s3server.InternalError(r, err)
+		return s2.InternalError(r, err)
 	}
 
 	reader, err := c.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
-		return s3server.InternalError(r, err)
+		return s2.InternalError(r, err)
 	}
 
 	result.Name = file
@@ -55,7 +55,7 @@ func (c objectController) Get(r *http.Request, bucket, file string, result *s3se
 	return nil
 }
 
-func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) *s3server.Error {
+func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) *s2.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -71,13 +71,13 @@ func (c objectController) Put(r *http.Request, bucket, file string, reader io.Re
 
 	_, err = c.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
-		return s3server.InternalError(r, err)
+		return s2.InternalError(r, err)
 	}
 
 	return nil
 }
 
-func (c objectController) Del(r *http.Request, bucket, key string) *s3server.Error {
+func (c objectController) Del(r *http.Request, bucket, key string) *s2.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -88,7 +88,7 @@ func (c objectController) Del(r *http.Request, bucket, key string) *s3server.Err
 		return maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
-		return s3server.NoSuchKeyError(r)
+		return s2.NoSuchKeyError(r)
 	}
 	if strings.HasSuffix(key, "/") {
 		return invalidFilePathError(r)

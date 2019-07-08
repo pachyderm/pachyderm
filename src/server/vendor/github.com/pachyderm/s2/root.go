@@ -1,4 +1,4 @@
-package s3server
+package s2
 
 import (
 	"net/http"

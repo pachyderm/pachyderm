@@ -11,17 +11,17 @@ import (
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
-	"github.com/pachyderm/s3server"
+	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
 )
 
-func newContents(fileInfo *pfsClient.FileInfo) (s3server.Contents, error) {
+func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 	t, err := types.TimestampFromProto(fileInfo.Committed)
 	if err != nil {
-		return s3server.Contents{}, err
+		return s2.Contents{}, err
 	}
 
-	return s3server.Contents{
+	return s2.Contents{
 		Key:          fileInfo.File.Path,
 		LastModified: t,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
@@ -31,8 +31,8 @@ func newContents(fileInfo *pfsClient.FileInfo) (s3server.Contents, error) {
 	}, nil
 }
 
-func newCommonPrefixes(dir string) s3server.CommonPrefixes {
-	return s3server.CommonPrefixes{
+func newCommonPrefixes(dir string) s2.CommonPrefixes {
+	return s2.CommonPrefixes{
 		Prefix: fmt.Sprintf("%s/", dir),
 		Owner:  defaultUser,
 	}
@@ -43,7 +43,7 @@ type bucketController struct {
 	logger *logrus.Entry
 }
 
-func (c bucketController) GetLocation(r *http.Request, bucket string, result *s3server.LocationConstraint) *s3server.Error {
+func (c bucketController) GetLocation(r *http.Request, bucket string, result *s2.LocationConstraint) *s2.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -58,7 +58,7 @@ func (c bucketController) GetLocation(r *http.Request, bucket string, result *s3
 	return nil
 }
 
-func (c bucketController) List(r *http.Request, bucket string, result *s3server.ListBucketResult) *s3server.Error {
+func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBucketResult) *s2.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -129,7 +129,7 @@ func (c bucketController) List(r *http.Request, bucket string, result *s3server.
 
 		return nil
 	}); err != nil {
-		return s3server.InternalError(r, err)
+		return s2.InternalError(r, err)
 	}
 
 	if result.IsTruncated {
@@ -152,7 +152,7 @@ func (c bucketController) List(r *http.Request, bucket string, result *s3server.
 	return nil
 }
 
-func (c bucketController) Create(r *http.Request, bucket string) *s3server.Error {
+func (c bucketController) Create(r *http.Request, bucket string) *s2.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -167,25 +167,25 @@ func (c bucketController) Create(r *http.Request, bucket string) *s3server.Error
 			_, err := c.pc.InspectBranch(repo, branch)
 			if err != nil {
 				if !pfsServer.IsBranchNotFoundErr(err) {
-					return s3server.InternalError(r, err)
+					return s2.InternalError(r, err)
 				}
 			} else {
-				return s3server.BucketAlreadyOwnedByYouError(r)
+				return s2.BucketAlreadyOwnedByYouError(r)
 			}
 		} else {
-			return s3server.InternalError(r, err)
+			return s2.InternalError(r, err)
 		}
 	}
 
 	err = c.pc.CreateBranch(repo, branch, "", nil)
 	if err != nil {
-		return s3server.InternalError(r, err)
+		return s2.InternalError(r, err)
 	}
 
 	return nil
 }
 
-func (c bucketController) Delete(r *http.Request, bucket string) *s3server.Error {
+func (c bucketController) Delete(r *http.Request, bucket string) *s2.Error {
 	repo, branch, s3Err := bucketArgs(r, bucket)
 	if s3Err != nil {
 		return s3Err
@@ -209,29 +209,29 @@ func (c bucketController) Delete(r *http.Request, bucket string) *s3server.Error
 			return nil
 		})
 		if err != nil {
-			return s3server.InternalError(r, err)
+			return s2.InternalError(r, err)
 		}
 
 		if hasFiles {
-			return s3server.BucketNotEmptyError(r)
+			return s2.BucketNotEmptyError(r)
 		}
 	}
 
 	err = c.pc.DeleteBranch(repo, branch, false)
 	if err != nil {
-		return s3server.InternalError(r, err)
+		return s2.InternalError(r, err)
 	}
 
 	repoInfo, err := c.pc.InspectRepo(repo)
 	if err != nil {
-		return s3server.InternalError(r, err)
+		return s2.InternalError(r, err)
 	}
 
 	// delete the repo if this was the last branch
 	if len(repoInfo.Branches) == 0 {
 		err = c.pc.DeleteRepo(repo, false)
 		if err != nil {
-			return s3server.InternalError(r, err)
+			return s2.InternalError(r, err)
 		}
 	}
 

@@ -1323,10 +1323,10 @@
 			"revisionTime": "2016-06-07T23:01:40Z"
 		},
 		{
-			"checksumSHA1": "7YbO1YNpS5+h/WiJHB/kHV7X4GU=",
-			"path": "github.com/pachyderm/s3server",
-			"revision": "fd89d275dbf09b7cb1427f372e4bb3cd55082463",
-			"revisionTime": "2019-07-08T18:54:39Z"
+			"checksumSHA1": "wTGM3NOIdT4u6zB3MCxJ3fW1c1Y=",
+			"path": "github.com/pachyderm/s2",
+			"revision": "0841bc12b8c89a89ca6ed35e576dca4014da8d8a",
+			"revisionTime": "2019-07-08T20:00:42Z"
 		},
 		{
 			"checksumSHA1": "M2ESejvARsgfu/gSmvWvqatvs3U=",

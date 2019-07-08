@@ -15,7 +15,7 @@ import (
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
-	"github.com/pachyderm/s3server"
+	"github.com/pachyderm/s2"
 )
 
 var enterpriseTimeout = 24 * time.Hour
@@ -45,7 +45,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	var lastEnterpriseCheck time.Time
 	isEnterprise := false
 
-	s3 := s3server.NewS3()
+	s3 := s2.NewS3()
 	s3.Root = rootController{
 		pc:     pc,
 		logger: logger,
@@ -82,7 +82,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 				resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
 				if err != nil {
 					err = fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
-					s3server.InternalError(r, err).Write(logger, w)
+					s2.InternalError(r, err).Write(logger, w)
 					return
 				}
 
