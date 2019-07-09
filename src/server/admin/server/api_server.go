@@ -134,7 +134,6 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			return err
 		}
 	}
-	var repos []*pfs.Repo
 	if !request.NoRepos {
 		ris, err := pachClient.ListRepo()
 		if err != nil {
@@ -149,7 +148,33 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}); err != nil {
 				return err
 			}
-			repos = append(repos, ri.Repo)
+			if err := pachClient.ListCommitF(ri.Repo.Name, "", "", 0, func(ci *pfs.CommitInfo) error {
+				if ci.ParentCommit == nil {
+					ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
+				}
+				return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: &pfs.BuildCommitRequest{
+					Parent: ci.ParentCommit,
+					Tree:   ci.Tree,
+					ID:     ci.Commit.ID,
+					Branch: ci.Branch.Name,
+				}}})
+			}); err != nil {
+				return err
+			}
+			bis, err := pachClient.ListBranch(ri.Repo.Name)
+			if err != nil {
+				return err
+			}
+			for _, bi := range bis {
+				if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
+					Branch: &pfs.CreateBranchRequest{
+						Head:   bi.Head,
+						Branch: bi.Branch,
+					},
+				}}); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	if !request.NoPipelines {
@@ -160,33 +185,6 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}); err != nil {
-				return err
-			}
-		}
-	}
-	// We send the actual commits last, that way pipelines will have already
-	// been created and will recreate output commits for historical outputs.
-	for _, repo := range repos {
-		cis, err := pachClient.ListCommit(repo.Name, "", "", 0)
-		if err != nil {
-			return err
-		}
-		bis, err := pachClient.ListBranch(repo.Name)
-		if err != nil {
-			return err
-		}
-		for _, bcr := range buildCommitRequests(cis, bis) {
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: bcr}}); err != nil {
-				return err
-			}
-		}
-		for _, bi := range bis {
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
-				Branch: &pfs.CreateBranchRequest{
-					Head:   bi.Head,
-					Branch: bi.Branch,
-				},
-			}}); err != nil {
 				return err
 			}
 		}
