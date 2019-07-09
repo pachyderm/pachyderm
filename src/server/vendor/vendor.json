@@ -1323,6 +1323,12 @@
 			"revisionTime": "2016-06-07T23:01:40Z"
 		},
 		{
+			"checksumSHA1": "FGkGbmo5TZ8wANE0oKjat8ZrE34=",
+			"path": "github.com/pachyderm/s2",
+			"revision": "485c376e39f0e165dbd6d99b68652d212b3b8eb1",
+			"revisionTime": "2019-07-08T21:04:57Z"
+		},
+		{
 			"checksumSHA1": "M2ESejvARsgfu/gSmvWvqatvs3U=",
 			"path": "github.com/peterbourgon/diskv",
 			"revision": "53ef9e43a0bc608e737e6bfed35207ad9cb1ad54",
