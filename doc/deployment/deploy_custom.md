@@ -83,7 +83,7 @@ manifests for the Pachyderm enterprise UI only will be generated.
 The most common items to edit in `Service` manifests are the `NodePort` values for various services, 
 and the `containerPort` values for `Deployment` manifests.
 It will be necessary to add environment variables to a `Deployment` or `StatefulSet` object to make your `containerPort` values work properly.
-A good example to check against is [OpenShift](./openshift.html).
+You can verify this functionality in the [OpenShift](./openshift.html) example.
 
 ### The Pachyderm pods
 
