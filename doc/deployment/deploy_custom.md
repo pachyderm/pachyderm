@@ -63,7 +63,7 @@ You'll see this manifest's name in the `etcd` Deployment manifest, below.
 ### StorageClass
 
 If you *do* use [StatefulSets](./on_premises.html#statefulsets) to deploy Pachyderm
-(that is, you use `--dynamic-etcd-nodes` flag), 
+that is, you use `--dynamic-etcd-nodes` flag, 
 this manifest, if needed, will specify the kind of storage and provisioner that's appropriate for what you've specified in the `--persistent-disk` flag. 
 
 ### Service
