@@ -12,7 +12,7 @@ Typically, you customize a deployment by running the command with the `--dry-run
 The command's standard output is directed into a series of customization scripts or a file for editing.
 
 This section describes how to use `pachctl deploy custom ... --dry-run` to create a manifest for a custom, on-premises deployment.
-We won't directly address automating your deployment by means of customization scripts,
+Although deployment automation is out of scope of this section, Pachyderm strongly encourages you to configure your [infrastructure as code](./on-premises.html#infrastructure-as-code).
 but we do encourage you to treat your [infrastructure as code](./on-premises.html#infrastructure-as-code).
 
 ## Anatomy of a Pachyderm deployment manifest
