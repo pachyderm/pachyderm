@@ -22,7 +22,7 @@ you are generating a JSON-encoded Kubernetes manifest in one stream to standard 
 That manifest consists of a number of smaller manifests,
 that correspond to a particular aspect of a Pachyderm deployment.
 
-Pachyderm has three sets of application components usually deployed:
+Pachyderm deploys the following sets of application components:
 - `pachd`, the main Pachyderm pod
 - `etcd`, the administrative datastore for `pachd`
 - `dash`, the web-based enterprise ui for Pachyderm
