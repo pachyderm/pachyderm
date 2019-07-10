@@ -89,7 +89,7 @@ A good example to check against is [OpenShift](./openshift.html).
 
 #### Deployment 
 
-A [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) is how it's declared to Kubernetes what the final state of an application's pods should be.
+A [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) declares the desired state of application pods to Kubernetes.
 
 For a static deployment, 
 there will three [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) manifests, for `etcd`, `pachd`, and `dash`.
