@@ -52,7 +52,7 @@ This manifest binds the `Rule` or `ClusterRole` to the `ServiceAccount` created 
 ### PersistentVolume
 
 If you did not use [StatefulSets](./on_premises.html#statefulsets) to deploy Pachyderm,
-(that is, you don't specify `--dynamic-etcd-nodes` flag), 
+that is, you do not specify `--dynamic-etcd-nodes` flag, 
 the value you specify for `--persistent-disk` will cause `pachctl` to write a manifest for creating a [`PersistentVolume`](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) for Pachyderm's `etcd` to use in its [`PersistentVolumeClaim`](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims).
 
 ### PersistentVolumeClaim
