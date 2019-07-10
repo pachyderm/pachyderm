@@ -18,7 +18,7 @@ but we do encourage you to treat your [infrastructure as code](./on-premises.htm
 ## Anatomy of a Pachyderm deployment manifest
 
 When you run the `pachctl deploy ...` command with the `--dry-run` flag,
-you're generating a JSON-encoded Kubernetes manifest in one stream to standard output. 
+you are generating a JSON-encoded Kubernetes manifest in one stream to standard output. 
 That manifest itself consists of a number of smaller manifests,
 corresponding to a particular aspect of a Pachyderm deployment.
 
