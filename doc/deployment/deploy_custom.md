@@ -74,7 +74,7 @@ Services are how Kubernetes exposes Pods to the network.
 If you  use StatefulSets to deploy Pachyderm,
 that is, you use `--dynamic-etcd-nodes` flag,
 Pachyderm deploys one `Service` for `etcd-headless`, one for `pachd`, and one for `dash`.
-A static deployment will have `Services` for `etcd`, `pachd`, and `dash`.
+A static deployment has `Services` for `etcd`, `pachd`, and `dash`.
 
 The `dash` `Service` and `Deployment` will be omitted if the `--no-dashboard` is used.
 Likewise, if `--dashboard-only` is specified,
