@@ -91,7 +91,7 @@ A good example to check against is [OpenShift](./openshift.html).
 
 A [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) declares the desired state of application pods to Kubernetes.
 
-For a static deployment, 
+If you configure a static deployment,
 Pahyderm deploys `Deployment` manifests for `etcd`, `pachd`, and `dash`.
 If you specify `--dynamic-etd-nodes`, Pachyderm deploys the `pachd` and `dash` as `Deployment`
 and `etcd` as a`StatefulSet`.
