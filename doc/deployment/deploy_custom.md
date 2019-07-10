@@ -4,7 +4,7 @@ If you are deploying Pachyderm to a cloud infrastructure,
 such as [Amazon Web Services (AWS)](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html),
 [Google Cloud Platform (GCP)](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html), or 
 [Microsoft Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), 
-Pachyderm's `pachctl deploy` includes commands for those providers (`amazon`, `google`, and `microsoft`, respectively).
+use a related `pachctl deploy` subcommand, such as `amazon`, `google`, or `microsoft`, respectively.
 You should use those commands when deploying to those cloud infrastructures.
 You can customize cloud provider deployments extensively through flags available for each provider.
 
