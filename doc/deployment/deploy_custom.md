@@ -124,7 +124,7 @@ or the `pachctl deploy storage` command.
 
 Please see the [introduction to on-premises deployment](./on_premises.html) for steps you need to take prior to creating a custom Pachyderm deployment manifest.
 
-### Customizing through pachctl flags
+### Customizing `pachctl` flags
 
 `pachctl` includes flags for customizing aspects of your deployment,
 from memory and cpu requests for `etcd` and `pachd` to specifying a Kubernetes namespace.
