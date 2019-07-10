@@ -80,7 +80,7 @@ The `dash` `Service` and `Deployment` will be omitted if the `--no-dashboard` is
 Likewise, if `--dashboard-only` is specified,
 manifests for the Pachyderm enterprise UI only will be generated. 
 
-The most common items to edit in `Service` manifests are the `NodePort` values for various services, 
+The most common items that you can edit in `Service` manifests are the `NodePort` values for various services, 
 and the `containerPort` values for `Deployment` manifests.
 To make your `containerPort` values work properly, add environment variables to a `Deployment` or `StatefulSet` object.
 You can verify this functionality in the [OpenShift](./openshift.html) example.
