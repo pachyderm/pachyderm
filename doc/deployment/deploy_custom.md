@@ -132,7 +132,7 @@ from memory and cpu requests for `etcd` and `pachd` to specifying a Kubernetes n
 
 You can learn what flags are available in your version of Pachyderm by running `pachctl deploy custom --help`.
 Some of the flags are marked as to be used with caution.
-Please consult with your Kubernetes administrator and your Pachyderm support team when unsure of the effect of a flag.
+When you are unsure of the effect of a flag, consult with your Kubernetes administrator and your Pachyderm support team.
 Some flags, like `--image-pull-secret`, will require the creation and loading of Kubernetes manifests outside of `pachctl`.
 
 ## Creating a Pachyderm manifest
