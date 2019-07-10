@@ -122,7 +122,7 @@ or the `pachctl deploy storage` command.
 
 ### Preparing your environment
 
-Please see the [introduction to on-premises deployment](./on_premises.html) for steps you need to take prior to creating a custom Pachyderm deployment manifest.
+See the [introduction to on-premises deployment](./on_premises.html) for steps that you need to take before to creating a custom Pachyderm deployment manifest.
 
 ### Customizing `pachctl` flags
 
