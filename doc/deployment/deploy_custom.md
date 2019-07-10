@@ -76,7 +76,7 @@ that is, you use `--dynamic-etcd-nodes` flag,
 Pachyderm deploys one `Service` for `etcd-headless`, one for `pachd`, and one for `dash`.
 A static deployment has `Services` for `etcd`, `pachd`, and `dash`.
 
-The `dash` `Service` and `Deployment` will be omitted if the `--no-dashboard` is used.
+If you use the `--no-dashboard` flag, Pachyderm does not create the `dash` `Service` and `Deployment`.
 Likewise, if `--dashboard-only` is specified,
 Pachyderm generates the manifests for the Pachyderm enterprise UI only. 
 
