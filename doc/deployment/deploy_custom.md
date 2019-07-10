@@ -26,7 +26,6 @@ Pachyderm deploys the following sets of application components:
 - `pachd`, the main Pachyderm pod
 - `etcd`, the administrative datastore for `pachd`
 - `dash`, the web-based enterprise ui for Pachyderm
-We'll explore all of these within this document.
 
 In general, there are two categories of manifests in the file,
 roles-and-permissions-related and application-related.
