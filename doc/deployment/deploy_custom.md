@@ -102,7 +102,7 @@ The `dash` `Service` and `Deployment` will be omitted if the `--no-dashboard` is
 
 #### StatefulSet
 
-For a `--dynamic-etcd-nodes` deployment, the `etcd` `Deployment` manifest will be replaced with a `StatefulSet`.
+For a `--dynamic-etcd-nodes` deployment, Pachyderm replaces the `etcd` `Deployment` manifest with a `StatefulSet`.
 
 ### Secret
 
