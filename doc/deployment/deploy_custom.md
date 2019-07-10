@@ -94,7 +94,6 @@ A [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deplo
 For a static deployment, 
 there will three [`Deployment`](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/) manifests, for `etcd`, `pachd`, and `dash`.
 If you specify `--dynamic-etd-nodes` when doing your deploy, you'll only see two `Deployment`s, 
-`pachd` and `dash`,
 and `etcd` as a`StatefulSet`.
 
 If you run the deploy command with the `--no-dashboard` flag, Pachyderm omits the deployment of the `dash` `Service` and `Deployment`.
