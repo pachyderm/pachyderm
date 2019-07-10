@@ -57,7 +57,7 @@ the value that you specify for `--persistent-disk` causes `pachctl` to write a m
 
 ### PersistentVolumeClaim
 
-This is the `PersistentVolumeClaim` that Pachyderm's `etcd` will use if you don't deploy using [StatefulSets](./on_premises.html#statefulsets).
+Pachyderm's `etcd` uses this `PersistentVolumeClaim` unless you deploy using [StatefulSets](./on_premises.html#statefulsets).
 You'll see this manifest's name in the `etcd` Deployment manifest, below.
 
 ### StorageClass
