@@ -19,6 +19,7 @@ type DatumIterator interface {
 	Len() int
 	Next() bool
 	Datum() []*Input
+	DatumN(int) []*Input
 }
 
 type pfsDatumIterator struct {
@@ -83,6 +84,16 @@ func (d *pfsDatumIterator) Datum() []*Input {
 	return []*Input{d.inputs[d.location]}
 }
 
+func (d *pfsDatumIterator) DatumN(n int) []*Input {
+	if n > d.location {
+		d.Reset()
+	}
+	for d.location != n {
+		d.Next()
+	}
+	return d.Datum()
+}
+
 func (d *pfsDatumIterator) Next() bool {
 	d.location++
 	return d.location < len(d.inputs)
@@ -91,6 +102,7 @@ func (d *pfsDatumIterator) Next() bool {
 type unionDatumIterator struct {
 	iterators []DatumIterator
 	unionIdx  int
+	location  int
 }
 
 func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (DatumIterator, error) {
@@ -111,6 +123,7 @@ func (d *unionDatumIterator) Reset() {
 		input.Reset()
 	}
 	d.unionIdx = 0
+	d.location = -1
 }
 
 func (d *unionDatumIterator) Len() int {
@@ -122,6 +135,7 @@ func (d *unionDatumIterator) Len() int {
 }
 
 func (d *unionDatumIterator) Next() bool {
+	d.location++
 	if d.unionIdx >= len(d.iterators) {
 		return false
 	}
@@ -136,9 +150,20 @@ func (d *unionDatumIterator) Datum() []*Input {
 	return d.iterators[d.unionIdx].Datum()
 }
 
+func (d *unionDatumIterator) DatumN(n int) []*Input {
+	if n > d.location {
+		d.Reset()
+	}
+	for d.location != n {
+		d.Next()
+	}
+	return d.Datum()
+}
+
 type crossDatumIterator struct {
 	iterators []DatumIterator
 	started   bool
+	location  int
 }
 
 func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (DatumIterator, error) {
@@ -151,6 +176,7 @@ func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (Da
 		}
 		result.iterators = append(result.iterators, datumIterator)
 	}
+	result.location = -1
 	return result, nil
 }
 
@@ -180,6 +206,7 @@ func (d *crossDatumIterator) Len() int {
 }
 
 func (d *crossDatumIterator) Next() bool {
+	d.location++
 	if !d.started {
 		d.started = true
 		return true
@@ -206,6 +233,16 @@ func (d *crossDatumIterator) Datum() []*Input {
 	}
 	sortInputs(result)
 	return result
+}
+
+func (d *crossDatumIterator) DatumN(n int) []*Input {
+	if n > d.location {
+		d.Reset()
+	}
+	for d.location != n {
+		d.Next()
+	}
+	return d.Datum()
 }
 
 type gitDatumIterator struct {
@@ -252,6 +289,16 @@ func (d *gitDatumIterator) Datum() []*Input {
 func (d *gitDatumIterator) Next() bool {
 	d.location++
 	return d.location < len(d.inputs)
+}
+
+func (d *gitDatumIterator) DatumN(n int) []*Input {
+	if n > d.location {
+		d.Reset()
+	}
+	for d.location != n {
+		d.Next()
+	}
+	return d.Datum()
 }
 
 func newCronDatumIterator(pachClient *client.APIClient, input *pps.CronInput) (DatumIterator, error) {
