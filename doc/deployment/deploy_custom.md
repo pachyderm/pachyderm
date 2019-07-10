@@ -176,7 +176,6 @@ You may either deploy manifests you created above or edit them to customize them
 
 This functionality requires an experienced Kubernetes administrator.
 If you are attempting a highly customized deployment, 
-please engage with your Pachyderm support team. 
 
 ### Deploying
 The command you'll want to run depends on the command you ran, above.
