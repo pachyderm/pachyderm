@@ -5,7 +5,7 @@ such as [Amazon Web Services (AWS)](https://pachyderm.readthedocs.io/en/latest/d
 [Google Cloud Platform (GCP)](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html), or 
 [Microsoft Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), 
 use a related `pachctl deploy` subcommand, such as `amazon`, `google`, or `microsoft`, respectively.
-You can customize cloud provider deployments extensively through flags available for each provider.
+Also, you can customize cloud provider deployments extensively through flags available for each provider.
 
 Pachyderm also includes `pachctl deploy custom` for creating customized deployments for cloud providers or on-premises use.
 It's usually invoked with the `--dry-run` flag, 
