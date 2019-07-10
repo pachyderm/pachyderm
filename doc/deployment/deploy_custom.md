@@ -97,7 +97,7 @@ If you specify `--dynamic-etd-nodes` when doing your deploy, you'll only see two
 `pachd` and `dash`,
 and  `etcd` will be deployed using a `StatefulSet`.
 
-The `dash` `Service` and `Deployment` will be omitted if the `--no-dashboard` is used.
+If you run the deploy command with the `--no-dashboard` flag, Pachyderm omits the deployment of the `dash` `Service` and `Deployment`.
 
 
 #### StatefulSet
