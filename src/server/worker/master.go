@@ -263,14 +263,14 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
-		df, err := NewDatumFactory(pachClient, jobInput)
+		df, err := NewDatumIterator(pachClient, jobInput)
 		if err != nil {
 			return err
 		}
 		if df.Len() != 1 {
 			return fmt.Errorf("services must have a single datum")
 		}
-		data := df.Datum(0)
+		data := df.DatumN(0)
 		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
 		puller := filesync.NewPuller()
 		// If this is our second time through the loop cleanup the old data.
@@ -361,7 +361,7 @@ func (a *APIServer) merges(jobID string) col.Collection {
 	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, mergePrefix, jobID), nil, &MergeState{}, nil, nil)
 }
 
-func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *Plan {
+func newPlan(df DatumIterator, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *Plan {
 	if spec == nil {
 		spec = &pps.ChunkSpec{}
 	}
@@ -379,7 +379,7 @@ func newPlan(df DatumFactory, spec *pps.ChunkSpec, parallelism int, numHashtrees
 	} else {
 		size := int64(0)
 		for i := 0; i < df.Len(); i++ {
-			for _, input := range df.Datum(i) {
+			for _, input := range df.DatumN(i) {
 				size += int64(input.FileInfo.SizeBytes)
 			}
 			if size > spec.SizeBytes {
@@ -556,7 +556,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		}
 		// Create a datum factory pointing at the job's inputs and split up the
 		// input data into chunks
-		df, err := NewDatumFactory(pachClient, jobInfo.Input)
+		df, err := NewDatumIterator(pachClient, jobInfo.Input)
 		if err != nil {
 			return err
 		}
@@ -693,7 +693,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		buf := &bytes.Buffer{}
 		pbw := pbutil.NewWriter(buf)
 		for i := 0; i < df.Len(); i++ {
-			files := df.Datum(i)
+			files := df.DatumN(i)
 			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
 				return err
