@@ -78,7 +78,7 @@ A static deployment has `Services` for `etcd`, `pachd`, and `dash`.
 
 The `dash` `Service` and `Deployment` will be omitted if the `--no-dashboard` is used.
 Likewise, if `--dashboard-only` is specified,
-manifests for the Pachyderm enterprise UI only will be generated. 
+Pachyderm generates the manifests for the Pachyderm enterprise UI only. 
 
 The most common items that you can edit in `Service` manifests are the `NodePort` values for various services, 
 and the `containerPort` values for `Deployment` manifests.
