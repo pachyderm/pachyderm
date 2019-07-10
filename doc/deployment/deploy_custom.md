@@ -35,7 +35,7 @@ roles-and-permissions-related and application-related.
 
 ### ServiceAccount
 
-Usually at the top of the file, this manifest has the `kind` key set to `ServiceAccount`. 
+Typically at the top of the file, a roles and permissions manifest has the `kind` key set to `ServiceAccount`. 
 [ServiceAccounts](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/) are a way Kubernetes can assign namespace-specific privileges to applications in a lightweight way.
 Pachyderm's service account is called, appropriately enough, `pachyderm`.
 
