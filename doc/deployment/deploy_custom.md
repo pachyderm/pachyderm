@@ -131,7 +131,7 @@ Please see the [introduction to on-premises deployment](./on_premises.html) for 
 from memory and cpu requests for `etcd` and `pachd` to specifying a Kubernetes namespace.
 
 Please check what flags are available in your version of Pachyderm by running `pachctl deploy custom --help`.
-Flag that should be used with caution are marked as such.
+Some of the flags are marked as to be used with caution.
 Please consult with your Kubernetes administrator and your Pachyderm support team when unsure of the effect of a flag.
 Some flags, like `--image-pull-secret`, will require the creation and loading of Kubernetes manifests outside of `pachctl`.
 
