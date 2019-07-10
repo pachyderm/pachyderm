@@ -259,7 +259,7 @@ func (c APIClient) inspectCommit(repoName string, commitID string, blockState pf
 // all commits that match the aforementioned criteria are returned.
 func (c APIClient) ListCommit(repoName string, to string, from string, number uint64) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
-	if err := c.ListCommitF(repoName, to, from, number, func(ci *pfs.CommitInfo) error {
+	if err := c.ListCommitF(repoName, to, from, number, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -275,11 +275,13 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 // If `from` is given, only the descendents of `from`, including `from`
 // itself, are considered.
 // `number` determines how many commits are returned.  If `number` is 0,
-// all commits that match the aforementioned criteria are returned.
-func (c APIClient) ListCommitF(repoName string, to string, from string, number uint64, f func(*pfs.CommitInfo) error) error {
+// `reverse` lists the commits from oldest to newest, rather than
+// all commits that match the aforementioned criteria are passed to f.
+func (c APIClient) ListCommitF(repoName string, to string, from string, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
-		Repo:   NewRepo(repoName),
-		Number: number,
+		Repo:    NewRepo(repoName),
+		Number:  number,
+		Reverse: reverse,
 	}
 	if from != "" {
 		req.From = NewCommit(repoName, from)

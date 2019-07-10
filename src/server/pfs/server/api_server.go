@@ -243,7 +243,7 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	commitInfos, err := a.driver.listCommit(a.env.GetPachClient(ctx), request.Repo, request.To, request.From, request.Number)
+	commitInfos, err := a.driver.listCommit(a.env.GetPachClient(ctx), request.Repo, request.To, request.From, request.Number, request.Reverse)
 	if err != nil {
 		return nil, err
 	}
@@ -253,13 +253,13 @@ func (a *apiServer) ListCommit(ctx context.Context, request *pfs.ListCommitReque
 }
 
 // ListCommitStream implements the protobuf pfs.ListCommitStream RPC
-func (a *apiServer) ListCommitStream(req *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
-	func() { a.Log(req, nil, nil, 0) }()
+func (a *apiServer) ListCommitStream(request *pfs.ListCommitRequest, respServer pfs.API_ListCommitStreamServer) (retErr error) {
+	func() { a.Log(request, nil, nil, 0) }()
 	sent := 0
 	defer func(start time.Time) {
-		a.Log(req, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
+		a.Log(request, fmt.Sprintf("stream containing %d commits", sent), retErr, time.Since(start))
 	}(time.Now())
-	return a.driver.listCommitF(a.env.GetPachClient(respServer.Context()), req.Repo, req.To, req.From, req.Number, func(ci *pfs.CommitInfo) error {
+	return a.driver.listCommitF(a.env.GetPachClient(respServer.Context()), request.Repo, request.To, request.From, request.Number, request.Reverse, func(ci *pfs.CommitInfo) error {
 		sent++
 		return respServer.Send(ci)
 	})
