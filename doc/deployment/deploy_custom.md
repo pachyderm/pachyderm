@@ -107,7 +107,7 @@ For a `--dynamic-etcd-nodes` deployment, the `etcd` `Deployment` manifest will b
 ### Secret
 
 The final manifest is a Kubernetes [`Secret`](https://kubernetes.io/docs/concepts/configuration/secret/).
-It's used by Pachyderm to store the credentials necessary access object storage.
+Pachyderm uses the `Secret` to store the credentials that are necessary to access object storage.
 The final manifest uses the command-line arguments that you submit to the `pachctl deploy` command to store the parameters, 
 like region, secret, token, and endpoint that are used to access an object store. 
 The exact values in the secret depend on the kind of object store you configure for your deployment.
