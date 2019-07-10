@@ -1642,9 +1642,10 @@ func (d *driver) resolveCommit(stm col.STM, userCommit *pfs.Commit) (*pfs.Commit
 	return commitInfo, nil
 }
 
-func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64) ([]*pfs.CommitInfo, error) {
+func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo,
+	to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool) ([]*pfs.CommitInfo, error) {
 	var result []*pfs.CommitInfo
-	if err := d.listCommitF(pachClient, repo, to, from, number, func(ci *pfs.CommitInfo) error {
+	if err := d.listCommitF(pachClient, repo, to, from, number, reverse, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -1653,7 +1654,8 @@ func (d *driver) listCommit(pachClient *client.APIClient, repo *pfs.Repo, to *pf
 	return result, nil
 }
 
-func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *pfs.Commit, from *pfs.Commit, number uint64, f func(*pfs.CommitInfo) error) error {
+func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
+	to *pfs.Commit, from *pfs.Commit, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	ctx := pachClient.Ctx()
 	if err := d.checkIsAuthorized(pachClient, repo, auth.Scope_READER); err != nil {
 		return err
@@ -1699,8 +1701,12 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 		return fmt.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
 		// if neither from and to is given, we list all commits in
-		// the repo, sorted by revision timestamp
-		if err := commits.List(ci, col.DefaultOptions, func(commitID string) error {
+		// the repo, sorted by revision timestamp (or reversed if so requested.)
+		opts := *col.DefaultOptions // Note we dereference here so as to make a copy
+		if reverse {
+			opts.Order = etcd.SortAscend
+		}
+		if err := commits.List(ci, &opts, func(commitID string) error {
 			if number <= 0 {
 				return errutil.ErrBreak
 			}
@@ -1710,6 +1716,9 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 			return err
 		}
 	} else {
+		if reverse {
+			return fmt.Errorf("cannot use `reverse` while also using `to`")
+		}
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
 			var commitInfo pfs.CommitInfo
@@ -1743,7 +1752,7 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
 	// include all commits that are currently on the given branch,
-	commitInfos, err := d.listCommit(pachClient, repo, client.NewCommit(repo.Name, branch), from, 0)
+	commitInfos, err := d.listCommit(pachClient, repo, client.NewCommit(repo.Name, branch), from, 0, false)
 	if err != nil {
 		// We skip NotFound error because it's ok if the branch
 		// doesn't exist yet, in which case ListCommit returns

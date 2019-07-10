@@ -148,7 +148,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}); err != nil {
 				return err
 			}
-			if err := pachClient.ListCommitF(ri.Repo.Name, "", "", 0, func(ci *pfs.CommitInfo) error {
+			if err := pachClient.ListCommitF(ri.Repo.Name, "", "", 0, true, func(ci *pfs.CommitInfo) error {
 				if ci.ParentCommit == nil {
 					ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
 				}

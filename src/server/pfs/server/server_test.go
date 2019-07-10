@@ -1964,6 +1964,16 @@ func TestListCommit(t *testing.T) {
 	for i := 0; i < len(commitInfos)-1; i++ {
 		require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i+1].Commit)
 	}
+
+	// Try listing the commits in reverse order
+	commitInfos = nil
+	require.NoError(t, client.ListCommitF(repo, "", "", 0, true, func(ci *pfs.CommitInfo) error {
+		commitInfos = append(commitInfos, ci)
+		return nil
+	}))
+	for i := 1; i < len(commitInfos); i++ {
+		require.Equal(t, commitInfos[i].ParentCommit, commitInfos[i-1].Commit)
+	}
 }
 
 func TestOffsetRead(t *testing.T) {
