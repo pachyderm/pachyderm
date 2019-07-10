@@ -380,6 +380,8 @@ github.com/pachyderm/glob/compiler
 github.com/pachyderm/glob/syntax
 github.com/pachyderm/glob/syntax/ast
 github.com/pachyderm/glob/syntax/lexer
+# github.com/pachyderm/s2 v0.0.0-20190708210605-9ba42cb3cead
+github.com/pachyderm/s2
 # github.com/pelletier/go-buffruneio v0.2.0
 github.com/pelletier/go-buffruneio
 # github.com/peterbourgon/diskv v2.0.1+incompatible

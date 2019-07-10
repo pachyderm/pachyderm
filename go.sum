@@ -328,6 +328,8 @@ github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFSt
 github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJc5AZX7/PBEpw=
 github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad h1:JsBzKIhtEHXy5t57RvBxoA+yyt2lcxlDpHHQudtawrM=
 github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad/go.mod h1:KxLpniXKmJ62J2R77yn+Zxa2BQlE+QBnMG/Ato8sDFo=
+github.com/pachyderm/s2 v0.0.0-20190708210605-9ba42cb3cead h1:kQIGyj4zihjcDUM70IcxYptsePYuNj0/Zg9tivSfyIo=
+github.com/pachyderm/s2 v0.0.0-20190708210605-9ba42cb3cead/go.mod h1:PYimctkA60nY8yUd3wDfVnwCdzPGpyOgFZ9rnbhjTOQ=
 github.com/pelletier/go-buffruneio v0.2.0 h1:U4t4R6YkofJ5xHm3dJzuRpPZ0mr5MMCoAWooScCR7aA=
 github.com/pelletier/go-buffruneio v0.2.0/go.mod h1:JkE26KsDizTr40EUHkXVtNPvgGtbSNq5BcowyYOWdKo=
 github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=

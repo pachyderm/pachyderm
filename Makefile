@@ -500,17 +500,14 @@ test-vault:
 	@# Dont cache these results as they require the pachd cluster
 	go test -v -count 1 ./src/plugin/vault -timeout $(TIMEOUT)
 
-./etc/testing/s3gateway/s3-tests:
-	cd ./etc/testing/s3gateway && git clone git@github.com:ceph/s3-tests.git
-	cd ./etc/testing/s3gateway/s3-tests && ./bootstrap
-	cd ./etc/testing/s3gateway/s3-tests && source virtualenv/bin/activate && pip install nose-exclude==0.5.0
+test-s3gateway-conformance:
+	go get github.com/pachyderm/s2
+	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
+	$(GOPATH)/src/github.com/pachyderm/s2/conformance/conformance.py --s3tests-config=etc/testing/s3gateway/s3tests.yaml --ignore-config=etc/testing/s3gateway/ignore.conf --runs-dir=etc/testing/s3gateway/runs
 
 test-s3gateway-integration:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
 	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
-
-test-s3gateway-conformance: ./etc/testing/s3gateway/s3-tests install
-	./etc/testing/s3gateway/conformance.py
 
 test-fuse:
 	CGOENABLED=0 GO111MODULE=on go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
