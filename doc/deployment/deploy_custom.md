@@ -1,6 +1,6 @@
 # Custom Deployments
 
-If you're deploying to a cloud infrastructure, 
+If you are deploying Pachyderm to a cloud infrastructure, 
 such as [Amazon Web Services (AWS)](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html),
 [Google Cloud Platform (GCP)](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html), or 
 [Microsoft Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), 
