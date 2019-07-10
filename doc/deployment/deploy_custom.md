@@ -30,7 +30,7 @@ Pachyderm deploys the following sets of application components:
 In general, there are two categories of manifests in the file,
 roles-and-permissions-related and application-related.
 
-## Roles-and-permissions-related manifests
+## Roles and permissions manifests
 
 ### ServiceAccount
 
