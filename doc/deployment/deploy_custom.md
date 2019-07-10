@@ -8,7 +8,7 @@ use a related `pachctl deploy` subcommand, such as `amazon`, `google`, or `micro
 Also, you can customize cloud provider deployments extensively through flags available for each provider.
 
 Pachyderm includes `pachctl deploy custom` for creating customized deployments for cloud providers or on-premises use.
-It's usually invoked with the `--dry-run` flag, 
+Typically, you customize a deployment by running the command with the `--dry-run` flag.
 with the command's standard output directed into a series of customization scripts or a file for editing.
 
 This document covers using `pachctl deploy custom ... --dry-run` to create a manifest for a custom, on-premises deployment.
