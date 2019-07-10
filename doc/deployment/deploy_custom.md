@@ -69,7 +69,7 @@ You won't see this manifest if you specified `azure` as the argument to `--persi
 
 ### Service
 
-You'll see three [`Service`](https://kubernetes.io/docs/concepts/services-networking/service/) manifests in a Pachyderm deployment. 
+In a typical Pachyderm deployment, you see three [`Service`](https://kubernetes.io/docs/concepts/services-networking/service/) manifests. 
 Services are how Kubernetes exposes Pods to the network.
 If you  use [StatefulSets](./on_premises.html#statefulsets) to deploy Pachyderm
 (that is, you use `--dynamic-etcd-nodes` flag), 
