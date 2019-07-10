@@ -40,7 +40,7 @@ The Pachyderm's service account is called  `pachyderm`.
 
 ### Role or ClusterRole
 
-The next manifest will usually be of `kind` `Role` or `ClusterRole`, 
+Depending on whether you used the `--local-roles` flag or not, the next manifest will be of `kind` `Role` or `ClusterRole`.
 depending on whether you  used the `--local-roles` flag `pachctl deploy` command.
 
 ### RoleBinding or ClusterRoleBinding
