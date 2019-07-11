@@ -61,7 +61,9 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	router := controllers.Router(logger)
 
 	return &http.Server{
-		Addr: fmt.Sprintf(":%d", port),
+		Addr:         fmt.Sprintf(":%d", port),
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set a request ID, if it hasn't been set by the client already.
 			// This can be used for tracing, and is included in error
