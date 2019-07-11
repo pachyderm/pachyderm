@@ -16,7 +16,7 @@ type rootController struct {
 	logger *logrus.Entry
 }
 
-func (c rootController) List(r *http.Request, result *s2.ListAllMyBucketsResult) error {
+func (c rootController) ListBuckets(r *http.Request, result *s2.ListAllMyBucketsResult) error {
 	result.Owner = defaultUser
 
 	repos, err := c.pc.ListRepo()

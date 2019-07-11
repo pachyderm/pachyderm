@@ -17,7 +17,7 @@ type objectController struct {
 	logger *logrus.Entry
 }
 
-func (c objectController) Get(r *http.Request, bucket, file string, result *s2.GetObjectResult) error {
+func (c objectController) GetObject(r *http.Request, bucket, file string, result *s2.GetObjectResult) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (c objectController) Get(r *http.Request, bucket, file string, result *s2.G
 	return nil
 }
 
-func (c objectController) Put(r *http.Request, bucket, file string, reader io.Reader) error {
+func (c objectController) PutObject(r *http.Request, bucket, file string, reader io.Reader) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -78,7 +78,7 @@ func (c objectController) Put(r *http.Request, bucket, file string, reader io.Re
 	return nil
 }
 
-func (c objectController) Del(r *http.Request, bucket, key string) error {
+func (c objectController) DelObject(r *http.Request, bucket, key string) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err

@@ -58,7 +58,7 @@ func (c bucketController) GetLocation(r *http.Request, bucket string, result *s2
 	return nil
 }
 
-func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBucketResult) error {
+func (c bucketController) ListObjects(r *http.Request, bucket string, result *s2.ListBucketResult) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -135,7 +135,7 @@ func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBu
 	return nil
 }
 
-func (c bucketController) Create(r *http.Request, bucket string) error {
+func (c bucketController) CreateBucket(r *http.Request, bucket string) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -168,7 +168,7 @@ func (c bucketController) Create(r *http.Request, bucket string) error {
 	return nil
 }
 
-func (c bucketController) Delete(r *http.Request, bucket string) error {
+func (c bucketController) DeleteBucket(r *http.Request, bucket string) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
