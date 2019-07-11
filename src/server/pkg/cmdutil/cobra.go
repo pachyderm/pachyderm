@@ -315,9 +315,9 @@ func MergeCommands(root *cobra.Command, children []*cobra.Command) {
 	}
 }
 
-// SetDocsUsage sets the usage string for a docs-style command.  Docs commands
-// have no functionality except to output some docs and related commands, and
-// should not specify a 'Run' attribute.
+// CreateDocsAlias sets the usage string for a docs-style command.  Docs
+// commands have no functionality except to output some docs and related
+// commands, and should not specify a 'Run' attribute.
 func CreateDocsAlias(command *cobra.Command, invocation string, pattern string) *cobra.Command {
 	// This should create a linked-list-shaped tree, follow it to the one leaf
 	root := CreateAlias(command, invocation)
