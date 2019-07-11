@@ -249,8 +249,7 @@ func Cmds() []*cobra.Command {
 		Short: "Manages the pachyderm config.",
 		Long:  "Gets/sets pachyderm config values.",
 	}
-	cmdutil.SetDocsUsage(configDocs, "^pachctl config ")
-	commands = append(commands, cmdutil.CreateAlias(configDocs, "config"))
+	commands = append(commands, cmdutil.CreateDocsAlias(configDocs, "config", "^pachctl config "))
 
 	return commands
 }
