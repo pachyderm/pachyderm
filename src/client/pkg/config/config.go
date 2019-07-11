@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/satori/go.uuid"
+	uuid "github.com/satori/go.uuid"
 )
 
 const configEnvVar = "PACH_CONFIG"
@@ -71,11 +71,7 @@ func Read() (*Config, error) {
 		if value.UserID == "" {
 			updated = true
 			fmt.Fprintln(os.Stderr, "No UserID present in config - generating new one.")
-			uuid, err := uuid.NewV4()
-			if err != nil {
-				readErr = fmt.Errorf("could not generate new user ID: %v", err)
-				return
-			}
+			uuid := uuid.NewV4()
 			value.UserID = uuid.String()
 		}
 

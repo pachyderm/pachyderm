@@ -50,8 +50,16 @@ commit).
 
 ### Third-party Code
 
-- Go dependencies are managed with govendor. See
-[src/server/README.md](/src/server/README.md)
+- Go dependencies are managed with go modules. 
+- To add a new package or update a package. Do:
+  - `go get foo`
+    or for a more specific version
+    `go get foo@v1.2.3`, `go get foo@master`, `go get foo@e3702bed2`
+  - import foo package to you go code as needed.
+  - Run `go mod vendor`
+
+- See
+[The official go modules wiki](https://github.com/golang/go/wiki/Modules)
 for more info.
 
 ### Docs
