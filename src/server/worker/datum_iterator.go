@@ -245,6 +245,88 @@ func (d *crossDatumIterator) DatumN(n int) []*Input {
 	return d.Datum()
 }
 
+type joinDatumIterator struct {
+	inputs   []DatumIterator
+	started  bool
+	location int
+}
+
+func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (DatumIterator, error) {
+	result := &joinDatumIterator{}
+	for _, input := range join {
+		datumIterator, err := NewDatumIterator(pachClient, input)
+		if err != nil {
+			return nil, err
+		}
+		// start the iterator, and make sure it isn't empty
+		if !datumIterator.Next() {
+			return &joinDatumIterator{}, nil
+		}
+		result.inputs = append(result.inputs, datumIterator)
+	}
+	result.location = -1
+	return result, nil
+}
+
+func (d *joinDatumIterator) Reset() {
+	for _, input := range d.inputs {
+		input.Reset()
+		input.Next()
+	}
+	d.started = false
+}
+
+func (d *joinDatumIterator) Len() int {
+	if len(d.inputs) == 0 {
+		return 0
+	}
+	result := d.inputs[0].Len()
+	for i := 1; i < len(d.inputs); i++ {
+		result *= d.inputs[i].Len()
+	}
+	return result
+}
+
+func (d *joinDatumIterator) Next() bool {
+	d.location++
+	if !d.started {
+		d.started = true
+		return true
+	}
+	for _, input := range d.inputs {
+		// if we're at the end of the "row"
+		if !input.Next() {
+			// we reset the "row"
+			input.Reset()
+			// and start back it up
+			input.Next()
+			// after resetting this "row", start iterating through the next "row"
+		} else {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *joinDatumIterator) Datum() []*Input {
+	var result []*Input
+	for _, datumIterator := range d.inputs {
+		result = append(result, datumIterator.Datum()...)
+	}
+	sortInputs(result)
+	return result
+}
+
+func (d *joinDatumIterator) DatumN(n int) []*Input {
+	if n > d.location {
+		d.Reset()
+	}
+	for d.location != n {
+		d.Next()
+	}
+	return d.Datum()
+}
+
 type gitDatumIterator struct {
 	inputs   []*Input
 	location int

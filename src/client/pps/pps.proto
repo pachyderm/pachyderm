@@ -72,6 +72,7 @@ message PFSInput {
   string branch = 3;
   string commit = 4;
   string glob = 5;
+  string match_on = 8;
   bool lazy = 6;
   // EmptyFiles, if true, will cause files from this PFS input to be
   // presented as empty files. This is useful in shuffle pipelines where you
@@ -99,6 +100,7 @@ message GitInput {
 
 message Input {
   PFSInput pfs = 6;
+  repeated Input join = 7;
   repeated Input cross = 2;
   repeated Input union = 3;
   CronInput cron = 4;
