@@ -5,7 +5,7 @@
 First, go through the general local installation instructions [here](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html). Additionally, make sure you have the following installed:
 
 - etcd
-- golang 1.11+
+- golang 1.12+
 - docker
 - [jq](https://stedolan.github.io/jq/)
 - [pv](http://ivarch.com/programs/pv.shtml)
