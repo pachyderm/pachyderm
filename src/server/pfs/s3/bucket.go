@@ -132,23 +132,6 @@ func (c bucketController) List(r *http.Request, bucket string, result *s2.ListBu
 		return s2.InternalError(r, err)
 	}
 
-	if result.IsTruncated {
-		if len(result.Contents) > 0 && len(result.CommonPrefixes) == 0 {
-			result.NextMarker = result.Contents[len(result.Contents)-1].Key
-		} else if len(result.Contents) == 0 && len(result.CommonPrefixes) > 0 {
-			result.NextMarker = result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-		} else if len(result.Contents) > 0 && len(result.CommonPrefixes) > 0 {
-			lastContents := result.Contents[len(result.Contents)-1].Key
-			lastCommonPrefixes := result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-
-			if lastContents > lastCommonPrefixes {
-				result.NextMarker = lastContents
-			} else {
-				result.NextMarker = lastCommonPrefixes
-			}
-		}
-	}
-
 	return nil
 }
 
