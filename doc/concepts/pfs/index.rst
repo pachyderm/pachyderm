@@ -8,37 +8,12 @@ in which you can store unlimited size files.
 
 PFS has the following main concepts:
 
-- :ref:`repo`
-- :ref:`commit`
-- :ref:`file`
-- :ref:`branch`
-- :ref:`provenance`
+.. toctree::
+   :maxdepth: 1
 
-.. _repo:
-
-Repository
-----------
-
-
-.. _commit:
-
-Commit
-------
-
-.. _file:
-
-File
-----
-
-.. _branch:
-
-Branch
-------
-
-.. _provenance:
-
-Provenance
-----------
-
-
+   commit.md
+   file.md
+   branch.md
+   repo.md
+   provenance.md
 
