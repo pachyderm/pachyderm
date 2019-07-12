@@ -48,15 +48,16 @@ with a limited number of tries. If possible use a method of waiting directly
 (e.g. 'flush commit' is much better than repeatedly trying to read from a
 commit).
 
-### Third-party Code
+### Go Modules/Third-party Code
 
-- Go dependencies are managed with go modules. 
+- Go dependencies are managed with go modules (as of 07/11/2019).
 - To add a new package or update a package. Do:
   - `go get foo`
     or for a more specific version
     `go get foo@v1.2.3`, `go get foo@master`, `go get foo@e3702bed2`
   - import foo package to you go code as needed.
   - Run `go mod vendor`
+- Note: Go modules requires you clone the repo outside of the `$GOPATH` or you must pass the `GO111MODULE=on` flag to any go commands. See wiki page on [activating module support](https://github.com/golang/go/wiki/Modules#how-to-install-and-activate-module-support)
 
 - See
 [The official go modules wiki](https://github.com/golang/go/wiki/Modules)
