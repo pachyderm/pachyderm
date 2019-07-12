@@ -5,6 +5,8 @@ import (
 	"io"
 	"sort"
 
+	"github.com/pachyderm/glob"
+
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -50,8 +52,11 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 		} else if err != nil {
 			return nil, err
 		}
+		g := glob.MustCompile(input.Glob, '/')
+		matchOn := g.Replace(fileInfo.File.Path, input.MatchOn)
 		result.inputs = append(result.inputs, &Input{
 			FileInfo:   fileInfo,
+			MatchOn:    matchOn,
 			Name:       input.Name,
 			Lazy:       input.Lazy,
 			Branch:     input.Branch,
