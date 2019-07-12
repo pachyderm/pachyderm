@@ -7,15 +7,13 @@ import (
 	"regexp"
 	"time"
 
-	"golang.org/x/net/context"
-
-	"github.com/sirupsen/logrus"
-
 	"github.com/pachyderm/pachyderm/src/client"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/s2"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 )
 
 var enterpriseTimeout = 24 * time.Hour
@@ -45,7 +43,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	var lastEnterpriseCheck time.Time
 	isEnterprise := false
 
-	controllers := s2.NewS2()
+	controllers := s2.NewS2(logger)
 	controllers.Root = rootController{
 		pc:     pc,
 		logger: logger,
@@ -58,7 +56,7 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 		pc:     pc,
 		logger: logger,
 	}
-	router := controllers.Router(logger)
+	router := controllers.Router()
 
 	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
@@ -84,14 +82,14 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 				resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
 				if err != nil {
 					err = fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
-					s2.InternalError(r, err).Write(logger, w)
+					writeError(logger, w, r, s2.InternalError(r, err))
 					return
 				}
 
 				isEnterprise = resp.State == enterpriseclient.State_ACTIVE
 			}
 			if !isEnterprise {
-				enterpriseDisabledError(r).Write(logger, w)
+				writeError(logger, w, r, enterpriseDisabledError(r))
 				return
 			}
 

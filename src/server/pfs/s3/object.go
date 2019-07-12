@@ -78,7 +78,7 @@ func (c objectController) PutObject(r *http.Request, bucket, file string, reader
 	return nil
 }
 
-func (c objectController) DelObject(r *http.Request, bucket, key string) error {
+func (c objectController) DeleteObject(r *http.Request, bucket, key string) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
