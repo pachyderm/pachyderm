@@ -126,7 +126,6 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
 
-	// Delete existing metadata
 	require.NoError(t, c.DeleteAll())
 
 	if testObjects {
@@ -166,7 +165,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 			require.Equal(t, "JOB_SUCCESS", ji.State.String())
 		}
 		return nil
-	}, backoff.NewTestingBackOff())
+	})
 
 	// Make sure all branches were recreated
 	bis, err := c.ListBranch(dataRepo)

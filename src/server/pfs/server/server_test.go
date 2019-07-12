@@ -255,6 +255,19 @@ func TestToggleBranchProvenance(t *testing.T) {
 	}
 }
 
+func TestRecreateBranchProvenance(t *testing.T) {
+	c := GetPachClient(t)
+	require.NoError(t, c.CreateRepo("in"))
+	require.NoError(t, c.CreateRepo("out"))
+	require.NoError(t, c.CreateBranch("out", "master", "", []*pfs.Branch{pclient.NewBranch("in", "master")}))
+	_, err := c.PutFile("in", "master", "foo", strings.NewReader("foo"))
+	require.NoError(t, err)
+	cis, err := c.ListCommit("out", "", "", 0)
+	require.Equal(t, 1, len(cis))
+	require.NoError(t, c.DeleteBranch("out", "master", false))
+	require.NoError(t, c.CreateBranch("out", "master", cis[0].Commit.ID, []*pfs.Branch{pclient.NewBranch("in", "master")}))
+}
+
 func TestCreateAndInspectRepo(t *testing.T) {
 	client := GetPachClient(t)
 

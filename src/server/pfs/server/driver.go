@@ -2217,8 +2217,22 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 		// Determine if this is a provenance update
 		sameTarget := branch.Repo.Name == commit.Repo.Name && branch.Name == commit.ID
 		if !sameTarget && provenance != nil {
-			return fmt.Errorf("cannot point branch \"%s\" at target commit \"%s/%s\" without clearing its provenance",
-				branch.Name, commit.Repo.Name, commit.ID)
+			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			if err != nil {
+				return err
+			}
+			for _, provC := range ci.Provenance {
+				if !branchContains(provenance, provC.Branch) {
+					return fmt.Errorf("cannot create branch %q with commit %q as head because commit has provenance from branch \"%s/%s\" but that branch is not in provenance", branch.Name, commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
+				}
+				bi := &pfs.BranchInfo{}
+				if err := d.branches(provC.Branch.Repo.Name).ReadWrite(txnCtx.Stm).Get(provC.Branch.Name, bi); err != nil {
+					return err
+				}
+				if bi.Head.ID != provC.Commit.ID {
+					return fmt.Errorf("cannot create branch %q with commit %q as head because commit has \"%s/%s\" as provenance but that commit is not the head of branch \"%s/%s\"", branch.Name, commit.ID, provC.Commit.Repo.Name, provC.Commit.ID, provC.Branch.Repo.Name, provC.Branch.Name)
+				}
+			}
 		}
 	}
 
@@ -4129,4 +4143,13 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 	}
 	err = eg.Wait()
 	return oneOff, repo, branch, err
+}
+
+func branchContains(bs []*pfs.Branch, b *pfs.Branch) bool {
+	for _, _b := range bs {
+		if proto.Equal(_b, b) {
+			return true
+		}
+	}
+	return false
 }
