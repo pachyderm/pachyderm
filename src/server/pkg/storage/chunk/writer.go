@@ -36,12 +36,13 @@ type Writer struct {
 	annotations    []*Annotation
 	chunkCount     int64
 	annotationSize int64
+	splitF         func() error
 }
 
 // newWriter creates a new Writer.
-func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc) *Writer {
+func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc, seed int64) *Writer {
 	// Initialize buzhash64 with WindowSize window.
-	hash := buzhash64.New()
+	hash := buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(seed))
 	w := &Writer{
 		ctx:       ctx,
 		objC:      objC,
@@ -76,6 +77,12 @@ func (w *Writer) Annotate(a *Annotation) {
 // AnnotationSize returns the size of the current annotation.
 func (w *Writer) AnnotationSize() int64 {
 	return w.annotationSize
+}
+
+// DeleteAnnotations deletes the current annotations.
+func (w *Writer) DeleteAnnotations() {
+	w.annotations = nil
+	w.annotationSize = 0
 }
 
 // ChunkCount returns a count of the number of chunks created/referenced by
@@ -124,7 +131,13 @@ func (w *Writer) put() error {
 		Chunk:     chunk,
 		SizeBytes: int64(len(w.buf.Bytes())),
 	}
-	return w.executeFunc(chunkRef)
+	if err := w.executeFunc(chunkRef); err != nil {
+		return err
+	}
+	if w.splitF != nil {
+		return w.splitF()
+	}
+	return nil
 }
 
 func (w *Writer) upload(path string) error {
@@ -148,12 +161,14 @@ func (w *Writer) executeFunc(chunkRef *DataRef) error {
 		return err
 	}
 	// Keep the last annotation because it may span into the next chunk.
-	lastA := w.annotations[len(w.annotations)-1]
-	a := &Annotation{Meta: lastA.Meta}
-	if lastA.NextDataRef != nil {
-		a.NextDataRef = &DataRef{}
+	if len(w.annotations) > 0 {
+		lastA := w.annotations[len(w.annotations)-1]
+		a := &Annotation{Meta: lastA.Meta}
+		if lastA.NextDataRef != nil {
+			a.NextDataRef = &DataRef{}
+		}
+		w.annotations = []*Annotation{a}
 	}
-	w.annotations = []*Annotation{a}
 	return nil
 }
 
@@ -177,6 +192,12 @@ func (w *Writer) updateAnnotations(chunkRef *DataRef) {
 			a.NextDataRef.SizeBytes = int64(len(data))
 		}
 	}
+}
+
+// AtSplit registers a callback to be run when a split point is reached.
+// This is executed after the chunk callback function.
+func (w *Writer) AtSplit(f func() error) {
+	w.splitF = f
 }
 
 func (w *Writer) atSplit() bool {
