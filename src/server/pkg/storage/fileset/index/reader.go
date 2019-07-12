@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"context"
+	fmt "fmt"
 	"io"
 	"math"
 	"strings"
@@ -15,8 +16,9 @@ import (
 )
 
 type levelReader struct {
-	cr *chunk.Reader
-	tr *tar.Reader
+	cr      *chunk.Reader
+	tr      *tar.Reader
+	peekHdr *Header
 }
 
 // Reader is used for reading a multi-level index.
@@ -43,11 +45,16 @@ func NewReader(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 
 // Next gets the next header in the index.
 func (r *Reader) Next() (*Header, error) {
-	if r.done {
-		return nil, io.EOF
-	}
 	if r.levels == nil {
 		return r.setupLevels()
+	}
+	if r.levels[0].peekHdr != nil {
+		hdr := r.levels[0].peekHdr
+		r.levels[0].peekHdr = nil
+		return hdr, nil
+	}
+	if r.done {
+		return nil, io.EOF
 	}
 	return r.next(len(r.levels) - 1)
 }
@@ -90,8 +97,23 @@ func (r *Reader) setupLevels() (*Header, error) {
 	}
 }
 
+func (r *Reader) peek(level int) (*Header, error) {
+	l := r.levels[level]
+	if l.peekHdr != nil {
+		return l.peekHdr, nil
+	}
+	var err error
+	l.peekHdr, err = r.next(level)
+	return l.peekHdr, err
+}
+
 func (r *Reader) next(level int) (*Header, error) {
 	l := r.levels[level]
+	if l.peekHdr != nil {
+		hdr := l.peekHdr
+		l.peekHdr = nil
+		return hdr, nil
+	}
 	for {
 		hdr, err := l.tr.Next()
 		if err != nil {
@@ -124,6 +146,19 @@ func (r *Reader) next(level int) (*Header, error) {
 	}
 }
 
+// Peek peeks ahead in the index.
+func (r *Reader) Peek() (*Header, error) {
+	if r.levels == nil {
+		return r.setupLevels()
+	}
+	if r.levels[0].peekHdr != nil {
+		return r.levels[0].peekHdr, nil
+	}
+	var err error
+	r.levels[0].peekHdr, err = r.Next()
+	return r.levels[0].peekHdr, err
+}
+
 func (r *Reader) callback(level int) chunk.ReaderFunc {
 	return func() ([]*chunk.DataRef, error) {
 		hdr, err := r.next(level - 1)
@@ -132,6 +167,75 @@ func (r *Reader) callback(level int) chunk.ReaderFunc {
 		}
 		return hdr.Idx.DataOp.DataRefs, nil
 	}
+}
+
+// WriteTo copies index entries up to, but not including, index entries that are bound by
+// the optional path bound. This process applies recursively up the multilevel index.
+func (r *Reader) WriteTo(w *Writer, pathBound ...string) error {
+	return r.writeToCallback(w, len(r.levels)-1, pathBound...)()
+}
+
+func (r *Reader) writeToCallback(w *Writer, level int, pathBound ...string) func() error {
+	return func() error {
+		// Copy entries in the current level.
+		if level > 0 {
+			w.levels[r.wLevel(level)].cw.AtSplit(r.writeToCallback(w, level-1, pathBound...))
+		}
+		if level < len(r.levels)-1 {
+			w.levels[r.wLevel(level+1)].cw.DeleteAnnotations()
+		}
+		for {
+			hdr, err := r.peek(level)
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				return err
+			}
+			// Stop copying when the last referenced (directly or indirectly) content
+			// chunk has a path that is >= the path bound. Copy up to the next chunk offset
+			// (rest of the entry that hangs over into the next chunk).
+			if !BeforePathBound(hdr.Idx.LastPathChunk, pathBound...) {
+				if hdr.Idx.Range == nil {
+					break
+				}
+				cr := r.levels[level+1].cr
+				cr.NextRange(hdr.Idx.DataOp.DataRefs)
+				cw := w.levels[r.wLevel(level+1)].cw
+				if err := cr.WriteToN(cw, hdr.Idx.Range.Offset); err != nil {
+					return err
+				}
+				break
+			}
+			_, err = r.next(level)
+			if err != nil {
+				return err
+			}
+			if err := w.writeHeaders([]*Header{hdr}, r.wLevel(level)); err != nil {
+				if strings.Contains(err.Error(), "cheap copy") {
+					continue
+				}
+				return err
+			}
+		}
+		if level > 0 {
+			w.levels[r.wLevel(level)].cw.AtSplit(nil)
+			if level < len(r.levels)-1 {
+				w.levels[r.wLevel(level+1)].tw = tar.NewWriter(w.levels[r.wLevel(level+1)].cw)
+			}
+		}
+		return fmt.Errorf("cheap copy")
+	}
+}
+
+func (r *Reader) wLevel(rLevel int) int {
+	return len(r.levels) - 1 - rLevel
+}
+
+// BeforePathBound checks if the passed in path is before the path bound (exclusive).
+// The path bound is optional, so if no path bound is passed then it returns true.
+func BeforePathBound(path string, pathBound ...string) bool {
+	return len(pathBound) == 0 || strings.Compare(path, pathBound[0]) < 0
 }
 
 // Close closes the reader.

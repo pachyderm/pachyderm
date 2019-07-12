@@ -58,30 +58,38 @@ func NewWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 	}
 }
 
-// WriteHeader writes a Header to the index.
-func (w *Writer) WriteHeader(hdr *Header) error {
+// WriteHeaders writes a set of Header to the index.
+func (w *Writer) WriteHeaders(hdrs []*Header) error {
 	// Setup the first level.
 	if w.levels == nil {
-		cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(0))
+		cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(0), 0)
 		w.levels = append(w.levels, &levelWriter{
 			cw: cw,
 			tw: tar.NewWriter(cw),
 		})
 	}
-	hdr.Hdr.Typeflag = indexType
-	return w.writeHeader(hdr, 0)
+	for _, hdr := range hdrs {
+		hdr.Hdr.Typeflag = indexType
+	}
+	return w.writeHeaders(hdrs, 0)
 }
 
-func (w *Writer) writeHeader(hdr *Header, level int) error {
+func (w *Writer) writeHeaders(hdrs []*Header, level int) error {
 	l := w.levels[level]
-	l.cw.Annotate(&chunk.Annotation{
-		RefDataRefs: hdr.Idx.DataOp.DataRefs,
-		Meta: &meta{
-			hdr:   hdr,
-			level: level,
-		},
-	})
-	return w.serialize(l.tw, hdr)
+	for _, hdr := range hdrs {
+		// Create an annotation for each header.
+		l.cw.Annotate(&chunk.Annotation{
+			RefDataRefs: hdr.Idx.DataOp.DataRefs,
+			Meta: &meta{
+				hdr:   hdr,
+				level: level,
+			},
+		})
+		if err := w.serialize(l.tw, hdr); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (w *Writer) serialize(tw *tar.Writer, hdr *Header) error {
@@ -102,6 +110,9 @@ func (w *Writer) serialize(tw *tar.Writer, hdr *Header) error {
 
 func (w *Writer) callback(level int) chunk.WriterFunc {
 	return func(chunkRef *chunk.DataRef, annotations []*chunk.Annotation) error {
+		if len(annotations) == 0 {
+			return nil
+		}
 		lw := w.levels[level]
 		// Extract first and last header and setup file range.
 		hdr := annotations[0].Meta.(*meta).hdr
@@ -128,6 +139,7 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 			LastPath: lastPath,
 		}
 		hdr.Idx.DataOp = &DataOp{DataRefs: []*chunk.DataRef{chunkRef}}
+		hdr.Idx.LastPathChunk = lw.lastHdr.Idx.LastPathChunk
 		// Set the root header when the writer is closed and we are at the top level index.
 		if w.closed && lw.cw.ChunkCount() == 1 {
 			w.root = hdr
@@ -135,14 +147,14 @@ func (w *Writer) callback(level int) chunk.WriterFunc {
 		}
 		// Create next index level if it does not exist.
 		if level == len(w.levels)-1 {
-			cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(level+1))
+			cw := w.chunks.NewWriter(w.ctx, averageBits, w.callback(level+1), int64(level+1))
 			w.levels = append(w.levels, &levelWriter{
 				cw: cw,
 				tw: tar.NewWriter(cw),
 			})
 		}
 		// Write index entry in next level index.
-		return w.writeHeader(hdr, level+1)
+		return w.writeHeaders([]*Header{hdr}, level+1)
 	}
 }
 

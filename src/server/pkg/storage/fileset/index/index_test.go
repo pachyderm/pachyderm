@@ -25,7 +25,7 @@ func Write(tb testing.TB, objC obj.Client, chunks *chunk.Storage, fileNames []st
 				DataOp: &DataOp{},
 			},
 		}
-		require.NoError(tb, iw.WriteHeader(hdr))
+		require.NoError(tb, iw.WriteHeaders([]*Header{hdr}))
 	}
 	require.NoError(tb, iw.Close())
 }
