@@ -113,27 +113,52 @@ func (r *Reader) setupReader() error {
 
 // WriteToFiles does an efficient copy of files from a file set reader to writer.
 // The optional pathBound specifies the upper bound (exclusive) for files to copy.
+// (bryce) if there is no path bound, we should probably not index copy for the last
+// content chunk.
 func (r *Reader) WriteToFiles(w *Writer, pathBound ...string) error {
+	// Write out files up to bound, potentially copying index entries.
 	for {
 		hdr, err := r.Peek()
 		if err != nil {
 			if err == io.EOF {
-				return nil
+				break
 			}
 			return err
 		}
-		if len(pathBound) > 0 && strings.Compare(hdr.Hdr.Name, pathBound[0]) >= 0 {
-			return nil
+		// If the header is past the path bound, then we are done.
+		if !index.BeforePathBound(hdr.Hdr.Name, pathBound...) {
+			break
 		}
 		if _, err := r.Next(); err != nil {
 			return err
 		}
+		w.cw.AtSplit(r.writeToFilesCallback(hdr, w, pathBound...))
 		if err := w.WriteHeader(hdr); err != nil {
+			if strings.Contains(err.Error(), "cheap copy") {
+				w.tw = tar.NewWriter(w.cw)
+				continue
+			}
 			return err
 		}
 		if err := r.WriteToTags(w); err != nil {
+			if strings.Contains(err.Error(), "cheap copy") {
+				w.tw = tar.NewWriter(w.cw)
+				continue
+			}
 			return err
 		}
+	}
+	w.cw.AtSplit(nil)
+	return nil
+}
+
+func (r *Reader) writeToFilesCallback(hdr *index.Header, w *Writer, pathBound ...string) func() error {
+	return func() error {
+		if err := w.finishFile(hdr); err != nil {
+			return err
+		}
+		w.cw.DeleteAnnotations()
+		return r.ir.WriteTo(w.iw, pathBound...)
 	}
 }
 

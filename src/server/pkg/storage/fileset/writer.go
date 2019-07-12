@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"math"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
@@ -34,7 +35,7 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 		iw:    index.NewWriter(ctx, objC, chunks, path),
 		first: true,
 	}
-	cw := chunks.NewWriter(ctx, averageBits, w.callback())
+	cw := chunks.NewWriter(ctx, averageBits, w.callback(), math.MaxInt64)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
 	return w
@@ -51,10 +52,11 @@ func (w *Writer) WriteHeader(hdr *index.Header) error {
 	w.first = false
 	// Setup index header for next file.
 	// (bryce) might want to deep copy the passed in header.
-	w.hdr = &index.Header{
-		Hdr: hdr.Hdr,
-		Idx: &index.Index{DataOp: &index.DataOp{}},
+	w.hdr = &index.Header{Hdr: hdr.Hdr}
+	if w.hdr.Idx == nil {
+		w.hdr.Idx = &index.Index{}
 	}
+	w.hdr.Idx.DataOp = &index.DataOp{}
 	w.cw.Annotate(&chunk.Annotation{
 		NextDataRef: &chunk.DataRef{},
 		Meta: &meta{
@@ -71,31 +73,26 @@ func (w *Writer) WriteHeader(hdr *index.Header) error {
 
 func (w *Writer) callback() chunk.WriterFunc {
 	return func(_ *chunk.DataRef, annotations []*chunk.Annotation) error {
-		hdr := annotations[0].Meta.(*meta).hdr
-		if w.lastHdr == nil {
-			w.lastHdr = hdr
+		if len(annotations) == 0 {
+			return nil
 		}
-		// Write out the last header if it does not span across chunks.
-		if hdr.Hdr.Name != w.lastHdr.Hdr.Name {
-			if err := w.iw.WriteHeader(w.lastHdr); err != nil {
-				return err
-			}
-			w.lastHdr = hdr
+		var hdrs []*index.Header
+		// Edge case where the last file from the prior chunk ended at the chunk split point.
+		firstHdr := annotations[0].Meta.(*meta).hdr
+		if w.lastHdr != nil && firstHdr.Hdr.Name != w.lastHdr.Hdr.Name {
+			hdrs = append(hdrs, w.lastHdr)
 		}
-		w.lastHdr.Idx.DataOp.DataRefs = append(w.lastHdr.Idx.DataOp.DataRefs, annotations[0].NextDataRef)
-		// Write out the headers that do not span after this chunk.
-		for i := 1; i < len(annotations); i++ {
-			if err := w.iw.WriteHeader(w.lastHdr); err != nil {
-				return err
-			}
-			w.lastHdr = annotations[i].Meta.(*meta).hdr
-			w.lastHdr.Idx.DataOp.DataRefs = append(w.lastHdr.Idx.DataOp.DataRefs, annotations[i].NextDataRef)
+		w.lastHdr = annotations[len(annotations)-1].Meta.(*meta).hdr
+		// Update the file headers.
+		for i := 0; i < len(annotations); i++ {
+			hdr := annotations[i].Meta.(*meta).hdr
+			hdr.Idx.DataOp.DataRefs = append(hdr.Idx.DataOp.DataRefs, annotations[i].NextDataRef)
+			hdr.Idx.LastPathChunk = w.lastHdr.Hdr.Name
+			hdrs = append(hdrs, hdr)
 		}
-		// Write out last header if closed.
-		if w.closed {
-			return w.iw.WriteHeader(w.lastHdr)
-		}
-		return nil
+		// Don't write out the last file header (it may have more content in the next chunk).
+		hdrs = hdrs[:len(hdrs)-1]
+		return w.iw.WriteHeaders(hdrs)
 	}
 }
 
@@ -108,8 +105,20 @@ func (w *Writer) StartTag(id string) {
 func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.tw.Write(data)
 	w.hdr.Idx.SizeBytes += int64(n)
-	w.hdr.Idx.DataOp.Tags[len(w.hdr.Idx.DataOp.Tags)-1].SizeBytes += int64(n)
+	if len(w.hdr.Idx.DataOp.Tags) > 1 {
+		w.hdr.Idx.DataOp.Tags[len(w.hdr.Idx.DataOp.Tags)-1].SizeBytes += int64(n)
+	}
 	return n, err
+}
+
+func (w *Writer) finishFile(hdr *index.Header) error {
+	// (bryce) this needs to be changed when the chunk storage layer is parallelized.
+	w.lastHdr = nil
+	w.hdr.Idx.DataOp.DataRefs = append(w.hdr.Idx.DataOp.DataRefs, hdr.Idx.DataOp.DataRefs[1:]...)
+	w.hdr.Idx.DataOp.Tags = append(w.hdr.Idx.DataOp.Tags, hdr.Idx.DataOp.Tags[1:]...)
+	w.hdr.Idx.SizeBytes = hdr.Idx.SizeBytes
+	w.hdr.Idx.LastPathChunk = hdr.Idx.LastPathChunk
+	return w.iw.WriteHeaders([]*index.Header{w.hdr})
 }
 
 func (w *Writer) writeTags(tags []*index.Tag) error {
@@ -134,9 +143,16 @@ func (w *Writer) Close() error {
 	if err := w.tw.Flush(); err != nil {
 		return err
 	}
-	// Close chunk and index writer.
+	// Close the chunk writer.
 	if err := w.cw.Close(); err != nil {
 		return err
 	}
+	// Write out the last header.
+	if w.lastHdr != nil {
+		if err := w.iw.WriteHeaders([]*index.Header{w.lastHdr}); err != nil {
+			return err
+		}
+	}
+	// Close the index writer.
 	return w.iw.Close()
 }
