@@ -164,6 +164,8 @@ func (c *bucketController) CreateBucket(r *http.Request, bucket string) error {
 			} else {
 				return s2.BucketAlreadyOwnedByYouError(r)
 			}
+		} else if errutil.IsInvalidNameError(err) {
+			return s2.InvalidBucketNameError(r)
 		} else {
 			return s2.InternalError(r, err)
 		}
@@ -171,7 +173,11 @@ func (c *bucketController) CreateBucket(r *http.Request, bucket string) error {
 
 	err = c.pc.CreateBranch(repo, branch, "", nil)
 	if err != nil {
-		return s2.InternalError(r, err)
+		if errutil.IsInvalidNameError(err) {
+			return s2.InvalidBucketNameError(r)
+		} else {
+			return s2.InternalError(r, err)
+		}
 	}
 
 	return nil

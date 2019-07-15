@@ -354,7 +354,7 @@ func TestLargeObjects(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(outputFile.Name())
 	err = c.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
-	require.NoError(t, err)
+	require.True(t, err == nil || err == io.EOF, fmt.Sprintf("unexpected error: %s", err))
 
 	// compare the files and ensure they're the same
 	// NOTE: Because minio's `FGetObject` does a rename from a buffer file

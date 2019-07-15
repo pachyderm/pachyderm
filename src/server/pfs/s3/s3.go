@@ -4,7 +4,6 @@ import (
 	"fmt"
 	stdlog "log"
 	"net/http"
-	"regexp"
 	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
@@ -20,7 +19,6 @@ const multipartRepo = "_s3gateway_multipart_"
 const maxAllowedParts = 10000
 
 var enterpriseTimeout = 24 * time.Hour
-var bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_]{1,255}\.[a-zA-Z0-9\-_]{1,255}/`)
 
 // Server runs an HTTP server with an S3-like API for PFS. This allows you to
 // use s3 clients to acccess PFS contents.
