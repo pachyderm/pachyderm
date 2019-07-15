@@ -65,26 +65,32 @@ func (c *objectController) GetObject(r *http.Request, bucket, file string, resul
 	return nil
 }
 
-func (c *objectController) PutObject(r *http.Request, bucket, file string, reader io.Reader) error {
+func (c *objectController) PutObject(r *http.Request, bucket, file string, reader io.Reader) (string, error) {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	branchInfo, err := c.pc.InspectBranch(repo, branch)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		return "", maybeNotFoundError(r, err)
 	}
 	if strings.HasSuffix(file, "/") {
-		return invalidFilePathError(r)
+		return "", invalidFilePathError(r)
 	}
 
 	_, err = c.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
-		return s2.InternalError(r, err)
+		return "", s2.InternalError(r, err)
 	}
 
-	return nil
+	fileInfo, err := c.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	if err != nil {
+		return "", s2.InternalError(r, err)
+	}
+
+	hash := fmt.Sprintf("%x", fileInfo.Hash)
+	return hash, nil
 }
 
 func (c *objectController) DeleteObject(r *http.Request, bucket, key string) error {
