@@ -3,8 +3,10 @@
 Pachyderm File System
 =====================
 
-Pachyderm File System (PFS) is a version-controlled file system
-in which you can store unlimited size files.
+Pachyderm File System (PFS) is a distributed file-based system that supports
+all types of files, including binary, ``*.csv``, ``*json``, images, and other,
+from many sources and users. Pachyderm processes that data in parallel across
+many different jobs and pipelines.
 
 PFS has the following main concepts:
 

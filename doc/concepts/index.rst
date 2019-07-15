@@ -3,26 +3,27 @@
 Concepts
 ========
 
-Pachyderm enables you to create data pipelines that enable you
-continuously track changes that data scientists, developers, or other
-members of your team make to datasets. In other words, Pachyderm
-is a version-control platform for your data similar to what Git is
-for source code.
+Pachyderm is an enterprise-grade, open source data science platform that
+makes explainable, repeatable, and scalable Machine Learning (ML) and
+Artificial Intelligence (AI) a reality. The Pachyderm platform brings
+together version control for data with the tools to build scalable
+end-to-end ML/AI pipelines while empowering users to develop their
+code in a language, framework, or tool of their choice. Pachyderm
+has been proven to be the ideal foundation for teams looking to
+use ML/AI to solve real-world problems in a reliable way. What
+makes Pachyderm such a natural choice for data science teams is
+that with just one click, a user can know exactly what data was used
+to train a model.
 
-Data scientints and researches often make changes to
-data in batches and phases. Often, they need to go back in time to
-revisit previous results or combine these data results with other
-data in different variants. Pachyderm helps solving the issues
-with reproducibility and data provenance by creating data pipelines
-which store the history of your changes from the begining of times.
+The Pachyderm platform includes the following main components:
 
-The two main Pachyderm concepts that
-encapsulate building blocks of the Pachyderm solution are
-Pachyderm File System (PFS) and Pachyderm Pipeline System (PPS).
-You need to understand the basics of these concepts to start working
-with Pachyderm and later might need to dive even deeper to the
-more advanced technical topics to run more sophisticated Pachyderm
-scenarios.
+- Pachyderm File System (PFS)
+- Pachyderm pipelines
+
+To start, you need to understand the foundational concepts of Pachyderm's
+data versioning and pipeline semantics. After you have a good grasp of
+the basics, you can use advanced concepts and features for more
+complicated challenges.
 
 This section describes main Pachyderm concepts including the following
 topics:
