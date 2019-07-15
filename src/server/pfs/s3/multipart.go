@@ -201,7 +201,7 @@ func (c *multipartController) CompleteMultipart(r *http.Request, name, key, uplo
 		return s2.NoSuchUploadError(r)
 	}
 
-	for _, part := range parts {
+	for i, part := range parts {
 		srcPath := chunkPath(repo, branch, key, uploadID, part.PartNumber)
 
 		fileInfo, err := c.pc.InspectFile(c.repo, "master", srcPath)
@@ -215,6 +215,12 @@ func (c *multipartController) CompleteMultipart(r *http.Request, name, key, uplo
 		expectedETag := fmt.Sprintf("%x", fileInfo.Hash)
 		if len(part.ETag) == len(expectedETag) && part.ETag != expectedETag {
 			return s2.InvalidPartError(r)
+		}
+
+		if i < len(parts)-1 && fileInfo.SizeBytes < 5*1024*1024 {
+			// each part, except for the last, is expected to be at least 5mb
+			// in s3
+			return s2.EntityTooSmallError(r)
 		}
 
 		err = c.pc.CopyFile(c.repo, "master", srcPath, repo, branch, key, false)
