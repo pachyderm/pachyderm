@@ -26,7 +26,7 @@ These operations are supported by the gateway:
 * Creating buckets: creates a repo and/or branch.
 * Deleting buckets: Deletings a branch and/or repo.
 * Listing buckets: Lists all branches on all repos as s3 buckets.
-* Writing objects: Atomically overwrites a file on the HEAD of a branch.
+* Writing objects (including multipart uploads): Atomically overwrites a file on the HEAD of a branch.
 * Removing objects: Atomically removes a file on the HEAD of a branch.
 * Listing objects: Lists the files in the HEAD of a branch.
 * Getting objects: Gets file contents on the HEAD of a branch.
@@ -50,7 +50,6 @@ this, you can use the gRPC API directly.
 * Lifecycles
 * Logging
 * Metrics
-* Multipart uploads. See writing object documentation above for a workaround.
 * Notifications
 * Object locks
 * Payment requests
