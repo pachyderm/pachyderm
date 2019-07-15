@@ -230,8 +230,11 @@ message BuildCommitRequest {
   string branch = 4;
   repeated CommitProvenance provenance = 6;
   Object tree = 3;
+  repeated Object trees = 7;
+  Object datums = 8;
   // ID sets the ID of the created commit.
   string ID = 5;
+  uint64 size_bytes = 9;
 }
 
 message FinishCommitRequest {
