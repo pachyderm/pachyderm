@@ -43,7 +43,16 @@ type bucketController struct {
 	logger *logrus.Entry
 }
 
-func (c bucketController) GetLocation(r *http.Request, bucket string, result *s2.LocationConstraint) error {
+func newBucketController(pc *client.APIClient, logger *logrus.Entry) *bucketController {
+	c := bucketController{
+		pc:     pc,
+		logger: logger,
+	}
+
+	return &c
+}
+
+func (c *bucketController) GetLocation(r *http.Request, bucket string, result *s2.LocationConstraint) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -58,7 +67,7 @@ func (c bucketController) GetLocation(r *http.Request, bucket string, result *s2
 	return nil
 }
 
-func (c bucketController) ListObjects(r *http.Request, bucket string, result *s2.ListBucketResult) error {
+func (c *bucketController) ListObjects(r *http.Request, bucket string, result *s2.ListBucketResult) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -135,7 +144,7 @@ func (c bucketController) ListObjects(r *http.Request, bucket string, result *s2
 	return nil
 }
 
-func (c bucketController) CreateBucket(r *http.Request, bucket string) error {
+func (c *bucketController) CreateBucket(r *http.Request, bucket string) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
@@ -168,7 +177,7 @@ func (c bucketController) CreateBucket(r *http.Request, bucket string) error {
 	return nil
 }
 
-func (c bucketController) DeleteBucket(r *http.Request, bucket string) error {
+func (c *bucketController) DeleteBucket(r *http.Request, bucket string) error {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err

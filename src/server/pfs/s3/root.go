@@ -16,7 +16,16 @@ type rootController struct {
 	logger *logrus.Entry
 }
 
-func (c rootController) ListBuckets(r *http.Request, result *s2.ListAllMyBucketsResult) error {
+func newRootController(pc *client.APIClient, logger *logrus.Entry) *rootController {
+	c := rootController{
+		pc:     pc,
+		logger: logger,
+	}
+
+	return &c
+}
+
+func (c *rootController) ListBuckets(r *http.Request, result *s2.ListAllMyBucketsResult) error {
 	result.Owner = defaultUser
 
 	repos, err := c.pc.ListRepo()

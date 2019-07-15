@@ -335,9 +335,12 @@ func doFullMode(config interface{}) (retErr error) {
 			return fmt.Errorf("s3gateway gRPC client init: %v", err)
 		}
 		defer c.Close()
-		server := s3.Server(c, env.S3GatewayPort)
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+		server, err := s3.Server(c, env.S3GatewayPort)
+		if err != nil {
 			return fmt.Errorf("s3gateway server: %v", err)
+		}
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			return fmt.Errorf("s3gateway listen: %v", err)
 		}
 		return nil
 	})

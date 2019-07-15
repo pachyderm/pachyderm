@@ -16,6 +16,9 @@ import (
 	"golang.org/x/net/context"
 )
 
+const multipartRepo = "_s3gateway_multipart_"
+const maxAllowedParts = 10000
+
 var enterpriseTimeout = 24 * time.Hour
 var bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_]{1,255}\.[a-zA-Z0-9\-_]{1,255}/`)
 
@@ -35,7 +38,7 @@ var bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_]{1,255}\.[a-zA-Z0-
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(pc *client.APIClient, port uint16) *http.Server {
+func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
@@ -44,21 +47,19 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 	isEnterprise := false
 
 	controllers := s2.NewS2(logger)
-	controllers.Root = rootController{
-		pc:     pc,
-		logger: logger,
+	controllers.Root = newRootController(pc, logger)
+	controllers.Bucket = newBucketController(pc, logger)
+	controllers.Object = newObjectController(pc, logger)
+
+	multipart, err := newMultipartController(pc, logger, multipartRepo, maxAllowedParts)
+	if err != nil {
+		return nil, err
 	}
-	controllers.Bucket = bucketController{
-		pc:     pc,
-		logger: logger,
-	}
-	controllers.Object = objectController{
-		pc:     pc,
-		logger: logger,
-	}
+	controllers.Multipart = multipart
+
 	router := controllers.Router()
 
-	return &http.Server{
+	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -98,4 +99,6 @@ func Server(pc *client.APIClient, port uint16) *http.Server {
 		// NOTE: this is not closed. If the standard logger gets customized, this will need to be fixed
 		ErrorLog: stdlog.New(logger.Writer(), "", 0),
 	}
+
+	return server, nil
 }
