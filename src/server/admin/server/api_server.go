@@ -139,7 +139,8 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
-		for _, ri := range ris {
+		for i := range ris {
+			ri := ris[len(ris)-1-i]
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 				Repo: &pfs.CreateRepoRequest{
 					Repo:        ri.Repo,
@@ -168,9 +169,8 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			for _, bi := range bis {
 				if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
 					Branch: &pfs.CreateBranchRequest{
-						Head:       bi.Head,
-						Branch:     bi.Branch,
-						Provenance: bi.Provenance,
+						Head:   bi.Head,
+						Branch: bi.Branch,
 					},
 				}}); err != nil {
 					return err
