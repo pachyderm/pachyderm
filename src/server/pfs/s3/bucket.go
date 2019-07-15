@@ -175,9 +175,8 @@ func (c *bucketController) CreateBucket(r *http.Request, bucket string) error {
 	if err != nil {
 		if errutil.IsInvalidNameError(err) {
 			return s2.InvalidBucketNameError(r)
-		} else {
-			return s2.InternalError(r, err)
 		}
+		return s2.InternalError(r, err)
 	}
 
 	return nil
