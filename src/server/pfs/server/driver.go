@@ -859,14 +859,16 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 // ID can be passed in for transactions, which need to ensure the ID doesn't
 // change after the commit ID has been reported to a client.
 func (d *driver) startCommit(txnCtx *txnenv.TransactionContext, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, description string) (*pfs.Commit, error) {
-	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, description)
+	return d.makeCommit(txnCtx, ID, parent, branch, provenance, nil, nil, nil, nil, nil, description, 0)
 }
 
-func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit, branch string, provenance []*pfs.CommitProvenance, tree *pfs.Object) (*pfs.Commit, error) {
+func (d *driver) buildCommit(ctx context.Context, ID string, parent *pfs.Commit,
+	branch string, provenance []*pfs.CommitProvenance,
+	tree *pfs.Object, trees []*pfs.Object, datums *pfs.Object, sizeBytes uint64) (*pfs.Commit, error) {
 	commit := &pfs.Commit{}
 	err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
 		var err error
-		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, nil, nil, "")
+		commit, err = d.makeCommit(txnCtx, ID, parent, branch, provenance, tree, trees, datums, nil, nil, "", sizeBytes)
 		return err
 	})
 	return commit, err
@@ -891,9 +893,12 @@ func (d *driver) makeCommit(
 	branch string,
 	provenance []*pfs.CommitProvenance,
 	treeRef *pfs.Object,
+	treesRefs []*pfs.Object,
+	datumsRef *pfs.Object,
 	recordFiles []string,
 	records []*pfs.PutFileRecords,
 	description string,
+	sizeBytes uint64,
 ) (*pfs.Commit, error) {
 	// Validate arguments:
 	if parent == nil {
@@ -919,28 +924,6 @@ func (d *driver) makeCommit(
 		Started:     now(),
 		Description: description,
 	}
-
-	// FinishCommit case. We need to create AND finish 'newCommit' in two cases:
-	// 1. PutFile has been called on a finished commit (records != nil), and
-	//    we want to apply 'records' to the parentCommit's HashTree, use that new
-	//    HashTree for this commit's filesystem, and then finish this commit
-	// 2. BuildCommit has been called by migration (treeRef != nil) and we
-	//    want a new, finished commit with the given treeRef
-	// - In either case, store this commit's HashTree in 'tree', so we have its
-	//   size, and store a pointer to the tree (in object store) in 'treeRef', to
-	//   put in newCommitInfo.Tree.
-	// - We also don't want to resolve 'branch' or 'parent.ID' (if it's a branch)
-	//   outside the txn below, so the 'PutFile' case is handled (by computing
-	//   'tree' and 'treeRef') below as well
-	var tree hashtree.HashTree
-	if treeRef != nil {
-		var err error
-		tree, err = hashtree.GetHashTreeObject(txnCtx.Client, d.storageRoot, treeRef)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if branch != "" {
 		if err := ancestry.ValidateName(branch); err != nil {
 			return nil, err
@@ -1026,13 +1009,13 @@ func (d *driver) makeCommit(
 	// 1. Write 'newCommit' to 'openCommits' collection OR
 	// 2. Finish 'newCommit' (if treeRef != nil or records != nil); see
 	//    "FinishCommit case" above)
-	if treeRef != nil || records != nil {
+	if treeRef != nil || treesRefs != nil || records != nil {
 		if records != nil {
 			parentTree, err := d.getTreeForCommit(txnCtx, parent)
 			if err != nil {
 				return nil, err
 			}
-			tree, err = parentTree.Copy()
+			tree, err := parentTree.Copy()
 			if err != nil {
 				return nil, err
 			}
@@ -1048,11 +1031,14 @@ func (d *driver) makeCommit(
 			if err != nil {
 				return nil, err
 			}
+			sizeBytes = uint64(tree.FSSize())
 		}
 
 		// now 'treeRef' is guaranteed to be set
 		newCommitInfo.Tree = treeRef
-		newCommitInfo.SizeBytes = uint64(tree.FSSize())
+		newCommitInfo.Trees = treesRefs
+		newCommitInfo.Datums = datumsRef
+		newCommitInfo.SizeBytes = sizeBytes
 		newCommitInfo.Finished = now()
 
 		// If we're updating the master branch, also update the repo size (see
@@ -2461,7 +2447,7 @@ func (d *driver) putFiles(pachClient *client.APIClient, s *putFileServer) error 
 		// a commit with no ID, that ID will be filled in with the head of
 		// branch (if it exists).
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, putFilePaths, putFileRecords, "")
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(repo, ""), branch, nil, nil, nil, nil, putFilePaths, putFileRecords, "", 0)
 			return err
 		})
 	}
@@ -2843,7 +2829,7 @@ func (d *driver) copyFile(pachClient *client.APIClient, src *pfs.File, dst *pfs.
 	// dst is finished => all PutFileRecords are in 'records'--put in a new commit
 	if !dstIsOpenCommit {
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, paths, records, "")
+			_, err = d.makeCommit(txnCtx, "", client.NewCommit(dst.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, paths, records, "", 0)
 			return err
 		})
 	}
@@ -3640,7 +3626,7 @@ func (d *driver) deleteFile(pachClient *client.APIClient, file *pfs.File) error 
 			return pfsserver.ErrCommitFinished{file.Commit}
 		}
 		return d.txnEnv.WithWriteContext(pachClient.Ctx(), func(txnCtx *txnenv.TransactionContext) error {
-			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "")
+			_, err := d.makeCommit(txnCtx, "", client.NewCommit(file.Commit.Repo.Name, ""), branch, nil, nil, nil, nil, []string{file.Path}, []*pfs.PutFileRecords{&pfs.PutFileRecords{Tombstone: true}}, "", 0)
 			return err
 		})
 	}

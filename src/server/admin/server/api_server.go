@@ -154,10 +154,13 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 					ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
 				}
 				return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: &pfs.BuildCommitRequest{
-					Parent: ci.ParentCommit,
-					Tree:   ci.Tree,
-					ID:     ci.Commit.ID,
-					Branch: ci.Branch.Name,
+					Parent:    ci.ParentCommit,
+					Tree:      ci.Tree,
+					ID:        ci.Commit.ID,
+					Branch:    ci.Branch.Name,
+					Trees:     ci.Trees,
+					Datums:    ci.Datums,
+					SizeBytes: ci.SizeBytes,
 				}}})
 			}); err != nil {
 				return err
