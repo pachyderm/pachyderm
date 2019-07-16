@@ -11,6 +11,7 @@ go:
 - "1.12.6"
 env:
   global:
+    - GO111MODULE=on
     - PATH=$HOME/cached-deps:$PATH
   matrix:
     - BUCKET=MISC
