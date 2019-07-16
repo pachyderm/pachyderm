@@ -507,7 +507,7 @@ test-s3gateway-conformance:
 
 test-s3gateway-integration:
 	pachctl enterprise activate $$(aws s3 cp s3://pachyderm-engineering/test_enterprise_activation_code.txt -) && echo
-	go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
+	GO111MODULE=on go test -v ./src/server/pfs/s3 -timeout $(TIMEOUT) -count 1
 
 test-fuse:
 	CGOENABLED=0 GO111MODULE=on go test -cover $$(go list ./src/server/... | grep '/src/server/pfs/fuse')
