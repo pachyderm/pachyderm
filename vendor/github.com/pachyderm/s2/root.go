@@ -20,12 +20,12 @@ type Bucket struct {
 }
 
 type RootController interface {
-	List(r *http.Request, result *ListAllMyBucketsResult) error
+	ListBuckets(r *http.Request, result *ListAllMyBucketsResult) error
 }
 
 type UnimplementedRootController struct{}
 
-func (c UnimplementedRootController) List(r *http.Request, result *ListAllMyBucketsResult) error {
+func (c UnimplementedRootController) ListBuckets(r *http.Request, result *ListAllMyBucketsResult) error {
 	return NotImplementedError(r)
 }
 
@@ -37,8 +37,8 @@ type rootHandler struct {
 func (h *rootHandler) get(w http.ResponseWriter, r *http.Request) {
 	result := &ListAllMyBucketsResult{}
 
-	if err := h.controller.List(r, result); err != nil {
-		writeError(h.logger, r, w, err)
+	if err := h.controller.ListBuckets(r, result); err != nil {
+		writeError(h.logger, w, r, err)
 		return
 	}
 
