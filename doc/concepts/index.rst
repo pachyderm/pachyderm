@@ -31,6 +31,6 @@ topics:
 .. toctree::
    :maxdepth: 2
 
-   pfs/index.rst
-   pps/index.rst
+   data-concepts/index.rst
+   pipeline-concepts/index.rst
 
