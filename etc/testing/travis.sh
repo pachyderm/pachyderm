@@ -67,7 +67,6 @@ go install ./src/testing/match
 if [[ "$BUCKET" == "MISC" ]]; then
     if [[ "$TRAVIS_SECURE_ENV_VARS" == "true" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
-        make test-s3gateway-integration
         make lint
         make enterprise-code-checkin-test
         make test-pfs-server
@@ -80,7 +79,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
         make test-enterprise
         make test-worker
         make test-admin
-        # make test-s3gateway-integration
+        make test-s3gateway-integration
         make test-proto-static
         make test-transaction
         make test-config
