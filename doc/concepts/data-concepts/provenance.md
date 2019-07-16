@@ -40,6 +40,27 @@ available to other members of your team. When many data scientists have
 access to the same data set, they can conduct their own experiments with
 the data and identify better data analysis processes in separate branches.
 
+The following diagram demonstrates how provenance works:
 
+![Provenance example](../../images/provenance.png)
 
-<!--- Add an example that describes provenance accross repositories  and  branches -->
+In the diagram above, you can see two input repositories called `parameters`
+and `training-data`. The training data repository continuously collects
+data from an outside source. The training model pipeline combines the
+data from these two repositories and runs tests to select the best
+model.
+
+Provenance helps you to understand how and why the best model was
+selected and enables you to track the origin of the best model.
+In the diagram above, the best model is represented with a purple
+circle. By using provenance, you can find that the best model was
+created from the commit **2** in the `training-data` repository
+and the commit **1** in the `parameters` repository.
+
+Pachyderm provides the `flush commit` command that enables you
+to track provenance downstream. That means that you can learn
+in which output a certain commit has resulted.
+
+**See Also:**
+
+- [Examining file provenance with flush commit](../../fundamentals/getting_data_out_of_pachyderm.html#examining-file-provenance-with-flush-commit)
