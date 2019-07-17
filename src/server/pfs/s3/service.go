@@ -3,6 +3,7 @@ package s3
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gogo/protobuf/types"
 	"github.com/sirupsen/logrus"
@@ -11,13 +12,13 @@ import (
 	"github.com/pachyderm/s2"
 )
 
-type rootController struct {
+type serviceController struct {
 	pc     *client.APIClient
 	logger *logrus.Entry
 }
 
-func newRootController(pc *client.APIClient, logger *logrus.Entry) *rootController {
-	c := rootController{
+func newServiceController(pc *client.APIClient, logger *logrus.Entry) *serviceController {
+	c := serviceController{
 		pc:     pc,
 		logger: logger,
 	}
@@ -25,27 +26,27 @@ func newRootController(pc *client.APIClient, logger *logrus.Entry) *rootControll
 	return &c
 }
 
-func (c *rootController) ListBuckets(r *http.Request, result *s2.ListAllMyBucketsResult) error {
-	result.Owner = defaultUser
-
+func (c *serviceController) ListBuckets(r *http.Request) (owner *s2.User, buckets []s2.Bucket, err error) {
 	repos, err := c.pc.ListRepo()
 	if err != nil {
-		return s2.InternalError(r, err)
+		return
 	}
 
 	for _, repo := range repos {
-		t, err := types.TimestampFromProto(repo.Created)
+		var t time.Time
+		t, err = types.TimestampFromProto(repo.Created)
 		if err != nil {
-			return s2.InternalError(r, err)
+			return
 		}
 
 		for _, branch := range repo.Branches {
-			result.Buckets = append(result.Buckets, s2.Bucket{
+			buckets = append(buckets, s2.Bucket{
 				Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
 				CreationDate: t,
 			})
 		}
 	}
 
-	return nil
+	owner = &defaultUser
+	return
 }

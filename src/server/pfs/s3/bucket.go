@@ -26,7 +26,7 @@ func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
 		LastModified: t,
 		ETag:         fmt.Sprintf("%x", fileInfo.Hash),
 		Size:         fileInfo.SizeBytes,
-		StorageClass: storageClass,
+		StorageClass: globalStorageClass,
 		Owner:        defaultUser,
 	}, nil
 }
@@ -52,50 +52,53 @@ func newBucketController(pc *client.APIClient, logger *logrus.Entry) *bucketCont
 	return &c
 }
 
-func (c *bucketController) GetLocation(r *http.Request, bucket string, result *s2.LocationConstraint) error {
+func (c *bucketController) GetLocation(r *http.Request, bucket string) (location string, err error) {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return err
+		return
 	}
 
 	_, err = c.pc.InspectBranch(repo, branch)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		err = maybeNotFoundError(r, err)
+		return
 	}
 
-	result.Location = "PACHYDERM"
-	return nil
+	location = globalLocation
+	return
 }
 
-func (c *bucketController) ListObjects(r *http.Request, bucket string, result *s2.ListBucketResult) error {
+func (c *bucketController) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []s2.Contents, commonPrefixes []s2.CommonPrefixes, isTruncated bool, err error) {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return err
+		return
 	}
 
-	if result.Delimiter != "" && result.Delimiter != "/" {
-		return invalidDelimiterError(r)
+	if delimiter != "" && delimiter != "/" {
+		err = invalidDelimiterError(r)
+		return
 	}
 
 	// ensure the branch exists and has a head
 	branchInfo, err := c.pc.InspectBranch(repo, branch)
 	if err != nil {
-		return maybeNotFoundError(r, err)
+		err = maybeNotFoundError(r, err)
+		return
 	}
 	if branchInfo.Head == nil {
 		// if there's no head commit, just print an empty list of files
-		return nil
+		return
 	}
 
-	recursive := result.Delimiter == ""
+	recursive := delimiter == ""
 	var pattern string
 	if recursive {
-		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(result.Prefix))
+		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(prefix))
 	} else {
-		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(result.Prefix))
+		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
-	if err = c.pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
+	err = c.pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
 		if fileInfo.FileType == pfsClient.FileType_DIR {
 			if fileInfo.File.Path == "/" {
 				// skip the root directory
@@ -112,36 +115,34 @@ func (c *bucketController) ListObjects(r *http.Request, bucket string, result *s
 
 		fileInfo.File.Path = fileInfo.File.Path[1:] // strip leading slash
 
-		if !strings.HasPrefix(fileInfo.File.Path, result.Prefix) {
+		if !strings.HasPrefix(fileInfo.File.Path, prefix) {
 			return nil
 		}
-		if fileInfo.File.Path <= result.Marker {
+		if fileInfo.File.Path <= marker {
 			return nil
 		}
 
-		if result.IsFull() {
-			if result.MaxKeys > 0 {
-				result.IsTruncated = true
+		if len(contents)+len(commonPrefixes) >= maxKeys {
+			if maxKeys > 0 {
+				isTruncated = true
 			}
 			return errutil.ErrBreak
 		}
 		if fileInfo.FileType == pfsClient.FileType_FILE {
-			contents, err := newContents(fileInfo)
+			c, err := newContents(fileInfo)
 			if err != nil {
 				return err
 			}
 
-			result.Contents = append(result.Contents, contents)
+			contents = append(contents, c)
 		} else {
-			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
+			commonPrefixes = append(commonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 		}
 
 		return nil
-	}); err != nil {
-		return s2.InternalError(r, err)
-	}
+	})
 
-	return nil
+	return
 }
 
 func (c *bucketController) CreateBucket(r *http.Request, bucket string) error {

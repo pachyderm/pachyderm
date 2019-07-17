@@ -15,17 +15,18 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// writeError serializes an error to a response as XML
-func writeError(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, err error) {
+// WriteError serializes an error to a response as XML
+func WriteError(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, err error) {
 	switch e := err.(type) {
 	case *Error:
-		writeXML(logger, w, r, e.HttpStatus, e)
+		writeXML(logger, w, r, e.HTTPStatus, e)
 	default:
 		s3Err := InternalError(r, e)
-		writeXML(logger, w, r, s3Err.HttpStatus, s3Err)
+		writeXML(logger, w, r, s3Err.HTTPStatus, s3Err)
 	}
 }
 
+// writeXMLPrelude writes the HTTP headers and XML header to the response
 func writeXMLPrelude(w http.ResponseWriter, r *http.Request, code int) {
 	vars := mux.Vars(r)
 	requestID := vars["requestID"]
@@ -37,6 +38,7 @@ func writeXMLPrelude(w http.ResponseWriter, r *http.Request, code int) {
 	fmt.Fprint(w, xml.Header)
 }
 
+// writeXMLBody writes the marshaled XML payload of a value
 func writeXMLBody(logger *logrus.Entry, w http.ResponseWriter, v interface{}) {
 	encoder := xml.NewEncoder(w)
 	if err := encoder.Encode(v); err != nil {
@@ -46,17 +48,24 @@ func writeXMLBody(logger *logrus.Entry, w http.ResponseWriter, v interface{}) {
 	}
 }
 
+// writeXML writes HTTP headers, the XML header, and the XML payload to the
+// response
 func writeXML(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, code int, v interface{}) {
 	writeXMLPrelude(w, r, code)
 	writeXMLBody(logger, w, v)
 }
 
+// NotImplementedEndpoint creates an endpoint that returns
+// `NotImplementedError` responses. This can be used in places expecting a
+// `HandlerFunc`, e.g. mux middleware.
 func NotImplementedEndpoint(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeError(logger, w, r, NotImplementedError(r))
+		WriteError(logger, w, r, NotImplementedError(r))
 	}
 }
 
+// withBodyHandler reads a request payload, and forwards it to a given
+// function, while also verifying the `Content-MD5` header (if set.)
 func withBodyReader(r *http.Request, f func(reader io.Reader) error) (bool, error) {
 	expectedHash, ok := r.Header["Content-Md5"]
 	var expectedHashBytes []uint8
@@ -100,6 +109,8 @@ func intFormValue(r *http.Request, name string, min int, max int, def int) (int,
 	return i, nil
 }
 
+//stripETagQuotes removes leading and trailing quotes in a string (if they
+// exist.) This is used for ETags.
 func stripETagQuotes(s string) string {
 	if strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"") {
 		return strings.Trim(s, "\"")
@@ -107,6 +118,8 @@ func stripETagQuotes(s string) string {
 	return s
 }
 
+// addETagQuotes ensures that a given string has leading and trailing quotes.
+// This is used for ETags.
 func addETagQuotes(s string) string {
 	if !strings.HasPrefix(s, "\"") {
 		return fmt.Sprintf("\"%s\"", s)

@@ -1,6 +1,7 @@
 package s2
 
 import (
+	"encoding/xml"
 	"net/http"
 	"time"
 
@@ -9,29 +10,6 @@ import (
 )
 
 const defaultMaxKeys int = 1000
-
-// LocationConstraint is an XML-encodable location specification of a bucket
-type LocationConstraint struct {
-	Location string `xml:",innerxml"`
-}
-
-// ListBucketResult is an XML-encodable listing of files/objects in a
-// repo/bucket
-type ListBucketResult struct {
-	Contents       []Contents       `xml:"Contents"`
-	CommonPrefixes []CommonPrefixes `xml:"CommonPrefixes"`
-	Delimiter      string           `xml:"Delimiter,omitempty"`
-	IsTruncated    bool             `xml:"IsTruncated"`
-	Marker         string           `xml:"Marker"`
-	MaxKeys        int              `xml:"MaxKeys"`
-	Name           string           `xml:"Name"`
-	NextMarker     string           `xml:"NextMarker,omitempty"`
-	Prefix         string           `xml:"Prefix"`
-}
-
-func (r *ListBucketResult) IsFull() bool {
-	return len(r.Contents)+len(r.CommonPrefixes) >= r.MaxKeys
-}
 
 // Contents is an individual file/object
 type Contents struct {
@@ -43,34 +21,45 @@ type Contents struct {
 	Owner        User      `xml:"Owner"`
 }
 
-// CommonPrefixes is an individual PFS directory
+// CommonPrefixes specifies a common prefix of S3 keys. This is akin to a
+// directory.
 type CommonPrefixes struct {
 	Prefix string `xml:"Prefix"`
 	Owner  User   `xml:"Owner"`
 }
 
+// BucketController is an interface that specifies bucket-level functionality.
 type BucketController interface {
-	GetLocation(r *http.Request, bucket string, result *LocationConstraint) error
-	ListObjects(r *http.Request, bucket string, result *ListBucketResult) error
+	// GetLocation gets the location of a bucket
+	GetLocation(r *http.Request, bucket string) (location string, err error)
+
+	// ListObjects lists objects within a bucket
+	ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []Contents, commonPrefixes []CommonPrefixes, isTruncated bool, err error)
+
+	// CreateBucket creates a bucket
 	CreateBucket(r *http.Request, bucket string) error
+
+	// DeleteBucket deletes a bucket
 	DeleteBucket(r *http.Request, bucket string) error
 }
 
-type UnimplementedBucketController struct{}
+// unimplementedBucketController defines a controller that returns
+// `NotImplementedError` for all functionality
+type unimplementedBucketController struct{}
 
-func (c UnimplementedBucketController) GetLocation(r *http.Request, bucket string, result *LocationConstraint) error {
+func (c unimplementedBucketController) GetLocation(r *http.Request, bucket string) (location string, err error) {
+	return "", NotImplementedError(r)
+}
+
+func (c unimplementedBucketController) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []Contents, commonPrefixes []CommonPrefixes, isTruncated bool, err error) {
+	return nil, nil, false, NotImplementedError(r)
+}
+
+func (c unimplementedBucketController) CreateBucket(r *http.Request, bucket string) error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) ListObjects(r *http.Request, bucket string, result *ListBucketResult) error {
-	return NotImplementedError(r)
-}
-
-func (c UnimplementedBucketController) CreateBucket(r *http.Request, bucket string) error {
-	return NotImplementedError(r)
-}
-
-func (c UnimplementedBucketController) DeleteBucket(r *http.Request, bucket string) error {
+func (c unimplementedBucketController) DeleteBucket(r *http.Request, bucket string) error {
 	return NotImplementedError(r)
 }
 
@@ -83,14 +72,18 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	result := &LocationConstraint{}
-
-	if err := h.controller.GetLocation(r, bucket, result); err != nil {
-		writeError(h.logger, w, r, err)
+	location, err := h.controller.GetLocation(r, bucket)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
-	writeXML(h.logger, w, r, http.StatusOK, result)
+	writeXML(h.logger, w, r, http.StatusOK, struct {
+		XMLName  xml.Name `xml:"LocationConstraint"`
+		Location string   `xml:",innerxml"`
+	}{
+		Location: location,
+	})
 }
 
 func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
@@ -99,26 +92,44 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	maxKeys, err := intFormValue(r, "max-keys", 0, defaultMaxKeys, defaultMaxKeys)
 	if err != nil {
-		writeError(h.logger, w, r, err)
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
-	result := &ListBucketResult{
-		Name:        bucket,
-		Prefix:      r.FormValue("prefix"),
-		Marker:      r.FormValue("marker"),
-		Delimiter:   r.FormValue("delimiter"),
-		MaxKeys:     maxKeys,
-		IsTruncated: false,
-	}
+	prefix := r.FormValue("prefix")
+	marker := r.FormValue("marker")
+	delimiter := r.FormValue("delimiter")
 
-	if err := h.controller.ListObjects(r, bucket, result); err != nil {
-		writeError(h.logger, w, r, err)
+	contents, commonPrefixes, isTruncated, err := h.controller.ListObjects(r, bucket, prefix, marker, delimiter, maxKeys)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
-	for _, contents := range result.Contents {
-		contents.ETag = addETagQuotes(contents.ETag)
+	for _, c := range contents {
+		c.ETag = addETagQuotes(c.ETag)
+	}
+
+	result := struct {
+		XMLName        xml.Name         `xml:"ListBucketResult"`
+		Contents       []Contents       `xml:"Contents"`
+		CommonPrefixes []CommonPrefixes `xml:"CommonPrefixes"`
+		Delimiter      string           `xml:"Delimiter,omitempty"`
+		IsTruncated    bool             `xml:"IsTruncated"`
+		Marker         string           `xml:"Marker"`
+		MaxKeys        int              `xml:"MaxKeys"`
+		Name           string           `xml:"Name"`
+		NextMarker     string           `xml:"NextMarker,omitempty"`
+		Prefix         string           `xml:"Prefix"`
+	}{
+		Name:           bucket,
+		Prefix:         prefix,
+		Marker:         marker,
+		Delimiter:      delimiter,
+		MaxKeys:        maxKeys,
+		IsTruncated:    isTruncated,
+		Contents:       contents,
+		CommonPrefixes: commonPrefixes,
 	}
 
 	if result.IsTruncated {
@@ -146,7 +157,7 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 	bucket := vars["bucket"]
 
 	if err := h.controller.CreateBucket(r, bucket); err != nil {
-		writeError(h.logger, w, r, err)
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
@@ -158,7 +169,7 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	bucket := vars["bucket"]
 
 	if err := h.controller.DeleteBucket(r, bucket); err != nil {
-		writeError(h.logger, w, r, err)
+		WriteError(h.logger, w, r, err)
 		return
 	}
 

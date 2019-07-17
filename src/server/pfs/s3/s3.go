@@ -45,7 +45,7 @@ func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
 	isEnterprise := false
 
 	controllers := s2.NewS2(logger)
-	controllers.Root = newRootController(pc, logger)
+	controllers.Service = newServiceController(pc, logger)
 	controllers.Bucket = newBucketController(pc, logger)
 	controllers.Object = newObjectController(pc, logger)
 
@@ -81,14 +81,14 @@ func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
 				resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
 				if err != nil {
 					err = fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
-					writeError(logger, w, r, s2.InternalError(r, err))
+					s2.WriteError(logger, w, r, s2.InternalError(r, err))
 					return
 				}
 
 				isEnterprise = resp.State == enterpriseclient.State_ACTIVE
 			}
 			if !isEnterprise {
-				writeError(logger, w, r, enterpriseDisabledError(r))
+				s2.WriteError(logger, w, r, enterpriseDisabledError(r))
 				return
 			}
 
