@@ -573,7 +573,9 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		for _, directProvenance := range direct {
 			directProvenanceInfo := branchInfos[key(directProvenance.Repo.Name, directProvenance.Name)]
 			union = append(union, directProvenance)
-			union = append(union, directProvenanceInfo.Provenance...)
+			if directProvenanceInfo != nil {
+				union = append(union, directProvenanceInfo.Provenance...)
+			}
 		}
 
 		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
@@ -793,7 +795,6 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// 	return fmt.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
 	// }
 	repos := d.repos.ReadWrite(txnCtx.Stm)
-	commits := d.commits(repo.Name).ReadWrite(txnCtx.Stm)
 
 	// check if 'repo' is already gone. If so, return that error. Otherwise,
 	// proceed with auth check (avoids awkward "access denied" error when calling
@@ -818,7 +819,26 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 			return fmt.Errorf("repos.Get: %v", err)
 		}
 	}
-	commits.DeleteAll()
+
+	// make a list of all the commits
+	commits := d.commits(repo.Name).ReadOnly(txnCtx.ClientContext)
+	commitList := make(map[string]*pfs.Commit)
+	commitInfo := &pfs.CommitInfo{}
+	if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
+		commitList[commitID] = proto.Clone(commitInfo.Commit).(*pfs.Commit)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// and then delete them with deleteCommit, so that the subvenance of upstream commits gets updated
+	for _, ci := range commitList {
+		err = d.deleteCommit(txnCtx, ci, true)
+		if err != nil && force == false {
+			return err
+		}
+	}
+
 	var branchInfos []*pfs.BranchInfo
 	for _, branch := range repoInfo.Branches {
 		bi, err := d.inspectBranch(txnCtx, branch)
@@ -844,6 +864,9 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// exist in etcd but branches do.
 	branches := d.branches(repo.Name).ReadWrite(txnCtx.Stm)
 	branches.DeleteAll()
+	// Similarly with commits
+	commitsX := d.commits(repo.Name).ReadWrite(txnCtx.Stm)
+	commitsX.DeleteAll()
 	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
 		return fmt.Errorf("repos.Delete: %v", err)
 	}
@@ -1878,7 +1901,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	return nil
 }
 
-func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
+func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit, force bool) error {
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -1931,7 +1954,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	}
 
 	// 3) Validate the commit (check that it has no provenance) and delete it
-	if provenantOnInput(userCommitInfo.Provenance) {
+	if provenantOnInput(userCommitInfo.Provenance) && !force {
 		return fmt.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
 	}
 	deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)
