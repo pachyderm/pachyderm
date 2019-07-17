@@ -2,7 +2,6 @@ package s2
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -52,9 +51,9 @@ type CommonPrefixes struct {
 
 type BucketController interface {
 	GetLocation(r *http.Request, bucket string, result *LocationConstraint) error
-	List(r *http.Request, bucket string, result *ListBucketResult) error
-	Create(r *http.Request, bucket string) error
-	Delete(r *http.Request, bucket string) error
+	ListObjects(r *http.Request, bucket string, result *ListBucketResult) error
+	CreateBucket(r *http.Request, bucket string) error
+	DeleteBucket(r *http.Request, bucket string) error
 }
 
 type UnimplementedBucketController struct{}
@@ -63,15 +62,15 @@ func (c UnimplementedBucketController) GetLocation(r *http.Request, bucket strin
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) List(r *http.Request, bucket string, result *ListBucketResult) error {
+func (c UnimplementedBucketController) ListObjects(r *http.Request, bucket string, result *ListBucketResult) error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) Create(r *http.Request, bucket string) error {
+func (c UnimplementedBucketController) CreateBucket(r *http.Request, bucket string) error {
 	return NotImplementedError(r)
 }
 
-func (c UnimplementedBucketController) Delete(r *http.Request, bucket string) error {
+func (c UnimplementedBucketController) DeleteBucket(r *http.Request, bucket string) error {
 	return NotImplementedError(r)
 }
 
@@ -87,7 +86,7 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	result := &LocationConstraint{}
 
 	if err := h.controller.GetLocation(r, bucket, result); err != nil {
-		writeError(h.logger, r, w, err)
+		writeError(h.logger, w, r, err)
 		return
 	}
 
@@ -98,15 +97,10 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	maxKeys := defaultMaxKeys
-	maxKeysStr := r.FormValue("max-keys")
-	if maxKeysStr != "" {
-		i, err := strconv.Atoi(maxKeysStr)
-		if err != nil || i < 0 || i > defaultMaxKeys {
-			InvalidArgument(r).Write(h.logger, w)
-			return
-		}
-		maxKeys = i
+	maxKeys, err := intFormValue(r, "max-keys", 0, defaultMaxKeys, defaultMaxKeys)
+	if err != nil {
+		writeError(h.logger, w, r, err)
+		return
 	}
 
 	result := &ListBucketResult{
@@ -118,9 +112,13 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		IsTruncated: false,
 	}
 
-	if err := h.controller.List(r, bucket, result); err != nil {
-		writeError(h.logger, r, w, err)
+	if err := h.controller.ListObjects(r, bucket, result); err != nil {
+		writeError(h.logger, w, r, err)
 		return
+	}
+
+	for _, contents := range result.Contents {
+		contents.ETag = addETagQuotes(contents.ETag)
 	}
 
 	if result.IsTruncated {
@@ -147,8 +145,8 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	if err := h.controller.Create(r, bucket); err != nil {
-		writeError(h.logger, r, w, err)
+	if err := h.controller.CreateBucket(r, bucket); err != nil {
+		writeError(h.logger, w, r, err)
 		return
 	}
 
@@ -159,8 +157,8 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	if err := h.controller.Delete(r, bucket); err != nil {
-		writeError(h.logger, r, w, err)
+	if err := h.controller.DeleteBucket(r, bucket); err != nil {
+		writeError(h.logger, w, r, err)
 		return
 	}
 
