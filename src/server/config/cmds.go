@@ -251,5 +251,35 @@ func Cmds() []*cobra.Command {
 	}
 	commands = append(commands, cmdutil.CreateDocsAlias(configDocs, "config", "^pachctl config "))
 
+	configGetRoot := &cobra.Command{
+		Short: "Commands for getting pachyderm config values",
+		Long:  "Commands for getting pachyderm config values",
+	}
+	commands = append(commands, cmdutil.CreateAlias(configGetRoot, "config get"))
+
+	configSetRoot := &cobra.Command{
+		Short: "Commands for setting pachyderm config values",
+		Long:  "Commands for setting pachyderm config values",
+	}
+	commands = append(commands, cmdutil.CreateAlias(configSetRoot, "config set"))
+
+	configUpdateRoot := &cobra.Command{
+		Short: "Commands for updating pachyderm config values",
+		Long:  "Commands for updating pachyderm config values",
+	}
+	commands = append(commands, cmdutil.CreateAlias(configUpdateRoot, "config update"))
+
+	configDeleteRoot := &cobra.Command{
+		Short: "Commands for deleting pachyderm config values",
+		Long:  "Commands for deleting pachyderm config values",
+	}
+	commands = append(commands, cmdutil.CreateAlias(configDeleteRoot, "config delete"))
+
+	configListRoot := &cobra.Command{
+		Short: "Commands for listing pachyderm config values",
+		Long:  "Commands for listing pachyderm config values",
+	}
+	commands = append(commands, cmdutil.CreateAlias(configListRoot, "config list"))
+
 	return commands
 }
