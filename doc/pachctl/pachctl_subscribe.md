@@ -10,6 +10,7 @@ Wait for notifications of changes to a Pachyderm resource.
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 
