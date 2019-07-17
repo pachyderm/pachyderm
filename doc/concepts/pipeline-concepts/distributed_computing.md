@@ -1,11 +1,11 @@
 # Distributed Computing
 
-Distributing computation across multiple workers
-is a fundamental part of processing any big data or
-computationally-intensive workload. When you design your
+Distributing computation workload across multiple workers
+is a fundamental part of any big data processing.
+When you design your
 Pachyderm pipeline system for production, you need to
-define across which number of Pachyderm workers you want
-to spread your computation and which workers are responsible
+define the number of Pachyderm workers across which you want
+to spread your computations and which workers are responsible
 for which data.
 
 ## Pachyderm Workers
@@ -13,12 +13,12 @@ for which data.
 A Pachyderm worker is an identical Kubernetes pod that runs
 the Docker image that you specified in the
 [pipeline spec](../reference/pipeline_spec.html). Your analysis code
-does not affect how Pachyderm distributes workload among workers.
+does not affect how Pachyderm distributes the workload among workers.
 Instead, Pachyderm spreads out the data that needs to be processed
-across the various workers and make that data available for your code.
+across the various workers and makes that data available for your code.
 
-When you create a pipeline, Pachyderm spins up worker pods that run
-in the cluster waiting for new data to be available
+When you create a pipeline, Pachyderm spins up worker pods that
+continuously run in the cluster waiting for new data to be available
 for processing. Therefore, you do not need to recreate and
 schedule workers for every new job.
 
@@ -27,7 +27,7 @@ Pachyderm - TBA -->
 
 ## Controlling the Number of Workers
 
-You can control the number of workers that Pachyderm runs in a
+You can control the number of worker pods that Pachyderm runs in a
 pipeline by defining the `parallelism` parameter in the
 [pipeline specification](../reference/pipeline_spec.html).
 
@@ -51,5 +51,5 @@ that it spawns one worker per Kubernetes node for this pipeline.
 
 **See also:**
 
-* Glob Pattern
-* Pipeline Specification
+* [Glob Pattern](../datum/glob-pattern)
+* [Pipeline Specification](../../reference/pipeline_spec)

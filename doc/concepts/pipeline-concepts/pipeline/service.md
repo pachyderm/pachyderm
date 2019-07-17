@@ -1,11 +1,11 @@
 # Service
 
-Service is a special type of pipeline that do not process data but provide
+Service is a special type of pipeline that does not process data but provides
 a capability to expose it to the outside world. For example, you can use
-a service to expose a Jupyter™ notebook that is always has the most
+a service to expose a Jupyter™ notebook that has the most
 up-to-date version of your data.
 
-The following pipeline extract is an example of how you can expose your
+The following pipeline spec extract is an example of how you can expose your
 Jupyter notebook as a service by adding a `service` field.
 
 ```json
@@ -29,12 +29,12 @@ Jupyter notebook as a service by adding a `service` field.
 }
 ```
 
-The service section specifies the following ports
+The service section specifies the following parameters:
 
 | Parameter         | Description   |
 | ----------------- | ------------- |
 | `"internal_port"` | The port to which the code that runs inside the container binds. |
-| `"external_port"` | The port that is exposed to the outside of the container. You must <br> set this value in the range of `30000 — 32767`. You can access the <br> service from any Kubernetes node `http://<kubernetes-host>:<external_port>`. |
+| `"external_port"` | The port that is exposed outside of the container. You must <br> set this value in the range of `30000 — 32767`. You can access the <br> service from any Kubernetes node through the following address: `http://<kubernetes-host>:<external_port>`. |
 
 **See Also**
 

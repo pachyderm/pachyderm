@@ -1,7 +1,7 @@
 
 # Relationship Between Datums
 
-Pachyderm pipelines take a datum or datums from the source, processes
+A Pachyderm pipeline takes a datum or datums from the source, processes
 it or them, and places the result either as a single datum or multiple
 datums to the output repository. You can configure how you want your
 data to be processed, either as a single datum or as multiple datums.
@@ -25,7 +25,8 @@ in the output repository.
 
 <!--- Add a diagram -->
 
-The [OpenCV example](../../../getting_started/beginner_tutorial.html) illustrates the one-to-one relationship.
+The [OpenCV example](../../../getting_started/beginner_tutorial.html)
+illustrates the one-to-one relationship.
 
 ## One-to-many Relationship
 
@@ -47,7 +48,7 @@ be represented in a single file. Pachyderm can merge all the
 results into a single file. When you run `pachctl list jobs`,
 you can sometimes see the `merging` status in the output of the
 command, which means that Pachyderm optimizes the result by
-presenting it in a single file.
+consolidating the processed datums in a single file.
 
 The [Wordcount example](https://github.com/pachyderm/pachyderm/tree/master/examples/word_count)
 illustrates the many-to-many relationship.

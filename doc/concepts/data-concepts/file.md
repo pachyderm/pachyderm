@@ -23,9 +23,9 @@ Pachyderm provides the following file processing strategies:
 
 Appending files
  By default, Pachyderm appends all new files to the existing files.
- For example, you have a `A.csv` file in a repository. If you upload the
+ For example, you have an `A.csv` file in a repository. If you upload the
  same file to that repository, Pachyderm *appends* the data to the existing
- file which results in the file `A.csv`  having twice the data from its
+ file which results in the file `A.csv` having twice the data from its
  original size.
 
  **Example:**
@@ -55,9 +55,9 @@ Appending files
 Overwriting files
  When you enable the overwrite mode by using the `--overwrite`
  flag or `-o`, the file replaces the existing file instead of appending to
- it. For example, you have a `A.csv` file in a repository. If you upload
+ it. For example, you have an `A.csv` file in a repository. If you upload
  the same file to that repository with the `--overwrite` flag, Pachyderm
- *overrides* the whole file.
+ *overwrites* the whole file.
 
  **Example:**
 
@@ -75,7 +75,7 @@ Overwriting files
     $ pachctl put file --overwrite images@master -f A.csv
     ```
 
- 1. Check the files once again:
+ 1. Check the file size:
 
     ```bash
     $ pachctl list file images@master

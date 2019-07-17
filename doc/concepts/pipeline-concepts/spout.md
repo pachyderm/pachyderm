@@ -1,17 +1,17 @@
 # Spout
 
-A spout pipeline is a type of pipeline that processes
+A spout is a type of pipeline that processes
 streaming data that is continuously generated from
 multiple sources. Generally, you use spouts for
 situations when the interval between new data generation
 is large, but the latency requirement to start the
 processing is short. Therefore, a regular pipeline
-with periodic processing is not an optimal solution.
+with periodic processing might not be an optimal solution.
 
 Examples of streaming data include a message queue,
 a database transactions log, event notifications,
 and others. In spouts, your code runs continuously and writes the
-results to the pipeline's output location, `pfs/out`.
+results to the pipeline's output location `pfs/out`.
 Every time you create a complete `.tar` archive,
 Pachyderm creates a new commit and triggers the pipeline to
 process it.
@@ -47,7 +47,7 @@ parameters:
 | Parameter   | Description |
 | ----------- | ----------- |
 | `name`      | The name of your data pipeline and the output repository. You can set an <br> arbitrary name that is meaningful to the code you want to run. |
-| `transform` | Specifies a code that you want to run against your data, such as a Python <br> or Go script and a Docker image that you want to use to run that script. |
+| `transform` | Specifies the code that you want to run against your data, such as a Python <br> or Go script. Also, specifies a Docker image that you want to use to run that script. |
 | `overwrite` | Specifies whether to overwrite the existing content of the file <br> from previous commits or previous calls to the `put file` command <br> within this commit. The default value is `false`. |
 
 The following text is an example of a minimum specification:

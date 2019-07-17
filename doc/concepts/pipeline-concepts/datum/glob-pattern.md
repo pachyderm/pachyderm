@@ -1,25 +1,31 @@
 # Glob Pattern
 
-A glob pattern defines datum in your Pachyderm repository and how
-your data processing is spread among Pachyderm workers. The whole
-repository, each filesystem object in the root folder,
-each filesystem object in a subdirectory can be a standalone datum,
-and so on.
+A glob pattern defines datums in your Pachyderm repository and how
+your data processing is spread among Pachyderm worker pods. A standalone
+datum can be a whole
+repository, each top filesystem object in the root folder,
+each filesystem object in a subdirectory, and so on. Each time
+Pachyderm detects new commits in your repository, it starts the
+pipeline and processes the whole datum. Therefore, there might be
+a significant difference between processing the whole repository
+or one directory in the repository. You need to consider this
+behavior, when you design your pipeline.
 
-Defining how your data is spread out among workers is one of
+Defining how your data is spread among workers is one of
 the most important aspects of distributed computation and is
 the fundamental idea around concepts, such as Map and Reduce.
 
 Instead of confining users to data-distribution patterns,
 such as Map — split everything as much as possible, — and
-Reduce — all the data must be grouped — Pachyderm
-uses glob patterns to provide incredible flexibility in
-defining your data distribution.
+Reduce — all the data must be grouped, — Pachyderm
+uses glob patterns to provide incredible flexibility to
+define your data distribution.
 
-You can define a glob pattern for each PFS input within the input
-of a pipeline, and they tell Pachyderm how to
-divide the input data into individual *datums* that can
-be processed independently.
+You can configure a glob pattern for each PFS input in
+the input field of a pipeline specification. Pachyderm detects
+this parameter and divides the input data into
+individual *datums* to process them independently according
+to the provided glob pattern.
 
 Think of the PFS input repository as a filesystem where
 the glob pattern is applied to the root of the
@@ -41,6 +47,8 @@ Examples of glob patterns that you can define:
   single datum, similarly to a map operation.
 * `/*/*` — Pachyderm processes each filesystem object
   in each subdirectory as a separate datum.
+
+<!-- Add the ohmyglob examples here-->
 
 The following text is an extract from a pipeline specification.
 It shows how you can define glob pattern for individual PFS
@@ -71,7 +79,7 @@ Pachyderm sends one datum to each worker. If you have more
 datums than workers, Pachyderm queues datums and sends
 them to workers as they finish processing previous datums.
 
-## Example of Defining Data
+## Example of Defining Datums
 
 For example, you have the following directory:
 
@@ -90,17 +98,27 @@ For example, you have the following directory:
 Each top-level directory represents a United States(US) state with
 `json` files in it that represent cities of that state.
 
+* If you set glob pattern to `/`, every time
+you change anything in any of the
+files and folders or add a new file to the
+repository, Pachyderm processes the whole
+repository from scratch.
+
 If you need to process all the data for each state together in one
 batch, you need to define `/*` as a glob pattern. Pachyderm
 defines one datum per state, which means that all the cities for
 a given state are processed together by a single worker, but each
-state can be processed independently.
+state can be processed independently. For example, if you add a new file
+`Sacramento.json` to the `California/` directory, Pachyderm
+processes the `California/` datum only.
 
 If you set `/*/*` for states, Pachyderm processes each city as a single
-datum on a separate worker.
+datum on a separate worker. For example, if you add
+the `Sacramento.json` file, Pachyderm processes the
+`Sacramento.json` file only.
 
 If you want to process a specific directory or a subset of directories
 as a PFS input instead of the whole input repository,
-you can, for example, specify `/California/*` to process only the data in the
-`California/` directory.
+you can specify `/<state>/*` directory to process only the data in the
+`<state>/` directory.
 

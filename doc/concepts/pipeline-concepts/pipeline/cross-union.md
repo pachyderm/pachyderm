@@ -1,13 +1,18 @@
 # Cross and Union Inputs
 
 <!---This section needs to be made more clear. There is a lot of information
-that I would say describes things you can do with a cross or union pipeline
-but does not really have a good and clean explanation of what they are -->
+that I would say describes the things you can do with a cross or union pipeline
+but does not really have a good and clear explanation of what they are -->
 
 Pachyderm enables you to combine multiple PFS inputs, or multiple
 input repositories, in a single pipeline by using the `union` and
 `cross` operators in the pipeline specification. Such pipelines
 are called *union pipeline or input* and *cross pipeline or input*.
+
+If you are familiar with the [Set theory](https://en.wikipedia.org/wiki/Set_theory),
+you can think of union as a *disjoint union binary operator* and of cross as a
+`cartesian product binary operator`. However, you do not have to be a
+mathematician to understand how cross and union work in Pachyderm.
 
 This section describes what union and cross pipelines are and how you
 can optimize your code when you work with them.
@@ -20,7 +25,7 @@ The number of datums that are processed is the sum of all the
 datums in each repo.
 
 For example, you have two input repos, `A` and `B`. Each of these
-repositories contain three files with the following same names.
+repositories contain three files with the following identical names.
 
 Repository `A` has the following structure:
 
@@ -40,8 +45,8 @@ B
 └── 3.txt
 ```
 
-Although the files have identical names, each file has different content.
-Therefore, each has a different hash. If you combine them in a
+Although these files have identical names, each file has different content.
+Therefore, each file has a different hash. If you combine them in a
 pipeline, the `input` object in the pipeline spec might have the following
 structure:
 
@@ -178,3 +183,5 @@ visible during processing.
 - [Union Input](../../../reference/pipeline_spec.html#union-input)
 - [Combining/Merging/Joining Data](../../../cookbook/combining.html#combining-merging-joining-data)
 - [Distributed hyperparameter tuning](https://github.com/pachyderm/pachyderm/tree/master/examples/ml/hyperparameter)
+
+<!-- Add a link to an interactive tutorial when it's ready-->

@@ -3,12 +3,14 @@
 Pachyderm triggers pipelines when new changes appear in the input repository.
 However, if a pipeline consumes data from sources outside of Pachyderm,
 it cannot use the Pachyderm's triggering mechanism to process updates from
-those sources. For example, you might need to perform some of these tasks:
+those sources. A standard pipeline with a PFS input might not satisfy
+the requirements of the following tasks:
 
 - Scrape websites
 - Make API calls
 - Query a database
-- Retrieve a file from S3 or FTP
+- Retrieve a file from a location accessible through an S3 protocol
+or a File Transfer Protocol (FTP).
 
 You can schedule such pipelines to run periodically by using the Pachyderm's
 built-in `cron` PFS input type.
@@ -20,7 +22,7 @@ A minimum cron pipeline must include the following parameters:
 | `"name"`   | A descriptive name of the cron pipeline. |
 | `"spec"`   | An interval between scheduled cron jobs. You can specify any value that is <br> formatted according to [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt). <br> For example, if you set `*/10 * * * *`, the pipeline runs every ten minutes. |
 
-## Example of a cron pipeline
+## Example of a Cron Pipeline
 
 For example, you want to query a database every ten seconds and update your
 dataset with the new data every time the pipeline is triggered. The following
@@ -42,8 +44,8 @@ triggers the pipeline.
 
 ![alt tag](../../../images/cron1.png)
 
-The pipeline runs every 10 seconds querying the database and updating its
-output. By default, Pachyderm runs the pipeline on input data that was
+The pipeline runs every ten seconds querying the database and updating its
+output. By default, Pachyderm runs the pipeline on the input data that was
 added since the last tick skipping the already processed data.
 However, if you need to reprocess all the data, you can set the `overwrite`
 flag to `true` to overwrite the timestamp file on each tick.
