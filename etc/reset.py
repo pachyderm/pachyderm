@@ -115,27 +115,30 @@ def parse_log_level(s):
     except KeyError:
         raise Exception("Unknown log level: {}".format(s))
 
-def redirect_to_logger(stdout, stderr):
-    for io in select.select([stdout.pipe, stderr.pipe], [], [], 5000)[0]:
-        line = io.readline().decode().rstrip()
-
-        if line == "":
-            continue
-
-        dest = stdout if io == stdout.pipe else stderr
-        log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
-        dest.lines.append(line)
-
 def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", stderr_log_level="error"):
     log.debug("Running `%s %s`", cmd, " ".join(args))
 
     proc = subprocess.Popen([cmd, *args], shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout = Output(proc.stdout, stdout_log_level)
     stderr = Output(proc.stderr, stderr_log_level)
+    timed_out_last = False
 
-    while proc.poll() is None:
-        redirect_to_logger(stdout, stderr)
-    redirect_to_logger(stdout, stderr)
+    while True:
+        if (proc.poll() is not None and timed_out_last) or (stdout.pipe.closed and stderr.pipe.closed):
+            break
+
+        for io in select.select([stdout.pipe, stderr.pipe], [], [], 100)[0]:
+            timed_out_last = False
+            line = io.readline().decode().rstrip()
+
+            if line == "":
+                continue
+
+            dest = stdout if io == stdout.pipe else stderr
+            log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
+            dest.lines.append(line)
+        else:
+            timed_out_last = True
 
     rc = proc.wait()
 
