@@ -48,12 +48,7 @@ func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
 	controllers.Root = newRootController(pc, logger)
 	controllers.Bucket = newBucketController(pc, logger)
 	controllers.Object = newObjectController(pc, logger)
-
-	multipart, err := newMultipartController(pc, logger, multipartRepo, maxAllowedParts)
-	if err != nil {
-		return nil, err
-	}
-	controllers.Multipart = multipart
+	controllers.Multipart = newMultipartController(pc, logger, multipartRepo, maxAllowedParts)
 
 	router := controllers.Router()
 
