@@ -2,10 +2,15 @@ dist: xenial
 sudo: required
 services:
 - docker
+before_cache:
+  # Travis can't cache files that are not readable by "others"
+  - chmod -R a+r $HOME/gopath
+  - chmod -R a+r $HOME/cached-deps
 cache:
   directories:
     - $HOME/.cache/go-build
     - $HOME/cached-deps
+    - $HOME/gopath
 language: go
 go:
 - "1.12.6"
