@@ -1,11 +1,11 @@
 ## pachctl config delete
 
-
+Commands for deleting pachyderm config values
 
 ### Synopsis
 
 
-
+Commands for deleting pachyderm config values
 
 ### Options inherited from parent commands
 

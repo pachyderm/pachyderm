@@ -1,11 +1,11 @@
 ## pachctl config get
 
-
+Commands for getting pachyderm config values
 
 ### Synopsis
 
 
-
+Commands for getting pachyderm config values
 
 ### Options inherited from parent commands
 

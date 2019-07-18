@@ -1,11 +1,11 @@
 ## pachctl config set
 
-
+Commands for setting pachyderm config values
 
 ### Synopsis
 
 
-
+Commands for setting pachyderm config values
 
 ### Options inherited from parent commands
 

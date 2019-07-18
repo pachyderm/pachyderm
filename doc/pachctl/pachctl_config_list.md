@@ -1,11 +1,11 @@
 ## pachctl config list
 
-
+Commands for listing pachyderm config values
 
 ### Synopsis
 
 
-
+Commands for listing pachyderm config values
 
 ### Options inherited from parent commands
 
