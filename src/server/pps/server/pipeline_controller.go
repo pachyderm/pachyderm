@@ -24,6 +24,22 @@ import (
 
 const maxErrCount = 3 // gives all retried operations ~4.5s total to finish
 
+const noRCExpected = false
+const rcExpected = true
+
+func max(is ...int) int {
+	if len(is) == 0 {
+		return 0
+	}
+	max := is[0]
+	for _, i := range is {
+		if i > max {
+			max = i
+		}
+	}
+	return max
+}
+
 // pipelineOp contains all of the relevent current state for a pipeline. It's
 // used by step() to take any necessary actions
 type pipelineOp struct {
@@ -52,14 +68,14 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 	op, err := a.newPipelineOp(pachClient, pipeline)
 	if err != nil {
 		// op is nil, so can't use op.failPipeline
-		log.Errorf("PPS master: failing pipeline %q as its op couldn't be initialized: %v", pipeline, err)
 		return a.setPipelineFailure(pachClient.Ctx(), pipeline,
 			fmt.Sprintf("couldn't initialize pipeline op: %v", err))
 	}
 	// set op.rc
-	// TODO(msteffen) should this fail the pipeline?)
-	if err := op.getRC(); err != nil && err != errRCNotFound {
-		return op.restartPipeline(fmt.Sprintf("couldn't retrieve pipeline RC: %v", err))
+	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
+	// the pipeline indefinitely)
+	if err := op.getRC(noRCExpected); err != nil && err != errRCNotFound {
+		return err
 	}
 
 	// Handle tracing
@@ -183,13 +199,15 @@ func (op *pipelineOp) getPipelineInfo() error {
 }
 
 // getRC reads the RC associated with 'op's pipeline. op.pipelineInfo must be
-// set already.
+// set already. 'expected' indicates whether the PPS master expects an RC to
+// exist--if set to 'true', getRC will retry until a fresh RC is found (and if
+// false, getRC will return after the first RPC)
 //
 // Like other functions in this file, it takes responsibility for restarting
 // op's pipeline if it can't read the pipeline's RC (or if the RC is stale or
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
-func (op *pipelineOp) getRC() (retErr error) {
+func (op *pipelineOp) getRC(expected bool) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
 		"/pps.Master/GetRC", "pipeline", op.name)
 	defer func(span opentracing.Span) {
@@ -223,6 +241,9 @@ func (op *pipelineOp) getRC() (retErr error) {
 			return nil
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		if !expected {
+			return err
+		}
 		switch err {
 		case errRCNotFound:
 			notFoundErrCount++
@@ -233,7 +254,7 @@ func (op *pipelineOp) getRC() (retErr error) {
 		default:
 			otherErrCount++
 		}
-		errCount := notFoundErrCount + staleErrCount + tooManyErrCount + otherErrCount
+		errCount := max(notFoundErrCount, staleErrCount, tooManyErrCount, otherErrCount)
 		if errCount >= maxErrCount {
 			return op.restartPipeline(fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
 		}
@@ -434,7 +455,7 @@ func (op *pipelineOp) updateRC(update func(rc *v1.ReplicationController)) error 
 		errCount++
 		if strings.Contains(err.Error(), "try again") {
 			// refresh RC--sometimes kubernetes complains that the RC is stale
-			if err := op.getRC(); err != nil {
+			if err := op.getRC(rcExpected); err != nil {
 				return err // getRC will log & restart pipeline--just don't proceed
 			}
 		} else if errCount >= maxErrCount {
