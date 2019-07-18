@@ -1,46 +1,51 @@
 package s2
 
 import (
+	"encoding/xml"
 	"net/http"
 	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
-// ListAllMyBucketsResult is an XML-encodable listing of repos as buckets
-type ListAllMyBucketsResult struct {
-	Owner   User     `xml:"Owner"`
-	Buckets []Bucket `xml:"Buckets>Bucket"`
-}
-
-// Bucket is an XML-encodable repo, represented as an S3 bucket
+// Bucket is an XML marshalable representation of a bucket
 type Bucket struct {
 	Name         string    `xml:"Name"`
 	CreationDate time.Time `xml:"CreationDate"`
 }
 
-type RootController interface {
-	ListBuckets(r *http.Request, result *ListAllMyBucketsResult) error
+// ServiceController is an interface defining service-level functionality
+type ServiceController interface {
+	// ListBuckets lists all buckets
+	ListBuckets(r *http.Request) (owner *User, buckets []Bucket, err error)
 }
 
-type UnimplementedRootController struct{}
+// unimplementedServiceController defines a controller that returns
+// `NotImplementedError` for all functionality
+type unimplementedServiceController struct{}
 
-func (c UnimplementedRootController) ListBuckets(r *http.Request, result *ListAllMyBucketsResult) error {
-	return NotImplementedError(r)
+func (c unimplementedServiceController) ListBuckets(r *http.Request) (owner *User, buckets []Bucket, err error) {
+	return nil, nil, NotImplementedError(r)
 }
 
-type rootHandler struct {
-	controller RootController
+type serviceHandler struct {
+	controller ServiceController
 	logger     *logrus.Entry
 }
 
-func (h *rootHandler) get(w http.ResponseWriter, r *http.Request) {
-	result := &ListAllMyBucketsResult{}
-
-	if err := h.controller.ListBuckets(r, result); err != nil {
-		writeError(h.logger, w, r, err)
+func (h *serviceHandler) get(w http.ResponseWriter, r *http.Request) {
+	owner, buckets, err := h.controller.ListBuckets(r)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
-	writeXML(h.logger, w, r, http.StatusOK, result)
+	writeXML(h.logger, w, r, http.StatusOK, struct {
+		XMLName xml.Name `xml:"ListAllMyBucketsResult"`
+		Owner   *User    `xml:"Owner"`
+		Buckets []Bucket `xml:"Buckets>Bucket"`
+	}{
+		Owner:   owner,
+		Buckets: buckets,
+	})
 }

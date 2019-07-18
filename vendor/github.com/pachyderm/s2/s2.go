@@ -62,24 +62,29 @@ func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objec
 	router.Methods("DELETE").HandlerFunc(handler.del)
 }
 
+// S2 is the root struct used in the s2 library
 type S2 struct {
-	Root      RootController
+	Service   ServiceController
 	Bucket    BucketController
 	Object    ObjectController
 	Multipart MultipartController
 	logger    *logrus.Entry
 }
 
+// NewS2 creates a new S2 instance. One created, you set zero or more
+// attributes to implement various S3 functionality, then create a router.
 func NewS2(logger *logrus.Entry) *S2 {
 	return &S2{
-		Root:      UnimplementedRootController{},
-		Bucket:    UnimplementedBucketController{},
-		Object:    UnimplementedObjectController{},
-		Multipart: UnimplementedMultipartController{},
+		Service:   unimplementedServiceController{},
+		Bucket:    unimplementedBucketController{},
+		Object:    unimplementedObjectController{},
+		Multipart: unimplementedMultipartController{},
 		logger:    logger,
 	}
 }
 
+// requestIDMiddleware creates a middleware handler that adds a request ID to
+// every request.
 func (h *S2) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
@@ -87,7 +92,7 @@ func (h *S2) requestIDMiddleware(next http.Handler) http.Handler {
 		id, err := uuid.NewV4()
 		if err != nil {
 			baseErr := fmt.Errorf("could not generate request ID: %v", err)
-			writeError(h.logger, w, r, InternalError(r, baseErr))
+			WriteError(h.logger, w, r, InternalError(r, baseErr))
 			return
 		}
 
@@ -96,9 +101,10 @@ func (h *S2) requestIDMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// Router creates a new mux router.
 func (h *S2) Router() *mux.Router {
-	rootHandler := &rootHandler{
-		controller: h.Root,
+	serviceHandler := &serviceHandler{
+		controller: h.Service,
 		logger:     h.logger,
 	}
 	bucketHandler := &bucketHandler{
@@ -117,7 +123,7 @@ func (h *S2) Router() *mux.Router {
 	router := mux.NewRouter()
 	router.Use(h.requestIDMiddleware)
 
-	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(rootHandler.get)
+	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(serviceHandler.get)
 
 	// Bucket-related routes. Repo validation regex is the same that the aws
 	// cli uses. There's two routers - one with a trailing a slash and one
@@ -136,15 +142,15 @@ func (h *S2) Router() *mux.Router {
 
 	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.logger.Infof("method not allowed: %s %s", r.Method, r.URL.Path)
-		writeError(h.logger, w, r, MethodNotAllowedError(r))
+		WriteError(h.logger, w, r, MethodNotAllowedError(r))
 	})
 
 	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h.logger.Infof("not found: %s", r.URL.Path)
 		if bucketNameValidator.MatchString(r.URL.Path) {
-			writeError(h.logger, w, r, NoSuchKeyError(r))
+			WriteError(h.logger, w, r, NoSuchKeyError(r))
 		} else {
-			writeError(h.logger, w, r, InvalidBucketNameError(r))
+			WriteError(h.logger, w, r, InvalidBucketNameError(r))
 		}
 	})
 
