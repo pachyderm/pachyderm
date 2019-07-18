@@ -516,7 +516,7 @@ test-local:
 	CGOENABLED=0 GO111MODULE=on go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
 
 test-cli:
-	CGOENABLED=0 GO111MODULE=on go test -v ./src/server/cmd/pachctl/cmd
+	CGOENABLED=0 GO111MODULE=on go test -mod=vendor -v ./src/server/cmd/pachctl/cmd
 
 test-auth:
 	yes | pachctl delete all
