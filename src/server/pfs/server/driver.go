@@ -822,23 +822,80 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 
 	// make a list of all the commits
 	commits := d.commits(repo.Name).ReadOnly(txnCtx.ClientContext)
-	commitList := make(map[string]*pfs.Commit)
+	commitInfos := make(map[string]*pfs.CommitInfo)
 	commitInfo := &pfs.CommitInfo{}
 	if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
-		commitList[commitID] = proto.Clone(commitInfo.Commit).(*pfs.Commit)
+		commitInfos[commitID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
 		return nil
 	}); err != nil {
 		return err
 	}
 
-	// and then delete them with deleteCommit, so that the subvenance of upstream commits gets updated
-	for _, ci := range commitList {
-		err = d.deleteCommit(txnCtx, ci, true)
-		if err != nil && force == false {
-			if strings.Contains(err.Error(), "not found") {
+	// and then delete them while making sure that the subvenance of upstream commits gets updated
+	for _, ci := range commitInfos {
+		// Remove the deleted commit from the upstream commits' subvenance.
+		visited := make(map[string]bool) // visitied upstream (provenant) commits
+		for _, prov := range ci.Provenance {
+			// Check if we've fixed prov already (or if it's in this repo and
+			// doesn't need to be fixed
+			if visited[prov.Commit.ID] || prov.Commit.Repo.Name == repo.Name {
 				continue
 			}
-			return err
+			visited[prov.Commit.ID] = true
+
+			// fix prov's subvenance
+			provCI := &pfs.CommitInfo{}
+			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
+				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
+			nextSubvRange:
+				for subvFrom, subv := range provCI.Subvenance {
+					// Compute path (of commit IDs) connecting subv.Upper to subv.Lower
+					cur := subv.Upper.ID
+					path := []string{cur}
+					for cur != subv.Lower.ID {
+						// Get CommitInfo for 'cur' from etcd
+						// and traverse parent
+						curInfo := &pfs.CommitInfo{}
+						if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
+							return fmt.Errorf("error reading commitInfo for subvenant \"%s/%s\": %v", subv.Lower.Repo.Name, cur, err)
+						}
+						if curInfo.ParentCommit == nil {
+							break
+						}
+						cur = curInfo.ParentCommit.ID
+						path = append(path, cur)
+					}
+
+					// move 'subv.Upper' through parents until it points to a non-deleted commit
+					for j := range path {
+						if subv.Upper.Repo.Name != repo.Name {
+							break
+						}
+						if j+1 >= len(path) {
+							// All commits in subvRange are deleted. Remove entire Range
+							// from provCI.Subvenance
+							continue nextSubvRange
+						}
+						subv.Upper.ID = path[j+1]
+					}
+
+					// move 'subv.Lower' through children until it points to a non-deleted commit
+					for j := len(path) - 1; j >= 0; j-- {
+						if subv.Lower.Repo.Name != repo.Name {
+							break
+						}
+						// We'll eventually get to a non-deleted commit because the
+						// 'upper' block didn't exit
+						subv.Lower.ID = path[j-1]
+					}
+					provCI.Subvenance[subvTo] = provCI.Subvenance[subvFrom]
+					subvTo++
+				}
+				provCI.Subvenance = provCI.Subvenance[:subvTo]
+				return nil
+			}); err != nil && !strings.Contains(err.Error(), "not found") {
+				return fmt.Errorf("err fixing subvenance of upstream commit %s/%s: %v", prov.Commit.Repo.Name, prov.Commit.ID, err)
+			}
 		}
 	}
 
