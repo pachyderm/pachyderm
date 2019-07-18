@@ -48,7 +48,7 @@ with a limited number of tries. If possible use a method of waiting directly
 (e.g. 'flush commit' is much better than repeatedly trying to read from a
 commit).
 
-### Go Modules/Third-party Code
+### Go Modules/Third-Party Code
 
 - Go dependencies are managed with go modules (as of 07/11/2019).
 - To add a new package or update a package. Do:
