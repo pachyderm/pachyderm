@@ -835,6 +835,9 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	for _, ci := range commitList {
 		err = d.deleteCommit(txnCtx, ci, true)
 		if err != nil && force == false {
+			if strings.Contains(err.Error(), "not found") {
+				continue
+			}
 			return err
 		}
 	}
