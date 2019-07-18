@@ -37,6 +37,7 @@ message Op1_9 {
   pfs.BuildCommitRequest commit = 5;
   pfs.CreateBranchRequest branch = 6;
   pps.CreatePipelineRequest pipeline = 7;
+  pps.CreateJobRequest job = 8;
 }
 
 message Op {

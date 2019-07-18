@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/log"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 )
 
 var objHashRE = regexp.MustCompile("[0-9a-f]{128}")
@@ -139,6 +140,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		if err != nil {
 			return err
 		}
+		ris = append(ris, &pfs.RepoInfo{Repo: &pfs.Repo{Name: ppsconsts.SpecRepo}})
 		for i := range ris {
 			ri := ris[len(ris)-1-i]
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
@@ -190,6 +192,13 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		for _, pi := range pis {
 			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}); err != nil {
 				return err
+			}
+			if err := pachClient.ListJobF(pi.Pipeline.Name, nil, nil, -1, false, func(ji *pps.JobInfo) error {
+				return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Job: &pps.CreateJobRequest{
+					Pipeline:     pi.Pipeline,
+					OutputCommit: ji.OutputCommit,
+				}}})
+			}); err != nil {
 			}
 		}
 	}
@@ -472,6 +481,10 @@ func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_9) error
 		sanitizePipeline(op.Pipeline)
 		if _, err := pachClient.PpsAPIClient.CreatePipeline(pachClient.Ctx(), op.Pipeline); err != nil && !errutil.IsAlreadyExistError(err) {
 			return fmt.Errorf("error creating pipeline: %v", grpcutil.ScrubGRPC(err))
+		}
+	case op.Job != nil:
+		if _, err := pachClient.PpsAPIClient.CreateJob(pachClient.Ctx(), op.Job); err != nil && !errutil.IsAlreadyExistError(err) {
+			return fmt.Errorf("error creating job: %v", grpcutil.ScrubGRPC(err))
 		}
 	}
 	return nil
