@@ -69,6 +69,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
         echo "Running the full misc test suite because secret env vars exist"
         make lint
         make enterprise-code-checkin-test
+        make test-cli
         make test-pfs-server
         make test-pfs-cmds
         make test-pfs-storage
@@ -83,7 +84,6 @@ if [[ "$BUCKET" == "MISC" ]]; then
         make test-proto-static
         make test-transaction
         make test-config
-        make test-cli
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint
