@@ -182,14 +182,16 @@ transaction' or cancelled with 'delete transaction'.`,
 			// TODO: use advisory locks on config so we don't have a race condition if
 			// two commands are run simultaneously
 			var txn *transaction.Transaction
-			var isActive bool
+			isActive := false
 			if len(args) > 0 {
 				txn = &transaction.Transaction{ID: args[0]}
 
 				// Don't check err here, this is just a quality-of-life check to clean
 				// up the config after a successful delete
 				activeTxn, _ := requireActiveTransaction()
-				isActive = (txn.ID == activeTxn.ID)
+				if activeTxn != nil {
+					isActive = txn.ID == activeTxn.ID
+				}
 			} else {
 				txn, err = requireActiveTransaction()
 				if err != nil {
