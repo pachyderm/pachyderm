@@ -117,7 +117,7 @@ func (c *multipartController) ListMultipart(r *http.Request, bucket, keyMarker, 
 		return
 	}
 	if err = c.ensureRepo(); err != nil {
-		return err
+		return
 	}
 
 	err = c.pc.GlobFileF(c.repo, "master", fmt.Sprintf("%s/%s/*/*/.keep", repo, branch), func(fileInfo *pfsClient.FileInfo) error {
@@ -217,7 +217,7 @@ func (c *multipartController) CompleteMultipart(r *http.Request, name, key, uplo
 		return
 	}
 	if err = c.ensureRepo(); err != nil {
-		return err
+		return
 	}
 
 	_, err = c.pc.InspectFile(c.repo, "master", keepPath(repo, branch, key, uploadID))
@@ -286,7 +286,7 @@ func (c *multipartController) ListMultipartChunks(r *http.Request, name, key, up
 		return
 	}
 	if err = c.ensureRepo(); err != nil {
-		return err
+		return
 	}
 
 	err = c.pc.GlobFileF(c.repo, "master", fmt.Sprintf("%s/%s/%s/%s/*", repo, branch, key, uploadID), func(fileInfo *pfsClient.FileInfo) error {
