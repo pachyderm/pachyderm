@@ -27,7 +27,7 @@ components installed in addition to the ones listed above:
 On your local machine, you can run Pachyderm in a minikube virtual machine.
 Minikube is a tool that creates a single-node Kubernetes cluster. This limited
 installation is sufficient to try basic Pachyderm functionality and complete
-the Beginner Tutorial..
+the Beginner Tutorial.
 
 To configure Minikube, follow these steps:
 
@@ -156,7 +156,7 @@ all Pachyderm pods must be in the **Running** status.
 Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
 Kubernetes restarted those pods. You can safely ignore that message.
 
-1. Run `pachctl version` to verify that `pachd` has been installed;
+1. Run `pachctl version` to verify that `pachd` has been deployed.
 
    ```shell
    $ pachctl version
@@ -165,19 +165,32 @@ Kubernetes restarted those pods. You can safely ignore that message.
    pachd               1.9.1
    ```
 
-1. Use port forwarding to connect to the `minikube` instance and access
-the Pachyderm dashboard:
+
+
+1. Open a new terminal window.
+
+1. Use port forwarding to access the Pachyderm dashboard.
 
    ```
    pachctl port-forward
    ```
 
-1. Alternatively, you can set up Pachyderm to directly connect to
-the `minikube` instance:
+   This command runs continuosly and does not exit unless you interrupt it.
 
-   ```
-   pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
-   ```
+1. Alternatively, you can set up Pachyderm to directly connect to
+the Minikube instance:
+
+   1. Get your Minikube IP address:
+
+      ```bash
+      $ minikube ip
+      ```
+
+   1. Configure Pachyderm to connect directly to the Minikube instance:
+
+      ```
+      pachctl config update context `pachctl config get active-context` --pachd-address=`minikube ip`:30650
+      ```
 
 ## Next Steps
 
