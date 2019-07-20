@@ -201,7 +201,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 // getRC reads the RC associated with 'op's pipeline. op.pipelineInfo must be
 // set already. 'expected' indicates whether the PPS master expects an RC to
 // exist--if set to 'true', getRC will retry until a fresh RC is found (and if
-// false, getRC will return after the first RPC)
+// false, getRC will return after the first "not found" error)
 //
 // Like other functions in this file, it takes responsibility for restarting
 // op's pipeline if it can't read the pipeline's RC (or if the RC is stale or
@@ -241,7 +241,7 @@ func (op *pipelineOp) getRC(expected bool) (retErr error) {
 			return nil
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		if !expected {
+		if !expected && err == errRCNotFound {
 			return err
 		}
 		switch err {
