@@ -54,7 +54,7 @@ type pipelineOp struct {
 var (
 	errRCNotFound = errors.New("RC not found")
 	errTooManyRCs = errors.New("multiple RCs found for pipeline")
-	errStaleRC    = errors.New("RC is doesn't match pipeline version")
+	errStaleRC    = errors.New("RC doesn't match pipeline version (likely stale)")
 )
 
 // step takes 'ptr', a newly-changed pipeline pointer in etcd, and
