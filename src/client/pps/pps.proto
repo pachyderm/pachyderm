@@ -602,6 +602,7 @@ message CreatePipelineRequest {
   SchedulingSpec scheduling_spec = 29;
   string pod_spec = 30; // deprecated, use pod_patch below
   string pod_patch = 32; // a json patch will be applied to the pipeline's pod_spec before it's created;
+  pfs.Commit spec_commit = 34;
 }
 
 message InspectPipelineRequest {
