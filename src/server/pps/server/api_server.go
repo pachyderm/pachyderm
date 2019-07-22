@@ -396,7 +396,7 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 		return err
 	}
 
-	if input != nil {
+	if input != nil && operation != pipelineOpDelete {
 		// Check that the user is authorized to read all input repos, and write to the
 		// output repo (which the pipeline needs to be able to do on the user's
 		// behalf)
@@ -457,6 +457,11 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 	case pipelineOpUpdate:
 		required = auth.Scope_WRITER
 	case pipelineOpDelete:
+		if _, err := pachClient.InspectRepo(output); isNotFoundErr(err) {
+			// special case: the pipeline output repo has been deleted (so the
+			// pipeline is now invalid). It should be possible to delete the pipeline.
+			return nil
+		}
 		required = auth.Scope_OWNER
 	default:
 		return fmt.Errorf("internal error, unrecognized operation %v", operation)
@@ -1763,6 +1768,10 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 					Username: auth.PipelinePrefix + pipelineName,
 					Scope:    auth.Scope_NONE,
 				})
+				if isNotFoundErr(err) {
+					// can happen if input repo is force-deleted; nothing to remove
+					return nil
+				}
 				return grpcutil.ScrubGRPC(err)
 			})
 		})
@@ -2361,15 +2370,21 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		pipelineInfo = &pps.PipelineInfo{Pipeline: request.Pipeline, OutputBranch: "master"}
 	}
 
-	// Check if the caller is authorized to delete this pipeline. This must be
-	// done after cleaning up the spec branch HEAD commit, because the
-	// authorization condition depends on the pipeline's PipelineInfo
-	if err := a.authorizePipelineOp(pachClient, pipelineOpDelete, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+	// check if the output repo exists--if not, the pipeline is non-functional and
+	// the rest of the delete operation continues without any auth checks
+	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !isNotFoundErr(err) {
 		return nil, err
-	}
-
-	if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-		return nil, err
+	} else if !isNotFoundErr(err) {
+		// Check if the caller is authorized to delete this pipeline. This must be
+		// done after cleaning up the spec branch HEAD commit, because the
+		// authorization condition depends on the pipeline's PipelineInfo
+		if err := a.authorizePipelineOp(pachClient, pipelineOpDelete, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+			return nil, err
+		}
+		// delete the pipeline's output repo
+		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
+			return nil, err
+		}
 	}
 
 	// Delete pipeline's workers
