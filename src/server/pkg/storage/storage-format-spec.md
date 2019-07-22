@@ -155,8 +155,8 @@ type Reference struct {
   source string
 }
 
-func (gcc *GcClient) ReserveChunks(job string, chunks []Chunk) {...}
-func (gcc *GcClient) UpdateReferences(add []Reference, remove []Reference, releaseJobs []string) {...}
+func (gcc *GcClient) ReserveChunks(jobID string, chunks []Chunk) {...}
+func (gcc *GcClient) UpdateReferences(add []Reference, remove []Reference, releaseJobID string) {...}
 ```
 
 The garbage collection service will provide a GRPC API for use by the client
@@ -196,12 +196,18 @@ database.  If the references drop to zero, the client library will call the
 `FlushDeletes` is a synchronization RPC that will block until pending deletes
 for the specified chunks have completed.
 
-The service will periodically query the database for unreferenced chunks and
-proceed with removing their references and deleting them.  This can be done in
-a transaction joining the chunks and references tables and marking the chunk as
-'deleting'.  Afterwards, it will send deletion requests to object storage,
-followed by deleting the row from the chunks table, then responding to any
-`FlushDeletes` requests that were blocked.
+`DeleteChunks` is an RPC for clients to notify the server that a chunk may no
+longer be referenced.  The service will mark the chunk as 'deleting' by setting
+a timestamp in the `deleting` field, remove the chunk from object storage, then
+remove the row from the database as well as cross-chunk references originating
+from that chunk.  `DeleteChunks` may result in recursive calls to `DeleteChunks`
+when removing cross-chunk references.  This operation will be aborted on a chunk-
+by-chunk basis if a chunk is found to have live references during the atomic
+operation to mark it as 'deleting'.  While a chunk is being evaluated for
+`DeleteChunks`, it has an entry in a map for synchroniation purposes with
+`FlushDeletes` that can be used to wait for the deletion operation to finish
+(either to be aborted or succeed), after which it is safe to call `ReserveChunks`
+for the given chunk.
 
 #### Persistence
 
@@ -214,42 +220,42 @@ Chunks table spec:
 
 References table spec:
 * chunk: string (chunk name)
-* type: string (the type of the source of the reference 'chunk', 'semantic', or 'job')
-* reference: string (source of the reference)
-* primary key is the compound of (chunk, type, reference)
+* sourcetype: string (the type of the source of the reference 'chunk', 'semantic', or 'job')
+* source: string (source of the reference, interpretation is dependent on `sourcetype` field)
+* primary key is the compound of (chunk, sourcetype, source)
 
-The `reference` field indicates the source of the reference, which can be one of
+The `source` field indicates the source of the reference, which can be one of
 the following:
-* a cross-chunk reference - `type`: "chunk"
- * a reference from one chunk to another
- * this field should be the hash id of the source chunk of the reference
-* a semantic reference - `type`: "semantic"
- * typically the top-level reference to a chunk
- * this field is the identifier that the chunk is referred to as
-* a job reference - `type`: "job"
- * this is a temporary reference tied to the lifecycle of the job
- * this field is the job id, which can be resolved to check if the job is
+* a cross-chunk reference - `sourcetype`: "chunk"
+  * a reference from one chunk to another
+  * this field should be the hash id of the source chunk of the reference
+* a semantic reference - `sourcetype`: "semantic"
+  * typically the top-level reference to a chunk
+  * this field is the identifier that the chunk is referred to as
+* a job reference - `sourcetype`: "job"
+  * this is a temporary reference tied to the lifecycle of the job
+  * this field is the job id, which can be resolved to check if the job is
  complete and the reference can be removed
 
 Logical states:
 Nascent ↔ Live → Deleting → Deleted
 
 * Nascent
- * the chunk has been reserved for writing
- * the chunk may or may not exist in object storage
- * the chunk has one or more temporary semantic references from one or more clients
- * `deleting` should be `nil`
+  * the chunk has been reserved for writing
+  * the chunk may or may not exist in object storage
+  * the chunk has one or more temporary semantic references from one or more clients
+  * `deleting` should be `nil`
 * Live
- * the chunk is referenced either semantically or from clients or other chunks
- * the chunk must exist in object storage
- * `deleting` should be `nil`
+  * the chunk is referenced either semantically or from clients or other chunks
+  * the chunk must exist in object storage
+  * `deleting` should be `nil`
 * Deleting
- * the chunk's references to other chunks have been removed and it is in the process of being deleted
- * the chunk may or may not exist in object storage
- * `deleting` should be non-`nil`
+  * the chunk's references to other chunks have been removed and it is in the process of being deleted
+  * the chunk may or may not exist in object storage
+  * `deleting` should be non-`nil`
 * Deleted
- * the chunk is no longer present in the database
- * the chunk must not exist in object storage
+  * the chunk is no longer present in the database
+  * the chunk must not exist in object storage
 
 #### Recovering
 
@@ -268,8 +274,3 @@ likely be bootstrapping parallel garbage collectors and routing requests
 correctly.  Such a system would allow us to grow the garbage collector past
 what one node can handle (i.e. the deletion traffic puts too much load on a
 node).
-
-### Open questions
-
-* What database should we use for this?
-* Should we store semantic reference identifiers in the database?
