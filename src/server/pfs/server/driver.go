@@ -831,14 +831,22 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 		return err
 	}
 
+	visited := make(map[string]bool) // visitied upstream (provenant) commits
 	// and then delete them while making sure that the subvenance of upstream commits gets updated
 	for _, ci := range commitInfos {
 		// Remove the deleted commit from the upstream commits' subvenance.
-		visited := make(map[string]bool) // visitied upstream (provenant) commits
 		for _, prov := range ci.Provenance {
 			// Check if we've fixed prov already (or if it's in this repo and
 			// doesn't need to be fixed
 			if visited[prov.Commit.ID] || prov.Commit.Repo.Name == repo.Name {
+				continue
+			}
+			// or if the repo has already been deleted
+			ri := new(pfs.RepoInfo)
+			if err := repos.Get(prov.Commit.Repo.Name, ri); err != nil {
+				if !col.IsErrNotFound(err) {
+					return fmt.Errorf("repo %v was not found: %v", prov.Commit.Repo.Name, err)
+				}
 				continue
 			}
 			visited[prov.Commit.ID] = true
@@ -893,7 +901,7 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 				}
 				provCI.Subvenance = provCI.Subvenance[:subvTo]
 				return nil
-			}); err != nil && !strings.Contains(err.Error(), "not found") {
+			}); err != nil {
 				return fmt.Errorf("err fixing subvenance of upstream commit %s/%s: %v", prov.Commit.Repo.Name, prov.Commit.ID, err)
 			}
 		}
@@ -1961,7 +1969,7 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 	return nil
 }
 
-func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit, force bool) error {
+func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs.Commit) error {
 	if err := d.checkIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Scope_WRITER); err != nil {
 		return err
 	}
@@ -2014,7 +2022,7 @@ func (d *driver) deleteCommit(txnCtx *txnenv.TransactionContext, userCommit *pfs
 	}
 
 	// 3) Validate the commit (check that it has no provenance) and delete it
-	if provenantOnInput(userCommitInfo.Provenance) && !force {
+	if provenantOnInput(userCommitInfo.Provenance) {
 		return fmt.Errorf("cannot delete the commit \"%s/%s\" because it has non-empty provenance", userCommit.Repo.Name, userCommit.ID)
 	}
 	deleteCommit(userCommitInfo.Commit, userCommitInfo.Commit)

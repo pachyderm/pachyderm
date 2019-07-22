@@ -343,7 +343,7 @@ func (a *apiServer) DeleteCommitInTransaction(
 	txnCtx *txnenv.TransactionContext,
 	request *pfs.DeleteCommitRequest,
 ) error {
-	return a.driver.deleteCommit(txnCtx, request.Commit, false)
+	return a.driver.deleteCommit(txnCtx, request.Commit)
 }
 
 // DeleteCommit implements the protobuf pfs.DeleteCommit RPC
