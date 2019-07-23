@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
@@ -143,29 +142,16 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	require.Equal(t, numPipelines, len(commitInfos))
 
 	// Confirm all the recreated jobs passed
-	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
-		jobInfos, err := c.ListJob("", nil, nil, -1, true) // make sure jobs all succeeded
-		if err != nil {
-			return err
-		}
-		// Extract places commits before pipelines, so that all commits are processed
-		// after Restore() (thus |jobInfos| = nCommits * numPipelines)
-		if len(jobInfos) != nCommits*numPipelines {
-			return fmt.Errorf("expected %d commits, but only encountered %d",
-				nCommits*numPipelines, len(jobInfos))
-		}
-		for _, ji := range jobInfos {
-			// race--we may call listJob between when a job's output commit is closed
-			// and when its state is updated
-			if ji.State != pps.JobState_JOB_SUCCESS {
-				return fmt.Errorf("expected job %q to be in state JOB_SUCCESS but was %q",
-					ji.Job.ID, ji.State.String())
-			}
-			// Job must ultimately succeed
-			require.Equal(t, "JOB_SUCCESS", ji.State.String())
-		}
-		return nil
-	})
+	jis, err := pachClient.FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	// One job per pipeline, as above
+	require.Equal(t, numPipelines, len(jis))
+	for _, ji := range jis {
+		// Job must ultimately succeed
+		require.Equal(t, "JOB_SUCCESS", ji.State.String())
+		require.Equal(t, int64(2), ji.DataTotal)
+		require.NotNil(t, ji.Started)
+		require.NotNil(t, ji.Finished)
+	}
 
 	// Make sure all branches were recreated
 	bis, err := c.ListBranch(dataRepo)
