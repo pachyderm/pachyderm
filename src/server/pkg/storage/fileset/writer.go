@@ -2,8 +2,10 @@ package fileset
 
 import (
 	"context"
+	"io"
 	"math"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/chunk"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/fileset/index"
@@ -15,26 +17,21 @@ var (
 )
 
 type meta struct {
-	hdr *index.Header
+	hdr, copyHdr *index.Header
 }
 
 // Writer writes the serialized format of a fileset.
 // The serialized format of a fileset consists of indexes and content which are both realized as compressed tar stream chunks.
 type Writer struct {
-	tw      *tar.Writer
-	cw      *chunk.Writer
-	iw      *index.Writer
-	first   bool
-	hdr     *index.Header
-	lastHdr *index.Header
-	closed  bool
+	tw                    *tar.Writer
+	cw                    *chunk.Writer
+	iw                    *index.Writer
+	hdr, copyHdr, lastHdr *index.Header
+	closed                bool
 }
 
 func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path string) *Writer {
-	w := &Writer{
-		iw:    index.NewWriter(ctx, objC, chunks, path),
-		first: true,
-	}
+	w := &Writer{iw: index.NewWriter(ctx, objC, chunks, path)}
 	cw := chunks.NewWriter(ctx, averageBits, w.callback(), math.MaxInt64)
 	w.cw = cw
 	w.tw = tar.NewWriter(cw)
@@ -43,26 +40,31 @@ func newWriter(ctx context.Context, objC obj.Client, chunks *chunk.Storage, path
 
 // WriteHeader writes a tar header and prepares to accept the file's contents.
 func (w *Writer) WriteHeader(hdr *index.Header) error {
-	// Flush out preceding file's content before starting new range.
-	if !w.first {
-		if err := w.tw.Flush(); err != nil {
-			return err
-		}
+	// Flush out preceding file's content.
+	if err := w.tw.Flush(); err != nil {
+		return err
 	}
-	w.first = false
 	// Setup index header for next file.
-	// (bryce) might want to deep copy the passed in header.
-	w.hdr = &index.Header{Hdr: hdr.Hdr}
-	if w.hdr.Idx == nil {
-		w.hdr.Idx = &index.Index{}
+	if hdr.Idx == nil {
+		hdr.Idx = &index.Index{}
 	}
-	w.hdr.Idx.DataOp = &index.DataOp{}
+	w.hdr = &index.Header{
+		Hdr: hdr.Hdr,
+		Idx: proto.Clone(hdr.Idx).(*index.Index),
+	}
 	w.cw.Annotate(&chunk.Annotation{
 		NextDataRef: &chunk.DataRef{},
 		Meta: &meta{
 			hdr: w.hdr,
 		},
 	})
+	// The DataOp should only be non-nil when copying.
+	if w.hdr.Idx.DataOp == nil {
+		w.hdr.Idx.DataOp = &index.DataOp{}
+	} else {
+		w.hdr.Idx.DataOp.DataRefs = nil
+		w.copyHdr = hdr
+	}
 	if err := w.tw.WriteHeader(w.hdr.Hdr); err != nil {
 		return err
 	}
@@ -105,30 +107,73 @@ func (w *Writer) StartTag(id string) {
 func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.tw.Write(data)
 	w.hdr.Idx.SizeBytes += int64(n)
-	if len(w.hdr.Idx.DataOp.Tags) > 1 {
-		w.hdr.Idx.DataOp.Tags[len(w.hdr.Idx.DataOp.Tags)-1].SizeBytes += int64(n)
-	}
+	w.hdr.Idx.DataOp.Tags[len(w.hdr.Idx.DataOp.Tags)-1].SizeBytes += int64(n)
 	return n, err
 }
 
-func (w *Writer) finishFile(hdr *index.Header) error {
-	// (bryce) this needs to be changed when the chunk storage layer is parallelized.
-	w.lastHdr = nil
-	w.hdr.Idx.DataOp.DataRefs = append(w.hdr.Idx.DataOp.DataRefs, hdr.Idx.DataOp.DataRefs[1:]...)
-	w.hdr.Idx.DataOp.Tags = append(w.hdr.Idx.DataOp.Tags, hdr.Idx.DataOp.Tags[1:]...)
-	w.hdr.Idx.SizeBytes = hdr.Idx.SizeBytes
-	w.hdr.Idx.LastPathChunk = hdr.Idx.LastPathChunk
-	return w.iw.WriteHeaders([]*index.Header{w.hdr})
+// CopyTags does a cheap copy of tagged file data from a reader to a writer.
+func (w *Writer) CopyTags(r *Reader, tagBound ...string) error {
+	c, err := r.readCopyTags(tagBound...)
+	if err != nil {
+		return err
+	}
+	return w.writeCopyTags(c)
 }
 
-func (w *Writer) writeTags(tags []*index.Tag) error {
-	w.hdr.Idx.DataOp.Tags = append(w.hdr.Idx.DataOp.Tags, tags...)
-	var numBytes int64
-	for _, tag := range tags {
-		numBytes += tag.SizeBytes
+func (w *Writer) writeCopyTags(c *copyTags) error {
+	beforeSize := w.cw.AnnotationSize()
+	if err := w.cw.WriteCopy(c.content); err != nil {
+		return err
 	}
-	w.hdr.Idx.SizeBytes += numBytes
-	return w.tw.Skip(numBytes)
+	w.hdr.Idx.DataOp.Tags = append(w.hdr.Idx.DataOp.Tags, c.tags...)
+	return w.tw.Skip(w.cw.AnnotationSize() - beforeSize)
+}
+
+// CopyFiles does a cheap copy of files from a reader to a writer.
+func (w *Writer) CopyFiles(r *Reader, pathBound ...string) error {
+	f := r.readCopyFiles(pathBound...)
+	for {
+		c, err := f()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		// Copy the content level.
+		for _, file := range c.files {
+			if err := w.WriteHeader(file.hdr); err != nil {
+				return err
+			}
+			if err := w.writeCopyTags(file); err != nil {
+				return err
+			}
+		}
+		// Copy the index level(s).
+		if c.indexCopyF != nil {
+			// (bryce) need to block on chunk storage here.
+			w.finishFile()
+			if err := w.iw.WriteCopyFunc(c.indexCopyF); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (w *Writer) finishFile() {
+	// Pull the last data reference and the corresponding last path in the last chunk from the copy header.
+	// (bryce) this needs more work. It does not handle the start/end of copying correctly.
+	dataRefs := w.lastHdr.Idx.DataOp.DataRefs
+	copyDataRefs := w.copyHdr.Idx.DataOp.DataRefs
+	if len(dataRefs) == 0 || dataRefs[len(dataRefs)-1].Chunk.Hash != copyDataRefs[len(copyDataRefs)-1].Chunk.Hash {
+		w.lastHdr.Idx.DataOp.DataRefs = append(w.lastHdr.Idx.DataOp.DataRefs, copyDataRefs[len(copyDataRefs)-1])
+	}
+	w.lastHdr.Idx.LastPathChunk = w.copyHdr.Idx.LastPathChunk
+	// Write the last hdr and clear the content level writers.
+	w.iw.WriteHeaders([]*index.Header{w.lastHdr})
+	w.lastHdr = nil
+	w.tw = tar.NewWriter(w.cw)
+	w.cw.Reset()
 }
 
 // Close closes the writer.
@@ -143,12 +188,12 @@ func (w *Writer) Close() error {
 	if err := w.tw.Flush(); err != nil {
 		return err
 	}
-	// Close the chunk writer.
-	if err := w.cw.Close(); err != nil {
-		return err
-	}
 	// Write out the last header.
 	if w.lastHdr != nil {
+		// Close the chunk writer.
+		if err := w.cw.Close(); err != nil {
+			return err
+		}
 		if err := w.iw.WriteHeaders([]*index.Header{w.lastHdr}); err != nil {
 			return err
 		}

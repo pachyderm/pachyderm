@@ -151,7 +151,7 @@ func TestWriteThenRead(t *testing.T) {
 	}
 }
 
-func TestWriteTo(t *testing.T) {
+func TestCopy(t *testing.T) {
 	objC, chunks := chunk.LocalStorage(t)
 	defer func() {
 		chunk.Cleanup(objC, chunks)
@@ -185,7 +185,7 @@ func TestWriteTo(t *testing.T) {
 	testPathCopy := testPath + "Copy"
 	r := fileSets.NewReader(context.Background(), testPath, "")
 	wCopy := fileSets.NewWriter(context.Background(), testPathCopy)
-	require.NoError(t, r.WriteToFiles(wCopy), msg)
+	require.NoError(t, wCopy.CopyFiles(r), msg)
 	require.NoError(t, wCopy.Close(), msg)
 	require.NoError(t, r.Close(), msg)
 	// Compare initial file set and copy file set.

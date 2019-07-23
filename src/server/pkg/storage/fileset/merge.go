@@ -47,7 +47,7 @@ func contentMergeFunc(w *Writer) mergeFunc {
 		}
 		// Fast path for copying files from one stream.
 		if len(fileStreams) == 1 {
-			if err := fileStreams[0].r.WriteToFiles(w, next...); err != nil {
+			if err := w.CopyFiles(fileStreams[0].r, next...); err != nil {
 				if err == io.EOF {
 					return nil
 				}
@@ -105,7 +105,7 @@ func tagMergeFunc(w *Writer) mergeFunc {
 		// Convert generic stream to tag stream.
 		tagStream := ss[0].(*tagStream)
 		// Copy tagged data to writer.
-		return tagStream.r.WriteToTags(w, next...)
+		return w.CopyTags(tagStream.r, next...)
 	}
 }
 
