@@ -491,14 +491,26 @@ func (a *apiServer) CreateJob(ctx context.Context, request *pps.CreateJobRequest
 	}
 
 	job := client.NewJob(uuid.NewWithoutDashes())
+	if request.Stats == nil {
+		request.Stats = &pps.ProcessStats{}
+	}
 	_, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		jobPtr := &pps.EtcdJobInfo{
-			Job:          job,
-			OutputCommit: request.OutputCommit,
-			Pipeline:     request.Pipeline,
-			Stats:        &pps.ProcessStats{},
+			Job:           job,
+			OutputCommit:  request.OutputCommit,
+			Pipeline:      request.Pipeline,
+			Stats:         request.Stats,
+			Restart:       request.Restart,
+			DataProcessed: request.DataProcessed,
+			DataSkipped:   request.DataSkipped,
+			DataTotal:     request.DataTotal,
+			DataFailed:    request.DataFailed,
+			DataRecovered: request.DataRecovered,
+			StatsCommit:   request.StatsCommit,
+			Started:       request.Started,
+			Finished:      request.Finished,
 		}
-		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, pps.JobState_JOB_STARTING, "")
+		return ppsutil.UpdateJobState(a.pipelines.ReadWrite(stm), a.jobs.ReadWrite(stm), jobPtr, request.State, request.Reason)
 	})
 	if err != nil {
 		return nil, err

@@ -197,8 +197,20 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}
 			if err := pachClient.ListJobF(pi.Pipeline.Name, nil, nil, -1, false, func(ji *pps.JobInfo) error {
 				return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Job: &pps.CreateJobRequest{
-					Pipeline:     pi.Pipeline,
-					OutputCommit: ji.OutputCommit,
+					Pipeline:      pi.Pipeline,
+					OutputCommit:  ji.OutputCommit,
+					Restart:       ji.Restart,
+					DataProcessed: ji.DataProcessed,
+					DataSkipped:   ji.DataSkipped,
+					DataTotal:     ji.DataTotal,
+					DataFailed:    ji.DataFailed,
+					DataRecovered: ji.DataRecovered,
+					Stats:         ji.Stats,
+					StatsCommit:   ji.StatsCommit,
+					State:         ji.State,
+					Reason:        ji.Reason,
+					Started:       ji.Started,
+					Finished:      ji.Finished,
 				}}})
 			}); err != nil {
 			}
