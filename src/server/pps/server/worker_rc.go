@@ -119,10 +119,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
 		})
-		sidecarVolumeMounts = append(sidecarVolumeMounts, v1.VolumeMount{
+		emptyDirVolumeMount := v1.VolumeMount{
 			Name:      "pach-dir-volume",
 			MountPath: a.storageRoot,
-		})
+		}
+		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
+		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
 	}
 	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
