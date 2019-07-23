@@ -5314,7 +5314,7 @@ func TestGarbageCollection(t *testing.T) {
 		// - 6 objects in __spec__:
 		//   (hashtree + /spec file) * (2 'pipeline' commits + 1 'failurePipeline' commit)
 		if len(objectsAfter) != 9 {
-			return fmt.Errorf("expected 9 objects remaining, but found %d", objectsAfter)
+			return fmt.Errorf("expected 9 objects remaining, but found %d", len(objectsAfter))
 		}
 		return nil
 	})
@@ -9689,6 +9689,115 @@ func TestFileHistory(t *testing.T) {
 
 	_, err = c.ListFileHistory(pipeline, "master", "", -1)
 	require.NoError(t, err)
+}
+
+// TestNoOutputRepoDoesntCrashPPSMaster creates a pipeline, then deletes its
+// output repo while it's running (failing the pipeline and preventing the PPS
+// master from finishing the pipeline's output commit) and makes sure new
+// pipelines can be created (i.e. that the PPS master doesn't crashloop due to
+// the missing output repo).
+func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+			"cp /pfs/*/* /pfs/out/",
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// force-delete output repo while 'sleep 10' is running, failing the pipeline
+	require.NoError(t, c.DeleteRepo(pipeline, true))
+
+	// make sure the pipeline is failed
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
+			return fmt.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
+		}
+		return nil
+	})
+
+	// Delete the pachd pod, so that it restarts and the PPS master has to process
+	// the failed pipeline
+	tu.DeletePachdPod(t) // delete the pachd pod
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		_, err := c.Version() // wait for pachd to come back
+		return err
+	})
+
+	// Create a new input commit, and flush its output to 'pipeline', to make sure
+	// the pipeline either restarts the RC and recreates the output repo, or fails
+	_, err = c.PutFile(repo, "master", "/file.2", strings.NewReader("2"))
+	require.NoError(t, err)
+	iter, err := c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		// TODO(msteffen): While not currently possible, PFS could return
+		// CommitDeleted here. This should detect that error, but first:
+		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
+		//   handling code)
+		// - packages depending on that code should be migrated
+		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
+		if err == io.EOF {
+			return nil // expected--with no output repo, FlushCommit can't return anything
+		}
+		return fmt.Errorf("unexpected error value: %v", err)
+	})
+
+	// Create a new pipeline, make sure FlushCommit eventually returns, and check
+	// pipeline output (i.e. the PPS master does not crashloop--pipeline2
+	// eventually starts successfully)
+	pipeline2 := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	iter, err = c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline2)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+	buf := &bytes.Buffer{}
+	require.NoError(t, c.GetFile(pipeline2, "master", "/file.1", 0, 0, buf))
+	require.Equal(t, "1", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline2, "master", "/file.2", 0, 0, buf))
+	require.Equal(t, "2", buf.String())
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
