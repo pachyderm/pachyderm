@@ -389,6 +389,9 @@ func (op *pipelineOp) finishPipelineOutputCommits() (retErr error) {
 
 	return op.apiServer.sudo(pachClient, func(superUserClient *client.APIClient) error {
 		commitInfos, err := superUserClient.ListCommit(op.name, op.pipelineInfo.OutputBranch, "", 0)
+		if isNotFoundErr(err) {
+			return nil // already deleted
+		}
 		if err != nil {
 			return fmt.Errorf("could not list output commits of %q to finish them: %v", op.name, err)
 		}
