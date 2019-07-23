@@ -2335,6 +2335,24 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	return a.deletePipeline(pachClient, request)
 }
 
+// cleanUpSpecBranch handles the corner case where a spec branch was created for
+// a new pipeline, but the etcdPipelineInfo was never created successfully (and
+// the pipeline is in an inconsistent state). It's called if a pipeline's
+// etcdPipelineInfo wasn't found, checks if an orphaned branch exists, and if
+// so, deletes the orphaned branch.
+func (a *apiServer) cleanUpSpecBranch(pachClient *client.APIClient, pipeline string) error {
+	specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, pipeline)
+	if err != nil && specBranchInfo.Head != nil {
+		// No spec branch (and no etcd pointer) => the pipeline doesn't exist
+		return fmt.Errorf("pipeline %v was not found: %v", pipeline, err)
+	}
+	// branch exists but head is nil => pipeline creation never finished/
+	// pps state is invalid. Delete nil branch
+	return grpcutil.ScrubGRPC(a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+		return superUserClient.DeleteBranch(ppsconsts.SpecRepo, pipeline, true)
+	}))
+}
+
 func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
@@ -2343,27 +2361,20 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	pipelinePtr := pps.EtcdPipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
-			// There's no etcd pointer. Check if there's an pipeline branch in the
-			// Spec repo (i.e. pipeline creation failed & left pps in invalid state).
-			specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
-			if err == nil && specBranchInfo.Head == nil {
-				// branch exists but head is nil => pipeline creation never finished/
-				// pps state is invalid. Delete nil branch
-				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					return superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, true)
-				}); err != nil {
-					return nil, grpcutil.ScrubGRPC(err)
-				}
-				return &types.Empty{}, nil
+			if err := a.cleanUpSpecBranch(pachClient, request.Pipeline.Name); err != nil {
+				return nil, err
 			}
-			// No spec branch (and no etcd pointer) => the pipeline doesn't exist
-			return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
+			return &types.Empty{}, nil
+
 		}
 		return nil, err
 	}
 
-	// Get current pipeline info from EtcdPipelineInfo (which may not be the spec
-	// branch HEAD)
+	// Get current pipeline info from:
+	// - etcdPipelineInfo
+	// - spec commit in etcdPipelineInfo (which may not be the HEAD of the
+	//   pipeline's spec branch_
+	// - kubernetes services (for service pipelines, githook pipelines, etc)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
 		logrus.Errorf("error inspecting pipeline: %v", err)
@@ -2392,12 +2403,14 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil, fmt.Errorf("error deleting workers: %v", err)
 	}
 
-	// If necessary, revoke the pipeline's auth token and remove it from its inputs' ACLs
+	// If necessary, revoke the pipeline's auth token and remove it from its
+	// inputs' ACLs
 	if pipelinePtr.AuthToken != "" {
-		// If auth was deactivated after the pipeline was created, don't try to revoke
+		// If auth was deactivated after the pipeline was created, don't bother
+		// revoking
 		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
 			if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				// pipelineInfo = nil -> remove pipeline from all inputs in pipelineInfo
+				// 'pipelineInfo' == nil => remove pipeline from all input repos
 				if err := a.fixPipelineInputRepoACLs(superUserClient, nil, pipelineInfo); err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
