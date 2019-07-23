@@ -1947,46 +1947,24 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 	return nil
 }
 
-func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
+func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, prov *pfs.CommitProvenance,
+	from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
 	if from != nil && from.Repo.Name != repo.Name {
 		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
 	}
 
-	branches := d.branches(repo.Name).ReadOnly(pachClient.Ctx())
-	newCommitWatcher, err := branches.WatchOne(branch)
+	commits := d.commits(repo.Name).ReadOnly(pachClient.Ctx())
+	newCommitWatcher, err := commits.Watch()
 	if err != nil {
 		return err
 	}
 	defer newCommitWatcher.Close()
 	// keep track of the commits that have been sent
 	seen := make(map[string]bool)
-	// include all commits that are currently on the given branch,
-	commitInfos, err := d.listCommit(pachClient, repo, client.NewCommit(repo.Name, branch), from, 0)
-	if err != nil {
-		// We skip NotFound error because it's ok if the branch
-		// doesn't exist yet, in which case ListCommit returns
-		// a NotFound error.
-		if !isNotFoundErr(err) {
-			return err
-		}
-	}
-	// ListCommit returns commits in newest-first order,
-	// but SubscribeCommit should return commit in oldest-first
-	// order, so we reverse the order.
-	for i := range commitInfos {
-		commitInfo := commitInfos[len(commitInfos)-i-1]
-		commitInfo, err := d.inspectCommit(pachClient, commitInfo.Commit, state)
-		if err != nil {
-			return err
-		}
-		if err := f(commitInfo); err != nil {
-			return err
-		}
-		seen[commitInfo.Commit.ID] = true
-	}
+
 	for {
-		var branchName string
-		branchInfo := &pfs.BranchInfo{}
+		var commitID string
+		commitInfo := &pfs.CommitInfo{}
 		var event *watch.Event
 		var ok bool
 		event, ok = <-newCommitWatcher.Watch()
@@ -1997,22 +1975,26 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, b
 		case watch.EventError:
 			return event.Err
 		case watch.EventPut:
-			if err := event.Unmarshal(&branchName, branchInfo); err != nil {
+			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
 				return fmt.Errorf("Unmarshal: %v", err)
 			}
-			if branchInfo.Head == nil {
-				continue // put event == new branch was created. No commits yet though
+
+			// if provenance is provided, ensure that the returned commits have the commit in their provenance
+			if prov != nil {
+				valid := false
+				for _, cProv := range commitInfo.Provenance {
+					if cProv.Commit.ID == prov.Commit.ID && cProv.Branch.Name == prov.Branch.Name {
+						valid = true
+					}
+				}
+				if !valid {
+					continue
+				}
 			}
 
-			// TODO we check the branchName because right now WatchOne, like all
-			// collection watch commands, returns all events matching a given prefix,
-			// which means we'll get back events associated with `master-v1` if we're
-			// watching `master`.  Once this is changed we should remove the
-			// comparison between branchName and branch.
-
 			// We don't want to include the `from` commit itself
-			if branchName == branch && (!(seen[branchInfo.Head.ID] || (from != nil && from.ID == branchInfo.Head.ID))) {
-				commitInfo, err := d.inspectCommit(pachClient, branchInfo.Head, state)
+			if !(seen[commitID] || (from != nil && from.ID == commitID)) {
+				commitInfo, err := d.inspectCommit(pachClient, client.NewCommit(repo.Name, commitID), state)
 				if err != nil {
 					return err
 				}
