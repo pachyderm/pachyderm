@@ -39,7 +39,7 @@ func clients(t testing.TB) (*client.APIClient, *minio.Client) {
 		pachClient, err = client.NewForTest()
 		require.NoError(t, err)
 
-		minioClient, err = minio.New("127.0.0.1:30600", "id", "secret", false)
+		minioClient, err = minio.NewV2("127.0.0.1:30600", "id", "secret", false)
 		require.NoError(t, err)
 	})
 	return pachClient, minioClient
@@ -48,7 +48,7 @@ func clients(t testing.TB) (*client.APIClient, *minio.Client) {
 func getObject(t *testing.T, c *minio.Client, repo, branch, file string) (string, error) {
 	t.Helper()
 
-	obj, err := c.GetObject(fmt.Sprintf("%s.%s", branch, repo), file)
+	obj, err := c.GetObject(fmt.Sprintf("%s.%s", branch, repo), file, minio.GetObjectOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -256,7 +256,7 @@ func TestStatObject(t *testing.T) {
 	require.NoError(t, err)
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
-	info, err := c.StatObject(fmt.Sprintf("master.%s", repo), "file")
+	info, err := c.StatObject(fmt.Sprintf("master.%s", repo), "file", minio.StatObjectOptions{})
 	require.NoError(t, err)
 	require.True(t, startTime.Before(info.LastModified))
 	require.True(t, endTime.After(info.LastModified))
@@ -275,11 +275,13 @@ func TestPutObject(t *testing.T) {
 	require.NoError(t, pc.CreateRepo(repo))
 	require.NoError(t, pc.CreateBranch(repo, "branch", "", nil))
 
-	_, err := c.PutObject(fmt.Sprintf("branch.%s", repo), "file", strings.NewReader("content1"), "text/plain")
+	r := strings.NewReader("content1")
+	_, err := c.PutObject(fmt.Sprintf("branch.%s", repo), "file", r, int64(r.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
 	// this should act as a PFS PutFileOverwrite
-	_, err = c.PutObject(fmt.Sprintf("branch.%s", repo), "file", strings.NewReader("content2"), "text/plain")
+	r2 := strings.NewReader("content2")
+	_, err = c.PutObject(fmt.Sprintf("branch.%s", repo), "file", r2, int64(r2.Len()), minio.PutObjectOptions{ContentType: "text/plain"})
 	require.NoError(t, err)
 
 	fetchedContent, err := getObject(t, c, repo, "branch", "file")
@@ -305,67 +307,6 @@ func TestRemoveObject(t *testing.T) {
 	// make sure the object no longer exists
 	_, err = getObject(t, c, repo, "master", "file")
 	keyNotFoundError(t, err)
-}
-
-// Tests inserting and getting files over 64mb in size
-func TestLargeObjects(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	pc, c := clients(t)
-
-	// test repos: repo1 exists, repo2 does not
-	repo1 := tu.UniqueString("testlargeobject1")
-	repo2 := tu.UniqueString("testlargeobject2")
-	require.NoError(t, pc.CreateRepo(repo1))
-	require.NoError(t, pc.CreateBranch(repo1, "master", "", nil))
-
-	// create a temporary file to put ~65mb of contents into it
-	inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
-	require.NoError(t, err)
-	defer os.Remove(inputFile.Name())
-	n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
-	require.NoError(t, err)
-	require.Equal(t, n, 68157450)
-	require.NoError(t, inputFile.Sync())
-
-	// first ensure that putting into a repo that doesn't exist triggers an
-	// error
-	_, err = c.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), "text/plain")
-	bucketNotFoundError(t, err)
-
-	// now try putting into a legit repo
-	// NOTE: `FPutObject` will try to use multipart uploads since the file
-	// size is over 65mb. Because the s3gateway returns that
-	// multipart-related endpoints are not implemented, minio gracefully
-	// degrades to a standard put object operation. When a standard put
-	// operation is performed, `FPutObject` will return no error assuming
-	// everything went OK. If multipart were ever implemented, `FPutObject`
-	// will default to using that instead, and will return `io.EOF` if
-	// everything went OK instead.
-	l, err := c.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), "text/plain")
-	require.NoError(t, err)
-	require.Equal(t, int(l), 68157450)
-
-	// try getting an object that does not exist
-	err = c.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo")
-	bucketNotFoundError(t, err)
-
-	// get the file that does exist
-	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
-	require.NoError(t, err)
-	defer os.Remove(outputFile.Name())
-	err = c.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name())
-	require.NoError(t, err)
-
-	// compare the files and ensure they're the same
-	// NOTE: Because minio's `FGetObject` does a rename from a buffer file
-	// to the given filepath, `outputFile` will refer to an empty, overwritten
-	// file. We can still use `outputFile.Name()` though.
-	inputFileSize, inputFileHash := fileHash(t, inputFile.Name())
-	outputFileSize, outputFileHash := fileHash(t, inputFile.Name())
-	require.Equal(t, inputFileSize, outputFileSize)
-	require.Equal(t, inputFileHash, outputFileHash)
 }
 
 func TestGetObjectNoHead(t *testing.T) {

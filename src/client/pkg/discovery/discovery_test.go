@@ -86,7 +86,7 @@ func getEtcdClient() (Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEtcdClient(etcdAddress)
+	return NewEtcdClient(etcdAddress), nil
 }
 
 func getEtcdAddress() (string, error) {

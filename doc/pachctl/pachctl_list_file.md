@@ -14,7 +14,6 @@ pachctl list file <repo>@<branch-or-commit>[:<path/in/pfs>]
 ### Examples
 
 ```
-```sh
 
 # list top-level files on branch "master" in repo "foo"
 $ pachctl list file foo@master
@@ -36,7 +35,6 @@ $ pachctl list file foo@master --history n
 # list all versions of top-level files on branch "master" in repo "foo"
 $ pachctl list file foo@master --history all
 ```
-```
 
 ### Options
 
@@ -49,8 +47,7 @@ $ pachctl list file foo@master --history all
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

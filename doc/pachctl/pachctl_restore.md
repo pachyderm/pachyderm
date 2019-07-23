@@ -14,14 +14,12 @@ pachctl restore
 ### Examples
 
 ```
-```sh
 
 # Restore from a local file:
 $ pachctl restore < backup
 
 # Restore from s3:
 $ pachctl restore -u s3://bucket/backup
-```
 ```
 
 ### Options
@@ -33,8 +31,7 @@ $ pachctl restore -u s3://bucket/backup
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

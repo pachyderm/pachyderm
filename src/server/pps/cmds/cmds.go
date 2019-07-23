@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	ppsclient "github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -46,6 +47,10 @@ func Cmds() []*cobra.Command {
 	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
 	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
 
+	noPager := false
+	noPagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	noPagerFlags.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
+
 	marshaller := &jsonpb.Marshaler{
 		Indent:   "  ",
 		OrigName: true,
@@ -62,8 +67,7 @@ results will be merged together at the end.
 
 If the job fails, the output commit will not be populated with data.`,
 	}
-	cmdutil.SetDocsUsage(jobDocs, " job$")
-	commands = append(commands, cmdutil.CreateAlias(jobDocs, "job"))
+	commands = append(commands, cmdutil.CreateDocsAlias(jobDocs, "job", " job$"))
 
 	var block bool
 	inspectJob := &cobra.Command{
@@ -143,19 +147,21 @@ $ {{alias}} -p foo -i bar@YYY`,
 			}
 			defer client.Close()
 
-			if raw {
-				return client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
-					return marshaller.Marshal(os.Stdout, ji)
-				})
-			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.JobHeader)
-			if err := client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
-				pretty.PrintJobInfo(writer, ji, fullTimestamps)
-				return nil
-			}); err != nil {
-				return err
-			}
-			return writer.Flush()
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) error {
+				if raw {
+					return client.ListJobF(pipelineName, commits, outputCommit, history, true, func(ji *ppsclient.JobInfo) error {
+						return marshaller.Marshal(w, ji)
+					})
+				}
+				writer := tabwriter.NewWriter(w, pretty.JobHeader)
+				if err := client.ListJobF(pipelineName, commits, outputCommit, history, false, func(ji *ppsclient.JobInfo) error {
+					pretty.PrintJobInfo(writer, ji, fullTimestamps)
+					return nil
+				}); err != nil {
+					return err
+				}
+				return writer.Flush()
+			})
 		}),
 	}
 	listJob.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Limit to jobs made by pipeline.")
@@ -266,8 +272,7 @@ Datums within a job will be processed independently, sometimes distributed
 across separate workers.  A separate execution of user code will be run for
 each datum.`,
 	}
-	cmdutil.SetDocsUsage(datumDocs, " datum$")
-	commands = append(commands, cmdutil.CreateAlias(datumDocs, "datum"))
+	commands = append(commands, cmdutil.CreateDocsAlias(datumDocs, "datum", " datum$"))
 
 	restartDatum := &cobra.Command{
 		Use:   "{{alias}} <job> <datum-path1>,<datum-path2>,...",
@@ -446,8 +451,7 @@ and launch a job to process each incoming commit.
 
 All jobs created by a pipeline will create commits in the pipeline's output repo.`,
 	}
-	cmdutil.SetDocsUsage(pipelineDocs, " pipeline$")
-	commands = append(commands, cmdutil.CreateAlias(pipelineDocs, "pipeline"))
+	commands = append(commands, cmdutil.CreateDocsAlias(pipelineDocs, "pipeline", " pipeline$"))
 
 	var build bool
 	var pushImages bool

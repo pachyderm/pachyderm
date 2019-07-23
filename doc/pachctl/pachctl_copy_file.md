@@ -20,8 +20,7 @@ pachctl copy file <src-repo>@<src-branch-or-commit>:<src-path> <dst-repo>@<dst-b
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

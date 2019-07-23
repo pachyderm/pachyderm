@@ -14,7 +14,6 @@ pachctl get file <repo>@<branch-or-commit>:<path/in/pfs>
 ### Examples
 
 ```
-```sh
 
 # get file "XXX" on branch "master" in repo "foo"
 $ pachctl get file foo@master:XXX
@@ -26,7 +25,6 @@ $ pachctl get file foo@master^:XXX
 # get file "XXX" in the grandparent of the current head of branch "master"
 # in repo "foo"
 $ pachctl get file foo@master^2:XXX
-```
 ```
 
 ### Options
@@ -40,8 +38,7 @@ $ pachctl get file foo@master^2:XXX
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

@@ -14,7 +14,6 @@ pachctl logs [--pipeline=<pipeline>|--job=<job>] [--datum=<datum>]
 ### Examples
 
 ```
-```sh
 
 # Return logs emitted by recent jobs in the "filter" pipeline
 $ pachctl logs --pipeline=filter
@@ -24,7 +23,6 @@ $ pachctl logs --job=aedfa12aedf
 
 # Return logs emitted by the pipeline \"filter\" while processing /apple.txt and a file with the hash 123aef
 $ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
-```
 ```
 
 ### Options
@@ -43,8 +41,7 @@ $ pachctl logs --pipeline=filter --inputs=/apple.txt,123aef
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 
