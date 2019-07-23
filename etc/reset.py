@@ -121,10 +121,10 @@ def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", s
     proc = subprocess.Popen([cmd, *args], shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout = Output(proc.stdout, stdout_log_level)
     stderr = Output(proc.stderr, stderr_log_level)
-    timed_out_last = False
+    timeout_count = 0
 
     while True:
-        if (proc.poll() is not None and timed_out_last) or (stdout.pipe.closed and stderr.pipe.closed):
+        if (proc.poll() is not None and timeout_count >= 10) or (stdout.pipe.closed and stderr.pipe.closed):
             break
 
         for io in select.select([stdout.pipe, stderr.pipe], [], [], 100)[0]:
@@ -137,8 +137,9 @@ def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", s
             dest = stdout if io == stdout.pipe else stderr
             log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
             dest.lines.append(line)
+            timeout_count = 0
         else:
-            timed_out_last = True
+            timeout_count += 1
 
     rc = proc.wait()
 
