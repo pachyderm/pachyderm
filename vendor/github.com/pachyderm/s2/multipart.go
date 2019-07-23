@@ -44,7 +44,7 @@ type MultipartController interface {
 	// ListMultipart lists in-progress multipart uploads in a bucket
 	ListMultipart(r *http.Request, bucket, keyMarker, uploadIDMarker string, maxUploads int) (isTruncated bool, uploads []Upload, err error)
 	// InitMultipart initializes a new multipart upload
-	InitMultipart(r *http.Request, bucket, key string) (etag string, err error)
+	InitMultipart(r *http.Request, bucket, key string) (uploadID string, err error)
 	// AbortMultipart aborts an in-progress multipart upload
 	AbortMultipart(r *http.Request, bucket, key, uploadID string) error
 	// CompleteMultipart finishes a multipart upload

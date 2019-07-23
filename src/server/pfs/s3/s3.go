@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gorilla/mux"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
@@ -36,7 +36,7 @@ var enterpriseTimeout = 24 * time.Hour
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
+func Server(port uint16) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
@@ -45,10 +45,15 @@ func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
 	isEnterprise := false
 
 	controllers := s2.NewS2(logger)
-	controllers.Service = newServiceController(pc, logger)
-	controllers.Bucket = newBucketController(pc, logger)
-	controllers.Object = newObjectController(pc, logger)
-	controllers.Multipart = newMultipartController(pc, logger, multipartRepo, maxAllowedParts)
+	controllers.Auth = authMiddleware{}
+	controllers.Service = serviceController{logger: logger}
+	controllers.Bucket = bucketController{logger: logger}
+	controllers.Object = objectController{logger: logger}
+	controllers.Multipart = multipartController{
+		logger:          logger,
+		repo:            multipartRepo,
+		maxAllowedParts: maxAllowedParts,
+	}
 
 	router := controllers.Router()
 
@@ -73,9 +78,17 @@ func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
 			// Ensure enterprise is enabled
 			now := time.Now()
 			if !isEnterprise || now.Sub(lastEnterpriseCheck) > enterpriseTimeout {
+				vars := mux.Vars(r)
+				pc, err := pachClient(vars["authAccessKey"])
+				if err != nil {
+					err = fmt.Errorf("gRPC client client: %v", err)
+					s2.WriteError(logger, w, r, s2.InternalError(r, err))
+					return
+				}
+				defer pc.Close()
 				resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
 				if err != nil {
-					err = fmt.Errorf("could not get Enterprise status: %v", grpcutil.ScrubGRPC(err))
+					err = fmt.Errorf("enterprise status check: %v", grpcutil.ScrubGRPC(err))
 					s2.WriteError(logger, w, r, s2.InternalError(r, err))
 					return
 				}

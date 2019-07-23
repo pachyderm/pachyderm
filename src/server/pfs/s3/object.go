@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
+	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
@@ -18,22 +19,18 @@ type objectController struct {
 	logger *logrus.Entry
 }
 
-func newObjectController(pc *client.APIClient, logger *logrus.Entry) *objectController {
-	c := objectController{
-		pc:     pc,
-		logger: logger,
+func (c objectController) GetObject(r *http.Request, bucket, file string) (etag string, modTime time.Time, content io.ReadSeeker, err error) {
+	vars := mux.Vars(r)
+	pc, err := pachClient(vars["authAccessKey"])
+	if err != nil {
+		return
 	}
-
-	return &c
-}
-
-func (c *objectController) GetObject(r *http.Request, bucket, file string) (etag string, modTime time.Time, content io.ReadSeeker, err error) {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
 		return
@@ -47,7 +44,7 @@ func (c *objectController) GetObject(r *http.Request, bucket, file string) (etag
 		return
 	}
 
-	fileInfo, err := c.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
+	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
 		return
@@ -58,7 +55,7 @@ func (c *objectController) GetObject(r *http.Request, bucket, file string) (etag
 		return
 	}
 
-	content, err = c.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
+	content, err = pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, branchInfo.Head.ID, file)
 	if err != nil {
 		return
 	}
@@ -67,13 +64,18 @@ func (c *objectController) GetObject(r *http.Request, bucket, file string) (etag
 	return
 }
 
-func (c *objectController) PutObject(r *http.Request, bucket, file string, reader io.Reader) (etag string, err error) {
+func (c objectController) PutObject(r *http.Request, bucket, file string, reader io.Reader) (etag string, err error) {
+	vars := mux.Vars(r)
+	pc, err := pachClient(vars["authAccessKey"])
+	if err != nil {
+		return
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
 		return
@@ -83,12 +85,12 @@ func (c *objectController) PutObject(r *http.Request, bucket, file string, reade
 		return
 	}
 
-	_, err = c.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
+	_, err = pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
 		return
 	}
 
-	fileInfo, err := c.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
 	if err != nil {
 		return
 	}
@@ -97,13 +99,18 @@ func (c *objectController) PutObject(r *http.Request, bucket, file string, reade
 	return
 }
 
-func (c *objectController) DeleteObject(r *http.Request, bucket, file string) error {
+func (c objectController) DeleteObject(r *http.Request, bucket, file string) error {
+	vars := mux.Vars(r)
+	pc, err := pachClient(vars["authAccessKey"])
+	if err != nil {
+		return err
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
 		return maybeNotFoundError(r, err)
 	}
@@ -114,7 +121,7 @@ func (c *objectController) DeleteObject(r *http.Request, bucket, file string) er
 		return invalidFilePathError(r)
 	}
 
-	if err := c.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+	if err := pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
 		return maybeNotFoundError(r, err)
 	}
 

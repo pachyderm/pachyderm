@@ -228,7 +228,7 @@ github.com/gophercloud/gophercloud/openstack/identity/v3/tokens
 github.com/gophercloud/gophercloud/openstack/utils
 github.com/gophercloud/gophercloud/openstack/identity/v2/tenants
 github.com/gophercloud/gophercloud/pagination
-# github.com/gorilla/mux v1.7.2
+# github.com/gorilla/mux v1.7.3
 github.com/gorilla/mux
 # github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
 github.com/gregjones/httpcache
@@ -330,7 +330,7 @@ github.com/juju/ansiterm/tabwriter
 github.com/julienschmidt/httprouter
 # github.com/kevinburke/ssh_config v0.0.0-20180830205328-81db2a75821e
 github.com/kevinburke/ssh_config
-# github.com/konsorten/go-windows-terminal-sequences v1.0.1
+# github.com/konsorten/go-windows-terminal-sequences v1.0.2
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/lunixbochs/vtclean v1.0.0
 github.com/lunixbochs/vtclean
@@ -382,7 +382,7 @@ github.com/pachyderm/glob/compiler
 github.com/pachyderm/glob/syntax
 github.com/pachyderm/glob/syntax/ast
 github.com/pachyderm/glob/syntax/lexer
-# github.com/pachyderm/s2 v0.0.0-20190716172438-adf6f0f30cd6
+# github.com/pachyderm/s2 v0.0.0-20190723020157-3487675de7d7
 github.com/pachyderm/s2
 # github.com/pelletier/go-buffruneio v0.2.0
 github.com/pelletier/go-buffruneio
@@ -429,7 +429,7 @@ github.com/segmentio/kafka-go
 github.com/segmentio/kafka-go/sasl
 # github.com/sergi/go-diff v1.0.0
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/sirupsen/logrus v1.3.0
+# github.com/sirupsen/logrus v1.4.2
 github.com/sirupsen/logrus
 # github.com/spaolacci/murmur3 v1.1.0
 github.com/spaolacci/murmur3

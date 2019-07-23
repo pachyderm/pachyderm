@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/s2"
 )
 
@@ -22,4 +23,16 @@ func bucketArgs(r *http.Request, bucket string) (string, string, error) {
 		return "", "", s2.InvalidBucketNameError(r)
 	}
 	return parts[1], parts[0], nil
+}
+
+func pachClient(authToken string) (*client.APIClient, error) {
+	// TODO(ys): does this work?
+	c, err := client.NewInCluster()
+	if err != nil {
+		return nil, err
+	}
+	if authToken != "" {
+		c.SetAuthToken(authToken)
+	}
+	return c, nil
 }

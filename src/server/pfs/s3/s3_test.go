@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	pachClient  *client.APIClient
+	pc          *client.APIClient
 	minioClient *minio.Client
 	clientOnce  sync.Once
 )
@@ -36,13 +36,13 @@ func clients(t testing.TB) (*client.APIClient, *minio.Client) {
 	clientOnce.Do(func() {
 		var err error
 
-		pachClient, err = client.NewForTest()
+		pc, err = client.NewForTest()
 		require.NoError(t, err)
 
-		minioClient, err = minio.NewV2("127.0.0.1:30600", "id", "secret", false)
+		minioClient, err = minio.NewV4("127.0.0.1:30600", "", "", false)
 		require.NoError(t, err)
 	})
-	return pachClient, minioClient
+	return pc, minioClient
 }
 
 func getObject(t *testing.T, c *minio.Client, repo, branch, file string) (string, error) {
@@ -645,4 +645,16 @@ func TestListObjectsRecursive(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+}
+
+func TestAuthV2(t *testing.T) {
+	// The other tests use auth V4, versus this which checks auth V2
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
 }

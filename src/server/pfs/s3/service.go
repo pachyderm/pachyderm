@@ -6,28 +6,22 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
-
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gorilla/mux"
 	"github.com/pachyderm/s2"
+	"github.com/sirupsen/logrus"
 )
 
 type serviceController struct {
-	pc     *client.APIClient
 	logger *logrus.Entry
 }
 
-func newServiceController(pc *client.APIClient, logger *logrus.Entry) *serviceController {
-	c := serviceController{
-		pc:     pc,
-		logger: logger,
+func (c serviceController) ListBuckets(r *http.Request) (owner *s2.User, buckets []s2.Bucket, err error) {
+	vars := mux.Vars(r)
+	pc, err := pachClient(vars["authAccessKey"])
+	if err != nil {
+		return
 	}
-
-	return &c
-}
-
-func (c *serviceController) ListBuckets(r *http.Request) (owner *s2.User, buckets []s2.Bucket, err error) {
-	repos, err := c.pc.ListRepo()
+	repos, err := pc.ListRepo()
 	if err != nil {
 		return
 	}

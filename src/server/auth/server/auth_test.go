@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -36,16 +37,11 @@ var (
 )
 
 func isAuthActive(tb testing.TB) bool {
-	_, err := seedClient.GetAdmins(context.Background(),
-		&auth.GetAdminsRequest{})
-	switch {
-	case auth.IsErrNotSignedIn(err):
-		return true
-	case auth.IsErrNotActivated(err):
-		return false
-	default:
+	active, err := seedClient.IsAuthActive()
+	if err != nil {
 		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
 	}
+	return active
 }
 
 // getPachClientInternal is a helper function called by getPachClient. It
@@ -2568,4 +2564,42 @@ func TestOneTimePasswordExpires(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Nil(t, authResp)
+}
+
+func TestS3GatewayAuthRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// anon login via V2 - should fail
+	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.YesError(t, err)
+
+	// anon login via V4 - should fail
+	minioClientV4, err := minio.NewV4("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV4.ListBuckets()
+	require.YesError(t, err)
+
+	// generate an OTP for use in requests
+	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(), &auth.GetOneTimePasswordRequest{})
+	require.NoError(t, err)
+	authToken := codeResp.Code
+
+	// proper login via V2 - should succeed
+	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
+
+	// proper login via V4 - should succeed
+	minioClientV2, err = minio.NewV4("127.0.0.1:30600", authToken, authToken, false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
 }

@@ -36,6 +36,18 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("[%s] %s", e.Code, e.Message)
 }
 
+// AccessDeniedError creates a new S3 error with a standard AccessDenied S3
+// code.
+func AccessDeniedError(r *http.Request) *Error {
+	return NewError(r, http.StatusForbidden, "AccessDenied", "Access Denied")
+}
+
+// AuthorizationHeaderMalformedError creates a new S3 error with a standard
+// AuthorizationHeaderMalformed S3 code.
+func AuthorizationHeaderMalformedError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "AuthorizationHeaderMalformed", "The authorization header you provided is invalid.")
+}
+
 // BadDigestError creates a new S3 error with a standard BadDigest S3 code.
 func BadDigestError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.")
@@ -70,9 +82,15 @@ func InvalidBucketNameError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "InvalidBucketName", "The specified bucket is not valid.")
 }
 
-// InvalidArgument creates a new S3 error with a standard InvalidArgument S3
+// InvalidAccessKeyIDError creates a new S3 error with a standard
+// InvalidAccessKeyId S3 code.
+func InvalidAccessKeyIDError(r *http.Request) *Error {
+	return NewError(r, http.StatusForbidden, "InvalidAccessKeyId", "The AWS access key ID you provided does not exist in our records.")
+}
+
+// InvalidArgumentError creates a new S3 error with a standard InvalidArgument S3
 // code.
-func InvalidArgument(r *http.Request) *Error {
+func InvalidArgumentError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "InvalidArgument", "Invalid Argument")
 }
 
@@ -127,4 +145,16 @@ func NoSuchUploadError(r *http.Request) *Error {
 // S3 code.
 func NotImplementedError(r *http.Request) *Error {
 	return NewError(r, http.StatusNotImplemented, "NotImplemented", "This functionality is not implemented.")
+}
+
+// RequestTimeTooSkewedError creates a new S3 error with a standard
+// RequestTimeTooSkewed S3 code.
+func RequestTimeTooSkewedError(r *http.Request) *Error {
+	return NewError(r, http.StatusForbidden, "RequestTimeTooSkewed", "The difference between the request time and the server's time is too large. ")
+}
+
+// SignatureDoesNotMatchError creates a new S3 error with a standard
+// SignatureDoesNotMatch S3 code.
+func SignatureDoesNotMatchError(r *http.Request) *Error {
+	return NewError(r, http.StatusForbidden, "SignatureDoesNotMatch", "The request signature we calculated does not match the signature you provided. Check your auth credentials and signing method.")
 }

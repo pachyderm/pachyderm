@@ -13,7 +13,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
@@ -330,12 +329,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("RunGitHookServer: %v", err)
 	})
 	eg.Go(func() error {
-		c, err := client.NewFromAddress(fmt.Sprintf("localhost:%d", env.Port))
-		if err != nil {
-			return fmt.Errorf("s3gateway gRPC client init: %v", err)
-		}
-		defer c.Close()
-		server, err := s3.Server(c, env.S3GatewayPort)
+		server, err := s3.Server(env.S3GatewayPort)
 		if err != nil {
 			return fmt.Errorf("s3gateway server: %v", err)
 		}
