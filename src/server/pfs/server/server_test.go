@@ -263,9 +263,13 @@ func TestRecreateBranchProvenance(t *testing.T) {
 	_, err := c.PutFile("in", "master", "foo", strings.NewReader("foo"))
 	require.NoError(t, err)
 	cis, err := c.ListCommit("out", "", "", 0)
+	id := cis[0].Commit.ID
 	require.Equal(t, 1, len(cis))
 	require.NoError(t, c.DeleteBranch("out", "master", false))
-	require.NoError(t, c.CreateBranch("out", "master", cis[0].Commit.ID, []*pfs.Branch{pclient.NewBranch("in", "master")}))
+	require.NoError(t, c.CreateBranch("out", "master", id, []*pfs.Branch{pclient.NewBranch("in", "master")}))
+	cis, err = c.ListCommit("out", "", "", 0)
+	require.Equal(t, 1, len(cis))
+	require.Equal(t, id, cis[0].Commit.ID)
 }
 
 func TestCreateAndInspectRepo(t *testing.T) {

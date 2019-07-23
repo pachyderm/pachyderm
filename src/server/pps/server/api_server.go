@@ -2006,9 +2006,23 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 
 		// Must create spec commit before restoring output branch provenance, so
 		// that no commits are created with a missing spec commit
-		commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-		if err != nil {
-			return nil, err
+		var commit *pfs.Commit
+		if request.SpecCommit != nil {
+			// Make sure that the spec commit actually exists
+			commitInfo, err := pachClient.InspectCommit(request.SpecCommit.Repo.Name, request.SpecCommit.ID)
+			if err != nil {
+				return nil, fmt.Errorf("error inspecting commit: \"%s/%s\": %v", request.SpecCommit.Repo.Name, request.SpecCommit.ID, err)
+			}
+			// It does, so we use that as the spec commit, rather than making a new one
+			commit = commitInfo.Commit
+			// We also use the existing head for the branch, rather than making a new one.
+			outputBranchHead = client.NewCommit(pipelineName, pipelineInfo.OutputBranch)
+		} else {
+			var err error
+			commit, err = a.makePipelineInfoCommit(pachClient, pipelineInfo)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// pipelinePtr will be written to etcd, pointing at 'commit'. May include an
@@ -2037,8 +2051,8 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		}
 
 		// Put a pointer to the new PipelineInfo commit into etcd
-		if _, err = col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			err = a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
+		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
+			err := a.pipelines.ReadWrite(stm).Create(pipelineName, pipelinePtr)
 			if isAlreadyExistsErr(err) {
 				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
 					return superUserClient.DeleteCommit(ppsconsts.SpecRepo, commit.ID)

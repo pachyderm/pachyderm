@@ -190,7 +190,9 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 		pis = sortPipelineInfos(pis)
 		for _, pi := range pis {
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: pipelineInfoToRequest(pi)}}); err != nil {
+			cPR := pipelineInfoToRequest(pi)
+			cPR.SpecCommit = pi.SpecCommit
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Pipeline: cPR}}); err != nil {
 				return err
 			}
 			if err := pachClient.ListJobF(pi.Pipeline.Name, nil, nil, -1, false, func(ji *pps.JobInfo) error {
