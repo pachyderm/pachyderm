@@ -79,8 +79,10 @@ func (w *Writer) AnnotationSize() int64 {
 	return w.annotationSize
 }
 
-// DeleteAnnotations deletes the current annotations.
-func (w *Writer) DeleteAnnotations() {
+// Reset resets the buffer and annotations.
+func (w *Writer) Reset() {
+	w.buf = &bytes.Buffer{}
+	w.resetHash()
 	w.annotations = nil
 	w.annotationSize = 0
 }
@@ -146,7 +148,10 @@ func (w *Writer) upload(path string) error {
 		return err
 	}
 	defer objW.Close()
-	gzipW := gzip.NewWriter(objW)
+	gzipW, err := gzip.NewWriterLevel(objW, gzip.BestSpeed)
+	if err != nil {
+		return err
+	}
 	defer gzipW.Close()
 	// (bryce) Encrypt?
 	_, err = io.Copy(gzipW, bytes.NewReader(w.buf.Bytes()))
@@ -194,20 +199,30 @@ func (w *Writer) updateAnnotations(chunkRef *DataRef) {
 	}
 }
 
-// AtSplit registers a callback to be run when a split point is reached.
-// This is executed after the chunk callback function.
-func (w *Writer) AtSplit(f func() error) {
-	w.splitF = f
+// Copy does a cheap copy from a reader to a writer.
+func (w *Writer) Copy(r *Reader, n ...int64) error {
+	c, err := r.ReadCopy(n...)
+	if err != nil {
+		return err
+	}
+	return w.WriteCopy(c)
 }
 
-func (w *Writer) atSplit() bool {
-	return w.buf.Len() == 0
-}
-
-func (w *Writer) writeChunk(chunkRef *DataRef) error {
-	w.chunkCount++
-	w.annotationSize += chunkRef.SizeBytes
-	return w.executeFunc(chunkRef)
+// WriteCopy writes copy data to the writer.
+func (w *Writer) WriteCopy(c *Copy) error {
+	if _, err := io.Copy(w, c.before); err != nil {
+		return err
+	}
+	for _, chunkRef := range c.chunkRefs {
+		w.chunkCount++
+		// (bryce) might want to double check if this is correct.
+		w.annotationSize += chunkRef.SizeBytes
+		if err := w.executeFunc(chunkRef); err != nil {
+			return err
+		}
+	}
+	_, err := io.Copy(w, c.after)
+	return err
 }
 
 // Close closes the writer and flushes the remaining bytes to a chunk and finishes
