@@ -1651,23 +1651,25 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 	}
 
 	// Make sure that the repo exists
-	err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
-		_, err := d.inspectRepo(txnCtx, repo, !includeAuth)
-		return err
-	})
-	if err != nil {
-		return err
+	if repo.Name != "" {
+		err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txnenv.TransactionContext) error {
+			_, err := d.inspectRepo(txnCtx, repo, !includeAuth)
+			return err
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	// Make sure that both from and to are valid commits
 	if from != nil {
-		_, err = d.inspectCommit(pachClient, from, pfs.CommitState_STARTED)
+		_, err := d.inspectCommit(pachClient, from, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
 	}
 	if to != nil {
-		_, err = d.inspectCommit(pachClient, to, pfs.CommitState_STARTED)
+		_, err := d.inspectCommit(pachClient, to, pfs.CommitState_STARTED)
 		if err != nil {
 			if isNoHeadErr(err) {
 				return nil

@@ -5179,6 +5179,28 @@ func TestMultiInputWithDeferredProcessing(t *testing.T) {
 	}
 }
 
+func TestListAll(t *testing.T) {
+	client := GetPachClient(t)
+	require.NoError(t, client.CreateRepo("repo1"))
+	require.NoError(t, client.CreateRepo("repo2"))
+	_, err := client.PutFile("repo1", "master", "file1", strings.NewReader("1"))
+	require.NoError(t, err)
+	_, err = client.PutFile("repo2", "master", "file2", strings.NewReader("2"))
+	require.NoError(t, err)
+	_, err = client.PutFile("repo1", "master", "file3", strings.NewReader("3"))
+	require.NoError(t, err)
+	_, err = client.PutFile("repo2", "master", "file4", strings.NewReader("4"))
+	require.NoError(t, err)
+
+	cis, err := client.ListCommit("", "", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 4, len(cis))
+
+	bis, err := client.ListBranch("")
+	require.NoError(t, err)
+	require.Equal(t, 2, len(bis))
+}
+
 func seedStr(seed int64) string {
 	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 }
