@@ -116,7 +116,7 @@ def parse_log_level(s):
         raise Exception("Unknown log level: {}".format(s))
 
 def redirect_to_logger(stdout, stderr):
-    for io in select.select([stdout.pipe, stderr.pipe], [], [], 1000)[0]:
+    for io in select.select([stdout.pipe, stderr.pipe], [], [], 5000)[0]:
         line = io.readline().decode().rstrip()
 
         if line == "":
@@ -181,9 +181,6 @@ def main():
     if not args.no_deploy and "PACH_CA_CERTS" in os.environ:
         log.critical("Must unset PACH_CA_CERTS\nRun:\nunset PACH_CA_CERTS", file=sys.stderr)
         sys.exit(1)
-    if args.deploy_version == "local" and not os.getcwd().startswith(os.path.join(os.environ["GOPATH"], "src", "github.com", "pachyderm", "pachyderm")):
-        log.critical("Must be in a Pachyderm client", file=sys.stderr)
-        sys.exit(1)
 
     if MinikubeDriver().available():
         log.info("using the minikube driver")
@@ -198,8 +195,6 @@ def main():
     gopath = os.environ["GOPATH"]
 
     if args.deploy_version == "local":
-        os.chdir(os.path.join(gopath, "src", "github.com", "pachyderm", "pachyderm"))
-        
         try:
             os.remove(os.path.join(gopath, "bin", "pachctl"))
         except:

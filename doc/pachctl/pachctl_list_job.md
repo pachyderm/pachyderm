@@ -14,7 +14,6 @@ pachctl list job
 ### Examples
 
 ```
-```sh
 
 # Return all jobs
 $ pachctl list job
@@ -31,7 +30,6 @@ $ pachctl list job -i foo@XXX -i bar@YYY
 # Return all jobs in pipeline foo and whose input commits include bar@YYY
 $ pachctl list job -p foo -i bar@YYY
 ```
-```
 
 ### Options
 
@@ -47,8 +45,7 @@ $ pachctl list job -p foo -i bar@YYY
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

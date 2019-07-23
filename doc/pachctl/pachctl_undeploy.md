@@ -22,14 +22,13 @@ pachctl undeploy
                            unrecoverable. If your persistent volume was manually provisioned (i.e. if
                            you used the "--static-etcd-volume" flag), the underlying volume will not be
                            removed.
-      --namespace string   Kubernetes namespace to undeploy Pachyderm from. (default "default")
+      --namespace string   Kubernetes namespace to undeploy Pachyderm from.
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

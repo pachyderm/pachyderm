@@ -14,7 +14,6 @@ pachctl run pipeline <pipeline> [commits...]
 ### Examples
 
 ```
-```sh
 
 		# Rerun the latest job for the "filter" pipeline
 		$ pachctl run pipeline filter
@@ -25,13 +24,11 @@ pachctl run pipeline <pipeline> [commits...]
 		# Run the pipeline "filter" on the data from the "staging" branch
 		$ pachctl run pipeline filter staging
 ```
-```
 
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

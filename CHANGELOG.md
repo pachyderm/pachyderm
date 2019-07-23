@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.1
+
+- Pachyderm now uses go modules. (#3870)
+- `pachctl diff file` now diffs content, similar to `git diff`. (#3866)
+- It's now possible to create spout services as ingress endpoints. (#3829)
+- Pachyderm now supports contexts as a way to access multiple clusters. (#3786)
+- Fixes a bug that causes `pachctl put file --overwrite` to fail when reading from stdin. (#3882)
+- Fixes a bug that caused jobs from run pipeline to succeed when they should fail. (#3872)
+- Fixes a bug that caused workers to get stuck in a crashloop. (#3858)
+- Fixes a bug that causes pachd to panic when a pipeline had no transform. (#3866)
+
 ## 1.9.0
 
 - `pachctl` now has a new, more consistent syntax that's more inline with other container clis such as `kubectl`. (#3617)

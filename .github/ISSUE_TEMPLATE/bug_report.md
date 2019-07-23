@@ -21,7 +21,7 @@ Slack: http://slack.pachyderm.io/
 
 **Environment?**:
 - Kubernetes version (use `kubectl version`):
-- Pachyderm CLI version (use `pachctl version`):
+- Pachyderm CLI and pachd server version (use `pachctl version`):
 - Cloud provider (e.g. aws, azure, gke) or local deployment (e.g. minikube vs dockerized k8s):
 - OS (e.g. from /etc/os-release):
 - Others:
