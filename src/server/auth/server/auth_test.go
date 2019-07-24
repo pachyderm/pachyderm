@@ -3,7 +3,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -2572,8 +2571,17 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
+	// generate auth credentials
 	alice := tu.UniqueString("alice")
-	aliceClient := getPachClient(t, alice)
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(), &auth.GetOneTimePasswordRequest{})
+	require.NoError(t, err)
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: codeResp.Code,
+	})
+	require.NoError(t, err)
+	authToken := authResp.PachToken
+	fmt.Printf("XXX:%s\n", authToken)
 
 	// anon login via V2 - should fail
 	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
@@ -2586,11 +2594,6 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	require.NoError(t, err)
 	_, err = minioClientV4.ListBuckets()
 	require.YesError(t, err)
-
-	// generate an OTP for use in requests
-	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(), &auth.GetOneTimePasswordRequest{})
-	require.NoError(t, err)
-	authToken := base64.StdEncoding.EncodeToString([]byte(codeResp.Code))
 
 	// proper login via V2 - should succeed
 	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)
