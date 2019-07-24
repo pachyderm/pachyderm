@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
-	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/sirupsen/logrus"
 )
 
@@ -42,13 +41,8 @@ func (c authMiddleware) SecretKey(r *http.Request, accessKey string, region *str
 		}
 	}
 
-	// TODO(ys): what happens if auth fails? does this return nil, or an
-	// error? currently assuming nil is returned.
-	resp, err := pc.WhoAmI(pc.Ctx(), &auth.WhoAmIRequest{})
+	_, err = pc.WhoAmI(pc.Ctx(), &auth.WhoAmIRequest{})
 	if err != nil {
-		return nil, fmt.Errorf("could not check whoami: %s", grpcutil.ScrubGRPC(err))
-	}
-	if resp == nil {
 		return nil, nil
 	}
 	return &accessKeyDecoded, nil
