@@ -80,7 +80,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
         make test-worker
         make test-admin
         make test-s3gateway-integration
-        make test-proto-static
+        # make test-proto-static
         make test-transaction
         make test-config
         make test-cli
