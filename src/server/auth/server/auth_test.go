@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -2589,7 +2590,7 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	// generate an OTP for use in requests
 	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(), &auth.GetOneTimePasswordRequest{})
 	require.NoError(t, err)
-	authToken := codeResp.Code
+	authToken := base64.StdEncoding.EncodeToString([]byte(codeResp.Code))
 
 	// proper login via V2 - should succeed
 	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)

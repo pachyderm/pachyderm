@@ -26,7 +26,6 @@ func bucketArgs(r *http.Request, bucket string) (string, string, error) {
 }
 
 func pachClient(authToken string) (*client.APIClient, error) {
-	// TODO(ys): does this work?
 	c, err := client.NewInCluster()
 	if err != nil {
 		return nil, err
