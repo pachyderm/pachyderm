@@ -45,7 +45,7 @@ func Server(port uint16) (*http.Server, error) {
 	isEnterprise := false
 
 	controllers := s2.NewS2(logger)
-	controllers.Auth = authMiddleware{}
+	controllers.Auth = authMiddleware{logger: logger}
 	controllers.Service = serviceController{logger: logger}
 	controllers.Bucket = bucketController{logger: logger}
 	controllers.Object = objectController{logger: logger}
