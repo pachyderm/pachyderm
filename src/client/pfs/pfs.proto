@@ -300,8 +300,8 @@ message FlushCommitRequest {
 }
 
 message SubscribeCommitRequest {
-  reserved 2;
   Repo repo = 1;
+  string branch = 2;
   CommitProvenance prov = 5;
   // only commits created since this commit are returned
   Commit from = 3;
