@@ -9140,7 +9140,7 @@ func TestSpout(t *testing.T) {
 					Stdin: []string{
 						"while [ : ]",
 						"do",
-						"sleep 2",
+						"sleep 5",
 						"date > date",
 						"tar -cvf /pfs/out ./date*",
 						"done"},
@@ -9179,7 +9179,7 @@ func TestSpout(t *testing.T) {
 					Stdin: []string{
 						"while [ : ]",
 						"do",
-						"sleep 3",
+						"sleep 5",
 						"date > date",
 						"tar -cvf /pfs/out ./date*",
 						"done"},
