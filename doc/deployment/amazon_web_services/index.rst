@@ -1,0 +1,48 @@
+.. _deploy-aws:
+
+Deploy Pachyderm on Amazon AWS
+==============================
+
+Pachyderm can run in a Kubernetes cluster deployed in Amazon®
+Web Services (AWS), whether it is an Elastic Container
+Service (EKS) or a Kubernetes cluster deployed by a deployment tool.
+AWS removes the need to maintain the underlying virtual cloud.
+This advantage makes AWS a logical choice for organizations that
+decide to offload the cloud infrastructure operational burden
+to a third-party vendor. Pachyderm seamlessly integrates with
+Amazon EKS and runs in the same fashion as on your computer.
+
+You can install Pachyderm on Amazon AWS by using one of the following
+options:
+
+Deploy Pachyderm by using Amazon EKS
+ If you already have an Amazon EKS cluster, you can quickly deploy
+ Pachyderm on top of it. If you are just starting with Amazon EKS,
+ this section guides you through the EKS deployment process.
+
+Deploy Pachyderm on Amazon EC2 by using ``kops``
+ Another way to deploy Kubernetes on AWS, is to use a
+ deployment tool. If you cannot use, Amazon EKS, you can deploy
+ Kubernetes by using ``kops`` and then deploy Pachyderm on that
+ Kubernetes cluster. If you deploy a cluster with `kops`, you
+ remain responsible for the Kubernetes operations and maintenance.
+
+Deploy by executing a deployment script
+ This option helps you to start quickly and test Pachyderm
+ functionalities in an EKS environment. The deployment script
+ installs both EKS and Pachyderm in a single run.
+
+Deploy Pachyderm with CloudFront
+ Use this option in production environments that require
+ high throughput and secure data delivery.
+
+
+.. toctree::
+   :maxdepth: 2
+
+   deploy-eks.md
+   aws-deploy-kubernetes-kops.md
+   aws-deploy-pachyderm.md
+   deploy-aws-script.md
+   deploy-cloud-front.md
+   aws_cloudfront.md
