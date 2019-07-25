@@ -35,6 +35,7 @@ opencv:
 	pachctl create pipeline -f opencv/montage.json
 	pachctl put file images@master -i opencv/images.txt
 	pachctl put file images@master -i opencv/images2.txt
+#	pachctl put file images@master -i opencv/images3.txt
 
 ml/object-detection/frozen_inference_graph.pb:
 	wget -p http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz --directory-prefix /tmp
@@ -48,6 +49,8 @@ object-detection: ml/object-detection/frozen_inference_graph.pb
 	pachctl create pipeline -f ml/object-detection/model.json
 	pachctl create pipeline -f ml/object-detection/detect.json
 	pachctl put file images@master:kites.jpg -f ml/object-detection/images/kites.jpg
+#	pachctl put file images@master:kites.jpg -f ml/object-detection/images/airplane.jpg
+
 
 hyperparameter:
 	pachctl create repo raw_data
