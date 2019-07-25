@@ -3,13 +3,13 @@
 Pachyderm Enterprise includes an S3 gateway that enables you to interact
 with PFS storage through an HTTP application programming interface (API)
 that imitates the Amazon S3 Storage API. Therefore, with Pachyderm S3
-gateway, you can enable the tools and libraries that are designed
+gateway, you can enable tools or applications that are designed
 to work with object stores, such as MinIO™ and Boto3, to interact with
 Pachyderm.
 
 When you deploy `pachd`, the S3 gateway starts automatically. However, the
 S3 gateway is an enterprise feature that is only available to paid customers or
-during the free trial evaluation. You can access the S3 gateway by pointing
+during the free trial evaluation. You can confirm that the S3 gateway is running by pointing your browser to the following URL. 
 your browser to the following URL:
 
 ```bash
@@ -174,7 +174,9 @@ by running the following command:
 
 ### Upload and Download File Objects
 
-You can add files to and download files from a Pachyderm input repository.
+For input repos (e.g. the top of your DAG), you can both add files to and download files from the repository.
+
+When adding files, Pachyderm will automatically overwrite a previous version of the file if it already exists.
 If a file exists in the repository, Pachyderm automatically overwrites it.
 This operation is not supported for output repositories. If you try to upload
 a file to an output repository, you get an error message:
@@ -184,8 +186,8 @@ Failed to copy `github_issues_medium.csv`. cannot start a commit on an output
 branch
 ```
 
-Not all the repositories that you see in the output of the `mc ls` command are
-input repositories. Check your pipeline specification to verify which
+Not all the repositories that you see in the results of the `mc ls` command are
+input repositories that can be written to. Some of them may be read-only output repos. Check your pipeline specification to verify which
 repositories are the PFS input repos.
 
 To add a file to a repository, complete the following steps:
