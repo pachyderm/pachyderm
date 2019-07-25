@@ -352,6 +352,8 @@ github.com/pachyderm/s2 v0.0.0-20190722133442-92e0a3040333 h1:t0jONdugt0gabmdhbo
 github.com/pachyderm/s2 v0.0.0-20190722133442-92e0a3040333/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pachyderm/s2 v0.0.0-20190723020157-3487675de7d7 h1:BkQBVEfTIqx7KnE7Mofik1VnZ4E8iTcvzCVG5oEWhI4=
 github.com/pachyderm/s2 v0.0.0-20190723020157-3487675de7d7/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
+github.com/pachyderm/s2 v0.0.0-20190725181334-d1f4a476d240 h1:r/NtVWW5xSV/UaUBoSU6bxaYlaoBcexnBIyRxURaksE=
+github.com/pachyderm/s2 v0.0.0-20190725181334-d1f4a476d240/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pelletier/go-buffruneio v0.2.0 h1:U4t4R6YkofJ5xHm3dJzuRpPZ0mr5MMCoAWooScCR7aA=
 github.com/pelletier/go-buffruneio v0.2.0/go.mod h1:JkE26KsDizTr40EUHkXVtNPvgGtbSNq5BcowyYOWdKo=
 github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=
