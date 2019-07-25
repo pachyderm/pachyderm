@@ -4,7 +4,7 @@ Amazon EKS provides an easy way to deploy, configure, and
 manage Kubernetes clusters. If you want to avoid managing your
 Kubernetes infrastructure, EKS might be
 the right choice for your organization. Pachyderm seamlessly
-integrates with Amazon EKS.
+deploys on Amazon EKS.
 
 ## Prerequisites
 

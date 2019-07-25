@@ -12,7 +12,8 @@ You need to complete the following steps to deploy Pachyderm:
 
 ## Add Stateful Storage
 
-In Amazon, stateful data is stored in S3 buckets that reside on Elastic
+Pachyderm requires two pieces of persistent storage:  an object
+store (S3) bucket for your data and an EBS persistent volume (PV) that is used to store Pachyderm metadata.```
 Block Storage (EBS) persistent volumes. Pachyderm requires an object
 store for the PFS metadata. Therefore, you need to have at least one
 S3 bucket for a Pachyderm deployment on AWS.
