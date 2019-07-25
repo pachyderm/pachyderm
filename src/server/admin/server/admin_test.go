@@ -345,6 +345,63 @@ func TestMigrateFrom1_7(t *testing.T) {
 	require.Equal(t, 6, len(commits))
 }
 
-func int64p(i int64) *int64 {
-	return &i
+func TestExtractRestorePipelineUpdate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	input1 := tu.UniqueString("TestExtractRestorePipelineUpdate_data")
+	require.NoError(t, c.CreateRepo(input1))
+
+	pipeline := tu.UniqueString("TestExtractRestorePipelineUpdate")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(input1, "/*"),
+		"",
+		false,
+	))
+
+	_, err := c.PutFile(input1, "master", "file", strings.NewReader("file"))
+	require.NoError(t, err)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input1, "master")}, nil)
+	require.NoError(t, err)
+
+	input2 := tu.UniqueString("TestExtractRestorePipelineUpdate_data")
+	require.NoError(t, c.CreateRepo(input2))
+
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", input2),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(input2, "/*"),
+		"",
+		true,
+	))
+
+	_, err = c.PutFile(input2, "master", "file", strings.NewReader("file"))
+	require.NoError(t, err)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(input2, "master")}, nil)
+	require.NoError(t, err)
+
+	ops, err := c.ExtractAll(false)
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.Restore(ops))
 }

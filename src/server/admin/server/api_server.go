@@ -151,35 +151,35 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			}); err != nil {
 				return err
 			}
-			if err := pachClient.ListCommitF(ri.Repo.Name, "", "", 0, true, func(ci *pfs.CommitInfo) error {
-				if ci.ParentCommit == nil {
-					ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
-				}
-				return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: &pfs.BuildCommitRequest{
-					Parent:     ci.ParentCommit,
-					Tree:       ci.Tree,
-					ID:         ci.Commit.ID,
-					Trees:      ci.Trees,
-					Datums:     ci.Datums,
-					SizeBytes:  ci.SizeBytes,
-					Provenance: ci.Provenance,
-				}}})
-			}); err != nil {
-				return err
+		}
+		if err := pachClient.ListCommitF("", "", "", 0, true, func(ci *pfs.CommitInfo) error {
+			if ci.ParentCommit == nil {
+				ci.ParentCommit = client.NewCommit(ci.Commit.Repo.Name, "")
 			}
-			bis, err := pachClient.ListBranch(ri.Repo.Name)
-			if err != nil {
+			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Commit: &pfs.BuildCommitRequest{
+				Parent:     ci.ParentCommit,
+				Tree:       ci.Tree,
+				ID:         ci.Commit.ID,
+				Trees:      ci.Trees,
+				Datums:     ci.Datums,
+				SizeBytes:  ci.SizeBytes,
+				Provenance: ci.Provenance,
+			}}})
+		}); err != nil {
+			return err
+		}
+		bis, err := pachClient.ListBranch("")
+		if err != nil {
+			return err
+		}
+		for _, bi := range bis {
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
+				Branch: &pfs.CreateBranchRequest{
+					Head:   bi.Head,
+					Branch: bi.Branch,
+				},
+			}}); err != nil {
 				return err
-			}
-			for _, bi := range bis {
-				if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{
-					Branch: &pfs.CreateBranchRequest{
-						Head:   bi.Head,
-						Branch: bi.Branch,
-					},
-				}}); err != nil {
-					return err
-				}
 			}
 		}
 	}

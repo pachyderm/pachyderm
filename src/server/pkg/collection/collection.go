@@ -24,8 +24,9 @@ import (
 // defaultLimit was experimentally determined to be the highest value that could work
 // (It gets scaled down for specific collections if they trip the max-message size.)
 const (
-	defaultLimit  int64  = 262144
-	DefaultPrefix string = "pachyderm/1.7.0"
+	defaultLimit    int64  = 262144
+	DefaultPrefix   string = "pachyderm/1.7.0"
+	indexIdentifier string = "__index_"
 )
 
 var (
@@ -151,8 +152,8 @@ func (c *collection) Path(key string) string {
 
 func (c *collection) indexRoot(index *Index) string {
 	// remove trailing slash from c.prefix
-	return fmt.Sprintf("%s__index_%s/",
-		strings.TrimRight(c.prefix, "/"), index.Field)
+	return fmt.Sprintf("%s%s%s/",
+		strings.TrimRight(c.prefix, "/"), indexIdentifier, index.Field)
 }
 
 // See the documentation for `Index` for details.
@@ -378,8 +379,7 @@ func (c *readWriteCollection) Create(key string, val proto.Message) error {
 	if err == nil {
 		return ErrExists{c.prefix, key}
 	}
-	c.Put(key, val)
-	return nil
+	return c.Put(key, val)
 }
 
 func (c *readWriteCollection) Delete(key string) error {
