@@ -3,7 +3,7 @@
 ## 1.9.2
 
 - Fixes a bug that broke Pachyderm on Openshift. (#3935, thanks to @jiangytcn)
-- Fixes a bug that caused pachd to crash when deleting a non-existant active transaction. (#3929)
+- Fixes a bug that caused pachctl to crash when deleting a transaction while no active transaction was set. (#3929)
 - Fixes a bug that broke provenance when deleting a repo or pipeline. (#3925)
 
 ## 1.9.1
