@@ -39,7 +39,8 @@ var (
 		"ErrImagePull":     true,
 	}
 
-	zero int32 // used to turn down RCs in scaleDownWorkersForPipeline
+	zero     int32 // used to turn down RCs in scaleDownWorkersForPipeline
+	falseVal bool  // used to delete RCs in deletePipelineResources and restartPipeline()
 )
 
 // The master process is responsible for creating/deleting workers as
@@ -147,6 +148,7 @@ func (a *apiServer) master() {
 			}
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+		// cancel all monitorPipeline goroutines
 		a.monitorCancelsMu.Lock()
 		defer a.monitorCancelsMu.Unlock()
 		for _, c := range a.monitorCancels {
@@ -163,6 +165,18 @@ func (a *apiServer) setPipelineFailure(ctx context.Context, pipelineName string,
 	return ppsutil.FailPipeline(ctx, a.env.GetEtcdClient(), a.pipelines, pipelineName, reason)
 }
 
+// every running pipeline with standby == true has a corresponding goroutine
+// running monitorPipeline() that puts the pipeline in and out of standby in
+// response to new output commits appearing in that pipeline's output repo
+func (a *apiServer) cancelMonitor(pipeline string) {
+	a.monitorCancelsMu.Lock()
+	if cancel, ok := a.monitorCancels[pipeline]; ok {
+		cancel()
+		delete(a.monitorCancels, pipeline)
+	}
+	a.monitorCancelsMu.Unlock()
+}
+
 func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName string) (retErr error) {
 	log.Infof("PPS master: deleting resources for pipeline %q", pipelineName)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx,
@@ -173,17 +187,11 @@ func (a *apiServer) deletePipelineResources(ctx context.Context, pipelineName st
 	}()
 
 	// Cancel any running monitorPipeline call
-	a.monitorCancelsMu.Lock()
-	if cancel, ok := a.monitorCancels[pipelineName]; ok {
-		cancel()
-		delete(a.monitorCancels, pipelineName)
-	}
-	a.monitorCancelsMu.Unlock()
+	a.cancelMonitor(pipelineName)
 
 	kubeClient := a.env.GetKubeClient()
 	// Delete any services associated with op.pipeline
 	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, pipelineName)
-	falseVal := false
 	opts := &metav1.DeleteOptions{
 		OrphanDependents: &falseVal,
 	}
@@ -254,18 +262,11 @@ func (a *apiServer) setPipelineState(pachClient *client.APIClient, pipelineInfo 
 
 func (a *apiServer) monitorPipeline(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo) {
 	log.Printf("PPS master: monitoring pipeline %q", pipelineInfo.Pipeline.Name)
-	defer func(pipelineName string) {
-		// If this exits (e.g. b/c Standby is false, and pipeline has no cron
-		// inputs), remove this fn's cancel() call from a.monitorCancels (if it
-		// hasn't already been removed, e.g. by deletePipelineResources cancelling
-		// this call), so that it can be called again
-		a.monitorCancelsMu.Lock()
-		if cancel, ok := a.monitorCancels[pipelineName]; ok {
-			cancel()
-			delete(a.monitorCancels, pipelineName)
-		}
-		a.monitorCancelsMu.Unlock()
-	}(pipelineInfo.Pipeline.Name)
+	// If this exits (e.g. b/c Standby is false, and pipeline has no cron inputs),
+	// remove this fn's cancel() call from a.monitorCancels (if it hasn't already
+	// been removed, e.g. by deletePipelineResources cancelling this call), so
+	// that it can be called again
+	defer a.cancelMonitor(pipelineInfo.Pipeline.Name)
 	var eg errgroup.Group
 	pps.VisitInput(pipelineInfo.Input, func(in *pps.Input) {
 		if in.Cron != nil {
