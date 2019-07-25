@@ -24,8 +24,13 @@ import (
 
 const maxErrCount = 3 // gives all retried operations ~4.5s total to finish
 
-const noRCExpected = false
-const rcExpected = true
+type rcExpectation byte
+
+const (
+	noExpectation rcExpectation = iota
+	noRCExpected
+	rcExpected
+)
 
 func max(is ...int) int {
 	if len(is) == 0 {
@@ -52,9 +57,10 @@ type pipelineOp struct {
 }
 
 var (
-	errRCNotFound = errors.New("RC not found")
-	errTooManyRCs = errors.New("multiple RCs found for pipeline")
-	errStaleRC    = errors.New("RC doesn't match pipeline version (likely stale)")
+	errRCNotFound   = errors.New("RC not found")
+	errUnexpectedRC = errors.New("unexpected RC")
+	errTooManyRCs   = errors.New("multiple RCs found for pipeline")
+	errStaleRC      = errors.New("RC doesn't match pipeline version (likely stale)")
 )
 
 // step takes 'ptr', a newly-changed pipeline pointer in etcd, and
@@ -74,7 +80,7 @@ func (a *apiServer) step(pachClient *client.APIClient, pipeline string, keyVer, 
 	// set op.rc
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart
 	// the pipeline indefinitely)
-	if err := op.getRC(noRCExpected); err != nil && err != errRCNotFound {
+	if err := op.getRC(noExpectation); err != nil && err != errRCNotFound {
 		return err
 	}
 
@@ -207,7 +213,7 @@ func (op *pipelineOp) getPipelineInfo() error {
 // op's pipeline if it can't read the pipeline's RC (or if the RC is stale or
 // redundant), and then returns an error to the caller to indicate that the
 // caller shouldn't continue with other operations
-func (op *pipelineOp) getRC(expected bool) (retErr error) {
+func (op *pipelineOp) getRC(expected rcExpectation) (retErr error) {
 	span, _ := tracing.AddSpanToAnyExisting(op.pachClient.Ctx(),
 		"/pps.Master/GetRC", "pipeline", op.name)
 	defer func(span opentracing.Span) {
@@ -215,38 +221,53 @@ func (op *pipelineOp) getRC(expected bool) (retErr error) {
 		tracing.FinishAnySpan(span)
 	}(span)
 
-	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.name)
-	rcName := ppsutil.PipelineRcName(op.name, op.pipelineInfo.Version)
 	kubeClient := op.apiServer.env.GetKubeClient()
 	namespace := op.apiServer.namespace
+	selector := fmt.Sprintf("%s=%s", pipelineNameLabel, op.name)
 
 	// count error types separately, so that this only errors if the pipeline is
 	// stuck and not changing
-	var notFoundErrCount, staleErrCount, tooManyErrCount, otherErrCount int
+	var notFoundErrCount, unexpectedErrCount, staleErrCount, tooManyErrCount,
+		otherErrCount int
 	return backoff.RetryNotify(func() error {
 		// List all RCs, so stale RCs from old pipelines are noticed and deleted
-		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(metav1.ListOptions{LabelSelector: selector})
+		rcs, err := kubeClient.CoreV1().ReplicationControllers(namespace).List(
+			metav1.ListOptions{LabelSelector: selector})
 		if err != nil && !isNotFoundErr(err) {
 			return err
 		}
-		switch {
-		case len(rcs.Items) == 0:
+		if len(rcs.Items) == 0 {
+			op.rc = nil
 			return errRCNotFound
+		}
+
+		op.rc = &rcs.Items[0]
+		switch {
 		case len(rcs.Items) > 1:
+			// select stale RC if possible, so that we delete it in restartPipeline
+			for i := range rcs.Items {
+				op.rc = &rcs.Items[i]
+				if !op.rcIsFresh() {
+					break
+				}
+			}
 			return errTooManyRCs
-		case rcs.Items[0].ObjectMeta.Name != rcName:
+		case !op.rcIsFresh():
 			return errStaleRC
+		case expected == noRCExpected:
+			return errUnexpectedRC
 		default:
-			op.rc = &rcs.Items[0]
 			return nil
 		}
 	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-		if !expected && err == errRCNotFound {
+		if expected == noRCExpected && err == errRCNotFound {
 			return err
 		}
 		switch err {
 		case errRCNotFound:
 			notFoundErrCount++
+		case errUnexpectedRC:
+			unexpectedErrCount++
 		case errTooManyRCs:
 			tooManyErrCount++
 		case errStaleRC:
@@ -254,7 +275,8 @@ func (op *pipelineOp) getRC(expected bool) (retErr error) {
 		default:
 			otherErrCount++
 		}
-		errCount := max(notFoundErrCount, staleErrCount, tooManyErrCount, otherErrCount)
+		errCount := max(notFoundErrCount, unexpectedErrCount, staleErrCount,
+			tooManyErrCount, otherErrCount)
 		if errCount >= maxErrCount {
 			return op.restartPipeline(fmt.Sprintf("could not get RC after %d attempts: %v", errCount, err))
 		}
@@ -271,6 +293,13 @@ func (op *pipelineOp) rcIsFresh() bool {
 		log.Errorf("PPS master: RC for %q is nil", op.name)
 		return false
 	}
+	expectedName := ""
+	if op.pipelineInfo != nil {
+		expectedName = ppsutil.PipelineRcName(op.name, op.pipelineInfo.Version)
+	}
+
+	// establish current RC properties
+	rcName := op.rc.ObjectMeta.Name
 	rcPachVersion := op.rc.ObjectMeta.Annotations[pachVersionAnnotation]
 	rcAuthTokenHash := op.rc.ObjectMeta.Annotations[hashedAuthTokenAnnotation]
 	rcSpecCommit := op.rc.ObjectMeta.Annotations[specCommitAnnotation]
@@ -287,6 +316,9 @@ func (op *pipelineOp) rcIsFresh() bool {
 		log.Errorf("PPS master: %q is using stale pachd v%s != current v%s",
 			op.name, rcPachVersion, version.PrettyVersion())
 		return false
+	case expectedName != "" && rcName != expectedName:
+		log.Errorf("PPS master: %q has an unexpected (likely stale) name %q != %q",
+			op.name, rcName, expectedName)
 	}
 	return true
 }
@@ -530,12 +562,16 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 	})
 }
 
-// restartPipeline deletes the RC/service associated with op's pipeline, and
-// then sets its state to RESTARTING so they can be recreated (e.g. if they're
-// out of date or missing). restartPipeline is an error-handling codepath, so
-// it's guaranteed to return an error (typically wrapping 'reason', though if
-// the restart process fails that error will take precendence) so that callers
-// can use it like so:
+// restartPipeline updates the RC/service associated with op's pipeline, and
+// then sets its state to RESTARTING. Note that restartPipeline only deletes
+// op.rc if it's stale--a prior bug was that it would delete all of op's
+// resources, and then get stuck in a loop deleting and recreating op's RC if
+// the cluster was busy and the RC was taking too long to start.
+//
+// restartPipeline is an error-handling
+// codepath, so it's guaranteed to return an error (typically wrapping 'reason',
+// though if the restart process fails that error will take precendence) so that
+// callers can use it like so:
 //
 // if errorState {
 //   return op.restartPipeline("entered error state")
@@ -545,9 +581,22 @@ func (op *pipelineOp) scaleDownPipeline() (retErr error) {
 // retrying and eventually failing op's pipeline if restartPipeline can't
 // restart it.
 func (op *pipelineOp) restartPipeline(reason string) error {
+	kubeClient := op.apiServer.env.GetKubeClient()
+	namespace := op.apiServer.namespace
 	var errCount int
 	if err := backoff.RetryNotify(func() error {
-		if err := op.deletePipelineResources(); err != nil {
+		if op.rc != nil && !op.rcIsFresh() {
+			// Cancel any running monitorPipeline call
+			op.apiServer.cancelMonitor(op.name)
+			// delete stale RC
+			err := kubeClient.CoreV1().ReplicationControllers(namespace).Delete(
+				op.rc.Name, &metav1.DeleteOptions{OrphanDependents: &falseVal})
+			if err != nil && !isNotFoundErr(err) {
+				return fmt.Errorf("could not delete RC %q: %v", op.rc.Name, err)
+			}
+		}
+		// create up-to-date RC
+		if err := op.createPipelineResources(); err != nil {
 			return err
 		}
 		return op.setPipelineState(pps.PipelineState_PIPELINE_RESTARTING)
