@@ -1,4 +1,4 @@
-.PHONY: opencv object_detection delete minikube
+.PHONY: opencv object_detection delete minikube gatk hyperparameter
 
 GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
 				gatk/GATK_Germline/data/ref/ref.fasta \
@@ -40,13 +40,13 @@ ml/object-detection/frozen_inference_graph.pb:
 	wget -p http://download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz --directory-prefix /tmp
 	tar -C ml/object-detection --strip-components 1 -xvf /tmp/download.tensorflow.org/models/object_detection/ssd_mobilenet_v1_coco_11_06_2017.tar.gz ssd_mobilenet_v1_coco_11_06_2017/frozen_inference_graph.pb
 
-object_detection: ml/object-detection/frozen_inference_graph.pb
+object-detection: ml/object-detection/frozen_inference_graph.pb
 	pachctl create repo images
 	pachctl create repo training
-	pachctl create pipeline -f ml/object-detection/model.json
-	pachctl create pipeline -f ml/object-detection/detect.json
 	pachctl put file training@master:frozen_inference_graph.pb -f ml/object-detection/frozen_inference_graph.pb
 	pachctl put file images@master:dogs.jpg -f ml/object-detection/images/dogs.jpg
+	pachctl create pipeline -f ml/object-detection/model.json
+	pachctl create pipeline -f ml/object-detection/detect.json
 	pachctl put file images@master:kites.jpg -f ml/object-detection/images/kites.jpg
 
 hyperparameter:
@@ -65,7 +65,7 @@ $(GATK_GERMLINE_FILES):
 	wget -p https://s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip --directory-prefix=/tmp
 	unzip -o /tmp/s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip  data/ref/ref.dict data/ref/ref.fasta data/ref/ref.fasta.fai data/ref/refSDF/* data/bams/*  -d gatk/GATK_Germline
 
-gatk_demo: $(GATK_GERMLINE_FILES)
+gatk: $(GATK_GERMLINE_FILES)
 	pachctl create repo reference
 	pachctl put file reference@master:ref.dict  -f gatk/GATK_Germline/data/ref/ref.dict
 	pachctl put file reference@master:ref.fasta -f gatk/GATK_Germline/data/ref/ref.fasta
