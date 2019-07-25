@@ -34,13 +34,19 @@ S3 buckets appears. Example:
 
    ![S3 buckets](../_images/s_list_of_buckets.png)
 
-1. Alternatively, you can use port forwarding to connect to the cluster:
+1. Alternatively, you can use `curl`:
 
    ```
-   pachctl port-forward
+   $ curl http://localhost:30600
+   <ListAllMyBucketsResult><Owner><ID>00000000000000000000000000000000</ID><DisplayName>pachyderm</DisplayName></Owner><Buckets><Bucket><Name>master. train</Name><CreationDate>2019-07-12T22:09:50.274391271Z</CreationDate></Bucket><Bucket><Name>master.pre_process</Name><CreationDate>2019-07-12T21:   58:50.930608352z</CreationDate></Bucket><Bucket><Name>master.split</Name><CreationDate>2019-07-12T21:58:09.074523275Z</CreationDate></                Bucket><Bucket><Name>stats.split</Name><CreationDate>2019-07-12T21:58:09.074523275Z</CreationDate></Bucket><Bucket><Name>master.raw_data</Name><CreationDate>2019-07-12T21:36:27.975670319Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>
    ```
-   Pachyderm does not recommend to use port forwarding because Kubernetes' port
-   forwarder incurs overhead and might not recover well from broken connections.
+
+   You can can `localhost` instead of the cluster IP
+   address to access the Pachyderm Dashboard and the S3 gateway. To enable
+   port forwarding, run the `pachctl port-forward` command.
+   Pachyderm does not recommend to use port forwarding because Kubernetes'
+   port forwarder incurs overhead and might not recover well from broken
+   connections.
 
 ## Examples of Command-line Operations
 
@@ -174,11 +180,15 @@ by running the following command:
 
 ### Upload and Download File Objects
 
-For input repos (e.g. the top of your DAG), you can both add files to and download files from the repository.
+For input repositories at the top of your DAG, you can both add files
+to and download files from the repository.
 
-When adding files, Pachyderm will automatically overwrite a previous version of the file if it already exists.
-If a file exists in the repository, Pachyderm automatically overwrites it.
-This operation is not supported for output repositories. If you try to upload
+When you add files, Pachyderm automatically overwrites the previous
+version of the file if it already exists.
+Uploading new files is not supported for output repositories,
+these are the repositories that are the output of a pipeline.
+
+If you try to upload
 a file to an output repository, you get an error message:
 
 ```
@@ -187,8 +197,9 @@ branch
 ```
 
 Not all the repositories that you see in the results of the `mc ls` command are
-input repositories that can be written to. Some of them may be read-only output repos. Check your pipeline specification to verify which
-repositories are the PFS input repos.
+input repositories that can be written to. Some of them may be read-only
+output repos. Check your pipeline specification to verify which
+repositories are the input repos.
 
 To add a file to a repository, complete the following steps:
 
@@ -220,7 +231,7 @@ To add a file to a repository, complete the following steps:
 ### Remove a File Object
 
 You can delete a file in the `HEAD` of a Pachyderm branch by using the
-MinIO command-line interface by running the following commands:
+MinIO command-line interface:
 
 1. List the files in the iput repository:
 
