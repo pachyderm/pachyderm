@@ -25,8 +25,7 @@ data versioning and pipeline semantics. After you have a good grasp of
 the basics, you can use advanced concepts and features for more
 complicated challenges.
 
-This section describes main Pachyderm concepts including the following
-topics:
+This section describes the following Pachyderm concepts:
 
 .. toctree::
    :maxdepth: 2

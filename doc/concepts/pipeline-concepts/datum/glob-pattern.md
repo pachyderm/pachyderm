@@ -1,23 +1,27 @@
 # Glob Pattern
 
 A glob pattern defines datums in your Pachyderm repository and how
-your data processing is spread among Pachyderm worker pods. A standalone
-datum can be a whole
-repository, each top filesystem object in the root folder,
-each filesystem object in a subdirectory, and so on. Each time
-Pachyderm detects new commits in your repository, it starts the
+your data processing is spread among Pachyderm worker pods.
+
+For example, you can define a whole repository to be one datum, or each
+top filesystem object in the root folder can be one datum. Similarly,
+each filesystem object in a subdirectory can be a datum as well.
+Glob patterns enable you to traverse the filesystem in your
+repository for data processing in the most optimal way.
+
+Each time Pachyderm detects new commits in your repository, it starts the
 pipeline and processes the whole datum. Therefore, there might be
 a significant difference between processing the whole repository
-or one directory in the repository. You need to consider this
-behavior, when you design your pipeline.
+or one directory in the repository. Consider this
+behavior when you design your pipeline.
 
 Defining how your data is spread among workers is one of
 the most important aspects of distributed computation and is
 the fundamental idea around concepts, such as Map and Reduce.
 
 Instead of confining users to data-distribution patterns,
-such as Map — split everything as much as possible, — and
-Reduce — all the data must be grouped, — Pachyderm
+such as Map, that splits everything as much as possible, and
+Reduce, that groups all the data, Pachyderm
 uses glob patterns to provide incredible flexibility to
 define your data distribution.
 
@@ -35,16 +39,16 @@ glob pattern are considered datums.
 Pachyderm accepts the `/` and `*` indicators as
 glob patterns.
 
-Examples of glob patterns that you can define:
+The following are examples of glob patterns that you can define:
 
 * `/` — Pachyderm processes the whole repository as a
-  single datum and send the data to a single worker node.
+  single datum and sends the data to a single worker node.
 * `/*` — Pachyderm processes each top-level filesystem
   object, such as a file or directory, in
   the root directory as a separate datum. For example,
   if you have a repository with ten files in it and no
   directory structure, Pachyderm handles each file as a
-  single datum, similarly to a map operation.
+  single datum, similar to a map operation.
 * `/*/*` — Pachyderm processes each filesystem object
   in each subdirectory as a separate datum.
 
@@ -95,7 +99,7 @@ For example, you have the following directory:
 ...
 ```
 
-Each top-level directory represents a United States(US) state with
+Each top-level directory represents a United State (US) with
 `json` files in it that represent cities of that state.
 
 * If you set glob pattern to `/`, every time

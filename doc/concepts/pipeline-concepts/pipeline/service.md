@@ -6,7 +6,7 @@ a service to expose a Jupyter™ notebook that has the most
 up-to-date version of your data.
 
 The following pipeline spec extract is an example of how you can expose your
-Jupyter notebook as a service by adding a `service` field.
+Jupyter notebook as a service by adding a `service` field:
 
 ```json
 {

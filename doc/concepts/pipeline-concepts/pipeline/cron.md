@@ -2,7 +2,7 @@
 
 Pachyderm triggers pipelines when new changes appear in the input repository.
 However, if a pipeline consumes data from sources outside of Pachyderm,
-it cannot use the Pachyderm's triggering mechanism to process updates from
+it cannot use Pachyderm's triggering mechanism to process updates from
 those sources. A standard pipeline with a PFS input might not satisfy
 the requirements of the following tasks:
 
@@ -44,9 +44,9 @@ triggers the pipeline.
 
 ![alt tag](../../../images/cron1.png)
 
-The pipeline runs every ten seconds querying the database and updating its
+The pipeline runs every ten seconds by querying the database and updating its
 output. By default, Pachyderm runs the pipeline on the input data that was
-added since the last tick skipping the already processed data.
+added since the last tick and skips the already processed data.
 However, if you need to reprocess all the data, you can set the `overwrite`
 flag to `true` to overwrite the timestamp file on each tick.
 Because the processed data is associated with the old file, its absence indicates

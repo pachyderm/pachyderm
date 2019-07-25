@@ -10,10 +10,10 @@ and runs your code to completion.
 
 A minimum pipeline specification must include the following parameters:
 
-- ``name`` - The name of your data pipeline. You can set an arbitrary
+- ``name`` — The name of your data pipeline. You can set an arbitrary
   name that is meaningful to the code you want to run to process the
   data in the specified repository.
-- ``input`` - A location of the data that you want to process, such as a
+- ``input`` — A location of the data that you want to process, such as a
   Pachyderm repository or a Git repository. You can specify multiple input
   repositories, as well as combine the repositories as union or cross
   pipelines.
@@ -26,8 +26,8 @@ A minimum pipeline specification must include the following parameters:
   processing units. For more information, see
   `Datum <../datum/index.html>`__.
 
-- ``transform`` - Specifies the code that you want to run against your
-  data, such as a Python script. Also specifies a Docker image that
+- ``transform`` — Specifies the code that you want to run against your
+  data, such as a Python script. Also, specifies a Docker image that
   you want to use to run that script.
 
 **Example:**

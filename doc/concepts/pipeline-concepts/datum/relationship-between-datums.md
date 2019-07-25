@@ -4,9 +4,9 @@
 A Pachyderm pipeline takes a datum or datums from the source, processes
 it or them, and places the result either as a single datum or multiple
 datums to the output repository. You can configure how you want your
-data to be processed, either as a single datum or as multiple datums.
+data to be processed, as a single datum or as multiple datums.
 You can also configure how you want the data to be uploaded to the output
-repository - either as one datum, or file, or as multiple datums, or files.
+repository,either as one datum or file, or as multiple datums or files.
 This concept is called the relationship between datums.
 
 Relationships between datums boil down to the following categories:

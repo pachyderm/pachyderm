@@ -11,8 +11,8 @@ are called *union pipeline or input* and *cross pipeline or input*.
 
 If you are familiar with the [Set theory](https://en.wikipedia.org/wiki/Set_theory),
 you can think of union as a *disjoint union binary operator* and of cross as a
-`cartesian product binary operator`. However, you do not have to be a
-mathematician to understand how cross and union work in Pachyderm.
+`cartesian product binary operator`. However, if you are unfamiliar with these
+concepts, it is still easy to understand how cross and union work in Pachyderm.
 
 This section describes what union and cross pipelines are and how you
 can optimize your code when you work with them.
@@ -123,9 +123,9 @@ Then, in the pipeline, all datums appear in the same directory.
 
 ## Cross Input
 
-A cross input instead of appending datums from one repository to datums
+A cross input, instead of appending datums from one repository to datums
 in the other repository,
-multiples each datum from each repository with each datum from another
+multiplies each datum from one repository with each datum from another
 repository. In other words, a cross input
 combines all the datums and provides them to the pipeline
 that uses this combination as input and treats each combination

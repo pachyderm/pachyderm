@@ -20,10 +20,10 @@ One main difference from regular pipelines is that
 you cannot specify input in the spout pipeline.
 
 Another important aspect is that in spouts, `pfs/out` is
-a *named pipeline*, or *First in, First Out* (FIFO), and is not
+a *named pipe*, or *First in, First Out* (FIFO), and is not
 a directory like in standard pipelines. Unlike
-the traditional and familiar to most Linux users
-pipe, a *named pipe* enables two system processes to access
+the traditional pipe, that is familiar to most Linux users,
+a *named pipe* enables two system processes to access
 the pipe simultaneously and gives one of the processes read-only and the other
 process write-only access. Therefore, the two processes can simultaneously
 read and write to the same pipe.

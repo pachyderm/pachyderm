@@ -7,7 +7,7 @@ Pachyderm input repository, Pachyderm detects and records it as a new
 commit or revision.
 
 Each commit has a unique identifier (ID) that you can reference in
-the following format `<repo-name@commit-number>`. When you create a new
+the `<repo-name@commit-number>` format. When you create a new
 commit, the previous commit on which the new commit is based becomes
 the parent of the new commit.
 The Directed acyclic graph (DAG) that represents your pipeline history
@@ -32,6 +32,6 @@ against the data in these specific commits. Smaller changes can be combined
 into a single transaction by using the `start commit` and `finish commit`
 commands.
 
-Another useful command is the `flush commit` command that enables you to
+The `flush commit` command that enables you to
 see in which outputs the commit was used. Therefore, you can track
 commit provenance downstream, from the commit origin to the final result.

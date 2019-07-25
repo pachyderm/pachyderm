@@ -16,13 +16,13 @@ then send the changes to the upstream master copy of the repository
 where it gets merged.
 
 The Pachyderm version control works slightly differently. In Pachyderm,
-only a centralized repository exists. You do not store any local copies
-of that repository and the merge, in the traditional Git meaning, does
-not happen.
+only a centralized repository exists and you do not store any local copies
+of that repository. Therefore, the merge, in the traditional Git meaning,
+does not occur.
 
 Instead, your data can be continuously updated in the master branch of
 your repo, while you can experiment with specific data commits in a
-separate branch or branches. Because of this behaviour, you cannot
+separate branch or branches. Because of this behavior, you cannot
 run into a merge conflict with Pachyderm.
 
 Learn more about Pachyderm data concepts in the following sections:
