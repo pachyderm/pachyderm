@@ -49,7 +49,7 @@ object-detection: ml/object-detection/frozen_inference_graph.pb
 	pachctl create pipeline -f ml/object-detection/model.json
 	pachctl create pipeline -f ml/object-detection/detect.json
 	pachctl put file images@master:kites.jpg -f ml/object-detection/images/kites.jpg
-#	pachctl put file images@master:kites.jpg -f ml/object-detection/images/airplane.jpg
+#	pachctl put file images@master:airplane.jpg -f ml/object-detection/images/airplane.jpg
 
 
 hyperparameter:
