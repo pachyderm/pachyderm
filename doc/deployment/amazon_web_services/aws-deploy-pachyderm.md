@@ -5,7 +5,7 @@ you can then deploy Pachyderm on top of that cluster.
 
 You need to complete the following steps to deploy Pachyderm:
 
-1. Deploy `pachctl` as described in [Deploy pachctl](../../../getting_started/local_installation.html#pachctl).
+1. Install `pachctl` as described in [Install pachctl](../../../getting_started/local_installation.html#pachctl).
 1. Add stateful storage for Pachyderm as described in [Add Stateful Storage](#add-stateful-storage).
 1. Deploy Pachyderm by using an [IAM Role](deploying-with-an-iam-role)
 (recommended) or [Static Credentials](deploying-with-static-credentials).
