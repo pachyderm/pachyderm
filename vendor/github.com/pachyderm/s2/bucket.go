@@ -9,7 +9,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const defaultMaxKeys int = 1000
+const (
+	defaultMaxKeys int = 1000
+
+	VersioningDisabled  string = ""
+	VersioningSuspended string = "Suspended"
+	VersioningEnabled   string = "Enabled"
+)
 
 // Contents is an individual file/object
 type Contents struct {
@@ -41,6 +47,12 @@ type BucketController interface {
 
 	// DeleteBucket deletes a bucket
 	DeleteBucket(r *http.Request, bucket string) error
+
+	// GetBucketVersioning gets the state of versioning on the given bucket
+	GetBucketVersioning(r *http.Request, bucket string) (status string, err error)
+
+	// SetBucketVersioning sets the state of versioning on the given bucket
+	SetBucketVersioning(r *http.Request, bucket, status string) error
 }
 
 // unimplementedBucketController defines a controller that returns
@@ -60,6 +72,14 @@ func (c unimplementedBucketController) CreateBucket(r *http.Request, bucket stri
 }
 
 func (c unimplementedBucketController) DeleteBucket(r *http.Request, bucket string) error {
+	return NotImplementedError(r)
+}
+
+func (c unimplementedBucketController) GetBucketVersioning(r *http.Request, bucket string) (status string, err error) {
+	return "", NotImplementedError(r)
+}
+
+func (c unimplementedBucketController) SetBucketVersioning(r *http.Request, bucket, status string) error {
 	return NotImplementedError(r)
 }
 
@@ -174,4 +194,46 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h bucketHandler) versioning(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+
+	status, err := h.controller.GetBucketVersioning(r, bucket)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
+	result := struct {
+		XMLName xml.Name `xml:"VersioningConfiguration"`
+		Status  string   `xml:"Status,omitempty"`
+	}{
+		Status: status,
+	}
+
+	writeXML(h.logger, w, r, http.StatusOK, result)
+}
+
+func (h bucketHandler) setVersioning(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+
+	payload := struct {
+		XMLName xml.Name `xml:"VersioningConfiguration"`
+		Status  string   `xml:"Status"`
+	}{}
+	if err := readXMLBody(r, &payload); err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
+	err := h.controller.SetBucketVersioning(r, bucket, payload.Status)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }

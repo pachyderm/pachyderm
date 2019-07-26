@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"sort"
 	"time"
@@ -44,7 +43,7 @@ type MultipartController interface {
 	// ListMultipart lists in-progress multipart uploads in a bucket
 	ListMultipart(r *http.Request, bucket, keyMarker, uploadIDMarker string, maxUploads int) (isTruncated bool, uploads []Upload, err error)
 	// InitMultipart initializes a new multipart upload
-	InitMultipart(r *http.Request, bucket, key string) (etag string, err error)
+	InitMultipart(r *http.Request, bucket, key string) (uploadID string, err error)
 	// AbortMultipart aborts an in-progress multipart upload
 	AbortMultipart(r *http.Request, bucket, key, uploadID string) error
 	// CompleteMultipart finishes a multipart upload
@@ -54,11 +53,6 @@ type MultipartController interface {
 	ListMultipartChunks(r *http.Request, bucket, key, uploadID string, partNumberMarker, maxParts int) (initiator, owner *User, storageClass string, isTruncated bool, parts []Part, err error)
 	// UploadMultipartChunk uploads a chunk of an in-progress multipart upload
 	UploadMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error)
-	// DeleteMultipartChunk deletes a chunk of an in-progress multipart
-	// upload. This is not exposed directly through the API, but rather to
-	// remove an uploaded multipart chunk if an issue occurred after it
-	// finished uploading.
-	DeleteMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int) error
 }
 
 // unimplementedMultipartController defines a controller that returns
@@ -87,10 +81,6 @@ func (c unimplementedMultipartController) ListMultipartChunks(r *http.Request, b
 
 func (c unimplementedMultipartController) UploadMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error) {
 	return "", NotImplementedError(r)
-}
-
-func (c unimplementedMultipartController) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int) error {
-	return NotImplementedError(r)
 }
 
 type multipartHandler struct {
@@ -231,25 +221,23 @@ func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
+	if err := requireContentLength(r); err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
 
 	uploadID := r.FormValue("uploadId")
 
-	bodyBytes, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		err = InternalError(r, fmt.Errorf("could not read request body: %v", err))
-		WriteError(h.logger, w, r, err)
-		return
-	}
 	payload := struct {
 		XMLName xml.Name `xml:"CompleteMultipartUpload"`
 		Parts   []Part   `xml:"Part"`
 	}{}
-	err = xml.Unmarshal(bodyBytes, &payload)
-	if err != nil {
-		WriteError(h.logger, w, r, MalformedXMLError(r))
+	if err := readXMLBody(r, &payload); err != nil {
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
@@ -342,7 +330,6 @@ func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
 	bucket := vars["bucket"]
 	key := vars["key"]
 
-	etag := ""
 	uploadID := r.FormValue("uploadId")
 	partNumber, err := intFormValue(r, "partNumber", 0, maxPartsAllowed, 0)
 	if err != nil {
@@ -350,19 +337,7 @@ func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	shouldCleanup, err := withBodyReader(r, func(reader io.Reader) error {
-		fetchedETag, err := h.controller.UploadMultipartChunk(r, bucket, key, uploadID, partNumber, reader)
-		etag = fetchedETag
-		return err
-	})
-
-	if shouldCleanup {
-		// try to clean up the chunk
-		if err := h.controller.DeleteMultipartChunk(r, bucket, key, uploadID, partNumber); err != nil {
-			h.logger.Errorf("could not clean up multipart chunk after an error: %+v", err)
-		}
-	}
-
+	etag, err := h.controller.UploadMultipartChunk(r, bucket, key, uploadID, partNumber, r.Body)
 	if err != nil {
 		WriteError(h.logger, w, r, err)
 		return
