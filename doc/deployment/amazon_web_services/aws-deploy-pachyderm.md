@@ -12,19 +12,19 @@ You need to complete the following steps to deploy Pachyderm:
 
 ## Add Stateful Storage
 
-Pachyderm requires two pieces of persistent storage:  an object
-store (S3) bucket for your data and an EBS persistent volume (PV) that is used to store Pachyderm metadata.```
-Block Storage (EBS) persistent volumes. Pachyderm requires an object
-store for the PFS metadata. Therefore, you need to have at least one
-S3 bucket for a Pachyderm deployment on AWS.
+Pachyderm requires the following types of persistent storage:
 
-The S3 bucket name must be globally unique across the whole
-Amazon region. Therefore, add a descriptive prefix to the S3 bucket
-name, such as your username.
-Pachyderm recommends that you assign anywher between 1 GB and 10 GB
-for this persistent EBS volume.
-Pachyderm uses approximately 1 GB of disk space
-for 1000 commits of 1000 files.
+An S3 object store bucket for data. The S3 bucket name
+ must be globally unique across the whole
+ Amazon region. Therefore, add a descriptive prefix to the S3 bucket
+ name, such as your username.
+
+An Elastic Block Storage (EBS) persistent volume (PV) for Pachyderm
+ metadata. Pachyderm recommends that you assign at least 10 GB for this
+ persistent EBS volume. If you expect your cluster to be very
+ long running a scale to thousands of jobs per commits, you might
+ need to go add more storage. However, you can easily increase the
+ size of the persistent volume later.
 
 To add stateful storage, complete the following steps:
 
@@ -163,14 +163,7 @@ To deploy Pachyderm with an IAM role, complete the following steps:
    Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
    Kubernetes restarted those pods. You can safely ignore this message.
 
-1. In a new terminal window, forward Pachyderm ports to enable access to
-the Pachyderm cluster:
-
-   ```bash
-   $ pachctl port-forward
-   ```
-
-1. In a separate terminal window, verify that the cluster is up and running:
+1. Verify that the Pachyderm cluster is up and running:
 
    ```bash
    $ pachctl version
@@ -179,6 +172,14 @@ the Pachyderm cluster:
    pachctl             1.9.1
    pachd               1.9.1
    ```
+
+   * If you want to access the Pachyderm UI or use S3, you need to
+   forward Pachyderm ports. Open a new terminal window and run the
+   following command:
+
+     ```bash
+     $ pachctl port-forward
+     ```
 
 ## Deploy Pachyderm with an Access Key
 
@@ -223,17 +224,19 @@ steps:
     Therefore, Kubernetes restarted those pods. You can safely ignore this
     message.
 
-1. In a new terminal window, forward Pachyderm ports to enable access to
- the Pachyderm cluster:
-
-    ```bash
-    $ pachctl port-forward
-    ```
-
-1. In a separate terminal window, verify that the cluster is up and running:
+1. Verify that the Pachyderm cluster is up and running:
 
    ```bash
    $ pachctl version
 
    COMPONENT           VERSION
    pachctl             1.9.1
+   pachd               1.9.1
+   ```
+
+   * If you want to access the Pachyderm UI or use S3, you need to
+   forward Pachyderm ports. Open a new terminal window and run the
+   following command:
+
+     ```bash
+     $ pachctl port-forward

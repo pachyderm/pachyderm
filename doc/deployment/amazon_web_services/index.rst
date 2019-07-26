@@ -29,11 +29,6 @@ Instead of EKS, you can deploy Kubernetes on AWS EC2 directly using a Kubernetes
  Kubernetes cluster. If you deploy a cluster with `kops`, you
  remain responsible for the Kubernetes operations and maintenance.
 
-Deploy by executing a deployment script
- This option helps you to start quickly and test Pachyderm
- functionalities in an EKS environment. The deployment script
- installs both EKS and Pachyderm in a single run.
-
 Deploy Pachyderm with CloudFront
  Use this option in production environments that require
  high throughput and secure data delivery.

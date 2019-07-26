@@ -1,53 +1,30 @@
 # Deploy a Pachyderm Cluster with CloudFront
 
-Amazon CloudFront™ is a content delivery network (CDN) that
+After you have an EKS cluster or a Kubernetes cluster
+deployed with `kops` ready as described in [Deploy](TBA),
+you can integrate you Kubernetes cluster with Amazon
+CloudFront™.
+
+Amazon CloudFront is a content delivery network (CDN) that
 streams data to your website, service, or application securely
 and with great performance. Pachyderm recommends that you
 set up Pachyderm with CloudFront for all production
-deployment.
+deployments.
 
-To deploy a production-ready Pachyderm cluster with CloudFront,
+To deploy Pachyderm cluster with CloudFront,
 complete the following steps:
 
-1. [Deploy Pachyderm with CloudFront](#deploy-pachyderm-with-cloudfront)
-3. [Apply the Security Credentials](#apply-the-cloudfront-key-pair)
-4. [Verify the setup](#verify-the-setup)
-
-## Deploy Pachyderm with CloudFront
-
-Use the Pachyderm AWS deployment script to deploy Kubernetes, CloudFront,
-and Pachyderm in a single run by following these steps:
-
-1. Download the `aws.sh` script from the Pachyderm GitHub
-repository to your computer:
-
-   ```bash
-   $ curl -o aws.sh https://raw.githubusercontent.com/pachyderm/pachyderm/master/etc/deploy/aws.sh
-   ```
-
-1. Make the script executable:
-
-   ```bash
-   $ chmod +x aws.sh
-   ```
-
-1. Run the script:
-
-   ```bash
-   $ sudo -E ./aws.sh --region=us-east-1 --zone=us-east-1b --use-cloudfront &> deploy.log
-   ```
-
-   The command above redirects the output to the `deploy.log` file.
-   You will need this file later.
-
-   **Note:** If you see a few restarts on the `pachd` nodes, that means that
-   Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
-   Kubernetes restarted those pods. You can safely ignore this message.
+1. [Create a CloudFront Distribution](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/GettingStarted.html#GettingStartedCreateDistribution)
+1. [Deploy Pachyderm with an IAM role](aws-deploy-pachyderm.html)
+1. [Apply the CloudFront Key Pair](#apply-the-cloudfront-key-pair)
 
 ## Apply the CloudFront Key Pair
 
-Only a root AWS account can generate a CloudFront key pair. Therefore,
-you might need to request your IT department to provide it.
+If you need to create signed URLs and
+signed cookies for the data that goes to Pachyderm, you need to
+configure your AWS account to use a valid CloudFront key pair.
+Only a root AWS account can generate these secure credentials. Therefore,
+you might need to request your IT department to create them for you.
 
 For more information, see the [Amazon documentation](http://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-trusted-signers.html#private-content-creating-cloudfront-key-pairs).
 
