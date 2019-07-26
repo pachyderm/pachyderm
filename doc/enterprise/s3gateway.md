@@ -4,13 +4,14 @@ Pachyderm Enterprise includes an S3 gateway that enables you to interact
 with PFS storage through an HTTP application programming interface (API)
 that imitates the Amazon S3 Storage API. Therefore, with Pachyderm S3
 gateway, you can enable tools or applications that are designed
-to work with object stores, such as MinIO™ and Boto3, to interact with
-Pachyderm.
+to work with object stores, such as [MinIO™](https://min.io/) and
+[Boto3](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html),
+to interact with Pachyderm.
 
 When you deploy `pachd`, the S3 gateway starts automatically. However, the
 S3 gateway is an enterprise feature that is only available to paid customers or
-during the free trial evaluation. You can confirm that the S3 gateway is running by pointing your browser to the following URL. 
-your browser to the following URL:
+during the free trial evaluation. You can confirm that the S3 gateway is running
+by pointing your browser to the following URL:
 
 ```bash
 http://localhost:30600/
@@ -19,7 +20,7 @@ http://localhost:30600/
 Through the S3 gateway, you can only interact with the `HEAD` commits of
 your Pachyderm branches that do not require authorization. If you need
 to have a more granular access to branches and commits, use the PFS
-gRPC Remote Procedure Call interface instead.
+gRPC Remote Procedure Call (gRPC) interface instead.
 
 ## Viewing the List of S3 Buckets
 
@@ -27,7 +28,7 @@ The S3 gateway presents each branch from every Pachyderm repository as an S3 buc
 For example, if you have a `master` branch in the `images` repository, an S3 tool
 sees `images@master` as the `master.images` S3 bucket.
 
-To view the list of S3 buckets, run the following command:
+To view the list of S3 buckets, complete the following steps:
 
 1. Point your browser to `http://<cluster-ip>:30600/`. A list of
 S3 buckets appears. Example:
@@ -41,14 +42,19 @@ S3 buckets appears. Example:
    <ListAllMyBucketsResult><Owner><ID>00000000000000000000000000000000</ID><DisplayName>pachyderm</DisplayName></Owner><Buckets><Bucket><Name>master. train</Name><CreationDate>2019-07-12T22:09:50.274391271Z</CreationDate></Bucket><Bucket><Name>master.pre_process</Name><CreationDate>2019-07-12T21:   58:50.930608352z</CreationDate></Bucket><Bucket><Name>master.split</Name><CreationDate>2019-07-12T21:58:09.074523275Z</CreationDate></                Bucket><Bucket><Name>stats.split</Name><CreationDate>2019-07-12T21:58:09.074523275Z</CreationDate></Bucket><Bucket><Name>master.raw_data</Name><CreationDate>2019-07-12T21:36:27.975670319Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>
    ```
 
-   You can can `localhost` instead of the cluster IP
-   address to access the Pachyderm Dashboard and the S3 gateway. To enable
-   port forwarding, run the `pachctl port-forward` command.
-   Pachyderm does not recommend to use port forwarding because Kubernetes'
-   port forwarder incurs overhead and might not recover well from broken
-   connections.
+   You can specify `localhost` instead of the cluster IP
+   address to access the Pachyderm Dashboard and the S3 gateway.
+   For this to work, enable
+   port forwarding by running the `pachctl port-forward` command.
 
-## Examples of Command-line Operations
+   However, Pachyderm does not recommend to heavily rely on port forwarding.
+   Because Kubernetes' port forwarder incurs overhead, it might
+   not recover well from broken connections. Therefore, using
+   Pachyderm contexts or connecting to the S3 gateway directly
+   through the cluster IP address are more reliable and preferred
+   options.
+
+## Examples of Command-Line Operations
 
 The Pachyderm S3 gateway supports the following operations:
 
@@ -65,13 +71,16 @@ performed by using the MinIO command-line client. You can use other
 S3 compatible tools to execute the same actions with the corresponding
 command-line syntax.
 
+You can use the MinIO client to view Pachyderm S3 buckets that
+are located in AWS as well.
+
 ### Configure MinIO
 
 If you have MinIO already installed, skip this section.
 
 To install and configure MinIO, complete the following steps:
 
-1. Install the MinIO client and MinIO server on your platform as
+1. Install the MinIO client on your platform as
 described on the [MinIO download page](https://min.io/download#/macos).
 1. Verify that MinIO components are successfully installed by running
 the following command:
@@ -84,8 +93,7 @@ the following command:
    Commit-id: 31e5ac02bdbdbaf20a87683925041f406307cfb9
    ```
 
-1. Set up the MinIO configuration file to use the `30600` port for the
-local host:
+1. Set up the MinIO configuration file to use the `30600` port for your host:
 
    ```bash
    vi ~/.mc/config.json
@@ -93,34 +101,72 @@ local host:
 
    You should see a configuration similar to the following:
 
-   ```bash
-   "local": {
-             "url": "http://localhost:30600",
-             "accessKey": "",
-             "secretKey": "",
+   * For a minikube deployment, verify the
+   `local` host configuration:
+
+     ```bash
+     "local": {
+               "url": "http://localhost:30600",
+               "accessKey": "",
+               "secretKey": "",
+               "api": "S3v4",
+               "lookup": "auto"
+           },
+     ```
+
+   * For an AWS deployment, add the `accessKey`
+   and the `secretKey` from your AWS user account
+   to the corresponding fields in the `s3` section:
+
+     ```bash
+     "s3": {
+             "url": "https://s3.amazonaws.com",
+             "accessKey": "XXXXXXXXXXXXXXXXXXXX",
+             "secretKey": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
              "api": "S3v4",
-             "lookup": "auto"
-         },
-   ```
+             "lookup": "dns"
+         }
+     ```
 
 1. Verify that MinIO can access all of your Pachyderm repositories:
 
-   ```bash
-   $ mc ls local
-   [2019-07-18 13:32:44 PDT]      0B master.test/
-   [2019-07-12 15:09:50 PDT]      0B master.train/
-   [2019-07-12 14:58:50 PDT]      0B master.pre_process/
-   [2019-07-12 14:58:09 PDT]      0B master.split/
-   [2019-07-12 14:58:09 PDT]      0B stats.split/
-   [2019-07-12 14:36:27 PDT]      0B master.raw_data/
-   ```
+   * If you are using `minikube`, type:
+
+     ```bash
+     $ mc ls local
+     [2019-07-12 15:09:50 PDT]      0B master.train/
+     [2019-07-12 14:58:50 PDT]      0B master.pre_process/
+     [2019-07-12 14:58:09 PDT]      0B master.split/
+     [2019-07-12 14:58:09 PDT]      0B stats.split/
+     [2019-07-12 14:36:27 PDT]      0B master.raw_data/
+     ```
+
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600 s3 ls
+     2019-07-12 15:09:50 master.train
+     2019-07-12 14:58:50 master.pre_process
+     2019-07-12 14:58:09 master.split
+     2019-07-12 14:58:09 stats.split
+     2019-07-12 14:36:27 master.raw_data
+     ```
 
 1. Verify that you can see the contents of a repository:
 
-   ```bash
-   $ mc ls local/master.raw_data
-   [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
-   ```
+   * If you are using `minikube`, type:
+
+     ```bash
+     $ mc ls local/master.raw_data
+     [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
+     ```
+
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
+     2019-07-26 11:22:23    2685061 github_issues_medium.csv
+     ```
 
 ### Create an S3 Bucket
 
@@ -132,39 +178,60 @@ To create an S3 bucket, complete the following steps:
 
 1. Use the `mc mb <host/branch.repo>` command to create a new
 S3 bucket, which is a repository with a branch in Pachyderm.
-Example:
 
-   ```bash
-   $ mc mb local/master.test
-   Bucket created successfully `local/master.test`.
-   ```
+   * If you are using `minikube`, type:
+
+     ```bash
+     $ mc mb local/master.test
+     Bucket created successfully `local/master.test`.
+     ```
+
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600/ s3 mb s3://master.test
+     make_bucket: master.test
+     ```
 
    This command creates the `test` repository with the `master` branch.
 
 1. Verify that the S3 bucket has been successfully created:
 
-   ```bash
-   $ mc ls local
-   [2019-07-18 13:32:44 PDT]      0B master.test/
-   [2019-07-12 15:09:50 PDT]      0B master.train/
-   [2019-07-12 14:58:50 PDT]      0B master.pre_process/
-   [2019-07-12 14:58:09 PDT]      0B master.split/
-   [2019-07-12 14:58:09 PDT]      0B stats.split/
-   [2019-07-12 14:36:27 PDT]      0B master.raw_data/
-   ```
+   * If you are using `minikube`, type:
+
+     ```bash
+     $ mc ls local
+     [2019-07-18 13:32:44 PDT]      0B master.test/
+     [2019-07-12 15:09:50 PDT]      0B master.train/
+     [2019-07-12 14:58:50 PDT]      0B master.pre_process/
+     [2019-07-12 14:58:09 PDT]      0B master.split/
+     [2019-07-12 14:58:09 PDT]      0B stats.split/
+     [2019-07-12 14:36:27 PDT]      0B master.raw_data/
+     ```
+
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600/ s3 ls
+     2019-07-26 11:35:28 master.test
+     2019-07-12 14:58:50 master.pre_process
+     2019-07-12 14:58:09 master.split
+     2019-07-12 14:58:09 stats.split
+     2019-07-12 14:36:27 master.raw_data
+     ```
 
    * You can also use the `pachctl list repo` command to view the
    list of repositories:
 
-   ```bash
-   $ pachctl list repo
-   NAME               CREATED                    SIZE (MASTER)
-   test               About an hour ago          0B
-   train              6 days ago                 68.57MiB
-   pre_process        6 days ago                 1.18MiB
-   split              6 days ago                 1.019MiB
-   raw_data           6 days ago                 2.561MiB
-   ```
+     ```bash
+     $ pachctl list repo
+     NAME               CREATED                    SIZE (MASTER)
+     test               About an hour ago          0B
+     train              6 days ago                 68.57MiB
+     pre_process        6 days ago                 1.18MiB
+     split              6 days ago                 1.019MiB
+     raw_data           6 days ago                 2.561MiB
+     ```
 
    You should see the newly created repository in this list.
 
@@ -173,10 +240,19 @@ Example:
 You can delete an S3 bucket in Pachyderm from the MinIO client
 by running the following command:
 
-   ```bash
-   $ mc rb local/master.test
-   Removed `local/master.test` successfully.
-   ```
+   * If you are using `minikube`, type:
+
+     ```bash
+     $ mc rb local/master.test
+     Removed `local/master.test` successfully.
+     ```
+
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600/ s3 rb s3://master.test
+     remove_bucket: master.test
+     ```
 
 ### Upload and Download File Objects
 
@@ -191,13 +267,13 @@ these are the repositories that are the output of a pipeline.
 If you try to upload
 a file to an output repository, you get an error message:
 
-```
+```bash
 Failed to copy `github_issues_medium.csv`. cannot start a commit on an output
 branch
 ```
 
 Not all the repositories that you see in the results of the `mc ls` command are
-input repositories that can be written to. Some of them may be read-only
+input repositories that can be written to. Some of them might be read-only
 output repos. Check your pipeline specification to verify which
 repositories are the input repos.
 
@@ -205,28 +281,59 @@ To add a file to a repository, complete the following steps:
 
 1. Run the `mc cp` command:
 
-   ```
-   $ mc cp test.csv local/master.raw_data/test.csv
-   test.csv:                  62 B / 62 B  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  100.00% 206 B/s 0s
-   ```
+   * If you are using `minikube`, type:
 
-   This command adds the `test.csv` file to the `master` branch in
+     ```bash
+     $ mc cp test.csv local/master.raw_data/test.csv
+     test.csv:                  62 B / 62 B  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  100.00% 206 B/s 0s
+     ```
+
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600/ s3 cp test.csv s3://master.raw_data
+     upload: ./test.csv to s3://master.raw_data/test.csv
+     ```
+
+   These commands add the `test.csv` file to the `master` branch in
    the `raw_data` repository. `raw_data` is an input repository.
 
 1. Check that the file was added:
 
-   ```bash
-   $ mc ls local/master.raw_data
-   [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
-   [2019-07-19 12:11:37 PDT]     62B test.csv
-   ```
+   * If you are using `minikube`, type:
 
-1. Download a file to MinIO from a Pachyderm repository by running:
+     ```bash
+     $ mc ls local/master.raw_data
+     [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
+     [2019-07-19 12:11:37 PDT]     62B test.csv
+     ```
 
-   ```
-   $ mc cp local/master.raw_data/github_issues_medium.csv .
-   ...hub_issues_medium.csv:  2.56 MiB / 2.56 MiB  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100.00% 1.26 MiB/s 2s
-   ```
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600/ s3 ls
+     2019-07-12 14:58:50 master.pre_process
+     2019-07-12 14:58:09 master.split
+     2019-07-12 14:58:09 stats.split
+     2019-07-12 14:36:27 master.raw_data
+     ```
+
+1. Download a file from MinIO to the
+current directory by running the following commands:
+
+   * If you are using `minikube`, type:
+
+     ```
+     $ mc cp local/master.raw_data/github_issues_medium.csv .
+     ...hub_issues_medium.csv:  2.56 MiB / 2.56 MiB  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ 100.00% 1.26 MiB/s 2s
+     ```
+
+   * If you are using AWS, type:
+
+     ```
+     $ aws --endpoint-url http://localhost:30600/ s3 cp s3://master.raw_data/test.csv .
+     download: s3://master.raw_data/test.csv to ./test.csv
+     ```
 
 ### Remove a File Object
 
@@ -235,19 +342,39 @@ MinIO command-line interface:
 
 1. List the files in the iput repository:
 
+   * If you are using `minikube`, type:
+
      ```bash
-    $ mc ls local/master.raw_data/
-    [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
-    [2019-07-19 12:11:37 PDT]     62B test.csv
-    ```
+     $ mc ls local/master.raw_data/
+     [2019-07-19 12:11:37 PDT]  2.6MiB github_issues_medium.csv
+     [2019-07-19 12:11:37 PDT]     62B test.csv
+     ```
+
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data
+     2019-07-19 12:11:37    2685061 github_issues_medium.csv
+     2019-07-19 12:11:37         62 test.csv
+     ```
+
 1. Delete a file from a repository. Example:
 
    <!--- AFAIU, this supposed to work, but it does not.-->
 
-    ```bash
-    $ mc rm local/master.raw_data/test.csv
-    Removing `local/master.raw_data/test.csv`.
-    ```
+   * If you are using `minikube`, type:
+
+     ```bash
+     $ mc rm local/master.raw_data/test.csv
+     Removing `local/master.raw_data/test.csv`.
+     ```
+
+   * If you are using AWS, type:
+
+     ```bash
+     $ aws --endpoint-url http://localhost:30600/ s3 rm s3://master.raw_data/test.csv
+     delete: s3://master.raw_data/test.csv
+     ```
 
 ## Unsupported operations
 
