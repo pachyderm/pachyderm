@@ -2581,7 +2581,6 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 	})
 	require.NoError(t, err)
 	authToken := authResp.PachToken
-	fmt.Printf("XXX:%s\n", authToken)
 
 	// anon login via V2 - should fail
 	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
