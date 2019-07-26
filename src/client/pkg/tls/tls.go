@@ -20,6 +20,7 @@ const (
 	KeyFile = "tls.key"
 )
 
+// GetCertPaths gets the paths to the cert and key files within a cluster
 func GetCertPaths() (certPath string, keyPath string, err error) {
 	certPath = path.Join(VolumePath, CertFile)
 	if _, err = os.Stat(certPath); err != nil {
