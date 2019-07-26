@@ -1,5 +1,7 @@
 # Upgrades
 
+<!-- This section needs a thorough cleanup-->
+
 - [Introduction](#introduction)
 - [General upgrade procedure](#general-upgrade-procedure)
   - [Before you start: backups](#before-you-start-backups)
@@ -12,9 +14,6 @@
   - [`etcd` re-deploy problems](#etcd-re-deploy-problems)
   - [`AlreadyExists` errors on re-deploy](#alreadyexists-errors-on-re-deploy)
   - [`pachctl` connnection problems](#pachctl-connnection-problems)
-  
-
-## Introduction
 
 These updates fall into two categories, upgrades and migrations.
 
@@ -50,18 +49,35 @@ pachctl undeploy
 
 ### 2. Upgrading `pachctl`
 
-To deploy an upgraded Pachyderm, we need to retrieve the latest version of `pachctl`.
-Details on installing the latest version can be found [here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html#pachctl). 
-You should be able to upgrade via `brew upgrade` or `apt` depending on your environment.
+To deploy a new version of Pachyderm, you need to first upgrade
+`pachctl`. Use `brew` for macOS or `apt` for Linux to upgrade
+`pachctl` to the latest version.
 
-Once you install the new version of `pachctl` (e.g., 1.8.4 in our example),
-you can confirm this via:
+To upgrade `pachctl`, complete the following steps:
 
-```sh
-$ pachctl version --client-only
-COMPONENT           VERSION
-pachctl             1.8.4
-```
+1. Use your favorite package manager to install the latest version
+of `pachctl`. Example:
+
+     ```bash
+     $ brew upgrade pachyderm/tap/pachctl@1.9
+     ==> Upgrading 1 outdated package:
+     pachyderm/tap/pachctl@1.9 v1.9.0 -> v1.9.2
+     ==> Upgrading pachyderm/tap/pachctl@1.9
+     ...
+     ```
+
+   **Note:** You need to specify the version of `pachctl` to which
+   you want to upgrade. For example, if you want to upgrade `1.9.0` to
+   `1.9.2`, add `@1.9` at the end of the upgrade path.
+
+1. Confirm that the new version has been successfully installed by running
+the following command:
+
+   ```sh
+   $ pachctl version --client-only
+   COMPONENT           VERSION
+   pachctl             1.9.2
+   ```
 
 ### 3. Re-deploying Pachyderm
 
