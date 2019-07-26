@@ -228,17 +228,9 @@ func (h *S2) authV4(w http.ResponseWriter, r *http.Request, auth string) error {
 	dateRegionKey := hmacSHA256(dateKey, region)
 	dateRegionServiceKey := hmacSHA256(dateRegionKey, "s3")
 	signingKey := hmacSHA256(dateRegionServiceKey, "aws4_request")
-	h.logger.Debugf("dateKey: %x", dateKey)
-	h.logger.Debugf("dateRegionKey: %x", dateRegionKey)
-	h.logger.Debugf("dateRegionServiceKey: %x", dateRegionServiceKey)
 
 	// step 3: construct & verify the signature
 	signature := hmacSHA256(signingKey, stringToSign)
-
-	h.logger.Debugf("canonicalRequest:\n%s", canonicalRequest)
-	h.logger.Debugf("stringToSign:\n%s", stringToSign)
-	h.logger.Debugf("signingKey: %x", signingKey)
-	h.logger.Debugf("signature: %x", signature)
 
 	if expectedSignature != fmt.Sprintf("%x", signature) {
 		return SignatureDoesNotMatchError(r)
@@ -325,8 +317,6 @@ func (h *S2) authV2(w http.ResponseWriter, r *http.Request, auth string) error {
 
 	stringToSign := strings.Join(stringToSignParts, "\n")
 	signature := base64.StdEncoding.EncodeToString(hmacSHA1([]byte(*secretKey), stringToSign))
-	h.logger.Debugf("stringToSign:\n%s", stringToSign)
-	h.logger.Debugf("signature: %s", signature)
 
 	if expectedSignature != signature {
 		return AccessDeniedError(r)
@@ -339,14 +329,11 @@ func (h *S2) authV2(w http.ResponseWriter, r *http.Request, auth string) error {
 }
 
 func (h *S2) authMiddleware(next http.Handler) http.Handler {
-	// Verifies auth using AWS' signature v4. See here for a guide:
-	// https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html
-	// Much of the code is built off of smartystreets/go-aws-auth, which does
-	// signing from the client-side:
+	// Verifies auth using AWS' v2 and v4 auth mechanisms. Much of the code is
+	// built off of smartystreets/go-aws-auth, which does signing from the
+	// client-side:
 	// https://github.com/smartystreets/go-aws-auth
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		h.logger.Debugf("headers: %v", r.Header)
-
 		auth := r.Header.Get("authorization")
 
 		passed := true
@@ -357,6 +344,8 @@ func (h *S2) authMiddleware(next http.Handler) http.Handler {
 			err = h.authV2(w, r, auth)
 		} else {
 			passed, err = h.Auth.CustomAuth(r)
+			vars := mux.Vars(r)
+			vars["authMethod"] = "custom"
 		}
 		if err != nil {
 			WriteError(h.logger, w, r, err)
