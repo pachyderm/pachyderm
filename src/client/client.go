@@ -30,6 +30,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/config"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	"github.com/pachyderm/pachyderm/src/client/transaction"
@@ -231,11 +232,11 @@ func WithDialTimeout(t time.Duration) Option {
 // will connect to itself over an insecure connection)
 func WithAdditionalPachdCert() Option {
 	return func(settings *clientSettings) error {
-		if _, err := os.Stat(grpcutil.TLSVolumePath); err == nil {
+		if _, err := os.Stat(tls.VolumePath); err == nil {
 			if settings.caCerts == nil {
 				settings.caCerts = x509.NewCertPool()
 			}
-			return addCertFromFile(settings.caCerts, path.Join(grpcutil.TLSVolumePath, grpcutil.TLSCertFile))
+			return addCertFromFile(settings.caCerts, path.Join(tls.VolumePath, tls.CertFile))
 		}
 		return nil
 	}

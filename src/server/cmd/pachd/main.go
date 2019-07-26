@@ -51,6 +51,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -333,8 +334,16 @@ func doFullMode(config interface{}) (retErr error) {
 		if err != nil {
 			return fmt.Errorf("s3gateway server: %v", err)
 		}
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
-			return fmt.Errorf("s3gateway listen: %v", err)
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				return fmt.Errorf("s3gateway listen: %v", err)
+			}
+		} else {
+			if err := server.ListenAndServeTLS(certPath, keyPath); err != http.ErrServerClosed {
+				return fmt.Errorf("s3gateway listen: %v", err)
+			}
 		}
 		return nil
 	})
