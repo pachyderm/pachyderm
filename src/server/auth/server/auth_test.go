@@ -333,7 +333,7 @@ func TestGetSetBasic(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString("TestGetSetBasic")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
@@ -481,7 +481,7 @@ func TestGetSetReverse(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString("TestGetSetReverse")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
@@ -660,7 +660,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create repo, and check that alice is the owner of the new repo
-	dataRepo := tu.UniqueString("TestCreateAndUpdatePipeline")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, dataRepo))
@@ -856,8 +856,8 @@ func TestPipelineMultipleInputs(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// create two repos, and check that alice is the owner of the new repos
-	dataRepo1 := tu.UniqueString("TestPipelineMultipleInputs")
-	dataRepo2 := tu.UniqueString("TestPipelineMultipleInputs")
+	dataRepo1 := tu.UniqueString(t.Name())
+	dataRepo2 := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(dataRepo1))
 	require.NoError(t, aliceClient.CreateRepo(dataRepo2))
 	require.ElementsEqual(t,
@@ -1042,7 +1042,7 @@ func TestPipelineRevoke(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo, and adds bob as a reader
-	repo := tu.UniqueString("TestPipelineRevoke")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repo,
@@ -1207,7 +1207,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestDeletePipeline")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
@@ -1247,7 +1247,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 	require.ElementsEqual(t, entries(), getACL(t, aliceClient, repo))
 
 	// alice creates another repo
-	repo = tu.UniqueString("TestDeletePipeline")
+	repo = tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
@@ -1371,7 +1371,7 @@ func TestListAndInspectRepo(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo and makes Bob a writer
-	repoWriter := tu.UniqueString("TestListRepo")
+	repoWriter := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoWriter))
 	_, err := aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repoWriter,
@@ -1383,7 +1383,7 @@ func TestListAndInspectRepo(t *testing.T) {
 		entries(alice, "owner", bob, "writer"), getACL(t, aliceClient, repoWriter))
 
 	// alice creates a repo and makes Bob a reader
-	repoReader := tu.UniqueString("TestListRepo")
+	repoReader := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoReader))
 	_, err = aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Repo:     repoReader,
@@ -1395,13 +1395,13 @@ func TestListAndInspectRepo(t *testing.T) {
 		entries(alice, "owner", bob, "reader"), getACL(t, aliceClient, repoReader))
 
 	// alice creates a repo and gives Bob no access privileges
-	repoNone := tu.UniqueString("TestListRepo")
+	repoNone := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoNone))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, repoNone))
 
 	// bob creates a repo
-	repoOwner := tu.UniqueString("TestListRepo")
+	repoOwner := tu.UniqueString(t.Name())
 	require.NoError(t, bobClient.CreateRepo(repoOwner))
 	require.ElementsEqual(t, entries(bob, "owner"), getACL(t, bobClient, repoOwner))
 
@@ -1439,7 +1439,7 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestUnprivilegedUserCannotMakeSelfOwner")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, repo))
@@ -1464,7 +1464,7 @@ func TestGetScopeRequiresReader(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestGetScopeRequiresReader")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 
@@ -1497,7 +1497,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestListRepo")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t,
 		entries(alice, "owner"), getACL(t, aliceClient, repo))
@@ -1523,7 +1523,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 	adminClient := getPachClient(t, "admin")
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestListRepo")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob calls ListRepo, but has NONE access to all repos
@@ -1566,7 +1566,7 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestCreateRepoAlreadyExistsError")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// bob creates the same repo, and should get an error to the effect that the
@@ -1586,7 +1586,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 	anonClient := getPachClient(t, "")
 
 	// anonClient tries and fails to create a repo
-	repo := tu.UniqueString("TestCreateRepo")
+	repo := tu.UniqueString(t.Name())
 	err := anonClient.CreateRepo(repo)
 	require.YesError(t, err)
 	require.Matches(t, "no authentication token", err.Error())
@@ -1604,7 +1604,7 @@ func TestCreatePipelineRepoAlreadyExistsError(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	inputRepo := tu.UniqueString("TestCreatePipelineRepoAlreadyExistsError")
+	inputRepo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(inputRepo))
 	aliceClient.SetScope(aliceClient.Ctx(), &auth.SetScopeRequest{
 		Username: bob,
@@ -1653,7 +1653,7 @@ func TestAuthorizedNoneRole(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestAuthorizedNoneRole")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, adminClient.CreateRepo(repo))
 
 	// Get new pach clients, re-activating auth
@@ -1682,7 +1682,7 @@ func TestDeleteAll(t *testing.T) {
 	aliceClient, adminClient := getPachClient(t, alice), getPachClient(t, "admin")
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestAuthorizedNoneRole")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, adminClient.CreateRepo(repo))
 
 	// alice calls DeleteAll, but it fails
@@ -1705,9 +1705,9 @@ func TestListDatum(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repoA := tu.UniqueString("TestListDatum")
+	repoA := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoA))
-	repoB := tu.UniqueString("TestListDatum")
+	repoB := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repoB))
 
 	// alice creates a pipeline
@@ -1825,7 +1825,7 @@ func TestListJob(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestListJob")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline
@@ -1917,7 +1917,7 @@ func TestInspectDatum(t *testing.T) {
 	aliceClient := getPachClient(t, alice)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestInspectDatum")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
@@ -1980,7 +1980,7 @@ func TestGetLogs(t *testing.T) {
 	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestGetLogs")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline
@@ -2076,7 +2076,7 @@ func TestGetLogsFromStats(t *testing.T) {
 	aliceClient := getPachClient(t, alice)
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestGetLogsFromStats")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 
 	// alice creates a pipeline (we must enable stats for InspectDatum, which
@@ -2467,7 +2467,7 @@ func TestGetJobsBugFix(t *testing.T) {
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
 
 	// alice creates a repo
-	repo := tu.UniqueString("TestDeletePipeline")
+	repo := tu.UniqueString(t.Name())
 	require.NoError(t, aliceClient.CreateRepo(repo))
 	require.ElementsEqual(t, entries(alice, "owner"), getACL(t, aliceClient, repo))
 	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("lorem ipsum"))
@@ -2568,4 +2568,97 @@ func TestOneTimePasswordExpires(t *testing.T) {
 	})
 	require.YesError(t, err)
 	require.Nil(t, authResp)
+}
+
+// TestDeleteFailedPipeline creates a pipeline with an invalid image and then
+// tries to delete it (which shouldn't be blocked by the auth system)
+func TestDeleteFailedPipeline(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"does-not-exist", // nonexistant image
+		[]string{"true"}, nil,
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+
+	// make sure FlushCommit eventually returns (i.e. pipeline failure doesn't
+	// block flushCommit indefinitely)
+	iter, err := aliceClient.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		if err != io.EOF {
+			return err
+		}
+		return nil
+	})
+}
+
+// TestDeletePipelineMissingRepos creates a pipeline, force-deletes its input
+// and output repos, and then confirms that DeletePipeline still works (i.e.
+// the missing repos/ACLs don't cause an auth error).
+func TestDeletePipelineMissingRepos(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+	alice := tu.UniqueString("alice")
+	aliceClient := getPachClient(t, alice)
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, aliceClient.CreateRepo(repo))
+	_, err := aliceClient.PutFile(repo, "master", "/file", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, aliceClient.CreatePipeline(
+		pipeline,
+		"does-not-exist", // nonexistant image
+		[]string{"true"}, nil,
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// force-delete input and output repos
+	require.NoError(t, aliceClient.DeleteRepo(repo, true))
+	require.NoError(t, aliceClient.DeleteRepo(pipeline, true))
+
+	// Attempt to delete the pipeline--must succeed
+	require.NoError(t, aliceClient.DeletePipeline(pipeline, true))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pis, err := aliceClient.ListPipeline()
+		if err != nil {
+			return err
+		}
+		for _, pi := range pis {
+			if pi.Pipeline.Name == pipeline {
+				return fmt.Errorf("Expected %q to be deleted, but still present", pipeline)
+			}
+		}
+		return nil
+	})
 }

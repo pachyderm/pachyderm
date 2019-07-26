@@ -14,7 +14,6 @@ pachctl start commit <repo>@<branch-or-commit>
 ### Examples
 
 ```
-```sh
 # Start a new commit in repo "test" that's not on any branch
 $ pachctl start commit test
 
@@ -26,7 +25,6 @@ $ pachctl start commit test@patch -p master
 
 # Start a commit with XXX as the parent in repo "test", not on any branch
 $ pachctl start commit test -p XXX
-```
 ```
 
 ### Options
@@ -40,6 +38,7 @@ $ pachctl start commit test -p XXX
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

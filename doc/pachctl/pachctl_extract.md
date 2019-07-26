@@ -14,14 +14,12 @@ pachctl extract
 ### Examples
 
 ```
-```sh
 
 # Extract into a local file:
 $ pachctl extract > backup
 
 # Extract to s3:
 $ pachctl extract -u s3://bucket/backup
-```
 ```
 
 ### Options
@@ -34,6 +32,7 @@ $ pachctl extract -u s3://bucket/backup
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 
