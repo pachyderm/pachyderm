@@ -379,7 +379,7 @@ func (a *apiServer) watchConfig() {
 		for {
 			ev, ok := <-watcher.Watch()
 			if !ok {
-				return errors.New("admin watch closed unexpectedly")
+				return errors.New("config watch closed unexpectedly")
 			}
 			b.Reset() // event successfully received
 
