@@ -1,0 +1,36 @@
+apiVersion: "kubeflow.org/v1beta2"
+kind: "TFJob"
+metadata:
+  name: "s3-gateway-env-test"
+  namespace: kubeflow 
+spec:
+  cleanPodPolicy: None 
+  tfReplicaSpecs:
+    Worker:
+      replicas: 1 
+      restartPolicy: Never
+      template:
+        spec:
+          containers:
+            - name: tensorflow
+              image: papposilenus/tf_job_s3_gateway:7
+              env:
+                - name: S3_ENDPOINT
+                  value: "10.0.12.210:600"
+                - name: S3_USE_HTTPS
+                  value: "0"
+                - name: S3_VERIFY_SSL
+                  value: "0"
+              command:
+                - "python"
+                - "/var/tf_mnist/tf_job_s3_gateway.py"
+                - "-b"
+                - "master.foomages"
+                - "-i"
+                - "/blah"
+
+
+
+
+
+
