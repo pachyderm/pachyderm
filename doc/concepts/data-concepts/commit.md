@@ -1,6 +1,6 @@
 # Commit
 
-A commit is a snapshot that preserves the state of your data in time.
+A commit is a snapshot that preserves the state of your data at a point in time.
 It represents a single change to a file or files, directory or directories
 in your Pachyderm repository. Every time you modify or add new data to a
 Pachyderm input repository, Pachyderm detects and records it as a new
@@ -13,7 +13,7 @@ the parent of the new commit.
 The Directed acyclic graph (DAG) that represents your pipeline history
 consists of those parent-child relationships between your data commits.
 
-You can obtain the information about commits in a repository by running
+You can obtain information about commits in a repository by running `list commit <repo>` or `inspect commit <commitID>`
 the `pachctl list commit repo@branch` command. This command returns a
 timestamp, size, parent, and other information about the commit.
 The initial commit has `<none>` as a parent.

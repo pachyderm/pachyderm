@@ -9,13 +9,13 @@ including binary and plain text files.
 
 Unlike a Git repository that stores history in a `.git` file in your copy
 of a Git repo, Pachyderm stores the history of your commits in a centralized
-location in the etcd key-value store. Because of that, you do not run into
+location. Because of that, you do not run into
 merge conflicts as you often do with Git commits when you try to merge
 your `.git` history with the master copy of the repo. With large datatsets
 resolving a merge conflict might not be possible.
 
 A Pachyderm repository is the first entity that you configure to create
-a standard pipeline. You can create a repository by running the
+A Pachyderm repository is the first entity that you configure when you want to add data to Pachyderm
 `pachctl create repo <name>` command or by using the Pachyderm UI. After
 creating the repository, you can add your data by using the
 `pachctl put file <repo@branch:/path><path-to-filesystem>` command. The

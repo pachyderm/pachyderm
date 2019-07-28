@@ -14,16 +14,16 @@ A minimum pipeline specification must include the following parameters:
   name that is meaningful to the code you want to run to process the
   data in the specified repository.
 - ``input`` — A location of the data that you want to process, such as a
-  Pachyderm repository or a Git repository. You can specify multiple input
+  Pachyderm repository. You can specify multiple input
   repositories, as well as combine the repositories as union or cross
   pipelines.
   Depending on the anticipated results, you can unite and cross
   pipelines as needed in this field. For more information, see `Cross
   and Union <cross-union.html>`__.
 
-  Another important property that you can specify in the ``input`` field
+  One very important property that is defined in the ``input`` field
   is the ``glob`` pattern that defines how Pachyderm breaks the data into
-  processing units. For more information, see
+  individual processing units, called Datums. For more information, see
   `Datum <../datum/index.html>`__.
 
 - ``transform`` — Specifies the code that you want to run against your
@@ -40,7 +40,7 @@ A minimum pipeline specification must include the following parameters:
      },
      "transform": {
        "image": "wordcount-image",
-       "cmd": ["/binary", "/pfs/data", "/pfs/out"]
+       "cmd": ["python3", "/my_python_code.py"]
      },
      "input": {
            "pfs": {

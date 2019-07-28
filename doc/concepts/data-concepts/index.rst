@@ -1,15 +1,15 @@
 .. _data-concepts:
 
-Data Concepts
+Pachyderm Versioned Data Concepts
 =============
 
 Pachyderm data concepts describe version-control primitives that
 you interact with when you use Pachyderm.
 
-Fundamentally, these concepts are very similar to the Git version-control
+These ideas are conceptually similar to the Git version-control
 system with a few notable exceptions. Because Pachyderm
 deals not only with plain text but also with binary files and with
-large datasets, it does not process the data in the same way as Git.
+large datasets, it does not manage the data in the same way as Git.
 When you use Git, you store a copy of the repository on your
 local machine. You work with that copy, apply your changes, and
 then send the changes to the upstream master copy of the repository

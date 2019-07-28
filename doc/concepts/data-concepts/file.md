@@ -14,7 +14,7 @@ Pachyderm stores files in repositories that are directories in the
 Pachyderm etcd container.
 
 To upload your files to a Pachyderm repository, run the
-`pachctl put file <name>` command. By using the `pachctl put file`
+`pachctl put file` command. By using the `pachctl put file`
 command, you can put both files and directories into a Pachyderm repository.
 
 ## File Processing Strategies
@@ -22,7 +22,7 @@ command, you can put both files and directories into a Pachyderm repository.
 Pachyderm provides the following file processing strategies:
 
 Appending files
- By default, Pachyderm appends all new files to the existing files.
+ By default, if you put a file into pachyderm when a file by the same name already exists in the repo, Pachyderm will append the new data to the existing file. 
  For example, you have an `A.csv` file in a repository. If you upload the
  same file to that repository, Pachyderm *appends* the data to the existing
  file, which results in the `A.csv` file having twice the data from its

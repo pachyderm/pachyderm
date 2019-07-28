@@ -15,23 +15,23 @@ computations result in unexpected numbers, the first place to look
 is the historical data that gives insights into possible flaws in the
 transformation chain or the data itself.
 
-When a bank makes a decision about a mortgage
+For example, when a bank makes a decision about a mortgage
 application, many factors are taken into consideration, including the credit
 credit history, annual income, and loan size. This data goes through multiple
 automated steps of analysis with numerous dependencies and decisions made
 along the way. If the final decision does not satisfy the applicant,
 the historical data is the first place to look for proof of authenticity,
-as well as for possible prejudice against the applicant. Data provenance
-enables data scientists to track the
-progress from its origin to the final decision and make appropriate
+as well as for possible prejudice or model bias against the applicant. Data provenance
+creates a complete audit trail that enables data scientists to track the
+data from its origin through to the final decision and make appropriate
 changes that address issues. With the adoption of General Data
 Protection Regulation (GDPR) compliance requirements, monitoring data lineage
 is becoming a necessity for many organizations that work with sensitive data.
 
 Pachyderm implements provenance for both commits and repositories.
-Therefore, you can track revisions within one branch and
+Therefore, you can track revisions of the data and
 understand the connection between the data stored in one repository
-and the data that was used to calculate the result in the other
+and the results in the other
 repository. Therefore, you can track the data transformation process across
 multiple datasets.
 
@@ -48,8 +48,8 @@ The following diagram demonstrates how provenance works:
 In the diagram above, you can see two input repositories called `parameters`
 and `training-data`. The `training-data` repository continuously collects
 data from an outside source. The training model pipeline combines the
-data from these two repositories and runs tests to select the best
-model.
+data from these two repositories, trains many models, and runs tests to select the best
+one.
 
 Provenance helps you to understand how and why the best model was
 selected and enables you to track the origin of the best model.
