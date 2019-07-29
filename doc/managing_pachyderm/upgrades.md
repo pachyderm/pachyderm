@@ -1,4 +1,4 @@
-# Upgrade Pachyderm to a Minor Version
+# Upgrade Pachyderm
 
 If you need to upgrade Pachyderm from one major version
 to another, such as from `1.8.x` to `1.9.x`, follow the
@@ -93,9 +93,13 @@ of Pachyderm:
 
    The `pachd` and `pachctl` versions must both match the new version.
 
-## Common Issues
+## Troubleshooting Minor Upgrades
 
 <!-- We might want to move this section to Troubleshooting -->
+
+This section describes issues that you might run into when
+upgrading Pachyderm and provides guidelines on how to resolve
+them.
 
 ### StatefulSets vs static persistent volumes
 
