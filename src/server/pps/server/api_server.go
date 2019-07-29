@@ -1967,9 +1967,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, fmt.Errorf("cannot disable stats"))
 				}
 
-				// Modify pipelineInfo
+				// Modify pipelineInfo (increment Version, and *preserve Stopped* so
+				// that updating a pipeline doesn't restart it)
 				pipelineInfo.Version = oldPipelineInfo.Version + 1
-				pipelineInfo.Stopped = oldPipelineInfo.Stopped
+				if oldPipelineInfo.Stopped {
+					provenance = nil // CreateBranch() below shouldn't create new output
+					pipelineInfo.Stopped = true
+				}
 				if !request.Reprocess {
 					pipelineInfo.Salt = oldPipelineInfo.Salt
 				}
@@ -2492,6 +2496,18 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		return nil, err
 	}
 
+	// Remove 'Stopped' from the pipeline spec
+	// TODO(msteffen): can I get rid of this and have the PPS master make the
+	// change?
+	pipelineInfo.Stopped = false
+	commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
+	if err != nil {
+		return nil, err
+	}
+	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
+		return nil, err
+	}
+
 	// Replace missing branch provenance (removed by StopPipeline)
 	provenance := append(branchProvenance(pipelineInfo.Input),
 		client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name))
@@ -2501,17 +2517,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		pipelineInfo.OutputBranch,
 		provenance,
 	); err != nil {
-		return nil, err
-	}
-
-	// TODO(msteffen): can I get rid of this and have the PPS master make the
-	// change?
-	pipelineInfo.Stopped = false
-	commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-	if err != nil {
-		return nil, err
-	}
-	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

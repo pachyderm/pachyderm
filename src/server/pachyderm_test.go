@@ -2894,7 +2894,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	// create repos
+	// create repo & pipeline
 	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
@@ -2902,7 +2902,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{"echo foo >/pfs/out/file"},
+		[]string{"cp /pfs/*/file /pfs/out/file"},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -2910,21 +2910,53 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		"",
 		false,
 	))
+
+	commits, err := c.ListCommit(pipelineName, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// Add input data
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Make sure the pipeline runs once (i.e. it's all the way up)
+	commitIter, err := c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// Stop the pipeline (and confirm that it's stopped)
 	require.NoError(t, c.StopPipeline(pipelineName))
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
-	// It takes a bit for the master to stop the pods
-	time.Sleep(10 * time.Second)
-	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err = c.InspectPipeline(pipelineName)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
+			return fmt.Errorf("expected pipeline to be in state PAUSED, but was in %s",
+				pipelineInfo.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_PAUSED, pipelineInfo.State)
-	// Update shouldn't restart it
+	require.Equal(t, 1, len(commits))
+
+	// Update shouldn't restart it (wait for version to increment)
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
-		"bash:4",
+		"",
 		[]string{"bash"},
-		[]string{"echo bar >/pfs/out/file"},
+		[]string{"cp /pfs/*/file /pfs/out/file"},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -2933,9 +2965,45 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		true,
 	))
 	time.Sleep(10 * time.Second)
-	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err = c.InspectPipeline(pipelineName)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
+			return fmt.Errorf("expected pipeline to be in state PAUSED, but was in %s",
+				pipelineInfo.State)
+		}
+		if pipelineInfo.Version != 2 {
+			return fmt.Errorf("expected pipeline to be on v2, but was on v%d",
+				pipelineInfo.Version)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, true, pipelineInfo.Stopped)
+	require.Equal(t, 1, len(commits))
+
+	// Create a commit (to give the pipeline pending work), then start the pipeline
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.StartPipeline(pipelineName))
+
+	// Pipeline should start and create a job should succeed -- fix
+	// https://github.com/pachyderm/pachyderm/issues/3934)
+	commitIter, err = c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foobar", buf.String())
 }
 
 func TestUpdatePipelineRunningJob(t *testing.T) {
