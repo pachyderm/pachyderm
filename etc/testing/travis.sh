@@ -80,9 +80,10 @@ if [[ "$BUCKET" == "MISC" ]]; then
         make test-worker
         make test-admin
         make test-s3gateway-integration
-        make test-proto-static
+        # make test-proto-static
         make test-transaction
         make test-config
+        make test-cli
     else
         echo "Running the misc test suite with some tests disabled because secret env vars have not been set"
         make lint
@@ -94,6 +95,7 @@ if [[ "$BUCKET" == "MISC" ]]; then
         make test-libs
         make test-admin
         make test-config
+        make test-cli
     fi
 elif [[ "$BUCKET" == "EXAMPLES" ]]; then
     echo "Running the example test suite"

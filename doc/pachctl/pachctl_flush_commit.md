@@ -14,14 +14,12 @@ pachctl flush commit <repo>@<branch-or-commit> ...
 ### Examples
 
 ```
-```sh
 
 # return commits caused by foo@XXX and bar@YYY
 $ pachctl flush commit foo@XXX bar@YYY
 
 # return commits caused by foo@XXX leading to repos bar and baz
 $ pachctl flush commit foo@XXX -r bar -r baz
-```
 ```
 
 ### Options
@@ -35,6 +33,7 @@ $ pachctl flush commit foo@XXX -r bar -r baz
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

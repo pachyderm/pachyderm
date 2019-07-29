@@ -252,7 +252,7 @@ func fillDefaultResourceRequests(opts *AssetOpts, persistentDiskBackend backend)
 		}
 
 		if opts.EtcdMemRequest == "" {
-			opts.EtcdMemRequest = "256M"
+			opts.EtcdMemRequest = "512M"
 		}
 		if opts.EtcdCPURequest == "" {
 			opts.EtcdCPURequest = "0.25"

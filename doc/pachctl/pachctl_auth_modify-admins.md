@@ -21,6 +21,7 @@ pachctl auth modify-admins
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

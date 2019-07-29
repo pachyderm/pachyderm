@@ -18,6 +18,7 @@ Environment variables:
 ### Options
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

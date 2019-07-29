@@ -319,7 +319,7 @@ delete-all-launch-bench:
 bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
-	etc/kube/start-minikube.sh -r
+	etc/kube/start-minikube.sh
 
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later
@@ -513,6 +513,9 @@ test-fuse:
 
 test-local:
 	CGOENABLED=0 GO111MODULE=on go test -cover -short $$(go list ./src/server/... | grep -v '/src/server/pfs/fuse') -timeout $(TIMEOUT)
+
+test-cli:
+	CGOENABLED=0 GO111MODULE=on go test -mod=vendor -v ./src/server/cmd/pachctl/cmd
 
 test-auth:
 	yes | pachctl delete all
@@ -736,6 +739,7 @@ goxc-build:
 	test-s3gateway-integration \
 	test-fuse \
 	test-local \
+	test-cli \
 	clean \
 	doc \
 	grep-data \
