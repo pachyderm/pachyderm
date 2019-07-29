@@ -6,10 +6,6 @@ you can reuse a number of tools and libraries built to work with object stores
 (e.g. [minio](https://docs.minio.io/docs/minio-client-quickstart-guide.html),
 [Boto](https://github.com/boto/boto3)) to interact with pachyderm.
 
-You can only interact with the HEAD commit of non-authorization-gated PFS
-branches through the gateway. If you need richer access, you'll need to work
-with PFS through its gRPC interface instead.
-
 ## Connecting to the s3gateway
 
 The s3gateway runs in your cluster, and can be reached via
