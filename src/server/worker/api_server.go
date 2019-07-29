@@ -406,6 +406,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 			pipelineInfo.Transform.WorkingDir = image.Config.WorkingDir
 		}
 		if server.pipelineInfo.Transform.Cmd == nil {
+			if len(image.Config.Entrypoint) == 0 {
+				ppsutil.FailPipeline(ctx, etcdClient, server.pipelines,
+					pipelineInfo.Pipeline.Name,
+					"nothing to run: no transform.cmd and no entrypoint")
+			}
 			server.pipelineInfo.Transform.Cmd = image.Config.Entrypoint
 		}
 	}

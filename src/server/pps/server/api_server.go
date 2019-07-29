@@ -1880,7 +1880,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		PodSpec:          request.PodSpec,
 		PodPatch:         request.PodPatch,
 	}
-	setPipelineDefaults(pipelineInfo)
+	if err := setPipelineDefaults(pipelineInfo); err != nil {
+		return nil, err
+	}
 
 	// Validate new pipeline
 	if err := a.validatePipeline(pachClient, pipelineInfo); err != nil {
@@ -2093,7 +2095,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 }
 
 // setPipelineDefaults sets the default values for a pipeline info
-func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
+func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
+	if pipelineInfo.Transform == nil {
+		return fmt.Errorf("pipeline spec is missing transform: %v", pipelineInfo)
+	}
+
 	now := time.Now()
 	if pipelineInfo.Transform.Image == "" {
 		pipelineInfo.Transform.Image = DefaultUserImage
@@ -2154,6 +2160,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil && pipelineInfo.Spout.Service.Type == "" {
 		pipelineInfo.Spout.Service.Type = string(v1.ServiceTypeNodePort)
 	}
+	return nil
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
