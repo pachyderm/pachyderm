@@ -958,7 +958,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *authclient.GetO
 		return nil, authclient.ErrPartiallyActivated
 	}
 	if req.Subject == magicUser {
-		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
+		return nil, fmt.Errorf("GetOneTimePassword.Subject is invalid")
 	}
 
 	// Get current caller and check if they're authorized if req.Subject is set
@@ -1714,7 +1714,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		if !isAdmin && req.Subject != callerInfo.Subject {
 			return nil, &authclient.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
-				AdminOp: "GetOneTimePassword on behalf of another user",
+				AdminOp: "GetAuthToken on behalf of another user",
 			}
 		}
 	}

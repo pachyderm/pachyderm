@@ -14,7 +14,6 @@ pachctl subscribe commit <repo>@<branch>
 ### Examples
 
 ```
-```sh
 
 # subscribe to commits in repo "test" on branch "master"
 $ pachctl subscribe commit test@master
@@ -24,7 +23,6 @@ $ pachctl subscribe commit test@master --from XXX
 
 # subscribe to commits in repo "test" on branch "master", but only for new commits created from now on.
 $ pachctl subscribe commit test@master --new
-```
 ```
 
 ### Options
@@ -39,6 +37,7 @@ $ pachctl subscribe commit test@master --new
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

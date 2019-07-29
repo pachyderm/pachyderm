@@ -14,7 +14,6 @@ pachctl glob file <repo>@<branch-or-commit>:<pattern>
 ### Examples
 
 ```
-```sh
 
 # Return files in repo "foo" on branch "master" that start
 # with the character "A".  Note how the double quotation marks around the
@@ -23,7 +22,6 @@ $ pachctl glob file "foo@master:A*"
 
 # Return files in repo "foo" on branch "master" under directory "data".
 $ pachctl glob file "foo@master:data/*"
-```
 ```
 
 ### Options
@@ -36,6 +34,7 @@ $ pachctl glob file "foo@master:data/*"
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

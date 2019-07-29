@@ -14,7 +14,6 @@ pachctl list commit <repo>[@<branch>]
 ### Examples
 
 ```
-```sh
 
 # return commits in repo "foo"
 $ pachctl list commit foo
@@ -27,7 +26,6 @@ $ pachctl list commit foo@master -n 20
 
 # return commits in repo "foo" since commit XXX
 $ pachctl list commit foo@master --from XXX
-```
 ```
 
 ### Options
@@ -42,6 +40,7 @@ $ pachctl list commit foo@master --from XXX
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

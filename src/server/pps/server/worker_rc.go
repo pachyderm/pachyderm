@@ -2,7 +2,11 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strconv"
 
 	jsonpatch "github.com/evanphx/json-patch"
@@ -20,10 +24,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	kube "k8s.io/client-go/kubernetes"
 )
 
 const (
-	pipelineNameLabel = "pipelineName"
+	pipelineNameLabel         = "pipelineName"
+	pachVersionAnnotation     = "version"
+	specCommitAnnotation      = "specCommit"
+	hashedAuthTokenAnnotation = "authTokenHash"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -119,10 +127,12 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
 		})
-		sidecarVolumeMounts = append(sidecarVolumeMounts, v1.VolumeMount{
+		emptyDirVolumeMount := v1.VolumeMount{
 			Name:      "pach-dir-volume",
 			MountPath: a.storageRoot,
-		})
+		}
+		sidecarVolumeMounts = append(sidecarVolumeMounts, emptyDirVolumeMount)
+		userVolumeMounts = append(userVolumeMounts, emptyDirVolumeMount)
 	}
 	secretVolume, secretMount := assets.GetBackendSecretVolumeAndMount(a.storageBackend)
 	options.volumes = append(options.volumes, secretVolume)
@@ -258,13 +268,40 @@ func (a *apiServer) workerPodSpec(options *workerOptions) (v1.PodSpec, error) {
 	return podSpec, nil
 }
 
-func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64,
-	parallelism int32, resourceRequests *v1.ResourceList, resourceLimits *v1.ResourceList,
-	transform *pps.Transform, cacheSize string, service *pps.Service,
-	specCommitID string, schedulingSpec *pps.SchedulingSpec, podSpec string, podPatch string) *workerOptions {
+// We don't want to expose pipeline auth tokens, so we hash it. This will be
+// visible to any user with k8s cluster access
+// Note: This hash shouldn't be used for authentication in any way. We just use
+// this to detect if an auth token has been added/changed
+// Note: ptr.AuthToken is a pachyderm-generated UUID, and wouldn't appear in any
+// rainbow tables
+func hashAuthToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return base64.RawURLEncoding.EncodeToString(h[:])
+}
+
+func (a *apiServer) getWorkerOptions(ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (*workerOptions, error) {
+	pipelineName := pipelineInfo.Pipeline.Name
+	pipelineVersion := pipelineInfo.Version
+	var resourceRequests *v1.ResourceList
+	var resourceLimits *v1.ResourceList
+	if pipelineInfo.ResourceRequests != nil {
+		var err error
+		resourceRequests, err = ppsutil.GetRequestsResourceListFromPipeline(pipelineInfo)
+		if err != nil {
+			return nil, fmt.Errorf("could not determine resource request: %v", err)
+		}
+	}
+	if pipelineInfo.ResourceLimits != nil {
+		var err error
+		resourceLimits, err = ppsutil.GetLimitsResourceListFromPipeline(pipelineInfo)
+		if err != nil {
+			return nil, fmt.Errorf("could not determine resource limit: %v", err)
+		}
+	}
+
+	transform := pipelineInfo.Transform
 	rcName := ppsutil.PipelineRcName(pipelineName, pipelineVersion)
 	labels := labels(rcName)
-	labels["version"] = version.PrettyVersion()
 	labels[pipelineNameLabel] = pipelineName
 	userImage := transform.Image
 	if userImage == "" {
@@ -314,7 +351,11 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 	})
 	workerEnv = append(workerEnv, v1.EnvVar{
 		Name:  client.PPSSpecCommitEnv,
-		Value: specCommitID,
+		Value: ptr.SpecCommit.ID,
+	})
+	workerEnv = append(workerEnv, v1.EnvVar{
+		Name:  client.PPSPipelineNameEnv,
+		Value: pipelineInfo.Pipeline.Name,
 	})
 	// Set the worker gRPC port
 	workerEnv = append(workerEnv, v1.EnvVar{
@@ -391,9 +432,24 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: a.imagePullSecret})
 	}
 
-	annotations := map[string]string{"pipelineName": pipelineName}
+	annotations := map[string]string{
+		pipelineNameLabel:         pipelineName,
+		pachVersionAnnotation:     version.PrettyVersion(),
+		specCommitAnnotation:      ptr.SpecCommit.ID,
+		hashedAuthTokenAnnotation: hashAuthToken(ptr.AuthToken),
+	}
 	if a.iamRole != "" {
 		annotations["iam.amazonaws.com/role"] = a.iamRole
+	}
+	// A service can be present either directly on the pipeline spec
+	// or on the spout field of the spec.
+	var service *pps.Service
+	if pipelineInfo.Spout != nil && pipelineInfo.Service != nil {
+		return nil, errors.New("only one of pipeline.service or pipeline.spout can be set")
+	} else if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil {
+		service = pipelineInfo.Spout.Service
+	} else {
+		service = pipelineInfo.Service
 	}
 	if service != nil {
 		for k, v := range service.Annotations {
@@ -403,11 +459,12 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		}
 	}
 
+	// Generate options for new RC
 	return &workerOptions{
 		rcName:           rcName,
 		labels:           labels,
 		annotations:      annotations,
-		parallelism:      int32(parallelism),
+		parallelism:      int32(0), // pipelines start w/ 0 workers & are scaled up
 		resourceRequests: resourceRequests,
 		resourceLimits:   resourceLimits,
 		userImage:        userImage,
@@ -415,23 +472,35 @@ func (a *apiServer) getWorkerOptions(pipelineName string, pipelineVersion uint64
 		volumes:          volumes,
 		volumeMounts:     volumeMounts,
 		imagePullSecrets: imagePullSecrets,
-		cacheSize:        cacheSize,
+		cacheSize:        pipelineInfo.CacheSize,
 		service:          service,
-		schedulingSpec:   schedulingSpec,
-		podSpec:          podSpec,
-		podPatch:         podPatch,
-	}
+		schedulingSpec:   pipelineInfo.SchedulingSpec,
+		podSpec:          pipelineInfo.PodSpec,
+		podPatch:         pipelineInfo.PodPatch,
+	}, nil
 }
 
-func (a *apiServer) createWorkerRc(ctx context.Context, options *workerOptions) (retErr error) {
-	log.Infof("PPS master: upserting workers for %q", options.labels[pipelineNameLabel])
+// noValidOptions error may be returned by createWorkerSvcAndRc to indicate that
+// getWorkerOptions returned an error to it (getWorkerOptions does not return
+// noValidOptions). This is a mechanism for createWorkerSvcAndRc to signal to
+// its caller not to retry
+type noValidOptionsErr struct {
+	error
+}
+
+func (a *apiServer) createWorkerSvcAndRc(ctx context.Context, ptr *pps.EtcdPipelineInfo, pipelineInfo *pps.PipelineInfo) (retErr error) {
+	log.Infof("PPS master: upserting workers for %q", pipelineInfo.Pipeline.Name)
 	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/pps.Master/CreateWorkerRC",
-		"pipeline", options.labels[pipelineNameLabel])
+		"pipeline", pipelineInfo.Pipeline.Name)
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
 		tracing.FinishAnySpan(span)
 	}()
 
+	options, err := a.getWorkerOptions(ptr, pipelineInfo)
+	if err != nil {
+		return noValidOptionsErr{err}
+	}
 	podSpec, err := a.workerPodSpec(options)
 	if err != nil {
 		return err
@@ -533,5 +602,56 @@ func (a *apiServer) createWorkerRc(ctx context.Context, options *workerOptions) 
 			}
 		}
 	}
+
+	// True if the pipeline has a git input
+	var hasGitInput bool
+	pps.VisitInput(pipelineInfo.Input, func(input *pps.Input) {
+		if input.Git != nil {
+			hasGitInput = true
+		}
+	})
+	if hasGitInput {
+		if err := a.checkOrDeployGithookService(); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (a *apiServer) checkOrDeployGithookService() error {
+	kubeClient := a.env.GetKubeClient()
+	_, err := getGithookService(kubeClient, a.namespace)
+	if err != nil {
+		if _, ok := err.(*errGithookServiceNotFound); ok {
+			svc := assets.GithookService(a.namespace)
+			_, err = kubeClient.CoreV1().Services(a.namespace).Create(svc)
+			return err
+		}
+		return err
+	}
+	// service already exists
+	return nil
+}
+
+func getGithookService(kubeClient *kube.Clientset, namespace string) (*v1.Service, error) {
+	labels := map[string]string{
+		"app":   "githook",
+		"suite": suite,
+	}
+	serviceList, err := kubeClient.CoreV1().Services(namespace).List(metav1.ListOptions{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ListOptions",
+			APIVersion: "v1",
+		},
+		LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(labels)),
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(serviceList.Items) != 1 {
+		return nil, &errGithookServiceNotFound{
+			fmt.Errorf("expected 1 githook service but found %v", len(serviceList.Items)),
+		}
+	}
+	return &serviceList.Items[0], nil
 }

@@ -132,21 +132,22 @@ func (WorkerState) EnumDescriptor() ([]byte, []int) {
 type PipelineState int32
 
 const (
-	// When the pipeline is not ready to be triggered by commits.
-	// This happens when either 1) a pipeline has been created but not
-	// yet picked up by a PPS server, or 2) the pipeline does not have
-	// any inputs and is meant to be triggered manually
+	// There is an EtcdPipelineInfo + spec commit, but no RC
+	// This happens when a pipeline has been created but not yet picked up by a
+	// PPS server.
 	PipelineState_PIPELINE_STARTING PipelineState = 0
-	// After this pipeline is picked up by a pachd node.  This is the normal
-	// state of a pipeline.
+	// A pipeline has a spec commit and a service + RC
+	// This is the normal state of a pipeline.
 	PipelineState_PIPELINE_RUNNING PipelineState = 1
-	// After some error caused runPipeline to exit, but before the
-	// pipeline is re-run.  This is when the exponential backoff is
-	// in effect.
+	// Equivalent to STARTING (there is an EtcdPipelineInfo + commit, but no RC)
+	// After some error caused runPipeline to exit, but before the pipeline is
+	// re-run. This is when the exponential backoff is in effect.
 	PipelineState_PIPELINE_RESTARTING PipelineState = 2
-	// We have retried too many times and we have given up on this pipeline.
+	// We have retried too many times and we have given up on this pipeline (or
+	// the pipeline image doesn't exist)
 	PipelineState_PIPELINE_FAILURE PipelineState = 3
-	// The pipeline has been explicitly paused by the user.
+	// The pipeline has been explicitly paused by the user (the pipeline spec's
+	// Stopped field should be true if the pipeline is in this state)
 	PipelineState_PIPELINE_PAUSED PipelineState = 4
 	// The pipeline is fully functional, but there are no commits to process.
 	PipelineState_PIPELINE_STANDBY PipelineState = 5

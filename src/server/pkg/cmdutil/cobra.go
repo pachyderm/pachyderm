@@ -315,18 +315,28 @@ func MergeCommands(root *cobra.Command, children []*cobra.Command) {
 	}
 }
 
-// SetDocsUsage sets the usage string for a docs-style command.  Docs commands
-// have no functionality except to output some docs and related commands, and
-// should not specify a 'Run' attribute.
-func SetDocsUsage(command *cobra.Command, pattern string) {
-	command.SetHelpTemplate(`{{or .Long .Short}}
+// CreateDocsAlias sets the usage string for a docs-style command.  Docs
+// commands have no functionality except to output some docs and related
+// commands, and should not specify a 'Run' attribute.
+func CreateDocsAlias(command *cobra.Command, invocation string, pattern string) *cobra.Command {
+	// This should create a linked-list-shaped tree, follow it to the one leaf
+	root := CreateAlias(command, invocation)
+	command = root
+	for len(command.Commands()) != 0 {
+		command = command.Commands()[0]
+	}
 
-{{.UsageString}}
-`)
+	// Normally cobra will not render usage if the command is not runnable or has
+	// no subcommands, specify our own help template to override that.
+	command.SetHelpTemplate(`{{with (or .Long .Short)}}{{. | trimRightSpace}}
+
+{{end}}{{.UsageString}}`)
 
 	originalUsageFunc := command.UsageFunc()
 	command.SetUsageFunc(func(cmd *cobra.Command) error {
-		if cmd != command {
+		// commands inherit their parents' usage function, so we'll want to pass-
+		// through anything but usage for this specific command
+		if cmd.CommandPath() != command.CommandPath() {
 			return originalUsageFunc(cmd)
 		}
 		rootCmd := cmd.Root()
@@ -364,11 +374,13 @@ func SetDocsUsage(command *cobra.Command, pattern string) {
 		}
 
 		text := `Associated Commands:{{range associated}}{{if .IsAvailableCommand}}
-  {{pad .CommandPath}} {{.Short}}{{end}}{{end}}`
+  {{pad .CommandPath}} {{.Short}}{{end}}{{end}}
+`
 
 		t := template.New("top")
 		t.Funcs(templateFuncs)
 		template.Must(t.Parse(text))
 		return t.Execute(cmd.Out(), cmd)
 	})
+	return root
 }
