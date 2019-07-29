@@ -2,8 +2,8 @@ package s3
 
 import (
 	"net/http"
-	"strings"
 
+	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/s2"
 )
 
@@ -16,10 +16,15 @@ const globalLocation = "PACHYDERM"
 // The S3 user associated with all PFS content
 var defaultUser = s2.User{ID: "00000000000000000000000000000000", DisplayName: "pachyderm"}
 
-func bucketArgs(r *http.Request, bucket string) (string, string, error) {
-	parts := strings.SplitN(bucket, ".", 2)
-	if len(parts) != 2 || len(parts[0]) == 0 || len(parts[1]) == 0 {
-		return "", "", s2.InvalidBucketNameError(r)
+// isCommit checks whether a given value is a commit ID
+func isCommit(value string) bool {
+	return uuid.IsUUIDWithoutDashes(value)
+}
+
+func branchArg(r *http.Request) string {
+	value := r.FormValue("branch")
+	if value == "" {
+		return "master"
 	}
-	return parts[1], parts[0], nil
+	return value
 }

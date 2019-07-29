@@ -131,7 +131,7 @@ def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", s
         if (proc.poll() is not None and timed_out_last) or (stdout.pipe.closed and stderr.pipe.closed):
             break
 
-        for io in select.select([stdout.pipe, stderr.pipe], [], [], 100)[0]:
+        for io in select.select([stdout.pipe, stderr.pipe], [], [], 1000)[0]:
             timed_out_last = False
             line = io.readline().decode().rstrip()
 

@@ -72,7 +72,7 @@ func attachBucketRoutes(logger *logrus.Entry, router *mux.Router, handler *bucke
 
 	router.Methods("GET").Queries("versioning", "").HandlerFunc(handler.versioning)
 	router.Methods("PUT").Queries("versioning", "").HandlerFunc(handler.setVersioning)
-	// router.Methods("GET").Queries("versions", "").HandlerFunc(handler.listVersions)
+	router.Methods("GET").Queries("versions", "").HandlerFunc(handler.listVersions)
 	router.Methods("GET").Queries("uploads", "").HandlerFunc(multipartHandler.list)
 	router.Methods("GET").Queries("location", "").HandlerFunc(handler.location)
 	router.Methods("GET", "HEAD").HandlerFunc(handler.get)

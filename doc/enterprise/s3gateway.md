@@ -23,13 +23,13 @@ and does not recover well from broken connections.
 
 These operations are supported by the gateway:
 
-* Creating buckets: creates a repo and/or branch.
-* Deleting buckets: Deletings a branch and/or repo.
-* Listing buckets: Lists all branches on all repos as s3 buckets.
+* Creating buckets: creates a repo.
+* Deleting buckets: Deletes a repo.
+* Listing buckets: Lists repos as s3 buckets.
 * Writing objects (including multipart uploads): Atomically overwrites a file on the HEAD of a branch.
 * Removing objects: Atomically removes a file on the HEAD of a branch.
-* Listing objects: Lists the files in the HEAD of a branch.
-* Getting objects: Gets file contents on the HEAD of a branch.
+* Listing objects: Lists the files in a repo.
+* Getting objects: Gets file contents in a repo.
 
 For details on what's going on under the hood and current peculiarities, see the
 [s3gateway API](../reference/s3gateway_api.html).

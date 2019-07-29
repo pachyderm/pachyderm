@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -39,12 +38,10 @@ func (c *serviceController) ListBuckets(r *http.Request) (owner *s2.User, bucket
 			return
 		}
 
-		for _, branch := range repo.Branches {
-			buckets = append(buckets, s2.Bucket{
-				Name:         fmt.Sprintf("%s.%s", branch.Name, branch.Repo.Name),
-				CreationDate: t,
-			})
-		}
+		buckets = append(buckets, s2.Bucket{
+			Name:         repo.Repo.Name,
+			CreationDate: t,
+		})
 	}
 
 	owner = &defaultUser

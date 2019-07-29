@@ -18,21 +18,19 @@ Lists all of the branches across all of the repos as S3 buckets.
 
 ### Operations on Buckets
 
-Buckets are represented via `branch.repo`, e.g. the `master.images` bucket
-corresponds to the `master` branch of the `images` repo.
-
 #### DELETE Bucket
 
-Route: `DELETE /<branch>.<repo>/`.
+Route: `DELETE /<repo>/`.
 
-Deletes the branch. If it is the last branch in the repo, the repo is also
-deleted. Unlike S3, you can delete non-empty branches.
+Deletes the repo.
 
 #### GET Bucket (List Objects) Version 1
 
-Route: `GET /<branch>.<repo>/`
+Route: `GET /<repo>/?branch=<branch>`
 
-Only S3's list objects v1 is supported.
+Only S3's list objects v1 is supported. The `branch` parameter is a
+non-standard extension that allows you to specify which branch to on the given
+repo to list objects from; if unspecified, it defaults to `master`.
 
 PFS directories are represented via `CommonPrefixes`. This largely mirrors how
 S3 is used in practice, but leads to a couple of differences:
@@ -49,39 +47,40 @@ hash of the file contents.
 
 #### GET Bucket location
 
-Route: `GET /<branch>.<repo>/?location`
+Route: `GET /<repo>/?location`
 
-This will always serve the same location for every bucket, but the endpoint is implemented to provide better compatibility with S3 clients.
+This will always serve the same location for every bucket, but the endpoint is
+implemented to provide better compatibility with S3 clients.
 
 #### List Multipart Uploads
 
-Route: `GET /<branch>.<repo>/?uploads`
+Route: `GET /<branch>.<repo>/?uploads&branch=<branch>`
 
-Lists the in-progress multipart uploads in the given branch. The `delimiter` query parameter is not supported.
+Lists the in-progress multipart uploads in the given branch. The `delimiter`
+query parameter is not supported. The `branch` parameter is a non-standard
+extension that allows you to specify which branch to on the given repo to
+list objects from; if unspecified, it defaults to `master`.
 
 #### PUT Bucket
 
-Route: `PUT /<branch>.<repo>/`.
+Route: `PUT /<repo>/`.
 
-If the repo does not exist, it is created. If the branch does not exist, it
-is likewise created. As per S3's behavior in some regions (but not all),
-trying to create the same bucket twice will return a `BucketAlreadyOwnedByYou`
-error.
+If the repo does not exist, it is created. As per S3's behavior in some
+regions (but not all), trying to create the same bucket twice will return a
+`BucketAlreadyOwnedByYou` error.
 
 ### Operations on Objects
 
-Object operations act upon the HEAD commit of branches. Authorization-gated
-PFS branches are not supported.
-
 #### DELETE Object
 
-Route: `DELETE /<branch>.<repo>/<filepath>`.
+Route: `DELETE /<repo>/<filepath>`.
 
-Deletes the PFS file `filepath` in an atomic commit on the HEAD of `branch`.
+Deletes the PFS file `filepath` in an atomic commit. Note that this can only
+be done on the HEAD of a branch.
 
 #### GET Object
 
-Route: `GET /<branch>.<repo>/<filepath>`.
+Route: `GET /<repo>/<filepath>`.
 
 There is support for range queries and conditional requests, however error
 response bodies for bad requests using these headers are not standard S3 XML.
@@ -95,41 +94,50 @@ the file contents.
 
 #### PUT Object
 
-Route: `PUT /<branch>.<repo>/<filepath>`.
+Route: `PUT /<repo>/<filepath>`.
 
-Writes the PFS file at `filepath` in an atomic commit on the HEAD of `branch`.
-Any existing file content is overwritten. Unlike S3, there is no limit to
-upload size.
-
-Unlike s3, a 64mb max size is not enforced on this endpoint. Especially as the file upload size gets larger, we recommend setting the `Content-MD5`
-request header to ensure data integrity.
+Writes the PFS file at `filepath` in an atomic commit. Note that this can only
+be done on the HEAD of a branch.
 
 #### Abort Multipart Upload
 
-Route: `DELETE /<branch>.<repo>?uploadId=<uploadId>`
+Route: `DELETE /<repo>?uploadId=<uploadId>&branch=<branch>`
 
-Aborts an in-progress multipart upload.
+Aborts an in-progress multipart upload. The `branch` parameter is a
+non-standard extension that allows you to specify which branch to on the given
+repo to list objects from; if unspecified, it defaults to `master`.
 
 #### Complete Multipart Upload
 
-Route: `POST /<branch>.<repo>?uploadId=<uploadId>`
+Route: `POST /<repo>?uploadId=<uploadId>&branch=<branch>`
 
-Completes a multipart upload. Note that if ETags are included in the request payload, they must be of the same format as returned by s3gateway when the multipart chunks are included. If they are md5 hashes (or any other hash algorithm), they will be ignored.
+Completes a multipart upload. Note that if ETags are included in the request
+payload, they must be of the same format as returned by s3gateway when the
+multipart chunks are included. If they are md5 hashes (or any other hash
+algorithm), they will be ignored. The `branch` parameter is a non-standard
+extension that allows you to specify which branch to on the given repo to list
+objects from; if unspecified, it defaults to `master`.
 
 #### Initiate Multipart Upload
 
-Route: `POST /<branch>.<repo>?uploads`
+Route: `POST /<repo>?uploads&branch=<branch>`
 
-Initiates a multipart upload.
+Initiates a multipart upload. The `branch` parameter is a non-standard
+extension that allows you to specify which branch to on the given repo to list
+objects from; if unspecified, it defaults to `master`.
 
 #### List Parts
 
-Route: `GET /<branch>.<repo>?uploadId=<uploadId>`
+Route: `GET /<repo>?uploadId=<uploadId>&branch=<branch>`
 
-Lists the parts of an in-progress multipart upload.
+Lists the parts of an in-progress multipart upload. The `branch` parameter is
+a non-standard extension that allows you to specify which branch to on the
+given repo to list objects from; if unspecified, it defaults to `master`.
 
 #### Upload Part
 
-Route: `PUT /<branch>.<repo>?uploadId=<uploadId>&partNumber=<partNumber>`
+Route: `PUT /<repo>?uploadId=<uploadId>&partNumber=<partNumber>&branch=<branch>`
 
-Uploads a chunk of a multipart upload.
+Uploads a chunk of a multipart upload. The `branch` parameter is a
+non-standard extension that allows you to specify which branch to on the given
+repo to list objects from; if unspecified, it defaults to `master`.

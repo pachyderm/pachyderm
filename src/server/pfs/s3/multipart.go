@@ -106,11 +106,8 @@ func (c *multipartController) ensureRepo() error {
 	return nil
 }
 
-func (c *multipartController) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDMarker string, maxUploads int) (isTruncated bool, uploads []s2.Upload, err error) {
-	repo, branch, err := bucketArgs(r, bucket)
-	if err != nil {
-		return
-	}
+func (c *multipartController) ListMultipart(r *http.Request, repo, keyMarker, uploadIDMarker string, maxUploads int) (isTruncated bool, uploads []s2.Upload, err error) {
+	branch := branchArg(r)
 	_, err = c.pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
@@ -156,11 +153,8 @@ func (c *multipartController) ListMultipart(r *http.Request, bucket, keyMarker, 
 	return
 }
 
-func (c *multipartController) InitMultipart(r *http.Request, name, key string) (uploadID string, err error) {
-	repo, branch, err := bucketArgs(r, name)
-	if err != nil {
-		return
-	}
+func (c *multipartController) InitMultipart(r *http.Request, repo, key string) (uploadID string, err error) {
+	branch := branchArg(r)
 	_, err = c.pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
@@ -180,12 +174,9 @@ func (c *multipartController) InitMultipart(r *http.Request, name, key string) (
 	return
 }
 
-func (c *multipartController) AbortMultipart(r *http.Request, name, key, uploadID string) error {
-	repo, branch, err := bucketArgs(r, name)
-	if err != nil {
-		return err
-	}
-	_, err = c.pc.InspectBranch(repo, branch)
+func (c *multipartController) AbortMultipart(r *http.Request, repo, key, uploadID string) error {
+	branch := branchArg(r)
+	_, err := c.pc.InspectBranch(repo, branch)
 	if err != nil {
 		return maybeNotFoundError(r, err)
 	}
@@ -206,11 +197,8 @@ func (c *multipartController) AbortMultipart(r *http.Request, name, key, uploadI
 	return nil
 }
 
-func (c *multipartController) CompleteMultipart(r *http.Request, name, key, uploadID string, parts []s2.Part) (location, etag string, err error) {
-	repo, branch, err := bucketArgs(r, name)
-	if err != nil {
-		return
-	}
+func (c *multipartController) CompleteMultipart(r *http.Request, repo, key, uploadID string, parts []s2.Part) (location, etag string, err error) {
+	branch := branchArg(r)
 	_, err = c.pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
@@ -275,11 +263,8 @@ func (c *multipartController) CompleteMultipart(r *http.Request, name, key, uplo
 	return
 }
 
-func (c *multipartController) ListMultipartChunks(r *http.Request, name, key, uploadID string, partNumberMarker, maxParts int) (initiator, owner *s2.User, storageClass string, isTruncated bool, parts []s2.Part, err error) {
-	repo, branch, err := bucketArgs(r, name)
-	if err != nil {
-		return
-	}
+func (c *multipartController) ListMultipartChunks(r *http.Request, repo, key, uploadID string, partNumberMarker, maxParts int) (initiator, owner *s2.User, storageClass string, isTruncated bool, parts []s2.Part, err error) {
+	branch := branchArg(r)
 	_, err = c.pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
@@ -323,11 +308,8 @@ func (c *multipartController) ListMultipartChunks(r *http.Request, name, key, up
 	return
 }
 
-func (c *multipartController) UploadMultipartChunk(r *http.Request, name, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error) {
-	repo, branch, err := bucketArgs(r, name)
-	if err != nil {
-		return
-	}
+func (c *multipartController) UploadMultipartChunk(r *http.Request, repo, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error) {
+	branch := branchArg(r)
 	_, err = c.pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
@@ -358,12 +340,9 @@ func (c *multipartController) UploadMultipartChunk(r *http.Request, name, key, u
 	return
 }
 
-func (c *multipartController) DeleteMultipartChunk(r *http.Request, name, key, uploadID string, partNumber int) error {
-	repo, branch, err := bucketArgs(r, name)
-	if err != nil {
-		return err
-	}
-	_, err = c.pc.InspectBranch(repo, branch)
+func (c *multipartController) DeleteMultipartChunk(r *http.Request, repo, key, uploadID string, partNumber int) error {
+	branch := branchArg(r)
+	_, err := c.pc.InspectBranch(repo, branch)
 	if err != nil {
 		return maybeNotFoundError(r, err)
 	}

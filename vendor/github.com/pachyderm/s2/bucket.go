@@ -34,6 +34,29 @@ type CommonPrefixes struct {
 	Owner  User   `xml:"Owner"`
 }
 
+// DeleteMarker specifies an object that has been deleted from a
+// versioning-enabled bucket.
+type DeleteMarker struct {
+	Key          string    `xml:"Key"`
+	Version      string    `xml:"VersionId"`
+	IsLatest     bool      `xml:"IsLatest"`
+	LastModified time.Time `xml:"LastModified"`
+	Owner        User      `xml:"Owner"`
+}
+
+// Version specifies a specific version of an object in a
+// versioning-enabled bucket.
+type Version struct {
+	Key          string    `xml:"Key"`
+	Version      string    `xml:"VersionId"`
+	IsLatest     bool      `xml:"IsLatest"`
+	LastModified time.Time `xml:"LastModified"`
+	ETag         string    `xml:"ETag"`
+	Size         uint64    `xml:"Size"`
+	StorageClass string    `xml:"StorageClass"`
+	Owner        User      `xml:"Owner"`
+}
+
 // BucketController is an interface that specifies bucket-level functionality.
 type BucketController interface {
 	// GetLocation gets the location of a bucket
@@ -41,6 +64,9 @@ type BucketController interface {
 
 	// ListObjects lists objects within a bucket
 	ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []Contents, commonPrefixes []CommonPrefixes, isTruncated bool, err error)
+
+	// ListOVersionedbjects lists objects' versions within a bucket
+	ListVersionedObjects(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (versions []Version, deleteMarkers []DeleteMarker, isTruncated bool, err error)
 
 	// CreateBucket creates a bucket
 	CreateBucket(r *http.Request, bucket string) error
@@ -64,7 +90,13 @@ func (c unimplementedBucketController) GetLocation(r *http.Request, bucket strin
 }
 
 func (c unimplementedBucketController) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []Contents, commonPrefixes []CommonPrefixes, isTruncated bool, err error) {
-	return nil, nil, false, NotImplementedError(r)
+	err = NotImplementedError(r)
+	return
+}
+
+func (c unimplementedBucketController) ListVersionedObjects(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (versions []Version, deleteMarkers []DeleteMarker, isTruncated bool, err error) {
+	err = NotImplementedError(r)
+	return
 }
 
 func (c unimplementedBucketController) CreateBucket(r *http.Request, bucket string) error {
@@ -236,4 +268,85 @@ func (h bucketHandler) setVersioning(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+
+	maxKeys, err := intFormValue(r, "max-keys", 0, defaultMaxKeys, defaultMaxKeys)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
+	prefix := r.FormValue("prefix")
+	keyMarker := r.FormValue("key-marker")
+	versionIDMarker := r.FormValue("version-id-marker")
+	delimiter := r.FormValue("delimiter")
+
+	versions, deleteMarkers, isTruncated, err := h.controller.ListVersionedObjects(r, bucket, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
+	for _, v := range versions {
+		v.ETag = addETagQuotes(v.ETag)
+	}
+
+	result := struct {
+		XMLName             xml.Name       `xml:"ListVersionsResult"`
+		Delimiter           string         `xml:"Delimiter,omitempty"`
+		IsTruncated         bool           `xml:"IsTruncated"`
+		KeyMarker           string         `xml:"KeyMarker"`
+		NextKeyMarker       string         `xml:"NextKeyMarker,omitempty"`
+		MaxKeys             int            `xml:"MaxKeys"`
+		Name                string         `xml:"Name"`
+		VersionIDMarker     string         `xml:"VersionIdKeyMarker"`
+		NextVersionIDMarker string         `xml:"NextVersionIdKeyMarker,omitempty"`
+		Prefix              string         `xml:"Prefix"`
+		Versions            []Version      `xml:"Version"`
+		DeleteMarkers       []DeleteMarker `xml:"DeleteMarker"`
+	}{
+		IsTruncated:     isTruncated,
+		KeyMarker:       keyMarker,
+		MaxKeys:         maxKeys,
+		Name:            bucket,
+		VersionIDMarker: versionIDMarker,
+		Prefix:          prefix,
+		Versions:        versions,
+		DeleteMarkers:   deleteMarkers,
+	}
+
+	if result.IsTruncated {
+		if len(result.Versions) > 0 && len(result.DeleteMarkers) == 0 {
+			last := result.Versions[len(result.Versions)-1]
+			result.NextKeyMarker = last.Key
+			result.NextVersionIDMarker = last.Version
+		} else if len(result.Versions) == 0 && len(result.DeleteMarkers) > 0 {
+			last := result.DeleteMarkers[len(result.DeleteMarkers)-1]
+			result.NextKeyMarker = last.Key
+			result.NextVersionIDMarker = last.Version
+		} else if len(result.Versions) > 0 && len(result.DeleteMarkers) > 0 {
+			lastVersion := result.Versions[len(result.Versions)-1]
+			lastDeleteMarker := result.DeleteMarkers[len(result.DeleteMarkers)-1]
+			if lastVersion.Key == lastDeleteMarker.Key {
+				result.NextKeyMarker = lastVersion.Key
+				if lastVersion.Version > lastDeleteMarker.Version {
+					result.NextVersionIDMarker = lastVersion.Version
+				} else {
+					result.NextVersionIDMarker = lastDeleteMarker.Version
+				}
+			} else if lastVersion.Key > lastDeleteMarker.Key {
+				result.NextKeyMarker = lastVersion.Key
+				result.NextVersionIDMarker = lastVersion.Version
+			} else {
+				result.NextKeyMarker = lastDeleteMarker.Key
+				result.NextVersionIDMarker = lastDeleteMarker.Version
+			}
+		}
+	}
+
+	writeXML(h.logger, w, r, http.StatusOK, result)
 }
