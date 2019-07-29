@@ -10,10 +10,7 @@ together version control for data with the tools to build scalable
 end-to-end ML/AI pipelines while empowering users to develop their
 code in any language, framework, or tool of their choice. Pachyderm
 has been proven to be the ideal foundation for teams looking to
-use ML/AI to solve real-world problems in a reliable way. What
-makes Pachyderm such a natural choice for data science teams is
-that with just one click, a user can know exactly what data was used
-to train a model.
+use ML and AI to solve real-world problems in a reliable way.
 
 The Pachyderm platform includes the following main components:
 

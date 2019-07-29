@@ -11,9 +11,6 @@ formats. Storing and versioning large sized datasets in traditional
 version control systems might not be possible because many of them
 have file size limitations.
 
-Pachyderm stores files in repositories that are directories in the
-Pachyderm etcd container.
-
 To upload your files to a Pachyderm repository, run the
 `pachctl put file` command. By using the `pachctl put file`
 command, you can put both files and directories into a Pachyderm repository.
@@ -23,7 +20,9 @@ command, you can put both files and directories into a Pachyderm repository.
 Pachyderm provides the following file processing strategies:
 
 Appending files
- By default, if you put a file into pachyderm when a file by the same name already exists in the repo, Pachyderm will append the new data to the existing file. 
+ By default, when you put a file into a Pachyderm repository and a
+ file by the same name already exists in the repo, Pachyderm appends
+ the new data to the existing file.
  For example, you have an `A.csv` file in a repository. If you upload the
  same file to that repository, Pachyderm *appends* the data to the existing
  file, which results in the `A.csv` file having twice the data from its

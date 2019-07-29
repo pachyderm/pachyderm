@@ -16,18 +16,53 @@ resolving a merge conflict might not be possible.
 
 A Pachyderm repository is the first entity that you configure to create
 A Pachyderm repository is the first entity that you configure when you want to add data to Pachyderm
-`pachctl create repo <name>` command or by using the Pachyderm UI. After
+`pachctl create repo` command or by using the Pachyderm UI. After
 creating the repository, you can add your data by using the
-`pachctl put file <repo@branch:/path><path-to-filesystem>` command. The
-path to the filesystem can be a local directory, file, or a URL.
-This repository is called the *input repo* and is stored under
-`pfs/<repo-name>`. All the input data for your pipeline is stored in
-this repository.
+`pachctl put file` command.
 
-After you create a repository, you can specify that repository as a
-PFS input in your pipeline. When the pipeline detects
-new, unprocessed data in the repository, it runs your code against it.
+The following types of repositories exist in Pachyderm:
 
-For each pipeline, Pachyderm automatically creates a `pfs/out` directory
-in the `pachd` container. This directory is called the *output repository*.
-All your output data is stored in this directory.
+Input repositories
+ Users or external applications outside of Pachyderm can add data to
+ the input repositories for further processing.
+
+Output repositories
+ Pachyderm automatically creates output repositories
+ pipelines write results of computations into these repositories.
+
+You can view the list of repositories in your Pachyderm cluster
+by running the `pachctl list repo` command.
+
+**Example:**
+
+```bash
+$ pachctl list repo
+NAME     CREATED     SIZE (MASTER)
+raw_data 6 hours ago 0B
+```
+
+The `pachctl inspect repo` command provides a more detailed overview
+of a specified repository.
+
+**Example:**
+
+```bash
+$ pachctl inspect repo raw_data
+Name: raw_data
+Description: A raw data repository
+Created: 6 hours ago
+Size of HEAD on master: 5.121MiB
+```
+
+If you need to delete a repository, you can run the
+`pachctl delete command`. This command deletes all
+data and the information about the specified
+repository, such as commit history. The delete
+operation is irreversible and results in a
+complete cleanup of your Pachyderm cluster.
+If you run the delete command with the `--all` flag, all
+repositories will be deleted.
+
+**See Also:**
+
+- [Pipelines](pipelines.md)

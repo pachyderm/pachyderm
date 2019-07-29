@@ -1,37 +1,21 @@
 # Glob Pattern
 
-A glob pattern defines datums in your Pachyderm repository and how
-your data processing is spread among Pachyderm worker pods.
-
-For example, you can define a whole repository to be one datum, or each
-top filesystem object in the root folder can be one datum. Similarly,
-each filesystem object in a subdirectory can be a datum as well.
-Glob patterns enable you to traverse the filesystem in your
-repository for data processing in the most optimal way.
-
-Each time Pachyderm detects new commits in your repository, it starts the
-pipeline and processes the whole datum. Therefore, there might be
-a significant difference between processing the whole repository
-or one directory in the repository. Consider this
-behavior when you design your pipeline.
-
 Defining how your data is spread among workers is one of
 the most important aspects of distributed computation and is
-the fundamental idea around concepts, such as Map and Reduce.
+the fundamental idea around concepts such as Map and Reduce.
 
 Instead of confining users to data-distribution patterns,
 such as Map, that splits everything as much as possible, and
 Reduce, that groups all the data, Pachyderm
 uses glob patterns to provide incredible flexibility to
-define your data distribution.
+define data distribution.
 
 You can configure a glob pattern for each PFS input in
 the input field of a pipeline specification. Pachyderm detects
 this parameter and divides the input data into
-individual *datums* to process them independently according
-to the provided glob pattern.
+individual *datums*.
 
-Think of the PFS input repository as a filesystem where
+You can think of each input repository as a filesystem where
 the glob pattern is applied to the root of the
 filesystem. The files and directories that match the
 glob pattern are considered datums.

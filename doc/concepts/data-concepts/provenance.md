@@ -31,17 +31,15 @@ Protection Regulation (GDPR) compliance requirements, monitoring data lineage
 is becoming a necessity for many organizations that work with sensitive data.
 
 Pachyderm implements provenance for both commits and repositories.
-Therefore, you can track revisions of the data and
+You can track revisions of the data and
 understand the connection between the data stored in one repository
 and the results in the other
-repository. Therefore, you can track the data transformation process across
-multiple datasets.
+repository.
 
-Collaboration takes data provenance even further. You can make any dataset
-available to other members of your team. When many data scientists have
-access to the same dataset, they can conduct their own experiments with
-the data and identify better data analysis processes by using
-separate branches.
+Collaboration takes data provenance even further. Provenance enables teams
+of data scientists across the globe to build on each other work, share,
+transform, and update datasets while automatically maintaining a
+complete audit trail so that all results are reproducible.
 
 The following diagram demonstrates how provenance works:
 
