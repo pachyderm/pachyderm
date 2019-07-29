@@ -1,12 +1,14 @@
 # Provenance
 
-Provenance enables Pachyderm users to go back in time and see the state of
-data at a particular moment in the past. Data scientists use provenance in
-root cause analysis, as well as to improve their software code.
-Provenance tracks the
-dependency between datasets and determines their origins. Therefore,
-provenance answers not only the question of where the data comes from,
-but also how the data was transformed along the way. Data scientists need
+Data versioning enables Pachyderm users to go back in time and see the state
+of a dataset or repository at a particular moment in time. Data provenance
+(from the French *provenir* which means *the place of origin*),
+also known as data lineage, tracks the dependencies and relationships
+between datasets. Provenance answers not only the question of
+where the data comes from, but also how the data was transformed along
+the way. Data scientists use provenance in root cause analysis to improve
+their code, workflows, and understanding of the data and its implications
+on final results. Data scientists need
 to have confidence in the information with which they operate. They need
 to be able to reproduce the results and sometimes go through the whole
 data transformation process from scratch multiple times, which makes data
@@ -16,15 +18,15 @@ is the historical data that gives insights into possible flaws in the
 transformation chain or the data itself.
 
 For example, when a bank makes a decision about a mortgage
-application, many factors are taken into consideration, including the credit
+application, many factors are taken into consideration, including the
 credit history, annual income, and loan size. This data goes through multiple
 automated steps of analysis with numerous dependencies and decisions made
 along the way. If the final decision does not satisfy the applicant,
 the historical data is the first place to look for proof of authenticity,
-as well as for possible prejudice or model bias against the applicant. Data provenance
-creates a complete audit trail that enables data scientists to track the
-data from its origin through to the final decision and make appropriate
-changes that address issues. With the adoption of General Data
+as well as for possible prejudice or model bias against the applicant.
+Data provenance creates a complete audit trail that enables data scientists
+to track the data from its origin through to the final decision and make
+appropriate changes that address issues. With the adoption of General Data
 Protection Regulation (GDPR) compliance requirements, monitoring data lineage
 is becoming a necessity for many organizations that work with sensitive data.
 

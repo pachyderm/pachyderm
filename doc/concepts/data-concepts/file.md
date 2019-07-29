@@ -1,11 +1,12 @@
 # File
 
-A file is a filesystem object that stores data. Unlike source code
+A file is a Unix filesystem object, which is a directory or
+file, that stores data. Unlike source code
 version-control systems that are most suitable for storing plain text
 files, you can store any type of file in Pachyderm, including
 binary files. Often, data scientists operate with
 comma-separated values (CSV), JavaScript Object Notation (JSON),
-Structured Query Language (SQL), and other plain text and binary file
+images, and other plain text and binary file
 formats. Storing and versioning large sized datasets in traditional
 version control systems might not be possible because many of them
 have file size limitations.

@@ -3,9 +3,9 @@
 A Pachyderm branch is a pointer, or an alias, to a commit that
 moves along with new commits as they are submitted. By default,
 when you create a repository, Pachyderm does not create any branches.
-Many users prefer to create a `master` branch and start working
-within that branch. You can create additional branches to experiment
-with your code.
+Most users prefer to create a `master` branch by initiating the first
+commit and specifying the `master` branch in the `put file` command.
+Also, you can create additional branches to experiment with the data.
 Branches enable collaboration between teams of data scientists.
 However, many users find it sufficient to
 use the master branch for all their work. Although the concept of
