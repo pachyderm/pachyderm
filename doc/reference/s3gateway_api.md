@@ -123,7 +123,7 @@ objects from; if unspecified, it defaults to `master`.
 Route: `POST /<repo>?uploads&branch=<branch>`
 
 Initiates a multipart upload. The `branch` parameter is a non-standard
-extension that allows you to specify which branch to on the given repo to list
+extension that allows you to specify which branch on the given repo to list
 objects from; if unspecified, it defaults to `master`.
 
 #### List Parts
