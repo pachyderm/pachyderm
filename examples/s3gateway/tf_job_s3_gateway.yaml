@@ -1,7 +1,7 @@
 apiVersion: "kubeflow.org/v1beta2"
 kind: "TFJob"
 metadata:
-  name: "s3-gateway-env-test"
+  name: "s3-gateway-copy"
   namespace: kubeflow 
 spec:
   cleanPodPolicy: None 
@@ -13,10 +13,10 @@ spec:
         spec:
           containers:
             - name: tensorflow
-              image: papposilenus/tf_job_s3_gateway:7
+              image: papposilenus/tf_job_s3_gateway:8
               env:
                 - name: S3_ENDPOINT
-                  value: "10.0.12.210:600"
+                  value: "10.28.13.156:600"
                 - name: S3_USE_HTTPS
                   value: "0"
                 - name: S3_VERIFY_SSL
@@ -25,9 +25,9 @@ spec:
                 - "python"
                 - "/var/tf_mnist/tf_job_s3_gateway.py"
                 - "-b"
-                - "master.foomages"
+                - "master.testrepo"
                 - "-i"
-                - "/blah"
+                - "/testdata"
 
 
 

@@ -11,18 +11,23 @@ from tensorflow.python.lib.io import file_io
 # this is a directory with four files in it,
 # mf, sis, boom, and bah,
 # that's built into the image
-input_path  = os.getenv('INPUT_PATH', "/blah")
-s3_bucket = os.getenv('S3_BUCKET', 'images.master')
+input_path  = os.getenv('INPUT_PATH', "/testdata")
+s3_bucket = os.getenv('S3_BUCKET', 'master.testrepo')
 
 
 def main(_):
     s3_path = 's3://' + args.bucket + '/'
     print("walking {}".format(args.inputpath))
-    for dirpath, dirs, files in os.walk(args.inputpath):
+    for dirpath, dirs, files in os.walk(args.inputpath, topdown=True):   
       for file in files:
-        print("copying {} to {} as {}".format(dirpath + "/" + file, s3_path, file))
-        file_io.copy(dirpath + "/" + file, s3_path + file, True)
-        print("printing {} as string: >>{}<<".format(s3_path + file, file_io.read_file_to_string(s3_path + file, False)))
+        newpath = s3_path + dirpath + "/" +  file
+        print("copying {} to {}".format(dirpath + "/" + file, newpath))
+        file_io.copy(dirpath + "/" + file, newpath, True)
+
+    for dirpath, dirs, files in file_io.walk(s3_path +  args.inputpath, True):
+        for file in files:
+            newpath = dirpath + "/" + file
+            print("printing {} in {}  as string: >>{}<<".format(file, dirpath, file_io.read_file_to_string(newpath, False)))
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='put some files into an s3 bucket.')
