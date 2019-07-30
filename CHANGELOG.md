@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.2
+
+- Fixes a bug that broke Pachyderm on Openshift. (#3935, thanks to @jiangytcn)
+- Fixes a bug that caused pachctl to crash when deleting a transaction while no active transaction was set. (#3929)
+- Fixes a bug that broke provenance when deleting a repo or pipeline. (#3925)
+
 ## 1.9.1
 
 - Pachyderm now uses go modules. (#3870)
@@ -13,7 +19,7 @@
 
 ## 1.9.0
 
-- `pachctl` now has a new, more consistent syntax that's more inline with other container clis such as `kubectl`. (#3617)
+- `pachctl` now has a new, more consistent syntax that's more in line with other container clis such as `kubectl`. (#3617)
 - Pachyderm now exposes an s3 interface to the data stored in pfs. (#3411, #3432, #3508)
 - Pachyderm now supports transactional PFS operations. (#3658)
 - The `--history` flag has been extended to `list job` and `list pipeline` (in addition to `list file`.) (#3692)

@@ -17,6 +17,7 @@ import (
 	"github.com/montanaflynn/stats"
 
 	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/pbutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -101,6 +102,12 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 		logger.Logf("Launching %v master process", masterType)
 		return spawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
+		if auth.IsErrNotAuthorized(err) {
+			logger.Logf("failing %q due to auth rejection", a.pipelineInfo.Pipeline.Name)
+			return ppsutil.FailPipeline(a.pachClient.Ctx(), a.etcdClient, a.pipelines,
+				a.pipelineInfo.Pipeline.Name, "worker master could not access output "+
+					"repo to watch for new commits")
+		}
 		logger.Logf("master: error running the %v master process: %v; retrying in %v", masterType, err, d)
 		return nil
 	})

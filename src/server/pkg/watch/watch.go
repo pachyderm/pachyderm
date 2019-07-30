@@ -27,15 +27,13 @@ const (
 
 // Event is an event that occurred to an item in etcd.
 type Event struct {
-	Key       []byte
-	Value     []byte
-	PrevKey   []byte
-	PrevValue []byte
-	Type      EventType
-	Rev       int64
-	Ver       int64
-	Err       error
-	Template  proto.Message
+	Key      []byte
+	Value    []byte
+	Type     EventType
+	Rev      int64
+	Ver      int64
+	Err      error
+	Template proto.Message
 }
 
 // Unmarshal unmarshals the item in an event into a protobuf message.
@@ -45,16 +43,6 @@ func (e *Event) Unmarshal(key *string, val proto.Message) error {
 	}
 	*key = string(e.Key)
 	return proto.Unmarshal(e.Value, val)
-}
-
-// UnmarshalPrev unmarshals the prev item in an event into a protobuf
-// message.
-func (e *Event) UnmarshalPrev(key *string, val proto.Message) error {
-	if err := CheckType(e.Template, val); err != nil {
-		return err
-	}
-	*key = string(e.PrevKey)
-	return proto.Unmarshal(e.PrevValue, val)
 }
 
 // Watcher ...
@@ -172,10 +160,6 @@ func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix str
 					Rev:      etcdEv.Kv.ModRevision,
 					Ver:      etcdEv.Kv.Version,
 					Template: template,
-				}
-				if etcdEv.PrevKv != nil {
-					ev.PrevKey = bytes.TrimPrefix(etcdEv.PrevKv.Key, []byte(trimPrefix))
-					ev.PrevValue = etcdEv.PrevKv.Value
 				}
 				if etcdEv.Type == etcd.EventTypePut {
 					ev.Type = EventPut
