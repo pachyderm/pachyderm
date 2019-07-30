@@ -58,7 +58,7 @@ Route: `GET /<branch>.<repo>/?uploads&branch=<branch>`
 
 Lists the in-progress multipart uploads in the given branch. The `delimiter`
 query parameter is not supported. The `branch` parameter is a non-standard
-extension that allows you to specify which branch to on the given repo to
+extension that allows you to specify which branch on the given repo to
 list objects from; if unspecified, it defaults to `master`.
 
 #### PUT Bucket
@@ -115,7 +115,7 @@ Completes a multipart upload. Note that if ETags are included in the request
 payload, they must be of the same format as returned by s3gateway when the
 multipart chunks are included. If they are md5 hashes (or any other hash
 algorithm), they will be ignored. The `branch` parameter is a non-standard
-extension that allows you to specify which branch to on the given repo to list
+extension that allows you to specify which branch on the given repo to list
 objects from; if unspecified, it defaults to `master`.
 
 #### Initiate Multipart Upload
@@ -123,7 +123,7 @@ objects from; if unspecified, it defaults to `master`.
 Route: `POST /<repo>?uploads&branch=<branch>`
 
 Initiates a multipart upload. The `branch` parameter is a non-standard
-extension that allows you to specify which branch to on the given repo to list
+extension that allows you to specify which branch on the given repo to list
 objects from; if unspecified, it defaults to `master`.
 
 #### List Parts
@@ -131,7 +131,7 @@ objects from; if unspecified, it defaults to `master`.
 Route: `GET /<repo>?uploadId=<uploadId>&branch=<branch>`
 
 Lists the parts of an in-progress multipart upload. The `branch` parameter is
-a non-standard extension that allows you to specify which branch to on the
+a non-standard extension that allows you to specify which branch on the
 given repo to list objects from; if unspecified, it defaults to `master`.
 
 #### Upload Part
@@ -139,5 +139,5 @@ given repo to list objects from; if unspecified, it defaults to `master`.
 Route: `PUT /<repo>?uploadId=<uploadId>&partNumber=<partNumber>&branch=<branch>`
 
 Uploads a chunk of a multipart upload. The `branch` parameter is a
-non-standard extension that allows you to specify which branch to on the given
+non-standard extension that allows you to specify which branch on the given
 repo to list objects from; if unspecified, it defaults to `master`.
