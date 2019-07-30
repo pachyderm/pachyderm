@@ -5232,10 +5232,19 @@ func TestGarbageCollection(t *testing.T) {
 			"",
 			false,
 		))
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
-		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfos[0].State)
+		// run FlushJob inside a retry loop, as the pipeline may take a few moments
+		// to start the worker master and create a job
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+			require.NoError(t, err)
+			if len(jobInfos) != 1 {
+				return fmt.Errorf("expected one job but got %d", len(jobInfos))
+			}
+			if jobInfos[0].State != pps.JobState_JOB_SUCCESS {
+				return fmt.Errorf("Expected job in state SUCCESS but was in %s", jobInfos[0].State)
+			}
+			return nil
+		})
 	}
 	createInputAndPipeline()
 
