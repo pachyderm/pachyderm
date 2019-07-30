@@ -2571,36 +2571,45 @@ func TestS3GatewayAuthRequests(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
+	fmt.Println("AAA")
+
 	// generate auth credentials
 	alice := tu.UniqueString("alice")
 	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+	fmt.Println("BBB")
 	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(), &auth.GetOneTimePasswordRequest{})
+	fmt.Println("CCC")
 	require.NoError(t, err)
 	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
 		OneTimePassword: codeResp.Code,
 	})
+	fmt.Println("DDD")
 	require.NoError(t, err)
 	authToken := authResp.PachToken
 
 	// anon login via V2 - should fail
+	fmt.Println("EEE")
 	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.YesError(t, err)
 
 	// anon login via V4 - should fail
+	fmt.Println("FFF")
 	minioClientV4, err := minio.NewV4("127.0.0.1:30600", "", "", false)
 	require.NoError(t, err)
 	_, err = minioClientV4.ListBuckets()
 	require.YesError(t, err)
 
 	// proper login via V2 - should succeed
+	fmt.Println("GGG")
 	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
 	require.NoError(t, err)
 
 	// proper login via V4 - should succeed
+	fmt.Println("HHH")
 	minioClientV2, err = minio.NewV4("127.0.0.1:30600", authToken, authToken, false)
 	require.NoError(t, err)
 	_, err = minioClientV2.ListBuckets()
