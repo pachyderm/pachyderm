@@ -139,5 +139,5 @@ given repo to list objects from; if unspecified, it defaults to `master`.
 Route: `PUT /<repo>?uploadId=<uploadId>&partNumber=<partNumber>&branch=<branch>`
 
 Uploads a chunk of a multipart upload. The `branch` parameter is a
-non-standard extension that allows you to specify which branch to on the given
+non-standard extension that allows you to specify which branch on the given
 repo to list objects from; if unspecified, it defaults to `master`.
