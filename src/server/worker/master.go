@@ -511,6 +511,9 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 					logger.Logf("error from FinishCommit for stats while timing out job: %+v", err)
 				}
 			}
+			if err := a.updateJobState(ctx, jobInfo, statsCommit, pps.JobState_JOB_KILLED, "job timed out"); err != nil {
+				logger.Logf("error updating job state while timing out job: %+v", err)
+			}
 			if _, err := pachClient.PfsAPIClient.FinishCommit(ctx, &pfs.FinishCommitRequest{
 				Commit: jobInfo.OutputCommit,
 				Empty:  true,
