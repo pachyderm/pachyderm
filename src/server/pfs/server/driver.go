@@ -573,7 +573,9 @@ func (d *driver) fsck(pachClient *client.APIClient) error {
 		for _, directProvenance := range direct {
 			directProvenanceInfo := branchInfos[key(directProvenance.Repo.Name, directProvenance.Name)]
 			union = append(union, directProvenance)
-			union = append(union, directProvenanceInfo.Provenance...)
+			if directProvenanceInfo != nil {
+				union = append(union, directProvenanceInfo.Provenance...)
+			}
 		}
 
 		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
@@ -793,7 +795,6 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// 	return fmt.Errorf("cannot delete the special PPS repo %s", ppsconsts.SpecRepo)
 	// }
 	repos := d.repos.ReadWrite(txnCtx.Stm)
-	commits := d.commits(repo.Name).ReadWrite(txnCtx.Stm)
 
 	// check if 'repo' is already gone. If so, return that error. Otherwise,
 	// proceed with auth check (avoids awkward "access denied" error when calling
@@ -818,7 +819,94 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 			return fmt.Errorf("repos.Get: %v", err)
 		}
 	}
-	commits.DeleteAll()
+
+	// make a list of all the commits
+	commits := d.commits(repo.Name).ReadOnly(txnCtx.ClientContext)
+	commitInfos := make(map[string]*pfs.CommitInfo)
+	commitInfo := &pfs.CommitInfo{}
+	if err := commits.List(commitInfo, col.DefaultOptions, func(commitID string) error {
+		commitInfos[commitID] = proto.Clone(commitInfo).(*pfs.CommitInfo)
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	visited := make(map[string]bool) // visitied upstream (provenant) commits
+	// and then delete them while making sure that the subvenance of upstream commits gets updated
+	for _, ci := range commitInfos {
+		// Remove the deleted commit from the upstream commits' subvenance.
+		for _, prov := range ci.Provenance {
+			// Check if we've fixed prov already (or if it's in this repo and
+			// doesn't need to be fixed
+			if visited[prov.Commit.ID] || prov.Commit.Repo.Name == repo.Name {
+				continue
+			}
+			// or if the repo has already been deleted
+			ri := new(pfs.RepoInfo)
+			if err := repos.Get(prov.Commit.Repo.Name, ri); err != nil {
+				if !col.IsErrNotFound(err) {
+					return fmt.Errorf("repo %v was not found: %v", prov.Commit.Repo.Name, err)
+				}
+				continue
+			}
+			visited[prov.Commit.ID] = true
+
+			// fix prov's subvenance
+			provCI := &pfs.CommitInfo{}
+			if err := d.commits(prov.Commit.Repo.Name).ReadWrite(txnCtx.Stm).Update(prov.Commit.ID, provCI, func() error {
+				subvTo := 0 // copy subvFrom to subvTo, excepting subv ranges to delete (so that they're overwritten)
+			nextSubvRange:
+				for subvFrom, subv := range provCI.Subvenance {
+					// Compute path (of commit IDs) connecting subv.Upper to subv.Lower
+					cur := subv.Upper.ID
+					path := []string{cur}
+					for cur != subv.Lower.ID {
+						// Get CommitInfo for 'cur' from etcd
+						// and traverse parent
+						curInfo := &pfs.CommitInfo{}
+						if err := d.commits(subv.Lower.Repo.Name).ReadWrite(txnCtx.Stm).Get(cur, curInfo); err != nil {
+							return fmt.Errorf("error reading commitInfo for subvenant \"%s/%s\": %v", subv.Lower.Repo.Name, cur, err)
+						}
+						if curInfo.ParentCommit == nil {
+							break
+						}
+						cur = curInfo.ParentCommit.ID
+						path = append(path, cur)
+					}
+
+					// move 'subv.Upper' through parents until it points to a non-deleted commit
+					for j := range path {
+						if subv.Upper.Repo.Name != repo.Name {
+							break
+						}
+						if j+1 >= len(path) {
+							// All commits in subvRange are deleted. Remove entire Range
+							// from provCI.Subvenance
+							continue nextSubvRange
+						}
+						subv.Upper.ID = path[j+1]
+					}
+
+					// move 'subv.Lower' through children until it points to a non-deleted commit
+					for j := len(path) - 1; j >= 0; j-- {
+						if subv.Lower.Repo.Name != repo.Name {
+							break
+						}
+						// We'll eventually get to a non-deleted commit because the
+						// 'upper' block didn't exit
+						subv.Lower.ID = path[j-1]
+					}
+					provCI.Subvenance[subvTo] = provCI.Subvenance[subvFrom]
+					subvTo++
+				}
+				provCI.Subvenance = provCI.Subvenance[:subvTo]
+				return nil
+			}); err != nil {
+				return fmt.Errorf("err fixing subvenance of upstream commit %s/%s: %v", prov.Commit.Repo.Name, prov.Commit.ID, err)
+			}
+		}
+	}
+
 	var branchInfos []*pfs.BranchInfo
 	for _, branch := range repoInfo.Branches {
 		bi, err := d.inspectBranch(txnCtx, branch)
@@ -844,6 +932,9 @@ func (d *driver) deleteRepo(txnCtx *txnenv.TransactionContext, repo *pfs.Repo, f
 	// exist in etcd but branches do.
 	branches := d.branches(repo.Name).ReadWrite(txnCtx.Stm)
 	branches.DeleteAll()
+	// Similarly with commits
+	commitsX := d.commits(repo.Name).ReadWrite(txnCtx.Stm)
+	commitsX.DeleteAll()
 	if err := repos.Delete(repo.Name); err != nil && !col.IsErrNotFound(err) {
 		return fmt.Errorf("repos.Delete: %v", err)
 	}
@@ -1883,6 +1974,8 @@ func (d *driver) flushCommit(pachClient *client.APIClient, fromCommits []*pfs.Co
 		if err != nil {
 			if _, ok := err.(pfsserver.ErrCommitNotFound); ok {
 				continue // just skip this
+			} else if auth.IsErrNotAuthorized(err) {
+				continue // again, just skip (we can't wait on commits we can't access)
 			}
 			return err
 		}

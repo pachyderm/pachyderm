@@ -533,7 +533,7 @@ func TestDeleteRepo(t *testing.T) {
 	require.Equal(t, len(repoInfos), numRepos-reposToRemove)
 }
 
-func TestDeleteProvenanceRepo(t *testing.T) {
+func TestDeleteRepoProvenance(t *testing.T) {
 	client := GetPachClient(t)
 
 	// Create two repos, one as another's provenance
@@ -541,11 +541,20 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 	require.NoError(t, client.CreateRepo("B"))
 	require.NoError(t, client.CreateBranch("B", "master", "", []*pfs.Branch{pclient.NewBranch("A", "master")}))
 
+	commit, err := client.StartCommit("A", "master")
+	require.NoError(t, err)
+	require.NoError(t, client.FinishCommit("A", commit.ID))
+
 	// Delete the provenance repo; that should fail.
 	require.YesError(t, client.DeleteRepo("A", false))
 
 	// Delete the leaf repo, then the provenance repo; that should succeed
 	require.NoError(t, client.DeleteRepo("B", false))
+
+	// Should be in a consistent state after B is deleted
+	_, err = client.Fsck(client.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+
 	require.NoError(t, client.DeleteRepo("A", false))
 
 	repoInfos, err := client.ListRepo()
@@ -563,6 +572,11 @@ func TestDeleteProvenanceRepo(t *testing.T) {
 	repoInfos, err = client.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(repoInfos))
+
+	// Everything should be consistent
+	_, err = client.Fsck(client.Ctx(), &types.Empty{})
+	require.NoError(t, err)
+
 }
 
 func TestInspectCommit(t *testing.T) {
@@ -2059,11 +2073,10 @@ func TestBranch2(t *testing.T) {
 	require.Equal(t, "branch1", branches[1].Name)
 	require.Equal(t, commit2, branches[1].Head)
 }
-
-func TestDeleteNonexistantBranch(t *testing.T) {
+func TestDeleteNonexistentBranch(t *testing.T) {
 	client := GetPachClient(t)
 
-	repo := "TestDeleteNonexistantBranch"
+	repo := "TestDeleteNonexistentBranch"
 	require.NoError(t, client.CreateRepo(repo))
 	require.NoError(t, client.DeleteBranch(repo, "doesnt_exist", false))
 }

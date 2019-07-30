@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var defaultDashImage = "pachyderm/dash:1.8-preview-7"
+var defaultDashImage = "pachyderm/dash:1.9.0"
 
 var awsAccessKeyIDRE = regexp.MustCompile("^[A-Z0-9]{20}$")
 var awsSecretRE = regexp.MustCompile("^[A-Za-z0-9/+=]{40}$")

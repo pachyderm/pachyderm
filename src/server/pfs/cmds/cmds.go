@@ -67,8 +67,7 @@ func Cmds() []*cobra.Command {
 Repos contain version-controlled directories and files. Files can be of any size
 or type (e.g. csv, binary, images, etc).`,
 	}
-	cmdutil.SetDocsUsage(repoDocs, " repo$")
-	commands = append(commands, cmdutil.CreateAlias(repoDocs, "repo"))
+	commands = append(commands, cmdutil.CreateDocsAlias(repoDocs, "repo", " repo$"))
 
 	var description string
 	createRepo := &cobra.Command{
@@ -245,8 +244,7 @@ Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.`,
 	}
-	cmdutil.SetDocsUsage(commitDocs, " commit$")
-	commands = append(commands, cmdutil.CreateAlias(commitDocs, "commit"))
+	commands = append(commands, cmdutil.CreateDocsAlias(commitDocs, "commit", " commit$"))
 
 	var parent string
 	startCommit := &cobra.Command{
@@ -571,8 +569,7 @@ multiple branches can refer to the same commit.
 
 Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
-	cmdutil.SetDocsUsage(branchDocs, " branch$")
-	commands = append(commands, cmdutil.CreateAlias(branchDocs, "branch"))
+	commands = append(commands, cmdutil.CreateDocsAlias(branchDocs, "branch", " branch$"))
 
 	var branchProvenance cmdutil.RepeatedStringArg
 	var head string
@@ -669,8 +666,7 @@ Files can be of any type (e.g. csv, binary, images, etc) or size and can be
 written to started (but not finished) commits with 'put file'. Files can be read
 from commits with 'get file'.`,
 	}
-	cmdutil.SetDocsUsage(fileDocs, " file$")
-	commands = append(commands, cmdutil.CreateAlias(fileDocs, "file"))
+	commands = append(commands, cmdutil.CreateDocsAlias(fileDocs, "file", " file$"))
 
 	var filePaths []string
 	var recursive bool
@@ -1183,8 +1179,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 
 Objects are a low-level resource and should not be accessed directly by most users.`,
 	}
-	cmdutil.SetDocsUsage(objectDocs, " object$")
-	commands = append(commands, cmdutil.CreateAlias(objectDocs, "object"))
+	commands = append(commands, cmdutil.CreateDocsAlias(objectDocs, "object", " object$"))
 
 	getObject := &cobra.Command{
 		Use:   "{{alias}} <hash>",
@@ -1207,8 +1202,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 
 Tags are a low-level resource and should not be accessed directly by most users.`,
 	}
-	cmdutil.SetDocsUsage(tagDocs, " tag$")
-	commands = append(commands, cmdutil.CreateAlias(tagDocs, "tag"))
+	commands = append(commands, cmdutil.CreateDocsAlias(tagDocs, "tag", " tag$"))
 
 	getTag := &cobra.Command{
 		Use:   "{{alias}} <tag>",
@@ -1367,10 +1361,18 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
-			if overwrite {
+			pipe, err := isPipe(reader)
+			if err != nil {
+				return err
+			}
+			if overwrite && !pipe {
 				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
 			}
-			_, err := pfc.PutFile(repo, commit, path, reader)
+			if overwrite {
+				_, err = pfc.PutFileOverwrite(repo, commit, path, reader, 0)
+				return err
+			}
+			_, err = pfc.PutFile(repo, commit, path, reader)
 			return err
 		}
 
@@ -1460,6 +1462,18 @@ func joinPaths(prefix, filePath string) string {
 		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)
+}
+
+func isPipe(r io.ReadSeeker) (bool, error) {
+	file, ok := r.(*os.File)
+	if !ok {
+		return false, nil
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return false, err
+	}
+	return fi.Mode()&os.ModeNamedPipe != 0, nil
 }
 
 func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr error) {

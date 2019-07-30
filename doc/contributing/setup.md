@@ -5,7 +5,7 @@
 First, go through the general local installation instructions [here](http://docs.pachyderm.io/en/latest/getting_started/local_installation.html). Additionally, make sure you have the following installed:
 
 - etcd
-- golang 1.11+
+- golang 1.12+
 - docker
 - [jq](https://stedolan.github.io/jq/)
 - [pv](http://ivarch.com/programs/pv.shtml)
@@ -34,15 +34,14 @@ configured to access Pachyderm S3 buckets.  In order to set this up:
 To stay up to date, we recommend doing the following.
 
 First clone the code:
+(Note, as of 07/11/19 pachyderm is using go modules and recommends cloning the code outside of the $GOPATH, we use the location ~/workspace as an example, but the code can live anywhere)
 
-    cd $GOPATH/src
-    mkdir -p github.com/pachyderm
-    cd github.com/pachyderm
+    cd ~/workspace
     git clone git@github.com:pachyderm/pachyderm
 
 Then update your `~/.bash_profile` by adding the line:
 
-    source $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/bash_helpers
+    source ~/workspace/pachyderm/etc/contributing/bash_helpers
 
 And you'll stay up to date!
 
@@ -52,7 +51,7 @@ And you'll stay up to date!
 
 If you're running tests locally, you'll need to up your file descriptor limit. To do this, first setup a LaunchDaemon to up the limit with sudo privileges:
 
-    sudo cp $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
+    sudo cp ~/workspace/pachyderm/etc/contributing/com.apple.launchd.limit.plist /Library/LaunchDaemons/
 
 Once you restart, this will take effect. To see the limits, run:
 
@@ -96,7 +95,7 @@ And check it's status: `kubectl get all`
 
 This will install the dev version of `pachctl`:
 
-    cd $GOPATH/src/github.com/pachyderm/pachyderm
+    cd ~/workspace/pachyderm
     make install
     pachctl version
 

@@ -14,7 +14,6 @@ pachctl put file <repo>@<branch-or-commit>[:<path/in/pfs>]
 ### Examples
 
 ```
-```sh
 
 # Put data from stdin as repo/branch/path:
 $ echo "data" | pachctl put file repo@branch:/path
@@ -55,7 +54,6 @@ $ pachctl put file repo@branch -i file
 # files into your Pachyderm cluster.
 $ pachctl put file repo@branch -i http://host/path
 ```
-```
 
 ### Options
 
@@ -75,6 +73,7 @@ $ pachctl put file repo@branch -i http://host/path
 ### Options inherited from parent commands
 
 ```
-  -v, --verbose   Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 
