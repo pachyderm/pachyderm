@@ -115,7 +115,7 @@ Completes a multipart upload. Note that if ETags are included in the request
 payload, they must be of the same format as returned by s3gateway when the
 multipart chunks are included. If they are md5 hashes (or any other hash
 algorithm), they will be ignored. The `branch` parameter is a non-standard
-extension that allows you to specify which branch to on the given repo to list
+extension that allows you to specify which branch on the given repo to list
 objects from; if unspecified, it defaults to `master`.
 
 #### Initiate Multipart Upload
