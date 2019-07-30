@@ -608,7 +608,7 @@ func (c *readonlyCollection) ListPrefix(prefix string, val proto.Message, opts *
 // corresponding value. Val is not an argument to f because that would require
 // f to perform a cast before it could be used.
 // You can break out of iteration by returning errutil.ErrBreak.
-func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(string) error) error {
+func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(key string) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
 	defer tracing.FinishAnySpan(span)
 	if err := watch.CheckType(c.template, val); err != nil {
@@ -619,6 +619,25 @@ func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(strin
 			return err
 		}
 		return f(strings.TrimPrefix(string(kv.Key), c.prefix))
+	})
+}
+
+// List returns objects sorted based on the options passed in. f will be called
+// with each key and the create-revision of the key, val will contain the
+// corresponding value. Val is not an argument to f because that would require
+// f to perform a cast before it could be used.  You can break out of iteration
+// by returning errutil.ErrBreak.
+func (c *readonlyCollection) ListRev(val proto.Message, opts *Options, f func(key string, createRev int64) error) error {
+	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/List", "col", c.prefix)
+	defer tracing.FinishAnySpan(span)
+	if err := watch.CheckType(c.template, val); err != nil {
+		return err
+	}
+	return c.list(c.prefix, &c.limit, opts, func(kv *mvccpb.KeyValue) error {
+		if err := proto.Unmarshal(kv.Value, val); err != nil {
+			return err
+		}
+		return f(strings.TrimPrefix(string(kv.Key), c.prefix), kv.CreateRevision)
 	})
 }
 

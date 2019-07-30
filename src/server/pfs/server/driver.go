@@ -1694,13 +1694,43 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		if reverse {
 			opts.Order = etcd.SortAscend
 		}
-		if err := commits.List(ci, &opts, func(commitID string) error {
-			if number <= 0 {
-				return errutil.ErrBreak
+		// we hold onto a revisions worth of cis so that we can sort them by provenance
+		var cis []*pfs.CommitInfo
+		// sendCis sorts cis and passes them to f
+		sendCis := func() error {
+			// Sort in reverse provenance order, i.e. commits come before their provenance
+			sort.Slice(cis, func(i, j int) bool { return len(cis[i].Provenance) > len(cis[j].Provenance) })
+			for i, ci := range cis {
+				if number <= 0 {
+					return errutil.ErrBreak
+				}
+				number--
+
+				if reverse {
+					ci = cis[len(cis)-1-i]
+				}
+				if err := f(ci); err != nil {
+					return err
+				}
 			}
-			number--
-			return f(proto.Clone(ci).(*pfs.CommitInfo))
+			cis = nil
+			return nil
+		}
+		lastRev := int64(-1)
+		if err := commits.ListRev(ci, &opts, func(commitID string, createRev int64) error {
+			if createRev > lastRev {
+				if err := sendCis(); err != nil {
+					return err
+				}
+				lastRev = createRev
+			}
+			cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+			return nil
 		}); err != nil {
+			return err
+		}
+		// Call sendCis one last time to send whatever's
+		if err := sendCis(); err != nil {
 			return err
 		}
 	} else {
