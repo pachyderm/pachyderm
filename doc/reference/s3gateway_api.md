@@ -58,7 +58,7 @@ Route: `GET /<branch>.<repo>/?uploads&branch=<branch>`
 
 Lists the in-progress multipart uploads in the given branch. The `delimiter`
 query parameter is not supported. The `branch` parameter is a non-standard
-extension that allows you to specify which branch to on the given repo to
+extension that allows you to specify which branch on the given repo to
 list objects from; if unspecified, it defaults to `master`.
 
 #### PUT Bucket
