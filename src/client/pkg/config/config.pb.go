@@ -83,7 +83,7 @@ func (m *Config) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Config.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -161,7 +161,7 @@ func (m *ConfigV1) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_ConfigV1.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -232,7 +232,7 @@ func (m *ConfigV2) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_ConfigV2.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -307,7 +307,7 @@ func (m *Context) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Context.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -410,7 +410,7 @@ var fileDescriptor_60f651abce1dcdf3 = []byte{
 func (m *Config) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -418,46 +418,57 @@ func (m *Config) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Config) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Config) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.UserID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.UserID)))
-		i += copy(dAtA[i:], m.UserID)
-	}
-	if m.V1 != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.V1.Size()))
-		n1, err1 := m.V1.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.V2 != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.V2.Size()))
-		n2, err2 := m.V2.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
+		{
+			size, err := m.V2.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
 		}
-		i += n2
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.V1 != nil {
+		{
+			size, err := m.V1.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintConfig(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if len(m.UserID) > 0 {
+		i -= len(m.UserID)
+		copy(dAtA[i:], m.UserID)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.UserID)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ConfigV1) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -465,44 +476,54 @@ func (m *ConfigV1) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ConfigV1) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConfigV1) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.SessionToken) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.SessionToken)))
-		i += copy(dAtA[i:], m.SessionToken)
-	}
-	if len(m.PachdAddress) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.PachdAddress)))
-		i += copy(dAtA[i:], m.PachdAddress)
-	}
-	if len(m.ServerCAs) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServerCAs)))
-		i += copy(dAtA[i:], m.ServerCAs)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.ActiveTransaction) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.ActiveTransaction)
+		copy(dAtA[i:], m.ActiveTransaction)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.ActiveTransaction)))
-		i += copy(dAtA[i:], m.ActiveTransaction)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.ServerCAs) > 0 {
+		i -= len(m.ServerCAs)
+		copy(dAtA[i:], m.ServerCAs)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServerCAs)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if len(m.PachdAddress) > 0 {
+		i -= len(m.PachdAddress)
+		copy(dAtA[i:], m.PachdAddress)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.PachdAddress)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.SessionToken) > 0 {
+		i -= len(m.SessionToken)
+		copy(dAtA[i:], m.SessionToken)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.SessionToken)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ConfigV2) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -510,64 +531,69 @@ func (m *ConfigV2) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ConfigV2) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConfigV2) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ActiveContext) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ActiveContext)))
-		i += copy(dAtA[i:], m.ActiveContext)
-	}
-	if len(m.Contexts) > 0 {
-		for k, _ := range m.Contexts {
-			dAtA[i] = 0x12
-			i++
-			v := m.Contexts[k]
-			msgSize := 0
-			if v != nil {
-				msgSize = v.Size()
-				msgSize += 1 + sovConfig(uint64(msgSize))
-			}
-			mapSize := 1 + len(k) + sovConfig(uint64(len(k))) + msgSize
-			i = encodeVarintConfig(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if v != nil {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintConfig(dAtA, i, uint64(v.Size()))
-				n3, err3 := v.MarshalTo(dAtA[i:])
-				if err3 != nil {
-					return 0, err3
-				}
-				i += n3
-			}
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Metrics {
-		dAtA[i] = 0x18
-		i++
+		i--
 		if m.Metrics {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Contexts) > 0 {
+		for k := range m.Contexts {
+			v := m.Contexts[k]
+			baseI := i
+			if v != nil {
+				{
+					size, err := v.MarshalToSizedBuffer(dAtA[:i])
+					if err != nil {
+						return 0, err
+					}
+					i -= size
+					i = encodeVarintConfig(dAtA, i, uint64(size))
+				}
+				i--
+				dAtA[i] = 0x12
+			}
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintConfig(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintConfig(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x12
+		}
 	}
-	return i, nil
+	if len(m.ActiveContext) > 0 {
+		i -= len(m.ActiveContext)
+		copy(dAtA[i:], m.ActiveContext)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ActiveContext)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Context) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -575,53 +601,65 @@ func (m *Context) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Context) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Context) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Source != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(m.Source))
-	}
-	if len(m.PachdAddress) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.PachdAddress)))
-		i += copy(dAtA[i:], m.PachdAddress)
-	}
-	if len(m.ServerCAs) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServerCAs)))
-		i += copy(dAtA[i:], m.ServerCAs)
-	}
-	if len(m.SessionToken) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintConfig(dAtA, i, uint64(len(m.SessionToken)))
-		i += copy(dAtA[i:], m.SessionToken)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.ActiveTransaction) > 0 {
-		dAtA[i] = 0x2a
-		i++
+		i -= len(m.ActiveTransaction)
+		copy(dAtA[i:], m.ActiveTransaction)
 		i = encodeVarintConfig(dAtA, i, uint64(len(m.ActiveTransaction)))
-		i += copy(dAtA[i:], m.ActiveTransaction)
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.SessionToken) > 0 {
+		i -= len(m.SessionToken)
+		copy(dAtA[i:], m.SessionToken)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.SessionToken)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.ServerCAs) > 0 {
+		i -= len(m.ServerCAs)
+		copy(dAtA[i:], m.ServerCAs)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.ServerCAs)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.PachdAddress) > 0 {
+		i -= len(m.PachdAddress)
+		copy(dAtA[i:], m.PachdAddress)
+		i = encodeVarintConfig(dAtA, i, uint64(len(m.PachdAddress)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Source != 0 {
+		i = encodeVarintConfig(dAtA, i, uint64(m.Source))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintConfig(dAtA []byte, offset int, v uint64) int {
+	offset -= sovConfig(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Config) Size() (n int) {
 	if m == nil {
