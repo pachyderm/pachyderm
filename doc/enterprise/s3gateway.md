@@ -24,9 +24,10 @@ gRPC Remote Procedure Call (gRPC) interface instead.
 
 ## Viewing the List of S3 Buckets
 
-The S3 gateway presents each branch from every Pachyderm repository as an S3 bucket.
-For example, if you have a `master` branch in the `images` repository, an S3 tool
-sees `images@master` as the `master.images` S3 bucket.
+The S3 gateway presents each branch from every Pachyderm repository as
+an S3 bucket.
+For example, if you have a `master` branch in the `images` repository,
+an S3 tool sees `images@master` as the `master.images` S3 bucket.
 
 To view the list of S3 buckets, complete the following steps:
 
@@ -66,15 +67,14 @@ The Pachyderm S3 gateway supports the following operations:
 * List objects: Lists the files in the HEAD of a branch.
 * Get objects: Gets file contents on the HEAD of a branch.
 
-To demonstrate the S3 Gateway functionality, all operations in this section are
-performed by using the MinIO command-line client. You can use other
-S3 compatible tools to execute the same actions with the corresponding
-command-line syntax.
-
-You can use the MinIO client to view Pachyderm S3 buckets that
-are located in AWS as well.
+To demonstrate the S3 Gateway functionality, all operations in this section
+are performed with either the MinIO command-line client or AWS CLI.
+You can use other S3 compatible tools to execute the same actions
+with the corresponding command-line syntax.
 
 ### Configure MinIO
+
+If you are using AWS CLI, skip this section.
 
 If you have MinIO already installed, skip this section.
 
@@ -114,19 +114,13 @@ the following command:
            },
      ```
 
-   * For an AWS deployment, add the `accessKey`
-   and the `secretKey` from your AWS user account
-   to the corresponding fields in the `s3` section:
+## List Filesystem Objects
 
-     ```bash
-     "s3": {
-             "url": "https://s3.amazonaws.com",
-             "accessKey": "XXXXXXXXXXXXXXXXXXXX",
-             "secretKey": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-             "api": "S3v4",
-             "lookup": "dns"
-         }
-     ```
+If you have configured your S3 client correctly, you should be
+able to see the list of filesystem objects in your Pachyderm
+repository by running an S3 client `ls` command
+
+To list filesystem objects, complete the following steps:
 
 1. Verify that MinIO can access all of your Pachyderm repositories:
 
@@ -152,7 +146,7 @@ the following command:
      2019-07-12 14:36:27 master.raw_data
      ```
 
-1. Verify that you can see the contents of a repository:
+1. List the contents of a repository:
 
    * If you are using `minikube`, type:
 
@@ -170,13 +164,14 @@ the following command:
 
 ### Create an S3 Bucket
 
-You can create an S3 bucket in Pachyderm from the MinIO client.
+You can create an S3 bucket in Pachyderm by using the AWS CLI or
+the MinIO client commands.
 The S3 bucket that you create is a branch in a repository
 in Pachyderm.
 
 To create an S3 bucket, complete the following steps:
 
-1. Use the `mc mb <host/branch.repo>` command to create a new
+1. Use the `mb <host/branch.repo>` command to create a new
 S3 bucket, which is a repository with a branch in Pachyderm.
 
    * If you are using `minikube`, type:
@@ -237,8 +232,8 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
 ### Delete an S3 Bucket
 
-You can delete an S3 bucket in Pachyderm from the MinIO client
-by running the following command:
+You can delete an S3 bucket in Pachyderm from the AWS CLI or
+MinIO client by running the following command:
 
    * If you are using `minikube`, type:
 
@@ -272,14 +267,14 @@ Failed to copy `github_issues_medium.csv`. cannot start a commit on an output
 branch
 ```
 
-Not all the repositories that you see in the results of the `mc ls` command are
+Not all the repositories that you see in the results of the `ls` command are
 input repositories that can be written to. Some of them might be read-only
 output repos. Check your pipeline specification to verify which
 repositories are the input repos.
 
 To add a file to a repository, complete the following steps:
 
-1. Run the `mc cp` command:
+1. Run the `cp` command for your S3 client:
 
    * If you are using `minikube`, type:
 
@@ -340,7 +335,7 @@ current directory by running the following commands:
 You can delete a file in the `HEAD` of a Pachyderm branch by using the
 MinIO command-line interface:
 
-1. List the files in the iput repository:
+1. List the files in the input repository:
 
    * If you are using `minikube`, type:
 
