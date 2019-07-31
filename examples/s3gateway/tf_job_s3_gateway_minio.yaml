@@ -1,7 +1,7 @@
 apiVersion: "kubeflow.org/v1beta2"
 kind: "TFJob"
 metadata:
-  name: "s3-gateway-example"
+  name: "s3-gateway-example-minio"
   namespace: kubeflow 
 spec:
   cleanPodPolicy: None 
@@ -11,10 +11,9 @@ spec:
       restartPolicy: Never
       template:
         spec:
-          imagePullPolicy: Always
           containers:
             - name: tensorflow
-              image: pachyderm/tf_job_s3_gateway:1.9.2
+              image: pachyderm/tf_job_s3_gateway_minio:1.9.2
               env:
                 # This endpoint assumes that the pachd service was deployed
                 # in the namespace pachyderm.
@@ -25,13 +24,9 @@ spec:
                 # kubectl get services -n <namespace>
                 - name: S3_ENDPOINT
                   value: "pachd.pachyderm:600"
-                - name: S3_USE_HTTPS
-                  value: "0"
-                - name: S3_VERIFY_SSL
-                  value: "0"
               command:
                 - "python"
-                - "/var/tf_mnist/tf_job_s3_gateway.py"
+                - "/var/tf_mnist/tf_job_s3_gateway_minio.py"
                 - "-b"
                 - "master.testrepo"
                 - "-i"

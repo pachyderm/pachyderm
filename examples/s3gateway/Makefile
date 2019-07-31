@@ -1,16 +1,15 @@
 .PHONY: image pipeline tf_job_image push_tf_job_image
-IMAGE_TAG = 7
+IMAGE_TAG = 1.9.2
 
-image: 
-	docker build -t papposilenus/pach_minio_copy:$(IMAGE_TAG) -f ./Dockerfile.pach_minio_copy .
-        docker push papposilenus/pach_minio_copy:$(IMAGE_TAG)
+tf_job_s3_gateway_minio_image: 
+	docker build -t pachyderm/tf_job_s3_gateway_minio:$(IMAGE_TAG) -f ./Dockerfile.tf_job_s3_gateway_minio .
 
-tf_job_image: 
-	docker build -t papposilenus/tf_job_s3_gateway:$(IMAGE_TAG) -f ./Dockerfile.tf_job_s3_gateway .
+tf_job_s3_gateway_minio_registry: 
+	docker push pachyderm/tf_job_s3_gateway_minio:$(IMAGE_TAG)
 
-push_tf_job_image:
-        docker push papposilenus/tf_job_s3_gateway:$(IMAGE_TAG)
+tf_job_s3_gateway_image: 
+	docker build -t pachyderm/tf_job_s3_gateway:$(IMAGE_TAG) -f ./Dockerfile.tf_job_s3_gateway .
 
-pipeline: image
-	sed s/TAG/$(IMAGE_TAG)/g < pach_minio_copy.json.template > pach_minio_copy.json
-	pachctl update pipeline -f pach_minio_copy.json --reprocess
+tf_job_s3_gateway_registry:
+	docker push pachyderm/tf_job_s3_gateway:$(IMAGE_TAG)
+
