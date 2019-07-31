@@ -1820,7 +1820,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		}); err != nil {
 			return err
 		}
-		// Call sendCis one last time to send whatever's
+		// Call sendCis one last time to send whatever's pending in 'cis'
 		if err := sendCis(); err != nil {
 			return err
 		}
