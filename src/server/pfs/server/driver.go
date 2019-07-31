@@ -1826,7 +1826,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		}
 	} else {
 		if reverse {
-			return fmt.Errorf("cannot use `reverse` while also using `to`")
+			return fmt.Errorf("cannot use 'Reverse' while also using 'From' or 'To'")
 		}
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
