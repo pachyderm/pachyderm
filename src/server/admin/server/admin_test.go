@@ -442,7 +442,7 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	require.NoError(t, c.Restore(ops))
 }
 
-func TestExtractRestoreDeferredDownstream(t *testing.T) {
+func TestExtractRestoreDeferredProcessing(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -450,10 +450,10 @@ func TestExtractRestoreDeferredDownstream(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestExtractRestoreDeferredDownstream_data")
+	dataRepo := tu.UniqueString("TestExtractRestoreDeferredProcessing_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
-	pipeline1 := tu.UniqueString("TestExtractRestoreDeferredDownstream")
+	pipeline1 := tu.UniqueString("TestExtractRestoreDeferredProcessing")
 	_, err := c.PpsAPIClient.CreatePipeline(
 		c.Ctx(),
 		&pps.CreatePipelineRequest{
@@ -466,7 +466,7 @@ func TestExtractRestoreDeferredDownstream(t *testing.T) {
 			OutputBranch: "staging",
 		})
 
-	pipeline2 := tu.UniqueString("TestExtractRestoreDeferredDownstream2")
+	pipeline2 := tu.UniqueString("TestExtractRestoreDeferredProcessing2")
 	require.NoError(t, c.CreatePipeline(
 		pipeline2,
 		"",
