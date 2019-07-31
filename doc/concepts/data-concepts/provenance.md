@@ -58,10 +58,44 @@ circle. By using provenance, you can find that the best model was
 created from the commit **2** in the `training-data` repository
 and the commit **1** in the `parameters` repository.
 
-Also, Pachyderm provides the `flush commit` command that enables you
-to track provenance downstream. That means that you can learn
-in which output a certain commit has resulted.
+## Tracking Provenance in Pachyderm
 
-**See Also:**
+Pachyderm provides the `pachctl inspect` command that enables you to track
+provenance of your commits and learn where the data in the repository
+originates in.
 
-- [Examining file provenance with flush commit](../../fundamentals/getting_data_out_of_pachyderm.html#examining-file-provenance-with-flush-commit)
+**Example:**
+
+```bash
+$ pachctl inspect commit split@master
+Commit: split@f71e42704b734598a89c02026c8f7d13
+Original Branch: master
+Started: 4 minutes ago
+Finished: 3 minutes ago
+Size: 0B
+Provenance:  __spec__@8c6440f52a2d4aa3980163e25557b4a1 (split)  raw_data@ccf82debb4b94ca3bfe165aca8d517c3 (master)
+```
+
+In the example above, you can see that the latest commit in the master
+branch of the split repository tracks back to the master branch in the
+`raw_data` repository.
+
+## Tracking Provenance Downstream
+
+Pachyderm provides the `flush commit` command that enables you
+to track provenance downstream. Tracking downstream means that instead of
+tracking the origin of a commit, you can learn in which output repository
+a certain input has resulted.
+
+For example, you have the `ccf82debb4b94ca3bfe165aca8d517c3` commit in
+the `raw_data` repository. If you run the `pachctl flush commit` command
+for this commit.
+
+```bash
+$ pachctl flush commit raw_data@ccf82debb4b94ca3bfe165aca8d517c3
+REPO        BRANCH COMMIT                           PARENT STARTED        DURATION       SIZE
+split       master f71e42704b734598a89c02026c8f7d13 <none> 52 minutes ago About a minute 0B
+split       stats  9b46d7abf9a74bf7bf66c77f2a0da4b1 <none> 52 minutes ago About a minute 15.39MiB
+pre_process master a99ab362dc944b108fb33544b2b24a8c <none> 48 minutes ago About a minute 0B
+```
+

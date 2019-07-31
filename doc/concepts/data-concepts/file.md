@@ -7,9 +7,9 @@ files, you can store any type of file in Pachyderm, including
 binary files. Often, data scientists operate with
 comma-separated values (CSV), JavaScript Object Notation (JSON),
 images, and other plain text and binary file
-formats. Storing and versioning large sized datasets in traditional
-version control systems might not be possible because many of them
-have file size limitations.
+formats. Pachyderm supports all file sizes and formats and applies
+storage optimization techniques, such as deduplication, in the
+background.
 
 To upload your files to a Pachyderm repository, run the
 `pachctl put file` command. By using the `pachctl put file`

@@ -1,10 +1,10 @@
 # Commit
 
 A commit is a snapshot that preserves the state of your data at a point in time.
-It represents a single change to a file or files, directory or directories
-in your Pachyderm repository. Every time you modify or add new data to a
-Pachyderm input repository, Pachyderm detects and records it as a new
-commit or revision.
+It represents a single set of changes to files or directories
+in your Pachyderm repository. Commit is a user-defined operation, which means
+that you can start a commit, make changes, and then close the commit
+after you are done.
 
 Each commit has a unique identifier (ID) that you can reference in
 the `<repo>@<commitID>` format. When you create a new
@@ -22,7 +22,7 @@ the commit by running the `pachctl finish commit` command. After the commit is
 finished, Pachyderm saves the new state of the repository.
 
 When you *start*, or *open*, a commit, it means that you can make changes
-to it by using `put file`, `delete file`, or other commands. You can
+by using `put file`, `delete file`, or other commands. You can
 *finish*, or *close* a commit which means the commit is immutable and
 cannot be changed.
 
