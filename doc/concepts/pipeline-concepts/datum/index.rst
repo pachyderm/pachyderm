@@ -27,5 +27,4 @@ understand the following subconcepts:
    :maxdepth: 1
 
    glob-pattern.md
-   distributed-computing.md
    relationship-between-datums.md

@@ -72,6 +72,11 @@ processed data and combines them into output datums.
 1. Merge. Pachyderm combines all files with the same file path
 by appending, overwriting, or deleting them to create the final commit.
 
+If you think about this process in terms of filesystem objects and
+processing abstractions, the following transformation happens:
+
+**input files = > input datums => output datums => output files**
+
 This section provides examples that help you understand such fundamental
 Pachyderm concepts as the datum, incremental processing, and phases of
 data processing.
@@ -91,7 +96,7 @@ In the diagram below, you have the following datums:
  - `datum 2` has one file and results in one file in one output datum.
  - `datum 3` has one file and results in one file in one output datum.
 
-![One to one](../../../_images/d_datum_processing_one_to_one.svg)
+![One to one](../../../images/d_datum_processing_one_to_one.svg)
 
 If you decide to overwrite a single line in the file in  `datum 3` and
 add `datum 4`, Pachyderm sees the four datums and checks them for changes
@@ -102,7 +107,7 @@ new `datum 3'`. When it detects `datum 4` as a completely new datum,
 it processes the whole datum as new. Although only two datums were
 processes, the output commit of this change contains all four files.
 
-![One to one overwrite](../../../_images/d_datum_processing_one_to_one_overwrite.svg)
+![One to one overwrite](../../../images/d_datum_processing_one_to_one_overwrite.svg)
 
 ## Example 2: One file in the input datum, multiple files in the output datum
 
@@ -118,7 +123,7 @@ In the diagram below, you have the following datums:
 - `datum 2` has one file and results in files `2` and `3`.
 - `datum 3` has one file and results in files `1` and `3`.
 
-![One to many](../../../_images/d_datum_processing_one_to_many.svg)
+![One to many](../../../images/d_datum_processing_one_to_many.svg)
 
 Pachyderm processes all these datums independently and in the end, it needs
 to create a commit by combining the results of processing these datums.
@@ -138,7 +143,7 @@ details of the change. Therefore, it processes the whole `datum 2`
 and outputs the file `1`, `3`, and `4`. Then, Pachyderm merges
 these datums to create the following final result:
 
-![One to many](../../../_images/d_datum_processing_one_to_many_overwrite.svg)
+![One to many](../../../images/d_datum_processing_one_to_many_overwrite.svg)
 
 
 In the diagram above, Pachyderm appends the file `1` from the `datum 2`
@@ -146,4 +151,6 @@ to the file `1` in the final commit, deletes the file `2` from `datum 2`,
 overwrites the old part from `datum 2` in file `3`  with a new version,
 and creates a new output file `4`.
 
-
+Similarly, if you have multiple files in your input datum, Pachyderm might
+write them into multiple files in output datums, that are later merged into
+files with the same filepath.

@@ -21,5 +21,4 @@ Pipeline concepts include the following main components:
    datum/index.rst
    spout.md
    job.md
-   service.md
 

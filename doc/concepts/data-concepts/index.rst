@@ -1,7 +1,7 @@
 .. _data-concepts:
 
 Pachyderm Versioned Data Concepts
-=============
+=================================
 
 Pachyderm data concepts describe version-control primitives that
 you interact with when you use Pachyderm.

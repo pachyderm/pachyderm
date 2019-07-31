@@ -55,6 +55,7 @@ A minimum pipeline specification must include the following parameters:
 
    cross-union.md
    cron.md
+   service.md
 
 **See also**
 
