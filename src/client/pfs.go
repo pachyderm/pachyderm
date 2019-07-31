@@ -163,13 +163,14 @@ func (c APIClient) StartCommit(repoName string, branch string) (*pfs.Commit, err
 // BuildCommit builds a commit in a single call from an existing HashTree that
 // has already been written to the object store. Note this is a more advanced
 // pattern for creating commits that's mostly used internally.
-func (c APIClient) BuildCommit(repoName string, branch string, parent string, treeObject string) (*pfs.Commit, error) {
+func (c APIClient) BuildCommit(repoName string, branch string, parent string, treeObject string, sizeBytes uint64) (*pfs.Commit, error) {
 	commit, err := c.PfsAPIClient.BuildCommit(
 		c.Ctx(),
 		&pfs.BuildCommitRequest{
-			Parent: NewCommit(repoName, parent),
-			Branch: branch,
-			Tree:   &pfs.Object{Hash: treeObject},
+			Parent:    NewCommit(repoName, parent),
+			Branch:    branch,
+			Tree:      &pfs.Object{Hash: treeObject},
+			SizeBytes: sizeBytes,
 		},
 	)
 	if err != nil {
