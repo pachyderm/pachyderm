@@ -16,12 +16,12 @@ unspecified_value = '';
 s3_access_key = os.getenv('S3_ACCESS_KEY', unspecified_value)
 s3_secret_key = os.getenv('S3_SECRET_KEY', unspecified_value)
 s3_secure = os.getenv('S3_SECURE', 0)
-s3_bucket = os.getenv('S3_BUCKET', 'images.master')
+s3_bucket = os.getenv('S3_BUCKET', 'master.testrepo')
 s3_endpoint = os.getenv('S3_ENDPOINT', 'localhost:30060')
 # this is a directory with four files in it,
 # mf, sis, boom, and bah,
 # that's built into the image
-input_path  = os.getenv('INPUT_PATH', "/blah")
+input_path  = os.getenv('INPUT_PATH', "/testdata")
 
 
 minio_secure = False
