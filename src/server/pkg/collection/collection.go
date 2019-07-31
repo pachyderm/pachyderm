@@ -622,7 +622,7 @@ func (c *readonlyCollection) List(val proto.Message, opts *Options, f func(key s
 	})
 }
 
-// List returns objects sorted based on the options passed in. f will be called
+// ListRev returns objects sorted based on the options passed in. f will be called
 // with each key and the create-revision of the key, val will contain the
 // corresponding value. Val is not an argument to f because that would require
 // f to perform a cast before it could be used.  You can break out of iteration
