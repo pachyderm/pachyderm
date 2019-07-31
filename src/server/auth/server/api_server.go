@@ -12,6 +12,9 @@ import (
 	"sync"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
+	"google.golang.org/grpc/metadata"
+
 	"github.com/crewjam/saml"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
@@ -196,6 +199,7 @@ func NewAuthServer(
 			path.Join(etcdPrefix, tokensPrefix),
 			nil,
 			&auth.TokenInfo{},
+			etcd.SortByModRevision,
 			nil,
 			nil,
 		),
@@ -204,6 +208,7 @@ func NewAuthServer(
 			path.Join(etcdPrefix, authenticationCodesPrefix),
 			nil,
 			&auth.OTPInfo{},
+			etcd.SortByModRevision,
 			nil,
 			nil,
 		),
@@ -212,6 +217,7 @@ func NewAuthServer(
 			path.Join(etcdPrefix, aclsPrefix),
 			nil,
 			&auth.ACL{},
+			etcd.SortByModRevision,
 			nil,
 			nil,
 		),
@@ -220,6 +226,7 @@ func NewAuthServer(
 			path.Join(etcdPrefix, adminsPrefix),
 			nil,
 			&types.BoolValue{}, // smallest value that etcd actually stores
+			etcd.SortByModRevision,
 			nil,
 			nil,
 		),
@@ -228,6 +235,7 @@ func NewAuthServer(
 			path.Join(etcdPrefix, membersPrefix),
 			nil,
 			&auth.Groups{},
+			etcd.SortByModRevision,
 			nil,
 			nil,
 		),
@@ -236,6 +244,7 @@ func NewAuthServer(
 			path.Join(etcdPrefix, groupsPrefix),
 			nil,
 			&auth.Users{},
+			etcd.SortByModRevision,
 			nil,
 			nil,
 		),
@@ -244,6 +253,7 @@ func NewAuthServer(
 			path.Join(etcdPrefix, configKey),
 			nil,
 			&auth.AuthConfig{},
+			etcd.SortByModRevision,
 			nil,
 			nil,
 		),
@@ -302,7 +312,7 @@ func (a *apiServer) retrieveOrGeneratePPSToken() {
 	b.MaxInterval = 5 * time.Second
 	if err := backoff.Retry(func() error {
 		if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
-			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, nil, nil).ReadWrite(stm)
+			superUserTokenCol := col.NewCollection(a.env.GetEtcdClient(), ppsconsts.PPSTokenKey, nil, &types.StringValue{}, etcd.SortByModRevision, nil, nil).ReadWrite(stm)
 			// TODO(msteffen): Don't use an empty key, as it will not be erased by
 			// superUserTokenCol.DeleteAll()
 			err := superUserTokenCol.Get("", &tokenProto)

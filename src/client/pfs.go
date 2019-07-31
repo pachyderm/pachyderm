@@ -512,12 +512,13 @@ func (c *commitInfoIterator) Close() {
 
 // SubscribeCommit is like ListCommit but it keeps listening for commits as
 // they come in.
-func (c APIClient) SubscribeCommit(repo string, prov *pfs.CommitProvenance, from string, state pfs.CommitState) (CommitInfoIterator, error) {
+func (c APIClient) SubscribeCommit(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState) (CommitInfoIterator, error) {
 	ctx, cancel := context.WithCancel(c.Ctx())
 	req := &pfs.SubscribeCommitRequest{
-		Repo:  NewRepo(repo),
-		Prov:  prov,
-		State: state,
+		Repo:   NewRepo(repo),
+		Branch: branch,
+		Prov:   prov,
+		State:  state,
 	}
 	if from != "" {
 		req.From = NewCommit(repo, from)
@@ -532,11 +533,12 @@ func (c APIClient) SubscribeCommit(repo string, prov *pfs.CommitProvenance, from
 
 // SubscribeCommitF is like ListCommit but it calls a callback function with
 // the results rather than returning an iterator.
-func (c APIClient) SubscribeCommitF(repo string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
+func (c APIClient) SubscribeCommitF(repo, branch string, prov *pfs.CommitProvenance, from string, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.SubscribeCommitRequest{
-		Repo:  NewRepo(repo),
-		Prov:  prov,
-		State: state,
+		Repo:   NewRepo(repo),
+		Branch: branch,
+		Prov:   prov,
+		State:  state,
 	}
 	if from != "" {
 		req.From = NewCommit(repo, from)

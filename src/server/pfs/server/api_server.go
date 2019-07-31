@@ -377,7 +377,7 @@ func (a *apiServer) SubscribeCommit(request *pfs.SubscribeCommitRequest, stream 
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
-	return a.driver.subscribeCommit(a.env.GetPachClient(stream.Context()), request.Repo, request.Prov, request.From, request.State, stream.Send)
+	return a.driver.subscribeCommit(a.env.GetPachClient(stream.Context()), request.Repo, request.Branch, request.Prov, request.From, request.State, stream.Send)
 }
 
 // PutFile implements the protobuf pfs.PutFile RPC

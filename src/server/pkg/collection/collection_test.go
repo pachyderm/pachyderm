@@ -36,7 +36,7 @@ func TestDryrun(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, etcd.SortByModRevision, nil, nil)
 
 	job := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
@@ -58,7 +58,7 @@ func TestGetAfterDel(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, etcd.SortByModRevision, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
@@ -113,7 +113,7 @@ func TestDeletePrefix(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, nil, &pps.JobInfo{}, etcd.SortByModRevision, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("prefix/suffix/job"),
@@ -207,7 +207,7 @@ func TestIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, etcd.SortByModRevision, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
@@ -267,7 +267,7 @@ func TestIndexWatch(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, nil, nil)
+	jobInfos := NewCollection(etcdClient, uuidPrefix, []*Index{pipelineIndex}, &pps.JobInfo{}, etcd.SortByModRevision, nil, nil)
 
 	j1 := &pps.JobInfo{
 		Job:      client.NewJob("j1"),
@@ -362,7 +362,7 @@ func TestMultiIndex(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	cis := NewCollection(etcdClient, uuidPrefix, []*Index{commitMultiIndex}, &pfs.CommitInfo{}, nil, nil)
+	cis := NewCollection(etcdClient, uuidPrefix, []*Index{commitMultiIndex}, &pfs.CommitInfo{}, etcd.SortByModRevision, nil, nil)
 
 	c1 := &pfs.CommitInfo{
 		Commit: client.NewCommit("repo", "c1"),
@@ -463,7 +463,7 @@ func TestBoolIndex(t *testing.T) {
 	boolValues := NewCollection(etcdClient, uuidPrefix, []*Index{{
 		Field: "Value",
 		Multi: false,
-	}}, &types.BoolValue{}, nil, nil)
+	}}, &types.BoolValue{}, etcd.SortByModRevision, nil, nil)
 
 	r1 := &types.BoolValue{
 		Value: true,
@@ -498,7 +498,7 @@ func TestTTL(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, etcd.SortByModRevision, nil, nil)
 	const TTL = 5
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
@@ -519,7 +519,7 @@ func TestTTLExpire(t *testing.T) {
 	etcdClient := getEtcdClient()
 	uuidPrefix := uuid.NewWithoutDashes()
 
-	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, etcd.SortByModRevision, nil, nil)
 	const TTL = 5
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
@@ -538,7 +538,7 @@ func TestTTLExtend(t *testing.T) {
 	uuidPrefix := uuid.NewWithoutDashes()
 
 	// Put value with short TLL & check that it was set
-	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, nil, nil)
+	clxn := NewCollection(etcdClient, uuidPrefix, nil, &types.BoolValue{}, etcd.SortByModRevision, nil, nil)
 	const TTL = 5
 	_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
 		return clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL)
@@ -574,7 +574,7 @@ func TestIteration(t *testing.T) {
 	etcdClient := getEtcdClient()
 	t.Run("one-val-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
+		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, etcd.SortByModRevision, nil, nil)
 		numVals := 1000
 		for i := 0; i < numVals; i++ {
 			_, err := NewSTM(context.Background(), etcdClient, func(stm STM) error {
@@ -593,7 +593,7 @@ func TestIteration(t *testing.T) {
 	})
 	t.Run("many-vals-per-txn", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, nil, nil)
+		col := NewCollection(etcdClient, uuidPrefix, nil, &types.Empty{}, etcd.SortByModRevision, nil, nil)
 		numBatches := 10
 		valsPerBatch := 7
 		for i := 0; i < numBatches; i++ {
@@ -619,7 +619,7 @@ func TestIteration(t *testing.T) {
 	})
 	t.Run("large-vals", func(t *testing.T) {
 		uuidPrefix := uuid.NewWithoutDashes()
-		col := NewCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, nil, nil)
+		col := NewCollection(etcdClient, uuidPrefix, nil, &pfs.Repo{}, etcd.SortByModRevision, nil, nil)
 		numVals := 100
 		longString := strings.Repeat("foo\n", 1024*256) // 1 MB worth of foo
 		for i := 0; i < numVals; i++ {

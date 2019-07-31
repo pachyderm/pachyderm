@@ -55,6 +55,7 @@ func TracesCol(c *etcd.Client) col.Collection {
 		TracesCollectionPrefix,
 		[]*col.Index{CommitIDIndex, PipelineIndex},
 		&TraceProto{},
+		etcd.SortByModRevision,
 		nil,
 		nil)
 }

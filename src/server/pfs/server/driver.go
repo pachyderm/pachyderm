@@ -1947,7 +1947,7 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo, to *p
 	return nil
 }
 
-func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, prov *pfs.CommitProvenance,
+func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, branch string, prov *pfs.CommitProvenance,
 	from *pfs.Commit, state pfs.CommitState, f func(*pfs.CommitInfo) error) error {
 	if from != nil && from.Repo.Name != repo.Name {
 		return fmt.Errorf("the `from` commit needs to be from repo %s", repo.Name)
@@ -1978,26 +1978,34 @@ func (d *driver) subscribeCommit(pachClient *client.APIClient, repo *pfs.Repo, p
 			if err := event.Unmarshal(&commitID, commitInfo); err != nil {
 				return fmt.Errorf("Unmarshal: %v", err)
 			}
-
+			fmt.Println("commit", commitID)
+			fmt.Println("prov is ", prov)
 			// if provenance is provided, ensure that the returned commits have the commit in their provenance
 			if prov != nil {
 				valid := false
 				for _, cProv := range commitInfo.Provenance {
-					if cProv.Commit.ID == prov.Commit.ID && cProv.Branch.Name == prov.Branch.Name {
+					fmt.Println(cProv.Commit.Repo.Name, cProv.Branch.Name, cProv.Commit.ID)
+					if cProv.Commit.Repo.Name == prov.Commit.Repo.Name { // cProv.Commit.ID == prov.Commit.ID { //&& cProv.Branch.Name == prov.Branch.Name {
 						valid = true
 					}
 				}
+				fmt.Println("not valid?")
 				if !valid {
-					continue
 				}
 			}
 
+			// if branch is provided, make sure the commit was created on that branch
+			if branch != "" && commitInfo.Branch.Name != branch {
+				continue
+			}
+			fmt.Println("skipped branch", seen)
 			// We don't want to include the `from` commit itself
 			if !(seen[commitID] || (from != nil && from.ID == commitID)) {
 				commitInfo, err := d.inspectCommit(pachClient, client.NewCommit(repo.Name, commitID), state)
 				if err != nil {
 					return err
 				}
+				fmt.Println("doing f", commitID)
 				if err := f(commitInfo); err != nil {
 					return err
 				}

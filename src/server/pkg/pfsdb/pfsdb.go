@@ -31,6 +31,7 @@ func Repos(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, reposPrefix),
 		nil,
 		&pfs.RepoInfo{},
+		etcd.SortByModRevision,
 		nil,
 		nil,
 	)
@@ -43,6 +44,7 @@ func PutFileRecords(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, putFileRecordsPrefix),
 		nil,
 		&pfs.PutFileRecords{},
+		etcd.SortByModRevision,
 		nil,
 		nil,
 	)
@@ -55,6 +57,7 @@ func Commits(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Collec
 		path.Join(etcdPrefix, commitsPrefix, repo),
 		[]*col.Index{ProvenanceIndex},
 		&pfs.CommitInfo{},
+		etcd.SortByCreateRevision,
 		nil,
 		nil,
 	)
@@ -67,6 +70,7 @@ func Branches(etcdClient *etcd.Client, etcdPrefix string, repo string) col.Colle
 		path.Join(etcdPrefix, branchesPrefix, repo),
 		nil,
 		&pfs.BranchInfo{},
+		etcd.SortByModRevision,
 		func(key string) error {
 			if uuid.IsUUIDWithoutDashes(key) {
 				return fmt.Errorf("branch name cannot be a UUID V4")
@@ -84,6 +88,7 @@ func OpenCommits(etcdClient *etcd.Client, etcdPrefix string) col.Collection {
 		path.Join(etcdPrefix, openCommitsPrefix),
 		nil,
 		&pfs.Commit{},
+		etcd.SortByModRevision,
 		nil,
 		nil,
 	)

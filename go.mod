@@ -25,7 +25,11 @@ require (
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/cpuguy83/go-md2man v1.0.10 // indirect
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
+<<<<<<< HEAD
 	github.com/dlclark/regexp2 v1.2.0 // indirect
+=======
+	github.com/davecgh/go-spew v1.1.1
+>>>>>>> refactor subscribe commit
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d // indirect
 	github.com/docker/go-units v0.4.0

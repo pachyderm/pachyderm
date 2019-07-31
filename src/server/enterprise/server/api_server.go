@@ -17,6 +17,7 @@ import (
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	ec "github.com/pachyderm/pachyderm/src/client/enterprise"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
@@ -85,6 +86,7 @@ func NewEnterpriseServer(env *serviceenv.ServiceEnv, etcdPrefix string) (ec.APIS
 			etcdPrefix, // only one collection--no extra prefix needed
 			nil,
 			&ec.EnterpriseRecord{},
+			etcd.SortByModRevision,
 			nil,
 			nil,
 		),

@@ -846,14 +846,18 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, err)
 		c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
 		c.FinishCommit(dataRepo, commitB.ID)
+		println("got here")
 
 		iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
 		require.NoError(t, err)
+		println("but first")
 		commits := collectCommitInfos(t, iter)
+		println("now")
 		require.Equal(t, 1, len(commits))
 		buffer := bytes.Buffer{}
 		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
 		require.Equal(t, "data A\ndata B\n", buffer.String())
+		println("got here")
 
 		// and make sure we can attatch a downstream pipeline
 		downstreamPipeline := tu.UniqueString("pipelinedownstream")
@@ -867,16 +871,19 @@ func TestRunPipeline(t *testing.T) {
 			"",
 			false,
 		))
+		println("got hereh")
 
 		commitA2, err := c.StartCommit(dataRepo, branchA)
 		require.NoError(t, err)
 		err = c.FinishCommit(dataRepo, commitA2.ID)
 		require.NoError(t, err)
+		println("got hdhere")
 
 		// there should be one job on the old commit for downstreamPipeline
 		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
+		println("got here")
 
 		// now run the pipeline
 		require.NoError(t, backoff.Retry(func() error {
@@ -6163,7 +6170,7 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline1, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 
 		// We'll look at three commits - with one created in each tick
@@ -6204,7 +6211,7 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline3, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 
 		// We'll look at three commits - with one created in each tick
@@ -6257,7 +6264,7 @@ func TestCronPipeline(t *testing.T) {
 		repo := fmt.Sprintf("%s_%s", pipeline4, "time")
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 		defer cancel() //cleanup resources
-		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", "", pfs.CommitState_STARTED)
+		iter, err := c.WithCtx(ctx).SubscribeCommit(repo, "master", nil, "", pfs.CommitState_STARTED)
 		require.NoError(t, err)
 		commitInfo, err := iter.Next()
 		require.NoError(t, err)
@@ -9179,7 +9186,7 @@ func TestSpout(t *testing.T) {
 
 		// get 5 succesive commits, and ensure that the file size increases each time
 		// since the spout should be appending to that file on each commit
-		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
 		var prevLength uint64
@@ -9246,7 +9253,7 @@ func TestSpout(t *testing.T) {
 
 		// if the overwrite flag is enabled, then the spout will overwrite the file on each commit
 		// so the commits should have files that stay the same size
-		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
 		var prevLength uint64
@@ -9291,7 +9298,11 @@ func TestSpout(t *testing.T) {
 		require.NoError(t, err)
 
 		// get some commits
-		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		iter, err := c.SubscribeCommit(pipeline, "",
+			client.NewCommitProvenance(ppsconsts.SpecRepo, "master", pipelineInfo.SpecCommit.ID),
+			"", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 		// and we want to make sure that these commits all have the same provenance
 		provenanceID := ""
@@ -9329,7 +9340,11 @@ func TestSpout(t *testing.T) {
 			})
 		require.NoError(t, err)
 
-		iter, err = c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		pipelineInfo, err = c.InspectPipeline(pipeline)
+		require.NoError(t, err)
+		iter, err = c.SubscribeCommit(pipeline, "",
+			client.NewCommitProvenance(ppsconsts.SpecRepo, "master", pipelineInfo.SpecCommit.ID),
+			"", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
 		for i := 0; i < 3; i++ {
@@ -9418,7 +9433,7 @@ func TestSpout(t *testing.T) {
 			}
 			return nil
 		}, backoff.NewTestingBackOff())
-		iter, err := c.SubscribeCommit(pipeline, "master", "", pfs.CommitState_FINISHED)
+		iter, err := c.SubscribeCommit(pipeline, "master", nil, "", pfs.CommitState_FINISHED)
 		require.NoError(t, err)
 
 		commitInfo, err := iter.Next()
@@ -9544,7 +9559,7 @@ func TestKafka(t *testing.T) {
 	// and verify that the spout is consuming it
 	// we'll get 5 succesive commits, and ensure that we find all the kafka messages we wrote
 	// to the first five files.
-	iter, err := c.SubscribeCommit(topic, "master", "", pfs.CommitState_FINISHED)
+	iter, err := c.SubscribeCommit(topic, "master", nil, "", pfs.CommitState_FINISHED)
 	require.NoError(t, err)
 	num := 1
 	for i := 0; i < 5; i++ {

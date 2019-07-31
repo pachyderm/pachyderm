@@ -82,13 +82,13 @@ func (s byModRev) Less(i, j int) bool {
 }
 
 // NewWatcher watches a given etcd prefix for events.
-func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message, opts ...OpOption) (Watcher, error) {
+func NewWatcher(ctx context.Context, client *etcd.Client, trimPrefix, prefix string, template proto.Message, sortBy etcd.SortTarget, opts ...OpOption) (Watcher, error) {
 	eventCh := make(chan *Event)
 	done := make(chan struct{})
 	// First list the collection to get the current items
 	// Sort by mod revision--how the items would have been returned if we watched
 	// them from the beginning.
-	resp, err := client.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(etcd.SortByModRevision, etcd.SortAscend))
+	resp, err := client.Get(ctx, prefix, etcd.WithPrefix(), etcd.WithSort(sortBy, etcd.SortAscend))
 	if err != nil {
 		return nil, err
 	}

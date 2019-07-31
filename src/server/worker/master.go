@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
@@ -116,7 +117,10 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 	logger := a.getMasterLogger()
 	// Listen for new commits, and create jobs when they arrive
-	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, "",
+		client.NewCommitProvenance(ppsconsts.SpecRepo, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.SpecCommit.ID),
+		// nil,
+		"", pfs.CommitState_READY)
 	if err != nil {
 		return err
 	}
@@ -240,7 +244,9 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 
 func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 	ctx := pachClient.Ctx()
-	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, "",
+		client.NewCommitProvenance(ppsconsts.SpecRepo, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.SpecCommit.ID),
+		"", pfs.CommitState_READY)
 	if err != nil {
 		return err
 	}
@@ -354,11 +360,11 @@ func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error)
 }
 
 func (a *APIServer) chunks(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, chunkPrefix, jobID), nil, &ChunkState{}, nil, nil)
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, chunkPrefix, jobID), nil, &ChunkState{}, etcd.SortByModRevision, nil, nil)
 }
 
 func (a *APIServer) merges(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, mergePrefix, jobID), nil, &MergeState{}, nil, nil)
+	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, mergePrefix, jobID), nil, &MergeState{}, etcd.SortByModRevision, nil, nil)
 }
 
 func newPlan(df DatumIterator, spec *pps.ChunkSpec, parallelism int, numHashtrees int64) *Plan {

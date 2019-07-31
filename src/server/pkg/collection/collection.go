@@ -42,6 +42,8 @@ type collection struct {
 	// The limit used when listing the collection. This gets automatically
 	// tuned when requests fail so it's stored per collection.
 	limit int64
+	// Which sort to use for the collection
+	sortBy etcd.SortTarget
 	// We need this to figure out the concrete type of the objects
 	// that this collection is storing. It's pretty retarded, but
 	// not sure what else we can do since types in Go are not first-class
@@ -58,7 +60,7 @@ type collection struct {
 }
 
 // NewCollection creates a new collection.
-func NewCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, template proto.Message, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
+func NewCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, template proto.Message, sortBy etcd.SortTarget, keyCheck func(string) error, valCheck func(proto.Message) error) Collection {
 	// We want to ensure that the prefix always ends with a trailing
 	// slash.  Otherwise, when you list the items under a collection
 	// such as `foo`, you might end up listing items under `foobar`
@@ -72,6 +74,7 @@ func NewCollection(etcdClient *etcd.Client, prefix string, indexes []*Index, tem
 		etcdClient: etcdClient,
 		indexes:    indexes,
 		limit:      defaultLimit,
+		sortBy:     sortBy,
 		template:   template,
 		keyCheck:   keyCheck,
 		valCheck:   valCheck,
@@ -547,7 +550,7 @@ func (c *readonlyCollection) GetBlock(key string, val proto.Message) error {
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	watcher, err := watch.NewWatcher(ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+	watcher, err := watch.NewWatcher(ctx, c.etcdClient, c.prefix, c.Path(key), c.template, c.sortBy)
 	if err != nil {
 		return err
 	}
@@ -637,14 +640,14 @@ func (c *readonlyCollection) Count() (int64, error) {
 // Watch a collection, returning the current content of the collection as
 // well as any future additions.
 func (c *readonlyCollection) Watch(opts ...watch.OpOption) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template, opts...)
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.prefix, c.template, c.sortBy, opts...)
 }
 
 // WatchByIndex watches items in a collection that match a particular index
 func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.Watcher, error) {
 	eventCh := make(chan *watch.Event)
 	done := make(chan struct{})
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template)
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.indexDir(index, val), c.template, c.sortBy)
 	if err != nil {
 		return nil, err
 	}
@@ -710,13 +713,13 @@ func (c *readonlyCollection) WatchByIndex(index *Index, val interface{}) (watch.
 // WatchOne watches a given item.  The first value returned from the watch
 // will be the current value of the item.
 func (c *readonlyCollection) WatchOne(key string) (watch.Watcher, error) {
-	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+	return watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template, c.sortBy)
 }
 
 // WatchOneF watches a given item and executes a callback function each time an event occurs.
 // The first value returned from the watch will be the current value of the item.
 func (c *readonlyCollection) WatchOneF(key string, f func(e *watch.Event) error) error {
-	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template)
+	watcher, err := watch.NewWatcher(c.ctx, c.etcdClient, c.prefix, c.Path(key), c.template, c.sortBy)
 	if err != nil {
 		return err
 	}
