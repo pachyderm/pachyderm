@@ -1820,13 +1820,13 @@ func (d *driver) listCommitF(pachClient *client.APIClient, repo *pfs.Repo,
 		}); err != nil {
 			return err
 		}
-		// Call sendCis one last time to send whatever's
+		// Call sendCis one last time to send whatever's pending in 'cis'
 		if err := sendCis(); err != nil {
 			return err
 		}
 	} else {
 		if reverse {
-			return fmt.Errorf("cannot use `reverse` while also using `to`")
+			return fmt.Errorf("cannot use 'Reverse' while also using 'From' or 'To'")
 		}
 		cursor := to
 		for number != 0 && cursor != nil && (from == nil || cursor.ID != from.ID) {
