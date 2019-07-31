@@ -76,8 +76,6 @@ with the corresponding command-line syntax.
 
 If you are using AWS CLI, skip this section.
 
-If you have MinIO already installed, skip this section.
-
 To install and configure MinIO, complete the following steps:
 
 1. Install the MinIO client on your platform as
@@ -114,7 +112,37 @@ the following command:
            },
      ```
 
-## List Filesystem Objects
+### Configure the AWS CLI
+
+If you are using the MinIO client, skip this section.
+
+If you have not done so already, you need to install and
+configure the AWS CLI client on your machine. You need to
+provide the AWS Access Key ID and the AWS Secret Access Keys
+for the account that has access to the S3 bucket that you want
+to use with Pachyderm.
+To configure the AWS CLI, complete the following steps:
+
+1. Install the AWS CLI for your operating system as described
+in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-install.html).
+
+1. Verify that the AWS CLI is installed:
+
+   ``bash
+   $ aws --version aws-cli/1.16.204 Python/2.7.16 Darwin/17.7.0 botocore/1.12.194
+   ```
+
+1. Configure AWS CLI:
+
+   ```bash
+   $ aws configure
+   AWS Access Key ID:
+   AWS Secret Access Key:
+   Default region name:
+   Default output format [None]:
+   ```
+
+### List Filesystem Objects
 
 If you have configured your S3 client correctly, you should be
 able to see the list of filesystem objects in your Pachyderm
