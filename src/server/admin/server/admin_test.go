@@ -441,3 +441,71 @@ func TestExtractRestorePipelineUpdate(t *testing.T) {
 	require.NoError(t, c.DeleteAll())
 	require.NoError(t, c.Restore(ops))
 }
+
+func TestExtractRestoreDeferredDownstream(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo := tu.UniqueString("TestExtractRestoreDeferredDownstream_data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	pipeline1 := tu.UniqueString("TestExtractRestoreDeferredDownstream")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		c.Ctx(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline1),
+			Transform: &pps.Transform{
+				Cmd:   []string{"bash"},
+				Stdin: []string{fmt.Sprintf("cp /pfs/%s/* /pfs/out/", dataRepo)},
+			},
+			Input:        client.NewPFSInput(dataRepo, "/*"),
+			OutputBranch: "staging",
+		})
+
+	pipeline2 := tu.UniqueString("TestExtractRestoreDeferredDownstream2")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"",
+		[]string{"bash"},
+		[]string{
+			fmt.Sprintf("cp /pfs/%s/* /pfs/out/", pipeline1),
+		},
+		&pps.ParallelismSpec{
+			Constant: 1,
+		},
+		client.NewPFSInput(pipeline1, "/*"),
+		"",
+		false,
+	))
+
+	_, err = c.PutFile(dataRepo, "staging", "file", strings.NewReader("file"))
+	require.NoError(t, err)
+	c.CreateBranch(dataRepo, "master", "staging", nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	c.CreateBranch(pipeline1, "master", "staging", nil)
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	ops, err := c.ExtractAll(false)
+	require.NoError(t, err)
+	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.Restore(ops))
+
+	_, err = c.PutFile(dataRepo, "staging", "file2", strings.NewReader("file"))
+	require.NoError(t, err)
+	c.CreateBranch(dataRepo, "master", "staging", nil)
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+
+	c.CreateBranch(pipeline1, "master", "staging", nil)
+
+	_, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+}
