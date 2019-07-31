@@ -11,7 +11,6 @@ spec:
       restartPolicy: Never
       template:
         spec:
-          imagePullPolicy: Always
           containers:
             - name: tensorflow
               image: pachyderm/tf_job_s3_gateway:1.9.2
