@@ -1,8 +1,8 @@
 # Deploy a Pachyderm Cluster with CloudFront
 
 After you have an EKS cluster or a Kubernetes cluster
-deployed with `kops` ready as described in [Deploy](TBA),
-you can integrate you Kubernetes cluster with Amazon
+deployed with `kops` ready,
+you can integrate it with Amazon
 CloudFront™.
 
 Amazon CloudFront is a content delivery network (CDN) that
@@ -41,7 +41,7 @@ rsa-APKAXXXXXXXXXXXXXXXX.pem
 pk-APKAXXXXXXXXXXXXXXXX.pem
 ```
 
-The Key Pair ID is `APKAXXXXXXXXXXXXXXXX`. The other file is
+The key-pair ID is `APKAXXXXXXXXXXXXXXXX`. The other file is
 the private key, which looks similar to the following text:
 
 ```

@@ -16,7 +16,6 @@ on a supported cloud platform of your choice.
    openshift.md
    on_premises.md
    custom_object_stores.md
-   aws_cloudfront.md
    namespaces.md
    rbac.md
    deploy_troubleshooting.md

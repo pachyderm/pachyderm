@@ -56,7 +56,6 @@ To deploy an EKS cluster, complete the following steps:
    [✔]  EKS cluster "pachyderm-test" in "us-east-1" region is ready
    ```
 
-
 1. Verify the deployment:
 
    ```bash

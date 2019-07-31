@@ -1,14 +1,14 @@
 # Deploy Pachyderm on AWS
 
 After you deploy Kubernetes cluster by using `kops` or `eksctl`,
-you can then deploy Pachyderm on top of that cluster.
+you can deploy Pachyderm on top of that cluster.
 
 You need to complete the following steps to deploy Pachyderm:
 
-1. Install `pachctl` as described in [Install pachctl](../../../getting_started/local_installation.html#pachctl).
+1. Install `pachctl` as described in [Install pachctl](../../getting_started/local_installation.html#install-pachctl).
 1. Add stateful storage for Pachyderm as described in [Add Stateful Storage](#add-stateful-storage).
-1. Deploy Pachyderm by using an [IAM Role](deploying-with-an-iam-role)
-(recommended) or [Static Credentials](deploying-with-static-credentials).
+1. Deploy Pachyderm by using an [IAM role](#deploy-pachyderm-with-an-iam-role)
+(recommended) or [an access key](#deploy-pachyderm-with-an-access-key).
 
 ## Add Stateful Storage
 
@@ -119,7 +119,7 @@ To deploy Pachyderm with an IAM role, complete the following steps:
       Replace `<your-bucket>` with the name of your S3 bucket.
 
       **Note:** For the EKS cluster, you might need to use the
-      **Add inline policy** button and create a name for this policy.
+      **Add inline policy** button and create a name for the new policy.
 
 1. Set up trust relationships for the IAM role:
 
@@ -159,7 +159,7 @@ To deploy Pachyderm with an IAM role, complete the following steps:
    pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
    ```
 
-   **Note:** If you see a few restarts on the `pachd` nodes, that means that
+   **Note:** If you see a few restarts on the `pachd` nodes, it means that
    Kubernetes tried to bring up those pods before `etcd` was ready. Therefore,
    Kubernetes restarted those pods. You can safely ignore this message.
 
@@ -173,7 +173,7 @@ To deploy Pachyderm with an IAM role, complete the following steps:
    pachd               1.9.1
    ```
 
-   * If you want to access the Pachyderm UI or use S3, you need to
+   * If you want to access the Pachyderm UI or use the S3 gateway, you need to
    forward Pachyderm ports. Open a new terminal window and run the
    following command:
 
@@ -188,7 +188,7 @@ user with access credentials such as an access key and
 secret key. You can deploy
 Pachyderm by using the credentials of this IAM user
 directly. However, deploying Pachyderm with an
-access key might not satisfy enterprise security
+access key might not satisfy your enterprise security
 requirements. Therefore, deploying with an IAM role
 is preferred.
 
@@ -203,13 +203,13 @@ steps:
 
    The `,` at the end of the `credentials` flag in the deploy
    command is for an optional temporary AWS token. You might use
-   such a temporary token if you are just experimenting with
+   such a token if you are just experimenting with
    Pachyderm. However, do not use this token in a
    production deployment.
 
    The deployment takes some time. You can run `kubectl get pods` periodically
-    to check the status of deployment. When Pachyderm is deployed, the command
-    shows all pods as `READY`:
+   to check the status of deployment. When Pachyderm is deployed, the command
+   shows all pods as `READY`:
 
     ```bash
     $ kubectl get pods
@@ -219,7 +219,7 @@ steps:
     pachd-65fd68d6d4-8vjq7   1/1       Running   0          4m
     ```
 
-    **Note:** If you see a few restarts on the `pachd` nodes, that means that
+    **Note:** If you see a few restarts on the `pachd` nodes, it means that
     Kubernetes tried to bring up those pods before `etcd` was ready.
     Therefore, Kubernetes restarted those pods. You can safely ignore this
     message.
@@ -234,9 +234,10 @@ steps:
    pachd               1.9.1
    ```
 
-   * If you want to access the Pachyderm UI or use S3, you need to
+   * If you want to access the Pachyderm UI or use S3 gateway, you need to
    forward Pachyderm ports. Open a new terminal window and run the
    following command:
 
      ```bash
      $ pachctl port-forward
+     ```

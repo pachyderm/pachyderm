@@ -5,7 +5,8 @@ Deploy Pachyderm on Amazon AWS
 
 Pachyderm can run in a Kubernetes cluster deployed in Amazon®
 Web Services (AWS), whether it is an Elastic Container
-Service (EKS) or a Kubernetes cluster deployed directly on EC2 using a deployment tool.
+Service (EKS) or a Kubernetes cluster deployed directly on
+EC2 by using a deployment tool.
 AWS removes the need to maintain the underlying virtual cloud.
 This advantage makes AWS a logical choice for organizations that
 decide to offload the cloud infrastructure operational burden
@@ -21,12 +22,10 @@ Deploy Pachyderm on Amazon EKS
  this section guides you through the EKS deployment process.
 
 Deploy Pachyderm on Amazon EC2 by using ``kops``
-Instead of EKS, you can deploy Kubernetes on AWS EC2 directly using a Kubernetes
- deployment tool such as ``kops`` (INSERT LINK TO KOPS GITHUB OR DOCS?) and then deploy Pachyderm on that Kubernetes cluster. If you deploy a cluster with `kops`, you
- remain responsible for the Kubernetes operations and maintenance.```
- deployment tool. If you cannot use, Amazon EKS, you can deploy
- Kubernetes by using ``kops`` and then deploy Pachyderm on that
- Kubernetes cluster. If you deploy a cluster with `kops`, you
+ Instead of EKS, you can deploy Kubernetes on AWS EC2 directly by
+ using a Kubernetes deployment tool such as ``kops``
+ and then deploy Pachyderm on that Kubernetes cluster.
+ If you deploy a cluster with ``kops``, you
  remain responsible for the Kubernetes operations and maintenance.
 
 Deploy Pachyderm with CloudFront
@@ -40,6 +39,4 @@ Deploy Pachyderm with CloudFront
    deploy-eks.md
    aws-deploy-kubernetes-kops.md
    aws-deploy-pachyderm.md
-   deploy-aws-script.md
-   deploy-cloud-front.md
    aws_cloudfront.md
