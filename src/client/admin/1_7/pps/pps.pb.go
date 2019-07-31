@@ -198,7 +198,7 @@ func (m *Secret) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Secret.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -275,7 +275,7 @@ func (m *Transform) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Transform.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -385,7 +385,7 @@ func (m *Egress) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Egress.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -432,7 +432,7 @@ func (m *Job) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Job.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -481,7 +481,7 @@ func (m *Service) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Service.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -551,7 +551,7 @@ func (m *AtomInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_AtomInput.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -644,7 +644,7 @@ func (m *CronInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_CronInput.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -722,7 +722,7 @@ func (m *GitInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_GitInput.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -794,7 +794,7 @@ func (m *Input) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Input.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -872,7 +872,7 @@ func (m *JobInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_JobInput.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -953,7 +953,7 @@ func (m *ParallelismSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_ParallelismSpec.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1009,7 +1009,7 @@ func (m *HashtreeSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_HashtreeSpec.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1059,7 +1059,7 @@ func (m *InputFile) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_InputFile.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1115,7 +1115,7 @@ func (m *Datum) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Datum.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1173,7 +1173,7 @@ func (m *DatumInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_DatumInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1252,7 +1252,7 @@ func (m *Aggregate) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Aggregate.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1331,7 +1331,7 @@ func (m *ProcessStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_ProcessStats.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1410,7 +1410,7 @@ func (m *AggregateProcessStats) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_AggregateProcessStats.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1491,7 +1491,7 @@ func (m *WorkerStatus) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_WorkerStatus.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1585,7 +1585,7 @@ func (m *ResourceSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_ResourceSpec.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1672,7 +1672,7 @@ func (m *EtcdJobInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return xxx_messageInfo_EtcdJobInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -1846,7 +1846,7 @@ func (m *JobInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_JobInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2146,7 +2146,7 @@ func (m *Worker) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Worker.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2200,7 +2200,7 @@ func (m *JobInfos) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_JobInfos.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2247,7 +2247,7 @@ func (m *Pipeline) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Pipeline.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2299,7 +2299,7 @@ func (m *PipelineInput) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_PipelineInput.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2388,7 +2388,7 @@ func (m *EtcdPipelineInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_EtcdPipelineInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2505,7 +2505,7 @@ func (m *PipelineInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return xxx_messageInfo_PipelineInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2790,7 +2790,7 @@ func (m *PipelineInfos) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_PipelineInfos.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2838,7 +2838,7 @@ func (m *CreateJobRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_CreateJobRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2895,7 +2895,7 @@ func (m *InspectJobRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_InspectJobRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -2958,7 +2958,7 @@ func (m *ListJobRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_ListJobRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3020,7 +3020,7 @@ func (m *FlushJobRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_FlushJobRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3074,7 +3074,7 @@ func (m *DeleteJobRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_DeleteJobRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3121,7 +3121,7 @@ func (m *StopJobRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_StopJobRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3187,7 +3187,7 @@ func (m *GetLogsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_GetLogsRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3291,7 +3291,7 @@ func (m *LogMessage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_LogMessage.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3395,7 +3395,7 @@ func (m *RestartDatumRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_RestartDatumRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3449,7 +3449,7 @@ func (m *InspectDatumRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_InspectDatumRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3498,7 +3498,7 @@ func (m *ListDatumRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, er
 		return xxx_messageInfo_ListDatumRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3561,7 +3561,7 @@ func (m *ListDatumResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return xxx_messageInfo_ListDatumResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3630,7 +3630,7 @@ func (m *ListDatumStreamResponse) XXX_Marshal(b []byte, deterministic bool) ([]b
 		return xxx_messageInfo_ListDatumStreamResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3699,7 +3699,7 @@ func (m *ChunkSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_ChunkSpec.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3754,7 +3754,7 @@ func (m *SchedulingSpec) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_SchedulingSpec.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -3836,7 +3836,7 @@ func (m *CreatePipelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_CreatePipelineRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4065,7 +4065,7 @@ func (m *InspectPipelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_InspectPipelineRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4111,7 +4111,7 @@ func (m *ListPipelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_ListPipelineRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4153,7 +4153,7 @@ func (m *DeletePipelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_DeletePipelineRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4214,7 +4214,7 @@ func (m *StartPipelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_StartPipelineRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4261,7 +4261,7 @@ func (m *StopPipelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_StopPipelineRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4310,7 +4310,7 @@ func (m *RerunPipelineRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_RerunPipelineRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4374,7 +4374,7 @@ func (m *GarbageCollectRequest) XXX_Marshal(b []byte, deterministic bool) ([]byt
 		return xxx_messageInfo_GarbageCollectRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4420,7 +4420,7 @@ func (m *GarbageCollectResponse) XXX_Marshal(b []byte, deterministic bool) ([]by
 		return xxx_messageInfo_GarbageCollectResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4459,7 +4459,7 @@ func (m *ActivateAuthRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte,
 		return xxx_messageInfo_ActivateAuthRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -4498,7 +4498,7 @@ func (m *ActivateAuthResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return xxx_messageInfo_ActivateAuthResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -5823,7 +5823,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 func (m *Secret) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5831,44 +5831,54 @@ func (m *Secret) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Secret) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Secret) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.MountPath) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.MountPath)))
-		i += copy(dAtA[i:], m.MountPath)
-	}
-	if len(m.EnvVar) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.EnvVar)))
-		i += copy(dAtA[i:], m.EnvVar)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Key) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Key)
+		copy(dAtA[i:], m.Key)
 		i = encodeVarintPps(dAtA, i, uint64(len(m.Key)))
-		i += copy(dAtA[i:], m.Key)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.EnvVar) > 0 {
+		i -= len(m.EnvVar)
+		copy(dAtA[i:], m.EnvVar)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.EnvVar)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if len(m.MountPath) > 0 {
+		i -= len(m.MountPath)
+		copy(dAtA[i:], m.MountPath)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.MountPath)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Transform) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -5876,74 +5886,51 @@ func (m *Transform) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Transform) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Transform) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Image) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Image)))
-		i += copy(dAtA[i:], m.Image)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Cmd) > 0 {
-		for _, s := range m.Cmd {
-			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+	if len(m.WorkingDir) > 0 {
+		i -= len(m.WorkingDir)
+		copy(dAtA[i:], m.WorkingDir)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.WorkingDir)))
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.User) > 0 {
+		i -= len(m.User)
+		copy(dAtA[i:], m.User)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.User)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.ImagePullSecrets) > 0 {
+		for iNdEx := len(m.ImagePullSecrets) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.ImagePullSecrets[iNdEx])
+			copy(dAtA[i:], m.ImagePullSecrets[iNdEx])
+			i = encodeVarintPps(dAtA, i, uint64(len(m.ImagePullSecrets[iNdEx])))
+			i--
+			dAtA[i] = 0x4a
 		}
 	}
-	if len(m.Env) > 0 {
-		for k, _ := range m.Env {
-			dAtA[i] = 0x1a
-			i++
-			v := m.Env[k]
-			mapSize := 1 + len(k) + sovPps(uint64(len(k))) + 1 + len(v) + sovPps(uint64(len(v)))
-			i = encodeVarintPps(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
+	if m.Debug {
+		i--
+		if m.Debug {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-	}
-	if len(m.Secrets) > 0 {
-		for _, msg := range m.Secrets {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Stdin) > 0 {
-		for _, s := range m.Stdin {
-			dAtA[i] = 0x2a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+		i--
+		dAtA[i] = 0x38
 	}
 	if len(m.AcceptReturnCode) > 0 {
 		dAtA2 := make([]byte, len(m.AcceptReturnCode)*10)
@@ -5958,58 +5945,77 @@ func (m *Transform) MarshalTo(dAtA []byte) (int, error) {
 			dAtA2[j1] = uint8(num)
 			j1++
 		}
-		dAtA[i] = 0x32
-		i++
+		i -= j1
+		copy(dAtA[i:], dAtA2[:j1])
 		i = encodeVarintPps(dAtA, i, uint64(j1))
-		i += copy(dAtA[i:], dAtA2[:j1])
+		i--
+		dAtA[i] = 0x32
 	}
-	if m.Debug {
-		dAtA[i] = 0x38
-		i++
-		if m.Debug {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
+	if len(m.Stdin) > 0 {
+		for iNdEx := len(m.Stdin) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Stdin[iNdEx])
+			copy(dAtA[i:], m.Stdin[iNdEx])
+			i = encodeVarintPps(dAtA, i, uint64(len(m.Stdin[iNdEx])))
+			i--
+			dAtA[i] = 0x2a
 		}
-		i++
 	}
-	if len(m.ImagePullSecrets) > 0 {
-		for _, s := range m.ImagePullSecrets {
-			dAtA[i] = 0x4a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
+	if len(m.Secrets) > 0 {
+		for iNdEx := len(m.Secrets) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Secrets[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
 			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
+			i--
+			dAtA[i] = 0x22
 		}
 	}
-	if len(m.User) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.User)))
-		i += copy(dAtA[i:], m.User)
+	if len(m.Env) > 0 {
+		for k := range m.Env {
+			v := m.Env[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintPps(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintPps(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintPps(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
-	if len(m.WorkingDir) > 0 {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.WorkingDir)))
-		i += copy(dAtA[i:], m.WorkingDir)
+	if len(m.Cmd) > 0 {
+		for iNdEx := len(m.Cmd) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Cmd[iNdEx])
+			copy(dAtA[i:], m.Cmd[iNdEx])
+			i = encodeVarintPps(dAtA, i, uint64(len(m.Cmd[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Image) > 0 {
+		i -= len(m.Image)
+		copy(dAtA[i:], m.Image)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Image)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Egress) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6017,26 +6023,33 @@ func (m *Egress) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Egress) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Egress) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.URL) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.URL)))
-		i += copy(dAtA[i:], m.URL)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.URL) > 0 {
+		i -= len(m.URL)
+		copy(dAtA[i:], m.URL)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.URL)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Job) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6044,26 +6057,33 @@ func (m *Job) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Job) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Job) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.ID)))
-		i += copy(dAtA[i:], m.ID)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.ID) > 0 {
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.ID)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Service) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6071,36 +6091,43 @@ func (m *Service) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Service) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Service) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.InternalPort != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.InternalPort))
-	}
-	if m.ExternalPort != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ExternalPort))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.IP) > 0 {
-		dAtA[i] = 0x1a
-		i++
+		i -= len(m.IP)
+		copy(dAtA[i:], m.IP)
 		i = encodeVarintPps(dAtA, i, uint64(len(m.IP)))
-		i += copy(dAtA[i:], m.IP)
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.ExternalPort != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.ExternalPort))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.InternalPort != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.InternalPort))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *AtomInput) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6108,70 +6135,81 @@ func (m *AtomInput) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AtomInput) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AtomInput) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.Repo) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Repo)))
-		i += copy(dAtA[i:], m.Repo)
-	}
-	if len(m.Branch) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Branch)))
-		i += copy(dAtA[i:], m.Branch)
-	}
-	if len(m.Commit) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Commit)))
-		i += copy(dAtA[i:], m.Commit)
-	}
-	if len(m.Glob) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Glob)))
-		i += copy(dAtA[i:], m.Glob)
-	}
-	if m.Lazy {
-		dAtA[i] = 0x30
-		i++
-		if m.Lazy {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.EmptyFiles {
-		dAtA[i] = 0x40
-		i++
+		i--
 		if m.EmptyFiles {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x40
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Lazy {
+		i--
+		if m.Lazy {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x30
 	}
-	return i, nil
+	if len(m.Glob) > 0 {
+		i -= len(m.Glob)
+		copy(dAtA[i:], m.Glob)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Glob)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.Commit) > 0 {
+		i -= len(m.Commit)
+		copy(dAtA[i:], m.Commit)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Commit)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Branch) > 0 {
+		i -= len(m.Branch)
+		copy(dAtA[i:], m.Branch)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Branch)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Repo) > 0 {
+		i -= len(m.Repo)
+		copy(dAtA[i:], m.Repo)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Repo)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CronInput) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6179,54 +6217,66 @@ func (m *CronInput) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CronInput) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CronInput) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.Repo) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Repo)))
-		i += copy(dAtA[i:], m.Repo)
-	}
-	if len(m.Commit) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Commit)))
-		i += copy(dAtA[i:], m.Commit)
-	}
-	if len(m.Spec) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Spec)))
-		i += copy(dAtA[i:], m.Spec)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Start != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Start.Size()))
-		n3, err3 := m.Start.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
+		{
+			size, err := m.Start.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n3
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Spec) > 0 {
+		i -= len(m.Spec)
+		copy(dAtA[i:], m.Spec)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Spec)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.Commit) > 0 {
+		i -= len(m.Commit)
+		copy(dAtA[i:], m.Commit)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Commit)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Repo) > 0 {
+		i -= len(m.Repo)
+		copy(dAtA[i:], m.Repo)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Repo)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GitInput) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6234,44 +6284,54 @@ func (m *GitInput) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GitInput) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GitInput) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if len(m.URL) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.URL)))
-		i += copy(dAtA[i:], m.URL)
-	}
-	if len(m.Branch) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Branch)))
-		i += copy(dAtA[i:], m.Branch)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Commit) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Commit)
+		copy(dAtA[i:], m.Commit)
 		i = encodeVarintPps(dAtA, i, uint64(len(m.Commit)))
-		i += copy(dAtA[i:], m.Commit)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Branch) > 0 {
+		i -= len(m.Branch)
+		copy(dAtA[i:], m.Branch)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Branch)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if len(m.URL) > 0 {
+		i -= len(m.URL)
+		copy(dAtA[i:], m.URL)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.URL)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Input) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6279,74 +6339,90 @@ func (m *Input) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Input) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Input) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Atom != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Atom.Size()))
-		n4, err4 := m.Atom.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
-	}
-	if len(m.Cross) > 0 {
-		for _, msg := range m.Cross {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.Union) > 0 {
-		for _, msg := range m.Union {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.Cron != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Cron.Size()))
-		n5, err5 := m.Cron.MarshalTo(dAtA[i:])
-		if err5 != nil {
-			return 0, err5
-		}
-		i += n5
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Git != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Git.Size()))
-		n6, err6 := m.Git.MarshalTo(dAtA[i:])
-		if err6 != nil {
-			return 0, err6
+		{
+			size, err := m.Git.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n6
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Cron != nil {
+		{
+			size, err := m.Cron.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.Union) > 0 {
+		for iNdEx := len(m.Union) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Union[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Cross) > 0 {
+		for iNdEx := len(m.Cross) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Cross[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if m.Atom != nil {
+		{
+			size, err := m.Atom.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *JobInput) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6354,52 +6430,62 @@ func (m *JobInput) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *JobInput) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *JobInput) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Commit != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Commit.Size()))
-		n7, err7 := m.Commit.MarshalTo(dAtA[i:])
-		if err7 != nil {
-			return 0, err7
-		}
-		i += n7
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.Glob) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Glob)))
-		i += copy(dAtA[i:], m.Glob)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x22
 	}
 	if m.Lazy {
-		dAtA[i] = 0x18
-		i++
+		i--
 		if m.Lazy {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x18
 	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if len(m.Glob) > 0 {
+		i -= len(m.Glob)
+		copy(dAtA[i:], m.Glob)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Glob)))
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Commit != nil {
+		{
+			size, err := m.Commit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ParallelismSpec) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6407,31 +6493,37 @@ func (m *ParallelismSpec) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ParallelismSpec) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ParallelismSpec) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Constant != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Constant))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Coefficient != 0 {
-		dAtA[i] = 0x19
-		i++
+		i -= 8
 		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Coefficient))))
-		i += 8
+		i--
+		dAtA[i] = 0x19
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Constant != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Constant))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *HashtreeSpec) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6439,25 +6531,31 @@ func (m *HashtreeSpec) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *HashtreeSpec) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HashtreeSpec) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Constant != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Constant))
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Constant != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Constant))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *InputFile) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6465,32 +6563,40 @@ func (m *InputFile) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InputFile) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InputFile) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Path) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Path)))
-		i += copy(dAtA[i:], m.Path)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Hash) > 0 {
-		dAtA[i] = 0x2a
-		i++
+		i -= len(m.Hash)
+		copy(dAtA[i:], m.Hash)
 		i = encodeVarintPps(dAtA, i, uint64(len(m.Hash)))
-		i += copy(dAtA[i:], m.Hash)
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Path) > 0 {
+		i -= len(m.Path)
+		copy(dAtA[i:], m.Path)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Path)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Datum) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6498,36 +6604,45 @@ func (m *Datum) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Datum) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Datum) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.ID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.ID)))
-		i += copy(dAtA[i:], m.ID)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Job != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n8, err8 := m.Job.MarshalTo(dAtA[i:])
-		if err8 != nil {
-			return 0, err8
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n8
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.ID) > 0 {
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.ID)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *DatumInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6535,67 +6650,81 @@ func (m *DatumInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DatumInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DatumInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Datum != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Datum.Size()))
-		n9, err9 := m.Datum.MarshalTo(dAtA[i:])
-		if err9 != nil {
-			return 0, err9
-		}
-		i += n9
-	}
-	if m.State != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.State))
-	}
-	if m.Stats != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Stats.Size()))
-		n10, err10 := m.Stats.MarshalTo(dAtA[i:])
-		if err10 != nil {
-			return 0, err10
-		}
-		i += n10
-	}
-	if m.PfsState != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.PfsState.Size()))
-		n11, err11 := m.PfsState.MarshalTo(dAtA[i:])
-		if err11 != nil {
-			return 0, err11
-		}
-		i += n11
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Data) > 0 {
-		for _, msg := range m.Data {
+		for iNdEx := len(m.Data) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Data[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
 			dAtA[i] = 0x2a
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+		}
+	}
+	if m.PfsState != nil {
+		{
+			size, err := m.PfsState.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Stats != nil {
+		{
+			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
 	}
-	return i, nil
+	if m.State != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Datum != nil {
+		{
+			size, err := m.Datum.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Aggregate) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6603,49 +6732,55 @@ func (m *Aggregate) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Aggregate) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Aggregate) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Count != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Count))
-	}
-	if m.Mean != 0 {
-		dAtA[i] = 0x11
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Mean))))
-		i += 8
-	}
-	if m.Stddev != 0 {
-		dAtA[i] = 0x19
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Stddev))))
-		i += 8
-	}
-	if m.FifthPercentile != 0 {
-		dAtA[i] = 0x21
-		i++
-		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.FifthPercentile))))
-		i += 8
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.NinetyFifthPercentile != 0 {
-		dAtA[i] = 0x29
-		i++
+		i -= 8
 		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.NinetyFifthPercentile))))
-		i += 8
+		i--
+		dAtA[i] = 0x29
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.FifthPercentile != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.FifthPercentile))))
+		i--
+		dAtA[i] = 0x21
 	}
-	return i, nil
+	if m.Stddev != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Stddev))))
+		i--
+		dAtA[i] = 0x19
+	}
+	if m.Mean != 0 {
+		i -= 8
+		encoding_binary.LittleEndian.PutUint64(dAtA[i:], uint64(math.Float64bits(float64(m.Mean))))
+		i--
+		dAtA[i] = 0x11
+	}
+	if m.Count != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Count))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ProcessStats) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6653,60 +6788,72 @@ func (m *ProcessStats) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ProcessStats) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ProcessStats) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.DownloadTime != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DownloadTime.Size()))
-		n12, err12 := m.DownloadTime.MarshalTo(dAtA[i:])
-		if err12 != nil {
-			return 0, err12
-		}
-		i += n12
-	}
-	if m.ProcessTime != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ProcessTime.Size()))
-		n13, err13 := m.ProcessTime.MarshalTo(dAtA[i:])
-		if err13 != nil {
-			return 0, err13
-		}
-		i += n13
-	}
-	if m.UploadTime != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.UploadTime.Size()))
-		n14, err14 := m.UploadTime.MarshalTo(dAtA[i:])
-		if err14 != nil {
-			return 0, err14
-		}
-		i += n14
-	}
-	if m.DownloadBytes != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DownloadBytes))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.UploadBytes != 0 {
-		dAtA[i] = 0x28
-		i++
 		i = encodeVarintPps(dAtA, i, uint64(m.UploadBytes))
+		i--
+		dAtA[i] = 0x28
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.DownloadBytes != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DownloadBytes))
+		i--
+		dAtA[i] = 0x20
 	}
-	return i, nil
+	if m.UploadTime != nil {
+		{
+			size, err := m.UploadTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.ProcessTime != nil {
+		{
+			size, err := m.ProcessTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.DownloadTime != nil {
+		{
+			size, err := m.DownloadTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *AggregateProcessStats) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6714,70 +6861,86 @@ func (m *AggregateProcessStats) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *AggregateProcessStats) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *AggregateProcessStats) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.DownloadTime != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DownloadTime.Size()))
-		n15, err15 := m.DownloadTime.MarshalTo(dAtA[i:])
-		if err15 != nil {
-			return 0, err15
-		}
-		i += n15
-	}
-	if m.ProcessTime != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ProcessTime.Size()))
-		n16, err16 := m.ProcessTime.MarshalTo(dAtA[i:])
-		if err16 != nil {
-			return 0, err16
-		}
-		i += n16
-	}
-	if m.UploadTime != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.UploadTime.Size()))
-		n17, err17 := m.UploadTime.MarshalTo(dAtA[i:])
-		if err17 != nil {
-			return 0, err17
-		}
-		i += n17
-	}
-	if m.DownloadBytes != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DownloadBytes.Size()))
-		n18, err18 := m.DownloadBytes.MarshalTo(dAtA[i:])
-		if err18 != nil {
-			return 0, err18
-		}
-		i += n18
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.UploadBytes != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.UploadBytes.Size()))
-		n19, err19 := m.UploadBytes.MarshalTo(dAtA[i:])
-		if err19 != nil {
-			return 0, err19
+		{
+			size, err := m.UploadBytes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n19
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.DownloadBytes != nil {
+		{
+			size, err := m.DownloadBytes.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if m.UploadTime != nil {
+		{
+			size, err := m.UploadTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.ProcessTime != nil {
+		{
+			size, err := m.ProcessTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.DownloadTime != nil {
+		{
+			size, err := m.DownloadTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *WorkerStatus) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6785,69 +6948,83 @@ func (m *WorkerStatus) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *WorkerStatus) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *WorkerStatus) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.WorkerID) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.WorkerID)))
-		i += copy(dAtA[i:], m.WorkerID)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.JobID) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.JobID)))
-		i += copy(dAtA[i:], m.JobID)
+	if m.QueueSize != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.QueueSize))
+		i--
+		dAtA[i] = 0x30
 	}
-	if len(m.Data) > 0 {
-		for _, msg := range m.Data {
-			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if m.Stats != nil {
+		{
+			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0x2a
 	}
 	if m.Started != nil {
+		{
+			size, err := m.Started.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
 		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Started.Size()))
-		n20, err20 := m.Started.MarshalTo(dAtA[i:])
-		if err20 != nil {
-			return 0, err20
+	}
+	if len(m.Data) > 0 {
+		for iNdEx := len(m.Data) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Data[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
 		}
-		i += n20
 	}
-	if m.Stats != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Stats.Size()))
-		n21, err21 := m.Stats.MarshalTo(dAtA[i:])
-		if err21 != nil {
-			return 0, err21
-		}
-		i += n21
+	if len(m.JobID) > 0 {
+		i -= len(m.JobID)
+		copy(dAtA[i:], m.JobID)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.JobID)))
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.QueueSize != 0 {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.QueueSize))
+	if len(m.WorkerID) > 0 {
+		i -= len(m.WorkerID)
+		copy(dAtA[i:], m.WorkerID)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.WorkerID)))
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ResourceSpec) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6855,43 +7032,51 @@ func (m *ResourceSpec) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ResourceSpec) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ResourceSpec) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Cpu != 0 {
-		dAtA[i] = 0xd
-		i++
-		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Cpu))))
-		i += 4
-	}
-	if len(m.Memory) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Memory)))
-		i += copy(dAtA[i:], m.Memory)
-	}
-	if m.Gpu != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Gpu))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Disk) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Disk)
+		copy(dAtA[i:], m.Disk)
 		i = encodeVarintPps(dAtA, i, uint64(len(m.Disk)))
-		i += copy(dAtA[i:], m.Disk)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Gpu != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Gpu))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if len(m.Memory) > 0 {
+		i -= len(m.Memory)
+		copy(dAtA[i:], m.Memory)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Memory)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Cpu != 0 {
+		i -= 4
+		encoding_binary.LittleEndian.PutUint32(dAtA[i:], uint32(math.Float32bits(float32(m.Cpu))))
+		i--
+		dAtA[i] = 0xd
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *EtcdJobInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -6899,126 +7084,147 @@ func (m *EtcdJobInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EtcdJobInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EtcdJobInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Job != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n22, err22 := m.Job.MarshalTo(dAtA[i:])
-		if err22 != nil {
-			return 0, err22
-		}
-		i += n22
-	}
-	if m.Pipeline != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n23, err23 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err23 != nil {
-			return 0, err23
-		}
-		i += n23
-	}
-	if m.OutputCommit != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.OutputCommit.Size()))
-		n24, err24 := m.OutputCommit.MarshalTo(dAtA[i:])
-		if err24 != nil {
-			return 0, err24
-		}
-		i += n24
-	}
-	if m.Restart != 0 {
-		dAtA[i] = 0x20
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Restart))
-	}
-	if m.DataProcessed != 0 {
-		dAtA[i] = 0x28
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DataProcessed))
-	}
-	if m.DataSkipped != 0 {
-		dAtA[i] = 0x30
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DataSkipped))
-	}
-	if m.DataTotal != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DataTotal))
-	}
-	if m.DataFailed != 0 {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DataFailed))
-	}
-	if m.Stats != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Stats.Size()))
-		n25, err25 := m.Stats.MarshalTo(dAtA[i:])
-		if err25 != nil {
-			return 0, err25
-		}
-		i += n25
-	}
-	if m.StatsCommit != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.StatsCommit.Size()))
-		n26, err26 := m.StatsCommit.MarshalTo(dAtA[i:])
-		if err26 != nil {
-			return 0, err26
-		}
-		i += n26
-	}
-	if m.State != 0 {
-		dAtA[i] = 0x58
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.State))
-	}
-	if len(m.Reason) > 0 {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Reason)))
-		i += copy(dAtA[i:], m.Reason)
-	}
-	if m.Started != nil {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Started.Size()))
-		n27, err27 := m.Started.MarshalTo(dAtA[i:])
-		if err27 != nil {
-			return 0, err27
-		}
-		i += n27
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Finished != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Finished.Size()))
-		n28, err28 := m.Finished.MarshalTo(dAtA[i:])
-		if err28 != nil {
-			return 0, err28
+		{
+			size, err := m.Finished.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n28
+		i--
+		dAtA[i] = 0x72
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Started != nil {
+		{
+			size, err := m.Started.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x6a
 	}
-	return i, nil
+	if len(m.Reason) > 0 {
+		i -= len(m.Reason)
+		copy(dAtA[i:], m.Reason)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Reason)))
+		i--
+		dAtA[i] = 0x62
+	}
+	if m.State != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x58
+	}
+	if m.StatsCommit != nil {
+		{
+			size, err := m.StatsCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.Stats != nil {
+		{
+			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4a
+	}
+	if m.DataFailed != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DataFailed))
+		i--
+		dAtA[i] = 0x40
+	}
+	if m.DataTotal != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DataTotal))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.DataSkipped != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DataSkipped))
+		i--
+		dAtA[i] = 0x30
+	}
+	if m.DataProcessed != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DataProcessed))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.Restart != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Restart))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.OutputCommit != nil {
+		{
+			size, err := m.OutputCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *JobInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -7026,386 +7232,440 @@ func (m *JobInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *JobInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *JobInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Job != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n29, err29 := m.Job.MarshalTo(dAtA[i:])
-		if err29 != nil {
-			return 0, err29
-		}
-		i += n29
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Transform != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Transform.Size()))
-		n30, err30 := m.Transform.MarshalTo(dAtA[i:])
-		if err30 != nil {
-			return 0, err30
-		}
-		i += n30
+	if len(m.PodSpec) > 0 {
+		i -= len(m.PodSpec)
+		copy(dAtA[i:], m.PodSpec)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.PodSpec)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xda
 	}
-	if m.Pipeline != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n31, err31 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err31 != nil {
-			return 0, err31
-		}
-		i += n31
-	}
-	if m.ParentJob != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ParentJob.Size()))
-		n32, err32 := m.ParentJob.MarshalTo(dAtA[i:])
-		if err32 != nil {
-			return 0, err32
-		}
-		i += n32
-	}
-	if m.Started != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Started.Size()))
-		n33, err33 := m.Started.MarshalTo(dAtA[i:])
-		if err33 != nil {
-			return 0, err33
-		}
-		i += n33
-	}
-	if m.Finished != nil {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Finished.Size()))
-		n34, err34 := m.Finished.MarshalTo(dAtA[i:])
-		if err34 != nil {
-			return 0, err34
-		}
-		i += n34
-	}
-	if m.OutputCommit != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.OutputCommit.Size()))
-		n35, err35 := m.OutputCommit.MarshalTo(dAtA[i:])
-		if err35 != nil {
-			return 0, err35
-		}
-		i += n35
-	}
-	if m.State != 0 {
-		dAtA[i] = 0x50
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.State))
-	}
-	if m.ParallelismSpec != nil {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ParallelismSpec.Size()))
-		n36, err36 := m.ParallelismSpec.MarshalTo(dAtA[i:])
-		if err36 != nil {
-			return 0, err36
-		}
-		i += n36
-	}
-	if m.PipelineVersion != 0 {
-		dAtA[i] = 0x68
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.PipelineVersion))
-	}
-	if m.Service != nil {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Service.Size()))
-		n37, err37 := m.Service.MarshalTo(dAtA[i:])
-		if err37 != nil {
-			return 0, err37
-		}
-		i += n37
-	}
-	if m.Egress != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Egress.Size()))
-		n38, err38 := m.Egress.MarshalTo(dAtA[i:])
-		if err38 != nil {
-			return 0, err38
-		}
-		i += n38
-	}
-	if len(m.OutputBranch) > 0 {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.OutputBranch)))
-		i += copy(dAtA[i:], m.OutputBranch)
-	}
-	if m.OutputRepo != nil {
-		dAtA[i] = 0x92
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.OutputRepo.Size()))
-		n39, err39 := m.OutputRepo.MarshalTo(dAtA[i:])
-		if err39 != nil {
-			return 0, err39
-		}
-		i += n39
-	}
-	if m.Restart != 0 {
-		dAtA[i] = 0xa0
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Restart))
-	}
-	if m.DataProcessed != 0 {
-		dAtA[i] = 0xb0
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DataProcessed))
-	}
-	if m.DataTotal != 0 {
-		dAtA[i] = 0xb8
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DataTotal))
-	}
-	if len(m.WorkerStatus) > 0 {
-		for _, msg := range m.WorkerStatus {
-			dAtA[i] = 0xc2
-			i++
-			dAtA[i] = 0x1
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if m.SchedulingSpec != nil {
+		{
+			size, err := m.SchedulingSpec.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-	}
-	if m.ResourceRequests != nil {
-		dAtA[i] = 0xca
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ResourceRequests.Size()))
-		n40, err40 := m.ResourceRequests.MarshalTo(dAtA[i:])
-		if err40 != nil {
-			return 0, err40
-		}
-		i += n40
-	}
-	if m.Input != nil {
+		i--
+		dAtA[i] = 0x2
+		i--
 		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Input.Size()))
-		n41, err41 := m.Input.MarshalTo(dAtA[i:])
-		if err41 != nil {
-			return 0, err41
-		}
-		i += n41
 	}
-	if m.NewBranch != nil {
-		dAtA[i] = 0xda
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.NewBranch.Size()))
-		n42, err42 := m.NewBranch.MarshalTo(dAtA[i:])
-		if err42 != nil {
-			return 0, err42
-		}
-		i += n42
-	}
-	if m.Incremental {
-		dAtA[i] = 0xe0
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.Incremental {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.StatsCommit != nil {
-		dAtA[i] = 0xea
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.StatsCommit.Size()))
-		n43, err43 := m.StatsCommit.MarshalTo(dAtA[i:])
-		if err43 != nil {
-			return 0, err43
-		}
-		i += n43
-	}
-	if m.DataSkipped != 0 {
-		dAtA[i] = 0xf0
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DataSkipped))
-	}
-	if m.Stats != nil {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Stats.Size()))
-		n44, err44 := m.Stats.MarshalTo(dAtA[i:])
-		if err44 != nil {
-			return 0, err44
-		}
-		i += n44
-	}
-	if m.EnableStats {
-		dAtA[i] = 0x80
-		i++
+	if m.DatumTries != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DatumTries))
+		i--
 		dAtA[i] = 0x2
-		i++
-		if m.EnableStats {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+		i--
+		dAtA[i] = 0xc8
 	}
-	if len(m.Salt) > 0 {
-		dAtA[i] = 0x8a
-		i++
+	if m.DataFailed != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DataFailed))
+		i--
 		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Salt)))
-		i += copy(dAtA[i:], m.Salt)
+		i--
+		dAtA[i] = 0xc0
+	}
+	if m.JobTimeout != nil {
+		{
+			size, err := m.JobTimeout.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xba
+	}
+	if m.DatumTimeout != nil {
+		{
+			size, err := m.DatumTimeout.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xb2
+	}
+	if m.ChunkSpec != nil {
+		{
+			size, err := m.ChunkSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xaa
+	}
+	if m.ResourceLimits != nil {
+		{
+			size, err := m.ResourceLimits.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xa2
+	}
+	if len(m.Reason) > 0 {
+		i -= len(m.Reason)
+		copy(dAtA[i:], m.Reason)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Reason)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x9a
 	}
 	if m.Batch {
-		dAtA[i] = 0x90
-		i++
-		dAtA[i] = 0x2
-		i++
+		i--
 		if m.Batch {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
-	}
-	if len(m.Reason) > 0 {
-		dAtA[i] = 0x9a
-		i++
+		i--
 		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Reason)))
-		i += copy(dAtA[i:], m.Reason)
+		i--
+		dAtA[i] = 0x90
 	}
-	if m.ResourceLimits != nil {
-		dAtA[i] = 0xa2
-		i++
+	if len(m.Salt) > 0 {
+		i -= len(m.Salt)
+		copy(dAtA[i:], m.Salt)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Salt)))
+		i--
 		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ResourceLimits.Size()))
-		n45, err45 := m.ResourceLimits.MarshalTo(dAtA[i:])
-		if err45 != nil {
-			return 0, err45
+		i--
+		dAtA[i] = 0x8a
+	}
+	if m.EnableStats {
+		i--
+		if m.EnableStats {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n45
-	}
-	if m.ChunkSpec != nil {
-		dAtA[i] = 0xaa
-		i++
+		i--
 		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ChunkSpec.Size()))
-		n46, err46 := m.ChunkSpec.MarshalTo(dAtA[i:])
-		if err46 != nil {
-			return 0, err46
+		i--
+		dAtA[i] = 0x80
+	}
+	if m.Stats != nil {
+		{
+			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n46
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xfa
 	}
-	if m.DatumTimeout != nil {
-		dAtA[i] = 0xb2
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DatumTimeout.Size()))
-		n47, err47 := m.DatumTimeout.MarshalTo(dAtA[i:])
-		if err47 != nil {
-			return 0, err47
+	if m.DataSkipped != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DataSkipped))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xf0
+	}
+	if m.StatsCommit != nil {
+		{
+			size, err := m.StatsCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n47
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xea
 	}
-	if m.JobTimeout != nil {
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.JobTimeout.Size()))
-		n48, err48 := m.JobTimeout.MarshalTo(dAtA[i:])
-		if err48 != nil {
-			return 0, err48
+	if m.Incremental {
+		i--
+		if m.Incremental {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n48
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xe0
 	}
-	if m.DataFailed != 0 {
-		dAtA[i] = 0xc0
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DataFailed))
-	}
-	if m.DatumTries != 0 {
-		dAtA[i] = 0xc8
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DatumTries))
-	}
-	if m.SchedulingSpec != nil {
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.SchedulingSpec.Size()))
-		n49, err49 := m.SchedulingSpec.MarshalTo(dAtA[i:])
-		if err49 != nil {
-			return 0, err49
+	if m.NewBranch != nil {
+		{
+			size, err := m.NewBranch.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n49
-	}
-	if len(m.PodSpec) > 0 {
+		i--
+		dAtA[i] = 0x1
+		i--
 		dAtA[i] = 0xda
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.PodSpec)))
-		i += copy(dAtA[i:], m.PodSpec)
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Input != nil {
+		{
+			size, err := m.Input.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xd2
 	}
-	return i, nil
+	if m.ResourceRequests != nil {
+		{
+			size, err := m.ResourceRequests.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xca
+	}
+	if len(m.WorkerStatus) > 0 {
+		for iNdEx := len(m.WorkerStatus) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.WorkerStatus[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xc2
+		}
+	}
+	if m.DataTotal != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DataTotal))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb8
+	}
+	if m.DataProcessed != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DataProcessed))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb0
+	}
+	if m.Restart != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Restart))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa0
+	}
+	if m.OutputRepo != nil {
+		{
+			size, err := m.OutputRepo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x92
+	}
+	if len(m.OutputBranch) > 0 {
+		i -= len(m.OutputBranch)
+		copy(dAtA[i:], m.OutputBranch)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.OutputBranch)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x8a
+	}
+	if m.Egress != nil {
+		{
+			size, err := m.Egress.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x7a
+	}
+	if m.Service != nil {
+		{
+			size, err := m.Service.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x72
+	}
+	if m.PipelineVersion != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.PipelineVersion))
+		i--
+		dAtA[i] = 0x68
+	}
+	if m.ParallelismSpec != nil {
+		{
+			size, err := m.ParallelismSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x62
+	}
+	if m.State != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x50
+	}
+	if m.OutputCommit != nil {
+		{
+			size, err := m.OutputCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4a
+	}
+	if m.Finished != nil {
+		{
+			size, err := m.Finished.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x42
+	}
+	if m.Started != nil {
+		{
+			size, err := m.Started.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	if m.ParentJob != nil {
+		{
+			size, err := m.ParentJob.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.Transform != nil {
+		{
+			size, err := m.Transform.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *Worker) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -7413,31 +7673,38 @@ func (m *Worker) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Worker) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Worker) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.State != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintPps(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *JobInfos) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -7445,32 +7712,40 @@ func (m *JobInfos) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *JobInfos) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *JobInfos) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.JobInfo) > 0 {
-		for _, msg := range m.JobInfo {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.JobInfo) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.JobInfo[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Pipeline) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -7478,26 +7753,33 @@ func (m *Pipeline) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Pipeline) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Pipeline) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Name) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *PipelineInput) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -7505,68 +7787,81 @@ func (m *PipelineInput) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *PipelineInput) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PipelineInput) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Repo != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Repo.Size()))
-		n50, err50 := m.Repo.MarshalTo(dAtA[i:])
-		if err50 != nil {
-			return 0, err50
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.From != nil {
+		{
+			size, err := m.From.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n50
+		i--
+		dAtA[i] = 0x32
 	}
-	if len(m.Branch) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Branch)))
-		i += copy(dAtA[i:], m.Branch)
-	}
-	if len(m.Glob) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Glob)))
-		i += copy(dAtA[i:], m.Glob)
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x2a
 	}
 	if m.Lazy {
-		dAtA[i] = 0x20
-		i++
+		i--
 		if m.Lazy {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x20
 	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
+	if len(m.Glob) > 0 {
+		i -= len(m.Glob)
+		copy(dAtA[i:], m.Glob)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Glob)))
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.From != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.From.Size()))
-		n51, err51 := m.From.MarshalTo(dAtA[i:])
-		if err51 != nil {
-			return 0, err51
+	if len(m.Branch) > 0 {
+		i -= len(m.Branch)
+		copy(dAtA[i:], m.Branch)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Branch)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Repo != nil {
+		{
+			size, err := m.Repo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n51
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *EtcdPipelineInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -7574,62 +7869,72 @@ func (m *EtcdPipelineInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *EtcdPipelineInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *EtcdPipelineInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.State != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.State))
-	}
-	if m.SpecCommit != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.SpecCommit.Size()))
-		n52, err52 := m.SpecCommit.MarshalTo(dAtA[i:])
-		if err52 != nil {
-			return 0, err52
-		}
-		i += n52
-	}
-	if len(m.JobCounts) > 0 {
-		for k, _ := range m.JobCounts {
-			dAtA[i] = 0x1a
-			i++
-			v := m.JobCounts[k]
-			mapSize := 1 + sovPps(uint64(k)) + 1 + sovPps(uint64(v))
-			i = encodeVarintPps(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.Reason) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Reason)))
-		i += copy(dAtA[i:], m.Reason)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.AuthToken) > 0 {
-		dAtA[i] = 0x2a
-		i++
+		i -= len(m.AuthToken)
+		copy(dAtA[i:], m.AuthToken)
 		i = encodeVarintPps(dAtA, i, uint64(len(m.AuthToken)))
-		i += copy(dAtA[i:], m.AuthToken)
+		i--
+		dAtA[i] = 0x2a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Reason) > 0 {
+		i -= len(m.Reason)
+		copy(dAtA[i:], m.Reason)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Reason)))
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if len(m.JobCounts) > 0 {
+		for k := range m.JobCounts {
+			v := m.JobCounts[k]
+			baseI := i
+			i = encodeVarintPps(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintPps(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintPps(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.SpecCommit != nil {
+		{
+			size, err := m.SpecCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.State != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *PipelineInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -7637,371 +7942,418 @@ func (m *PipelineInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *PipelineInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PipelineInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n53, err53 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err53 != nil {
-			return 0, err53
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.HashtreeSpec != nil {
+		{
+			size, err := m.HashtreeSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n53
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xd2
 	}
-	if m.Transform != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Transform.Size()))
-		n54, err54 := m.Transform.MarshalTo(dAtA[i:])
-		if err54 != nil {
-			return 0, err54
-		}
-		i += n54
-	}
-	if m.CreatedAt != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.CreatedAt.Size()))
-		n55, err55 := m.CreatedAt.MarshalTo(dAtA[i:])
-		if err55 != nil {
-			return 0, err55
-		}
-		i += n55
-	}
-	if m.State != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.State))
-	}
-	if len(m.RecentError) > 0 {
-		dAtA[i] = 0x42
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.RecentError)))
-		i += copy(dAtA[i:], m.RecentError)
-	}
-	if len(m.JobCounts) > 0 {
-		for k, _ := range m.JobCounts {
-			dAtA[i] = 0x4a
-			i++
-			v := m.JobCounts[k]
-			mapSize := 1 + sovPps(uint64(k)) + 1 + sovPps(uint64(v))
-			i = encodeVarintPps(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0x8
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(k))
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(v))
-		}
-	}
-	if m.ParallelismSpec != nil {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ParallelismSpec.Size()))
-		n56, err56 := m.ParallelismSpec.MarshalTo(dAtA[i:])
-		if err56 != nil {
-			return 0, err56
-		}
-		i += n56
-	}
-	if m.Version != 0 {
-		dAtA[i] = 0x58
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Version))
-	}
-	if m.Egress != nil {
-		dAtA[i] = 0x7a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Egress.Size()))
-		n57, err57 := m.Egress.MarshalTo(dAtA[i:])
-		if err57 != nil {
-			return 0, err57
-		}
-		i += n57
-	}
-	if len(m.OutputBranch) > 0 {
-		dAtA[i] = 0x82
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.OutputBranch)))
-		i += copy(dAtA[i:], m.OutputBranch)
-	}
-	if len(m.ID) > 0 {
-		dAtA[i] = 0x8a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.ID)))
-		i += copy(dAtA[i:], m.ID)
-	}
-	if m.ScaleDownThreshold != nil {
-		dAtA[i] = 0x92
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ScaleDownThreshold.Size()))
-		n58, err58 := m.ScaleDownThreshold.MarshalTo(dAtA[i:])
-		if err58 != nil {
-			return 0, err58
-		}
-		i += n58
-	}
-	if m.ResourceRequests != nil {
-		dAtA[i] = 0x9a
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ResourceRequests.Size()))
-		n59, err59 := m.ResourceRequests.MarshalTo(dAtA[i:])
-		if err59 != nil {
-			return 0, err59
-		}
-		i += n59
-	}
-	if m.Input != nil {
-		dAtA[i] = 0xa2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Input.Size()))
-		n60, err60 := m.Input.MarshalTo(dAtA[i:])
-		if err60 != nil {
-			return 0, err60
-		}
-		i += n60
-	}
-	if len(m.Description) > 0 {
-		dAtA[i] = 0xaa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Description)))
-		i += copy(dAtA[i:], m.Description)
-	}
-	if m.Incremental {
-		dAtA[i] = 0xb0
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.Incremental {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.CacheSize) > 0 {
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.CacheSize)))
-		i += copy(dAtA[i:], m.CacheSize)
-	}
-	if m.EnableStats {
-		dAtA[i] = 0xc0
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.EnableStats {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.Salt) > 0 {
+	if len(m.PodSpec) > 0 {
+		i -= len(m.PodSpec)
+		copy(dAtA[i:], m.PodSpec)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.PodSpec)))
+		i--
+		dAtA[i] = 0x2
+		i--
 		dAtA[i] = 0xca
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Salt)))
-		i += copy(dAtA[i:], m.Salt)
 	}
-	if m.Batch {
-		dAtA[i] = 0xd8
-		i++
-		dAtA[i] = 0x1
-		i++
-		if m.Batch {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
+	if m.SchedulingSpec != nil {
+		{
+			size, err := m.SchedulingSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i++
-	}
-	if len(m.Reason) > 0 {
-		dAtA[i] = 0xe2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Reason)))
-		i += copy(dAtA[i:], m.Reason)
-	}
-	if m.MaxQueueSize != 0 {
-		dAtA[i] = 0xe8
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.MaxQueueSize))
-	}
-	if m.Service != nil {
-		dAtA[i] = 0xf2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Service.Size()))
-		n61, err61 := m.Service.MarshalTo(dAtA[i:])
-		if err61 != nil {
-			return 0, err61
-		}
-		i += n61
-	}
-	if m.ResourceLimits != nil {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ResourceLimits.Size()))
-		n62, err62 := m.ResourceLimits.MarshalTo(dAtA[i:])
-		if err62 != nil {
-			return 0, err62
-		}
-		i += n62
-	}
-	if m.ChunkSpec != nil {
-		dAtA[i] = 0x82
-		i++
+		i--
 		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ChunkSpec.Size()))
-		n63, err63 := m.ChunkSpec.MarshalTo(dAtA[i:])
-		if err63 != nil {
-			return 0, err63
-		}
-		i += n63
+		i--
+		dAtA[i] = 0xc2
 	}
-	if m.DatumTimeout != nil {
-		dAtA[i] = 0x8a
-		i++
+	if m.DatumTries != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DatumTries))
+		i--
 		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DatumTimeout.Size()))
-		n64, err64 := m.DatumTimeout.MarshalTo(dAtA[i:])
-		if err64 != nil {
-			return 0, err64
-		}
-		i += n64
-	}
-	if m.JobTimeout != nil {
-		dAtA[i] = 0x92
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.JobTimeout.Size()))
-		n65, err65 := m.JobTimeout.MarshalTo(dAtA[i:])
-		if err65 != nil {
-			return 0, err65
-		}
-		i += n65
-	}
-	if len(m.GithookURL) > 0 {
-		dAtA[i] = 0x9a
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.GithookURL)))
-		i += copy(dAtA[i:], m.GithookURL)
-	}
-	if m.SpecCommit != nil {
-		dAtA[i] = 0xa2
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.SpecCommit.Size()))
-		n66, err66 := m.SpecCommit.MarshalTo(dAtA[i:])
-		if err66 != nil {
-			return 0, err66
-		}
-		i += n66
-	}
-	if m.Standby {
-		dAtA[i] = 0xa8
-		i++
-		dAtA[i] = 0x2
-		i++
-		if m.Standby {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+		i--
+		dAtA[i] = 0xb8
 	}
 	if m.Stopped {
-		dAtA[i] = 0xb0
-		i++
-		dAtA[i] = 0x2
-		i++
+		i--
 		if m.Stopped {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
-	}
-	if m.DatumTries != 0 {
-		dAtA[i] = 0xb8
-		i++
+		i--
 		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DatumTries))
+		i--
+		dAtA[i] = 0xb0
 	}
-	if m.SchedulingSpec != nil {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.SchedulingSpec.Size()))
-		n67, err67 := m.SchedulingSpec.MarshalTo(dAtA[i:])
-		if err67 != nil {
-			return 0, err67
+	if m.Standby {
+		i--
+		if m.Standby {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n67
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xa8
 	}
-	if len(m.PodSpec) > 0 {
+	if m.SpecCommit != nil {
+		{
+			size, err := m.SpecCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xa2
+	}
+	if len(m.GithookURL) > 0 {
+		i -= len(m.GithookURL)
+		copy(dAtA[i:], m.GithookURL)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.GithookURL)))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x9a
+	}
+	if m.JobTimeout != nil {
+		{
+			size, err := m.JobTimeout.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x92
+	}
+	if m.DatumTimeout != nil {
+		{
+			size, err := m.DatumTimeout.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x8a
+	}
+	if m.ChunkSpec != nil {
+		{
+			size, err := m.ChunkSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x82
+	}
+	if m.ResourceLimits != nil {
+		{
+			size, err := m.ResourceLimits.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xfa
+	}
+	if m.Service != nil {
+		{
+			size, err := m.Service.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xf2
+	}
+	if m.MaxQueueSize != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.MaxQueueSize))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xe8
+	}
+	if len(m.Reason) > 0 {
+		i -= len(m.Reason)
+		copy(dAtA[i:], m.Reason)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Reason)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xe2
+	}
+	if m.Batch {
+		i--
+		if m.Batch {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xd8
+	}
+	if len(m.Salt) > 0 {
+		i -= len(m.Salt)
+		copy(dAtA[i:], m.Salt)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Salt)))
+		i--
+		dAtA[i] = 0x1
+		i--
 		dAtA[i] = 0xca
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.PodSpec)))
-		i += copy(dAtA[i:], m.PodSpec)
 	}
-	if m.HashtreeSpec != nil {
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0x2
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.HashtreeSpec.Size()))
-		n68, err68 := m.HashtreeSpec.MarshalTo(dAtA[i:])
-		if err68 != nil {
-			return 0, err68
+	if m.EnableStats {
+		i--
+		if m.EnableStats {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
 		}
-		i += n68
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xc0
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.CacheSize) > 0 {
+		i -= len(m.CacheSize)
+		copy(dAtA[i:], m.CacheSize)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.CacheSize)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xba
 	}
-	return i, nil
+	if m.Incremental {
+		i--
+		if m.Incremental {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb0
+	}
+	if len(m.Description) > 0 {
+		i -= len(m.Description)
+		copy(dAtA[i:], m.Description)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Description)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xaa
+	}
+	if m.Input != nil {
+		{
+			size, err := m.Input.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa2
+	}
+	if m.ResourceRequests != nil {
+		{
+			size, err := m.ResourceRequests.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x9a
+	}
+	if m.ScaleDownThreshold != nil {
+		{
+			size, err := m.ScaleDownThreshold.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x92
+	}
+	if len(m.ID) > 0 {
+		i -= len(m.ID)
+		copy(dAtA[i:], m.ID)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.ID)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x8a
+	}
+	if len(m.OutputBranch) > 0 {
+		i -= len(m.OutputBranch)
+		copy(dAtA[i:], m.OutputBranch)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.OutputBranch)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x82
+	}
+	if m.Egress != nil {
+		{
+			size, err := m.Egress.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x7a
+	}
+	if m.Version != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Version))
+		i--
+		dAtA[i] = 0x58
+	}
+	if m.ParallelismSpec != nil {
+		{
+			size, err := m.ParallelismSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x52
+	}
+	if len(m.JobCounts) > 0 {
+		for k := range m.JobCounts {
+			v := m.JobCounts[k]
+			baseI := i
+			i = encodeVarintPps(dAtA, i, uint64(v))
+			i--
+			dAtA[i] = 0x10
+			i = encodeVarintPps(dAtA, i, uint64(k))
+			i--
+			dAtA[i] = 0x8
+			i = encodeVarintPps(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0x4a
+		}
+	}
+	if len(m.RecentError) > 0 {
+		i -= len(m.RecentError)
+		copy(dAtA[i:], m.RecentError)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.RecentError)))
+		i--
+		dAtA[i] = 0x42
+	}
+	if m.State != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x38
+	}
+	if m.CreatedAt != nil {
+		{
+			size, err := m.CreatedAt.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.Transform != nil {
+		{
+			size, err := m.Transform.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *PipelineInfos) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8009,32 +8361,40 @@ func (m *PipelineInfos) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *PipelineInfos) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *PipelineInfos) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if len(m.PipelineInfo) > 0 {
-		for _, msg := range m.PipelineInfo {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.PipelineInfo) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.PipelineInfo[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0xa
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CreateJobRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8042,42 +8402,52 @@ func (m *CreateJobRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CreateJobRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CreateJobRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n69, err69 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err69 != nil {
-			return 0, err69
-		}
-		i += n69
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.OutputCommit != nil {
-		dAtA[i] = 0xca
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.OutputCommit.Size()))
-		n70, err70 := m.OutputCommit.MarshalTo(dAtA[i:])
-		if err70 != nil {
-			return 0, err70
+		{
+			size, err := m.OutputCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n70
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xca
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InspectJobRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8085,50 +8455,60 @@ func (m *InspectJobRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InspectJobRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InspectJobRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Job != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n71, err71 := m.Job.MarshalTo(dAtA[i:])
-		if err71 != nil {
-			return 0, err71
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.OutputCommit != nil {
+		{
+			size, err := m.OutputCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n71
+		i--
+		dAtA[i] = 0x1a
 	}
 	if m.BlockState {
-		dAtA[i] = 0x10
-		i++
+		i--
 		if m.BlockState {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.OutputCommit != nil {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.OutputCommit.Size()))
-		n72, err72 := m.OutputCommit.MarshalTo(dAtA[i:])
-		if err72 != nil {
-			return 0, err72
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n72
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ListJobRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8136,52 +8516,64 @@ func (m *ListJobRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ListJobRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListJobRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n73, err73 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err73 != nil {
-			return 0, err73
-		}
-		i += n73
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if len(m.InputCommit) > 0 {
-		for _, msg := range m.InputCommit {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+	if m.OutputCommit != nil {
+		{
+			size, err := m.OutputCommit.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-	}
-	if m.OutputCommit != nil {
+		i--
 		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.OutputCommit.Size()))
-		n74, err74 := m.OutputCommit.MarshalTo(dAtA[i:])
-		if err74 != nil {
-			return 0, err74
+	}
+	if len(m.InputCommit) > 0 {
+		for iNdEx := len(m.InputCommit) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.InputCommit[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
 		}
-		i += n74
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *FlushJobRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8189,44 +8581,54 @@ func (m *FlushJobRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *FlushJobRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FlushJobRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.Commits) > 0 {
-		for _, msg := range m.Commits {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.ToPipelines) > 0 {
-		for _, msg := range m.ToPipelines {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
+		for iNdEx := len(m.ToPipelines) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.ToPipelines[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
 			}
-			i += n
+			i--
+			dAtA[i] = 0x12
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.Commits) > 0 {
+		for iNdEx := len(m.Commits) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Commits[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *DeleteJobRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8234,30 +8636,38 @@ func (m *DeleteJobRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeleteJobRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeleteJobRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Job != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n75, err75 := m.Job.MarshalTo(dAtA[i:])
-		if err75 != nil {
-			return 0, err75
-		}
-		i += n75
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *StopJobRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8265,30 +8675,38 @@ func (m *StopJobRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *StopJobRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *StopJobRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Job != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n76, err76 := m.Job.MarshalTo(dAtA[i:])
-		if err76 != nil {
-			return 0, err76
-		}
-		i += n76
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GetLogsRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8296,90 +8714,96 @@ func (m *GetLogsRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetLogsRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetLogsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Job != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n77, err77 := m.Job.MarshalTo(dAtA[i:])
-		if err77 != nil {
-			return 0, err77
-		}
-		i += n77
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	if m.Pipeline != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n78, err78 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err78 != nil {
-			return 0, err78
-		}
-		i += n78
-	}
-	if len(m.DataFilters) > 0 {
-		for _, s := range m.DataFilters {
-			dAtA[i] = 0x1a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if m.Master {
-		dAtA[i] = 0x28
-		i++
-		if m.Master {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.Datum != nil {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Datum.Size()))
-		n79, err79 := m.Datum.MarshalTo(dAtA[i:])
-		if err79 != nil {
-			return 0, err79
-		}
-		i += n79
+	if m.Tail != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Tail))
+		i--
+		dAtA[i] = 0x40
 	}
 	if m.Follow {
-		dAtA[i] = 0x38
-		i++
+		i--
 		if m.Follow {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x38
 	}
-	if m.Tail != 0 {
-		dAtA[i] = 0x40
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Tail))
+	if m.Datum != nil {
+		{
+			size, err := m.Datum.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Master {
+		i--
+		if m.Master {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
 	}
-	return i, nil
+	if len(m.DataFilters) > 0 {
+		for iNdEx := len(m.DataFilters) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.DataFilters[iNdEx])
+			copy(dAtA[i:], m.DataFilters[iNdEx])
+			i = encodeVarintPps(dAtA, i, uint64(len(m.DataFilters[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *LogMessage) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8387,92 +8811,107 @@ func (m *LogMessage) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *LogMessage) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LogMessage) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.PipelineName) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.PipelineName)))
-		i += copy(dAtA[i:], m.PipelineName)
-	}
-	if len(m.JobID) > 0 {
-		dAtA[i] = 0x1a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.JobID)))
-		i += copy(dAtA[i:], m.JobID)
-	}
-	if len(m.Data) > 0 {
-		for _, msg := range m.Data {
-			dAtA[i] = 0x22
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.Ts != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Ts.Size()))
-		n80, err80 := m.Ts.MarshalTo(dAtA[i:])
-		if err80 != nil {
-			return 0, err80
-		}
-		i += n80
-	}
-	if len(m.Message) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Message)))
-		i += copy(dAtA[i:], m.Message)
-	}
-	if len(m.WorkerID) > 0 {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.WorkerID)))
-		i += copy(dAtA[i:], m.WorkerID)
-	}
-	if m.User {
-		dAtA[i] = 0x40
-		i++
-		if m.User {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.DatumID) > 0 {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.DatumID)))
-		i += copy(dAtA[i:], m.DatumID)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Master {
-		dAtA[i] = 0x50
-		i++
+		i--
 		if m.Master {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x50
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.DatumID) > 0 {
+		i -= len(m.DatumID)
+		copy(dAtA[i:], m.DatumID)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.DatumID)))
+		i--
+		dAtA[i] = 0x4a
 	}
-	return i, nil
+	if m.User {
+		i--
+		if m.User {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x40
+	}
+	if len(m.WorkerID) > 0 {
+		i -= len(m.WorkerID)
+		copy(dAtA[i:], m.WorkerID)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.WorkerID)))
+		i--
+		dAtA[i] = 0x3a
+	}
+	if len(m.Message) > 0 {
+		i -= len(m.Message)
+		copy(dAtA[i:], m.Message)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Message)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.Ts != nil {
+		{
+			size, err := m.Ts.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.Data) > 0 {
+		for iNdEx := len(m.Data) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Data[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
+	if len(m.JobID) > 0 {
+		i -= len(m.JobID)
+		copy(dAtA[i:], m.JobID)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.JobID)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.PipelineName) > 0 {
+		i -= len(m.PipelineName)
+		copy(dAtA[i:], m.PipelineName)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.PipelineName)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *RestartDatumRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8480,45 +8919,47 @@ func (m *RestartDatumRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *RestartDatumRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RestartDatumRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Job != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n81, err81 := m.Job.MarshalTo(dAtA[i:])
-		if err81 != nil {
-			return 0, err81
-		}
-		i += n81
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.DataFilters) > 0 {
-		for _, s := range m.DataFilters {
+		for iNdEx := len(m.DataFilters) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.DataFilters[iNdEx])
+			copy(dAtA[i:], m.DataFilters[iNdEx])
+			i = encodeVarintPps(dAtA, i, uint64(len(m.DataFilters[iNdEx])))
+			i--
 			dAtA[i] = 0x12
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
 		}
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *InspectDatumRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8526,30 +8967,38 @@ func (m *InspectDatumRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InspectDatumRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InspectDatumRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Datum != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Datum.Size()))
-		n82, err82 := m.Datum.MarshalTo(dAtA[i:])
-		if err82 != nil {
-			return 0, err82
-		}
-		i += n82
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Datum != nil {
+		{
+			size, err := m.Datum.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ListDatumRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8557,40 +9006,48 @@ func (m *ListDatumRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ListDatumRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListDatumRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Job != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Job.Size()))
-		n83, err83 := m.Job.MarshalTo(dAtA[i:])
-		if err83 != nil {
-			return 0, err83
-		}
-		i += n83
-	}
-	if m.PageSize != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.PageSize))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Page != 0 {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintPps(dAtA, i, uint64(m.Page))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.PageSize != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.PageSize))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Job != nil {
+		{
+			size, err := m.Job.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ListDatumResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8598,42 +9055,50 @@ func (m *ListDatumResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ListDatumResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListDatumResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.DatumInfos) > 0 {
-		for _, msg := range m.DatumInfos {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if m.TotalPages != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.TotalPages))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Page != 0 {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintPps(dAtA, i, uint64(m.Page))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.TotalPages != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.TotalPages))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if len(m.DatumInfos) > 0 {
+		for iNdEx := len(m.DatumInfos) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.DatumInfos[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ListDatumStreamResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8641,40 +9106,48 @@ func (m *ListDatumStreamResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ListDatumStreamResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListDatumStreamResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.DatumInfo != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DatumInfo.Size()))
-		n84, err84 := m.DatumInfo.MarshalTo(dAtA[i:])
-		if err84 != nil {
-			return 0, err84
-		}
-		i += n84
-	}
-	if m.TotalPages != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.TotalPages))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Page != 0 {
-		dAtA[i] = 0x18
-		i++
 		i = encodeVarintPps(dAtA, i, uint64(m.Page))
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.TotalPages != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.TotalPages))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.DatumInfo != nil {
+		{
+			size, err := m.DatumInfo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ChunkSpec) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8682,30 +9155,36 @@ func (m *ChunkSpec) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ChunkSpec) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ChunkSpec) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Number != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Number))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.SizeBytes != 0 {
-		dAtA[i] = 0x10
-		i++
 		i = encodeVarintPps(dAtA, i, uint64(m.SizeBytes))
+		i--
+		dAtA[i] = 0x10
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Number != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.Number))
+		i--
+		dAtA[i] = 0x8
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *SchedulingSpec) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8713,43 +9192,52 @@ func (m *SchedulingSpec) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *SchedulingSpec) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *SchedulingSpec) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.NodeSelector) > 0 {
-		for k, _ := range m.NodeSelector {
-			dAtA[i] = 0xa
-			i++
-			v := m.NodeSelector[k]
-			mapSize := 1 + len(k) + sovPps(uint64(len(k))) + 1 + len(v) + sovPps(uint64(len(v)))
-			i = encodeVarintPps(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.PriorityClassName) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.PriorityClassName)
+		copy(dAtA[i:], m.PriorityClassName)
 		i = encodeVarintPps(dAtA, i, uint64(len(m.PriorityClassName)))
-		i += copy(dAtA[i:], m.PriorityClassName)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.NodeSelector) > 0 {
+		for k := range m.NodeSelector {
+			v := m.NodeSelector[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintPps(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintPps(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintPps(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CreatePipelineRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -8757,292 +9245,331 @@ func (m *CreatePipelineRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CreatePipelineRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CreatePipelineRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n85, err85 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err85 != nil {
-			return 0, err85
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.HashtreeSpec != nil {
+		{
+			size, err := m.HashtreeSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n85
-	}
-	if m.Transform != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Transform.Size()))
-		n86, err86 := m.Transform.MarshalTo(dAtA[i:])
-		if err86 != nil {
-			return 0, err86
-		}
-		i += n86
-	}
-	if m.Update {
-		dAtA[i] = 0x28
-		i++
-		if m.Update {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.ParallelismSpec != nil {
-		dAtA[i] = 0x3a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ParallelismSpec.Size()))
-		n87, err87 := m.ParallelismSpec.MarshalTo(dAtA[i:])
-		if err87 != nil {
-			return 0, err87
-		}
-		i += n87
-	}
-	if m.Egress != nil {
-		dAtA[i] = 0x4a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Egress.Size()))
-		n88, err88 := m.Egress.MarshalTo(dAtA[i:])
-		if err88 != nil {
-			return 0, err88
-		}
-		i += n88
-	}
-	if len(m.OutputBranch) > 0 {
-		dAtA[i] = 0x52
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.OutputBranch)))
-		i += copy(dAtA[i:], m.OutputBranch)
-	}
-	if m.ScaleDownThreshold != nil {
-		dAtA[i] = 0x5a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ScaleDownThreshold.Size()))
-		n89, err89 := m.ScaleDownThreshold.MarshalTo(dAtA[i:])
-		if err89 != nil {
-			return 0, err89
-		}
-		i += n89
-	}
-	if m.ResourceRequests != nil {
-		dAtA[i] = 0x62
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ResourceRequests.Size()))
-		n90, err90 := m.ResourceRequests.MarshalTo(dAtA[i:])
-		if err90 != nil {
-			return 0, err90
-		}
-		i += n90
-	}
-	if m.Input != nil {
-		dAtA[i] = 0x6a
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Input.Size()))
-		n91, err91 := m.Input.MarshalTo(dAtA[i:])
-		if err91 != nil {
-			return 0, err91
-		}
-		i += n91
-	}
-	if len(m.Description) > 0 {
-		dAtA[i] = 0x72
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Description)))
-		i += copy(dAtA[i:], m.Description)
-	}
-	if m.Incremental {
-		dAtA[i] = 0x78
-		i++
-		if m.Incremental {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.CacheSize) > 0 {
-		dAtA[i] = 0x82
-		i++
+		i--
 		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.CacheSize)))
-		i += copy(dAtA[i:], m.CacheSize)
+		i--
+		dAtA[i] = 0xfa
 	}
-	if m.EnableStats {
-		dAtA[i] = 0x88
-		i++
+	if len(m.PodSpec) > 0 {
+		i -= len(m.PodSpec)
+		copy(dAtA[i:], m.PodSpec)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.PodSpec)))
+		i--
 		dAtA[i] = 0x1
-		i++
-		if m.EnableStats {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
+		i--
+		dAtA[i] = 0xf2
+	}
+	if m.SchedulingSpec != nil {
+		{
+			size, err := m.SchedulingSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i++
-	}
-	if m.Reprocess {
-		dAtA[i] = 0x90
-		i++
+		i--
 		dAtA[i] = 0x1
-		i++
-		if m.Reprocess {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+		i--
+		dAtA[i] = 0xea
 	}
-	if m.Batch {
-		dAtA[i] = 0x98
-		i++
+	if m.DatumTries != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.DatumTries))
+		i--
 		dAtA[i] = 0x1
-		i++
-		if m.Batch {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if m.MaxQueueSize != 0 {
-		dAtA[i] = 0xa0
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.MaxQueueSize))
-	}
-	if m.Service != nil {
-		dAtA[i] = 0xaa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Service.Size()))
-		n92, err92 := m.Service.MarshalTo(dAtA[i:])
-		if err92 != nil {
-			return 0, err92
-		}
-		i += n92
-	}
-	if m.ResourceLimits != nil {
-		dAtA[i] = 0xb2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ResourceLimits.Size()))
-		n93, err93 := m.ResourceLimits.MarshalTo(dAtA[i:])
-		if err93 != nil {
-			return 0, err93
-		}
-		i += n93
-	}
-	if m.ChunkSpec != nil {
-		dAtA[i] = 0xba
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.ChunkSpec.Size()))
-		n94, err94 := m.ChunkSpec.MarshalTo(dAtA[i:])
-		if err94 != nil {
-			return 0, err94
-		}
-		i += n94
-	}
-	if m.DatumTimeout != nil {
-		dAtA[i] = 0xc2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DatumTimeout.Size()))
-		n95, err95 := m.DatumTimeout.MarshalTo(dAtA[i:])
-		if err95 != nil {
-			return 0, err95
-		}
-		i += n95
-	}
-	if m.JobTimeout != nil {
-		dAtA[i] = 0xca
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.JobTimeout.Size()))
-		n96, err96 := m.JobTimeout.MarshalTo(dAtA[i:])
-		if err96 != nil {
-			return 0, err96
-		}
-		i += n96
-	}
-	if len(m.Salt) > 0 {
-		dAtA[i] = 0xd2
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.Salt)))
-		i += copy(dAtA[i:], m.Salt)
+		i--
+		dAtA[i] = 0xe0
 	}
 	if m.Standby {
-		dAtA[i] = 0xd8
-		i++
-		dAtA[i] = 0x1
-		i++
+		i--
 		if m.Standby {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
-	}
-	if m.DatumTries != 0 {
-		dAtA[i] = 0xe0
-		i++
+		i--
 		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.DatumTries))
+		i--
+		dAtA[i] = 0xd8
 	}
-	if m.SchedulingSpec != nil {
-		dAtA[i] = 0xea
-		i++
+	if len(m.Salt) > 0 {
+		i -= len(m.Salt)
+		copy(dAtA[i:], m.Salt)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Salt)))
+		i--
 		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.SchedulingSpec.Size()))
-		n97, err97 := m.SchedulingSpec.MarshalTo(dAtA[i:])
-		if err97 != nil {
-			return 0, err97
+		i--
+		dAtA[i] = 0xd2
+	}
+	if m.JobTimeout != nil {
+		{
+			size, err := m.JobTimeout.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n97
-	}
-	if len(m.PodSpec) > 0 {
-		dAtA[i] = 0xf2
-		i++
+		i--
 		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(len(m.PodSpec)))
-		i += copy(dAtA[i:], m.PodSpec)
+		i--
+		dAtA[i] = 0xca
 	}
-	if m.HashtreeSpec != nil {
-		dAtA[i] = 0xfa
-		i++
-		dAtA[i] = 0x1
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.HashtreeSpec.Size()))
-		n98, err98 := m.HashtreeSpec.MarshalTo(dAtA[i:])
-		if err98 != nil {
-			return 0, err98
+	if m.DatumTimeout != nil {
+		{
+			size, err := m.DatumTimeout.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
-		i += n98
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xc2
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.ChunkSpec != nil {
+		{
+			size, err := m.ChunkSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xba
 	}
-	return i, nil
+	if m.ResourceLimits != nil {
+		{
+			size, err := m.ResourceLimits.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xb2
+	}
+	if m.Service != nil {
+		{
+			size, err := m.Service.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xaa
+	}
+	if m.MaxQueueSize != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.MaxQueueSize))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa0
+	}
+	if m.Batch {
+		i--
+		if m.Batch {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x98
+	}
+	if m.Reprocess {
+		i--
+		if m.Reprocess {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x90
+	}
+	if m.EnableStats {
+		i--
+		if m.EnableStats {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x88
+	}
+	if len(m.CacheSize) > 0 {
+		i -= len(m.CacheSize)
+		copy(dAtA[i:], m.CacheSize)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.CacheSize)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x82
+	}
+	if m.Incremental {
+		i--
+		if m.Incremental {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x78
+	}
+	if len(m.Description) > 0 {
+		i -= len(m.Description)
+		copy(dAtA[i:], m.Description)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.Description)))
+		i--
+		dAtA[i] = 0x72
+	}
+	if m.Input != nil {
+		{
+			size, err := m.Input.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x6a
+	}
+	if m.ResourceRequests != nil {
+		{
+			size, err := m.ResourceRequests.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x62
+	}
+	if m.ScaleDownThreshold != nil {
+		{
+			size, err := m.ScaleDownThreshold.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
+	}
+	if len(m.OutputBranch) > 0 {
+		i -= len(m.OutputBranch)
+		copy(dAtA[i:], m.OutputBranch)
+		i = encodeVarintPps(dAtA, i, uint64(len(m.OutputBranch)))
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.Egress != nil {
+		{
+			size, err := m.Egress.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x4a
+	}
+	if m.ParallelismSpec != nil {
+		{
+			size, err := m.ParallelismSpec.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x3a
+	}
+	if m.Update {
+		i--
+		if m.Update {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.Transform != nil {
+		{
+			size, err := m.Transform.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *InspectPipelineRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9050,30 +9577,38 @@ func (m *InspectPipelineRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *InspectPipelineRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *InspectPipelineRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n99, err99 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err99 != nil {
-			return 0, err99
-		}
-		i += n99
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ListPipelineRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9081,20 +9616,26 @@ func (m *ListPipelineRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ListPipelineRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ListPipelineRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *DeletePipelineRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9102,50 +9643,58 @@ func (m *DeletePipelineRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *DeletePipelineRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *DeletePipelineRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n100, err100 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err100 != nil {
-			return 0, err100
-		}
-		i += n100
-	}
-	if m.All {
-		dAtA[i] = 0x20
-		i++
-		if m.All {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Force {
-		dAtA[i] = 0x28
-		i++
+		i--
 		if m.Force {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x28
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.All {
+		i--
+		if m.All {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x20
 	}
-	return i, nil
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *StartPipelineRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9153,30 +9702,38 @@ func (m *StartPipelineRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *StartPipelineRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *StartPipelineRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n101, err101 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err101 != nil {
-			return 0, err101
-		}
-		i += n101
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *StopPipelineRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9184,30 +9741,38 @@ func (m *StopPipelineRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *StopPipelineRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *StopPipelineRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n102, err102 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err102 != nil {
-			return 0, err102
-		}
-		i += n102
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *RerunPipelineRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9215,54 +9780,66 @@ func (m *RerunPipelineRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *RerunPipelineRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *RerunPipelineRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Pipeline != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.Pipeline.Size()))
-		n103, err103 := m.Pipeline.MarshalTo(dAtA[i:])
-		if err103 != nil {
-			return 0, err103
-		}
-		i += n103
-	}
-	if len(m.Exclude) > 0 {
-		for _, msg := range m.Exclude {
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Include) > 0 {
-		for _, msg := range m.Include {
+		for iNdEx := len(m.Include) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Include[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
 			dAtA[i] = 0x1a
-			i++
-			i = encodeVarintPps(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
+		}
+	}
+	if len(m.Exclude) > 0 {
+		for iNdEx := len(m.Exclude) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Exclude[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintPps(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if m.Pipeline != nil {
+		{
+			size, err := m.Pipeline.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
-			i += n
+			i -= size
+			i = encodeVarintPps(dAtA, i, uint64(size))
 		}
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GarbageCollectRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9270,25 +9847,31 @@ func (m *GarbageCollectRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GarbageCollectRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GarbageCollectRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.MemoryBytes != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintPps(dAtA, i, uint64(m.MemoryBytes))
-	}
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	if m.MemoryBytes != 0 {
+		i = encodeVarintPps(dAtA, i, uint64(m.MemoryBytes))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *GarbageCollectResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9296,20 +9879,26 @@ func (m *GarbageCollectResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GarbageCollectResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GarbageCollectResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ActivateAuthRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9317,20 +9906,26 @@ func (m *ActivateAuthRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ActivateAuthRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ActivateAuthRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *ActivateAuthResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -9338,24 +9933,32 @@ func (m *ActivateAuthResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ActivateAuthResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ActivateAuthResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintPps(dAtA []byte, offset int, v uint64) int {
+	offset -= sovPps(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Secret) Size() (n int) {
 	if m == nil {
