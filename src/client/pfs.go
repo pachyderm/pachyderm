@@ -275,7 +275,7 @@ func (c APIClient) ListCommit(repoName string, to string, from string, number ui
 // If `from` is given, only the descendents of `from`, including `from`
 // itself, are considered.
 // `number` determines how many commits are returned.  If `number` is 0,
-// `reverse` lists the commits from oldest to newest, rather than
+// `reverse` lists the commits from oldest to newest, rather than newest to oldest
 // all commits that match the aforementioned criteria are passed to f.
 func (c APIClient) ListCommitF(repoName string, to string, from string, number uint64, reverse bool, f func(*pfs.CommitInfo) error) error {
 	req := &pfs.ListCommitRequest{
