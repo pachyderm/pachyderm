@@ -697,20 +697,20 @@ func (c APIClient) TagObject(hash string, tags ...string) error {
 }
 
 // ListObject lists objects stored in pfs.
-func (c APIClient) ListObject(f func(*pfs.Object) error) error {
+func (c APIClient) ListObject(f func(*pfs.ObjectInfo) error) error {
 	listObjectClient, err := c.ObjectAPIClient.ListObjects(c.Ctx(), &pfs.ListObjectsRequest{})
 	if err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	for {
-		object, err := listObjectClient.Recv()
+		oi, err := listObjectClient.Recv()
 		if err != nil {
 			if err == io.EOF {
 				return nil
 			}
 			return grpcutil.ScrubGRPC(err)
 		}
-		if err := f(object); err != nil {
+		if err := f(oi); err != nil {
 			return err
 		}
 	}

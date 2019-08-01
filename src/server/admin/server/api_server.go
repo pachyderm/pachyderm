@@ -115,8 +115,8 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	}
 	if !request.NoObjects {
 		w := extractObjectWriter(writeOp)
-		if err := pachClient.ListObject(func(object *pfs.Object) error {
-			if err := pachClient.GetObject(object.Hash, w); err != nil {
+		if err := pachClient.ListObject(func(oi *pfs.ObjectInfo) error {
+			if err := pachClient.GetObject(oi.Object.Hash, w); err != nil {
 				return err
 			}
 			// empty PutObjectRequest to indicate EOF

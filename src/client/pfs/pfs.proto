@@ -560,6 +560,9 @@ message GetBlocksRequest {
   uint64 total_size = 4;
 }
 
+message ListBlocksRequest {
+}
+
 message TagObjectRequest {
   Object object = 1;
   repeated Tag tags = 2;
@@ -613,7 +616,7 @@ service ObjectAPI {
   // CheckObject checks if an object exists in the blob store without
   // actually reading the object.
   rpc CheckObject(CheckObjectRequest) returns (CheckObjectResponse) {}
-  rpc ListObjects(ListObjectsRequest) returns (stream Object) {}
+  rpc ListObjects(ListObjectsRequest) returns (stream ObjectInfo) {}
   rpc DeleteObjects(DeleteObjectsRequest) returns (DeleteObjectsResponse) {}
   rpc GetTag(Tag) returns (stream google.protobuf.BytesValue) {}
   rpc InspectTag(Tag) returns (ObjectInfo) {}

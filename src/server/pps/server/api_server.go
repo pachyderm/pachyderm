@@ -2891,12 +2891,12 @@ func (a *apiServer) GarbageCollect(ctx context.Context, request *pps.GarbageColl
 		}
 		return nil
 	}
-	for object, err := objects.Recv(); err != io.EOF; object, err = objects.Recv() {
+	for oi, err := objects.Recv(); err != io.EOF; oi, err = objects.Recv() {
 		if err != nil {
 			return nil, fmt.Errorf("error receiving objects from ListObjects: %v", err)
 		}
-		if !activeStat.Objects.TestString(object.Hash) {
-			objectsToDelete = append(objectsToDelete, object)
+		if !activeStat.Objects.TestString(oi.Object.Hash) {
+			objectsToDelete = append(objectsToDelete, oi.Object)
 		}
 		// Delete objects in batches
 		if err := deleteObjectsIfMoreThan(100); err != nil {

@@ -567,7 +567,11 @@ func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, l
 	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 
 	return s.objClient.Walk(listObjectsServer.Context(), s.objectDir(), func(key string) error {
-		return listObjectsServer.Send(client.NewObject(filepath.Base(key)))
+		oi, err := s.InspectObject(listObjectsServer.Context(), client.NewObject(filepath.Base(key)))
+		if err != nil {
+			return err
+		}
+		return listObjectsServer.Send(oi)
 	})
 }
 
