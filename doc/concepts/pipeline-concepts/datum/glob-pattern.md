@@ -23,52 +23,31 @@ concept of glob patterns is similar to the Unix glob patterns.
 For example, the `ls *.md` command matches all files with the
 `.md` file extension.
 
-Pachyderm accepts the `/` and `*` indicators as
-glob patterns.
+In Pachyderm, the `/` and `*` indicators are most
+commonly used globs.
 
 The following are examples of glob patterns that you can define:
 
-* `/` — Pachyderm processes the whole repository as a
-  single datum and sends the data to a single worker node.
-* `/*` — Pachyderm processes each top-level filesystem
-  object, such as a file or directory, in
-  the root directory as a separate datum. For example,
+* `/` — Pachyderm denotes the whole repository as a
+  single datum and sends all of the input data to a
+  single worker node to be processed together.
+* `/*` — Pachyderm defines each top-level filesystem
+  object, that is a file or a directory, in the input
+  repo as a separate datum. For example,
   if you have a repository with ten files in it and no
-  directory structure, Pachyderm handles each file as a
-  single datum, similar to a map operation.
+  directory structure, Pachyderm identifies each file as a
+  single datum and processes them independently.
 * `/*/*` — Pachyderm processes each filesystem object
   in each subdirectory as a separate datum.
 
 <!-- Add the ohmyglob examples here-->
 
-The following text is an extract from a pipeline specification.
-It shows how you can define glob pattern for individual PFS
-inputs:
-
-```
-"input": {
-    "cross" or "union": [
-        {
-            "pfs": {
-                "repo": "string",
-                "glob": "string",
-            }
-        },
-        {
-            "pfs": {
-                "repo": "string",
-                "glob": "string",
-            }
-        },
-        etc...
-    ]
- }
- ```
-
-For example, if you have two workers and define two datums,
-Pachyderm sends one datum to each worker. If you have more
-datums than workers, Pachyderm queues datums and sends
-them to workers as they finish processing previous datums.
+If you have more than one input repo in your pipeline,
+you can define a different glob pattern for each input
+repo. You can combine the datums from each input repo
+by using either the `cross` or `union` operator to
+create the final datums that your code processes.
+For more information, see [Cross and Union](cross-union.html).
 
 ## Example of Defining Datums
 
@@ -86,30 +65,46 @@ For example, you have the following directory:
 ...
 ```
 
-Each top-level directory represents a United State (US) with
-`json` files in it that represent cities of that state.
+Each top-level directory represents a US
+state with a `json` file for each city in that state.
 
-* If you set glob pattern to `/`, every time
+If you set glob pattern to `/`, every time
 you change anything in any of the
-files and folders or add a new file to the
-repository, Pachyderm processes the whole
-repository from scratch.
+files and directories or add a new file to the
+repository, Pachyderm processes the contents
+of the whole repository from scratch as a single datum.
 
-If you need to process all the data for each state together in one
-batch, you need to define `/*` as a glob pattern. Pachyderm
+If you set `/*` as a glob pattern, Pachyderm processes
+the data for each state individually. It
 defines one datum per state, which means that all the cities for
 a given state are processed together by a single worker, but each
-state can be processed independently. For example, if you add a new file
+state is processed independently. For example, if you add a new file
 `Sacramento.json` to the `California/` directory, Pachyderm
 processes the `California/` datum only.
 
-If you set `/*/*` for states, Pachyderm processes each city as a single
+If you set `/*/*`, Pachyderm processes each city as a single
 datum on a separate worker. For example, if you add
 the `Sacramento.json` file, Pachyderm processes the
 `Sacramento.json` file only.
 
-If you want to process a specific directory or a subset of directories
-as a PFS input instead of the whole input repository,
-you can specify `/<state>/*` directory to process only the data in the
-`<state>/` directory.
+Glob patterns also let you take only a particular directory or subset of
+directories as an input instead of the whole repo. For example,
+you can set `/California/*` to process only the data for the state of
+California.
+
+## Test glob patterns
+
+You can use the `pachctl glob file` command to preview which filesystem
+objects a pipeline defines as datums. This command helps
+you to test various glob patterns before you use them in a pipeline.
+
+**Example:**
+
+
+```bash
+$ pachctl glob file raw_data@master:/
+NAME TYPE SIZE
+/    dir  5.121MiB
+```
+
 
