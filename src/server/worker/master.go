@@ -119,7 +119,6 @@ func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
 	// Listen for new commits, and create jobs when they arrive
 	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, "",
 		client.NewCommitProvenance(ppsconsts.SpecRepo, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.SpecCommit.ID),
-		// nil,
 		"", pfs.CommitState_READY)
 	if err != nil {
 		return err
