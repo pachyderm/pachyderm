@@ -30,7 +30,7 @@ func TestAcquireDatums(t *testing.T) {
 	c := getPachClient(t)
 	etcdClient := getEtcdClient(t)
 
-	plans := col.NewCollection(etcdClient, path.Join("", planPrefix), nil, &Plan{}, nil, nil)
+	plans := col.NewCollection(etcdClient, path.Join("", planPrefix), nil, &Plan{}, etcd.SortByModRevision, nil, nil)
 	for nChunks := 1; nChunks < 200; nChunks += 50 {
 		for nWorkers := 1; nWorkers < 40; nWorkers += 10 {
 			jobInfo := &pps.JobInfo{
@@ -117,6 +117,6 @@ func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etc
 		},
 		jobs:      ppsdb.Jobs(etcdClient, etcdPrefix),
 		pipelines: ppsdb.Pipelines(etcdClient, etcdPrefix),
-		plans:     col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
+		plans:     col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, etcd.SortByModRevision, nil, nil),
 	}
 }
