@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -144,6 +145,9 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		return nil
 	})
 
+	ris, err := c.ListRepo()
+	require.NoError(t, err)
+	sort.Slice(ris, func(i, j int) bool { return ris[i].Repo.Name < ris[j].Repo.Name })
 	// Extract existing cluster state
 	ops, err := c.ExtractAll(testObjects)
 	require.NoError(t, err)
@@ -157,6 +161,15 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 
 	// Restore metadata and possibly objects
 	require.NoError(t, c.Restore(ops))
+
+	risAfter, err := c.ListRepo()
+	require.NoError(t, err)
+	sort.Slice(risAfter, func(i, j int) bool { return risAfter[i].Repo.Name < risAfter[j].Repo.Name })
+	require.Equal(t, len(ris), len(risAfter))
+	for i, ri := range ris {
+		require.Equal(t, ri.Repo.Name, risAfter[i].Repo.Name)
+		require.Equal(t, ri.SizeBytes, risAfter[i].SizeBytes)
+	}
 
 	// Make sure all commits got re-created
 	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
