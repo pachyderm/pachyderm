@@ -1,6 +1,6 @@
 # Using the Pachyderm S3 Gateway with Kubeflow TFJobs and Tensorflow
 
-# Introduction
+## Introduction
 
 Pachyderm makes production data pipelines repeatable, scalable and provable.
 Data scientist and engineers use Pachyderm pipelines to connect data acquisition, cleaning, processing, modeling, and analysis code,
@@ -20,7 +20,7 @@ It's best to test this connectivity first with authentication and SSL turned off
 Once you've confirmed the basic functionality of reading and writing to Pachyderm repos from TFJobs in Kubeflow,
 contact Pachyderm support to configure authentication and SSL for use with the S3 Gateway.
 
-## Prerequisites
+### Prerequisites
 
 You should deploy Pachyderm and Kubeflow in your environment.
 **NOTE**
@@ -31,7 +31,7 @@ You can then configure Kubeflow to deploy without creating the cluster,
 using the `--skip-init-gcp-project` to the `kfctl init` command.
 
 
-# The Pachyderm S3 Gateway
+## The Pachyderm S3 Gateway
 
 One of the ways you can use Pachyderm's version-controlled data repositories with Kubeflow is via Pachyderm Enterprise Edition's S3 Gateway feature.
 The S3 Gateway provides an way to access data stored in Pachyderm using any S3-compatible tool such as `s3cmd`, `mc` or the Kubeflow `file_io` library.
@@ -45,7 +45,7 @@ you can connect to Pachyderm's S3 gateway.
 
 Complete instructions for setting up and working with the S3 Gateway with various S3 clients, [s3cmd](https://github.com/s3tools/s3cmd), [the AWS CLI](https://aws.amazon.com/cli/) and the [minio client (mc)](https://github.com/minio/mc) are available at the [documentation for the S3 Gateway](http://docs.pachyderm.io/en/latest/enterprise/s3gateway.html).
 
-# Accessing Pachyderm repos from TFJobs and the Tensorflow apis
+### Accessing Pachyderm repos from TFJobs and the Tensorflow apis
 
 Once you have deployed both Pachyderm and Kubeflow,
 enabled Pachyderm Enterprise Edition with your activation key,
@@ -136,7 +136,7 @@ Here are the steps you need to take to run this in your environment using our pr
 This demonstrates that anywhere that the `file_io` library is used, 
 you can put data into and get data out of Pachyderm versioned data repositories.
 
-## Extra: Using the Minio client libraries
+### Extra: Using the Minio client libraries
 
 To further demonstrate compatibility and interconnectivity,
 an example using the Minio client libraries is included.
