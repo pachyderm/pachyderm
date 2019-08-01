@@ -59,7 +59,7 @@ via the command line.
 Once Pachyderm Enterprise Edition has been activated, 
 you can connect to Pachyderm's S3 gateway.
 
-Complete instructions for setting up and working with the S3 Gateway with various S3 clients, 
+Complete instructions for setting up and working with the S3 Gateway using various S3 clients, 
 [s3cmd](https://github.com/s3tools/s3cmd),
 [the AWS CLI](https://aws.amazon.com/cli/) and
 the [minio client (mc)](https://github.com/minio/mc) are available
@@ -124,7 +124,7 @@ This simple test allows you to see if your Kubeflow and Pachyderm deployments ar
 
 If you want to test this in your own Kubeflow/Pachyderm deployment, 
 you can either build your own container using the `Dockerfile.tf_job_s3_gateway.yml` included with this example or
-use the prebuilt container with this code and sample data hosted in the Pachyderm docker registry.
+use the prebuilt container.
 You create a TFJob using a TFJob manifest.
 We've included one with this example, 
 `tf_job_s3_gateway.yaml`, 
