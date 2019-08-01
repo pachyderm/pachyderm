@@ -129,7 +129,7 @@ func (a *apiServer) handleSAMLResponse(w http.ResponseWriter, req *http.Request)
 
 	// Redirect caller back to dash with auth code
 	u := *defaultDashRedirectURL
-	if cfg.SAMLSvc != nil {
+	if cfg.SAMLSvc != nil && cfg.SAMLSvc.DashURL != nil {
 		u = *cfg.SAMLSvc.DashURL
 	}
 	u.RawQuery = url.Values{"auth_code": []string{authCode}}.Encode()
