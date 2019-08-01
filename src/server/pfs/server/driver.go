@@ -2382,6 +2382,13 @@ func (d *driver) createBranch(txnCtx *txnenv.TransactionContext, branch *pfs.Bra
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.Update(branch.Repo.Name, repoInfo, func() error {
 		add(&repoInfo.Branches, branch)
+		if branch.Name == "master" && commit != nil {
+			ci, err := d.inspectCommit(txnCtx.Client, commit, pfs.CommitState_STARTED)
+			if err != nil {
+				return err
+			}
+			repoInfo.SizeBytes = ci.SizeBytes
+		}
 		return nil
 	}); err != nil {
 		return err
