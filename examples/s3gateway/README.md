@@ -131,34 +131,38 @@ We've included one with this example,
 which you would use to deploy the TFJob to your Kubeflow app
 after you've edited it for your environment.
 
-Here are the steps you need to take to run this in your environment using our prebuilt images.
+Here are the steps you need to take to run this in your environment using our prebuilt images and
+Kubeflow installed with Pachyderm using the defaults for a joint deployment: 
+Kubeflow in the `kubeflow` namespace and Pachyderm in the `pachyderm` namespace.
 
 1. Deploy Pachyderm and Kubeflow.
-2. Edit the `S3_ENDPOINT` environment variable in `tf_job_s3_gateway.yaml` to reflect your deployment.
-   The default value,
-   `pachd.pachyderm:600`, 
-   is for Pachyderm deployed into the namespace `pachyderm` with the default S3 Gateway port.
-   If, 
-   for example, 
-   you deployed Pachyderm into the default namespace,
-   you would configure it as `pachd.default.600`, 
-   or you can hardcode it using the CLUSTER-IP address of the `pachd` service obtained through `kubectl get service -n <namespace>`.
-3. Edit the `namespace` metadata  in `tf_job_s3_gateway.yaml` to reflect your Kubeflow deployment's namespace.
-4. Create a repo in Pachyderm matching the name of the bucket used as the parameter to the `-b` argument in `tf_job_s3_gateway.yaml`.
-   If you're using the default, the command would be `pachctl create repo testrepo`.
-5. Create a branch in that repo matching the name of the bucket used as the parameter to the `-b` argument in `tf_job_s3_gateway.yaml`.
-   If you're using the default, the command would be `pachctl create branch testrepo@master`.
-   You can also just commit a file to the `repo@branch` you want to use.
-6. Deploy the manifest to your Kubeflow using  `kubectl apply -f tf_job_s3_gateway.yaml`
-7. Using your Kubeflow TFJob dashboard or `kubectl`, monitor the TFJob pod created until it completes.
+2. Create a repo in Pachyderm using the command  `pachctl create repo testrepo`.
+3. Create a branch in that repo using the command `pachctl create branch testrepo@master`.
+4. Deploy the manifest to your Kubeflow using  `kubectl apply -f tf_job_s3_gateway.yaml`
+5. Using your Kubeflow TFJob dashboard or `kubectl`, monitor the TFJob pod created until it completes.
    The pod will be named after the name of the TFJob in the manifest,
    which is `s3-gateway-example` by default, 
    and would be something like `s3-gateway-example-worker-0`.
-8. Using your Kubeflow TFJob dashboard or `kubectl`, look at the logs for that TFJob.
+6. Using your Kubeflow TFJob dashboard or `kubectl`, look at the logs for that TFJob.
    A sample log is included in the file `sample_tf_job_logs.txt` in this example.
 
 This demonstrates that anywhere that the `file_io` library is used, 
 you can put data into and get data out of Pachyderm versioned data repositories.
+
+### Extra: Custom deployments and customizations
+* Change the name of the bucket used as the parameter to the `-b` argument in `tf_job_s3_gateway.yaml`
+  to match the name and branch of a repo you create in Pachyderm.
+* Edit the `S3_ENDPOINT` environment variable in `tf_job_s3_gateway.yaml` to reflect your deployment.
+  The default value,
+  `pachd.pachyderm:600`, 
+  is for Pachyderm deployed into the namespace `pachyderm` with the default S3 Gateway port.
+  If, 
+  for example, 
+  you deployed Pachyderm into the default namespace,
+  you would configure it as `pachd.default.600`, 
+  or you can hardcode it using the CLUSTER-IP address of the `pachd` service obtained through `kubectl get service -n <namespace>`.
+* Edit the `namespace` metadata  in `tf_job_s3_gateway.yaml` to reflect your Kubeflow deployment's namespace.
+
 
 ### Extra: Using the Minio client libraries
 
