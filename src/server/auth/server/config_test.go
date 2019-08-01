@@ -220,55 +220,6 @@ func TestRMWConfigConflict(t *testing.T) {
 	requireConfigsEqual(t, mod2, configResp.Configuration)
 }
 
-// TestSetNilConfig sets a config, then overwrites it with a nil config to
-// disable the SAML service (this tests that an empty config validates and
-// disables the SAML service)
-func TestSetNilConfig(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	deleteAll(t)
-
-	adminClient := getPachClient(t, admin)
-
-	// Set a configuration
-	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
-		IDProviders: []*auth.IDProvider{{
-			Name:        "idp",
-			Description: "fake IdP for testing",
-			SAML: &auth.IDProvider_SAMLOptions{
-				MetadataXML: SimpleSAMLIDPMetadata(t)},
-		}},
-		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
-			ACSURL: "http://acs", MetadataURL: "http://metadata",
-		},
-	}
-	_, err := adminClient.SetConfiguration(adminClient.Ctx(),
-		&auth.SetConfigurationRequest{Configuration: conf})
-	require.NoError(t, err)
-
-	// Read the configuration that was just written
-	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
-		&auth.GetConfigurationRequest{})
-	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
-	requireConfigsEqual(t, conf, configResp.Configuration)
-
-	// Set the nil config
-	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
-		&auth.SetConfigurationRequest{})
-	require.NoError(t, err)
-
-	// Get the empty config
-	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
-		&auth.GetConfigurationRequest{})
-	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
-
-	// TODO Make sure SAML has been deactivated
-}
-
 // TestSetGetEmptyConfig is like TestSetNilConfig, but it passes a non-nil but
 // empty config. Currently the default config is an empty config, but this test
 // will ensure that setting an empty config has the right behavior even if the
