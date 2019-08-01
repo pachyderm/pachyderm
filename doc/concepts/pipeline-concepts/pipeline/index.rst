@@ -38,9 +38,9 @@ A minimum pipeline specification must include the following parameters:
   `Datum <../datum/index.html>`__.
 
 - ``transform`` — Specifies the code that you want to run against your
-  data, such as a Python script. The ``transform`` section includes
-  an ``image`` field that defines the Docker image that you want to
-  run, as well as a ``cmd`` field for the specific code within that
+  data. The ``transform`` section must include an ``image`` field that
+  defines the Docker image that you want to
+  run, as well as a ``cmd`` field for the specific code within the
   container that you want to execute, such as a Python script.
 
 **Example:**

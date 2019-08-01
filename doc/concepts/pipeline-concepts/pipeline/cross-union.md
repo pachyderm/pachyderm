@@ -84,14 +84,17 @@ Your pipeline processes the following datums without any specific order:
 ```
 
 **Note:** Each datum in a pipeline is processed independently by a single
-execution of your code. In this example, your code runs six times. It sees
-`pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a different run,
-and so on. In a union, no two datums will be seen together at the same time.
+execution of your code. In this example, your code runs six times and each
+datum is available to it one at a time. For example, your code
+processes`pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a different run,
+and so on. In a union, two or more datums are never available to your code
+at the same time. Read next section to learn how you can simplify
+your pipeline by using the `name` property.
 
-### Optimizing Union Pipelines
+### Simplifying the Union Pipelines code
 
 In the example above, your code needs to read into the `pfs/A`
-or `pfs/B` directory because only one exists in the datum.
+or `pfs/B` directory because only one of them exists in the datum.
 To simplify your code, you can add a `name` field to the `pfs` object and
 give the same name to each of the input repos. For example, you can add, the
 `name` field with the value `C` to the input repositories `A` and `B`:
@@ -162,7 +165,7 @@ B
 ```
 
 Because you have three datums in each repo, Pachyderm exposes
-a total of nine combinations of datums to your code. 
+a total of nine combinations of datums to your code.
 
 **Important:** In cross pipelines, both `pfs/A` and `pfs/B`
 directories are visible during each code run.
@@ -180,7 +183,7 @@ directories are visible during each code run.
 
 In cross inputs, you cannot specify the same `name` to the combined
 input repositories or name collisions might occur. Both directories are
-visible during processing.
+visible during the processing.
 
 **See Also:**
 

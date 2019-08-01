@@ -1,12 +1,10 @@
 # Distributed Computing
 
-Distributing computation workload across multiple workers
+Distributing your computations across multiple workers
 is a fundamental part of any big data processing.
-When you design your
-Pachyderm pipeline system for production, you need to
-define the number of Pachyderm workers across which you want
-to spread your computations and which workers are responsible
-for which data.
+When you build production-scale pipelines, you need
+to adjust the number of workers and resources that are
+allocated to each job to optimize throughput.
 
 ## Pachyderm Workers
 
@@ -19,11 +17,22 @@ across the various workers and makes that data available for your code.
 
 When you create a pipeline, Pachyderm spins up worker pods that
 continuously run in the cluster waiting for new data to be available
-for processing. Therefore, you do not need to recreate and
+for processing. You can change this behavior by setting `"standby" :true`.
+Therefore, you do not need to recreate and
 schedule workers for every new job.
 
+For each job, all the datums are queued up and then distributed
+across the available workers. When a worker finishes processing
+its datum, it grabs a new datum from the queue until all datums
+complete processing. If a worker pod crashes, its datums are
+redistributed to other workers for maximum fault tolerance.
+
 <!-- The following diagram shows how distributed computing works in
-Pachyderm - TBA -->
+Pachyderm - TBA Possibly could be a gif. :) Show queue of
+datums and 3 workers running things in parallel. Technically,
+each worker can download a datum, process a datum, and upload a
+completed datum all in parallel. May or may not want to show
+this, but wouldn't be too hard. We can draw this out in TOH.-->
 
 ## Controlling the Number of Workers
 
