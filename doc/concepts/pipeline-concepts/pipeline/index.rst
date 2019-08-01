@@ -1,25 +1,36 @@
 Pipeline
 ========
 
-A pipeline is a Pachyderm primitive that is responsible for collecting data
-from a specified source, or ``pfs/input``, transform it according to the pipeline
-configuration file, and place it to the ``pfs/out`` directory in the ``pachd``
-container. Each pipeline subscribes to a branch in the
-input repository or repositories, gets triggered by a commit,
-and runs your code to completion.
+A pipeline is a Pachyderm primitive that is responsible for reading data
+from a specified source, such as a Pachyderm repo, transforming it
+according to the pipeline configuration, and writing the result
+to an output repo.
+A pipeline subscribes to a branch in one or more input repositories.
+Every time the branch has a new commit, the pipeline executes a job
+that runs your code to completion and writes the results to a commit
+in the output repository. Every pipeline automatically creates
+an output repository by the same name as the pipeline. For example,
+a pipeline named ``model`` writes all results to the
+``model`` output repo.
+
+In Pachyderm, a Pipeline is an individual execution step. You can
+chain multiple pipelines together to create a directed acyclic
+graph (DAG).
 
 A minimum pipeline specification must include the following parameters:
 
-- ``name`` — The name of your data pipeline. You can set an arbitrary
-  name that is meaningful to the code you want to run to process the
-  data in the specified repository.
+- ``name`` — The name of your data pipeline. Set a meaningful name for
+  your pipeline, such as the name of the transformation that the
+  pipeline performs. For example, ``split`` or ``edges``. Pachyderm
+  automatically creates an output repository with the same name.
+  A pipeline name must be an alphanumeric string that is less than
+  63 characters long and can include dashes and underscores.
+  No other special characters allowed.
+
 - ``input`` — A location of the data that you want to process, such as a
   Pachyderm repository. You can specify multiple input
-  repositories, as well as combine the repositories as union or cross
-  pipelines.
-  Depending on the anticipated results, you can unite and cross
-  pipelines as needed in this field. For more information, see `Cross
-  and Union <cross-union.html>`__.
+  repositories and set up the data to be combined in various ways.
+  For more information, see `Cross and Union <cross-union.html>`__.
 
   One very important property that is defined in the ``input`` field
   is the ``glob`` pattern that defines how Pachyderm breaks the data into
@@ -27,8 +38,10 @@ A minimum pipeline specification must include the following parameters:
   `Datum <../datum/index.html>`__.
 
 - ``transform`` — Specifies the code that you want to run against your
-  data, such as a Python script. Also, specifies a Docker image that
-  you want to use to run that script.
+  data, such as a Python script. The ``transform`` section includes
+  an ``image`` field that defines the Docker image that you want to
+  run, as well as a ``cmd`` field for the specific code within that
+  container that you want to execute, such as a Python script.
 
 **Example:**
 

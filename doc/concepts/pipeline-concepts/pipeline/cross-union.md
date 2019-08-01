@@ -4,17 +4,17 @@
 that I would say describes the things you can do with a cross or union pipeline
 but does not really have a good and clear explanation of what they are -->
 
-Pachyderm enables you to combine multiple PFS inputs, or multiple
-input repositories, in a single pipeline by using the `union` and
+Pachyderm enables you to combine multiple
+input repositories in a single pipeline by using the `union` and
 `cross` operators in the pipeline specification. Such pipelines
 are called *union pipeline or input* and *cross pipeline or input*.
 
-If you are familiar with the [Set theory](https://en.wikipedia.org/wiki/Set_theory),
+If you are familiar with [Set theory](https://en.wikipedia.org/wiki/Set_theory),
 you can think of union as a *disjoint union binary operator* and of cross as a
-`cartesian product binary operator`. However, if you are unfamiliar with these
+*cartesian product binary operator*. However, if you are unfamiliar with these
 concepts, it is still easy to understand how cross and union work in Pachyderm.
 
-This section describes what union and cross pipelines are and how you
+This section describes how to use `cross` and `union` pipelines and how you
 can optimize your code when you work with them.
 
 ## Union Input
@@ -25,7 +25,7 @@ The number of datums that are processed is the sum of all the
 datums in each repo.
 
 For example, you have two input repos, `A` and `B`. Each of these
-repositories contain three files with the following identical names.
+repositories contain three files with the following names.
 
 Repository `A` has the following structure:
 
@@ -40,15 +40,15 @@ Repository `B` has the following structure:
 
 ```bash
 B
-├── 1.txt
-├── 2.txt
-└── 3.txt
+├── 4.txt
+├── 5.txt
+└── 6.txt
 ```
 
-Although these files have identical names, each file has different content.
-Therefore, each file has a different hash. If you combine them in a
-pipeline, the `input` object in the pipeline spec might have the following
-structure:
+If you watn your pipeline to process each file independently as a
+separate datum, then you need to use a glob pattern of `/*`. Each
+glob is applied to each input independently. The input section
+in the pipeline spec might have the following structure:
 
 ```bash
 "input": {
@@ -78,13 +78,20 @@ Your pipeline processes the following datums without any specific order:
 /pfs/A/1.txt
 /pfs/A/2.txt
 /pfs/A/3.txt
-/pfs/B/1.txt
-/pfs/B/2.txt
-/pfs/B/3.txt
+/pfs/B/4.txt
+/pfs/B/5.txt
+/pfs/B/6.txt
 ```
+
+**Note:** Each datum in a pipeline is processed independently by a single
+execution of your code. In this example, your code runs six times. It sees
+`pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a different run,
+and so on. In a union, no two datums will be seen together at the same time.
 
 ### Optimizing Union Pipelines
 
+In the example above, your code needs to read into the `pfs/A`
+or `pfs/B` directory because only one exists in the datum.
 To simplify your code, you can add a `name` field to the `pfs` object and
 give the same name to each of the input repos. For example, you can add, the
 `name` field with the value `C` to the input repositories `A` and `B`:
@@ -116,17 +123,17 @@ Then, in the pipeline, all datums appear in the same directory.
 /pfs/C/1.txt  # from A
 /pfs/C/2.txt  # from A
 /pfs/C/3.txt  # from A
-/pfs/C/1.txt  # from B
-/pfs/C/2.txt  # from B
-/pfs/C/3.txt  # from B
+/pfs/C/4.txt  # from B
+/pfs/C/5.txt  # from B
+/pfs/C/6.txt  # from B
 ```
 
 ## Cross Input
 
-A cross input, instead of appending datums from one repository to datums
-in the other repository,
-multiplies each datum from one repository with each datum from another
-repository. In other words, a cross input
+In a cross input, Pachyderm exposes every combination of datums,
+or a cross-product, from each of your input repository to your code
+in a single run.
+In other words, a cross input
 combines all the datums and provides them to the pipeline
 that uses this combination as input and treats each combination
 as a separate datum.
@@ -149,18 +156,16 @@ Repository `B` has the following structure:
 
 ```bash
 B
-├── 1.txt
-├── 2.txt
-└── 3.txt
+├── 4.txt
+├── 5.txt
+└── 6.txt
 ```
 
+Because you have three datums in each repo, Pachyderm exposes
+a total of nine combinations of datums to your code. 
 
-Although the files have identical names, each file has different content.
-To create a combination of each file, the pipeline needs to process nine
-datums without any specific order:
-
-**Important:** In cross pipelines, both directories are visible during
-processing.
+**Important:** In cross pipelines, both `pfs/A` and `pfs/B`
+directories are visible during each code run.
 
 ```bash
 /pfs/A/1.txt    /pfs/A/1.txt    /pfs/A/1.txt
@@ -174,7 +179,7 @@ processing.
 ```
 
 In cross inputs, you cannot specify the same `name` to the combined
-input repositories to avoid name collisions. Both directories are
+input repositories or name collisions might occur. Both directories are
 visible during processing.
 
 **See Also:**

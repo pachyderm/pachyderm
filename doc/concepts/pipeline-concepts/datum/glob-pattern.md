@@ -18,7 +18,10 @@ individual *datums*.
 You can think of each input repository as a filesystem where
 the glob pattern is applied to the root of the
 filesystem. The files and directories that match the
-glob pattern are considered datums.
+glob pattern are considered datums. The Pachyderm's
+concept of glob patterns is similar to the Unix glob patterns.
+For example, the `ls *.md` command matches all files with the
+`.md` file extension.
 
 Pachyderm accepts the `/` and `*` indicators as
 glob patterns.

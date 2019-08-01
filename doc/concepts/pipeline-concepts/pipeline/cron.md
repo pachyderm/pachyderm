@@ -1,9 +1,11 @@
 # Cron Pipeline
 
 Pachyderm triggers pipelines when new changes appear in the input repository.
-However, if a pipeline consumes data from sources outside of Pachyderm,
-it cannot use Pachyderm's triggering mechanism to process updates from
-those sources. A standard pipeline with a PFS input might not satisfy
+However, if you want to trigger a pipeline based on time instead of upon
+arrival of input data, you can schedule such pipelines to run periodically
+by using the Pachyderm built-in cron input type.
+
+A standard pipeline with a PFS input might not satisfy
 the requirements of the following tasks:
 
 - Scrape websites
@@ -11,9 +13,6 @@ the requirements of the following tasks:
 - Query a database
 - Retrieve a file from a location accessible through an S3 protocol
 or a File Transfer Protocol (FTP).
-
-You can schedule such pipelines to run periodically by using the Pachyderm's
-built-in `cron` PFS input type.
 
 A minimum cron pipeline must include the following parameters:
 
@@ -45,12 +44,12 @@ triggers the pipeline.
 ![alt tag](../../../images/cron1.png)
 
 The pipeline runs every ten seconds, queries the database and updates its
-output. By default, Pachyderm runs the pipeline on the input data that was
-added since the last tick and skips the already processed data.
-However, if you need to reprocess all the data, you can set the `overwrite`
-flag to `true` to overwrite the timestamp file on each tick.
-Because the processed data is associated with the old file, its absence indicates
-that the data needs to be reprocessed.
+output. By default, each cron trigger adds a new tick file to the cron input
+repository, accumulating more datums over time. This behavior works for some
+pipelines. For others you might want each tick file to overwrite the
+previous one. You can set the overwrite flag to true to overwrite the
+timestamp file on each tick. To learn more about overwriting commits in
+Pachyderm, see [Datum processing](../datum/index.rst)
 
 **Example:**
 
