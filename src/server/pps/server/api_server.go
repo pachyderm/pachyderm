@@ -2722,7 +2722,6 @@ func (a *apiServer) RunPipeline(ctx context.Context, request *pps.RunPipelineReq
 	}
 	// we need to include the spec commit in the provenance, so that the new job is represented by the correct spec commit
 	specProvenance := client.NewCommitProvenance(ppsconsts.SpecRepo, request.Pipeline.Name, specCommit.Commit.ID)
-	fmt.Println(specCommit.Commit.ID)
 	_, err = pfsClient.StartCommit(ctx, &pfs.StartCommitRequest{
 		Parent: &pfs.Commit{
 			Repo: &pfs.Repo{

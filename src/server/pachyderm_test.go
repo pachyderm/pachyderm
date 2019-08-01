@@ -818,7 +818,7 @@ func TestRunPipeline(t *testing.T) {
 		branchA := "branchA"
 		branchB := "branchB"
 
-		pipeline := tu.UniqueString("pipeline-downstream")
+		pipeline := tu.UniqueString("original-pipeline")
 		require.NoError(t, c.CreatePipeline(
 			pipeline,
 			"",
@@ -846,21 +846,17 @@ func TestRunPipeline(t *testing.T) {
 		require.NoError(t, err)
 		c.PutFile(dataRepo, commitB.ID, "/file", strings.NewReader("data B\n"))
 		c.FinishCommit(dataRepo, commitB.ID)
-		println("got here")
 
 		iter, err := c.FlushCommit([]*pfs.Commit{commitA, commitB}, nil)
 		require.NoError(t, err)
-		println("but first")
 		commits := collectCommitInfos(t, iter)
-		println("now")
 		require.Equal(t, 1, len(commits))
 		buffer := bytes.Buffer{}
 		require.NoError(t, c.GetFile(commits[0].Commit.Repo.Name, commits[0].Commit.ID, "file", 0, 0, &buffer))
 		require.Equal(t, "data A\ndata B\n", buffer.String())
-		println("got here")
 
 		// and make sure we can attatch a downstream pipeline
-		downstreamPipeline := tu.UniqueString("pipelinedownstream")
+		downstreamPipeline := tu.UniqueString("downstream-pipeline")
 		require.NoError(t, c.CreatePipeline(
 			downstreamPipeline,
 			"",
@@ -871,19 +867,16 @@ func TestRunPipeline(t *testing.T) {
 			"",
 			false,
 		))
-		println("got hereh")
 
 		commitA2, err := c.StartCommit(dataRepo, branchA)
 		require.NoError(t, err)
 		err = c.FinishCommit(dataRepo, commitA2.ID)
 		require.NoError(t, err)
-		println("got hdhere")
 
 		// there should be one job on the old commit for downstreamPipeline
 		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 		require.NoError(t, err)
 		require.Equal(t, 1, len(jobInfos))
-		println("got here")
 
 		// now run the pipeline
 		require.NoError(t, backoff.Retry(func() error {
@@ -892,10 +885,10 @@ func TestRunPipeline(t *testing.T) {
 			})
 		}, backoff.NewTestingBackOff()))
 
-		// now we should have two jobs on the old commit for downstreamPipeline
+		// the downstream pipeline shouldn't have any new jobs, since runpipeline jobs don't propagate
 		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
 		require.NoError(t, err)
-		require.Equal(t, 2, len(jobInfos))
+		require.Equal(t, 1, len(jobInfos))
 	})
 
 	// Test with a downstream pipeline who's upstream has no datum, but where the downstream still needs to succeed
@@ -975,11 +968,6 @@ func TestRunPipeline(t *testing.T) {
 				client.NewCommitProvenance(dataRepo, branchA, commitA.ID),
 			})
 		}, backoff.NewTestingBackOff()))
-
-		// now we should have two jobs on the old commit for downstreamPipeline
-		jobInfos, err = c.FlushJobAll([]*pfs.Commit{commitA}, []string{downstreamPipeline})
-		require.NoError(t, err)
-		require.Equal(t, 2, len(jobInfos))
 
 		buffer2 := bytes.Buffer{}
 		require.NoError(t, c.GetFile(jobInfos[0].OutputCommit.Repo.Name, jobInfos[0].OutputCommit.ID, "file", 0, 0, &buffer2))
