@@ -25,7 +25,7 @@ Rather than use a complicated Tensorflow/Kubeflow example that shows distributed
 this example will focus on the minimum needed to work with Pachyderm's S3 Gateway from a Kubeflow TFJob.
 
 We will use the example Kubeflow [tfoperator example mnist_with_summaries](https://github.com/kubeflow/tf-operator/tree/master/examples/v1beta2/mnist_with_summaries) as a basis, so you can easily adapt the code for your needs.
-For simplicity, we will use data files that we've built into the example Docker image,
+For simplicity, we will use example data files from the mnist training set,
 but you can easily store any data you wish.
 Anywhere you use the Tensorflow `file_io` library,
 you can access data, models, parameters, etc. that are stored in Pachyderm's versioned data repositories.
@@ -103,10 +103,10 @@ We'll use as source a subset of the mnist training data,
 located in the mnist directory.
 
 The relevant parts of the code from  `tf_job_s3_gateway.py` are below.
-This code simply walks through a local directory,
-copying files to an S3 resource using the Tensorflow `file_io` library.
-It then uses the `file_io.walk()` function to to through the bucket,
-printing out the files to standard output as it goes.
+This code simply walks through a Pachyderm versioned data repository,
+copying files to a directory using the Tensorflow `file_io` library.
+The files can be operated on using Tensorflow functions.
+The data is then copied to another Pachyderm versioned data repository.
 
 ```python
     # first, we copy files from pachyderm into a convenient
