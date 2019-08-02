@@ -22,6 +22,10 @@ your Pachyderm branches that do not require authorization. If you need
 to have a more granular access to branches and commits, use the PFS
 gRPC Remote Procedure Call (gRPC) interface instead.
 
+You can use any S3 compliant client, such as [MinIO](https://docs.min.io/docs/minio-client-complete-guide),
+[AWS CLI s3](https://docs.aws.amazon.com/cli/latest/reference/s3/index.html), or
+[S3cmd](https://s3tools.org/usage) to interact with the Pachyderm S3 gateway.
+
 ## Viewing the List of S3 Buckets
 
 The S3 gateway presents each branch from every Pachyderm repository as
@@ -30,6 +34,13 @@ For example, if you have a `master` branch in the `images` repository,
 an S3 tool sees `images@master` as the `master.images` S3 bucket.
 
 To view the list of S3 buckets, complete the following steps:
+
+1. If you have not done so already, forward Pachyderm ports to
+enable access to the Pachyderm UI and the S3 gateway:
+
+   ```bash
+   pachctl port-forward
+   ```
 
 1. Point your browser to `http://<cluster-ip>:30600/`. A list of
 S3 buckets appears. Example:
@@ -55,22 +66,11 @@ S3 buckets appears. Example:
    through the cluster IP address are more reliable and preferred
    options.
 
-## Examples of Command-Line Operations
+## Configure the S3 client
 
-The Pachyderm S3 gateway supports the following operations:
-
-* Create buckets: Creates a repo and branch.
-* Delete buckets: Deletes a branch or a repo with all branches.
-* List buckets: Lists all branches on all repos as S3 buckets.
-* Write objects: Atomically overwrites a file on the HEAD of a branch.
-* Remove objects: Atomically removes a file on the HEAD of a branch.
-* List objects: Lists the files in the HEAD of a branch.
-* Get objects: Gets file contents on the HEAD of a branch.
-
-To demonstrate the S3 Gateway functionality, all operations in this section
-are performed with either the MinIO command-line client or AWS CLI.
-You can use other S3 compatible tools to execute the same actions
-with the corresponding command-line syntax.
+Before you can work with the S3 gateway, configure your S3 client
+to access Pachyderm. Complete the steps in one of the sections below that
+correspond to your S3 client.
 
 ### Configure MinIO
 
@@ -142,6 +142,70 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
    Default output format [None]:
    ```
 
+### Configure `s3cmd`
+
+S3cmd is an open-source command line client that enables you
+to access S3 object store buckets. To configure s3cmd, complete
+the following steps:
+
+1. If you do not have S3cmd installed on your machine, install
+it as described in the [S3cmd documentation](https://s3tools.org/download).
+For, example, in macOS, run:
+
+   ```bash
+   $ brew install s3cmd
+   ```
+
+1. Verify that s3cmd is installed:
+
+   ```bash
+   $ s3cmd --version
+   s3cmd version 2.0.2
+   ```
+
+1. Configure S3cmd to use Pachyderm:
+
+   ```bash
+   $ s3cmd --configure
+     ...
+   ```
+
+1. Fill all fields and specify the following settings for Pachyderm.
+
+   **Example:**
+
+   ```bash
+
+   New settings:
+     Access Key: ""
+     Secret Key: ""
+     Default Region: US
+     S3 Endpoint: localhost:30600
+     DNS-style bucket+hostname:port template for accessing a bucket: 30600/%(bucket)
+     Encryption password:
+     Path to GPG program: /usr/local/bin/gpg
+     Use HTTPS protocol: False
+     HTTP Proxy server name:
+     HTTP Proxy server port: 0
+   ```
+
+## Examples of Command-Line Operations
+
+The Pachyderm S3 gateway supports the following operations:
+
+* Create buckets: Creates a repo and branch.
+* Delete buckets: Deletes a branch or a repo with all branches.
+* List buckets: Lists all branches on all repos as S3 buckets.
+* Write objects: Atomically overwrites a file on the HEAD of a branch.
+* Remove objects: Atomically removes a file on the HEAD of a branch.
+* List objects: Lists the files in the HEAD of a branch.
+* Get objects: Gets file contents on the HEAD of a branch.
+
+To demonstrate the S3 Gateway functionality, all operations in this section
+are performed with either the MinIO command-line client or AWS CLI.
+You can use other S3 compatible tools to execute the same actions
+with the corresponding command-line syntax.
+
 ### List Filesystem Objects
 
 If you have configured your S3 client correctly, you should be
@@ -174,6 +238,17 @@ To list filesystem objects, complete the following steps:
      2019-07-12 14:36:27 master.raw_data
      ```
 
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd ls
+     2019-07-12 15:09 master.train
+     2019-07-12 14:58 master.pre_process
+     2019-07-12 14:58 master.split
+     2019-07-12 14:58 stats.split
+     2019-07-12 14:36 master.raw_data
+     ```
+
 1. List the contents of a repository:
 
    * If you are using `minikube`, type:
@@ -190,6 +265,12 @@ To list filesystem objects, complete the following steps:
      2019-07-26 11:22:23    2685061 github_issues_medium.csv
      ```
 
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd ls s3://master.raw_data/
+     2019-07-26 11:22 2685061 s3://master.raw_data/github_issues_medium.csv
+     ```
 ### Create an S3 Bucket
 
 You can create an S3 bucket in Pachyderm by using the AWS CLI or
@@ -214,6 +295,12 @@ S3 bucket, which is a repository with a branch in Pachyderm.
      ```bash
      $ aws --endpoint-url http://localhost:30600/ s3 mb s3://master.test
      make_bucket: master.test
+     ```
+
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd mb s3://master.test
      ```
 
    This command creates the `test` repository with the `master` branch.
@@ -243,6 +330,17 @@ S3 bucket, which is a repository with a branch in Pachyderm.
      2019-07-12 14:36:27 master.raw_data
      ```
 
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd ls
+     2019-07-26 11:35 master.test
+     2019-07-12 14:58 master.pre_process
+     2019-07-12 14:58 master.split
+     2019-07-12 14:58 stats.split
+     2019-07-12 14:36 master.raw_data
+     ```
+
    * You can also use the `pachctl list repo` command to view the
    list of repositories:
 
@@ -256,7 +354,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
      raw_data           6 days ago                 2.561MiB
      ```
 
-   You should see the newly created repository in this list.
+     You should see the newly created repository in this list.
 
 ### Delete an S3 Bucket
 
@@ -275,6 +373,12 @@ MinIO client by running the following command:
      ```bash
      $ aws --endpoint-url http://localhost:30600/ s3 rb s3://master.test
      remove_bucket: master.test
+     ```
+
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd rb s3://master.test
      ```
 
 ### Upload and Download File Objects
@@ -318,6 +422,12 @@ To add a file to a repository, complete the following steps:
      upload: ./test.csv to s3://master.raw_data/test.csv
      ```
 
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd cp test.csv s3://master.raw_data
+     ```
+
    These commands add the `test.csv` file to the `master` branch in
    the `raw_data` repository. `raw_data` is an input repository.
 
@@ -334,11 +444,17 @@ To add a file to a repository, complete the following steps:
    * If you are using AWS, type:
 
      ```bash
-     $ aws --endpoint-url http://localhost:30600/ s3 ls
-     2019-07-12 14:58:50 master.pre_process
-     2019-07-12 14:58:09 master.split
-     2019-07-12 14:58:09 stats.split
-     2019-07-12 14:36:27 master.raw_data
+     $ aws --endpoint-url http://localhost:30600/ s3 ls s3://master.raw_data/
+     2019-07-19 12:11:37  2685061 github_issues_medium.csv
+     2019-07-19 12:11:37       62 test.csv
+     ```
+
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd ls s3://master.raw_data/
+     2019-07-19 12:11  2685061 github_issues_medium.csv
+     2019-07-19 12:11       62 test.csv
      ```
 
 1. Download a file from MinIO to the
@@ -356,6 +472,12 @@ current directory by running the following commands:
      ```
      $ aws --endpoint-url http://localhost:30600/ s3 cp s3://master.raw_data/test.csv .
      download: s3://master.raw_data/test.csv to ./test.csv
+     ```
+
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd cp s3://master.raw_data/test.csv .
      ```
 
 ### Remove a File Object
@@ -381,9 +503,17 @@ MinIO command-line interface:
      2019-07-19 12:11:37         62 test.csv
      ```
 
+   * If you are using S3cmd, type:
+
+      ```bash
+      $ s3cmd ls s3://master.raw_data
+      2019-07-19 12:11    2685061 github_issues_medium.csv
+      2019-07-19 12:11         62 test.csv
+      ```
+
 1. Delete a file from a repository. Example:
 
-   <!--- AFAIU, this supposed to work, but it does not.-->
+   <!--- AFAIU, this is supposed to work, but it does not.-->
 
    * If you are using `minikube`, type:
 
@@ -397,6 +527,12 @@ MinIO command-line interface:
      ```bash
      $ aws --endpoint-url http://localhost:30600/ s3 rm s3://master.raw_data/test.csv
      delete: s3://master.raw_data/test.csv
+     ```
+
+   * If you are using S3cmd, type:
+
+     ```bash
+     $ s3cmd rm s3://master.raw_data/test.csv
      ```
 
 ## Unsupported operations
