@@ -78,7 +78,7 @@ func TestValidateConfigMultipleSAMLIdPs(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 }
 
 // TestValidateConfigErrMissingSAMLConfig tests that SetConfig rejects configs
@@ -109,7 +109,7 @@ func TestValidateConfigErrMissingSAMLConfig(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 }
 
 func TestSAMLBasic(t *testing.T) {

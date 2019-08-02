@@ -52,7 +52,6 @@ func TestSetGetConfigBasic(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{{
 			Name:        "idp",
 			Description: "fake IdP for testing",
@@ -72,7 +71,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
+	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
 }
 
@@ -87,15 +86,14 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	alice := tu.UniqueString("alice")
 	anonClient, aliceClient, adminClient := getPachClient(t, ""), getPachClient(t, alice), getPachClient(t, admin)
 
-	// Confirm that the auth config starts out empty
+	// Confirm that the auth config starts out default
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 
 	// Alice tries to set the current configuration and fails
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{{
 			Name:        "idp",
 			Description: "fake IdP for testing",
@@ -121,7 +119,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 
 	// Modify the configuration and make sure anon can't read it, but alice and
 	// admin can
@@ -141,7 +139,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	configResp, err = aliceClient.GetConfiguration(aliceClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
+	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
@@ -162,7 +160,6 @@ func TestRMWConfigConflict(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{{
 			Name:        "idp",
 			Description: "fake IdP for testing",
@@ -184,7 +181,7 @@ func TestRMWConfigConflict(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
+	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	// modify the config twice
@@ -216,7 +213,7 @@ func TestRMWConfigConflict(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	mod2.LiveConfigVersion = 2 // increment version
+	mod2.LiveConfigVersion = 3 // increment version
 	requireConfigsEqual(t, mod2, configResp.Configuration)
 }
 
@@ -234,7 +231,6 @@ func TestSetGetEmptyConfig(t *testing.T) {
 
 	// Set a configuration & read it back
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{{
 			Name:        "idp",
 			Description: "fake IdP for testing",
@@ -252,7 +248,7 @@ func TestSetGetEmptyConfig(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
+	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	// Set the empty config
@@ -263,17 +259,19 @@ func TestSetGetEmptyConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get the empty config
+	expected := defaultAuthConfig
+	expected.LiveConfigVersion = 3 // increment version
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{LiveConfigVersion: 2}, configResp.Configuration)
+	requireConfigsEqual(t, &expected, configResp.Configuration)
 
 	// TODO Make sure SAML has been deactivated
 }
 
-// TestGetEmptyConfig sets a config, then Deactivates+Reactivates auth, then
+// TestConfigRestartAuth sets a config, then Deactivates+Reactivates auth, then
 // calls GetConfig on an empty cluster to be sure the config was cleared
-func TestGetEmptyConfig(t *testing.T) {
+func TestConfigRestartAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -283,7 +281,6 @@ func TestGetEmptyConfig(t *testing.T) {
 
 	// Set a configuration
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{{
 			Name:        "idp",
 			Description: "fake IdP for testing",
@@ -302,7 +299,7 @@ func TestGetEmptyConfig(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
+	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	// Deactivate auth
@@ -347,10 +344,10 @@ func TestGetEmptyConfig(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 
 	// Set the configuration (again)
-	conf.LiveConfigVersion = 0 // reset to 0 (since config is empty)
+	conf.LiveConfigVersion = 0 // clear version, so we issue a blind write
 	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
 		&auth.SetConfigurationRequest{Configuration: conf})
 	require.NoError(t, err)
@@ -359,7 +356,7 @@ func TestGetEmptyConfig(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
+	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
 }
 
@@ -373,7 +370,6 @@ func TestValidateConfigErrNoName(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
 			Description: "fake IdP for testing",
 			SAML: &auth.IDProvider_SAMLOptions{
@@ -392,7 +388,7 @@ func TestValidateConfigErrNoName(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 }
 
 // TestValidateConfigErrReservedName tests that SetConfig rejects configs that
@@ -406,7 +402,6 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 
 	for _, name := range []string{"github", "robot", "pipeline"} {
 		conf := &auth.AuthConfig{
-			LiveConfigVersion: 0,
 			IDProviders: []*auth.IDProvider{&auth.IDProvider{
 				Name:        name,
 				Description: "fake IdP for testing",
@@ -427,7 +422,7 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 }
 
 // TestValidateConfigErrNoType tests that SetConfig rejects configs that
@@ -440,7 +435,6 @@ func TestValidateConfigErrNoType(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
 			Name:        "idp",
 			Description: "fake IdP for testing",
@@ -458,7 +452,7 @@ func TestValidateConfigErrNoType(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 }
 
 // TestValidateConfigErrInvalidIDPMetadata tests that SetConfig rejects configs
@@ -471,7 +465,6 @@ func TestValidateConfigErrInvalidIDPMetadata(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
 			Name:        "idp",
 			Description: "fake IdP for testing",
@@ -492,7 +485,7 @@ func TestValidateConfigErrInvalidIDPMetadata(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 }
 
 // TestValidateConfigErrInvalidIDPMetadata tests that SetConfig rejects configs
@@ -505,7 +498,6 @@ func TestValidateConfigErrInvalidMetadataURL(t *testing.T) {
 	adminClient := getPachClient(t, admin)
 
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{&auth.IDProvider{
 			Name:        "idp",
 			Description: "fake IdP for testing",
@@ -526,7 +518,7 @@ func TestValidateConfigErrInvalidMetadataURL(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 }
 
 // TestValidateConfigErrRedundantIDPMetadata tests that SetConfig rejects
@@ -548,7 +540,6 @@ func TestValidateConfigErrRedundantIDPMetadata(t *testing.T) {
 	)
 	testIDP := tu.NewTestIDP(t, pachdACSURL, pachdMetadataURL)
 	conf := &auth.AuthConfig{
-		LiveConfigVersion: 0,
 		IDProviders: []*auth.IDProvider{
 			{
 				Name:        "idp_1",
@@ -578,7 +569,7 @@ func TestValidateConfigErrRedundantIDPMetadata(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	requireConfigsEqual(t, &auth.AuthConfig{}, configResp.Configuration)
+	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
 }
 
 // TestConfigDeadlock tests that Pachyderm's SAML endpoint releases Pachyderm's
@@ -690,7 +681,7 @@ func TestSetGetNilConfig(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
+	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	// Now, set a nil config & make sure that's retrieved correctly
@@ -703,7 +694,7 @@ func TestSetGetNilConfig(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	conf = proto.Clone(&defaultAuthConfig).(*auth.AuthConfig)
-	conf.LiveConfigVersion = 2 // increment version
+	conf.LiveConfigVersion = 3 // increment version
 	requireConfigsEqual(t, conf, configResp.Configuration)
 }
 
@@ -737,7 +728,7 @@ func TestConfigBlindWrite(t *testing.T) {
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 1 // increment version
+	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
 
 	// blind-write a new config & read it back
@@ -749,6 +740,58 @@ func TestConfigBlindWrite(t *testing.T) {
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
-	conf.LiveConfigVersion = 2 // increment version (*past* previously-read cfg)
+	conf.LiveConfigVersion = 3 // increment version (*past* previously-read cfg)
 	requireConfigsEqual(t, conf, configResp.Configuration)
+}
+
+// TestInitialConfigConflict tests that a R+M+W even of pachyderm's initial
+// config won't work if the change is interrupted (in other words, that the
+// default config has version > 0, and the R+M+W isn't treated as a blind write)
+func TestInitialConfigConflict(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	adminClient := getPachClient(t, admin)
+	resp, err := adminClient.GetConfiguration(adminClient.Ctx(),
+		&auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	initialConfig := resp.Configuration
+
+	// Set a configuration
+	interruptingConf := &auth.AuthConfig{
+		IDProviders: []*auth.IDProvider{{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				MetadataXML: SimpleSAMLIDPMetadata(t),
+			},
+		}},
+		SAMLServiceOptions: &auth.AuthConfig_SAMLServiceOptions{
+			ACSURL: "http://acs", MetadataURL: "http://metadata",
+		},
+	}
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: interruptingConf})
+	require.NoError(t, err)
+
+	// try to update the config using a modified initialConfig (should fail b/c of
+	// interruptingConfig above
+	initialConfig.IDProviders = append(initialConfig.IDProviders,
+		&auth.IDProvider{
+			Name:        "idp",
+			Description: "fake IdP for testing",
+			SAML: &auth.IDProvider_SAMLOptions{
+				MetadataXML: SimpleSAMLIDPMetadata(t),
+			},
+		})
+	initialConfig.SAMLServiceOptions = &auth.AuthConfig_SAMLServiceOptions{
+		ACSURL: "http://acs", MetadataURL: "http://metadata",
+	}
+	require.Equal(t, int64(1), initialConfig.LiveConfigVersion)
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(),
+		&auth.SetConfigurationRequest{Configuration: initialConfig})
+	require.YesError(t, err)
+	require.Matches(t, "config version", err.Error())
 }
