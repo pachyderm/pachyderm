@@ -73,6 +73,9 @@ you change anything in any of the
 files and directories or add a new file to the
 repository, Pachyderm processes the contents
 of the whole repository from scratch as a single datum.
+For example, if you add `Sacramento.json` to the
+`California/` directory, Pachyderm processes all files
+and folders in the repo as a single datum.
 
 If you set `/*` as a glob pattern, Pachyderm processes
 the data for each state individually. It
@@ -90,7 +93,11 @@ the `Sacramento.json` file, Pachyderm processes the
 Glob patterns also let you take only a particular directory or subset of
 directories as an input instead of the whole repo. For example,
 you can set `/California/*` to process only the data for the state of
-California.
+California. Therefore, if you add a new city in the `Colorado/` directory,
+Pachyderm ignore this change and does not start the pipeline.
+However, if you add  `Sacramento.json` to the `California/` directory,
+Pachyderm  processes the `California/` datum.
+
 
 ## Test glob patterns
 
@@ -100,11 +107,24 @@ you to test various glob patterns before you use them in a pipeline.
 
 **Example:**
 
+* If you set the `glob` property to `/`, Pachyderm detects all
+top-level filesystem objects in the `train` repository as one
+datum:
 
-```bash
-$ pachctl glob file raw_data@master:/
-NAME TYPE SIZE
-/    dir  5.121MiB
-```
+  ```bash
+  $ pachctl glob file train@master:/
+  NAME TYPE SIZE
+  /    dir  15.11KiB
+  ```
 
+* If you set the `glob` property to `/`, Pachyderm detects each
+top-level filesystem object in the `train` repository as a separate
+datum:
 
+  ```bash
+  $ pachctl glob file train@master:/*
+  NAME                   TYPE SIZE
+  /IssueSummarization.py file 1.224KiB
+  /requirements.txt      file 74B
+  /seq2seq_utils.py      file 13.81KiB
+  ```
