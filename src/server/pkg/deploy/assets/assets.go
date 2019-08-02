@@ -15,7 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	apps "k8s.io/api/apps/v1beta1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,7 +87,8 @@ var (
 		"--advertise-client-urls=http://0.0.0.0:2379",
 		"--data-dir=/var/data/etcd",
 		"--auto-compaction-retention=1",
-		"--max-txn-ops=5000",
+		"--max-txn-ops=10000",
+		"--max-request-bytes=15000000",
 		fmt.Sprintf("--quota-backend-bytes=%d", etcdBackendBytes),
 	}
 
