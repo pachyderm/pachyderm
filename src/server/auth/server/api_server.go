@@ -75,6 +75,13 @@ const (
 
 var defaultAuthConfig = auth.AuthConfig{
 	LiveConfigVersion: 1,
+	IDProviders: []*auth.IDProvider{
+		&auth.IDProvider{
+			Name:          "GitHub",
+			Description:   "oauth-based authentication with github.com",
+			GitHubOptions: {},
+		},
+	},
 }
 
 // githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
