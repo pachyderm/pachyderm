@@ -15,7 +15,7 @@ This directory contains examples of integrating Pachyderm with Kubeflow.
 
 ## Reading and writing to Pachyderm from Kubeflow TFJobs
 
-[This example](https://github.com/pachyderm/pachyderm/tree/master/examples/kubeflow/tfjob) connects to an IMAP mail account,  uses the Tensorflow `file_io` library
+[This example](https://github.com/pachyderm/pachyderm/tree/master/examples/kubeflow/tfjob)  uses the Tensorflow `file_io` library
 to copy data to and read data from a Pachyderm versioned data repository
 in a Kubeflow TFJob
 using the Pachyderm Enterprise Edition's S3 Gateway.
