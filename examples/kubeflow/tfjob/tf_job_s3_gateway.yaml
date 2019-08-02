@@ -31,10 +31,12 @@ spec:
               command:
                 - "python"
                 - "/var/tf_mnist/tf_job_s3_gateway.py"
-                - "-b"
-                - "master.testrepo"
                 - "-i"
-                - "/testdata"
+                - "master.inputrepo"
+                - "-o"
+                - "master.outputrepo"
+                - "-d"
+                - "/tmp/data"
 
 
 

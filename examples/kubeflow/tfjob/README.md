@@ -1,4 +1,4 @@
-# Using the Pachyderm S3 Gateway with Kubeflow TFJobs and Tensorflow
+#  Reading and writing to Pachyderm from Kubeflow TFJobs
 
 ## Introduction
 
@@ -15,13 +15,15 @@ You can use Pachyderm's versioned data repositories to provide data provenance t
 
 We'll address the latter in this example,
 where will use the Tensorflow `file_io` library
-to copy data to and read data from a Pachyderm versioned data repository
+to read data from a Pachyderm versioned data repository
 in a Kubeflow TFJob
 using the Pachyderm S3 Gateway.
+We'll then copy the data to another Pachyderm repo.
 This is intended to be a simple example
 that shows interoperability among the three frameworks.
 Rather than use a complicated Tensorflow/Kubeflow example that shows distributed training,
 this example will focus on the minimum needed to work with Pachyderm's S3 Gateway from a Kubeflow TFJob.
+
 We will use the example Kubeflow [tfoperator example mnist_with_summaries](https://github.com/kubeflow/tf-operator/tree/master/examples/v1beta2/mnist_with_summaries) as a basis, so you can easily adapt the code for your needs.
 For simplicity, we will use data files that we've built into the example Docker image,
 but you can easily store any data you wish.
@@ -77,28 +79,28 @@ In this example,
 you will find code that uses the Kubeflow [tfoperator example mnist_with_summaries](https://github.com/kubeflow/tf-operator/tree/master/examples/v1beta2/mnist_with_summaries) images as its base and
 does simple reads and writes to a Pachyderm repo.
 
-The script `tf_job_s3_gateway.py` takes two flags `-b` or `--bucket`, 
-which specifies the `s3://` url to the bucket, and
-`-i` or `--inputpath`, 
-which specifies the local directory or mount point which will be the source of files to copy to the bucket.
+The script `tf_job_s3_gateway.py` takes three flags:
+* `-i` or `--inputbucket`, 
+  which specifies the name of the bucket, 
+  without the s3:// prefix, 
+  that we'll copy the data from.
+  For Pachyderm repos, 
+  it'll be of the form `branch`.`<repo name>`
+* `-d` or `--datadir`,
+  which specifies the local directory that we'll copy the data into,
+  so Tensorflow may operate on it.
+* `-o` or `--outputbucket`,
+  which specifies the name of the bucket, 
+  without the s3:// prefix, 
+  that we'll copy the results into. 
+  For Pachyderm repos, 
+  it'll be of the form `branch`.`<repo name>`
 
 In `Dockerfile.tf_job_s3_gateway`, 
-that script is built into a Docker image.
-For simplicity, we've also created the local folder `testdata`, 
-which contains the first chapters of the novels Moby Dick and A Tale of Two Cities,
-chosen because they're human-readable data that's among the best of what humanity has produced.
-Here's what the structure of that data looks like on the local disk.
-```
-$  ls -R testdata/
-testdata/:
-'A Tale of Two Cities'	'Moby Dick'
+this script is built into a Docker image.
 
-'testdata/A Tale of Two Cities':
-'Chapter 1 The Period.txt'
-
-'testdata/Moby Dick':
-'Chapter 1 Loomings.txt'
-```
+We'll use as source a subset of the mnist training data,
+located in the mnist directory.
 
 The relevant parts of the code from  `tf_job_s3_gateway.py` are below.
 This code simply walks through a local directory,
@@ -107,18 +109,31 @@ It then uses the `file_io.walk()` function to to through the bucket,
 printing out the files to standard output as it goes.
 
 ```python
-    s3_path = 's3://' + args.bucket + '/'
-    print("walking {}".format(args.inputpath))
-    for dirpath, dirs, files in os.walk(args.inputpath, topdown=True):   
-      for file in files:
-        newpath = s3_path + dirpath + "/" +  file
-        print("copying {} to {}".format(dirpath + "/" + file, newpath))
-        file_io.copy(dirpath + "/" + file, newpath, True)
-
-    for dirpath, dirs, files in file_io.walk(s3_path +  args.inputpath, True):
+    # first, we copy files from pachyderm into a convenient
+    # local directory for processing.  The files have been
+    # placed into the inputpath directory in the s3path bucket.
+    print("walking {} for copying files".format(input_url))
+    for dirpath, dirs, files in file_io.walk(input_url, True):
         for file in files:
-            newpath = dirpath + "/" + file
-            print("printing {} in {}  as string: >>{}<<".format(file, dirpath, file_io.read_file_to_string(newpath, False)))
+            uri = os.path.join(dirpath, file)
+            newpath = os.path.join(args.datadir, file)
+            print("copying {} to {}".format(uri, newpath))
+            file_io.copy(uri, newpath, True)
+
+
+    # here is where you would apply your training to the data in args.datadir
+    # it might operate on the data directly, or place additional
+    # data in the same directory
+
+    # finally, we copy the output from those operations to
+    # another pachyderm repo
+    print("walking {} for copying to {}".format(args.datadir, output_url))
+    for dirpath, dirs, files in os.walk(args.datadir, topdown=True):   
+      for file in files:
+        uri = os.path.join(dirpath, file)
+        newpath = output_url + file
+        print("copying {} to {}".format(uri, newpath))
+        file_io.copy(uri, newpath, True)
 ```
 This simple test allows you to see if your Kubeflow and Pachyderm deployments are set up to exchange data.
 
@@ -136,14 +151,16 @@ Kubeflow installed with Pachyderm using the defaults for a joint deployment:
 Kubeflow in the `kubeflow` namespace and Pachyderm in the `pachyderm` namespace.
 
 1. Deploy Pachyderm and Kubeflow.
-2. Create a repo in Pachyderm using the command  `pachctl create repo testrepo`.
-3. Create a branch in that repo using the command `pachctl create branch testrepo@master`.
-4. Deploy the manifest to your Kubeflow using  `kubectl apply -f tf_job_s3_gateway.yaml`
-5. Using your Kubeflow TFJob dashboard or `kubectl`, monitor the TFJob pod created until it completes.
+2. Create a repo in Pachyderm using the command  `pachctl create repo inputrepo`.
+3. Add the mnist data to that repo using the command `pachctl put file inputrepo@master:/data -r -f mnist/`
+4. Create a repo in Pachyderm using the command  `pachctl create repo outputrepo`.
+5. Create a branch in that repo using the command `pachctl create branch outputrepo@master`.
+6. Deploy the manifest to your Kubeflow using  `kubectl apply -f tf_job_s3_gateway.yaml`
+7. Using your Kubeflow TFJob dashboard or `kubectl`, monitor the TFJob pod created until it completes.
    The pod will be named after the name of the TFJob in the manifest,
    which is `s3-gateway-example` by default, 
    and would be something like `s3-gateway-example-worker-0`.
-6. Using your Kubeflow TFJob dashboard or `kubectl`, look at the logs for that TFJob.
+8. Using your Kubeflow TFJob dashboard or `kubectl`, look at the logs for that TFJob.
    A sample log is included in the file `sample_tf_job_logs.txt` in this example.
 
 This demonstrates that anywhere that the `file_io` library is used, 

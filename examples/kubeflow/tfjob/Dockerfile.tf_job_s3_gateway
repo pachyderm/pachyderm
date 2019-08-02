@@ -1,7 +1,6 @@
 FROM gcr.io/kubeflow-ci/tf-mnist-with-summaries:1.0
 
 ADD tf_job_s3_gateway.py /var/tf_mnist/tf_job_s3_gateway.py
-ADD testdata /testdata
 ENTRYPOINT ["python", "/var/tf_mnist/tf_job_s3_gateway.py"]
 
 
