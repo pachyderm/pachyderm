@@ -114,13 +114,20 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 		}
 	}
 	if !request.NoObjects {
-		w := extractObjectWriter(writeOp)
-		if err := pachClient.ListObject(func(oi *pfs.ObjectInfo) error {
-			if err := pachClient.GetObject(oi.Object.Hash, w); err != nil {
+		if err := pachClient.ListBlock(func(block *pfs.Block) error {
+			w := &extractBlockWriter{f: writeOp, block: block}
+			if err := pachClient.GetBlock(block.Hash, w); err != nil {
 				return err
 			}
-			// empty PutObjectRequest to indicate EOF
-			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{}}})
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := pachClient.ListObject(func(oi *pfs.ObjectInfo) error {
+			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{CreateObject: &pfs.CreateObjectRequest{
+				Object:   oi.Object,
+				BlockRef: oi.BlockRef,
+			}}})
 		}); err != nil {
 			return err
 		}
@@ -540,6 +547,28 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 		if err := w(&admin.Op{Op1_9: &admin.Op1_9{Object: &pfs.PutObjectRequest{Value: value}}}); err != nil {
 			return n, err
 		}
+		n += len(value)
+	}
+	return n, nil
+}
+
+type extractBlockWriter struct {
+	f     func(*admin.Op) error
+	block *pfs.Block
+}
+
+func (w extractBlockWriter) Write(p []byte) (int, error) {
+	chunkSize := grpcutil.MaxMsgSize / 2
+	var n int
+	for i := 0; i*(chunkSize) < len(p); i++ {
+		value := p[i*chunkSize:]
+		if len(value) > chunkSize {
+			value = value[:chunkSize]
+		}
+		if err := w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}}); err != nil {
+			return n, err
+		}
+		w.block = nil // only need to send block on the first request
 		n += len(value)
 	}
 	return n, nil

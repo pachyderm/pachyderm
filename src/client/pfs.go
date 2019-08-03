@@ -64,6 +64,14 @@ func NewBlock(hash string) *pfs.Block {
 	}
 }
 
+// NewBlockRef creates a pfs.BlockRef.
+func NewBlockRef(hash string, lower, upper uint64) *pfs.BlockRef {
+	return &pfs.BlockRef{
+		Block: NewBlock(hash),
+		Range: &pfs.ByteRange{Lower: lower, Upper: upper},
+	}
+}
+
 // NewTag creates a pfs.Tag.
 func NewTag(name string) *pfs.Tag {
 	return &pfs.Tag{
@@ -608,6 +616,16 @@ func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64,
 	return nil, written, nil
 }
 
+// Create Object creates an object with hash, referencing the range
+// [lower,upper] in block. The block should already exist.
+func (c APIClient) CreateObject(hash, block string, lower, upper uint64) error {
+	_, err := c.ObjectAPIClient.CreateObject(c.Ctx(), &pfs.CreateObjectRequest{
+		Object:   NewObject(hash),
+		BlockRef: NewBlockRef(block, lower, upper),
+	})
+	return grpcutil.ScrubGRPC(err)
+}
+
 // GetObject gets an object out of the object store by hash.
 func (c APIClient) GetObject(hash string, writer io.Writer) error {
 	getObjectClient, err := c.ObjectAPIClient.GetObject(
@@ -780,9 +798,51 @@ func (c APIClient) ListTag(f func(*pfs.ListTagsResponse) error) error {
 			return grpcutil.ScrubGRPC(err)
 		}
 		if err := f(listTagResponse); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
 			return err
 		}
 	}
+}
+
+// ListBlock lists blocks stored in pfs.
+func (c APIClient) ListBlock(f func(*pfs.Block) error) error {
+	listBlocksClient, err := c.ObjectAPIClient.ListBlock(c.Ctx(), &pfs.ListBlockRequest{})
+	if err != nil {
+		return err
+	}
+	for {
+		block, err := listBlocksClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := f(block); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// GetBlock gets the content of a block.
+func (c APIClient) GetBlock(hash string, w io.Writer) error {
+	getBlockClient, err := c.ObjectAPIClient.GetBlock(
+		c.Ctx(),
+		&pfs.GetBlockRequest{Block: NewBlock(hash)},
+	)
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	if err := grpcutil.WriteFromStreamingBytesClient(getBlockClient, w); err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	return nil
 }
 
 // Compact forces compaction of objects.
