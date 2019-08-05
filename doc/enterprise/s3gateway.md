@@ -74,7 +74,7 @@ correspond to your S3 client.
 
 ### Configure MinIO
 
-If you are using AWS CLI, skip this section.
+If you are using AWS CLI or S3cmd, skip this section.
 
 To install and configure MinIO, complete the following steps:
 
@@ -114,7 +114,7 @@ the following command:
 
 ### Configure the AWS CLI
 
-If you are using the MinIO client, skip this section.
+If you are using the MinIO client or S3cmd, skip this section.
 
 If you have not done so already, you need to install and
 configure the AWS CLI client on your machine. You need to
@@ -144,19 +144,21 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 
 ### Configure `s3cmd`
 
+If you are using AWS CLI or MinIO, skip this section.
+
 S3cmd is an open-source command line client that enables you
 to access S3 object store buckets. To configure s3cmd, complete
 the following steps:
 
 1. If you do not have S3cmd installed on your machine, install
 it as described in the [S3cmd documentation](https://s3tools.org/download).
-For, example, in macOS, run:
+For example, in macOS, run:
 
    ```bash
    $ brew install s3cmd
    ```
 
-1. Verify that s3cmd is installed:
+1. Verify that S3cmd is installed:
 
    ```bash
    $ s3cmd --version
@@ -201,22 +203,20 @@ The Pachyderm S3 gateway supports the following operations:
 * List objects: Lists the files in the HEAD of a branch.
 * Get objects: Gets file contents on the HEAD of a branch.
 
-To demonstrate the S3 Gateway functionality, all operations in this section
-are performed with either the MinIO command-line client or AWS CLI.
-You can use other S3 compatible tools to execute the same actions
-with the corresponding command-line syntax.
+You can use any S3 compatible tool, such as MinIO, AWS CLI, or
+`S3cmd` to interact with the Pachyderm S3 gateway.
 
 ### List Filesystem Objects
 
 If you have configured your S3 client correctly, you should be
 able to see the list of filesystem objects in your Pachyderm
-repository by running an S3 client `ls` command
+repository by running an S3 client `ls` command.
 
 To list filesystem objects, complete the following steps:
 
-1. Verify that MinIO can access all of your Pachyderm repositories:
+1. Verify that your S3 client can access all of your Pachyderm repositories:
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc ls local
@@ -251,7 +251,7 @@ To list filesystem objects, complete the following steps:
 
 1. List the contents of a repository:
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc ls local/master.raw_data
@@ -283,7 +283,7 @@ To create an S3 bucket, complete the following steps:
 1. Use the `mb <host/branch.repo>` command to create a new
 S3 bucket, which is a repository with a branch in Pachyderm.
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc mb local/master.test
@@ -307,7 +307,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 
 1. Verify that the S3 bucket has been successfully created:
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc ls local
@@ -361,7 +361,7 @@ S3 bucket, which is a repository with a branch in Pachyderm.
 You can delete an S3 bucket in Pachyderm from the AWS CLI or
 MinIO client by running the following command:
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc rb local/master.test
@@ -408,7 +408,7 @@ To add a file to a repository, complete the following steps:
 
 1. Run the `cp` command for your S3 client:
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc cp test.csv local/master.raw_data/test.csv
@@ -433,7 +433,7 @@ To add a file to a repository, complete the following steps:
 
 1. Check that the file was added:
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc ls local/master.raw_data
@@ -460,7 +460,7 @@ To add a file to a repository, complete the following steps:
 1. Download a file from MinIO to the
 current directory by running the following commands:
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```
      $ mc cp local/master.raw_data/github_issues_medium.csv .
@@ -487,7 +487,7 @@ MinIO command-line interface:
 
 1. List the files in the input repository:
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc ls local/master.raw_data/
@@ -515,7 +515,7 @@ MinIO command-line interface:
 
    <!--- AFAIU, this is supposed to work, but it does not.-->
 
-   * If you are using `minikube`, type:
+   * If you are using MinIO, type:
 
      ```bash
      $ mc rm local/master.raw_data/test.csv
