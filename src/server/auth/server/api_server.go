@@ -79,7 +79,7 @@ var defaultAuthConfig = auth.AuthConfig{
 		&auth.IDProvider{
 			Name:          "GitHub",
 			Description:   "oauth-based authentication with github.com",
-			GitHubOptions: {},
+			GitHubOptions: &auth.IDProvider_GitHubOptions{},
 		},
 	},
 }
@@ -387,6 +387,17 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 	return resp.State, nil
 }
 
+func (a *apiServer) githubEnabled() bool {
+	githubEnabled := false
+	config := a.getCacheConfig()
+	for _, idp := range config.IDPs {
+		if idp.GitHub != nil {
+			githubEnabled = true
+		}
+	}
+	return githubEnabled
+}
+
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (resp *auth.ActivateResponse, retErr error) {
 	pachClient := a.env.GetPachClient(ctx)
@@ -431,6 +442,9 @@ func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (re
 	case req.Subject == "":
 		fallthrough
 	case strings.HasPrefix(req.Subject, auth.GitHubPrefix):
+		if !a.githubEnabled() {
+			return nil, errors.New("GitHub auth is not enabled on this cluster")
+		}
 		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
 		if err != nil {
 			return nil, err
@@ -807,6 +821,9 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 	var pachToken string
 	switch {
 	case req.GitHubToken != "":
+		if !a.githubEnabled() {
+			return nil, errors.New("GitHub auth is not enabled on this cluster")
+		}
 		// Determine caller's Pachyderm/GitHub username
 		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
 		if err != nil {
