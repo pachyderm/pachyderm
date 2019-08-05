@@ -128,7 +128,7 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
 
 1. Verify that the AWS CLI is installed:
 
-   ``bash
+   ```bash
    $ aws --version aws-cli/1.16.204 Python/2.7.16 Darwin/17.7.0 botocore/1.12.194
    ```
 
@@ -204,7 +204,7 @@ The Pachyderm S3 gateway supports the following operations:
 * Get objects: Gets file contents on the HEAD of a branch.
 
 You can use any S3 compatible tool, such as MinIO, AWS CLI, or
-`S3cmd` to interact with the Pachyderm S3 gateway.
+S3cmd to interact with the Pachyderm S3 gateway.
 
 ### List Filesystem Objects
 
