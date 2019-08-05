@@ -14,7 +14,7 @@ You can use Pachyderm's pipelines and containers to call Kubeflow API's to conne
 You can use Pachyderm's versioned data repositories to provide data provenance to the data, models and parameters you use with your Kubeflow code.
 
 We'll address the latter in this example,
-where will use the Tensorflow `file_io` library
+where we will use the Tensorflow `file_io` library
 to read data from a Pachyderm versioned data repository
 in a Kubeflow TFJob
 using the Pachyderm S3 Gateway.
@@ -152,7 +152,9 @@ Kubeflow in the `kubeflow` namespace and Pachyderm in the `pachyderm` namespace.
 
 1. Deploy Pachyderm and Kubeflow.
 2. Create a repo in Pachyderm using the command  `pachctl create repo inputrepo`.
-3. Add the mnist data to that repo using the command `pachctl put file inputrepo@master:/data -r -f mnist/`
+3. Add the sample data from the mnist directory in this example. 
+   You can either clone this example locally or downloading the data to your local disk.
+   You can then add the mnist to `inputrepo`  using the command `cd </path/where/you/put/this/example> ; pachctl put file inputrepo@master:/data -r -f mnist/`.
 4. Create a repo in Pachyderm using the command  `pachctl create repo outputrepo`.
 5. Create a branch in that repo using the command `pachctl create branch outputrepo@master`.
 6. Deploy the manifest to your Kubeflow using  `kubectl apply -f tf_job_s3_gateway.yaml`
