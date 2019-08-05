@@ -181,7 +181,7 @@ For, example, in macOS, run:
      Secret Key: ""
      Default Region: US
      S3 Endpoint: localhost:30600
-     DNS-style bucket+hostname:port template for accessing a bucket: 30600/%(bucket)
+     DNS-style bucket+hostname:port template for accessing a bucket: localhost:30600/%(bucket)
      Encryption password:
      Path to GPG program: /usr/local/bin/gpg
      Use HTTPS protocol: False
