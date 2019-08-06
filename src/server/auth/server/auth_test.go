@@ -39,7 +39,7 @@ var (
 func isAuthActive(tb testing.TB) bool {
 	active, err := seedClient.IsAuthActive()
 	if err != nil {
-		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
+		tb.Fatal(fmt.Sprintf("could not determine if auth is activated: %v", err))
 	}
 	return active
 }
