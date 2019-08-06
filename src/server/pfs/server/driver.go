@@ -3735,7 +3735,8 @@ func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 			// regardless of whether that worked, we now delete everything directly, to make sure it's actually all gone
 			// check if the caller is authorized to delete this repo
 			if err := d.checkIsAuthorizedInTransaction(tc, repoInfo.Repo, auth.Scope_OWNER); err != nil {
-				return err
+				logrus.Warnf("not authorized to delete repo %v: %v", repoInfo.Repo.Name, err)
+				return nil
 			}
 
 			branches := d.branches(repoInfo.Repo.Name).ReadWrite(tc.Stm)
