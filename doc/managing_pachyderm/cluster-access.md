@@ -51,7 +51,7 @@ To view active context, type:
 
   ```bash
   $ pachctl config list context
-    ACITVE  NAME
+    ACTIVE  NAME
             default
             local
     *       local-1
