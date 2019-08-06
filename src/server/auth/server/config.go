@@ -191,9 +191,6 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 	// TODO(msteffen): make sure we don't have to extend this every time we add
 	// a new built-in backend.
 	switch idp.Name + ":" {
-	// case auth.GitHubPrefix:
-	// 	return nil, errors.New("cannot configure ID provider with reserved prefix " +
-	// 		auth.GitHubPrefix)
 	case auth.RobotPrefix:
 		return nil, errors.New("cannot configure ID provider with reserved prefix " +
 			auth.RobotPrefix)
@@ -202,9 +199,8 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 			auth.PipelinePrefix)
 	}
 
-	// TODO(kdelga): Do something here for GH.
-	// Check if the IDP is a known type (right now the only type of IDP is SAML)
-	if idp.SAML && idp.GitHub == nil {
+	// Check if the IDP is a known type (right now the only types of IDPs are SAML and GitHub)
+	if idp.SAML == nil && idp.GitHub == nil {
 		// render ID provider as json for error message
 		idpConfigAsJSON, err := json.MarshalIndent(idp, "", "  ")
 		idpConfigMsg := string(idpConfigAsJSON)

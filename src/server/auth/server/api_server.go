@@ -79,7 +79,7 @@ var defaultAuthConfig = auth.AuthConfig{
 		&auth.IDProvider{
 			Name:          "GitHub",
 			Description:   "oauth-based authentication with github.com",
-			GitHubOptions: &auth.IDProvider_GitHubOptions{},
+			GitHub: &auth.IDProvider_GitHubOptions{},
 		},
 	},
 }
