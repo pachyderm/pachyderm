@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"os"
 	"path"
 	"regexp"
@@ -13,15 +12,15 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/grpc/metadata"
-
 	"github.com/crewjam/saml"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/types"
 	"github.com/google/go-github/github"
 	logrus "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc/metadata"
 
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	enterpriseclient "github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -74,6 +73,8 @@ const (
 	SamlPort = 654
 )
 
+var defaultAuthConfig = authclient.AuthConfig{}
+
 // githubTokenRegex is used when pachd is deployed in "dev mode" (i.e. when
 // pachd is deployed with "pachctl deploy local") to guess whether a call to
 // Authenticate or Authorize contains a real GitHub access token.
@@ -105,12 +106,15 @@ type apiServer struct {
 	adminCache map[string]struct{} // cache of current cluster admins
 	adminMu    sync.Mutex          // guard 'adminCache'
 
+	// configCache should not be read/written directly--use setCacheConfig and
+	// getCacheConfig
 	configCache *canonicalConfig // cache of auth config in etcd
 	configMu    sync.Mutex       // guard 'configCache'. Always lock before 'samlSPMu' (if using both)
 
-	samlSP          *saml.ServiceProvider // object for parsing saml responses
-	redirectAddress *url.URL              // address where users will be redirected after authenticating
-	samlSPMu        sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
+	// samlSP should not be read/written directly--use setCacheConfig and
+	// getSAMLSP
+	samlSP   *saml.ServiceProvider // object for parsing saml responses
+	samlSPMu sync.Mutex            // guard 'samlSP'. Always lock after 'configMu' (if using both)
 
 	// tokens is a collection of hashedToken -> TokenInfo mappings. These tokens are
 	// returned to users by Authenticate()
@@ -360,62 +364,6 @@ func (a *apiServer) watchAdmins(fullAdminPrefix string) {
 		}
 	}, b, func(err error, d time.Duration) error {
 		logrus.Errorf("error watching admin collection: %v; retrying in %v", err, d)
-		return nil
-	})
-}
-
-func (a *apiServer) watchConfig() {
-	b := backoff.NewExponentialBackOff()
-	backoff.RetryNotify(func() error {
-		// Watch for the addition/removal of new admins. Note that this will return
-		// any existing admins, so if the auth service is already activated, it will
-		// stay activated.
-		watcher, err := a.authConfig.ReadOnly(context.Background()).Watch()
-		if err != nil {
-			return err
-		}
-		defer watcher.Close()
-		// Wait for new config events to arrive
-		for {
-			ev, ok := <-watcher.Watch()
-			if !ok {
-				return errors.New("config watch closed unexpectedly")
-			}
-			b.Reset() // event successfully received
-
-			if a.activationState() != full {
-				return fmt.Errorf("received config event while auth not fully " +
-					"activated (should be impossible), restarting")
-			}
-			if err := func() error {
-				// Lock a.configMu in case we need to modify a.configCache
-				a.configMu.Lock()
-				defer a.configMu.Unlock()
-				a.samlSPMu.Lock()
-				defer a.samlSPMu.Unlock()
-
-				// Parse event data and potentially update configCache
-				var key string // always configKey, just need to put it somewhere
-				var configProto authclient.AuthConfig
-				ev.Unmarshal(&key, &configProto)
-				switch ev.Type {
-				case watch.EventPut:
-					if err := a.updateConfig(&configProto); err != nil {
-						logrus.Warnf("could not update SAML service with new config: %v", err)
-					}
-				case watch.EventDelete:
-					a.configCache = nil
-					a.samlSP = nil
-				case watch.EventError:
-					return ev.Err
-				}
-				return nil // unlock configMu and samlSPMu
-			}(); err != nil {
-				return err
-			}
-		}
-	}, b, func(err error, d time.Duration) error {
-		logrus.Errorf("error watching auth config: %v; retrying in %v", err, d)
 		return nil
 	})
 }
@@ -958,7 +906,7 @@ func (a *apiServer) GetOneTimePassword(ctx context.Context, req *authclient.GetO
 		return nil, authclient.ErrPartiallyActivated
 	}
 	if req.Subject == magicUser {
-		return nil, fmt.Errorf("GetOneTimePassword.Subject is invalid")
+		return nil, fmt.Errorf("GetAuthTokenRequest.Subject is invalid")
 	}
 
 	// Get current caller and check if they're authorized if req.Subject is set
@@ -1714,7 +1662,7 @@ func (a *apiServer) GetAuthToken(ctx context.Context, req *authclient.GetAuthTok
 		if !isAdmin && req.Subject != callerInfo.Subject {
 			return nil, &authclient.ErrNotAuthorized{
 				Subject: callerInfo.Subject,
-				AdminOp: "GetAuthToken on behalf of another user",
+				AdminOp: "GetOneTimePassword on behalf of another user",
 			}
 		}
 	}
@@ -2258,16 +2206,16 @@ func (a *apiServer) canonicalizeSubject(ctx context.Context, subject string) (st
 		colonIdx = len(authclient.GitHubPrefix) - 1
 	}
 	prefix := subject[:colonIdx]
-	a.configMu.Lock()
-	defer a.configMu.Unlock()
 
 	// check prefix against config cache
-	if a.configCache != nil {
-		if prefix == a.configCache.IDP.Name {
-			return subject, nil
-		}
-		if prefix == path.Join("group", a.configCache.IDP.Name) {
-			return subject, nil // TODO(msteffen): check if this IdP supports groups
+	if config := a.getCacheConfig(); config != nil {
+		for _, idp := range config.IDPs {
+			if prefix == idp.Name {
+				return subject, nil
+			}
+			if prefix == path.Join("group", idp.Name) {
+				return subject, nil // TODO(msteffen): check if this IdP supports groups
+			}
 		}
 	}
 
@@ -2308,7 +2256,9 @@ func canonicalizeGitHubUsername(ctx context.Context, user string) (string, error
 	return authclient.GitHubPrefix + u.GetLogin(), nil
 }
 
-// GetConfiguration implements the protobuf auth.GetConfiguration RPC
+// GetConfiguration implements the protobuf auth.GetConfiguration RPC. Other
+// users of the config in auth should get getCacheConfig and getSAMLSP rather
+// than calling this handler (which will read from etcd)
 func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetConfigurationRequest) (resp *authclient.GetConfigurationResponse, retErr error) {
 	a.LogReq(req)
 	defer func(start time.Time) { a.LogResp(req, resp, retErr, time.Since(start)) }(time.Now())
@@ -2330,29 +2280,26 @@ func (a *apiServer) GetConfiguration(ctx context.Context, req *authclient.GetCon
 	defer cancel()
 	authConfigRO := a.authConfig.ReadOnly(ctx)
 
-	var currentConfig authclient.AuthConfig
-	if err := authConfigRO.Get(configKey, &currentConfig); err != nil && !col.IsErrNotFound(err) {
+	var currentCfg authclient.AuthConfig
+	if err := authConfigRO.Get(configKey, &currentCfg); err != nil && !col.IsErrNotFound(err) {
 		return nil, err
 	}
-	a.configMu.Lock()
-	defer a.configMu.Unlock()
-	a.samlSPMu.Lock()
-	defer a.samlSPMu.Unlock()
-	if a.configCache == nil || a.configCache.Version < currentConfig.LiveConfigVersion {
+	cacheCfg := a.getCacheConfig()
+	if cacheCfg == nil || cacheCfg.Version < currentCfg.LiveConfigVersion {
 		var cacheVersion int64
-		if a.configCache != nil {
-			cacheVersion = a.configCache.Version
+		if cacheCfg != nil {
+			cacheVersion = cacheCfg.Version
 		}
 		logrus.Printf("current config (v.%d) is newer than cache (v.%d); attempting to update cache",
-			currentConfig.LiveConfigVersion, cacheVersion)
-		if err := a.updateConfig(&currentConfig); err != nil {
+			currentCfg.LiveConfigVersion, cacheVersion)
+		if err := a.setCacheConfig(&currentCfg); err != nil {
 			logrus.Warnf("could not update SAML service with new config: %v", err)
 		}
-	} else if a.configCache.Version > currentConfig.LiveConfigVersion {
+	} else if cacheCfg.Version > currentCfg.LiveConfigVersion {
 		logrus.Warnln("config cache is NEWER than live config; this shouldn't happen")
 	}
 	return &authclient.GetConfigurationResponse{
-		Configuration: &currentConfig,
+		Configuration: &currentCfg,
 	}, nil
 }
 
@@ -2383,11 +2330,12 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 		}
 	}
 
-	// Validate new config
 	if req.Configuration == nil {
-		req.Configuration = &authclient.AuthConfig{}
+		// Explicitly store default auth config so that config version keeps
+		req.Configuration = proto.Clone(&defaultAuthConfig).(*authclient.AuthConfig)
 	}
 	canonicalConfig, err := validateConfig(req.Configuration, external)
+	// Validate new config
 	if err != nil {
 		return nil, err
 	}
@@ -2396,15 +2344,9 @@ func (a *apiServer) SetConfiguration(ctx context.Context, req *authclient.SetCon
 	if _, err := col.NewSTM(ctx, a.env.GetEtcdClient(), func(stm col.STM) error {
 		var liveConfig authclient.AuthConfig
 		return a.authConfig.ReadWrite(stm).Upsert(configKey, &liveConfig, func() error {
-			// Empty config case
-			if canonicalConfig.IsEmpty() {
-				liveConfig.Reset()
-				return nil
-			}
-
-			// Nonempty config case
 			liveConfigVersion := liveConfig.LiveConfigVersion
-			if liveConfigVersion != req.Configuration.LiveConfigVersion {
+			if req.Configuration.LiveConfigVersion > 0 &&
+				liveConfigVersion != req.Configuration.LiveConfigVersion {
 				return fmt.Errorf("expected config version %d, but live config has version %d",
 					req.Configuration.LiveConfigVersion, liveConfigVersion)
 			}
