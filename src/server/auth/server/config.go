@@ -90,25 +90,26 @@ func (c *canonicalConfig) ToProto() (*auth.AuthConfig, error) {
 				GitHub:      &auth.IDProvider_GitHubOptions{},
 			}
 			idpProtos = append(idpProtos, githubIDP)
-		} else if idp.SAML == nil {
+		} else if idp.SAML != nil {
+			metadataBytes, err := xml.MarshalIndent(idp.SAML.Metadata, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("could not marshal ID provider metadata: %v", err)
+			}
+			samlIDP := &auth.IDProvider{
+				Name:        idp.Name,
+				Description: idp.Description,
+				SAML: &auth.IDProvider_SAMLOptions{
+					MetadataXML:    metadataBytes,
+					GroupAttribute: idp.SAML.GroupAttribute,
+				},
+			}
+			if idp.SAML.MetadataURL != nil {
+				samlIDP.SAML.MetadataURL = idp.SAML.MetadataURL.String()
+			}
+			idpProtos = append(idpProtos, samlIDP)
+		} else {
 			return nil, fmt.Errorf("could not marshal non-SAML, non-GitHub ID provider %q", idp.Name)
 		}
-		metadataBytes, err := xml.MarshalIndent(idp.SAML.Metadata, "", "  ")
-		if err != nil {
-			return nil, fmt.Errorf("could not marshal ID provider metadata: %v", err)
-		}
-		samlIDP := &auth.IDProvider{
-			Name:        idp.Name,
-			Description: idp.Description,
-			SAML: &auth.IDProvider_SAMLOptions{
-				MetadataXML:    metadataBytes,
-				GroupAttribute: idp.SAML.GroupAttribute,
-			},
-		}
-		if idp.SAML.MetadataURL != nil {
-			samlIDP.SAML.MetadataURL = idp.SAML.MetadataURL.String()
-		}
-		idpProtos = append(idpProtos, samlIDP)
 	}
 
 	var svcCfgProto *auth.AuthConfig_SAMLServiceOptions
