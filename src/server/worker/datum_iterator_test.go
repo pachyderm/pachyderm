@@ -28,6 +28,12 @@ func TestDatumIterators(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit.ID))
 
+	// make one with zero datums for testing edge cases
+	in0 := client.NewPFSInput(dataRepo, "!(**)")
+	in0.Pfs.Commit = commit.ID
+	pfs0, err := NewDatumIterator(c, in0)
+	require.NoError(t, err)
+
 	in1 := client.NewPFSInput(dataRepo, "/foo?1")
 	in1.Pfs.Commit = commit.ID
 	pfs1, err := NewDatumIterator(c, in1)
@@ -38,41 +44,70 @@ func TestDatumIterators(t *testing.T) {
 	pfs2, err := NewDatumIterator(c, in2)
 	require.NoError(t, err)
 
-	// iterate through pfs1 and verify it is as we expect
-	validateDI(t, "pfs1", pfs1)
-	validateDI(t, "pfs2", pfs2)
+	// iterate through pfs0, pfs1 and pfs2 and verify they are as we expect
+	validateDI(t, pfs0)
+	validateDI(t, pfs1, "/foo11", "/foo21", "/foo31", "/foo41")
+	validateDI(t, pfs2, "/foo12", "/foo2", "/foo22", "/foo32", "/foo42")
 
 	in3 := client.NewUnionInput(in1, in2)
 	union1, err := NewDatumIterator(c, in3)
 	require.NoError(t, err)
-	validateDI(t, "union1", union1)
+	validateDI(t, union1, "/foo11", "/foo21", "/foo31", "/foo41",
+		"/foo12", "/foo2", "/foo22", "/foo32", "/foo42")
 
 	in4 := client.NewCrossInput(in1, in2)
 	cross1, err := NewDatumIterator(c, in4)
 	require.NoError(t, err)
-	validateDI(t, "cross1", cross1)
+	validateDI(t, cross1,
+		"/foo11/foo12", "/foo21/foo12", "/foo31/foo12", "/foo41/foo12",
+		"/foo11/foo2", "/foo21/foo2", "/foo31/foo2", "/foo41/foo2",
+		"/foo11/foo22", "/foo21/foo22", "/foo31/foo22", "/foo41/foo22",
+		"/foo11/foo32", "/foo21/foo32", "/foo31/foo32", "/foo41/foo32",
+		"/foo11/foo42", "/foo21/foo42", "/foo31/foo42", "/foo41/foo42",
+	)
 
 	in5 := client.NewCrossInput(in3, in4)
 	cross2, err := NewDatumIterator(c, in5)
 	require.NoError(t, err)
-	validateDI(t, "cross2", cross2)
+	validateDI(t, cross2,
+		"/foo11/foo11/foo12", "/foo21/foo11/foo12", "/foo31/foo11/foo12", "/foo41/foo11/foo12", "/foo12/foo11/foo12", "/foo2/foo11/foo12", "/foo22/foo11/foo12", "/foo32/foo11/foo12", "/foo42/foo11/foo12",
+		"/foo11/foo21/foo12", "/foo21/foo21/foo12", "/foo31/foo21/foo12", "/foo41/foo21/foo12", "/foo12/foo21/foo12", "/foo2/foo21/foo12", "/foo22/foo21/foo12", "/foo32/foo21/foo12", "/foo42/foo21/foo12",
+		"/foo11/foo31/foo12", "/foo21/foo31/foo12", "/foo31/foo31/foo12", "/foo41/foo31/foo12", "/foo12/foo31/foo12", "/foo2/foo31/foo12", "/foo22/foo31/foo12", "/foo32/foo31/foo12", "/foo42/foo31/foo12",
+		"/foo11/foo41/foo12", "/foo21/foo41/foo12", "/foo31/foo41/foo12", "/foo41/foo41/foo12", "/foo12/foo41/foo12", "/foo2/foo41/foo12", "/foo22/foo41/foo12", "/foo32/foo41/foo12", "/foo42/foo41/foo12",
+		"/foo11/foo11/foo2", "/foo21/foo11/foo2", "/foo31/foo11/foo2", "/foo41/foo11/foo2", "/foo12/foo11/foo2", "/foo2/foo11/foo2", "/foo22/foo11/foo2", "/foo32/foo11/foo2", "/foo42/foo11/foo2",
+		"/foo11/foo21/foo2", "/foo21/foo21/foo2", "/foo31/foo21/foo2", "/foo41/foo21/foo2", "/foo12/foo21/foo2", "/foo2/foo21/foo2", "/foo22/foo21/foo2", "/foo32/foo21/foo2", "/foo42/foo21/foo2",
+		"/foo11/foo31/foo2", "/foo21/foo31/foo2", "/foo31/foo31/foo2", "/foo41/foo31/foo2", "/foo12/foo31/foo2", "/foo2/foo31/foo2", "/foo22/foo31/foo2", "/foo32/foo31/foo2", "/foo42/foo31/foo2",
+		"/foo11/foo41/foo2", "/foo21/foo41/foo2", "/foo31/foo41/foo2", "/foo41/foo41/foo2", "/foo12/foo41/foo2", "/foo2/foo41/foo2", "/foo22/foo41/foo2", "/foo32/foo41/foo2", "/foo42/foo41/foo2",
+		"/foo11/foo11/foo22", "/foo21/foo11/foo22", "/foo31/foo11/foo22", "/foo41/foo11/foo22", "/foo12/foo11/foo22", "/foo2/foo11/foo22", "/foo22/foo11/foo22", "/foo32/foo11/foo22", "/foo42/foo11/foo22",
+		"/foo11/foo21/foo22", "/foo21/foo21/foo22", "/foo31/foo21/foo22", "/foo41/foo21/foo22", "/foo12/foo21/foo22", "/foo2/foo21/foo22", "/foo22/foo21/foo22", "/foo32/foo21/foo22", "/foo42/foo21/foo22",
+		"/foo11/foo31/foo22", "/foo21/foo31/foo22", "/foo31/foo31/foo22", "/foo41/foo31/foo22", "/foo12/foo31/foo22", "/foo2/foo31/foo22", "/foo22/foo31/foo22", "/foo32/foo31/foo22", "/foo42/foo31/foo22",
+		"/foo11/foo41/foo22", "/foo21/foo41/foo22", "/foo31/foo41/foo22", "/foo41/foo41/foo22", "/foo12/foo41/foo22", "/foo2/foo41/foo22", "/foo22/foo41/foo22", "/foo32/foo41/foo22", "/foo42/foo41/foo22",
+		"/foo11/foo11/foo32", "/foo21/foo11/foo32", "/foo31/foo11/foo32", "/foo41/foo11/foo32", "/foo12/foo11/foo32", "/foo2/foo11/foo32", "/foo22/foo11/foo32", "/foo32/foo11/foo32", "/foo42/foo11/foo32",
+		"/foo11/foo21/foo32", "/foo21/foo21/foo32", "/foo31/foo21/foo32", "/foo41/foo21/foo32", "/foo12/foo21/foo32", "/foo2/foo21/foo32", "/foo22/foo21/foo32", "/foo32/foo21/foo32", "/foo42/foo21/foo32",
+		"/foo11/foo31/foo32", "/foo21/foo31/foo32", "/foo31/foo31/foo32", "/foo41/foo31/foo32", "/foo12/foo31/foo32", "/foo2/foo31/foo32", "/foo22/foo31/foo32", "/foo32/foo31/foo32", "/foo42/foo31/foo32",
+		"/foo11/foo41/foo32", "/foo21/foo41/foo32", "/foo31/foo41/foo32", "/foo41/foo41/foo32", "/foo12/foo41/foo32", "/foo2/foo41/foo32", "/foo22/foo41/foo32", "/foo32/foo41/foo32", "/foo42/foo41/foo32",
+		"/foo11/foo11/foo42", "/foo21/foo11/foo42", "/foo31/foo11/foo42", "/foo41/foo11/foo42", "/foo12/foo11/foo42", "/foo2/foo11/foo42", "/foo22/foo11/foo42", "/foo32/foo11/foo42", "/foo42/foo11/foo42",
+		"/foo11/foo21/foo42", "/foo21/foo21/foo42", "/foo31/foo21/foo42", "/foo41/foo21/foo42", "/foo12/foo21/foo42", "/foo2/foo21/foo42", "/foo22/foo21/foo42", "/foo32/foo21/foo42", "/foo42/foo21/foo42",
+		"/foo11/foo31/foo42", "/foo21/foo31/foo42", "/foo31/foo31/foo42", "/foo41/foo31/foo42", "/foo12/foo31/foo42", "/foo2/foo31/foo42", "/foo22/foo31/foo42", "/foo32/foo31/foo42", "/foo42/foo31/foo42",
+		"/foo11/foo41/foo42", "/foo21/foo41/foo42", "/foo31/foo41/foo42", "/foo41/foo41/foo42", "/foo12/foo41/foo42", "/foo2/foo41/foo42", "/foo22/foo41/foo42", "/foo32/foo41/foo42", "/foo42/foo41/foo42")
 
+	// cross with a zero datum input should also be zero
+	in6 := client.NewCrossInput(in3, in0, in2, in4)
+	cross3, err := NewDatumIterator(c, in6)
+	require.NoError(t, err)
+	validateDI(t, cross3)
 }
 
-func validateDI(t *testing.T, name string, di DatumIterator) {
-	datums := make(map[string]bool, di.Len())
-	len := 0
+func validateDI(t *testing.T, di DatumIterator, datums ...string) {
+	i := 0
 	for di.Next() {
 		key := ""
 		for _, file := range di.Datum() {
 			key += file.FileInfo.File.Path
 		}
-
-		if _, ok := datums[key]; ok {
-			t.Errorf("Duplicate datum in %v detected: %v", name, key)
-		}
-		datums[key] = true
-		len++
+		require.Equal(t, datums[i], key)
+		i++
 	}
-	require.Equal(t, di.Len(), len)
+	require.Equal(t, di.Len(), len(datums))
+	require.Equal(t, di.Len(), i)
 }

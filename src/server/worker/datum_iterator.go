@@ -28,6 +28,8 @@ type pfsDatumIterator struct {
 
 func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (DatumIterator, error) {
 	result := &pfsDatumIterator{}
+	// make sure it gets initialized properly
+	result.Reset()
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
 		// before all commits have inputs
@@ -66,8 +68,6 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 		}
 		return result.inputs[i].FileInfo.File.Path < result.inputs[j].FileInfo.File.Path
 	})
-	// make sure it gets initialized properly
-	result.Reset()
 	return result, nil
 }
 
@@ -95,6 +95,7 @@ type unionDatumIterator struct {
 
 func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (DatumIterator, error) {
 	result := &unionDatumIterator{}
+	defer result.Reset()
 	for _, input := range union {
 		datumIterator, err := NewDatumIterator(pachClient, input)
 		if err != nil {
@@ -102,7 +103,6 @@ func newUnionDatumIterator(pachClient *client.APIClient, union []*pps.Input) (Da
 		}
 		result.iterators = append(result.iterators, datumIterator)
 	}
-	result.Reset()
 	return result, nil
 }
 
@@ -137,41 +137,44 @@ func (d *unionDatumIterator) Datum() []*Input {
 }
 
 type crossDatumIterator struct {
-	inputs  []DatumIterator
-	started bool
+	iterators []DatumIterator
+	started   bool
 }
 
 func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (DatumIterator, error) {
 	result := &crossDatumIterator{}
-	for _, input := range cross {
-		datumIterator, err := NewDatumIterator(pachClient, input)
+	defer result.Reset()
+	for _, iterator := range cross {
+		datumIterator, err := NewDatumIterator(pachClient, iterator)
 		if err != nil {
 			return nil, err
 		}
-		// start the iterator, and make sure it isn't empty
-		if !datumIterator.Next() {
-			return &crossDatumIterator{}, nil
-		}
-		result.inputs = append(result.inputs, datumIterator)
+		result.iterators = append(result.iterators, datumIterator)
 	}
 	return result, nil
 }
 
 func (d *crossDatumIterator) Reset() {
-	for _, input := range d.inputs {
-		input.Reset()
-		input.Next()
+	inhabited := true
+	for _, iterators := range d.iterators {
+		iterators.Reset()
+		if !iterators.Next() {
+			inhabited = false
+		}
 	}
-	d.started = false
+	if !inhabited {
+		d.iterators = nil
+	}
+	d.started = !inhabited
 }
 
 func (d *crossDatumIterator) Len() int {
-	if len(d.inputs) == 0 {
+	if len(d.iterators) == 0 {
 		return 0
 	}
-	result := d.inputs[0].Len()
-	for i := 1; i < len(d.inputs); i++ {
-		result *= d.inputs[i].Len()
+	result := d.iterators[0].Len()
+	for i := 1; i < len(d.iterators); i++ {
+		result *= d.iterators[i].Len()
 	}
 	return result
 }
@@ -181,12 +184,12 @@ func (d *crossDatumIterator) Next() bool {
 		d.started = true
 		return true
 	}
-	for _, input := range d.inputs {
+	for _, input := range d.iterators {
 		// if we're at the end of the "row"
 		if !input.Next() {
 			// we reset the "row"
 			input.Reset()
-			// and start back it up
+			// and start it back up
 			input.Next()
 			// after resetting this "row", start iterating through the next "row"
 		} else {
@@ -198,7 +201,7 @@ func (d *crossDatumIterator) Next() bool {
 
 func (d *crossDatumIterator) Datum() []*Input {
 	var result []*Input
-	for _, datumIterator := range d.inputs {
+	for _, datumIterator := range d.iterators {
 		result = append(result, datumIterator.Datum()...)
 	}
 	sortInputs(result)
@@ -212,6 +215,7 @@ type gitDatumIterator struct {
 
 func newGitDatumIterator(pachClient *client.APIClient, input *pps.GitInput) (DatumIterator, error) {
 	result := &gitDatumIterator{}
+	defer result.Reset()
 	if input.Commit == "" {
 		// this can happen if a pipeline with multiple inputs has been triggered
 		// before all commits have inputs
@@ -230,7 +234,6 @@ func newGitDatumIterator(pachClient *client.APIClient, input *pps.GitInput) (Dat
 			GitURL:   input.URL,
 		},
 	)
-	result.Reset()
 	return result, nil
 }
 
