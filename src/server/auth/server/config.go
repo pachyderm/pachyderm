@@ -385,6 +385,9 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	a.samlSPMu.Lock()
 	defer a.samlSPMu.Unlock()
 	if config == nil {
+		logrus.Warnf("deleting the cached config, but it should not be possible " +
+			"to delete the auth config in etcd without deactivating auth. Is that " +
+			"what's happening?")
 		a.configCache = nil
 		a.samlSP = nil
 		return nil
@@ -393,6 +396,17 @@ func (a *apiServer) setCacheConfig(config *auth.AuthConfig) error {
 	newConfig, err := validateConfig(config, internal)
 	if err != nil {
 		return err
+	}
+	if a.configCache != nil {
+		if newConfig.Version < a.configCache.Version {
+			return fmt.Errorf("new config has lower version than cached config (%d < %d)",
+				newConfig.Version, a.configCache.Version)
+		} else if newConfig.Version == a.configCache.Version {
+			// This shouldn't happen, but can if a user calls GetConfiguration and it
+			// races with watchConfig. Just log the two configs and continue
+			logrus.Warnf("new config has same version as cached config:%+v\nand:\n%+v\n",
+				newConfig.Version, a.configCache)
+		}
 	}
 
 	// Set a.configCache and possibly a.samlSP
