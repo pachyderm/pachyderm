@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	// MB is a megabyte
 	MB = 1024 * 1024
 )
 
