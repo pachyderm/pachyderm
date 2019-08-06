@@ -349,8 +349,8 @@ func (s *objBlockAPIServer) PutObjects(server pfsclient.ObjectAPI_PutObjectsServ
 }
 
 func (s *objBlockAPIServer) CreateObject(ctx context.Context, request *pfsclient.CreateObjectRequest) (response *types.Empty, retErr error) {
-	func() { s.Log(nil, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(nil, nil, retErr, time.Since(start)) }(time.Now())
+	func() { s.Log(request, nil, nil, 0) }()
+	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	if err := s.writeProto(ctx, s.objectPath(request.Object), request.BlockRef); err != nil {
 		return nil, err
 	}
