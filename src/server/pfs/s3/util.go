@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -26,12 +27,15 @@ func bucketArgs(r *http.Request, bucket string) (string, string, error) {
 }
 
 func pachClient(authToken string) (*client.APIClient, error) {
+	fmt.Println("AAA")
 	c, err := client.NewInCluster()
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("BBB")
 	if authToken != "" {
 		c.SetAuthToken(authToken)
 	}
+	fmt.Println("CCC")
 	return c, nil
 }
