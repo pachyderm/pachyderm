@@ -23,7 +23,7 @@ to have a more granular access to branches and commits, use the PFS
 gRPC Remote Procedure Call (gRPC) interface instead.
 
 You can use any S3 compliant client, such as [MinIO](https://docs.min.io/docs/minio-client-complete-guide),
-[AWS CLI s3](https://docs.aws.amazon.com/cli/latest/reference/s3/index.html), or
+[AWS CLI S3](https://docs.aws.amazon.com/cli/latest/reference/s3/index.html), or
 [S3cmd](https://s3tools.org/usage) to interact with the Pachyderm S3 gateway.
 
 ## Viewing the List of S3 Buckets
@@ -142,12 +142,12 @@ in the [AWS documentation](https://docs.aws.amazon.com/cli/latest/userguide/cli-
    Default output format [None]:
    ```
 
-### Configure `s3cmd`
+### Configure S3cmd
 
 If you are using AWS CLI or MinIO, skip this section.
 
 S3cmd is an open-source command line client that enables you
-to access S3 object store buckets. To configure s3cmd, complete
+to access S3 object store buckets. To configure S3cmd, complete
 the following steps:
 
 1. If you do not have S3cmd installed on your machine, install
