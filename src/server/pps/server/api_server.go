@@ -1499,6 +1499,9 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 	if err := ancestry.ValidateName(pipelineInfo.Pipeline.Name); err != nil {
 		return fmt.Errorf("Invalid pipeline name: %v", err)
 	}
+	if len(pipelineInfo.Pipeline.Name) > 63 {
+		return fmt.Errorf("Pipeline name is longer than 63 characters: ", len(pipelineInfo.Pipeline.Name))
+	}
 	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
 	}
