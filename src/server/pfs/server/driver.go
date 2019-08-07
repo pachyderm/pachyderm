@@ -3730,19 +3730,8 @@ func (d *driver) deleteAll(txnCtx *txnenv.TransactionContext) error {
 		if err := d.txnEnv.WithWriteContext(context.Background(), func(tc *txnenv.TransactionContext) error {
 			// try to delete without breaking pachyderm first, in case something goes wrong
 			if err := d.deleteRepo(tc, repoInfo.Repo, true); err != nil && !auth.IsErrNotAuthorized(err) {
-				logrus.Warnf("could not delete repo while preserving pachyderm invarians: ", err)
+				logrus.Warn("could not delete repo while preserving pachyderm invariants: ", err)
 			}
-			// regardless of whether that worked, we now delete everything directly, to make sure it's actually all gone
-			// check if the caller is authorized to delete this repo
-			if err := d.checkIsAuthorizedInTransaction(tc, repoInfo.Repo, auth.Scope_OWNER); err != nil {
-				logrus.Warnf("not authorized to delete repo %v: %v", repoInfo.Repo.Name, err)
-				return nil
-			}
-
-			branches := d.branches(repoInfo.Repo.Name).ReadWrite(tc.Stm)
-			branches.DeleteAll()
-			commits := d.commits(repoInfo.Repo.Name).ReadWrite(tc.Stm)
-			commits.DeleteAll()
 			return nil
 
 		}); err != nil {
