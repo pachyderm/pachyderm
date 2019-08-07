@@ -78,9 +78,10 @@ Pachyderm.
 
 * The IAM role must have correct trust relationships.
 
-You'll also need to set a system variable `IAM_ROLE` to the name of the IAM role you'll use to deploy the cluster. 
-This is not the Role ARN or the Instance Profile ARN of the role,
-it's the actual role name.
+  You need to set a system variable `IAM_ROLE` to the name
+  of the IAM role that you will use to deploy the cluster.
+  This role is different from the Role ARN or the Instance
+  Profile ARN of the role. It iss the actual role name.
 
 To deploy Pachyderm with an IAM role, complete the following steps:
 
@@ -146,8 +147,9 @@ To deploy Pachyderm with an IAM role, complete the following steps:
         ]
       }
       ```
-1. Set the system variable `IAM_ROLE` to the IAM role name, 
-   which you'll use for the Pachyderm deployment.
+
+1. Set the system variable `IAM_ROLE` to the IAM role name
+   for the Pachyderm deployment.
 
 1. Deploy Pachyderm:
 
