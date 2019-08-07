@@ -85,7 +85,7 @@ func (m *Input) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Input.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -175,7 +175,7 @@ func (m *CancelRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error
 		return xxx_messageInfo_CancelRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -229,7 +229,7 @@ func (m *CancelResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return xxx_messageInfo_CancelResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -278,7 +278,7 @@ func (m *GetChunkRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, err
 		return xxx_messageInfo_GetChunkRequest.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -342,7 +342,7 @@ func (m *ChunkState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_ChunkState.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -407,7 +407,7 @@ func (m *MergeState) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_MergeState.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -481,7 +481,7 @@ func (m *ShardInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_ShardInfo.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -522,7 +522,7 @@ func (m *Plan) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Plan.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -804,7 +804,7 @@ var _Worker_serviceDesc = grpc.ServiceDesc{
 func (m *Input) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -812,78 +812,91 @@ func (m *Input) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Input) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Input) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.FileInfo != nil {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.FileInfo.Size()))
-		n1, err1 := m.FileInfo.MarshalTo(dAtA[i:])
-		if err1 != nil {
-			return 0, err1
-		}
-		i += n1
-	}
-	if len(m.Name) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.Name)))
-		i += copy(dAtA[i:], m.Name)
-	}
-	if m.Lazy {
-		dAtA[i] = 0x18
-		i++
-		if m.Lazy {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i++
-	}
-	if len(m.Branch) > 0 {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.Branch)))
-		i += copy(dAtA[i:], m.Branch)
-	}
-	if m.ParentCommit != nil {
-		dAtA[i] = 0x2a
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.ParentCommit.Size()))
-		n2, err2 := m.ParentCommit.MarshalTo(dAtA[i:])
-		if err2 != nil {
-			return 0, err2
-		}
-		i += n2
-	}
-	if len(m.GitURL) > 0 {
-		dAtA[i] = 0x32
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.GitURL)))
-		i += copy(dAtA[i:], m.GitURL)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.EmptyFiles {
-		dAtA[i] = 0x38
-		i++
+		i--
 		if m.EmptyFiles {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x38
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.GitURL) > 0 {
+		i -= len(m.GitURL)
+		copy(dAtA[i:], m.GitURL)
+		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.GitURL)))
+		i--
+		dAtA[i] = 0x32
 	}
-	return i, nil
+	if m.ParentCommit != nil {
+		{
+			size, err := m.ParentCommit.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintWorkerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.Branch) > 0 {
+		i -= len(m.Branch)
+		copy(dAtA[i:], m.Branch)
+		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.Branch)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.Lazy {
+		i--
+		if m.Lazy {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x18
+	}
+	if len(m.Name) > 0 {
+		i -= len(m.Name)
+		copy(dAtA[i:], m.Name)
+		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.Name)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.FileInfo != nil {
+		{
+			size, err := m.FileInfo.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintWorkerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *CancelRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -891,41 +904,42 @@ func (m *CancelRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CancelRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CancelRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.DataFilters) > 0 {
-		for _, s := range m.DataFilters {
-			dAtA[i] = 0xa
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.JobID) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.JobID)
+		copy(dAtA[i:], m.JobID)
 		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.JobID)))
-		i += copy(dAtA[i:], m.JobID)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.DataFilters) > 0 {
+		for iNdEx := len(m.DataFilters) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.DataFilters[iNdEx])
+			copy(dAtA[i:], m.DataFilters[iNdEx])
+			i = encodeVarintWorkerService(dAtA, i, uint64(len(m.DataFilters[iNdEx])))
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *CancelResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -933,30 +947,36 @@ func (m *CancelResponse) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *CancelResponse) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CancelResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
 	if m.Success {
-		dAtA[i] = 0x8
-		i++
+		i--
 		if m.Success {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x8
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *GetChunkRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -964,40 +984,46 @@ func (m *GetChunkRequest) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *GetChunkRequest) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetChunkRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Id != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.Id))
-	}
-	if m.Shard != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.Shard))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.Stats {
-		dAtA[i] = 0x18
-		i++
+		i--
 		if m.Stats {
 			dAtA[i] = 1
 		} else {
 			dAtA[i] = 0
 		}
-		i++
+		i--
+		dAtA[i] = 0x18
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Shard != 0 {
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.Shard))
+		i--
+		dAtA[i] = 0x10
 	}
-	return i, nil
+	if m.Id != 0 {
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.Id))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ChunkState) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1005,37 +1031,45 @@ func (m *ChunkState) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ChunkState) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ChunkState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.State != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.State))
-	}
-	if len(m.DatumID) > 0 {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.DatumID)))
-		i += copy(dAtA[i:], m.DatumID)
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Address) > 0 {
-		dAtA[i] = 0x1a
-		i++
+		i -= len(m.Address)
+		copy(dAtA[i:], m.Address)
 		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.Address)))
-		i += copy(dAtA[i:], m.Address)
+		i--
+		dAtA[i] = 0x1a
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.DatumID) > 0 {
+		i -= len(m.DatumID)
+		copy(dAtA[i:], m.DatumID)
+		i = encodeVarintWorkerService(dAtA, i, uint64(len(m.DatumID)))
+		i--
+		dAtA[i] = 0x12
 	}
-	return i, nil
+	if m.State != 0 {
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *MergeState) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1043,55 +1077,65 @@ func (m *MergeState) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *MergeState) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MergeState) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.State != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.State))
-	}
-	if m.Tree != nil {
-		dAtA[i] = 0x12
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.Tree.Size()))
-		n3, err3 := m.Tree.MarshalTo(dAtA[i:])
-		if err3 != nil {
-			return 0, err3
-		}
-		i += n3
-	}
-	if m.SizeBytes != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.SizeBytes))
-	}
-	if m.StatsTree != nil {
-		dAtA[i] = 0x22
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.StatsTree.Size()))
-		n4, err4 := m.StatsTree.MarshalTo(dAtA[i:])
-		if err4 != nil {
-			return 0, err4
-		}
-		i += n4
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if m.StatsSizeBytes != 0 {
-		dAtA[i] = 0x28
-		i++
 		i = encodeVarintWorkerService(dAtA, i, uint64(m.StatsSizeBytes))
+		i--
+		dAtA[i] = 0x28
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.StatsTree != nil {
+		{
+			size, err := m.StatsTree.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintWorkerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
 	}
-	return i, nil
+	if m.SizeBytes != 0 {
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.SizeBytes))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.Tree != nil {
+		{
+			size, err := m.Tree.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintWorkerService(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.State != 0 {
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.State))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func (m *ShardInfo) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1099,20 +1143,26 @@ func (m *ShardInfo) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *ShardInfo) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ShardInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
 	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func (m *Plan) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -1120,10 +1170,24 @@ func (m *Plan) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Plan) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Plan) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
+	}
+	if m.Merges != 0 {
+		i = encodeVarintWorkerService(dAtA, i, uint64(m.Merges))
+		i--
+		dAtA[i] = 0x10
+	}
 	if len(m.Chunks) > 0 {
 		dAtA6 := make([]byte, len(m.Chunks)*10)
 		var j5 int
@@ -1137,30 +1201,25 @@ func (m *Plan) MarshalTo(dAtA []byte) (int, error) {
 			dAtA6[j5] = uint8(num)
 			j5++
 		}
-		dAtA[i] = 0xa
-		i++
+		i -= j5
+		copy(dAtA[i:], dAtA6[:j5])
 		i = encodeVarintWorkerService(dAtA, i, uint64(j5))
-		i += copy(dAtA[i:], dAtA6[:j5])
+		i--
+		dAtA[i] = 0xa
 	}
-	if m.Merges != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintWorkerService(dAtA, i, uint64(m.Merges))
-	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
-	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintWorkerService(dAtA []byte, offset int, v uint64) int {
+	offset -= sovWorkerService(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Input) Size() (n int) {
 	if m == nil {

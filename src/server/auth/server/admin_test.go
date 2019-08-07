@@ -1503,7 +1503,7 @@ func TestDeleteRCInStandby(t *testing.T) {
 		[]*pfs.Commit{client.NewCommit(repo, "master")},
 		[]*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
-	require.NoErrorWithinT(t, 30*time.Second, func() error {
+	require.NoErrorWithinT(t, 60*time.Second, func() error {
 		_, err := iter.Next()
 		return err
 	})

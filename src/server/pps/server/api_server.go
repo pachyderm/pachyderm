@@ -1880,7 +1880,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		PodSpec:          request.PodSpec,
 		PodPatch:         request.PodPatch,
 	}
-	setPipelineDefaults(pipelineInfo)
+	if err := setPipelineDefaults(pipelineInfo); err != nil {
+		return nil, err
+	}
 
 	// Validate new pipeline
 	if err := a.validatePipeline(pachClient, pipelineInfo); err != nil {
@@ -1967,9 +1969,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, fmt.Errorf("cannot disable stats"))
 				}
 
-				// Modify pipelineInfo
+				// Modify pipelineInfo (increment Version, and *preserve Stopped* so
+				// that updating a pipeline doesn't restart it)
 				pipelineInfo.Version = oldPipelineInfo.Version + 1
-				pipelineInfo.Stopped = oldPipelineInfo.Stopped
+				if oldPipelineInfo.Stopped {
+					provenance = nil // CreateBranch() below shouldn't create new output
+					pipelineInfo.Stopped = true
+				}
 				if !request.Reprocess {
 					pipelineInfo.Salt = oldPipelineInfo.Salt
 				}
@@ -2089,7 +2095,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 }
 
 // setPipelineDefaults sets the default values for a pipeline info
-func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
+func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
+	if pipelineInfo.Transform == nil {
+		return fmt.Errorf("pipeline spec is missing transform: %v", pipelineInfo)
+	}
+
 	now := time.Now()
 	if pipelineInfo.Transform.Image == "" {
 		pipelineInfo.Transform.Image = DefaultUserImage
@@ -2150,6 +2160,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil && pipelineInfo.Spout.Service.Type == "" {
 		pipelineInfo.Spout.Service.Type = string(v1.ServiceTypeNodePort)
 	}
+	return nil
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
@@ -2492,6 +2503,16 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		return nil, err
 	}
 
+	// Remove 'Stopped' from the pipeline spec
+	pipelineInfo.Stopped = false
+	commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
+	if err != nil {
+		return nil, err
+	}
+	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
+		return nil, err
+	}
+
 	// Replace missing branch provenance (removed by StopPipeline)
 	provenance := append(branchProvenance(pipelineInfo.Input),
 		client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name))
@@ -2501,17 +2522,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		pipelineInfo.OutputBranch,
 		provenance,
 	); err != nil {
-		return nil, err
-	}
-
-	// TODO(msteffen): can I get rid of this and have the PPS master make the
-	// change?
-	pipelineInfo.Stopped = false
-	commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-	if err != nil {
-		return nil, err
-	}
-	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil
