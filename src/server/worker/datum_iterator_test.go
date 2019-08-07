@@ -96,6 +96,12 @@ func TestDatumIterators(t *testing.T) {
 	cross3, err := NewDatumIterator(c, in6)
 	require.NoError(t, err)
 	validateDI(t, cross3)
+
+	// zero cross inside a cross should also be zero
+	in7 := client.NewCrossInput(in6, in1)
+	cross4, err := NewDatumIterator(c, in7)
+	require.NoError(t, err)
+	validateDI(t, cross4)
 }
 
 func validateDI(t *testing.T, di DatumIterator, datums ...string) {

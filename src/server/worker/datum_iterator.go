@@ -155,7 +155,7 @@ func newCrossDatumIterator(pachClient *client.APIClient, cross []*pps.Input) (Da
 }
 
 func (d *crossDatumIterator) Reset() {
-	inhabited := true
+	inhabited := len(d.iterators) > 0
 	for _, iterators := range d.iterators {
 		iterators.Reset()
 		if !iterators.Next() {
