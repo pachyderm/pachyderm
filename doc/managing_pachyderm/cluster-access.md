@@ -84,7 +84,7 @@ and a certificate authority:
 
    **Note:** The `pachd` port is `30650` or `650`.
 
-1. Verify your configuration by running the followig command:
+1. Verify your configuration by running the following command:
 
    ```bash
    $ pachctl config get context new-local
