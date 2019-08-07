@@ -5,7 +5,7 @@ import (
 	"io"
 	"sort"
 
-	"github.com/pachyderm/glob"
+	glob "github.com/pachyderm/ohmyglob"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"

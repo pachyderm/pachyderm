@@ -97,14 +97,15 @@ func NewPFSInput(repo string, glob string) *pps.Input {
 }
 
 // NewPFSInputOpts returns a new PFS input. It includes all options.
-func NewPFSInputOpts(name string, repo string, branch string, glob string, lazy bool) *pps.Input {
+func NewPFSInputOpts(name string, repo string, branch string, glob string, matchOn string, lazy bool) *pps.Input {
 	return &pps.Input{
 		Pfs: &pps.PFSInput{
-			Name:   name,
-			Repo:   repo,
-			Branch: branch,
-			Glob:   glob,
-			Lazy:   lazy,
+			Name:    name,
+			Repo:    repo,
+			Branch:  branch,
+			Glob:    glob,
+			MatchOn: matchOn,
+			Lazy:    lazy,
 		},
 	}
 }
