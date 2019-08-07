@@ -182,13 +182,13 @@ introduce a link.
    :widths: 20 20
    :header-rows: 1
 
-    * - Do not use:
-      - Use:
-    * - More information about getting your FREE trial token and
-        activating the dashboard can be found
-        [here](https://pachyderm.readthedocs.io/en/latest/enterprise/deployment.html#activate-via-the-dashboard).
-      - For more information, see
-        [Activate your token by using the dashboard](https://pachyderm.readthedocs.io/en/latest/enterprise/deployment.html#activate-via-the-dashboard).
+   * - Do not use:
+     - Use:
+   * - More information about getting your FREE trial token and
+       activating the dashboard can be found
+       [here](https://pachyderm.readthedocs.io/en/latest/enterprise/deployment.html#activate-via-the-dashboard).
+     - For more information, see
+       [Activate your token by using the dashboard](https://pachyderm.readthedocs.io/en/latest/enterprise/deployment.html#activate-via-the-dashboard).
 
 Markdown vs reSTructuredText
 ----------------------------

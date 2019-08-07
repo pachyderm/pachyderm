@@ -51,7 +51,7 @@ func (m *Version) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_Version.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +208,7 @@ var _API_serviceDesc = grpc.ServiceDesc{
 func (m *Version) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -216,45 +216,54 @@ func (m *Version) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *Version) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Version) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if m.Major != 0 {
-		dAtA[i] = 0x8
-		i++
-		i = encodeVarintVersion(dAtA, i, uint64(m.Major))
-	}
-	if m.Minor != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintVersion(dAtA, i, uint64(m.Minor))
-	}
-	if m.Micro != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintVersion(dAtA, i, uint64(m.Micro))
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Additional) > 0 {
-		dAtA[i] = 0x22
-		i++
+		i -= len(m.Additional)
+		copy(dAtA[i:], m.Additional)
 		i = encodeVarintVersion(dAtA, i, uint64(len(m.Additional)))
-		i += copy(dAtA[i:], m.Additional)
+		i--
+		dAtA[i] = 0x22
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if m.Micro != 0 {
+		i = encodeVarintVersion(dAtA, i, uint64(m.Micro))
+		i--
+		dAtA[i] = 0x18
 	}
-	return i, nil
+	if m.Minor != 0 {
+		i = encodeVarintVersion(dAtA, i, uint64(m.Minor))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Major != 0 {
+		i = encodeVarintVersion(dAtA, i, uint64(m.Major))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintVersion(dAtA []byte, offset int, v uint64) int {
+	offset -= sovVersion(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *Version) Size() (n int) {
 	if m == nil {
