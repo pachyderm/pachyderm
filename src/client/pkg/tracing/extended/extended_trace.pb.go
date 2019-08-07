@@ -53,7 +53,7 @@ func (m *TraceProto) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 		return xxx_messageInfo_TraceProto.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
-		n, err := m.MarshalTo(b)
+		n, err := m.MarshalToSizedBuffer(b)
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +118,7 @@ var fileDescriptor_8d6b46ba46523418 = []byte{
 func (m *TraceProto) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
 	if err != nil {
 		return nil, err
 	}
@@ -126,47 +126,58 @@ func (m *TraceProto) Marshal() (dAtA []byte, err error) {
 }
 
 func (m *TraceProto) MarshalTo(dAtA []byte) (int, error) {
-	var i int
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *TraceProto) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
 	_ = i
 	var l int
 	_ = l
-	if len(m.SerializedTrace) > 0 {
-		for k, _ := range m.SerializedTrace {
-			dAtA[i] = 0xa
-			i++
-			v := m.SerializedTrace[k]
-			mapSize := 1 + len(k) + sovExtendedTrace(uint64(len(k))) + 1 + len(v) + sovExtendedTrace(uint64(len(v)))
-			i = encodeVarintExtendedTrace(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintExtendedTrace(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x12
-			i++
-			i = encodeVarintExtendedTrace(dAtA, i, uint64(len(v)))
-			i += copy(dAtA[i:], v)
-		}
+	if m.XXX_unrecognized != nil {
+		i -= len(m.XXX_unrecognized)
+		copy(dAtA[i:], m.XXX_unrecognized)
 	}
 	if len(m.Pipeline) > 0 {
-		dAtA[i] = 0x12
-		i++
+		i -= len(m.Pipeline)
+		copy(dAtA[i:], m.Pipeline)
 		i = encodeVarintExtendedTrace(dAtA, i, uint64(len(m.Pipeline)))
-		i += copy(dAtA[i:], m.Pipeline)
+		i--
+		dAtA[i] = 0x12
 	}
-	if m.XXX_unrecognized != nil {
-		i += copy(dAtA[i:], m.XXX_unrecognized)
+	if len(m.SerializedTrace) > 0 {
+		for k := range m.SerializedTrace {
+			v := m.SerializedTrace[k]
+			baseI := i
+			i -= len(v)
+			copy(dAtA[i:], v)
+			i = encodeVarintExtendedTrace(dAtA, i, uint64(len(v)))
+			i--
+			dAtA[i] = 0x12
+			i -= len(k)
+			copy(dAtA[i:], k)
+			i = encodeVarintExtendedTrace(dAtA, i, uint64(len(k)))
+			i--
+			dAtA[i] = 0xa
+			i = encodeVarintExtendedTrace(dAtA, i, uint64(baseI-i))
+			i--
+			dAtA[i] = 0xa
+		}
 	}
-	return i, nil
+	return len(dAtA) - i, nil
 }
 
 func encodeVarintExtendedTrace(dAtA []byte, offset int, v uint64) int {
+	offset -= sovExtendedTrace(v)
+	base := offset
 	for v >= 1<<7 {
 		dAtA[offset] = uint8(v&0x7f | 0x80)
 		v >>= 7
 		offset++
 	}
 	dAtA[offset] = uint8(v)
-	return offset + 1
+	return base
 }
 func (m *TraceProto) Size() (n int) {
 	if m == nil {

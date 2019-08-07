@@ -1,7 +1,7 @@
 .. cookbook::
 
 Cookbook
-=======
+-=======
 
 Pachyderm cookbook includes scenarios and use cases that you
 would typically execute while processing your data in Pachyderm.
