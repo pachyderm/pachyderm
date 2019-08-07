@@ -382,6 +382,8 @@ func NewDatumIterator(pachClient *client.APIClient, input *pps.Input) (DatumIter
 		return newUnionDatumIterator(pachClient, input.Union)
 	case input.Cross != nil:
 		return newCrossDatumIterator(pachClient, input.Cross)
+	case input.Join != nil:
+		return newJoinDatumIterator(pachClient, input.Join)
 	case input.Cron != nil:
 		return newCronDatumIterator(pachClient, input.Cron)
 	case input.Git != nil:
