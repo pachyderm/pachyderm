@@ -135,7 +135,7 @@ func (c *bucketController) ListObjects(r *http.Request, repo, prefix, marker, de
 	return
 }
 
-func (c *bucketController) ListVersionedObjects(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (versions []s2.Version, deleteMarkers []s2.DeleteMarker, isTruncated bool, err error) {
+func (c *bucketController) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (versions []s2.Version, deleteMarkers []s2.DeleteMarker, isTruncated bool, err error) {
 	err = s2.NotImplementedError(r)
 	return
 }

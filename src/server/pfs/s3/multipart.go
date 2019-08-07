@@ -197,7 +197,7 @@ func (c *multipartController) AbortMultipart(r *http.Request, repo, key, uploadI
 	return nil
 }
 
-func (c *multipartController) CompleteMultipart(r *http.Request, repo, key, uploadID string, parts []s2.Part) (location, etag string, err error) {
+func (c *multipartController) CompleteMultipart(r *http.Request, repo, key, uploadID string, parts []s2.Part) (location, etag, version string, err error) {
 	branch := branchArg(r)
 	_, err = c.pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -260,6 +260,7 @@ func (c *multipartController) CompleteMultipart(r *http.Request, repo, key, uplo
 
 	location = globalLocation
 	etag = fmt.Sprintf("%x", fileInfo.Hash)
+	version = branch
 	return
 }
 

@@ -65,8 +65,8 @@ type BucketController interface {
 	// ListObjects lists objects within a bucket
 	ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []Contents, commonPrefixes []CommonPrefixes, isTruncated bool, err error)
 
-	// ListOVersionedbjects lists objects' versions within a bucket
-	ListVersionedObjects(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (versions []Version, deleteMarkers []DeleteMarker, isTruncated bool, err error)
+	// ListObjectVersions lists objects' versions within a bucket
+	ListObjectVersions(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (versions []Version, deleteMarkers []DeleteMarker, isTruncated bool, err error)
 
 	// CreateBucket creates a bucket
 	CreateBucket(r *http.Request, bucket string) error
@@ -94,7 +94,7 @@ func (c unimplementedBucketController) ListObjects(r *http.Request, bucket, pref
 	return
 }
 
-func (c unimplementedBucketController) ListVersionedObjects(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (versions []Version, deleteMarkers []DeleteMarker, isTruncated bool, err error) {
+func (c unimplementedBucketController) ListObjectVersions(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (versions []Version, deleteMarkers []DeleteMarker, isTruncated bool, err error) {
 	err = NotImplementedError(r)
 	return
 }
@@ -185,20 +185,20 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if result.IsTruncated {
-		if len(result.Contents) > 0 && len(result.CommonPrefixes) == 0 {
-			result.NextMarker = result.Contents[len(result.Contents)-1].Key
-		} else if len(result.Contents) == 0 && len(result.CommonPrefixes) > 0 {
-			result.NextMarker = result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
-		} else if len(result.Contents) > 0 && len(result.CommonPrefixes) > 0 {
-			lastContents := result.Contents[len(result.Contents)-1].Key
-			lastCommonPrefixes := result.CommonPrefixes[len(result.CommonPrefixes)-1].Prefix
+		high := ""
 
-			if lastContents > lastCommonPrefixes {
-				result.NextMarker = lastContents
-			} else {
-				result.NextMarker = lastCommonPrefixes
+		for _, contents := range result.Contents {
+			if contents.Key > high {
+				high = contents.Key
 			}
 		}
+		for _, commonPrefix := range result.CommonPrefixes {
+			if commonPrefix.Prefix > high {
+				high = commonPrefix.Prefix
+			}
+		}
+
+		result.NextMarker = high
 	}
 
 	writeXML(h.logger, w, r, http.StatusOK, result)
@@ -261,6 +261,11 @@ func (h bucketHandler) setVersioning(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if payload.Status != VersioningDisabled && payload.Status != VersioningSuspended && payload.Status != VersioningEnabled {
+		WriteError(h.logger, w, r, IllegalVersioningConfigurationError(r))
+		return
+	}
+
 	err := h.controller.SetBucketVersioning(r, bucket, payload.Status)
 	if err != nil {
 		WriteError(h.logger, w, r, err)
@@ -285,7 +290,7 @@ func (h bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
 	versionIDMarker := r.FormValue("version-id-marker")
 	delimiter := r.FormValue("delimiter")
 
-	versions, deleteMarkers, isTruncated, err := h.controller.ListVersionedObjects(r, bucket, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
+	versions, deleteMarkers, isTruncated, err := h.controller.ListObjectVersions(r, bucket, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
 	if err != nil {
 		WriteError(h.logger, w, r, err)
 		return
@@ -320,32 +325,28 @@ func (h bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if result.IsTruncated {
-		if len(result.Versions) > 0 && len(result.DeleteMarkers) == 0 {
-			last := result.Versions[len(result.Versions)-1]
-			result.NextKeyMarker = last.Key
-			result.NextVersionIDMarker = last.Version
-		} else if len(result.Versions) == 0 && len(result.DeleteMarkers) > 0 {
-			last := result.DeleteMarkers[len(result.DeleteMarkers)-1]
-			result.NextKeyMarker = last.Key
-			result.NextVersionIDMarker = last.Version
-		} else if len(result.Versions) > 0 && len(result.DeleteMarkers) > 0 {
-			lastVersion := result.Versions[len(result.Versions)-1]
-			lastDeleteMarker := result.DeleteMarkers[len(result.DeleteMarkers)-1]
-			if lastVersion.Key == lastDeleteMarker.Key {
-				result.NextKeyMarker = lastVersion.Key
-				if lastVersion.Version > lastDeleteMarker.Version {
-					result.NextVersionIDMarker = lastVersion.Version
-				} else {
-					result.NextVersionIDMarker = lastDeleteMarker.Version
-				}
-			} else if lastVersion.Key > lastDeleteMarker.Key {
-				result.NextKeyMarker = lastVersion.Key
-				result.NextVersionIDMarker = lastVersion.Version
-			} else {
-				result.NextKeyMarker = lastDeleteMarker.Key
-				result.NextVersionIDMarker = lastDeleteMarker.Version
+		highKey := ""
+		highVersion := ""
+
+		for _, version := range result.Versions {
+			if version.Key > highKey {
+				highKey = version.Key
+			}
+			if version.Version > highVersion {
+				highVersion = version.Version
 			}
 		}
+		for _, deleteMarker := range result.DeleteMarkers {
+			if deleteMarker.Key > highKey {
+				highKey = deleteMarker.Key
+			}
+			if deleteMarker.Version > highVersion {
+				highVersion = deleteMarker.Version
+			}
+		}
+
+		result.NextKeyMarker = highKey
+		result.NextVersionIDMarker = highVersion
 	}
 
 	writeXML(h.logger, w, r, http.StatusOK, result)

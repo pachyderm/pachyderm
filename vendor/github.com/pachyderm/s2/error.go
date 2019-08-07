@@ -77,6 +77,12 @@ func EntityTooSmallError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "EntityTooSmall", "Your proposed upload is smaller than the minimum allowed object size. Each part must be at least 5 MB in size, except the last part.")
 }
 
+// IllegalVersioningConfigurationError creates a new S3 error with a standard
+// IllegalVersioningConfigurationException S3 code.
+func IllegalVersioningConfigurationError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "IllegalVersioningConfigurationException", "The versioning configuration specified in the request is invalid.")
+}
+
 // IncompleteBodyError creates a new S3 error with a standard IncompleteBody S3 code.
 func IncompleteBodyError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "IncompleteBody", "You did not provide the number of bytes specified by the Content-Length HTTP header.")

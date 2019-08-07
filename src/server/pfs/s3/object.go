@@ -28,7 +28,7 @@ func newObjectController(pc *client.APIClient, logger *logrus.Entry) *objectCont
 	return &c
 }
 
-func (c *objectController) GetObject(r *http.Request, repo, file, version string) (etag, fetchedVersion string, modTime time.Time, content io.ReadSeeker, err error) {
+func (c *objectController) GetObject(r *http.Request, repo, file, version string) (etag, fetchedVersion string, deleteMarker bool, modTime time.Time, content io.ReadSeeker, err error) {
 	if version == "" {
 		version = "master"
 	}
@@ -102,12 +102,12 @@ func (c *objectController) PutObject(r *http.Request, repo, file string, reader 
 	return
 }
 
-func (c *objectController) DeleteObject(r *http.Request, repo, file, version string) (removedVersion string, err error) {
+func (c *objectController) DeleteObject(r *http.Request, repo, file, version string) (removedVersion string, deleteMarker bool, err error) {
 	// It's only possible to delete objects when no version is specified (i.e.
 	// it runs on the HEAD of master), or when the specified version is a
 	// branch (i.e. it runs on the HEAD of the specified branch.)
 	if isCommit(version) {
-		return "", illegalVersioningConfigurationError(r)
+		return "", false, illegalVersioningConfigurationError(r)
 	}
 	if version == "" {
 		version = "master"
@@ -115,18 +115,18 @@ func (c *objectController) DeleteObject(r *http.Request, repo, file, version str
 
 	branchInfo, err := c.pc.InspectBranch(repo, version)
 	if err != nil {
-		return "", maybeNotFoundError(r, err)
+		return "", false, maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
-		return "", s2.NoSuchKeyError(r)
+		return "", false, s2.NoSuchKeyError(r)
 	}
 	if strings.HasSuffix(file, "/") {
-		return "", invalidFilePathError(r)
+		return "", false, invalidFilePathError(r)
 	}
 
 	if err := c.pc.DeleteFile(repo, version, file); err != nil {
-		return "", maybeNotFoundError(r, err)
+		return "", false, maybeNotFoundError(r, err)
 	}
 
-	return version, nil
+	return version, false, nil
 }
