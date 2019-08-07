@@ -156,18 +156,22 @@ Kubeflow in the `kubeflow` namespace and Pachyderm in the `pachyderm` namespace.
    There are two ways of the sample data: 
    either loading the data directly from GitHub or from a local copy.
 
-* _Loading directly from GitHub_.
-  You can load the data directly from GitHub with this bash command,
-  assuming you have the `seq` executable installed from the [coreutils](https://www.gnu.org/software/coreutils) library:
-```bash
-for file in $(seq 0 9)
-do pachctl put file inputrepo@master:/data/img_${file}.jpg  \
- -f https://raw.githubusercontent.com/pachyderm/pachyderm/tree/master/examples/kubeflow/tfjob/mnist/img_${file}.jpg 
-done
-```
-* _Copying from local disk_.
-  You can clone this example locally or download the data to your local disk.
-  You can then add the mnist to `inputrepo` using the command `cd </path/where/you/put/this/example> ; pachctl put file inputrepo@master:/data -r -f mnist/`.
+   * _Loading directly from GitHub_.
+     You can load the data directly from GitHub with this bash command,
+     assuming you have the `seq` executable installed from the [coreutils](https://www.gnu.org/software/coreutils) library:
+     ```sh
+     for file in $(seq 0 9)
+     do pachctl put file inputrepo@master:/data/img_${file}.jpg  \
+          -f https://raw.githubusercontent.com/pachyderm/pachyderm/tree/master/examples/kubeflow/tfjob/mnist/img_${file}.jpg 
+     done
+     ```
+      
+   * _Copying from local disk_.
+     You can clone this example locally or download the data to your local disk.
+     You can then add the contents of the mnist directory to `inputrepo` using the command below.
+     ```sh
+     cd /path/where/you/put/this/example ; pachctl put file inputrepo@master:/data -r -f mnist/
+     ```
 
 4. Create a repo in Pachyderm using the command  `pachctl create repo outputrepo`.
 5. Create a branch in that repo using the command `pachctl create branch outputrepo@master`.
