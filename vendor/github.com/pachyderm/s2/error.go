@@ -36,6 +36,18 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("[%s] %s", e.Code, e.Message)
 }
 
+// AccessDeniedError creates a new S3 error with a standard AccessDenied S3
+// code.
+func AccessDeniedError(r *http.Request) *Error {
+	return NewError(r, http.StatusForbidden, "AccessDenied", "Access Denied")
+}
+
+// AuthorizationHeaderMalformedError creates a new S3 error with a standard
+// AuthorizationHeaderMalformed S3 code.
+func AuthorizationHeaderMalformedError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "AuthorizationHeaderMalformed", "The authorization header you provided is invalid.")
+}
+
 // BadDigestError creates a new S3 error with a standard BadDigest S3 code.
 func BadDigestError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "BadDigest", "The Content-MD5 you specified did not match what we received.")
@@ -53,10 +65,27 @@ func BucketAlreadyOwnedByYouError(r *http.Request) *Error {
 	return NewError(r, http.StatusConflict, "BucketAlreadyOwnedByYou", "The bucket you tried to create already exists, and you own it.")
 }
 
+// EntityTooLargeError creates a new S3 error with a standard EntityTooLarge
+// S3 code.
+func EntityTooLargeError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "EntityTooLarge", "Your proposed upload exceeds the maximum allowed object size.")
+}
+
 // EntityTooSmallError creates a new S3 error with a standard EntityTooSmall
 // S3 code.
 func EntityTooSmallError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "EntityTooSmall", "Your proposed upload is smaller than the minimum allowed object size. Each part must be at least 5 MB in size, except the last part.")
+}
+
+// IllegalVersioningConfigurationError creates a new S3 error with a standard
+// IllegalVersioningConfigurationException S3 code.
+func IllegalVersioningConfigurationError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "IllegalVersioningConfigurationException", "The versioning configuration specified in the request is invalid.")
+}
+
+// IncompleteBodyError creates a new S3 error with a standard IncompleteBody S3 code.
+func IncompleteBodyError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "IncompleteBody", "You did not provide the number of bytes specified by the Content-Length HTTP header.")
 }
 
 // InternalError creates a new S3 error with a standard InternalError S3 code.
@@ -70,9 +99,15 @@ func InvalidBucketNameError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "InvalidBucketName", "The specified bucket is not valid.")
 }
 
-// InvalidArgument creates a new S3 error with a standard InvalidArgument S3
+// InvalidAccessKeyIDError creates a new S3 error with a standard
+// InvalidAccessKeyId S3 code.
+func InvalidAccessKeyIDError(r *http.Request) *Error {
+	return NewError(r, http.StatusForbidden, "InvalidAccessKeyId", "The AWS access key ID you provided does not exist in our records.")
+}
+
+// InvalidArgumentError creates a new S3 error with a standard InvalidArgument S3
 // code.
-func InvalidArgument(r *http.Request) *Error {
+func InvalidArgumentError(r *http.Request) *Error {
 	return NewError(r, http.StatusBadRequest, "InvalidArgument", "Invalid Argument")
 }
 
@@ -106,6 +141,18 @@ func MethodNotAllowedError(r *http.Request) *Error {
 	return NewError(r, http.StatusMethodNotAllowed, "MethodNotAllowed", "The specified method is not allowed against this resource.")
 }
 
+// MissingContentLengthError creates a new S3 error with a standard
+// MissingContentLength S3 code.
+func MissingContentLengthError(r *http.Request) *Error {
+	return NewError(r, http.StatusLengthRequired, "MissingContentLength", "You must provide the Content-Length HTTP header.")
+}
+
+// MissingRequestBodyError creates a new S3 error with a standard
+// MissingRequestBodyError S3 code.
+func MissingRequestBodyError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "MissingRequestBodyError", "Request body is empty.")
+}
+
 // NoSuchBucketError creates a new S3 error with a standard NoSuchBucket S3
 // code.
 func NoSuchBucketError(r *http.Request) *Error {
@@ -127,4 +174,22 @@ func NoSuchUploadError(r *http.Request) *Error {
 // S3 code.
 func NotImplementedError(r *http.Request) *Error {
 	return NewError(r, http.StatusNotImplemented, "NotImplemented", "This functionality is not implemented.")
+}
+
+// RequestTimeoutError creates a new S3 error with a standard RequestTimeout
+// S3 code.
+func RequestTimeoutError(r *http.Request) *Error {
+	return NewError(r, http.StatusBadRequest, "RequestTimeout", "Your socket connection to the server was not read from or written to within the timeout period.")
+}
+
+// RequestTimeTooSkewedError creates a new S3 error with a standard
+// RequestTimeTooSkewed S3 code.
+func RequestTimeTooSkewedError(r *http.Request) *Error {
+	return NewError(r, http.StatusForbidden, "RequestTimeTooSkewed", "The difference between the request time and the server's time is too large.")
+}
+
+// SignatureDoesNotMatchError creates a new S3 error with a standard
+// SignatureDoesNotMatch S3 code.
+func SignatureDoesNotMatchError(r *http.Request) *Error {
+	return NewError(r, http.StatusForbidden, "SignatureDoesNotMatch", "The request signature we calculated does not match the signature you provided. Check your auth credentials and signing method.")
 }

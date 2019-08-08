@@ -282,6 +282,7 @@ github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQL
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1 h1:mweAR1A6xJ3oS2pRaGiHgQ4OO8tzTaLawm8vnODuwDk=
 github.com/konsorten/go-windows-terminal-sequences v1.0.1/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
+github.com/konsorten/go-windows-terminal-sequences v1.0.2 h1:DB17ag19krx9CFsz4o3enTrPXyIXCl+2iCXH/aMAp9s=
 github.com/konsorten/go-windows-terminal-sequences v1.0.2/go.mod h1:T0+1ngSBFLxvqU3pZ+m/2kptfBszLMUkC4ZK/EgS/cQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=
@@ -351,6 +352,8 @@ github.com/pachyderm/s2 v0.0.0-20190716172438-adf6f0f30cd6 h1:5A5go/SBtiJT/XZktq
 github.com/pachyderm/s2 v0.0.0-20190716172438-adf6f0f30cd6/go.mod h1:PYimctkA60nY8yUd3wDfVnwCdzPGpyOgFZ9rnbhjTOQ=
 github.com/pachyderm/s2 v0.0.0-20190718150940-b2f7f7a23fb4 h1:/j01nOL7v0Z9/hgNU4z9UTuHASDENq4jUYObTUKjjso=
 github.com/pachyderm/s2 v0.0.0-20190718150940-b2f7f7a23fb4/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
+github.com/pachyderm/s2 v0.0.0-20190806193225-ba302ffe4378 h1:Ch43r9rdzf3MmSfGiUok3ZiiJIOhkDBQ9SxmWMr/2k0=
+github.com/pachyderm/s2 v0.0.0-20190806193225-ba302ffe4378/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pelletier/go-buffruneio v0.2.0 h1:U4t4R6YkofJ5xHm3dJzuRpPZ0mr5MMCoAWooScCR7aA=
 github.com/pelletier/go-buffruneio v0.2.0/go.mod h1:JkE26KsDizTr40EUHkXVtNPvgGtbSNq5BcowyYOWdKo=
 github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=
