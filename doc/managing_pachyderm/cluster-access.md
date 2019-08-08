@@ -74,15 +74,15 @@ curly brackets.
 To create a new context with specific parameters, complete
 the following steps:
 
-1. Create a new Pachyderm context with a specific `pachdd` IP address
-and a certificate authority:
+1. Create a new Pachyderm context with a specific `pachd` IP address
+and a client certificate:
 
    ```bash
    $ echo '{"pachd_address":"10.10.10.130:650", "server_cas":"key.pem"}' | pachctl config set context new-local
    Reading from stdin
    ```
 
-   **Note:** The `pachd` port is `30650` or `650`.
+   **Note:** By default, the `pachd` port is `30650` or `650`.
 
 1. Verify your configuration by running the following command:
 

@@ -58,15 +58,20 @@ To connect to a Pachyderm dashboard, complete the following steps:
 
 ## Connect to a Cluster Deployed on a Cloud Platform
 
-Similarly to a local cluster deployment, in Pachyderm
-cluster deployed on a cloud platform, port-forwarding
-from `pachctl` to `pachd` is enabled by default and
-to access the Pachyderm dashboard, you need to run
-`pachctl` port-forward. Since a Pachyderm cluster
+As in a local cluster deployment, a Pachyderm cluster
+deployed on a cloud platform has impllcit port-forwarding enabled.
+This means that, if you are connected to the cluster so
+that `kubectl` works, `pachctl` can communicate with `pachd`
+without any additional configuration.
+Other services still need explicit port forwarding.
+For example, to access the Pachyderm dashboard,
+you need to run pachctl port-forward.
+Since a Pachyderm cluster
 deployed on a cloud platform is more likely to become
-a production deployment, you might use the Pachyderm contexts
+a production deployment, configuring a `pachd_address`
 as described in
-[Connect by using a Pachyderm context](#connect-by-using-a-pachyderm-context.html).
+[Connect by using a Pachyderm context](#connect-by-using-a-pachyderm-context.html)
+is the preferred way.
 
 ## Connect by using a Pachyderm context
 
@@ -108,6 +113,9 @@ steps:
    $ pachctl config get active-context
    ```
 
+   This command returns the name of the currently active context.
+   Use this as the argument to the command below.
+
    If no IP address is set up for this cluster, you get the following
    output:
 
@@ -130,7 +138,7 @@ steps:
    $ pachctl config update context local --pachd-address 192.168.1.15:30650
    ```
 
-   **Note:** The `pachd` port is `30650` or `650`.
+   **Note:** By default, the `pachd` port is `30650` or `650`.
 
 1. Verify that the configuration has been updated:
 
@@ -184,3 +192,7 @@ To enable port-forwarding, complete the following steps:
    ```
 
    This command does not stop unless you manually interrupt it.
+   You can run other `pachctl` commands from another window.
+   If any of your `pachctl` commands hang, verify if the
+   `kubectl`s port-forwarding has had issues that prevent
+   `pachctl port-forward` from running properly.
