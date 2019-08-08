@@ -1,7 +1,6 @@
 package s3
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
@@ -32,9 +31,7 @@ func (c authMiddleware) SecretKey(r *http.Request, accessKey string, region *str
 		}
 	}
 
-	fmt.Println("DDD")
 	_, err = pc.WhoAmI(pc.Ctx(), &auth.WhoAmIRequest{})
-	fmt.Println("EEE")
 	if err != nil {
 		return nil, nil
 	}
