@@ -10,6 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/storage"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/pachyderm/pachyderm/src/client/limit"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 )
@@ -24,6 +25,8 @@ const (
 	// to completely change the interface though so it's a nontrivial amount of
 	// work.
 	maxBlockSize = 4 * 1024 * 1024
+	// concurrency is the maximum concurrent block writes per writer.
+	concurrency = 10
 )
 
 var (
@@ -136,6 +139,7 @@ type microsoftWriter struct {
 	container  string
 	blob       string
 	blobClient storage.BlobStorageClient
+	limiter    limit.ConcurrencyLimiter
 	buf        *bytes.Buffer
 	nBlocks    int
 	eg         errgroup.Group
@@ -154,6 +158,7 @@ func newMicrosoftWriter(ctx context.Context, client *microsoftClient, name strin
 		container:  client.container,
 		blob:       name,
 		blobClient: client.blobClient,
+		limiter:    limit.New(concurrency),
 		buf:        bytes.NewBuffer(bufPool.GetBuffer()[:0]),
 	}, nil
 }
@@ -203,7 +208,9 @@ func blockID(n int) string {
 func (w *microsoftWriter) writeBlock(b []byte) {
 	block := w.nBlocks
 	w.nBlocks++
+	w.limiter.Acquire()
 	w.eg.Go(func() error {
+		defer w.limiter.Release()
 		defer bufPool.PutBuffer(b)
 		if err := w.blobClient.PutBlock(w.container, w.blob, blockID(block), b); err != nil {
 			w.err = err

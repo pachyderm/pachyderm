@@ -37,6 +37,7 @@ $ pachctl list job -p foo -i bar@YYY
       --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
       --history string    Return jobs from historical versions of pipelines. (default "none")
   -i, --input strings     List jobs with a specific set of input commits. format: <repo>@<branch-or-commit>
+      --no-pager          Don't pipe output into a pager (i.e. less).
   -o, --output string     List jobs with a specific output commit. format: <repo>@<branch-or-commit>
   -p, --pipeline string   Limit to jobs made by pipeline.
       --raw               disable pretty printing, print raw json
