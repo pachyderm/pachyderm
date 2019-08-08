@@ -88,6 +88,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible h1:7qlOGliEKZXTDg6OTjfoBKDXWrumCAMpl/TFQ4/5kLM=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
+github.com/dlclark/regexp2 v1.2.0 h1:8sAhBGEM0dRWogWqWyQeIJnxjWO6oIjl8FKqREDsGfk=
+github.com/dlclark/regexp2 v1.2.0/go.mod h1:2pZnwuY/m+8K6iRw6wQdMtk+rH5tNGR1i55kozfMjCc=
 github.com/docker/distribution v2.7.1+incompatible h1:a5mlkVzth6W5A4fOsS3D2EO5BUmsJpcB+cRlLU7cSug=
 github.com/docker/distribution v2.7.1+incompatible/go.mod h1:J2gT2udsDAN96Uj4KfcMRqY0/ypR+oyYUYmja8H+y+w=
 github.com/docker/docker v0.7.3-0.20160607220223-f6ff9acc63a0 h1:Mr2lLJpDAmdJQBQjjVk/sBvI0OnqiohyA6vcciuaQNo=
@@ -335,6 +337,8 @@ github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFSt
 github.com/openzipkin/zipkin-go v0.1.6/go.mod h1:QgAqvLzwWbR/WpD4A3cGpPtJrZXNIiJc5AZX7/PBEpw=
 github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad h1:JsBzKIhtEHXy5t57RvBxoA+yyt2lcxlDpHHQudtawrM=
 github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad/go.mod h1:KxLpniXKmJ62J2R77yn+Zxa2BQlE+QBnMG/Ato8sDFo=
+github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4 h1:VaM0qJE77embDzVlZxjxLm2sN6s1xMhgSfls+QVzjOQ=
+github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4/go.mod h1:zTTB59W9i3MPZor62iS6A5hL1rbPCKDLPo/CetUPLuQ=
 github.com/pachyderm/s2 v0.0.0-20190708210605-9ba42cb3cead h1:kQIGyj4zihjcDUM70IcxYptsePYuNj0/Zg9tivSfyIo=
 github.com/pachyderm/s2 v0.0.0-20190708210605-9ba42cb3cead/go.mod h1:PYimctkA60nY8yUd3wDfVnwCdzPGpyOgFZ9rnbhjTOQ=
 github.com/pachyderm/s2 v0.0.0-20190711205731-62565fa17266 h1:0Uvt7ssreV9sxGaqiDE8/PpkYU/kKJJc3dklx+A8Bdw=

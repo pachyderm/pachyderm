@@ -1,0 +1,49 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "NwUioHSgxB6OGTaLChJX72tSUEA=",
+			"path": "github.com/dlclark/regexp2",
+			"revision": "7632a260cbaf5e7594fc1544a503456ecd0827f1",
+			"revisionTime": "2017-10-09T02:06:23Z"
+		},
+		{
+			"checksumSHA1": "k0JXX65FspyueQ8/1i50DGRiCUk=",
+			"path": "github.com/dlclark/regexp2/syntax",
+			"revision": "7632a260cbaf5e7594fc1544a503456ecd0827f1",
+			"revisionTime": "2017-10-09T02:06:23Z"
+		},
+		{
+			"checksumSHA1": "OkE2aCRphGWAekRObBUcHA1q+Ks=",
+			"path": "github.com/pachyderm/ohmyglob",
+			"revision": "ae28ce7bc78440f7bed13e2b8311b475476dc4e7",
+			"revisionTime": "2019-07-13T00:39:29Z"
+		},
+		{
+			"checksumSHA1": "DPgQT/N3YczoUdgJEgFPsa/jXAk=",
+			"path": "github.com/pachyderm/ohmyglob/compiler",
+			"revision": "ae28ce7bc78440f7bed13e2b8311b475476dc4e7",
+			"revisionTime": "2019-07-13T00:39:29Z"
+		},
+		{
+			"checksumSHA1": "F5U/e9/hgXDXzUHW3rzBG0sCbpM=",
+			"path": "github.com/pachyderm/ohmyglob/syntax",
+			"revision": "ae28ce7bc78440f7bed13e2b8311b475476dc4e7",
+			"revisionTime": "2019-07-13T00:39:29Z"
+		},
+		{
+			"checksumSHA1": "Z796jmR1+aNOXMQ20y2sD9oJeiw=",
+			"path": "github.com/pachyderm/ohmyglob/syntax/ast",
+			"revision": "ae28ce7bc78440f7bed13e2b8311b475476dc4e7",
+			"revisionTime": "2019-07-13T00:39:29Z"
+		},
+		{
+			"checksumSHA1": "+CuldHkbOXsxmU2cqe/HhDs/eQc=",
+			"path": "github.com/pachyderm/ohmyglob/syntax/lexer",
+			"revision": "ae28ce7bc78440f7bed13e2b8311b475476dc4e7",
+			"revisionTime": "2019-07-13T00:39:29Z"
+		}
+	],
+	"rootPath": "github.com/pachyderm/pachyderm"
+}
