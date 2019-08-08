@@ -62,7 +62,7 @@ To view active context, type:
 ## Change the Active Context
 
 To change the active context, type `pachctl config set
-active-context <name>.`
+active-context <name>`.
 
 ## Create a New Context
 

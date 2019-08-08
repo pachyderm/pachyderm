@@ -102,7 +102,7 @@ if you place the data that is consumed by your pipeline in object
 store buckets located in the same region.
 
 For more information about Pachyderm contexts, see
-[Manage Cluster Access](../managing_pachyderm/connect-to-cluster.html)
+[Manage Cluster Access](../managing_pachyderm/cluster-access.html).
 
 To connect by using a Pachyderm context, complete the following
 steps:
@@ -184,7 +184,7 @@ store buckets located in the same region.
 
 To enable port-forwarding, complete the following steps:
 
-1. Open a new terminal window
+1. Open a new terminal window.
 1. Run:
 
    ```bash
@@ -194,5 +194,5 @@ To enable port-forwarding, complete the following steps:
    This command does not stop unless you manually interrupt it.
    You can run other `pachctl` commands from another window.
    If any of your `pachctl` commands hang, verify if the
-   `kubectl`s port-forwarding has had issues that prevent
+   `kubectl` port-forwarding has had issues that prevent
    `pachctl port-forward` from running properly.
