@@ -4111,11 +4111,11 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 				case "http":
 					fallthrough
 				case "https":
+					limiter.Acquire()
 					resp, err := http.Get(req.Url)
 					if err != nil {
 						return false, "", "", err
 					}
-					limiter.Acquire()
 					eg.Go(func() (retErr error) {
 						defer limiter.Release()
 						defer func() {
@@ -4145,11 +4145,11 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							}
 							req := *req // copy req so we can make changes
 							req.File = client.NewFile(req.File.Commit.Repo.Name, req.File.Commit.ID, filepath.Join(req.File.Path, strings.TrimPrefix(name, path)))
+							limiter.Acquire()
 							r, err := objClient.Reader(server.Context(), name, 0, 0)
 							if err != nil {
 								return err
 							}
-							limiter.Acquire()
 							eg.Go(func() (retErr error) {
 								defer limiter.Release()
 								defer func() {
@@ -4164,11 +4164,11 @@ func (d *driver) forEachPutFile(pachClient *client.APIClient, server pfs.API_Put
 							return false, "", "", err
 						}
 					} else {
+						limiter.Acquire()
 						r, err := objClient.Reader(server.Context(), url.Object, 0, 0)
 						if err != nil {
 							return false, "", "", err
 						}
-						limiter.Acquire()
 						eg.Go(func() (retErr error) {
 							defer limiter.Release()
 							defer func() {
