@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/glob"
+	"github.com/pachyderm/ohmyglob"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"

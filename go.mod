@@ -25,6 +25,7 @@ require (
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/cpuguy83/go-md2man v1.0.10 // indirect
 	github.com/crewjam/saml v0.0.0-20190521120225-344d075952c9
+	github.com/dlclark/regexp2 v1.2.0 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect
 	github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d // indirect
 	github.com/docker/go-units v0.4.0
@@ -90,6 +91,7 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad
 	github.com/pachyderm/s2 v0.0.0-20190806193225-ba302ffe4378
+	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect

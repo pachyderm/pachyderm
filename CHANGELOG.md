@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.3
+
+- Fixes a bug that caused the Azure driver to lock up when there were too many active requests. (#3970)
+- Increases the max message size for etcd, this should eliminate errors that would appear with large etcd requests such as those created when deleting repos and pipelines. (#3958)
+- Fixes several bugs that would cause commits not to be finished when jobs encountered errors, which would lead to pipelines getting stuck. (#3951)
+
 ## 1.9.2
 
 - Fixes a bug that broke Pachyderm on Openshift. (#3935, thanks to @jiangytcn)
