@@ -164,6 +164,12 @@ func NoSuchKeyError(r *http.Request) *Error {
 	return NewError(r, http.StatusNotFound, "NoSuchKey", "The specified key does not exist.")
 }
 
+// NoSuchVersionError creates a new S3 error with a standard NoSuchVersion S3
+// code.
+func NoSuchVersionError(r *http.Request) *Error {
+	return NewError(r, http.StatusNotFound, "NoSuchVersion", "The version ID specified in the request does not match an existing version.")
+}
+
 // NoSuchUploadError creates a new S3 error with a standard NoSuchUpload S3
 // code.
 func NoSuchUploadError(r *http.Request) *Error {

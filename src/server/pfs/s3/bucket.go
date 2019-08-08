@@ -235,3 +235,16 @@ func (c *bucketController) DeleteBucket(r *http.Request, bucket string) error {
 
 	return nil
 }
+
+func (c *bucketController) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (versions []s2.Version, deleteMarkers []s2.DeleteMarker, isTruncated bool, err error) {
+	err = s2.NotImplementedError(r)
+	return
+}
+
+func (c *bucketController) GetBucketVersioning(r *http.Request, repo string) (status string, err error) {
+	return s2.VersioningEnabled, nil
+}
+
+func (c *bucketController) SetBucketVersioning(r *http.Request, repo, status string) error {
+	return s2.NotImplementedError(r)
+}

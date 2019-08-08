@@ -385,7 +385,7 @@ github.com/pachyderm/ohmyglob/compiler
 github.com/pachyderm/ohmyglob/syntax
 github.com/pachyderm/ohmyglob/syntax/ast
 github.com/pachyderm/ohmyglob/syntax/lexer
-# github.com/pachyderm/s2 v0.0.0-20190806193225-ba302ffe4378
+# github.com/pachyderm/s2 v0.0.0-20190808221121-2a1bcfd73950
 github.com/pachyderm/s2
 # github.com/pelletier/go-buffruneio v0.2.0
 github.com/pelletier/go-buffruneio
@@ -517,7 +517,7 @@ golang.org/x/crypto/internal/chacha20
 golang.org/x/crypto/poly1305
 golang.org/x/crypto/ed25519/internal/edwards25519
 golang.org/x/crypto/internal/subtle
-# golang.org/x/net v0.0.0-20190628185345-da137c7871d7
+# golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 golang.org/x/net/context
 golang.org/x/net/trace
 golang.org/x/net/http2
@@ -538,7 +538,7 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20190423024810-112230192c58
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20190712062909-fae7ac547cb7
+# golang.org/x/sys v0.0.0-20190804053845-51ab0e2deafa
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/cpu

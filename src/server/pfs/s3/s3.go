@@ -15,8 +15,13 @@ import (
 	"golang.org/x/net/context"
 )
 
-const multipartRepo = "_s3gateway_multipart_"
-const maxAllowedParts = 10000
+const (
+	multipartRepo        = "_s3gateway_multipart_"
+	maxAllowedParts      = 10000
+	maxRequestBodyLength = 128 * 1024 * 1024 //128mb
+	requestTimeout       = 10 * time.Second
+	readBodyTimeout      = 5 * time.Second
+)
 
 var enterpriseTimeout = 24 * time.Hour
 
@@ -44,7 +49,7 @@ func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
 	var lastEnterpriseCheck time.Time
 	isEnterprise := false
 
-	controllers := s2.NewS2(logger)
+	controllers := s2.NewS2(logger, maxRequestBodyLength, readBodyTimeout)
 	controllers.Service = newServiceController(pc, logger)
 	controllers.Bucket = newBucketController(pc, logger)
 	controllers.Object = newObjectController(pc, logger)
@@ -54,8 +59,8 @@ func Server(pc *client.APIClient, port uint16) (*http.Server, error) {
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  requestTimeout,
+		WriteTimeout: requestTimeout,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Set a request ID, if it hasn't been set by the client already.
 			// This can be used for tracing, and is included in error

@@ -156,8 +156,8 @@ func (c *multipartController) ListMultipart(r *http.Request, bucket, keyMarker, 
 	return
 }
 
-func (c *multipartController) InitMultipart(r *http.Request, name, key string) (uploadID string, err error) {
-	repo, branch, err := bucketArgs(r, name)
+func (c *multipartController) InitMultipart(r *http.Request, bucket, key string) (uploadID string, err error) {
+	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
@@ -180,8 +180,8 @@ func (c *multipartController) InitMultipart(r *http.Request, name, key string) (
 	return
 }
 
-func (c *multipartController) AbortMultipart(r *http.Request, name, key, uploadID string) error {
-	repo, branch, err := bucketArgs(r, name)
+func (c *multipartController) AbortMultipart(r *http.Request, bucket, key, uploadID string) error {
+	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
 	}
@@ -206,8 +206,8 @@ func (c *multipartController) AbortMultipart(r *http.Request, name, key, uploadI
 	return nil
 }
 
-func (c *multipartController) CompleteMultipart(r *http.Request, name, key, uploadID string, parts []s2.Part) (location, etag string, err error) {
-	repo, branch, err := bucketArgs(r, name)
+func (c *multipartController) CompleteMultipart(r *http.Request, bucket, key, uploadID string, parts []s2.Part) (location, etag, version string, err error) {
+	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
@@ -272,11 +272,12 @@ func (c *multipartController) CompleteMultipart(r *http.Request, name, key, uplo
 
 	location = globalLocation
 	etag = fmt.Sprintf("%x", fileInfo.Hash)
+	version = fileInfo.File.Commit.ID
 	return
 }
 
-func (c *multipartController) ListMultipartChunks(r *http.Request, name, key, uploadID string, partNumberMarker, maxParts int) (initiator, owner *s2.User, storageClass string, isTruncated bool, parts []s2.Part, err error) {
-	repo, branch, err := bucketArgs(r, name)
+func (c *multipartController) ListMultipartChunks(r *http.Request, bucket, key, uploadID string, partNumberMarker, maxParts int) (initiator, owner *s2.User, storageClass string, isTruncated bool, parts []s2.Part, err error) {
+	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
@@ -323,8 +324,8 @@ func (c *multipartController) ListMultipartChunks(r *http.Request, name, key, up
 	return
 }
 
-func (c *multipartController) UploadMultipartChunk(r *http.Request, name, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error) {
-	repo, branch, err := bucketArgs(r, name)
+func (c *multipartController) UploadMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error) {
+	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
@@ -358,8 +359,8 @@ func (c *multipartController) UploadMultipartChunk(r *http.Request, name, key, u
 	return
 }
 
-func (c *multipartController) DeleteMultipartChunk(r *http.Request, name, key, uploadID string, partNumber int) error {
-	repo, branch, err := bucketArgs(r, name)
+func (c *multipartController) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int) error {
+	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return err
 	}
