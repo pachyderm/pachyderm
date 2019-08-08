@@ -1,0 +1,25 @@
+# syntax = docker/dockerfile:experimental
+# Build the manager binary
+FROM golang:1.12.5 as builder
+
+WORKDIR /workspace
+
+COPY . .
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build \
+    -mod=vendor \
+    -installsuffix netgo \
+    -tags netgo \
+    -o pachd \
+    src/server/cmd/pachd/main.go
+
+FROM scratch
+LABEL maintainer="jdoliner@pachyderm.io"
+
+COPY --from=builder /workspace/pachd .
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+# ADD ca-certificates.crt /etc/ssl/certs/
+
+ENTRYPOINT ["/pachd"]

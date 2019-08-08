@@ -1,0 +1,2 @@
+# Don't actually need to ignore k8s folder, but this file needs to be non-empty
+k8s/*
