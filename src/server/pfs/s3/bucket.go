@@ -7,7 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
-	"github.com/pachyderm/glob"
+	"github.com/pachyderm/ohmyglob"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -93,9 +93,9 @@ func (c bucketController) ListObjects(r *http.Request, bucket, prefix, marker, d
 	recursive := delimiter == ""
 	var pattern string
 	if recursive {
-		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(prefix))
+		pattern = fmt.Sprintf("%s**", ohmyglob.QuoteMeta(prefix))
 	} else {
-		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
+		pattern = fmt.Sprintf("%s*", ohmyglob.QuoteMeta(prefix))
 	}
 
 	err = pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {

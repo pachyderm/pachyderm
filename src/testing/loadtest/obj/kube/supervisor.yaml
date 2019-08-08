@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+    name: obj-loadtest-supervisor
+    labels:
+        app: obj-loadtest-supervisor
+spec:
+    containers:
+        - name: supervisor
+          image: pachyderm/obj-loadtest-supervisor:latest
+          command:
+              - /supervisor
+              - --num-objects=10
+              - --object-size=1048576
+              - --concurrency=5
+          env:
+          - name: STORAGE_BACKEND
+            value: "LOCAL"
+          imagePullPolicy: Always
+    restartPolicy: Never

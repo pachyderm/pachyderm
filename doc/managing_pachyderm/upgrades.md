@@ -29,7 +29,7 @@ section.
    ```bash
    $ brew upgrade pachyderm/tap/pachctl@1.9
    ==> Upgrading 1 outdated package:
-   pachyderm/tap/pachctl@1.9 v1.9.0 -> v1.9.2
+   pachyderm/tap/pachctl@1.9
    ==> Upgrading pachyderm/tap/pachctl@1.9
    ...
    ```
