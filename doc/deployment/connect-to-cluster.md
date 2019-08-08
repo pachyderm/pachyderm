@@ -39,7 +39,7 @@ To connect to a Pachyderm dashboard, complete the following steps:
 * To use port-forwarding, run:
 
   ```bash
-  pachctl port-forward
+  $ pachctl port-forward
   ```
 
 * To use the IP address of the VM:`
@@ -62,12 +62,11 @@ Similarly to a local cluster deployment, in Pachyderm
 cluster deployed on a cloud platform, port-forwarding
 from `pachctl` to `pachd` is enabled by default and
 to access the Pachyderm dashboard, you need to run
-`pachctl` port-forward`. Since a Pachyderm cluster
+`pachctl` port-forward. Since a Pachyderm cluster
 deployed on a cloud platform is more likely to become
-a production deployment, using the Pachyderm contexts
-configuring a `pachd_address` as described in
-[Connect by using a Pachyderm context](3connect-by-using-a-pachyderm-context.html)
-is a preferred way.
+a production deployment, you might use the Pachyderm contexts
+as described in
+[Connect by using a Pachyderm context](#connect-by-using-a-pachyderm-context.html).
 
 ## Connect by using a Pachyderm context
 
@@ -181,7 +180,7 @@ To enable port-forwarding, complete the following steps:
 1. Run:
 
    ```bash
-   pachctl port-forward
+   $ pachctl port-forward
    ```
 
    This command does not stop unless you manually interrupt it.
