@@ -77,9 +77,9 @@ var defaultAuthConfig = auth.AuthConfig{
 	LiveConfigVersion: 1,
 	IDProviders: []*auth.IDProvider{
 		&auth.IDProvider{
-			Name:          "GitHub",
-			Description:   "oauth-based authentication with github.com",
-			GitHub: &auth.IDProvider_GitHubOptions{},
+			Name:        "GitHub",
+			Description: "oauth-based authentication with github.com",
+			GitHub:      &auth.IDProvider_GitHubOptions{},
 		},
 	},
 }
@@ -390,6 +390,11 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 func (a *apiServer) githubEnabled() bool {
 	githubEnabled := false
 	config := a.getCacheConfig()
+	// // TODO(kevin): rm this
+	// fmt.Println("config", config)
+	// if config.IDPs == nil || len(config.IDPs) == 0 {
+	// 	return false
+	// }
 	for _, idp := range config.IDPs {
 		if idp.GitHub != nil {
 			githubEnabled = true

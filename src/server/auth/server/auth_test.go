@@ -25,7 +25,7 @@ import (
 
 const (
 	// admin is the sole cluster admin after getPachClient is called in each test
-	admin = auth.GitHubPrefix + "admin"
+	admin = auth.RobotPrefix + "admin"
 	carol = auth.GitHubPrefix + "carol"
 )
 
@@ -59,10 +59,27 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 	if subject == "" {
 		return resultClient // anonymous client
 	}
+	if token, ok := tokenMap[subject]; ok {
+		resultClient.SetAuthToken(token)
+		return resultClient
+	}
+	if subject == admin {
+		tb.Fatal("couldn't get admin client from cache -- you're probably screwed")
+	}
 	if strings.Index(subject, ":") < 0 {
 		subject = auth.GitHubPrefix + subject
 	}
-	if _, ok := tokenMap[subject]; !ok {
+	colonIdx := strings.Index(subject, ":")
+	prefix := subject[:colonIdx+1]
+	switch prefix {
+	case auth.RobotPrefix:
+		adminClient := getPachClientInternal(tb, admin)
+		resp, err := adminClient.GetAuthToken(adminClient.Ctx(), &auth.GetAuthTokenRequest{
+			Subject: subject,
+		})
+		require.NoError(tb, err)
+		tokenMap[subject] = resp.Token
+	case auth.GitHubPrefix:
 		resp, err := seedClient.Authenticate(context.Background(),
 			&auth.AuthenticateRequest{
 				// When Pachyderm is deployed locally, GitHubToken automatically
@@ -72,6 +89,8 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 			})
 		require.NoError(tb, err)
 		tokenMap[subject] = resp.PachToken
+	default:
+		tb.Fatalf("can't give you a client of type %s", prefix)
 	}
 	resultClient.SetAuthToken(tokenMap[subject])
 	return resultClient
@@ -79,11 +98,13 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 
 // activateAuth activates the auth service in the test cluster
 func activateAuth(tb testing.TB) {
-	if _, err := seedClient.AuthAPIClient.Activate(context.Background(),
-		&auth.ActivateRequest{GitHubToken: "admin"},
-	); err != nil && !strings.HasSuffix(err.Error(), "already activated") {
+	resp, err := seedClient.AuthAPIClient.Activate(context.Background(),
+		&auth.ActivateRequest{Subject: admin},
+	)
+	if err != nil && !strings.HasSuffix(err.Error(), "already activated") {
 		tb.Fatalf("could not activate auth service: %v", err.Error())
 	}
+	tokenMap[admin] = resp.PachToken
 
 	// Wait for the Pachyderm Auth system to activate
 	require.NoError(tb, backoff.Retry(func() error {
@@ -243,7 +264,7 @@ func deleteAll(tb testing.TB) {
 			require.NoError(tb, seedClient.DeleteAll())
 		}
 	}() // release tokenMapMut before getPachClient
-	adminClient := getPachClient(tb, "admin")
+	adminClient := getPachClient(tb, admin)
 	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 }
 
@@ -2661,4 +2682,66 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 		}
 		return nil
 	})
+}
+
+func TestDisableGitHubAuth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	deleteAll(t)
+
+	// activate auth with initial admin robot:hub
+	adminClient := getPachClient(t, admin)
+
+	// confirm config is set to default config
+	cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	requireConfigsEqual(t, &defaultAuthConfig, cfg.GetConfiguration())
+
+	// confirm GH auth works by default
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "alice",
+	})
+	require.NoError(t, err)
+
+	// set config to no GH, confirm it gets set
+	configNoGitHub := &auth.AuthConfig{
+		LiveConfigVersion: 1,
+	}
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: configNoGitHub,
+	})
+	require.NoError(t, err)
+
+	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	configNoGitHub.LiveConfigVersion = 2
+	requireConfigsEqual(t, configNoGitHub, cfg.GetConfiguration())
+
+	// confirm GH auth doesn't work
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "bob",
+	})
+	require.YesError(t, err)
+	require.Equal(t, "rpc error: code = Unknown desc = GitHub auth is not enabled on this cluster", err.Error())
+
+	// set conifg to allow GH auth again
+	newerDefaultAuth := defaultAuthConfig
+	newerDefaultAuth.LiveConfigVersion = 2
+	_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+		Configuration: &newerDefaultAuth,
+	})
+	cfg, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+	require.NoError(t, err)
+	newerDefaultAuth.LiveConfigVersion = 3
+	requireConfigsEqual(t, &newerDefaultAuth, cfg.GetConfiguration())
+
+	// confirm GH works again
+	_, err = adminClient.Authenticate(adminClient.Ctx(), &auth.AuthenticateRequest{
+		GitHubToken: "carol",
+	})
+	require.NoError(t, err)
+
+	// clean up
+	deleteAll(t)
 }
