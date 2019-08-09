@@ -16,7 +16,6 @@ import (
 )
 
 type objectController struct {
-	pc     *client.APIClient
 	logger *logrus.Entry
 }
 
