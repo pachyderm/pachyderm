@@ -138,7 +138,7 @@ steps:
    $ pachctl config update context local --pachd-address 192.168.1.15:30650
    ```
 
-   **Note:** By default, the `pachd` port is `30650` or `650`.
+   **Note:** By default, the `pachd` port is `30650`.
 
 1. Verify that the configuration has been updated:
 

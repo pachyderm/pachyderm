@@ -64,9 +64,21 @@ To view active context, type:
 To change the active context, type `pachctl config set
 active-context <name>`.
 
+Also, you can set the `PACH_CONTEXT` environmental variable
+that overrides the active context.
+
+**Example:**
+
+```bash
+export PACH_CONTEXT
+```
+
 ## Create a New Context
 
-You can create a new context by providing your parameters
+When you deploy a new Pachyderm cluster, a new context
+that points to the new cluster is created automatically.
+
+In addition, you can create a new context by providing your parameters
 through the standard input stream (`stdin`) in your terminal.
 Specify the parameters as a comma-separated list enclosed in
 curly brackets.
@@ -82,7 +94,7 @@ and a client certificate:
    Reading from stdin
    ```
 
-   **Note:** By default, the `pachd` port is `30650` or `650`.
+   **Note:** By default, the `pachd` port is `30650`.
 
 1. Verify your configuration by running the following command:
 
