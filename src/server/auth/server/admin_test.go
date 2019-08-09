@@ -55,11 +55,9 @@ func TestActivate(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
-	fmt.Println("delete success")
 	// Get anonymous client (this will activate auth, which is about to be
 	// deactivated, but it also activates Pacyderm enterprise, which is needed for
 	// this test to pass)
-	// c := getPachClient(t, "")
 	adminClient := getPachClient(t, admin)
 	_, err := adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
@@ -69,36 +67,12 @@ func TestActivate(t *testing.T) {
 	tokenMap[admin] = resp.PachToken
 	adminClient.SetAuthToken(resp.PachToken)
 
-	// // Deactivate auth (if it's activated)
-	// require.NoError(t, func() error {
-	// 	adminClient := &client.APIClient{}
-	// 	*adminClient = *c
-	// 	resp, err := adminClient.Authenticate(adminClient.Ctx(),
-	// 		&auth.AuthenticateRequest{GitHubToken: "admin"})
-	// 	if err != nil {
-	// 		if auth.IsErrNotActivated(err) {
-	// 			return nil
-	// 		}
-	// 		return err
-	// 	}
-	// 	adminClient.SetAuthToken(resp.PachToken)
-	// 	_, err = adminClient.Deactivate(adminClient.Ctx(), &auth.DeactivateRequest{})
-	// 	return err
-	// }())
-
-	// // Activate auth
-	// resp, err := c.AuthAPIClient.Activate(c.Ctx(), &auth.ActivateRequest{GitHubToken: "admin"})
-	// require.NoError(t, err)
-	// c.SetAuthToken(resp.PachToken)
-
 	// Check that the token 'c' received from PachD authenticates them as "admin"
 	who, err := adminClient.WhoAmI(adminClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.True(t, who.IsAdmin)
 	require.Equal(t, admin, who.Username)
-	fmt.Println("delete 2")
 	deleteAll(t)
-	fmt.Println("finished activate")
 }
 
 // TestAdminRWO tests adding and removing cluster admins, as well as admins
@@ -1127,11 +1101,9 @@ func TestRobotUserAdmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	deleteAll(t)
-	fmt.Println("eod 1")
 	alice := tu.UniqueString("alice")
 	adminClient := getPachClient(t, admin)
 	aliceClient := getPachClient(t, alice)
-	fmt.Println("got clients")
 
 	// Generate a robot user auth credential, and create a client for that user
 	robotUser := auth.RobotPrefix + tu.UniqueString("bender")
@@ -1186,7 +1158,6 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, aliceClient.FinishCommit(repo, commit.ID))
 
-	fmt.Println("start deactivate")
 	robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)
 
@@ -1195,7 +1166,6 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, err)
 	tokenMap[admin] = deactivateResp.PachToken
 	robotClient.SetAuthToken(deactivateResp.PachToken)
-	fmt.Println("start eod 2")
 	deleteAll(t)
 }
 
@@ -1365,7 +1335,6 @@ func TestActivateAsRobotUser(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	fmt.Println("delete 1 for aa rob")
 	deleteAll(t)
 
 	client := seedClient.WithCtx(context.Background())
@@ -1388,17 +1357,7 @@ func TestActivateAsRobotUser(t *testing.T) {
 		&auth.ActivateRequest{Subject: admin})
 	require.NoError(t, err)
 	tokenMap[admin] = resp.PachToken
-	client.SetAuthToken(resp.PachToken)
-	// Make "admin" an admin, so that auth can be deactivated
-	// client.ModifyAdmins(client.Ctx(), &auth.ModifyAdminsRequest{
-	// 	Add:    []string{admin},
-	// 	Remove: []string{"robot:deckard"},
-	// })
-	// fmt.Println("calling activateAuth")
-	// activateAuth(t)
-	fmt.Println("delete 2 for aa rob")
 	deleteAll(t)
-	fmt.Println("aa rob done")
 }
 
 func TestActivateMismatchedUsernames(t *testing.T) {

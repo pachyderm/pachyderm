@@ -280,7 +280,6 @@ func TestConfigRestartAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	fmt.Println("first delete")
 	deleteAll(t)
 
 	adminClient := getPachClient(t, admin)
@@ -366,7 +365,6 @@ func TestConfigRestartAuth(t *testing.T) {
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
-	fmt.Println("last delete")
 	deleteAll(t)
 }
 
