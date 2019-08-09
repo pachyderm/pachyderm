@@ -70,8 +70,10 @@ that overrides the active context.
 **Example:**
 
 ```bash
-export PACH_CONTEXT
+export PACH_CONTEXT=local1
 ```
+
+<!-- bug: https://github.com/pachyderm/pachyderm/issues/3991-->
 
 ## Create a New Context
 
