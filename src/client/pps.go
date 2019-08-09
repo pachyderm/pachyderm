@@ -119,7 +119,6 @@ func NewCrossInput(input ...*pps.Input) *pps.Input {
 	}
 }
 
-
 // NewJoinInput returns an input which is the join of other inputs.
 // That means that all combination of datums which match on `matchOn` will be seen by the job /
 // pipeline.
