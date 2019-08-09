@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/pachyderm/pachyderm/src/client/auth"
