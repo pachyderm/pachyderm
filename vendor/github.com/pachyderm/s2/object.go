@@ -12,29 +12,29 @@ import (
 // ObjectController is an interface that specifies object-level functionality.
 type ObjectController interface {
 	// GetObject gets an object
-	GetObject(r *http.Request, bucket, key string) (etag string, modTime time.Time, content io.ReadSeeker, err error)
+	GetObject(r *http.Request, bucket, key, version string) (etag, fetchedVersion string, deleteMarker bool, modTime time.Time, content io.ReadSeeker, err error)
 	// PutObject sets an object
-	PutObject(r *http.Request, bucket, key string, reader io.Reader) (etag string, err error)
+	PutObject(r *http.Request, bucket, key string, reader io.Reader) (etag, createdVersion string, err error)
 	// DeleteObject deletes an object
-	DeleteObject(r *http.Request, bucket, key string) error
+	DeleteObject(r *http.Request, bucket, key, version string) (removedVersion string, deleteMarker bool, err error)
 }
 
 // unimplementedObjectController defines a controller that returns
 // `NotImplementedError` for all functionality
 type unimplementedObjectController struct{}
 
-func (c unimplementedObjectController) GetObject(r *http.Request, bucket, key string) (etag string, modTime time.Time, content io.ReadSeeker, err error) {
+func (c unimplementedObjectController) GetObject(r *http.Request, bucket, key, version string) (etag, fetchedVersion string, deleteMarker bool, modTime time.Time, content io.ReadSeeker, err error) {
 	err = NotImplementedError(r)
 	return
 }
 
-func (c unimplementedObjectController) PutObject(r *http.Request, bucket, key string, reader io.Reader) (etag string, err error) {
+func (c unimplementedObjectController) PutObject(r *http.Request, bucket, key string, reader io.Reader) (etag, createdVersion string, err error) {
 	err = NotImplementedError(r)
 	return
 }
 
-func (c unimplementedObjectController) DeleteObject(r *http.Request, bucket, key string) error {
-	return NotImplementedError(r)
+func (c unimplementedObjectController) DeleteObject(r *http.Request, bucket, key, version string) (removedVersion string, deleteMarker bool, err error) {
+	return "", false, NotImplementedError(r)
 }
 
 type objectHandler struct {
@@ -46,8 +46,12 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
+	versionId := r.FormValue("versionId")
+	if versionId == "null" {
+		versionId = ""
+	}
 
-	etag, modTime, content, err := h.controller.GetObject(r, bucket, key)
+	etag, version, deleteMarker, modTime, content, err := h.controller.GetObject(r, bucket, key, versionId)
 	if err != nil {
 		WriteError(h.logger, w, r, err)
 		return
@@ -56,29 +60,26 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	if etag != "" {
 		w.Header().Set("ETag", addETagQuotes(etag))
 	}
-
+	if version != "" {
+		w.Header().Set("x-amz-version-id", version)
+	}
+	if deleteMarker {
+		w.Header().Set("x-amz-delete-marker", "true")
+	}
 	http.ServeContent(w, r, key, modTime, content)
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
+	if err := requireContentLength(r); err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
-	etag := ""
 
-	shouldCleanup, err := withBodyReader(r, func(reader io.Reader) error {
-		fetchedETag, err := h.controller.PutObject(r, bucket, key, reader)
-		etag = fetchedETag
-		return err
-	})
-
-	if shouldCleanup {
-		// try to clean up the file
-		if err := h.controller.DeleteObject(r, bucket, key); err != nil {
-			h.logger.Errorf("could not clean up file after an error: %+v", err)
-		}
-	}
-
+	etag, version, err := h.controller.PutObject(r, bucket, key, r.Body)
 	if err != nil {
 		WriteError(h.logger, w, r, err)
 		return
@@ -86,6 +87,9 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 
 	if etag != "" {
 		w.Header().Set("ETag", addETagQuotes(etag))
+	}
+	if version != "" {
+		w.Header().Set("x-amz-version-id", version)
 	}
 	w.WriteHeader(http.StatusOK)
 }
@@ -94,11 +98,22 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
+	versionId := r.FormValue("versionId")
+	if versionId == "null" {
+		versionId = ""
+	}
 
-	if err := h.controller.DeleteObject(r, bucket, key); err != nil {
+	version, deleteMarker, err := h.controller.DeleteObject(r, bucket, key, versionId)
+	if err != nil {
 		WriteError(h.logger, w, r, err)
 		return
 	}
 
+	if version != "" {
+		w.Header().Set("x-amz-version-id", version)
+	}
+	if deleteMarker {
+		w.Header().Set("x-amz-delete-marker", "true")
+	}
 	w.WriteHeader(http.StatusNoContent)
 }

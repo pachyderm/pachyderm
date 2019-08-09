@@ -15,7 +15,7 @@ type serviceController struct {
 	logger *logrus.Entry
 }
 
-func (c serviceController) ListBuckets(r *http.Request) (owner *s2.User, buckets []s2.Bucket, err error) {
+func (c *serviceController) ListBuckets(r *http.Request) (owner *s2.User, buckets []s2.Bucket, err error) {
 	vars := mux.Vars(r)
 	pc, err := pachClient(vars["authAccessKey"])
 	if err != nil {

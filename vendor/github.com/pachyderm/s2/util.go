@@ -1,15 +1,12 @@
 package s2
 
 import (
-	"bytes"
 	"crypto/hmac"
-	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/xml"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -66,33 +63,6 @@ func NotImplementedEndpoint(logger *logrus.Entry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		WriteError(logger, w, r, NotImplementedError(r))
 	}
-}
-
-// withBodyHandler reads a request payload, and forwards it to a given
-// function, while also verifying the `Content-MD5` header (if set.)
-func withBodyReader(r *http.Request, f func(reader io.Reader) error) (bool, error) {
-	expectedHash, ok := r.Header["Content-Md5"]
-	var expectedHashBytes []uint8
-	var err error
-	if ok && len(expectedHash) == 1 {
-		expectedHashBytes, err = base64.StdEncoding.DecodeString(expectedHash[0])
-		if err != nil || len(expectedHashBytes) != 16 {
-			return false, InvalidDigestError(r)
-		}
-	}
-
-	hasher := md5.New()
-	reader := io.TeeReader(r.Body, hasher)
-	if err = f(reader); err != nil {
-		return false, err
-	}
-
-	actualHashBytes := hasher.Sum(nil)
-	if expectedHashBytes != nil && !bytes.Equal(expectedHashBytes, actualHashBytes) {
-		return true, BadDigestError(r)
-	}
-
-	return false, nil
 }
 
 // intFormValue extracts an int value from a request's form values, ensuring
@@ -197,4 +167,37 @@ func hmacSHA256(key []byte, content string) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(content))
 	return mac.Sum(nil)
+}
+
+func requireContentLength(r *http.Request) error {
+	if _, ok := singleHeader(r, "Content-Length"); !ok {
+		return MissingContentLengthError(r)
+	}
+	return nil
+}
+
+// singleHeader gets a single header value. This is used in places instead of
+// `r.Header.Get()` because it differentiates between missing headers versus
+// empty header values.
+func singleHeader(r *http.Request, name string) (string, bool) {
+	values, ok := r.Header[name]
+	if !ok {
+		return "", false
+	}
+	if len(values) != 1 {
+		return "", false
+	}
+	return values[0], true
+}
+
+func readXMLBody(r *http.Request, payload interface{}) error {
+	bodyBytes, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	err = xml.Unmarshal(bodyBytes, &payload)
+	if err != nil {
+		return MalformedXMLError(r)
+	}
+	return nil
 }

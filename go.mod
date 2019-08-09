@@ -77,7 +77,6 @@ require (
 	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/julienschmidt/httprouter v1.2.0
-	github.com/kisielk/errcheck v1.2.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
@@ -91,9 +90,9 @@ require (
 	github.com/onsi/gomega v1.4.3 // indirect
 	github.com/opentracing-contrib/go-grpc v0.0.0-20180928155321-4b5a12d3ff02
 	github.com/opentracing/opentracing-go v1.1.0
-	github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad
-	github.com/pachyderm/s2 v0.0.0-20190718150940-b2f7f7a23fb4
-	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4 // indirect
+	github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad // indirect
+	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
+	github.com/pachyderm/s2 v0.0.0-20190808221121-2a1bcfd73950
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
@@ -132,9 +131,9 @@ require (
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190726091711-fc99dfbffb4e // indirect
+	golang.org/x/sys v0.0.0-20190804053845-51ab0e2deafa // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190725161231-2e34cfcb95cb // indirect
+	golang.org/x/tools v0.0.0-20190808172924-128824a23e7c // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.21.1
 	gopkg.in/go-playground/webhooks.v5 v5.11.0

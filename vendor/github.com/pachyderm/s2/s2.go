@@ -1,12 +1,16 @@
 package s2
 
 import (
+	"bytes"
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -63,13 +67,14 @@ func attachBucketRoutes(logger *logrus.Entry, router *mux.Router, handler *bucke
 	router.Methods("PUT", "DELETE").Queries("replication", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("GET", "PUT").Queries("requestPayment", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(NotImplementedEndpoint(logger))
-	router.Methods("GET", "PUT").Queries("versioning", "").HandlerFunc(NotImplementedEndpoint(logger))
-	router.Methods("GET").Queries("versions", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("GET", "PUT", "DELETE").Queries("website", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("POST").HandlerFunc(NotImplementedEndpoint(logger))
 
+	router.Methods("GET").Queries("versioning", "").HandlerFunc(handler.versioning)
+	router.Methods("PUT").Queries("versioning", "").HandlerFunc(handler.setVersioning)
+	router.Methods("GET").Queries("versions", "").HandlerFunc(handler.listVersions)
 	router.Methods("GET").Queries("uploads", "").HandlerFunc(multipartHandler.list)
-	router.Methods("GET", "HEAD").Queries("location", "").HandlerFunc(handler.location)
+	router.Methods("GET").Queries("location", "").HandlerFunc(handler.location)
 	router.Methods("GET", "HEAD").HandlerFunc(handler.get)
 	router.Methods("PUT").HandlerFunc(handler.put)
 	router.Methods("DELETE").HandlerFunc(handler.del)
@@ -85,7 +90,7 @@ func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objec
 	router.Methods("POST").Queries("select", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(NotImplementedEndpoint(logger))
 
-	router.Methods("GET", "HEAD").Queries("uploadId", "").HandlerFunc(multipartHandler.listChunks)
+	router.Methods("GET").Queries("uploadId", "").HandlerFunc(multipartHandler.listChunks)
 	router.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
 	router.Methods("POST").Queries("uploadId", "").HandlerFunc(multipartHandler.complete)
 	router.Methods("PUT").Queries("uploadId", "").HandlerFunc(multipartHandler.put)
@@ -126,24 +131,31 @@ func parseTimestamp(r *http.Request) (time.Time, error) {
 
 // S2 is the root struct used in the s2 library
 type S2 struct {
-	Auth      AuthController
-	Service   ServiceController
-	Bucket    BucketController
-	Object    ObjectController
-	Multipart MultipartController
-	logger    *logrus.Entry
+	Auth                 AuthController
+	Service              ServiceController
+	Bucket               BucketController
+	Object               ObjectController
+	Multipart            MultipartController
+	logger               *logrus.Entry
+	maxRequestBodyLength uint32
+	readBodyTimeout      time.Duration
 }
 
 // NewS2 creates a new S2 instance. One created, you set zero or more
 // attributes to implement various S3 functionality, then create a router.
-func NewS2(logger *logrus.Entry) *S2 {
+// `maxRequestBodyLength` specifies maximum request body size; if the value is
+// 0, there is no limit. `readBodyTimeout` specifies the maximum amount of
+// time s2 should spend trying to read the body of requests.
+func NewS2(logger *logrus.Entry, maxRequestBodyLength uint32, readBodyTimeout time.Duration) *S2 {
 	return &S2{
-		Auth:      nil,
-		Service:   unimplementedServiceController{},
-		Bucket:    unimplementedBucketController{},
-		Object:    unimplementedObjectController{},
-		Multipart: unimplementedMultipartController{},
-		logger:    logger,
+		Auth:                 nil,
+		Service:              unimplementedServiceController{},
+		Bucket:               unimplementedBucketController{},
+		Object:               unimplementedObjectController{},
+		Multipart:            unimplementedMultipartController{},
+		logger:               logger,
+		maxRequestBodyLength: maxRequestBodyLength,
+		readBodyTimeout:      readBodyTimeout,
 	}
 }
 
@@ -152,7 +164,6 @@ func NewS2(logger *logrus.Entry) *S2 {
 func (h *S2) requestIDMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-
 		id, err := uuid.NewV4()
 		if err != nil {
 			baseErr := fmt.Errorf("could not generate request ID: %v", err)
@@ -360,6 +371,101 @@ func (h *S2) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func (h *S2) bodyReadingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentLengthStr, ok := singleHeader(r, "Content-Length")
+		if !ok {
+			next.ServeHTTP(w, r)
+			return
+		}
+		contentLength, err := strconv.ParseUint(contentLengthStr, 10, 32)
+		if err != nil {
+			WriteError(h.logger, w, r, InvalidArgumentError(r))
+			return
+		}
+		if h.maxRequestBodyLength > 0 && uint32(contentLength) > h.maxRequestBodyLength {
+			WriteError(h.logger, w, r, EntityTooLargeError(r))
+			return
+		}
+
+		body := []byte{}
+
+		if contentLength > 0 {
+			bodyBuf, err := h.readBody(r, uint32(contentLength))
+			if err != nil {
+				WriteError(h.logger, w, r, err)
+				return
+			}
+			if bodyBuf == nil {
+				WriteError(h.logger, w, r, RequestTimeoutError(r))
+				return
+			}
+			body = bodyBuf.Bytes()
+			r.Body = ioutil.NopCloser(bodyBuf)
+		} else {
+			r.Body.Close()
+			r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+		}
+
+		expectedSHA256, ok := singleHeader(r, "x-amz-content-sha256")
+		if ok {
+			if len(expectedSHA256) != 64 {
+				WriteError(h.logger, w, r, InvalidDigestError(r))
+				return
+			}
+			actualSHA256 := sha256.Sum256(body)
+			if fmt.Sprintf("%x", actualSHA256) != expectedSHA256 {
+				WriteError(h.logger, w, r, BadDigestError(r))
+				return
+			}
+		}
+
+		expectedMD5, ok := singleHeader(r, "Content-Md5")
+		if ok {
+			expectedMD5Decoded, err := base64.StdEncoding.DecodeString(expectedMD5)
+			if err != nil || len(expectedMD5Decoded) != 16 {
+				WriteError(h.logger, w, r, InvalidDigestError(r))
+				return
+			}
+			actualMD5 := md5.Sum(body)
+			if !bytes.Equal(expectedMD5Decoded, actualMD5[:]) {
+				WriteError(h.logger, w, r, BadDigestError(r))
+				return
+			}
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (h *S2) readBody(r *http.Request, length uint32) (*bytes.Buffer, error) {
+	var body bytes.Buffer
+	body.Grow(int(length))
+
+	ch := make(chan error)
+	go func() {
+		n, err := body.ReadFrom(r.Body)
+		r.Body.Close()
+		if err != nil {
+			ch <- err
+		}
+		if uint32(n) != length {
+			ch <- IncompleteBodyError(r)
+		}
+		ch <- nil
+	}()
+
+	select {
+	case err := <-ch:
+		if err != nil {
+			return nil, err
+		}
+		return &body, nil
+	case <-time.After(h.readBodyTimeout):
+		return nil, nil
+	}
+}
+
 // Router creates a new mux router.
 func (h *S2) Router() *mux.Router {
 	serviceHandler := &serviceHandler{
@@ -381,10 +487,10 @@ func (h *S2) Router() *mux.Router {
 
 	router := mux.NewRouter()
 	router.Use(h.requestIDMiddleware)
-
 	if h.Auth != nil {
 		router.Use(h.authMiddleware)
 	}
+	router.Use(h.bodyReadingMiddleware)
 
 	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(serviceHandler.get)
 

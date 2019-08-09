@@ -7,7 +7,7 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
-	"github.com/pachyderm/ohmyglob"
+	glob "github.com/pachyderm/ohmyglob"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
@@ -93,9 +93,9 @@ func (c bucketController) ListObjects(r *http.Request, bucket, prefix, marker, d
 	recursive := delimiter == ""
 	var pattern string
 	if recursive {
-		pattern = fmt.Sprintf("%s**", ohmyglob.QuoteMeta(prefix))
+		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(prefix))
 	} else {
-		pattern = fmt.Sprintf("%s*", ohmyglob.QuoteMeta(prefix))
+		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
 	}
 
 	err = pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
@@ -244,4 +244,17 @@ func (c bucketController) DeleteBucket(r *http.Request, bucket string) error {
 	}
 
 	return nil
+}
+
+func (c *bucketController) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (versions []s2.Version, deleteMarkers []s2.DeleteMarker, isTruncated bool, err error) {
+	err = s2.NotImplementedError(r)
+	return
+}
+
+func (c *bucketController) GetBucketVersioning(r *http.Request, repo string) (status string, err error) {
+	return s2.VersioningEnabled, nil
+}
+
+func (c *bucketController) SetBucketVersioning(r *http.Request, repo, status string) error {
+	return s2.NotImplementedError(r)
 }

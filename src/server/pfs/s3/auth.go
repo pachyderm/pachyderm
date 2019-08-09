@@ -12,7 +12,7 @@ type authMiddleware struct {
 	logger *logrus.Entry
 }
 
-func (c authMiddleware) SecretKey(r *http.Request, accessKey string, region *string) (secretKey *string, err error) {
+func (c *authMiddleware) SecretKey(r *http.Request, accessKey string, region *string) (secretKey *string, err error) {
 	pc, err := pachClient(accessKey)
 	if err != nil {
 		return nil, fmt.Errorf("could not create a pach client for auth: %s", err)
@@ -39,7 +39,7 @@ func (c authMiddleware) SecretKey(r *http.Request, accessKey string, region *str
 	return &accessKey, nil
 }
 
-func (c authMiddleware) CustomAuth(r *http.Request) (passed bool, err error) {
+func (c *authMiddleware) CustomAuth(r *http.Request) (passed bool, err error) {
 	pc, err := pachClient("")
 	if err != nil {
 		return false, fmt.Errorf("could not create a pach client for auth: %s", err)
