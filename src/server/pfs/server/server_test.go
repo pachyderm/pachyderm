@@ -5214,6 +5214,12 @@ func TestListAll(t *testing.T) {
 	require.Equal(t, 2, len(bis))
 }
 
+func TestPutBlock(t *testing.T) {
+	client := GetPachClient(t)
+	_, err := client.PutBlock("test", strings.NewReader("foo"))
+	require.NoError(t, err)
+}
+
 func seedStr(seed int64) string {
 	return fmt.Sprint("seed: ", strconv.FormatInt(seed, 10))
 }

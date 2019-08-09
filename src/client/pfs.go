@@ -845,6 +845,28 @@ func (c APIClient) GetBlock(hash string, w io.Writer) error {
 	return nil
 }
 
+// PutBlock puts a block.
+func (c APIClient) PutBlock(hash string, _r io.Reader) (_ int64, retErr error) {
+	r := grpcutil.ReaderWrapper{_r}
+	w, err := c.newPutBlockWriteCloser(hash)
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		if err := w.Close(); err != nil && retErr == nil {
+			retErr = fmt.Errorf("Close: %v", grpcutil.ScrubGRPC(err))
+		}
+	}()
+	buf := grpcutil.GetBuffer()
+	defer grpcutil.PutBuffer(buf)
+	written, err := io.CopyBuffer(w, r, buf)
+	if err != nil {
+		return written, fmt.Errorf("CopyBuffer: %v", grpcutil.ScrubGRPC(err))
+	}
+	// return value set by deferred function
+	return written, nil
+}
+
 // Compact forces compaction of objects.
 func (c APIClient) Compact() error {
 	_, err := c.ObjectAPIClient.Compact(
@@ -1632,4 +1654,34 @@ func (r *getFileReadSeeker) Seek(offset int64, whence int) (int64, error) {
 		r.Reader = reader
 	}
 	return r.offset, nil
+}
+
+type putBlockWriteCloser struct {
+	request *pfs.PutBlockRequest
+	client  pfs.ObjectAPI_PutBlockClient
+}
+
+func (c APIClient) newPutBlockWriteCloser(hash string) (*putBlockWriteCloser, error) {
+	client, err := c.ObjectAPIClient.PutBlock(c.Ctx())
+	if err != nil {
+		return nil, grpcutil.ScrubGRPC(err)
+	}
+	return &putBlockWriteCloser{
+		request: &pfs.PutBlockRequest{Block: NewBlock(hash)},
+		client:  client,
+	}, nil
+}
+
+func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
+	w.request.Value = p
+	if err := w.client.Send(w.request); err != nil {
+		return 0, grpcutil.ScrubGRPC(err)
+	}
+	w.request.Block = nil
+	return len(p), nil
+}
+
+func (w *putBlockWriteCloser) Close() error {
+	_, err := w.client.CloseAndRecv()
+	return grpcutil.ScrubGRPC(err)
 }

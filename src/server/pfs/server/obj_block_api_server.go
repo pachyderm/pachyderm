@@ -523,13 +523,17 @@ func (s *objBlockAPIServer) CheckObject(ctx context.Context, request *pfsclient.
 
 func (s *objBlockAPIServer) ListObjects(request *pfsclient.ListObjectsRequest, listObjectsServer pfsclient.ObjectAPI_ListObjectsServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	sent := 0
+	defer func(start time.Time) {
+		s.Log(request, fmt.Sprintf("stream containing %d ObjectInfos", sent), retErr, time.Since(start))
+	}(time.Now())
 
 	return s.objClient.Walk(listObjectsServer.Context(), s.objectDir(), func(key string) error {
 		oi, err := s.InspectObject(listObjectsServer.Context(), client.NewObject(filepath.Base(key)))
 		if err != nil {
 			return err
 		}
+		sent++
 		return listObjectsServer.Send(oi)
 	})
 }
@@ -617,6 +621,11 @@ func (s *objBlockAPIServer) PutBlock(putBlockServer pfsclient.ObjectAPI_PutBlock
 		if err := w.Close(); err != nil && retErr == nil {
 			retErr = err
 		}
+		if retErr == nil {
+			if err := putBlockServer.SendAndClose(&types.Empty{}); err != nil {
+				retErr = err
+			}
+		}
 	}()
 	if _, err := w.Write(request.Value); err != nil {
 		return err
@@ -702,8 +711,12 @@ func (s *objBlockAPIServer) GetBlocks(request *pfsclient.GetBlocksRequest, getBl
 
 func (s *objBlockAPIServer) ListBlock(request *pfsclient.ListBlockRequest, listBlockServer pfsclient.ObjectAPI_ListBlockServer) (retErr error) {
 	func() { s.Log(request, nil, nil, 0) }()
-	defer func(start time.Time) { s.Log(request, nil, retErr, time.Since(start)) }(time.Now())
+	sent := 0
+	defer func(start time.Time) {
+		s.Log(request, fmt.Sprintf("stream containing %d Blocks", sent), retErr, time.Since(start))
+	}(time.Now())
 	return s.objClient.Walk(listBlockServer.Context(), s.blockDir(), func(key string) error {
+		sent++
 		return listBlockServer.Send(client.NewBlock(filepath.Base(key)))
 	})
 }

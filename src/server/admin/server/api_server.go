@@ -79,7 +79,10 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := extractServer.Context()
 	pachClient := a.getPachClient().WithCtx(ctx)
-	writeOp := extractServer.Send
+	writeOp := func(op *admin.Op) error {
+		fmt.Println(op)
+		return extractServer.Send(op)
+	}
 	if request.URL != "" {
 		url, err := obj.ParseURL(request.URL)
 		if err != nil {
@@ -119,11 +122,16 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if err := pachClient.GetBlock(block.Hash, w); err != nil {
 				return err
 			}
+			// Put an empty request to indicate an EOF
+			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{}}}); err != nil {
+				return err
+			}
 			return nil
 		}); err != nil {
 			return err
 		}
 		if err := pachClient.ListObject(func(oi *pfs.ObjectInfo) error {
+			fmt.Printf("Got object: %s\n", oi.Object.Hash)
 			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{CreateObject: &pfs.CreateObjectRequest{
 				Object:   oi.Object,
 				BlockRef: oi.BlockRef,
@@ -414,13 +422,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 		// apply op
 		if op.Op1_7 != nil {
 			if op.Op1_7.Object != nil {
-				extractedReader := &extractedObjectReader{
+				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_7,
 				}
-				extractedReader.buf.Write(op.Op1_7.Object.Value)
-				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
+				extractReader.buf.Write(op.Op1_7.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -438,13 +446,13 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		} else if op.Op1_8 != nil {
 			if op.Op1_8.Object != nil {
-				extractedReader := &extractedObjectReader{
+				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_9,
 				}
-				extractedReader.buf.Write(op.Op1_8.Object.Value)
-				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
+				extractReader.buf.Write(op.Op1_8.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else {
@@ -458,14 +466,25 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 			}
 		} else if op.Op1_9 != nil {
 			if op.Op1_9.Object != nil {
-				extractedReader := &extractedObjectReader{
+				extractReader := &extractObjectReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_9,
 				}
-				extractedReader.buf.Write(op.Op1_9.Object.Value)
-				if _, _, err := pachClient.PutObject(extractedReader); err != nil {
+				extractReader.buf.Write(op.Op1_9.Object.Value)
+				if _, _, err := pachClient.PutObject(extractReader); err != nil {
 					return fmt.Errorf("error putting object: %v", err)
+				}
+			} else if op.Op1_9.Block != nil {
+				extractReader := &extractBlockReader{
+					adminAPIRestoreServer: restoreServer,
+					restoreURLReader:      r,
+					version:               v1_9,
+				}
+				fmt.Println(op)
+				extractReader.buf.Write(op.Op1_9.Block.Value)
+				if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, extractReader); err != nil {
+					return fmt.Errorf("error putting block: %v", err)
 				}
 			} else {
 				if err := a.applyOp(pachClient, op.Op1_9); err != nil {
@@ -478,6 +497,10 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 
 func (a *apiServer) applyOp(pachClient *client.APIClient, op *admin.Op1_9) error {
 	switch {
+	case op.CreateObject != nil:
+		if _, err := pachClient.ObjectAPIClient.CreateObject(pachClient.Ctx(), op.CreateObject); err != nil {
+			return fmt.Errorf("error creating object: %v", grpcutil.ScrubGRPC(err))
+		}
 	case op.Tag != nil:
 		if _, err := pachClient.ObjectAPIClient.TagObject(pachClient.Ctx(), op.Tag); err != nil {
 			return fmt.Errorf("error tagging object: %v", grpcutil.ScrubGRPC(err))
@@ -552,31 +575,9 @@ func (w extractObjectWriter) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-type extractBlockWriter struct {
-	f     func(*admin.Op) error
-	block *pfs.Block
-}
-
-func (w extractBlockWriter) Write(p []byte) (int, error) {
-	chunkSize := grpcutil.MaxMsgSize / 2
-	var n int
-	for i := 0; i*(chunkSize) < len(p); i++ {
-		value := p[i*chunkSize:]
-		if len(value) > chunkSize {
-			value = value[:chunkSize]
-		}
-		if err := w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}}); err != nil {
-			return n, err
-		}
-		w.block = nil // only need to send block on the first request
-		n += len(value)
-	}
-	return n, nil
-}
-
 type adminAPIRestoreServer admin.API_RestoreServer
 
-type extractedObjectReader struct {
+type extractObjectReader struct {
 	// One of these two must be set (whether user is restoring over the wire or
 	// via URL)
 	adminAPIRestoreServer
@@ -587,7 +588,7 @@ type extractedObjectReader struct {
 	eof     bool
 }
 
-func (r *extractedObjectReader) Read(p []byte) (int, error) {
+func (r *extractObjectReader) Read(p []byte) (int, error) {
 	// Shortcut -- if object is done just return EOF
 	if r.eof {
 		return 0, io.EOF
@@ -647,6 +648,105 @@ func (r *extractedObjectReader) Read(p []byte) (int, error) {
 		}
 
 		if len(value) == 0 {
+			r.eof = true
+		} else {
+			r.buf.Write(value)
+		}
+	}
+	dn, err := r.buf.Read(p)
+	return n + dn, err
+}
+
+type extractBlockWriter struct {
+	f     func(*admin.Op) error
+	block *pfs.Block
+}
+
+func (w extractBlockWriter) Write(p []byte) (int, error) {
+	chunkSize := grpcutil.MaxMsgSize / 2
+	var n int
+	for i := 0; i*(chunkSize) < len(p); i++ {
+		value := p[i*chunkSize:]
+		if len(value) > chunkSize {
+			value = value[:chunkSize]
+		}
+		fmt.Println(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}})
+		if err := w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}}); err != nil {
+			return n, err
+		}
+		w.block = nil // only need to send block on the first request
+		n += len(value)
+	}
+	return n, nil
+}
+
+type extractBlockReader struct {
+	// One of these two must be set (whether user is restoring over the wire or
+	// via URL)
+	adminAPIRestoreServer
+	restoreURLReader pbutil.Reader
+
+	version opVersion
+	buf     bytes.Buffer
+	eof     bool
+}
+
+func (r *extractBlockReader) Read(p []byte) (int, error) {
+	// Shortcut -- if object is done just return EOF
+	if r.eof {
+		return 0, io.EOF
+	}
+
+	// Read leftover bytes in buffer (from prior Read() call) into 'p'
+	n, err := r.buf.Read(p)
+	if n == len(p) || err != nil && err != io.EOF {
+		return n, err // quit early if done; ignore EOF--just means buf is now empty
+	}
+	r.buf.Reset() // discard data now in 'p'; ready to refill 'r.buf'
+	p = p[n:]     // only want to fill remainder of p
+
+	// refill 'r.buf'
+	for len(p) > r.buf.Len() && !r.eof {
+		var op *admin.Op
+		if r.restoreURLReader == nil {
+			request, err := r.Recv()
+			if err != nil {
+				return 0, grpcutil.ScrubGRPC(err)
+			}
+			op = request.Op
+		} else {
+			if op == nil {
+				op = &admin.Op{}
+			} else {
+				*op = admin.Op{} // clear 'op' without making old contents into garbage
+			}
+			if err := r.restoreURLReader.Read(op); err != nil {
+				return 0, fmt.Errorf("unexpected error while restoring object: %v", err)
+			}
+		}
+		fmt.Println(op)
+
+		// Validate op version
+		if r.version != version(op) {
+			return 0, fmt.Errorf("cannot mix different versions of pachd operation "+
+				"within a metadata dumps (found both %s and %s)", version(op), r.version)
+		}
+
+		// extract object bytes
+		var value []byte
+		if r.version == v1_7 {
+			return 0, fmt.Errorf("invalid version 1.7 doesn't have extracted blocks")
+		} else if r.version == v1_8 {
+			return 0, fmt.Errorf("invalid version 1.8 doesn't have extracted blocks")
+		} else {
+			if op.Op1_9.Block == nil {
+				return 0, fmt.Errorf("expected a block, but got: %v", op)
+			}
+			value = op.Op1_9.Block.Value
+		}
+
+		if len(value) == 0 {
+			fmt.Println("EOF")
 			r.eof = true
 		} else {
 			r.buf.Write(value)
