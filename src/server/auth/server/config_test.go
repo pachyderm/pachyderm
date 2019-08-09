@@ -73,6 +73,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestGetSetConfigAdminOnly confirms that only cluster admins can get/set the
@@ -84,8 +85,9 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 	deleteAll(t)
 
 	alice := tu.UniqueString("alice")
-	anonClient, aliceClient, adminClient := getPachClient(t, ""), getPachClient(t, alice), getPachClient(t, admin)
-
+	adminClient := getPachClient(t, admin)
+	anonClient := getPachClient(t, "")
+	aliceClient := getPachClient(t, alice)
 	// Confirm that the auth config starts out default
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
@@ -146,6 +148,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, conf, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestRMWConfigConflict does two conflicting R+M+W operation on a config
@@ -215,6 +218,7 @@ func TestRMWConfigConflict(t *testing.T) {
 	require.NoError(t, err)
 	mod2.LiveConfigVersion = 3 // increment version
 	requireConfigsEqual(t, mod2, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestSetGetEmptyConfig is like TestSetNilConfig, but it passes a non-nil but
@@ -259,7 +263,7 @@ func TestSetGetEmptyConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	// Get the empty config
-	expected := defaultAuthConfig
+	expected := auth.AuthConfig{}
 	expected.LiveConfigVersion = 3 // increment version
 	configResp, err = adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
@@ -267,6 +271,7 @@ func TestSetGetEmptyConfig(t *testing.T) {
 	requireConfigsEqual(t, &expected, configResp.Configuration)
 
 	// TODO Make sure SAML has been deactivated
+	deleteAll(t)
 }
 
 // TestConfigRestartAuth sets a config, then Deactivates+Reactivates auth, then
@@ -275,6 +280,7 @@ func TestConfigRestartAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	fmt.Println("first delete")
 	deleteAll(t)
 
 	adminClient := getPachClient(t, admin)
@@ -329,10 +335,12 @@ func TestConfigRestartAuth(t *testing.T) {
 
 	// activate auth
 	activateResp, err := adminClient.Activate(adminClient.Ctx(), &auth.ActivateRequest{
-		GitHubToken: "admin",
+		Subject: admin,
 	})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(activateResp.PachToken)
+	// TODO(kdelga): check if this is required for second delete to succeed
+	tokenMap[admin] = activateResp.PachToken
 
 	// Wait for auth to be re-activated
 	require.NoError(t, backoff.Retry(func() error {
@@ -358,6 +366,8 @@ func TestConfigRestartAuth(t *testing.T) {
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 2 // increment version ("default" config has v=1)
 	requireConfigsEqual(t, conf, configResp.Configuration)
+	fmt.Println("last delete")
+	deleteAll(t)
 }
 
 // TestValidateConfigErrNoName tests that SetConfig rejects configs with unnamed
@@ -389,6 +399,7 @@ func TestValidateConfigErrNoName(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestValidateConfigErrReservedName tests that SetConfig rejects configs that
@@ -400,7 +411,7 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 	deleteAll(t)
 	adminClient := getPachClient(t, admin)
 
-	for _, name := range []string{"github", "robot", "pipeline"} {
+	for _, name := range []string{"robot", "pipeline"} {
 		conf := &auth.AuthConfig{
 			IDProviders: []*auth.IDProvider{&auth.IDProvider{
 				Name:        name,
@@ -423,6 +434,7 @@ func TestValidateConfigErrReservedName(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestValidateConfigErrNoType tests that SetConfig rejects configs that
@@ -453,6 +465,7 @@ func TestValidateConfigErrNoType(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestValidateConfigErrInvalidIDPMetadata tests that SetConfig rejects configs
@@ -486,6 +499,7 @@ func TestValidateConfigErrInvalidIDPMetadata(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestValidateConfigErrInvalidIDPMetadata tests that SetConfig rejects configs
@@ -519,6 +533,7 @@ func TestValidateConfigErrInvalidMetadataURL(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestValidateConfigErrRedundantIDPMetadata tests that SetConfig rejects
@@ -570,6 +585,7 @@ func TestValidateConfigErrRedundantIDPMetadata(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestConfigDeadlock tests that Pachyderm's SAML endpoint releases Pachyderm's
@@ -649,6 +665,7 @@ func TestConfigDeadlock(t *testing.T) {
 		})
 		return err
 	})
+	deleteAll(t)
 }
 
 // TestSetGetNilConfig tests that setting an empty config and setting a nil
@@ -696,6 +713,7 @@ func TestSetGetNilConfig(t *testing.T) {
 	conf = proto.Clone(&defaultAuthConfig).(*auth.AuthConfig)
 	conf.LiveConfigVersion = 3 // increment version
 	requireConfigsEqual(t, conf, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestConfigBlindWrite tests blind-writing a config by not setting
@@ -742,6 +760,7 @@ func TestConfigBlindWrite(t *testing.T) {
 	require.NoError(t, err)
 	conf.LiveConfigVersion = 3 // increment version (*past* previously-read cfg)
 	requireConfigsEqual(t, conf, configResp.Configuration)
+	deleteAll(t)
 }
 
 // TestInitialConfigConflict tests that a R+M+W even of pachyderm's initial
@@ -794,4 +813,5 @@ func TestInitialConfigConflict(t *testing.T) {
 		&auth.SetConfigurationRequest{Configuration: initialConfig})
 	require.YesError(t, err)
 	require.Matches(t, "config version", err.Error())
+	deleteAll(t)
 }
