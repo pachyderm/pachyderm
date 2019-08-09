@@ -90,7 +90,7 @@ func (d *pfsDatumIterator) Datum() []*Input {
 }
 
 func (d *pfsDatumIterator) DatumN(n int) []*Input {
-	if n > d.location {
+	if n < d.location {
 		d.Reset()
 	}
 	for d.location != n {
@@ -140,7 +140,7 @@ func (d *unionDatumIterator) Len() int {
 }
 
 func (d *unionDatumIterator) Next() bool {
-	d.location++
+	// fmt.Println(d.location, d.Len())
 	if d.unionIdx >= len(d.iterators) {
 		return false
 	}
@@ -148,6 +148,7 @@ func (d *unionDatumIterator) Next() bool {
 		d.unionIdx++
 		return d.Next()
 	}
+	d.location++
 	return true
 }
 
@@ -156,7 +157,7 @@ func (d *unionDatumIterator) Datum() []*Input {
 }
 
 func (d *unionDatumIterator) DatumN(n int) []*Input {
-	if n > d.location {
+	if n < d.location {
 		d.Reset()
 	}
 	for d.location != n {
@@ -196,6 +197,7 @@ func (d *crossDatumIterator) Reset() {
 	if !inhabited {
 		d.iterators = nil
 	}
+	d.location = -1
 	d.started = !inhabited
 }
 
@@ -211,9 +213,9 @@ func (d *crossDatumIterator) Len() int {
 }
 
 func (d *crossDatumIterator) Next() bool {
-	d.location++
 	if !d.started {
 		d.started = true
+		d.location++
 		return true
 	}
 	for _, input := range d.iterators {
@@ -225,6 +227,7 @@ func (d *crossDatumIterator) Next() bool {
 			input.Next()
 			// after resetting this "row", start iterating through the next "row"
 		} else {
+			d.location++
 			return true
 		}
 	}
@@ -241,7 +244,7 @@ func (d *crossDatumIterator) Datum() []*Input {
 }
 
 func (d *crossDatumIterator) DatumN(n int) []*Input {
-	if n > d.location {
+	if n < d.location {
 		d.Reset()
 	}
 	for d.location != n {
@@ -276,6 +279,7 @@ func newJoinDatumIterator(pachClient *client.APIClient, join []*pps.Input) (Datu
 }
 
 func (d *joinDatumIterator) Reset() {
+
 	d.location = -1
 }
 
@@ -298,7 +302,7 @@ func (d *joinDatumIterator) Datum() []*Input {
 }
 
 func (d *joinDatumIterator) DatumN(n int) []*Input {
-	if n > d.location {
+	if n < d.location {
 		d.Reset()
 	}
 	for d.location != n {
@@ -354,7 +358,7 @@ func (d *gitDatumIterator) Next() bool {
 }
 
 func (d *gitDatumIterator) DatumN(n int) []*Input {
-	if n > d.location {
+	if n < d.location {
 		d.Reset()
 	}
 	for d.location != n {

@@ -25,8 +25,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/segmentio/kafka-go"
 
 	"golang.org/x/sync/errgroup"
@@ -4947,29 +4945,30 @@ func TestJoinInput(t *testing.T) {
 
 	numFiles := 16
 	var commits []*pfs.Commit
-	for _, repo := range repos {
+	for r, repo := range repos {
 		commit, err := c.StartCommit(repo, "master")
 		require.NoError(t, err)
 		commits = append(commits, commit)
 		for i := 0; i < numFiles; i++ {
-			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%4b", i), strings.NewReader(fmt.Sprintf("%d", i)))
+			_, err = c.PutFile(repo, "master", fmt.Sprintf("file-%v.%4b", r, i), strings.NewReader(fmt.Sprintf("%d\n", i)))
 		}
 		require.NoError(t, c.FinishCommit(repo, "master"))
 	}
+
 	pipeline := tu.UniqueString("join-pipeline")
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"",
 		[]string{"bash"},
 		[]string{
-			"cp /pfs/*/* /pfs/out",
+			fmt.Sprintf("touch /pfs/out/$(echo $(ls -r /pfs/%s/)$(ls -r /pfs/%s/))", repos[0], repos[1]),
 		},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
 		client.NewJoinInput(
-			client.NewPFSInputOpts("", repos[0], "", "/*", "$1$2", false),
-			client.NewPFSInputOpts("", repos[1], "", "/*", "$1$2", false),
+			client.NewPFSInputOpts("", repos[0], "", "/file-?.(11*)", "$1", false),
+			client.NewPFSInputOpts("", repos[1], "", "/file-?.(*0)", "$1", false),
 		),
 		"",
 		false,
@@ -4978,19 +4977,16 @@ func TestJoinInput(t *testing.T) {
 	commitIter, err := c.FlushCommit(commits, []*pfs.Repo{client.NewRepo(pipeline)})
 	require.NoError(t, err)
 	commitInfos := collectCommitInfos(t, commitIter)
-	// require.Equal(t, 1, len(commitInfos))
+	require.Equal(t, 1, len(commitInfos))
 	outCommit := commitInfos[0].Commit
 	fileInfos, err := c.ListFile(outCommit.Repo.Name, outCommit.ID, "")
-	fmt.Println("here")
-	spew.Dump(fileInfos)
 	require.NoError(t, err)
-	// require.Equal(t, 2, len(fileInfos))
-	for _, fi := range fileInfos {
+	require.Equal(t, 2, len(fileInfos))
+	expectedNames := []string{"/file-0.1100file-1.1100", "/file-0.1110file-1.1110"}
+	for i, fi := range fileInfos {
 		// 1 byte per repo
-		fmt.Println(fi.File.Path)
-		// require.Equal(t, uint64(len(repos)), fi.SizeBytes)
+		require.Equal(t, expectedNames[i], fi.File.Path)
 	}
-
 }
 
 func TestUnionInput(t *testing.T) {

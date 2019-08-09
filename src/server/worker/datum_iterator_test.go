@@ -131,12 +131,20 @@ func TestDatumIterators(t *testing.T) {
 
 func validateDI(t *testing.T, di DatumIterator, datums ...string) {
 	i := 0
+	clone := di
 	for di.Next() {
 		key := ""
 		for _, file := range di.Datum() {
 			key += file.FileInfo.File.Path
 		}
+
+		key2 := ""
+		for _, file := range clone.DatumN(i) {
+			key2 += file.FileInfo.File.Path
+		}
+
 		require.Equal(t, datums[i], key)
+		require.Equal(t, key2, key)
 		i++
 	}
 	require.Equal(t, di.Len(), len(datums))
