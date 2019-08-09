@@ -219,90 +219,89 @@ func validateIDP(idp *auth.IDProvider, src configSource) (*canonicalIDPConfig, e
 	if idp.GitHub != nil {
 		newIDP.GitHub = &canonicalGitHubIDP{}
 		return newIDP, nil
+	}
+	newIDP.SAML = &canonicalSAMLIDP{
+		GroupAttribute: idp.SAML.GroupAttribute,
+	}
+
+	// construct this SAML ID provider's metadata. There are three valid cases:
+	// 1. This is a user-provided config (i.e. it's coming from an RPC), and the
+	//    IDP's metadata was set directly in the config
+	// 2. This is a user-provided config, and the IDP's metadata was not set
+	//    in the config, but the config contains a URL where the IDP metadata
+	//    can be retrieved
+	// 3. This is an internal config (it has already been validated by a pachd
+	//    worker, and it's coming from etcd)
+	// Any other case should be rejected with an error
+	//
+	// Either download raw IDP metadata from metadata URL or get it from cfg
+	var rawIDPMetadata []byte
+	if idp.SAML.MetadataURL == "" {
+		if len(idp.SAML.MetadataXML) == 0 {
+			return nil, fmt.Errorf("must set either metadata_xml or metadata_url "+
+				"for the SAML ID provider %q", idp.Name)
+		}
+		rawIDPMetadata = idp.SAML.MetadataXML
 	} else {
-		newIDP.SAML = &canonicalSAMLIDP{
-			GroupAttribute: idp.SAML.GroupAttribute,
+		// Parse URL even if this is an internal cfg and IDPMetadata is already
+		// set, so that GetConfig can return it
+		var err error
+		newIDP.SAML.MetadataURL, err = url.Parse(idp.SAML.MetadataURL)
+		if err != nil {
+			return nil, fmt.Errorf("Could not parse SAML IDP metadata URL (%q) to "+
+				"query it: %v", idp.SAML.MetadataURL, err)
+		} else if newIDP.SAML.MetadataURL.Scheme == "" {
+			return nil, fmt.Errorf("SAML IDP metadata URL %q is invalid (no scheme)",
+				idp.SAML.MetadataURL)
 		}
 
-		// construct this SAML ID provider's metadata. There are three valid cases:
-		// 1. This is a user-provided config (i.e. it's coming from an RPC), and the
-		//    IDP's metadata was set directly in the config
-		// 2. This is a user-provided config, and the IDP's metadata was not set
-		//    in the config, but the config contains a URL where the IDP metadata
-		//    can be retrieved
-		// 3. This is an internal config (it has already been validated by a pachd
-		//    worker, and it's coming from etcd)
-		// Any other case should be rejected with an error
-		//
-		// Either download raw IDP metadata from metadata URL or get it from cfg
-		var rawIDPMetadata []byte
-		if idp.SAML.MetadataURL == "" {
-			if len(idp.SAML.MetadataXML) == 0 {
-				return nil, fmt.Errorf("must set either metadata_xml or metadata_url "+
+		switch src {
+		case external: // user-provided config
+			if len(idp.SAML.MetadataXML) > 0 {
+				return nil, fmt.Errorf("cannot set both metadata_xml and metadata_url "+
 					"for the SAML ID provider %q", idp.Name)
 			}
-			rawIDPMetadata = idp.SAML.MetadataXML
-		} else {
-			// Parse URL even if this is an internal cfg and IDPMetadata is already
-			// set, so that GetConfig can return it
-			var err error
-			newIDP.SAML.MetadataURL, err = url.Parse(idp.SAML.MetadataURL)
+			rawIDPMetadata, err = fetchRawIDPMetadata(idp.Name, newIDP.SAML.MetadataURL)
 			if err != nil {
-				return nil, fmt.Errorf("Could not parse SAML IDP metadata URL (%q) to "+
-					"query it: %v", idp.SAML.MetadataURL, err)
-			} else if newIDP.SAML.MetadataURL.Scheme == "" {
-				return nil, fmt.Errorf("SAML IDP metadata URL %q is invalid (no scheme)",
-					idp.SAML.MetadataURL)
+				return nil, err
 			}
 
-			switch src {
-			case external: // user-provided config
-				if len(idp.SAML.MetadataXML) > 0 {
-					return nil, fmt.Errorf("cannot set both metadata_xml and metadata_url "+
-						"for the SAML ID provider %q", idp.Name)
-				}
-				rawIDPMetadata, err = fetchRawIDPMetadata(idp.Name, newIDP.SAML.MetadataURL)
-				if err != nil {
-					return nil, err
-				}
-
-			case internal: // config from etcd
-				if len(idp.SAML.MetadataXML) == 0 {
-					return nil, fmt.Errorf("internal error: the SAML ID provider %q was "+
-						"persisted without IDP metadata", idp.Name)
-				}
-				rawIDPMetadata = idp.SAML.MetadataXML
+		case internal: // config from etcd
+			if len(idp.SAML.MetadataXML) == 0 {
+				return nil, fmt.Errorf("internal error: the SAML ID provider %q was "+
+					"persisted without IDP metadata", idp.Name)
 			}
+			rawIDPMetadata = idp.SAML.MetadataXML
 		}
-
-		// Parse IDP metadata. This code is heavily based on the
-		// crewjam/saml/samlsp.Middleware constructor
-		newIDP.SAML.Metadata = &saml.EntityDescriptor{}
-		err := xml.Unmarshal(rawIDPMetadata, newIDP.SAML.Metadata)
-		if err != nil {
-			// this comparison is ugly, but it is how the error is generated in
-			// encoding/xml
-			if err.Error() != "expected element type <EntityDescriptor> but have <EntitiesDescriptor>" {
-				return nil, fmt.Errorf("could not unmarshal EntityDescriptor from IDP metadata: %v", err)
-			}
-			// Search through <EntitiesDescriptor> & find IDP entity
-			entities := &saml.EntitiesDescriptor{}
-			if err := xml.Unmarshal(rawIDPMetadata, entities); err != nil {
-				return nil, fmt.Errorf("could not unmarshal EntitiesDescriptor from IDP metadata: %v", err)
-			}
-			for i, e := range entities.EntityDescriptors {
-				if len(e.IDPSSODescriptors) > 0 {
-					newIDP.SAML.Metadata = &entities.EntityDescriptors[i]
-					break
-				}
-			}
-			// Make sure we found an IDP entity descriptor
-			if len(newIDP.SAML.Metadata.IDPSSODescriptors) == 0 {
-				return nil, fmt.Errorf("no entity found with IDPSSODescriptor")
-			}
-		}
-		return newIDP, nil
 	}
+
+	// Parse IDP metadata. This code is heavily based on the
+	// crewjam/saml/samlsp.Middleware constructor
+	newIDP.SAML.Metadata = &saml.EntityDescriptor{}
+	err := xml.Unmarshal(rawIDPMetadata, newIDP.SAML.Metadata)
+	if err != nil {
+		// this comparison is ugly, but it is how the error is generated in
+		// encoding/xml
+		if err.Error() != "expected element type <EntityDescriptor> but have <EntitiesDescriptor>" {
+			return nil, fmt.Errorf("could not unmarshal EntityDescriptor from IDP metadata: %v", err)
+		}
+		// Search through <EntitiesDescriptor> & find IDP entity
+		entities := &saml.EntitiesDescriptor{}
+		if err := xml.Unmarshal(rawIDPMetadata, entities); err != nil {
+			return nil, fmt.Errorf("could not unmarshal EntitiesDescriptor from IDP metadata: %v", err)
+		}
+		for i, e := range entities.EntityDescriptors {
+			if len(e.IDPSSODescriptors) > 0 {
+				newIDP.SAML.Metadata = &entities.EntityDescriptors[i]
+				break
+			}
+		}
+		// Make sure we found an IDP entity descriptor
+		if len(newIDP.SAML.Metadata.IDPSSODescriptors) == 0 {
+			return nil, fmt.Errorf("no entity found with IDPSSODescriptor")
+		}
+	}
+	return newIDP, nil
 }
 
 // validateConfig converts an auth.AuthConfig proto from an RPC into a
