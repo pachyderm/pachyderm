@@ -15,6 +15,76 @@ This section describes how to use `pachctl deploy custom ... --dry-run` to creat
 Although deployment automation is out of scope of this section, Pachyderm strongly encourages you to configure your [infrastructure as code](./on-premises.html#infrastructure-as-code).
 but we do encourage you to treat your [infrastructure as code](./on-premises.html#infrastructure-as-code).
 
+
+## Creating a Pachyderm deployment manifest
+
+The command to create a custom manifest is `pachctl deploy custom`,
+which takes two sets of required, primary flags, 
+one required flag from either of two possible flags,
+and one set of optional flags.
+The first two sets of required flags configure the primary components for a Pachyderm deployment, 
+the persistent volume and the object store.
+They take a parameter to indicate the style of pv and object store backend.
+Those parameters will drive the kind and number of arguments that follow the two required flags.
+The last require flag configures the type of etcd deployment: static volume or StatefulSet.
+An additional set of optional flags configures other deployment parameters.
+
+A `pachctl deploy custom` invocation looks like this
+```
+pachctl deploy custom --persistent-disk <persistent disk backend> --object-store <object store backend> <persistent disk args> <object store args> [configuration flags]
+```
+
+Let's look at each set of flags in turn
+
+### Persistent volume configuration
+
+The `--persistent-disk` flag takes on the style of pv backend.
+Pachyderm currently only has automated configuration for styles of backend for the major cloud providers: 
+
+[//]: # (todo:fill this out better)
+
+-amazon
+-google
+-azure
+
+For each of those providers, 
+different configurations will result depending on that third required deployment flag.
+That third one is either of these flags, 
+`--dynamic-etcd-nodes` or 
+`--static-etc-volume`.
+
+[//]: # (todo: provide links to statefulsets)
+
+`--dynamic-etcd-nodes` is used when your Kubernetes installation has been configured to use StatefulSets. 
+It takes as an parameter the number of `etcd` nodes which your deployment will create.
+Pachyderm recommends you keep this number at 1.
+Consult with your Pachyderm support team if you want to change it.
+This flag will create a `VolumeClaimTemplate` in the `etcd` `StatefulSet` that uses the standard `etcd-storage-class`.
+Consult with your Kubernetes administrator on the availability of this storage class in your Kubernetes deployment.
+
+`--static-etc-volume` is used when your Kubernetes installation has been configured to use static volumes.
+It'll create a PV with a spec appropriate for one of cloud providers 
+(gcePersistentDisk for Google Cloud Storage, 
+awsElasticBlockStore for Amazon Web Services, 
+azureDisk for Microsoft Azure).
+Of course, 
+these choices are not relevant for most on-premises deployments,
+so you will need to consult with your Kubernetes administrators to figure out the correct choices for your infrastructure.
+
+[//]: # (todo: provide links to storage manifest sections)
+
+In the section on that storage manifests,
+we'll give you pointers to some common ones.
+
+
+### Object store configuration
+- [object store configuration](#object-store-configuration): `--object-store` immediately after the flag to 
+
+- [other flags]: various flags to configure the deployment.
+Each of these flagged arguments takes one parameter which indicates the style of configuration.
+Different styles of configuration will take further downstream arguments to further configure them.
+
+
 ## Anatomy of a Pachyderm deployment manifest
 
 When you run the `pachctl deploy ...` command with the `--dry-run` flag,
@@ -28,7 +98,8 @@ Pachyderm deploys the following sets of application components:
 - `dash`, the web-based enterprise ui for Pachyderm
 
 In general, there are two categories of manifests in the file,
-roles-and-permissions-related and application-related.
+roles-and-permissions-related and application-related. 
+
 
 ## Roles and permissions manifests
 
