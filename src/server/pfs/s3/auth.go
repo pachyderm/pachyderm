@@ -7,7 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/auth"
 )
 
-func (c *controller) SecretKey(r *http.Request, accessKey string, region *string) (secretKey *string, err error) {
+func (c *controller) SecretKey(r *http.Request, accessKey string, region *string) (*string, error) {
 	pc, err := c.pachClient(accessKey)
 	if err != nil {
 		return nil, fmt.Errorf("could not create a pach client for auth: %s", err)
@@ -34,7 +34,7 @@ func (c *controller) SecretKey(r *http.Request, accessKey string, region *string
 	return &accessKey, nil
 }
 
-func (c *controller) CustomAuth(r *http.Request) (passed bool, err error) {
+func (c *controller) CustomAuth(r *http.Request) (bool, error) {
 	pc, err := c.pachClient("")
 	if err != nil {
 		return false, fmt.Errorf("could not create a pach client for auth: %s", err)
