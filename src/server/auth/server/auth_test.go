@@ -65,7 +65,7 @@ func isAuthActive(tb testing.TB, checkConfig bool) bool {
 			}
 		}
 		return true
-	case auth.IsErrNotActivated(err):
+	case auth.IsErrNotActivated(err), auth.IsErrPartiallyActivated(err):
 		return false
 	default:
 		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
