@@ -107,7 +107,7 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 	if subject == admin {
 		bytes, err := ioutil.ReadFile(adminTokenFile)
 		if err == nil {
-			tb.Infof("couldn't find admin token in cache, reading from %q", adminTokenFile)
+			tb.Logf("couldn't find admin token in cache, reading from %q", adminTokenFile)
 			resultClient.SetAuthToken(string(bytes))
 		}
 		tb.Fatalf("couldn't get admin client from cache or %q, no way to reset "+
