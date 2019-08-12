@@ -149,11 +149,11 @@ func (a *apiServer) DeleteRepo(ctx context.Context, request *pfs.DeleteRepoReque
 	return &types.Empty{}, nil
 }
 
-func (a *apiServer) Fsck(ctx context.Context, request *types.Empty) (response *types.Empty, retErr error) {
+func (a *apiServer) Fsck(ctx context.Context, request *pfs.FsckRequest) (response *types.Empty, retErr error) {
 	func() { a.Log(request, nil, nil, 0) }()
 	defer func(start time.Time) { a.Log(request, response, retErr, time.Since(start)) }(time.Now())
 
-	err := a.driver.fsck(a.env.GetPachClient(ctx))
+	err := a.driver.fsck(a.env.GetPachClient(ctx), request.Fix)
 	if err != nil {
 		return nil, err
 	}

@@ -450,6 +450,10 @@ message DeleteFileRequest {
   File file = 1;
 }
 
+message FsckRequest {
+  bool fix = 1;
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -525,7 +529,7 @@ service API {
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // Fsck does a file system consistency check for pfs
-  rpc Fsck(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Fsck(FsckRequest) returns (google.protobuf.Empty) {}
 }
 
 message PutObjectRequest {

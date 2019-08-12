@@ -533,7 +533,8 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 2. Head commit provenance has heads of branch's branch provenance
 // 3. Commit provenance is transitive
 // 4. Commit provenance and commit subvenance are dual relations
-func (d *driver) fsck(pachClient *client.APIClient) error {
+// If fix is true it, will attempt to fix as many of these issues as it can.
+func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
 	key := path.Join

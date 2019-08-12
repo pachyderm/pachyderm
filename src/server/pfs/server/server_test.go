@@ -535,7 +535,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 	require.NoError(t, client.DeleteRepo("B", false))
 
 	// Should be in a consistent state after B is deleted
-	_, err = client.Fsck(client.Ctx(), &types.Empty{})
+	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
 	require.NoError(t, err)
 
 	require.NoError(t, client.DeleteRepo("A", false))
@@ -557,7 +557,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 	require.Equal(t, 1, len(repoInfos))
 
 	// Everything should be consistent
-	_, err = client.Fsck(client.Ctx(), &types.Empty{})
+	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
 	require.NoError(t, err)
 
 }
@@ -5239,6 +5239,26 @@ func TestMonkeyObjectStorage(t *testing.T) {
 	}
 }
 
+func TestFsckFix(t *testing.T) {
+	client := GetPachClient(t)
+	input := "input"
+	output := "output"
+	require.NoError(t, client.CreateRepo(input))
+	require.NoError(t, client.CreateRepo(output))
+	require.NoError(t, client.CreateBranch(output, "master", "", []*pfs.Branch{pclient.NewBranch("input", "master")}))
+	_, err := client.PutFile(input, "master", "file", strings.NewReader("1"))
+	require.NoError(t, err)
+	require.NoError(t, client.DeleteRepo(input, true))
+	require.NoError(t, client.CreateRepo(input))
+	require.NoError(t, client.CreateBranch(input, "master", "", nil))
+	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
+	require.YesError(t, err)
+	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{Fix: true})
+	require.NoError(t, err)
+	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
+	require.NoError(t, err)
+}
+
 const (
 	inputRepo          = iota // create a new input repo
 	inputBranch               // create a new branch on an existing input repo
@@ -5404,7 +5424,7 @@ OpLoop:
 				require.NoError(t, err)
 			}
 		}
-		_, err = client.Fsck(client.Ctx(), &types.Empty{})
+		_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
 		require.NoError(t, err)
 	}
 }
