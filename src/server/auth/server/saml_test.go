@@ -184,7 +184,7 @@ func TestSAMLBasic(t *testing.T) {
 
 	otp := redirectLocation.Query()["auth_code"][0]
 	require.NotEqual(t, "", otp)
-	newClient := getPachClient(t, "")
+	newClient := getPachClientSafe(t, "")
 	authResp, err := newClient.Authenticate(newClient.Ctx(), &auth.AuthenticateRequest{
 		OneTimePassword: otp,
 	})
@@ -236,7 +236,7 @@ func TestGroupsBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	alice, group := tu.UniqueString("alice"), tu.UniqueString("group")
-	aliceClient := getPachClient(t, "") // empty string b/c want anon client
+	aliceClient := getPachClientSafe(t, "") // empty string b/c want anon client
 	tu.AuthenticateWithSAMLResponse(t, aliceClient, testIDP.NewSAMLResponse(alice, group))
 
 	// alice should be able to see her groups
