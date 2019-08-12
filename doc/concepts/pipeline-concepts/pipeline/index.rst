@@ -34,7 +34,7 @@ A minimum pipeline specification must include the following parameters:
 
   One very important property that is defined in the ``input`` field
   is the ``glob`` pattern that defines how Pachyderm breaks the data into
-  individual processing units, called Datums. For more information, see
+  individual processing units, called *datums*. For more information, see
   `Datum <../datum/index.html>`__.
 
 - ``transform`` — Specifies the code that you want to run against your

@@ -127,11 +127,12 @@ In the diagram below, you have the following datums:
 
 ![One to many](../../../images/d_datum_processing_one_to_many.svg)
 
-Pachyderm processes all these datums independently, and in the end, it needs
-to create a commit by combining the results of processing these datums.
+Pachyderm processes all these datums independently. After that,
+Pachyderm creates a commit by merging the
+results of the processed datums.
 A commit is a filesystem that has specific constraints, such as duplicate
-files with the same file path. Pachyderm merges results from
-different output datums with the same file path into single files. For
+files with the same file path. Therefore, Pachyderm merges the results from
+different output datums with the same file path into single file. For
 example, `datum 1` produces `pfs/out/1` and `datum 3` produces `pfs/out/1`.
 Pachyderm merges these two files by appending them one to another
 without any particular order. Therefore, the file `1` in the final
@@ -153,6 +154,6 @@ to the file `1` in the final commit, deletes the file `2` from `datum 2`,
 overwrites the old part from `datum 2` in file `3`  with a new version,
 and creates a new output file `4`.
 
-Similarly, if you have multiple files in your input datum, Pachyderm might
+Similar, if you have multiple files in your input datum, Pachyderm might
 write them into multiple files in output datums that are later merged into
 files with the same file path.

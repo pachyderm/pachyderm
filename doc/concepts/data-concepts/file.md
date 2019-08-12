@@ -20,7 +20,7 @@ command, you can put both files and directories into a Pachyderm repository.
 Pachyderm provides the following file processing strategies:
 
 Appending files
- By default, when you put a file into a Pachyderm repository and a
+ By default, when you put a file into a Pachyderm repository, and a
  file by the same name already exists in the repo, Pachyderm appends
  the new data to the existing file.
  For example, you have an `A.csv` file in a repository. If you upload the

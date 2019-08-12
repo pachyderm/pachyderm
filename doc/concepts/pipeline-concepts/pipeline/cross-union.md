@@ -45,8 +45,8 @@ B
 └── 6.txt
 ```
 
-If you watn your pipeline to process each file independently as a
-separate datum, then you need to use a glob pattern of `/*`. Each
+If you want your pipeline to process each file independently as a
+separate datum, use a glob pattern of `/*`. Each
 glob is applied to each input independently. The input section
 in the pipeline spec might have the following structure:
 
@@ -70,7 +70,7 @@ in the pipeline spec might have the following structure:
 ```
 
 In this example, each Pachyderm repository has those three files in the root
-directory, then you have six datums in total, which is the sum of the number
+directory, and you have six datums in total, which is the sum of the number
 of input files.
 Your pipeline processes the following datums without any specific order:
 
@@ -86,7 +86,7 @@ Your pipeline processes the following datums without any specific order:
 **Note:** Each datum in a pipeline is processed independently by a single
 execution of your code. In this example, your code runs six times and each
 datum is available to it one at a time. For example, your code
-processes`pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a different run,
+processes `pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a different run,
 and so on. In a union, two or more datums are never available to your code
 at the same time. Read next section to learn how you can simplify
 your pipeline by using the `name` property.
@@ -95,7 +95,7 @@ your pipeline by using the `name` property.
 
 In the example above, your code needs to read into the `pfs/A`
 or `pfs/B` directory because only one of them exists in the datum.
-To simplify your code, you can add a `name` field to the `pfs` object and
+To simplify your code, you can add the `name` field to the `pfs` object and
 give the same name to each of the input repos. For example, you can add, the
 `name` field with the value `C` to the input repositories `A` and `B`:
 
@@ -144,7 +144,7 @@ as a separate datum.
 For example, you have repositories `A` and `B` with the following
 structures:
 
-**Note:** For this example, the glob pattern is set to `/*`
+**Note:** For this example, the glob pattern is set to `/*`.
 
 Repository `A` has the following structure:
 
@@ -171,14 +171,15 @@ a total of nine combinations of datums to your code.
 directories are visible during each code run.
 
 ```bash
-/pfs/A/1.txt    /pfs/A/1.txt    /pfs/A/1.txt
-/pfs/B/1.txt    /pfs/B/2.txt    /pfs/B/3.txt
+Run 1: /pfs/A/1.txt
+       /pfs/B/1.txt
 
-/pfs/A/2.txt    /pfs/A/2.txt    /pfs/A/1.txt
-/pfs/B/1.txt    /pfs/B/2.txt    /pfs/B/2.txt
+Run 2: /pfs/A/1.txt
+       /pfs/B/2.txt
+...
 
-/pfs/A/3.txt    /pfs/A/3.txt    /pfs/A/1.txt
-/pfs/B/1.txt    /pfs/B/2.txt    /pfs/B/3.txt
+Run 9: /pfs/A/3.txt
+       /pfs/B/3.txt
 ```
 
 In cross inputs, you cannot specify the same `name` to the combined

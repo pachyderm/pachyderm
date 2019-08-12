@@ -31,7 +31,7 @@ read and write to the same pipe.
 To create a spout pipeline, you need the following items:
 
 * A source of streaming data
-* Docker container with your spout code that reads from the data source
+* A Docker container with your spout code that reads from the data source
 * A spout pipeline specification file that uses the container
 
 Your spout code performs the following actions:

@@ -43,7 +43,7 @@ triggers the pipeline.
 
 ![alt tag](../../../images/cron1.png)
 
-The pipeline runs every ten seconds, queries the database and updates its
+The pipeline runs every ten seconds, queries the database, and updates its
 output. By default, each cron trigger adds a new tick file to the cron input
 repository, accumulating more datums over time. This behavior works for some
 pipelines. For others you might want each tick file to overwrite the

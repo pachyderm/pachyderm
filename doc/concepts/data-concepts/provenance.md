@@ -58,10 +58,10 @@ circle. By using provenance, you can find that the best model was
 created from the commit **2** in the `training-data` repository
 and the commit **1** in the `parameters` repository.
 
-## Tracking Provenance in Pachyderm
+## Tracking the Provenance Upstream
 
 Pachyderm provides the `pachctl inspect` command that enables you to track
-provenance of your commits and learn where the data in the repository
+the provenance of your commits and learn where the data in the repository
 originates in.
 
 **Example:**
@@ -80,22 +80,23 @@ In the example above, you can see that the latest commit in the master
 branch of the split repository tracks back to the master branch in the
 `raw_data` repository.
 
-## Tracking Provenance Downstream
+## Tracking the Provenance Downstream
 
 Pachyderm provides the `flush commit` command that enables you
-to track provenance downstream. Tracking downstream means that instead of
+to track the provenance downstream. Tracking downstream means that instead of
 tracking the origin of a commit, you can learn in which output repository
 a certain input has resulted.
 
 For example, you have the `ccf82debb4b94ca3bfe165aca8d517c3` commit in
 the `raw_data` repository. If you run the `pachctl flush commit` command
-for this commit.
+for this commit, you can see in which repositories and commits that data
+resulted.
 
 ```bash
 $ pachctl flush commit raw_data@ccf82debb4b94ca3bfe165aca8d517c3
 REPO        BRANCH COMMIT                           PARENT STARTED        DURATION       SIZE
-split       master f71e42704b734598a89c02026c8f7d13 <none> 52 minutes ago About a minute 0B
+split       master f71e42704b734598a89c02026c8f7d13 <none> 52 minutes ago About a minute 25B
 split       stats  9b46d7abf9a74bf7bf66c77f2a0da4b1 <none> 52 minutes ago About a minute 15.39MiB
-pre_process master a99ab362dc944b108fb33544b2b24a8c <none> 48 minutes ago About a minute 0B
+pre_process master a99ab362dc944b108fb33544b2b24a8c <none> 48 minutes ago About a minute 100B
 ```
 

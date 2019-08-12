@@ -4,19 +4,19 @@ A Pachyderm repository is a location where you store your data inside
 Pachyderm. A Pachyderm repository is a top-level data object that contains
 files and folders. Similar to Git, a Pachyderm repository tracks all
 changes to the data and creates a history of data modifications that you
-can access and review. You can store any type of file in a Pachyderm repo,
+can access and review. You can store any type of file is in a Pachyderm repo,
 including binary and plain text files.
 
 Unlike a Git repository that stores history in a `.git` file in your copy
 of a Git repo, Pachyderm stores the history of your commits in a centralized
 location. Because of that, you do not run into
 merge conflicts as you often do with Git commits when you try to merge
-your `.git` history with the master copy of the repo. With large datatsets
+your `.git` history with the master copy of the repo. With large datasets
 resolving a merge conflict might not be possible.
 
-A Pachyderm repository is the first entity that you configure to create
-A Pachyderm repository is the first entity that you configure when you want to add data to Pachyderm
-`pachctl create repo` command or by using the Pachyderm UI. After
+A Pachyderm repository is the first entity that you configure when you
+want to add data to Pachyderm. You can create a repository by running
+the `pachctl create repo` command or by using the Pachyderm UI. After
 creating the repository, you can add your data by using the
 `pachctl put file` command.
 
@@ -29,6 +29,7 @@ Input repositories
 Output repositories
  Pachyderm automatically creates output repositories
  pipelines write results of computations into these repositories.
+ The output repository is the `pfs/out` located in your container.
 
 You can view the list of repositories in your Pachyderm cluster
 by running the `pachctl list repo` command.
@@ -60,8 +61,9 @@ data and the information about the specified
 repository, such as commit history. The delete
 operation is irreversible and results in a
 complete cleanup of your Pachyderm cluster.
-If you run the delete command with the `--all` flag, all
-repositories will be deleted.
+If you run the delete command with the `--all` flag, Pachyderm
+deletes all repositories in this
+cluster.
 
 **See Also:**
 

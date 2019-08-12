@@ -4,7 +4,7 @@ Datum
 =====
 
 A datum is the smallest indivisible unit of computation within a
-A job can have one, many or no datums. Each datum is processed
+A job can have one, many, or no datums. Each datum is processed
 independently with a single execution of the user code and
 then the results of all the datums are merged together to
 create the final output commit.
