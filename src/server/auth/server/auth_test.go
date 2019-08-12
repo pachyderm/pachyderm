@@ -103,7 +103,7 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 		return resultClient
 	}
 	if subject == admin {
-		tb.Fatal("couldn't get admin client from cache -- you're probably screwed")
+		tb.Fatal("couldn't get admin client from cache, no way to reset cluster. Please deactivate auth or redeploy Pachyderm")
 	}
 	if strings.Index(subject, ":") < 0 {
 		subject = auth.GitHubPrefix + subject
