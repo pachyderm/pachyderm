@@ -40,22 +40,24 @@ var (
 //
 // Caller must hold tokenMapMut. Currently only called by getPachClient(),
 // activateAuth (which is only called by getPachClient()) and deleteAll()
-func isAuthActive(tb testing.TB) bool {
+func isAuthActive(tb testing.TB, checkConfig bool) bool {
 	_, err := seedClient.GetAdmins(context.Background(),
 		&auth.GetAdminsRequest{})
 	switch {
 	case auth.IsErrNotSignedIn(err):
 		adminClient := getPachClientInternal(tb, admin)
-		resp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
-		if err != nil {
-			panic(fmt.Sprintf("could not get config: %v", err))
-		}
-		cfg := resp.GetConfiguration()
-		if cfg.SAMLServiceOptions != nil {
-			panic(fmt.Sprintf("SAML config in fresh cluster: %+v", cfg))
-		}
-		if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
-			panic(fmt.Sprintf("problem with ID providers in config in fresh cluster: %+v", cfg))
+		if checkConfig {
+			resp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+			if err != nil {
+				panic(fmt.Sprintf("could not get config: %v", err))
+			}
+			cfg := resp.GetConfiguration()
+			if cfg.SAMLServiceOptions != nil {
+				panic(fmt.Sprintf("SAML config in fresh cluster: %+v", cfg))
+			}
+			if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
+				panic(fmt.Sprintf("problem with ID providers in config in fresh cluster: %+v", cfg))
+			}
 		}
 		return true
 	case auth.IsErrNotActivated(err):
@@ -207,7 +209,7 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 	//    (=> reset cluster admins to "admin")
 	// 4) Auth is on, client tokens are valid, and the only admin is "admin" (do
 	//    nothing)
-	if !isAuthActive(tb) {
+	if !isAuthActive(tb, true) {
 		// Case 1: auth is off. Activate auth & return a new client
 		tokenMap = make(map[string]string)
 		activateAuth(tb)
@@ -293,6 +295,8 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 // clients have been created or after they're done being used).
 func deleteAll(tb testing.TB) {
 	tb.Helper()
+	var anonClient *client.APIClient
+	var useAdminClient bool
 	func() {
 		tokenMapMut.Lock() // May initialize the seed client
 		defer tokenMapMut.Unlock()
@@ -300,12 +304,19 @@ func deleteAll(tb testing.TB) {
 		if seedClient == nil {
 			initSeedClient(tb)
 		}
-		if !isAuthActive(tb) {
-			require.NoError(tb, seedClient.DeleteAll())
-		}
+		anonClient = seedClient.WithCtx(context.Background())
+
+		// config might be nil if this is
+		// called after a test that changed
+		// the config
+		useAdminClient = isAuthActive(tb, false)
 	}() // release tokenMapMut before getPachClient
-	adminClient := getPachClient(tb, admin)
-	require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	if useAdminClient {
+		adminClient := getPachClient(tb, admin)
+		require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
+	} else {
+		require.NoError(tb, anonClient.DeleteAll())
+	}
 }
 
 // aclEntry mirrors auth.ACLEntry, but without XXX_fields, which make
