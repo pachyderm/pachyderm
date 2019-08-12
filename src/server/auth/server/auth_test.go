@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -146,6 +147,7 @@ func activateAuth(tb testing.TB) {
 		tb.Fatalf("could not activate auth service: %v", err.Error())
 	}
 	tokenMap[admin] = resp.PachToken
+	ioutil.WriteFile("/tmp/pach-admin-token", []byte(resp.PachToken), 0644)
 
 	// Wait for the Pachyderm Auth system to activate
 	require.NoError(tb, backoff.Retry(func() error {
