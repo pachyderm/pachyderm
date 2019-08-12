@@ -53,7 +53,24 @@ func isAuthActive(tb testing.TB, checkConfig bool) bool {
 			}
 			cfg := resp.GetConfiguration()
 			if cfg.SAMLServiceOptions != nil {
-				panic(fmt.Sprintf("SAML config in fresh cluster: %+v", cfg))
+				// panic(fmt.Sprintf("SAML config in fresh cluster: %+v", cfg))
+				for cfg.SAMLServiceOptions != nil {
+					fmt.Printf("SAML config in fresh cluster: %+v\n", cfg)
+					newCfg := defaultAuthConfig
+					newCfg.LiveConfigVersion = cfg.GetLiveConfigVersion()
+					_, err = adminClient.SetConfiguration(adminClient.Ctx(), &auth.SetConfigurationRequest{
+						Configuration: &newCfg,
+					})
+					if err != nil {
+						panic(fmt.Sprintf("could not set config: %v", err))
+					}
+					resp, err = adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+					if err != nil {
+						panic(fmt.Sprintf("could not get config (inner): %v", err))
+					}
+					cfg = resp.GetConfiguration()
+					time.Sleep(5 * time.Second)
+				}
 			}
 			if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
 				panic(fmt.Sprintf("problem with ID providers in config in fresh cluster: %+v", cfg))
