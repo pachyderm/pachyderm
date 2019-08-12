@@ -10,63 +10,112 @@ import (
 )
 
 const (
+	// defaultMaxKeys specifies the maximum number of keys returned in object
+	// listings by default
 	defaultMaxKeys int = 1000
-
-	VersioningDisabled  string = ""
+	// VersioningDisabled specifies that versioning is not enabled on a bucket
+	VersioningDisabled string = ""
+	// VersioningDisabled specifies that versioning is suspended on a bucket
 	VersioningSuspended string = "Suspended"
-	VersioningEnabled   string = "Enabled"
+	// VersioningDisabled specifies that versioning is enabled on a bucket
+	VersioningEnabled string = "Enabled"
 )
 
 // Contents is an individual file/object
 type Contents struct {
-	Key          string    `xml:"Key"`
+	// Key specifies the object key
+	Key string `xml:"Key"`
+	// LastModified specifies when the object was last modified
 	LastModified time.Time `xml:"LastModified"`
-	ETag         string    `xml:"ETag"`
-	Size         uint64    `xml:"Size"`
-	StorageClass string    `xml:"StorageClass"`
-	Owner        User      `xml:"Owner"`
+	// ETag is a hex encoding of the hash of the object contents, with or
+	// without surrounding quotes.
+	ETag string `xml:"ETag"`
+	// Size specifies the size of the object
+	Size uint64 `xml:"Size"`
+	// StorageClass specifies the storage class used for the object
+	StorageClass string `xml:"StorageClass"`
+	// Owner specifies the owner of the object
+	Owner User `xml:"Owner"`
 }
 
 // CommonPrefixes specifies a common prefix of S3 keys. This is akin to a
 // directory.
 type CommonPrefixes struct {
+	// Prefix specifies the common prefix value.
 	Prefix string `xml:"Prefix"`
-	Owner  User   `xml:"Owner"`
+	// Owner specifies the owner of the object
+	Owner User `xml:"Owner"`
 }
 
 // DeleteMarker specifies an object that has been deleted from a
 // versioning-enabled bucket.
 type DeleteMarker struct {
-	Key          string    `xml:"Key"`
-	Version      string    `xml:"VersionId"`
-	IsLatest     bool      `xml:"IsLatest"`
+	// Key specifies the object key
+	Key string `xml:"Key"`
+	// Version is the version of the object, or an empty string if versioning
+	// is not enabled or supported.
+	Version string `xml:"VersionId"`
+	// IsLatest specifies whether this is the latest version of the object.
+	IsLatest bool `xml:"IsLatest"`
+	// LastModified specifies when the object was last modified
 	LastModified time.Time `xml:"LastModified"`
-	Owner        User      `xml:"Owner"`
+	// Owner specifies the owner of the object
+	Owner User `xml:"Owner"`
 }
 
 // Version specifies a specific version of an object in a
 // versioning-enabled bucket.
 type Version struct {
-	Key          string    `xml:"Key"`
-	Version      string    `xml:"VersionId"`
-	IsLatest     bool      `xml:"IsLatest"`
+	// Key specifies the object key
+	Key string `xml:"Key"`
+	// Version is the version of the object, or an empty string if versioning
+	// is not enabled or supported.
+	Version string `xml:"VersionId"`
+	// IsLatest specifies whether this is the latest version of the object.
+	IsLatest bool `xml:"IsLatest"`
+	// LastModified specifies when the object was last modified
 	LastModified time.Time `xml:"LastModified"`
-	ETag         string    `xml:"ETag"`
-	Size         uint64    `xml:"Size"`
-	StorageClass string    `xml:"StorageClass"`
-	Owner        User      `xml:"Owner"`
+	// ETag is a hex encoding of the hash of the object contents, with or
+	// without surrounding quotes.
+	ETag string `xml:"ETag"`
+	// Size specifies the size of the object
+	Size uint64 `xml:"Size"`
+	// StorageClass specifies the storage class used for the object
+	StorageClass string `xml:"StorageClass"`
+	// Owner specifies the owner of the object
+	Owner User `xml:"Owner"`
+}
+
+// ListObjectsResult is a response from a ListObjects call
+type ListObjectsResult struct {
+	// Contents are the list of objects returned
+	Contents []Contents
+	// CommonPrefixes are the list of common prefixes returned
+	CommonPrefixes []CommonPrefixes
+	// IsTruncated specifies whether this is the end of the list or not
+	IsTruncated bool
+}
+
+// ListObjectVersionsResult is a response from a ListObjectVersions call
+type ListObjectVersionsResult struct {
+	// Versions are the list of versions returned
+	Versions []Version
+	// DeleteMarkers are the list of delete markers returned
+	DeleteMarkers []DeleteMarker
+	// IsTruncated specifies whether this is the end of the list or not
+	IsTruncated bool
 }
 
 // BucketController is an interface that specifies bucket-level functionality.
 type BucketController interface {
 	// GetLocation gets the location of a bucket
-	GetLocation(r *http.Request, bucket string) (location string, err error)
+	GetLocation(r *http.Request, bucket string) (string, error)
 
 	// ListObjects lists objects within a bucket
-	ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []Contents, commonPrefixes []CommonPrefixes, isTruncated bool, err error)
+	ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (*ListObjectsResult, error)
 
 	// ListObjectVersions lists objects' versions within a bucket
-	ListObjectVersions(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (versions []Version, deleteMarkers []DeleteMarker, isTruncated bool, err error)
+	ListObjectVersions(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (*ListObjectVersionsResult, error)
 
 	// CreateBucket creates a bucket
 	CreateBucket(r *http.Request, bucket string) error
@@ -75,7 +124,7 @@ type BucketController interface {
 	DeleteBucket(r *http.Request, bucket string) error
 
 	// GetBucketVersioning gets the state of versioning on the given bucket
-	GetBucketVersioning(r *http.Request, bucket string) (status string, err error)
+	GetBucketVersioning(r *http.Request, bucket string) (string, error)
 
 	// SetBucketVersioning sets the state of versioning on the given bucket
 	SetBucketVersioning(r *http.Request, bucket, status string) error
@@ -85,18 +134,16 @@ type BucketController interface {
 // `NotImplementedError` for all functionality
 type unimplementedBucketController struct{}
 
-func (c unimplementedBucketController) GetLocation(r *http.Request, bucket string) (location string, err error) {
+func (c unimplementedBucketController) GetLocation(r *http.Request, bucket string) (string, error) {
 	return "", NotImplementedError(r)
 }
 
-func (c unimplementedBucketController) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []Contents, commonPrefixes []CommonPrefixes, isTruncated bool, err error) {
-	err = NotImplementedError(r)
-	return
+func (c unimplementedBucketController) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (*ListObjectsResult, error) {
+	return nil, NotImplementedError(r)
 }
 
-func (c unimplementedBucketController) ListObjectVersions(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (versions []Version, deleteMarkers []DeleteMarker, isTruncated bool, err error) {
-	err = NotImplementedError(r)
-	return
+func (c unimplementedBucketController) ListObjectVersions(r *http.Request, bucket, prefix, keyMarker, versionMarker string, delimiter string, maxKeys int) (*ListObjectVersionsResult, error) {
+	return nil, NotImplementedError(r)
 }
 
 func (c unimplementedBucketController) CreateBucket(r *http.Request, bucket string) error {
@@ -107,7 +154,7 @@ func (c unimplementedBucketController) DeleteBucket(r *http.Request, bucket stri
 	return NotImplementedError(r)
 }
 
-func (c unimplementedBucketController) GetBucketVersioning(r *http.Request, bucket string) (status string, err error) {
+func (c unimplementedBucketController) GetBucketVersioning(r *http.Request, bucket string) (string, error) {
 	return "", NotImplementedError(r)
 }
 
@@ -152,17 +199,17 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	marker := r.FormValue("marker")
 	delimiter := r.FormValue("delimiter")
 
-	contents, commonPrefixes, isTruncated, err := h.controller.ListObjects(r, bucket, prefix, marker, delimiter, maxKeys)
+	result, err := h.controller.ListObjects(r, bucket, prefix, marker, delimiter, maxKeys)
 	if err != nil {
 		WriteError(h.logger, w, r, err)
 		return
 	}
 
-	for _, c := range contents {
+	for _, c := range result.Contents {
 		c.ETag = addETagQuotes(c.ETag)
 	}
 
-	result := struct {
+	marshallable := struct {
 		XMLName        xml.Name         `xml:"ListBucketResult"`
 		Contents       []Contents       `xml:"Contents"`
 		CommonPrefixes []CommonPrefixes `xml:"CommonPrefixes"`
@@ -179,29 +226,29 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 		Marker:         marker,
 		Delimiter:      delimiter,
 		MaxKeys:        maxKeys,
-		IsTruncated:    isTruncated,
-		Contents:       contents,
-		CommonPrefixes: commonPrefixes,
+		IsTruncated:    result.IsTruncated,
+		Contents:       result.Contents,
+		CommonPrefixes: result.CommonPrefixes,
 	}
 
-	if result.IsTruncated {
+	if marshallable.IsTruncated {
 		high := ""
 
-		for _, contents := range result.Contents {
+		for _, contents := range marshallable.Contents {
 			if contents.Key > high {
 				high = contents.Key
 			}
 		}
-		for _, commonPrefix := range result.CommonPrefixes {
+		for _, commonPrefix := range marshallable.CommonPrefixes {
 			if commonPrefix.Prefix > high {
 				high = commonPrefix.Prefix
 			}
 		}
 
-		result.NextMarker = high
+		marshallable.NextMarker = high
 	}
 
-	writeXML(h.logger, w, r, http.StatusOK, result)
+	writeXML(h.logger, w, r, http.StatusOK, marshallable)
 }
 
 func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
@@ -290,17 +337,17 @@ func (h bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
 	versionIDMarker := r.FormValue("version-id-marker")
 	delimiter := r.FormValue("delimiter")
 
-	versions, deleteMarkers, isTruncated, err := h.controller.ListObjectVersions(r, bucket, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
+	result, err := h.controller.ListObjectVersions(r, bucket, prefix, keyMarker, versionIDMarker, delimiter, maxKeys)
 	if err != nil {
 		WriteError(h.logger, w, r, err)
 		return
 	}
 
-	for _, v := range versions {
+	for _, v := range result.Versions {
 		v.ETag = addETagQuotes(v.ETag)
 	}
 
-	result := struct {
+	marshallable := struct {
 		XMLName             xml.Name       `xml:"ListVersionsResult"`
 		Delimiter           string         `xml:"Delimiter,omitempty"`
 		IsTruncated         bool           `xml:"IsTruncated"`
@@ -314,21 +361,21 @@ func (h bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
 		Versions            []Version      `xml:"Version"`
 		DeleteMarkers       []DeleteMarker `xml:"DeleteMarker"`
 	}{
-		IsTruncated:     isTruncated,
+		IsTruncated:     result.IsTruncated,
 		KeyMarker:       keyMarker,
 		MaxKeys:         maxKeys,
 		Name:            bucket,
 		VersionIDMarker: versionIDMarker,
 		Prefix:          prefix,
-		Versions:        versions,
-		DeleteMarkers:   deleteMarkers,
+		Versions:        result.Versions,
+		DeleteMarkers:   result.DeleteMarkers,
 	}
 
-	if result.IsTruncated {
+	if marshallable.IsTruncated {
 		highKey := ""
 		highVersion := ""
 
-		for _, version := range result.Versions {
+		for _, version := range marshallable.Versions {
 			if version.Key > highKey {
 				highKey = version.Key
 			}
@@ -336,7 +383,7 @@ func (h bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
 				highVersion = version.Version
 			}
 		}
-		for _, deleteMarker := range result.DeleteMarkers {
+		for _, deleteMarker := range marshallable.DeleteMarkers {
 			if deleteMarker.Key > highKey {
 				highKey = deleteMarker.Key
 			}
@@ -345,9 +392,9 @@ func (h bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		result.NextKeyMarker = highKey
-		result.NextVersionIDMarker = highVersion
+		marshallable.NextKeyMarker = highKey
+		marshallable.NextVersionIDMarker = highVersion
 	}
 
-	writeXML(h.logger, w, r, http.StatusOK, result)
+	writeXML(h.logger, w, r, http.StatusOK, marshallable)
 }

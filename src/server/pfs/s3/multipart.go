@@ -85,23 +85,26 @@ func (c *controller) ensureRepo(pc *client.APIClient) error {
 	return nil
 }
 
-func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDMarker string, maxUploads int) (isTruncated bool, uploads []s2.Upload, err error) {
+func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDMarker string, maxUploads int) (*s2.ListMultipartResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		return
+		return nil, err
 	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return
+		return nil, err
 	}
 	_, err = pc.InspectBranch(repo, branch)
 	if err != nil {
-		err = maybeNotFoundError(r, err)
-		return
+		return nil, maybeNotFoundError(r, err)
 	}
 	if err = c.ensureRepo(pc); err != nil {
-		return
+		return nil, err
+	}
+
+	result := s2.ListMultipartResult{
+		Uploads: []s2.Upload{},
 	}
 
 	err = pc.GlobFileF(c.repo, "master", fmt.Sprintf("%s/%s/*/*/.keep", repo, branch), func(fileInfo *pfsClient.FileInfo) error {
@@ -114,9 +117,9 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 			return nil
 		}
 
-		if len(uploads) >= maxUploads {
+		if len(result.Uploads) >= maxUploads {
 			if maxUploads > 0 {
-				isTruncated = true
+				result.IsTruncated = true
 			}
 			return errutil.ErrBreak
 		}
@@ -126,7 +129,7 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 			return err
 		}
 
-		uploads = append(uploads, s2.Upload{
+		result.Uploads = append(result.Uploads, s2.Upload{
 			Key:          key,
 			UploadID:     uploadID,
 			Initiator:    defaultUser,
@@ -137,36 +140,36 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 		return nil
 	})
 
-	return
+	return &result, err
 }
 
-func (c *controller) InitMultipart(r *http.Request, bucket, key string) (uploadID string, err error) {
+func (c *controller) InitMultipart(r *http.Request, bucket, key string) (string, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		return
+		return "", err
 	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return
+		return "", err
 	}
 	_, err = pc.InspectBranch(repo, branch)
 	if err != nil {
-		err = maybeNotFoundError(r, err)
-		return
+		return "", maybeNotFoundError(r, err)
 	}
 	if err = c.ensureRepo(pc); err != nil {
 		return "", err
 	}
 
-	uploadID = uuid.NewWithoutDashes()
+	uploadID := uuid.NewWithoutDashes()
 
 	path := fmt.Sprintf("%s/.keep", parentDirPath(repo, branch, key, uploadID))
 	_, err = pc.PutFileOverwrite(c.repo, "master", path, strings.NewReader(""), 0)
 	if err != nil {
-		return
+		return "", err
 	}
-	return
+
+	return uploadID, nil
 }
 
 func (c *controller) AbortMultipart(r *http.Request, bucket, key, uploadID string) error {
@@ -200,39 +203,37 @@ func (c *controller) AbortMultipart(r *http.Request, bucket, key, uploadID strin
 	return nil
 }
 
-func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID string, parts []s2.Part) (location, etag, version string, err error) {
+func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID string, parts []s2.Part) (*s2.CompleteMultipartResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		return
+		return nil, err
 	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return
+		return nil, err
 	}
 	_, err = pc.InspectBranch(repo, branch)
 	if err != nil {
-		err = maybeNotFoundError(r, err)
-		return
+		return nil, maybeNotFoundError(r, err)
 	}
 	if err = c.ensureRepo(pc); err != nil {
-		return
+		return nil, err
 	}
 
 	_, err = pc.InspectFile(c.repo, "master", keepPath(repo, branch, key, uploadID))
 	if err != nil {
-		err = s2.NoSuchUploadError(r)
-		return
+		// TODO: differentiate between not found errors and other kinds
+		return nil, s2.NoSuchUploadError(r)
 	}
 
 	for i, part := range parts {
 		srcPath := chunkPath(repo, branch, key, uploadID, part.PartNumber)
 
-		var fileInfo *pfsClient.FileInfo
-		fileInfo, err = pc.InspectFile(c.repo, "master", srcPath)
+		fileInfo, err := pc.InspectFile(c.repo, "master", srcPath)
 		if err != nil {
-			err = s2.InvalidPartError(r)
-			return
+			// TODO: differentiate between not found errors and other kinds
+			return nil, s2.InvalidPartError(r)
 		}
 
 		// Only verify the ETag when it's of the same length as PFS file
@@ -240,58 +241,63 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 		// ETags, and would otherwise fail.
 		expectedETag := fmt.Sprintf("%x", fileInfo.Hash)
 		if len(part.ETag) == len(expectedETag) && part.ETag != expectedETag {
-			err = s2.InvalidPartError(r)
-			return
+			return nil, s2.InvalidPartError(r)
 		}
 
 		if i < len(parts)-1 && fileInfo.SizeBytes < 5*1024*1024 {
 			// each part, except for the last, is expected to be at least 5mb
 			// in s3
-			err = s2.EntityTooSmallError(r)
-			return
+			return nil, s2.EntityTooSmallError(r)
 		}
 
 		err = pc.CopyFile(c.repo, "master", srcPath, repo, branch, key, false)
 		if err != nil {
-			err = s2.InternalError(r, err)
-			return
+			return nil, err
 		}
 	}
 
 	// TODO: verify that this works
 	err = pc.DeleteFile(c.repo, "master", parentDirPath(repo, branch, key, uploadID))
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	fileInfo, err := pc.InspectFile(repo, branch, key)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	location = globalLocation
-	etag = fmt.Sprintf("%x", fileInfo.Hash)
-	version = fileInfo.File.Commit.ID
-	return
+	result := s2.CompleteMultipartResult{
+		Location: globalLocation,
+		ETag:     fmt.Sprintf("%x", fileInfo.Hash),
+		Version:  fileInfo.File.Commit.ID,
+	}
+	return &result, nil
 }
 
-func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID string, partNumberMarker, maxParts int) (initiator, owner *s2.User, storageClass string, isTruncated bool, parts []s2.Part, err error) {
+func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID string, partNumberMarker, maxParts int) (*s2.ListMultipartChunksResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		return
+		return nil, err
 	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return
+		return nil, err
 	}
 	_, err = pc.InspectBranch(repo, branch)
 	if err != nil {
-		err = maybeNotFoundError(r, err)
-		return
+		return nil, maybeNotFoundError(r, err)
 	}
 	if err = c.ensureRepo(pc); err != nil {
-		return
+		return nil, err
+	}
+
+	result := s2.ListMultipartChunksResult{
+		Initiator:    &defaultUser,
+		Owner:        &defaultUser,
+		StorageClass: globalStorageClass,
+		Parts:        []s2.Part{},
 	}
 
 	err = pc.GlobFileF(c.repo, "master", fmt.Sprintf("%s/%s/%s/%s/*", repo, branch, key, uploadID), func(fileInfo *pfsClient.FileInfo) error {
@@ -304,44 +310,38 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID 
 			return nil
 		}
 
-		if len(parts) >= maxParts {
+		if len(result.Parts) >= maxParts {
 			if maxParts > 0 {
-				isTruncated = true
+				result.IsTruncated = true
 			}
 			return errutil.ErrBreak
 		}
 
-		parts = append(parts, s2.Part{
+		result.Parts = append(result.Parts, s2.Part{
 			PartNumber: partNumber,
 			ETag:       fmt.Sprintf("%x", fileInfo.Hash),
 		})
 
 		return nil
 	})
-	if err != nil {
-		return
-	}
 
-	initiator = &defaultUser
-	owner = &defaultUser
-	storageClass = globalStorageClass
-	return
+	return &result, err
 }
 
-func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error) {
+func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int, reader io.Reader) (string, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		return
+		return "", err
 	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return
+		return "", err
 	}
 	_, err = pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
-		return
+		return "", err
 	}
 	if err = c.ensureRepo(pc); err != nil {
 		return "", err
@@ -349,23 +349,22 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 
 	_, err = pc.InspectFile(c.repo, "master", keepPath(repo, branch, key, uploadID))
 	if err != nil {
-		err = s2.NoSuchUploadError(r)
-		return
+		// TODO: differentiate between not found errors and other kinds
+		return "", s2.NoSuchUploadError(r)
 	}
 
 	path := chunkPath(repo, branch, key, uploadID, partNumber)
 	_, err = pc.PutFileOverwrite(c.repo, "master", path, reader, 0)
 	if err != nil {
-		return
+		return "", err
 	}
 
 	fileInfo, err := pc.InspectFile(c.repo, "master", path)
 	if err != nil {
-		return
+		return "", err
 	}
 
-	etag = fmt.Sprintf("%x", fileInfo.Hash)
-	return
+	return fmt.Sprintf("%x", fileInfo.Hash), nil
 }
 
 func (c *controller) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int) error {

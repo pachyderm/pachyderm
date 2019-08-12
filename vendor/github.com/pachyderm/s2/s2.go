@@ -20,17 +20,29 @@ import (
 )
 
 const (
+	// awsTimeFormat specifies the time format used in AWS requests
 	awsTimeFormat = "20060102T150405Z"
-	skewTime      = 15 * time.Minute
+	// skewTime specifies the maximum delta between the current time and the
+	// time specified in the HTTP request
+	skewTime = 15 * time.Minute
 )
 
 var (
+	// unixEpoch represents the unix epoch time (Jan 1 1970)
 	unixEpoch = time.Unix(0, 0)
 
-	bucketNameValidator   = regexp.MustCompile(`^/[a-zA-Z0-9\-_\.]{1,255}/`)
+	// bucketNameValidator is a regex for validating bucket names
+	bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_\.]{1,255}/`)
+	// authV2HeaderValidator is a regex for validating the authorization
+	// header when using AWs' auth V2
 	authV2HeaderValidator = regexp.MustCompile(`^AWS ([^:]+):(.+)$`)
+	// authV4HeaderValidator is a regex for validating the authorization
+	// header when using AWs' auth V4
 	authV4HeaderValidator = regexp.MustCompile(`^AWS4-HMAC-SHA256 Credential=([^/]+)/([^/]+)/([^/]+)/s3/aws4_request, SignedHeaders=([^,]+), Signature=(.+)$`)
 
+	// subresourceQueryParams is a list of query parameters that are
+	// considered queries for "subresources" in S3. This is used in
+	// auth validation.
 	subresourceQueryParams = []string{
 		"acl",
 		"lifecycle",
@@ -49,6 +61,7 @@ var (
 	}
 )
 
+// attachBucketRoutes adds bucket-related routes to a router
 func attachBucketRoutes(logger *logrus.Entry, router *mux.Router, handler *bucketHandler, multipartHandler *multipartHandler) {
 	router.Methods("GET", "PUT").Queries("accelerate", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(NotImplementedEndpoint(logger))
@@ -80,6 +93,7 @@ func attachBucketRoutes(logger *logrus.Entry, router *mux.Router, handler *bucke
 	router.Methods("DELETE").HandlerFunc(handler.del)
 }
 
+// attachBucketRoutes adds object-related routes to a router
 func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objectHandler, multipartHandler *multipartHandler) {
 	router.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(NotImplementedEndpoint(logger))
 	router.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(NotImplementedEndpoint(logger))
@@ -100,6 +114,11 @@ func attachObjectRoutes(logger *logrus.Entry, router *mux.Router, handler *objec
 	router.Methods("DELETE").HandlerFunc(handler.del)
 }
 
+//  parseTimestamp parses a timestamp value that is formatted in any of the
+// following:
+// 1) as AWS' custom format (e.g. 20060102T150405Z)
+// 2) as RFC1123
+// 3) as RFC1123Z
 func parseTimestamp(r *http.Request) (time.Time, error) {
 	timestampStr := r.Header.Get("x-amz-date")
 	if timestampStr == "" {
@@ -176,6 +195,7 @@ func (h *S2) requestIDMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// authV4 validates a request using AWS' auth V4
 func (h *S2) authV4(w http.ResponseWriter, r *http.Request, auth string) error {
 	// parse auth-related headers
 	match := authV4HeaderValidator.FindStringSubmatch(auth)
@@ -254,6 +274,7 @@ func (h *S2) authV4(w http.ResponseWriter, r *http.Request, auth string) error {
 	return nil
 }
 
+// authV2 validates a request using AWS' auth V2
 func (h *S2) authV2(w http.ResponseWriter, r *http.Request, auth string) error {
 	// parse auth-related headers
 	match := authV2HeaderValidator.FindStringSubmatch(auth)
@@ -339,6 +360,7 @@ func (h *S2) authV2(w http.ResponseWriter, r *http.Request, auth string) error {
 	return nil
 }
 
+// authMiddleware creates a middleware handler for dealing with AWS auth
 func (h *S2) authMiddleware(next http.Handler) http.Handler {
 	// Verifies auth using AWS' v2 and v4 auth mechanisms. Much of the code is
 	// built off of smartystreets/go-aws-auth, which does signing from the
@@ -371,6 +393,7 @@ func (h *S2) authMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// bodyReadingMiddleware creates a middleware for reading request bodies
 func (h *S2) bodyReadingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentLengthStr, ok := singleHeader(r, "Content-Length")
@@ -438,6 +461,7 @@ func (h *S2) bodyReadingMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// readBody efficiently reads a request body, or times out
 func (h *S2) readBody(r *http.Request, length uint32) (*bytes.Buffer, error) {
 	var body bytes.Buffer
 	body.Grow(int(length))

@@ -101,6 +101,7 @@ func addETagQuotes(s string) string {
 	return s
 }
 
+// normURI normalizes a URI using AWS' technique
 func normURI(uri string) string {
 	parts := strings.Split(uri, "/")
 	for i := range parts {
@@ -109,6 +110,7 @@ func normURI(uri string) string {
 	return strings.Join(parts, "/")
 }
 
+// encodePathFrag encodes a fragment of a path in a URL using AWS' technique
 func encodePathFrag(s string) string {
 	hexCount := 0
 	for i := 0; i < len(s); i++ {
@@ -134,6 +136,8 @@ func encodePathFrag(s string) string {
 	return string(t)
 }
 
+// shouldEscape returns whether a character should be escaped under AWS' URL
+// encoding
 func shouldEscape(c byte) bool {
 	if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' {
 		return false
@@ -147,6 +151,7 @@ func shouldEscape(c byte) bool {
 	return true
 }
 
+// normQuery normalizes query string values using AWS' technique
 func normQuery(v url.Values) string {
 	queryString := v.Encode()
 
@@ -157,18 +162,22 @@ func normQuery(v url.Values) string {
 	return strings.Replace(queryString, "+", "%20", -1)
 }
 
+// hmacSHA1 computes HMAC with SHA1
 func hmacSHA1(key []byte, content string) []byte {
 	mac := hmac.New(sha1.New, key)
 	mac.Write([]byte(content))
 	return mac.Sum(nil)
 }
 
+// hmacSHA256 computes HMAC with SHA256
 func hmacSHA256(key []byte, content string) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(content))
 	return mac.Sum(nil)
 }
 
+// requireContentLength checks to ensure that an HTTP request includes a
+// `Content-Length` header.
 func requireContentLength(r *http.Request) error {
 	if _, ok := singleHeader(r, "Content-Length"); !ok {
 		return MissingContentLengthError(r)
@@ -190,6 +199,8 @@ func singleHeader(r *http.Request, name string) (string, bool) {
 	return values[0], true
 }
 
+// readXMLBody reads an HTTP request body's bytes, and unmarshals it into
+// `payload`.
 func readXMLBody(r *http.Request, payload interface{}) error {
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {

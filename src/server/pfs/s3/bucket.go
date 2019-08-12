@@ -37,52 +37,48 @@ func newCommonPrefixes(dir string) s2.CommonPrefixes {
 	}
 }
 
-func (c controller) GetLocation(r *http.Request, bucket string) (location string, err error) {
+func (c controller) GetLocation(r *http.Request, bucket string) (string, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		return
+		return "", err
 	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return
+		return "", err
 	}
 
 	_, err = pc.InspectBranch(repo, branch)
 	if err != nil {
-		err = maybeNotFoundError(r, err)
-		return
+		return "", maybeNotFoundError(r, err)
 	}
 
-	location = globalLocation
-	return
+	return globalLocation, nil
 }
 
-func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []s2.Contents, commonPrefixes []s2.CommonPrefixes, isTruncated bool, err error) {
+func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (*s2.ListObjectsResult, error) {
 	vars := mux.Vars(r)
 	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		return
+		return nil, err
 	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if delimiter != "" && delimiter != "/" {
-		err = invalidDelimiterError(r)
-		return
+		return nil, invalidDelimiterError(r)
 	}
 
 	// ensure the branch exists and has a head
 	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
-		err = maybeNotFoundError(r, err)
-		return
+		return nil, maybeNotFoundError(r, err)
 	}
 	if branchInfo.Head == nil {
 		// if there's no head commit, just print an empty list of files
-		return
+		return nil, nil
 	}
 
 	recursive := delimiter == ""
@@ -91,6 +87,11 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(prefix))
 	} else {
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
+	}
+
+	result := s2.ListObjectsResult{
+		Contents:       []s2.Contents{},
+		CommonPrefixes: []s2.CommonPrefixes{},
 	}
 
 	err = pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
@@ -117,9 +118,9 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 			return nil
 		}
 
-		if len(contents)+len(commonPrefixes) >= maxKeys {
+		if len(result.Contents)+len(result.CommonPrefixes) >= maxKeys {
 			if maxKeys > 0 {
-				isTruncated = true
+				result.IsTruncated = true
 			}
 			return errutil.ErrBreak
 		}
@@ -129,15 +130,15 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 				return err
 			}
 
-			contents = append(contents, c)
+			result.Contents = append(result.Contents, c)
 		} else {
-			commonPrefixes = append(commonPrefixes, newCommonPrefixes(fileInfo.File.Path))
+			result.CommonPrefixes = append(result.CommonPrefixes, newCommonPrefixes(fileInfo.File.Path))
 		}
 
 		return nil
 	})
 
-	return
+	return &result, err
 }
 
 func (c controller) CreateBucket(r *http.Request, bucket string) error {
@@ -241,12 +242,11 @@ func (c controller) DeleteBucket(r *http.Request, bucket string) error {
 	return nil
 }
 
-func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (versions []s2.Version, deleteMarkers []s2.DeleteMarker, isTruncated bool, err error) {
-	err = s2.NotImplementedError(r)
-	return
+func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (*s2.ListObjectVersionsResult, error) {
+	return nil, s2.NotImplementedError(r)
 }
 
-func (c *controller) GetBucketVersioning(r *http.Request, repo string) (status string, err error) {
+func (c *controller) GetBucketVersioning(r *http.Request, repo string) (string, error) {
 	return s2.VersioningEnabled, nil
 }
 
