@@ -9,7 +9,6 @@ import (
 
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
-	"github.com/pachyderm/pachyderm/src/client"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/s2"
 	"github.com/sirupsen/logrus"
