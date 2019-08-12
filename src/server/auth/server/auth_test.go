@@ -40,6 +40,18 @@ func isAuthActive(tb testing.TB) bool {
 		&auth.GetAdminsRequest{})
 	switch {
 	case auth.IsErrNotSignedIn(err):
+		adminClient := getPachClientInternal(tb, admin)
+		resp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+		if err != nil {
+			panic(fmt.Sprintf("could not get config: %v", err))
+		}
+		cfg := resp.GetConfiguration()
+		if cfg.SAMLServiceOptions != nil {
+			panic(fmt.Sprintf("SAML config in fresh cluster: %+v", cfg))
+		}
+		if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
+			panic(fmt.Sprintf("problem with ID providers in config in fresh cluster: %+v", cfg))
+		}
 		return true
 	case auth.IsErrNotActivated(err):
 		return false
@@ -47,6 +59,19 @@ func isAuthActive(tb testing.TB) bool {
 		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
 	}
 }
+
+// // validate cluster checks that the cluster is in one of two valid states:
+// // - auth off
+// // - auth on, default config
+// func validateCluster(tb testing.TB) {
+// 	tb.Helper()
+// 	if isAuthActive(tb) {
+// 		adminClient := getPachClientInternal(tb, admin)
+// 		cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+// 		require.NoError(tb, err)
+// 		requireConfigsEqual(tb, &defaultAuthConfig, cfg.GetConfiguration())
+// 	}
+// }
 
 // getPachClientInternal is a helper function called by getPachClient. It
 // returns (or creates) a pach client authenticated as 'subject', but doesn't
@@ -135,6 +160,7 @@ func initSeedClient(tb testing.TB) {
 func getPachClient(tb testing.TB, subject string) *client.APIClient {
 	tb.Helper()
 	tokenMapMut.Lock()
+	// validateCluster(tb)
 	defer tokenMapMut.Unlock()
 
 	// Check if seed client exists -- if not, create it
