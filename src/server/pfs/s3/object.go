@@ -8,33 +8,23 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gorilla/mux"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/s2"
-	"github.com/sirupsen/logrus"
 )
 
-type objectController struct {
-	pc     *client.APIClient
-	logger *logrus.Entry
-}
-
-func newObjectController(pc *client.APIClient, logger *logrus.Entry) *objectController {
-	c := objectController{
-		pc:     pc,
-		logger: logger,
+func (c *controller) GetObject(r *http.Request, bucket, file, version string) (etag, fetchedVersion string, deleteMarker bool, modTime time.Time, content io.ReadSeeker, err error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return
 	}
-
-	return &c
-}
-
-func (c *objectController) GetObject(r *http.Request, bucket, file, version string) (etag, fetchedVersion string, deleteMarker bool, modTime time.Time, content io.ReadSeeker, err error) {
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
 		return
@@ -51,7 +41,7 @@ func (c *objectController) GetObject(r *http.Request, bucket, file, version stri
 	var commitInfo *pfsClient.CommitInfo
 	commitID := branch
 	if version != "" {
-		commitInfo, err = c.pc.InspectCommit(repo, version)
+		commitInfo, err = pc.InspectCommit(repo, version)
 		if err != nil {
 			err = maybeNotFoundError(r, err)
 			return
@@ -63,7 +53,7 @@ func (c *objectController) GetObject(r *http.Request, bucket, file, version stri
 		commitID = commitInfo.Commit.ID
 	}
 
-	fileInfo, err := c.pc.InspectFile(branchInfo.Branch.Repo.Name, commitID, file)
+	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, commitID, file)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
 		return
@@ -74,7 +64,7 @@ func (c *objectController) GetObject(r *http.Request, bucket, file, version stri
 		return
 	}
 
-	content, err = c.pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, commitID, file)
+	content, err = pc.GetFileReadSeeker(branchInfo.Branch.Repo.Name, commitID, file)
 	if err != nil {
 		return
 	}
@@ -85,13 +75,18 @@ func (c *objectController) GetObject(r *http.Request, bucket, file, version stri
 	return
 }
 
-func (c *objectController) PutObject(r *http.Request, bucket, file string, reader io.Reader) (etag, createdVersion string, err error) {
+func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.Reader) (etag, createdVersion string, err error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
 		return
@@ -101,12 +96,12 @@ func (c *objectController) PutObject(r *http.Request, bucket, file string, reade
 		return
 	}
 
-	_, err = c.pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
+	_, err = pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
 		return
 	}
 
-	fileInfo, err := c.pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
+	fileInfo, err := pc.InspectFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file)
 	if err != nil {
 		return
 	}
@@ -116,13 +111,18 @@ func (c *objectController) PutObject(r *http.Request, bucket, file string, reade
 	return
 }
 
-func (c *objectController) DeleteObject(r *http.Request, bucket, file, version string) (removedVersion string, deleteMarker bool, err error) {
+func (c *controller) DeleteObject(r *http.Request, bucket, file, version string) (removedVersion string, deleteMarker bool, err error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
+	if err != nil {
+		return
+	}
 	repo, branch, err := bucketArgs(r, bucket)
 	if err != nil {
 		return
 	}
 
-	branchInfo, err := c.pc.InspectBranch(repo, branch)
+	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
 		err = maybeNotFoundError(r, err)
 		return
@@ -140,7 +140,7 @@ func (c *objectController) DeleteObject(r *http.Request, bucket, file, version s
 		return
 	}
 
-	if err = c.pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+	if err = pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
 		err = maybeNotFoundError(r, err)
 		return
 	}
