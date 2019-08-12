@@ -109,6 +109,7 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 		if err == nil {
 			tb.Logf("couldn't find admin token in cache, reading from %q", adminTokenFile)
 			resultClient.SetAuthToken(string(bytes))
+			return resultClient
 		}
 		tb.Fatalf("couldn't get admin client from cache or %q, no way to reset "+
 			"cluster. Please deactivate auth or redeploy Pachyderm", adminTokenFile)
