@@ -47,16 +47,21 @@ func isAuthActive(tb testing.TB, checkConfig bool) bool {
 	case auth.IsErrNotSignedIn(err):
 		adminClient := getPachClientInternal(tb, admin)
 		if checkConfig {
-			resp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
-			if err != nil {
-				panic(fmt.Sprintf("could not get config: %v", err))
-			}
-			cfg := resp.GetConfiguration()
-			if cfg.SAMLServiceOptions != nil {
-				panic(fmt.Sprintf("SAML config in fresh cluster: %+v", cfg))
-			}
-			if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
-				panic(fmt.Sprintf("problem with ID providers in config in fresh cluster: %+v", cfg))
+			if err := backoff.Retry(func() error {
+				resp, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
+				if err != nil {
+					return fmt.Errorf("could not get config: %v", err)
+				}
+				cfg := resp.GetConfiguration()
+				if cfg.SAMLServiceOptions != nil {
+					return fmt.Errorf("SAML config in fresh cluster: %+v", cfg)
+				}
+				if len(cfg.IDProviders) != 1 || cfg.IDProviders[0].SAML != nil || cfg.IDProviders[0].GitHub == nil || cfg.IDProviders[0].Name != "GitHub" {
+					return fmt.Errorf("problem with ID providers in config in fresh cluster: %+v", cfg)
+				}
+				return nil
+			}, backoff.NewTestingBackOff()); err != nil {
+				panic(err)
 			}
 		}
 		return true
