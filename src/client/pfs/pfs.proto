@@ -83,6 +83,7 @@ message RepoAuthInfo {
 enum OriginKind {
   USER = 0;
   AUTO = 1;
+  FSCK = 2;
 }
 
 message CommitOrigin {
@@ -454,6 +455,10 @@ message FsckRequest {
   bool fix = 1;
 }
 
+message FsckResponse {
+  string error = 1;
+}
+
 service API {
   // Repo rpcs
   // CreateRepo creates a new repo.
@@ -529,7 +534,7 @@ service API {
   // DeleteAll deletes everything
   rpc DeleteAll(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   // Fsck does a file system consistency check for pfs
-  rpc Fsck(FsckRequest) returns (google.protobuf.Empty) {}
+  rpc Fsck(FsckRequest) returns (stream FsckResponse) {}
 }
 
 message PutObjectRequest {

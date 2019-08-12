@@ -1228,11 +1228,10 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				return err
 			}
 			defer c.Close()
-			_, err = c.PfsAPIClient.Fsck(
-				c.Ctx(),
-				&pfsclient.FsckRequest{},
-			)
-			if err != nil {
+			if err = c.Fsck(false, func(err string) error {
+				fmt.Println(err)
+				return nil
+			}); err != nil {
 				fmt.Println(grpcutil.ScrubGRPC(err))
 				return nil
 			}

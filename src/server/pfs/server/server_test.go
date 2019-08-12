@@ -535,8 +535,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 	require.NoError(t, client.DeleteRepo("B", false))
 
 	// Should be in a consistent state after B is deleted
-	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
-	require.NoError(t, err)
+	require.NoError(t, client.FsckFastExit())
 
 	require.NoError(t, client.DeleteRepo("A", false))
 
@@ -557,9 +556,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 	require.Equal(t, 1, len(repoInfos))
 
 	// Everything should be consistent
-	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
-	require.NoError(t, err)
-
+	require.NoError(t, client.FsckFastExit())
 }
 
 func TestInspectCommit(t *testing.T) {
@@ -5251,12 +5248,9 @@ func TestFsckFix(t *testing.T) {
 	require.NoError(t, client.DeleteRepo(input, true))
 	require.NoError(t, client.CreateRepo(input))
 	require.NoError(t, client.CreateBranch(input, "master", "", nil))
-	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
-	require.YesError(t, err)
-	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{Fix: true})
-	require.NoError(t, err)
-	_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
-	require.NoError(t, err)
+	require.YesError(t, client.FsckFastExit())
+	require.NoError(t, client.Fsck(true, func(string) error { return nil }))
+	require.NoError(t, client.FsckFastExit())
 }
 
 const (
@@ -5424,7 +5418,6 @@ OpLoop:
 				require.NoError(t, err)
 			}
 		}
-		_, err = client.Fsck(client.Ctx(), &pfs.FsckRequest{})
-		require.NoError(t, err)
+		require.NoError(t, client.FsckFastExit())
 	}
 }

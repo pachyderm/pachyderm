@@ -534,14 +534,16 @@ func (e ErrProvenanceOfSubvenance) Error() string {
 // 3. Commit provenance is transitive
 // 4. Commit provenance and commit subvenance are dual relations
 // If fix is true it, will attempt to fix as many of these issues as it can.
-func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
+func (d *driver) fsck(pachClient *client.APIClient, fix bool, onError func(error) error) error {
 	ctx := pachClient.Ctx()
 	repos := d.repos.ReadOnly(ctx)
 	key := path.Join
 
 	// collect all the info for the branches and commits in pfs
 	branchInfos := make(map[string]*pfs.BranchInfo)
+	// newBranchInfos := make(map[string]*pfs.BranchInfo)
 	commitInfos := make(map[string]*pfs.CommitInfo)
+	newCommitInfos := make(map[string]*pfs.CommitInfo)
 	repoInfo := &pfs.RepoInfo{}
 	if err := repos.List(repoInfo, col.DefaultOptions, func(repoName string) error {
 		commits := d.commits(repoName).ReadOnly(ctx)
@@ -580,9 +582,11 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 		}
 
 		if !equalBranches(append(bi.Provenance, bi.Branch), union) {
-			return ErrBranchProvenanceTransitivity{
+			if err := onError(ErrBranchProvenanceTransitivity{
 				BranchInfo:     bi,
 				FullProvenance: union,
+			}); err != nil {
+				return err
 			}
 		}
 
@@ -594,16 +598,30 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 			for _, provBranch := range bi.Provenance {
 				provBranchInfo, ok := branchInfos[key(provBranch.Repo.Name, provBranch.Name)]
 				if !ok {
-					return ErrBranchInfoNotFound{Branch: provBranch}
+					if err := onError(ErrBranchInfoNotFound{Branch: provBranch}); err != nil {
+						return err
+					}
+					continue
 				}
 				if provBranchInfo.Head != nil {
 					// in this case, the headCommit Provenance should contain provBranch.Head
 					headCommitInfo, ok := commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)]
 					if !ok {
-						return ErrCommitInfoNotFound{
-							Location: "head commit provenance (=>)",
-							Commit:   bi.Head,
+						if !fix {
+							if err := onError(ErrCommitInfoNotFound{
+								Location: "head commit provenance (=>)",
+								Commit:   bi.Head,
+							}); err != nil {
+								return err
+							}
+							continue
 						}
+						headCommitInfo = &pfs.CommitInfo{
+							Commit: bi.Head,
+							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+						}
+						commitInfos[key(bi.Head.Repo.Name, bi.Head.ID)] = headCommitInfo
+						newCommitInfos[key(bi.Head.Repo.Name, bi.Head.ID)] = headCommitInfo
 					}
 					// If this commit was created on an output branch, then we don't expect it to satisfy this invariant
 					// due to the nature of the RunPipeline functionality.
@@ -620,10 +638,12 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 						}
 					}
 					if !contains {
-						return ErrHeadProvenanceInconsistentWithBranch{
+						if err := onError(ErrHeadProvenanceInconsistentWithBranch{
 							BranchInfo:     bi,
 							ProvBranchInfo: provBranchInfo,
 							HeadCommitInfo: headCommitInfo,
+						}); err != nil {
+							return err
 						}
 					}
 				}
@@ -639,25 +659,40 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 		for _, prov := range ci.Provenance {
 			// not part of the above invariant, but we want to make sure provenance is self-consistent
 			if prov.Commit.Repo.Name != prov.Branch.Repo.Name {
-				return ErrInconsistentCommitProvenance{CommitProvenance: prov}
+				if err := onError(ErrInconsistentCommitProvenance{CommitProvenance: prov}); err != nil {
+					return err
+				}
 			}
 			directProvenance = append(directProvenance, prov.Commit)
 			transitiveProvenance = append(transitiveProvenance, prov.Commit)
 			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
 			if !ok {
-				return ErrCommitInfoNotFound{
-					Location: "provenance transitivity",
-					Commit:   prov.Commit,
+				if !fix {
+					if err := onError(ErrCommitInfoNotFound{
+						Location: "provenance transitivity",
+						Commit:   prov.Commit,
+					}); err != nil {
+						return err
+					}
+					continue
 				}
+				provCommitInfo = &pfs.CommitInfo{
+					Commit: prov.Commit,
+					Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+				}
+				commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
+				newCommitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
 			}
 			for _, provProv := range provCommitInfo.Provenance {
 				transitiveProvenance = append(transitiveProvenance, provProv.Commit)
 			}
 		}
 		if !equalCommits(directProvenance, transitiveProvenance) {
-			return ErrProvenanceTransitivity{
+			if err := onError(ErrProvenanceTransitivity{
 				CommitInfo:     ci,
 				FullProvenance: transitiveProvenance,
+			}); err != nil {
+				return err
 			}
 		}
 	}
@@ -674,27 +709,52 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 			contains := false
 			provCommitInfo, ok := commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)]
 			if !ok {
-				return ErrCommitInfoNotFound{
-					Location: "provenance for provenance-subvenance duality (=>)",
-					Commit:   prov.Commit,
+				if !fix {
+					if err := onError(ErrCommitInfoNotFound{
+						Location: "provenance for provenance-subvenance duality (=>)",
+						Commit:   prov.Commit,
+					}); err != nil {
+						return err
+					}
+					continue
 				}
+				provCommitInfo = &pfs.CommitInfo{
+					Commit: prov.Commit,
+					Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+				}
+				commitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
+				newCommitInfos[key(prov.Commit.Repo.Name, prov.Commit.ID)] = provCommitInfo
 			}
 			for _, subvRange := range provCommitInfo.Subvenance {
 				subvCommit := subvRange.Upper
 				// loop through the subvenance range
 				for {
 					if subvCommit == nil {
-						return ErrNilCommitInSubvenance{
+						if err := onError(ErrNilCommitInSubvenance{
 							CommitInfo:      provCommitInfo,
 							SubvenanceRange: subvRange,
+						}); err != nil {
+							return err
 						}
+						break // can't continue loop now that subvCommit is nil
 					}
 					subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
 					if !ok {
-						return ErrCommitInfoNotFound{
-							Location: "subvenance for provenance-subvenance duality (=>)",
-							Commit:   subvCommit,
+						if !fix {
+							if err := onError(ErrCommitInfoNotFound{
+								Location: "subvenance for provenance-subvenance duality (=>)",
+								Commit:   subvCommit,
+							}); err != nil {
+								return err
+							}
+							break // can't continue loop if we can't find this commit
 						}
+						subvCommitInfo = &pfs.CommitInfo{
+							Commit: subvCommit,
+							Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+						}
+						commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
+						newCommitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
 					}
 					if ci.Commit.ID == subvCommit.ID {
 						contains = true
@@ -707,9 +767,11 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 				}
 			}
 			if !contains {
-				return ErrSubvenanceOfProvenance{
+				if err := onError(ErrSubvenanceOfProvenance{
 					CommitInfo:     ci,
 					ProvCommitInfo: provCommitInfo,
+				}); err != nil {
+					return err
 				}
 			}
 		}
@@ -720,17 +782,31 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 			for {
 				contains := false
 				if subvCommit == nil {
-					return ErrNilCommitInSubvenance{
+					if err := onError(ErrNilCommitInSubvenance{
 						CommitInfo:      ci,
 						SubvenanceRange: subvRange,
+					}); err != nil {
+						return err
 					}
+					break // can't continue loop now that subvCommit is nil
 				}
 				subvCommitInfo, ok := commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)]
 				if !ok {
-					return ErrCommitInfoNotFound{
-						Location: "subvenance for provenance-subvenance duality (<=)",
-						Commit:   subvCommit,
+					if !fix {
+						if err := onError(ErrCommitInfoNotFound{
+							Location: "subvenance for provenance-subvenance duality (<=)",
+							Commit:   subvCommit,
+						}); err != nil {
+							return err
+						}
+						break // can't continue loop if we can't find this commit
 					}
+					subvCommitInfo = &pfs.CommitInfo{
+						Commit: subvCommit,
+						Origin: &pfs.CommitOrigin{Kind: pfs.OriginKind_FSCK},
+					}
+					commitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
+					newCommitInfos[key(subvCommit.Repo.Name, subvCommit.ID)] = subvCommitInfo
 				}
 				if ci.Commit.ID == subvCommit.ID {
 					contains = true
@@ -743,9 +819,11 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 				}
 
 				if !contains {
-					return ErrProvenanceOfSubvenance{
+					if err := onError(ErrProvenanceOfSubvenance{
 						CommitInfo:     ci,
 						SubvCommitInfo: subvCommitInfo,
+					}); err != nil {
+						return err
 					}
 				}
 
@@ -755,6 +833,17 @@ func (d *driver) fsck(pachClient *client.APIClient, fix bool) error {
 				subvCommit = subvCommitInfo.ParentCommit
 			}
 		}
+	}
+	if fix {
+		_, err := col.NewSTM(ctx, d.etcdClient, func(stm col.STM) error {
+			for _, ci := range newCommitInfos {
+				if err := d.commits(ci.Commit.Repo.Name).ReadWrite(stm).Create(ci.Commit.ID, ci); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		return err
 	}
 	return nil
 }

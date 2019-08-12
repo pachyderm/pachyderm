@@ -1290,13 +1290,59 @@ func (c APIClient) DeleteFile(repoName string, commitID string, path string) err
 			File: NewFile(repoName, commitID, path),
 		},
 	)
-	return err
+	return grpcutil.ScrubGRPC(err)
 }
 
 type putFileWriteCloser struct {
 	request *pfs.PutFileRequest
 	sent    bool
 	c       *putFileClient
+}
+
+// Fsck performs checks on pfs. Errors that are encountered will be passed
+// onError. These aren't errors in the traditional sense, in that they don't
+// prevent the completion of fsck. Errors that do prevent completion will be
+// returned from the function.
+func (c APIClient) Fsck(fix bool, onError func(err string) error) error {
+	fsckClient, err := c.PfsAPIClient.Fsck(c.Ctx(), &pfs.FsckRequest{Fix: fix})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	for {
+		resp, err := fsckClient.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return grpcutil.ScrubGRPC(err)
+		}
+		if err := onError(resp.Error); err != nil {
+			if err == errutil.ErrBreak {
+				break
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// FsckFast performs checks on pfs, similar to Fsck, except that returns the
+// first fsck error in encounters and exits.
+func (c APIClient) FsckFastExit() error {
+	ctx, cancel := context.WithCancel(c.Ctx())
+	defer cancel()
+	fsckClient, err := c.PfsAPIClient.Fsck(ctx, &pfs.FsckRequest{})
+	if err != nil {
+		return grpcutil.ScrubGRPC(err)
+	}
+	resp, err := fsckClient.Recv()
+	if err != nil {
+		if err == io.EOF {
+			return nil
+		}
+		return grpcutil.ScrubGRPC(err)
+	}
+	return fmt.Errorf(resp.Error)
 }
 
 func (c *putFileClient) newPutFileWriteCloser(repoName string, commitID string, path string, delimiter pfs.Delimiter, targetFileDatums int64, targetFileBytes int64, headerRecords int64, overwriteIndex *pfs.OverwriteIndex) (*putFileWriteCloser, error) {
