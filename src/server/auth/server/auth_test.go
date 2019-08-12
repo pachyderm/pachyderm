@@ -35,6 +35,11 @@ var (
 	seedClient  *client.APIClient
 )
 
+// isAuthActive is a helper that checks if auth is currently active in the
+// target cluster
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient(),
+// activateAuth (which is only called by getPachClient()) and deleteAll()
 func isAuthActive(tb testing.TB) bool {
 	_, err := seedClient.GetAdmins(context.Background(),
 		&auth.GetAdminsRequest{})
@@ -78,6 +83,8 @@ func isAuthActive(tb testing.TB) bool {
 // do any any checks to confirm that auth is activated and the cluster is
 // configured correctly (those are done by getPachClient). If subject has no
 // prefix, they are assumed to be a GitHub user.
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient()
 func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 	// copy seed, so caller can safely modify result
 	resultClient := seedClient.WithCtx(context.Background())
@@ -122,6 +129,8 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 }
 
 // activateAuth activates the auth service in the test cluster
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient()
 func activateAuth(tb testing.TB) {
 	resp, err := seedClient.AuthAPIClient.Activate(context.Background(),
 		&auth.ActivateRequest{Subject: admin},
@@ -133,13 +142,18 @@ func activateAuth(tb testing.TB) {
 
 	// Wait for the Pachyderm Auth system to activate
 	require.NoError(tb, backoff.Retry(func() error {
-		if isAuthActive(tb) {
+		if isAuthActive(tb, true) {
 			return nil
 		}
 		return fmt.Errorf("auth not active yet")
 	}, backoff.NewTestingBackOff()))
 }
 
+// initSeedClient is a helper function called by getPachClient that initializes
+// the 'seedClient' global variable.
+//
+// Caller must hold tokenMapMut. Currently only called by getPachClient() and
+// deleteAll()
 func initSeedClient(tb testing.TB) {
 	tb.Helper()
 	var err error
