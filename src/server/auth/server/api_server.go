@@ -651,6 +651,8 @@ func (a *apiServer) GetAdmins(ctx context.Context, req *auth.GetAdminsRequest) (
 	switch a.activationState() {
 	case none:
 		return nil, auth.ErrNotActivated
+	case partial:
+		return nil, auth.ErrPartiallyActivated
 	case full:
 		// Get calling user. There is no auth check to see the list of cluster
 		// admins, other than that the user must log in. Otherwise how will users
