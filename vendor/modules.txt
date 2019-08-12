@@ -385,7 +385,7 @@ github.com/pachyderm/ohmyglob/compiler
 github.com/pachyderm/ohmyglob/syntax
 github.com/pachyderm/ohmyglob/syntax/ast
 github.com/pachyderm/ohmyglob/syntax/lexer
-# github.com/pachyderm/s2 v0.0.0-20190808221121-2a1bcfd73950
+# github.com/pachyderm/s2 v0.0.0-20190809164129-a794a47a9c2d
 github.com/pachyderm/s2
 # github.com/pelletier/go-buffruneio v0.2.0
 github.com/pelletier/go-buffruneio
