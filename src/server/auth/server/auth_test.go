@@ -185,9 +185,17 @@ func initSeedClient(tb testing.TB) {
 	seedClient.SetAuthToken("")
 }
 
+func getPachClientSafe(tb testing.TB, subject string) *client.APIClient {
+	return getPachClientP(tb, subject, false)
+}
+
+func getPachClient(tb testing.TB, subject string) *client.APIClient {
+	return getPachClientP(tb, subject, true)
+}
+
 // getPachClient creates a seed client with a grpc connection to a pachyderm
 // cluster, and then enable the auth service in that cluster
-func getPachClient(tb testing.TB, subject string) *client.APIClient {
+func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.APIClient {
 	tb.Helper()
 	tokenMapMut.Lock()
 	// validateCluster(tb)
@@ -223,7 +231,7 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 	//    (=> reset cluster admins to "admin")
 	// 4) Auth is on, client tokens are valid, and the only admin is "admin" (do
 	//    nothing)
-	if !isAuthActive(tb, true) {
+	if !isAuthActive(tb, checkConfig) {
 		// Case 1: auth is off. Activate auth & return a new client
 		tokenMap = make(map[string]string)
 		activateAuth(tb)
@@ -326,7 +334,7 @@ func deleteAll(tb testing.TB) {
 		useAdminClient = isAuthActive(tb, false)
 	}() // release tokenMapMut before getPachClient
 	if useAdminClient {
-		adminClient := getPachClient(tb, admin)
+		adminClient := getPachClientSafe(tb, admin)
 		require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 	} else {
 		require.NoError(tb, anonClient.DeleteAll())
