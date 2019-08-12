@@ -11,16 +11,11 @@ import (
 	"github.com/gorilla/mux"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/s2"
-	"github.com/sirupsen/logrus"
 )
 
-type objectController struct {
-	logger *logrus.Entry
-}
-
-func (c *objectController) GetObject(r *http.Request, bucket, file, version string) (etag, fetchedVersion string, deleteMarker bool, modTime time.Time, content io.ReadSeeker, err error) {
+func (c *controller) GetObject(r *http.Request, bucket, file, version string) (etag, fetchedVersion string, deleteMarker bool, modTime time.Time, content io.ReadSeeker, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -80,9 +75,9 @@ func (c *objectController) GetObject(r *http.Request, bucket, file, version stri
 	return
 }
 
-func (c *objectController) PutObject(r *http.Request, bucket, file string, reader io.Reader) (etag, createdVersion string, err error) {
+func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.Reader) (etag, createdVersion string, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -116,9 +111,9 @@ func (c *objectController) PutObject(r *http.Request, bucket, file string, reade
 	return
 }
 
-func (c *objectController) DeleteObject(r *http.Request, bucket, file, version string) (removedVersion string, deleteMarker bool, err error) {
+func (c *controller) DeleteObject(r *http.Request, bucket, file, version string) (removedVersion string, deleteMarker bool, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}

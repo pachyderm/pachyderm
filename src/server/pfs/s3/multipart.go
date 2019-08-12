@@ -16,7 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/s2"
-	"github.com/sirupsen/logrus"
 )
 
 var multipartChunkPathMatcher = regexp.MustCompile(`([^/]+)/([^/]+)/(.+)/([^/]+)/(\d+)`)
@@ -69,18 +68,7 @@ func keepPath(repo, branch, key, uploadID string) string {
 	return fmt.Sprintf("%s/.keep", parentDirPath(repo, branch, key, uploadID))
 }
 
-type multipartController struct {
-	logger *logrus.Entry
-
-	// Name of the PFS repo holding multipart content
-	repo string
-
-	// the maximum number of allowed parts that can be associated with any
-	// given file
-	maxAllowedParts int
-}
-
-func (c *multipartController) ensureRepo(pc *client.APIClient) error {
+func (c *controller) ensureRepo(pc *client.APIClient) error {
 	_, err := pc.InspectBranch(c.repo, "master")
 	if err != nil {
 		err = pc.CreateRepo(c.repo)
@@ -97,9 +85,9 @@ func (c *multipartController) ensureRepo(pc *client.APIClient) error {
 	return nil
 }
 
-func (c *multipartController) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDMarker string, maxUploads int) (isTruncated bool, uploads []s2.Upload, err error) {
+func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDMarker string, maxUploads int) (isTruncated bool, uploads []s2.Upload, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -152,9 +140,9 @@ func (c *multipartController) ListMultipart(r *http.Request, bucket, keyMarker, 
 	return
 }
 
-func (c *multipartController) InitMultipart(r *http.Request, bucket, key string) (uploadID string, err error) {
+func (c *controller) InitMultipart(r *http.Request, bucket, key string) (uploadID string, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -181,9 +169,9 @@ func (c *multipartController) InitMultipart(r *http.Request, bucket, key string)
 	return
 }
 
-func (c *multipartController) AbortMultipart(r *http.Request, bucket, key, uploadID string) error {
+func (c *controller) AbortMultipart(r *http.Request, bucket, key, uploadID string) error {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
@@ -212,9 +200,9 @@ func (c *multipartController) AbortMultipart(r *http.Request, bucket, key, uploa
 	return nil
 }
 
-func (c *multipartController) CompleteMultipart(r *http.Request, bucket, key, uploadID string, parts []s2.Part) (location, etag, version string, err error) {
+func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID string, parts []s2.Part) (location, etag, version string, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -287,9 +275,9 @@ func (c *multipartController) CompleteMultipart(r *http.Request, bucket, key, up
 	return
 }
 
-func (c *multipartController) ListMultipartChunks(r *http.Request, bucket, key, uploadID string, partNumberMarker, maxParts int) (initiator, owner *s2.User, storageClass string, isTruncated bool, parts []s2.Part, err error) {
+func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID string, partNumberMarker, maxParts int) (initiator, owner *s2.User, storageClass string, isTruncated bool, parts []s2.Part, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -340,9 +328,9 @@ func (c *multipartController) ListMultipartChunks(r *http.Request, bucket, key, 
 	return
 }
 
-func (c *multipartController) UploadMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error) {
+func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int, reader io.Reader) (etag string, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -380,9 +368,9 @@ func (c *multipartController) UploadMultipartChunk(r *http.Request, bucket, key,
 	return
 }
 
-func (c *multipartController) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int) error {
+func (c *controller) DeleteMultipartChunk(r *http.Request, bucket, key, uploadID string, partNumber int) error {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}

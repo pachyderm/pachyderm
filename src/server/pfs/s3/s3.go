@@ -41,7 +41,7 @@ var enterpriseTimeout = 24 * time.Hour
 // Note: In `s3cmd`, you must set the access key and secret key, even though
 // this API will ignore them - otherwise, you'll get an opaque config error:
 // https://github.com/s3tools/s3cmd/issues/845#issuecomment-464885959
-func Server(port uint16) (*http.Server, error) {
+func Server(port, pachdPort uint16) (*http.Server, error) {
 	logger := logrus.WithFields(logrus.Fields{
 		"source": "s3gateway",
 	})
@@ -49,18 +49,20 @@ func Server(port uint16) (*http.Server, error) {
 	var lastEnterpriseCheck time.Time
 	isEnterprise := false
 
-	controllers := s2.NewS2(logger, maxRequestBodyLength, readBodyTimeout)
-	controllers.Auth = &authMiddleware{logger: logger}
-	controllers.Service = &serviceController{logger: logger}
-	controllers.Bucket = &bucketController{logger: logger}
-	controllers.Object = &objectController{logger: logger}
-	controllers.Multipart = &multipartController{
+	c := &controller{
+		pachdPort:       pachdPort,
 		logger:          logger,
 		repo:            multipartRepo,
 		maxAllowedParts: maxAllowedParts,
 	}
 
-	router := controllers.Router()
+	s3Server := s2.NewS2(logger, maxRequestBodyLength, readBodyTimeout)
+	s3Server.Auth = c
+	s3Server.Service = c
+	s3Server.Bucket = c
+	s3Server.Object = c
+	s3Server.Multipart = c
+	router := s3Server.Router()
 
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
@@ -84,7 +86,7 @@ func Server(port uint16) (*http.Server, error) {
 			now := time.Now()
 			if !isEnterprise || now.Sub(lastEnterpriseCheck) > enterpriseTimeout {
 				vars := mux.Vars(r)
-				pc, err := pachClient(vars["authAccessKey"])
+				pc, err := c.pachClient(vars["authAccessKey"])
 				if err != nil {
 					err = fmt.Errorf("gRPC client client: %v", err)
 					s2.WriteError(logger, w, r, s2.InternalError(r, err))

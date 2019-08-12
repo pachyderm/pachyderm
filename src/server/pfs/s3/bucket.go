@@ -12,7 +12,6 @@ import (
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
-	"github.com/sirupsen/logrus"
 )
 
 func newContents(fileInfo *pfsClient.FileInfo) (s2.Contents, error) {
@@ -38,13 +37,9 @@ func newCommonPrefixes(dir string) s2.CommonPrefixes {
 	}
 }
 
-type bucketController struct {
-	logger *logrus.Entry
-}
-
-func (c bucketController) GetLocation(r *http.Request, bucket string) (location string, err error) {
+func (c controller) GetLocation(r *http.Request, bucket string) (location string, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -63,9 +58,9 @@ func (c bucketController) GetLocation(r *http.Request, bucket string) (location 
 	return
 }
 
-func (c bucketController) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []s2.Contents, commonPrefixes []s2.CommonPrefixes, isTruncated bool, err error) {
+func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimiter string, maxKeys int) (contents []s2.Contents, commonPrefixes []s2.CommonPrefixes, isTruncated bool, err error) {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return
 	}
@@ -145,9 +140,9 @@ func (c bucketController) ListObjects(r *http.Request, bucket, prefix, marker, d
 	return
 }
 
-func (c bucketController) CreateBucket(r *http.Request, bucket string) error {
+func (c controller) CreateBucket(r *http.Request, bucket string) error {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
@@ -188,9 +183,9 @@ func (c bucketController) CreateBucket(r *http.Request, bucket string) error {
 	return nil
 }
 
-func (c bucketController) DeleteBucket(r *http.Request, bucket string) error {
+func (c controller) DeleteBucket(r *http.Request, bucket string) error {
 	vars := mux.Vars(r)
-	pc, err := pachClient(vars["authAccessKey"])
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
 		return err
 	}
@@ -246,15 +241,15 @@ func (c bucketController) DeleteBucket(r *http.Request, bucket string) error {
 	return nil
 }
 
-func (c *bucketController) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (versions []s2.Version, deleteMarkers []s2.DeleteMarker, isTruncated bool, err error) {
+func (c *controller) ListObjectVersions(r *http.Request, repo, prefix, keyMarker, versionIDMarker string, delimiter string, maxKeys int) (versions []s2.Version, deleteMarkers []s2.DeleteMarker, isTruncated bool, err error) {
 	err = s2.NotImplementedError(r)
 	return
 }
 
-func (c *bucketController) GetBucketVersioning(r *http.Request, repo string) (status string, err error) {
+func (c *controller) GetBucketVersioning(r *http.Request, repo string) (status string, err error) {
 	return s2.VersioningEnabled, nil
 }
 
-func (c *bucketController) SetBucketVersioning(r *http.Request, repo, status string) error {
+func (c *controller) SetBucketVersioning(r *http.Request, repo, status string) error {
 	return s2.NotImplementedError(r)
 }

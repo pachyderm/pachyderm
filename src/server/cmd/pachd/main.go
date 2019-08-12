@@ -330,7 +330,7 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("RunGitHookServer: %v", err)
 	})
 	eg.Go(func() error {
-		server, err := s3.Server(env.S3GatewayPort)
+		server, err := s3.Server(env.S3GatewayPort, env.Port)
 		if err != nil {
 			return fmt.Errorf("s3gateway server: %v", err)
 		}
