@@ -86,8 +86,8 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 
 	alice := tu.UniqueString("alice")
 	adminClient := getPachClient(t, admin)
-	anonClient := getPachClient(t, "")
-	aliceClient := getPachClient(t, alice)
+	anonClient := getPachClientSafe(t, "")
+	aliceClient := getPachClientSafe(t, alice)
 	// Confirm that the auth config starts out default
 	configResp, err := adminClient.GetConfiguration(adminClient.Ctx(),
 		&auth.GetConfigurationRequest{})
