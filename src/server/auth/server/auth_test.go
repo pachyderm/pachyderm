@@ -26,8 +26,9 @@ import (
 
 const (
 	// admin is the sole cluster admin after getPachClient is called in each test
-	admin = auth.RobotPrefix + "admin"
-	carol = auth.GitHubPrefix + "carol"
+	admin          = auth.RobotPrefix + "admin"
+	carol          = auth.GitHubPrefix + "carol"
+	adminTokenFile = "/tmp/pach-auth-test_admin-token"
 )
 
 var (
@@ -104,7 +105,13 @@ func getPachClientInternal(tb testing.TB, subject string) *client.APIClient {
 		return resultClient
 	}
 	if subject == admin {
-		tb.Fatal("couldn't get admin client from cache, no way to reset cluster. Please deactivate auth or redeploy Pachyderm")
+		bytes, err := ioutil.ReadFile(adminTokenFile)
+		if err == nil {
+			tb.Infof("couldn't find admin token in cache, reading from %q", adminTokenFile)
+			resultClient.SetAuthToken(string(bytes))
+		}
+		tb.Fatalf("couldn't get admin client from cache or %q, no way to reset "+
+			"cluster. Please deactivate auth or redeploy Pachyderm", adminTokenFile)
 	}
 	if strings.Index(subject, ":") < 0 {
 		subject = auth.GitHubPrefix + subject
@@ -147,7 +154,7 @@ func activateAuth(tb testing.TB) {
 		tb.Fatalf("could not activate auth service: %v", err.Error())
 	}
 	tokenMap[admin] = resp.PachToken
-	ioutil.WriteFile("/tmp/pach-admin-token", []byte(resp.PachToken), 0644)
+	ioutil.WriteFile(adminTokenFile, []byte(resp.PachToken), 0644)
 
 	// Wait for the Pachyderm Auth system to activate
 	require.NoError(tb, backoff.Retry(func() error {
