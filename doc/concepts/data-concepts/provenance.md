@@ -60,9 +60,9 @@ and the commit **1** in the `parameters` repository.
 
 ## Tracking the Provenance Upstream
 
-Pachyderm provides the `pachctl inspect` command that enables you to track
+Pachyderm provides the `pachctl inspect commit` command that enables you to track
 the provenance of your commits and learn where the data in the repository
-originates in.
+originated.
 
 **Example:**
 

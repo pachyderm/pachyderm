@@ -2,7 +2,7 @@
 
 A commit is a snapshot that preserves the state of your data at a point in time.
 It represents a single set of changes to files or directories
-in your Pachyderm repository. Commit is a user-defined operation, which means
+in your Pachyderm repository. A commit is a user-defined operation, which means
 that you can start a commit, make changes, and then close the commit
 after you are done.
 

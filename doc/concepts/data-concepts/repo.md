@@ -60,7 +60,7 @@ If you need to delete a repository, you can run the
 data and the information about the specified
 repository, such as commit history. The delete
 operation is irreversible and results in a
-complete cleanup of your Pachyderm cluster.
+complete cleanup of your Pachyderm repository.
 If you run the delete command with the `--all` flag, Pachyderm
 deletes all repositories in this
 cluster.
