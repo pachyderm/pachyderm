@@ -22,14 +22,15 @@ creating the repository, you can add your data by using the
 
 The following types of repositories exist in Pachyderm:
 
-Input repositories
- Users or external applications outside of Pachyderm can add data to
- the input repositories for further processing.
+* Input repositories
+Users or external applications outside of Pachyderm can add data to
+the input repositories for further processing.
 
-Output repositories
- Pachyderm automatically creates output repositories
- pipelines write results of computations into these repositories.
- The output repository is the `pfs/out` located in your container.
+* Output repositories
+Pachyderm automatically creates output repositories
+pipelines write results of computations into these repositories.
+Any data that is written to the `pfs/out` directory within your
+pipeline user container is written to that pipeline output repository.
 
 You can view the list of repositories in your Pachyderm cluster
 by running the `pachctl list repo` command.
@@ -67,4 +68,4 @@ cluster.
 
 **See Also:**
 
-- [Pipelines](pipelines.md)
+- [Pipelines](../pipeline-concepts/pipelines/index.rst)

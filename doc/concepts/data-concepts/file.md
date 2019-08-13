@@ -15,9 +15,11 @@ To upload your files to a Pachyderm repository, run the
 `pachctl put file` command. By using the `pachctl put file`
 command, you can put both files and directories into a Pachyderm repository.
 
-## File Processing Strategies
+## Appending and overwriting
 
-Pachyderm provides the following file processing strategies:
+When you add a file by using the `pachctl put file` command,
+Pachyderm can either append the file to the already existing file
+or overwrite the existing file.
 
 Appending files
  By default, when you put a file into a Pachyderm repository, and a

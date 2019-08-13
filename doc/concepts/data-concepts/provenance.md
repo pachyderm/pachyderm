@@ -4,7 +4,7 @@ Data versioning enables Pachyderm users to go back in time and see the state
 of a dataset or repository at a particular moment in time. Data provenance
 (from the French *provenir* which means *the place of origin*),
 also known as data lineage, tracks the dependencies and relationships
-between datasets. Provenance answers not only the question of
+*between* datasets. Provenance answers not only the question of
 where the data comes from, but also how the data was transformed along
 the way. Data scientists use provenance in root cause analysis to improve
 their code, workflows, and understanding of the data and its implications
@@ -78,7 +78,10 @@ Provenance:  __spec__@8c6440f52a2d4aa3980163e25557b4a1 (split)  raw_data@ccf82de
 
 In the example above, you can see that the latest commit in the master
 branch of the split repository tracks back to the master branch in the
-`raw_data` repository.
+`raw_data` repository. The `__spec__` provenance shows you which
+version of your code was run on the input commit
+`ccf82debb4b94ca3bfe165aca8d517c3` in the `raw_data` repository to produce
+the output commit `f71e42704b734598a89c02026c8f7d13` in the `split` repository.
 
 ## Tracking the Provenance Downstream
 

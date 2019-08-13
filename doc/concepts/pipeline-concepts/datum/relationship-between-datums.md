@@ -4,10 +4,10 @@ This section helps you to understand the following
 concepts:
 
 * Pachyderm job stages
-* Multiple datums processing
+* Processing multiple datums
 * Incremental processing
 
-A datum is a Pachyderm abstraction that helps in optimizing
+A datum is a Pachyderm abstraction that helps to optimize
 pipeline processing. Because datums exist only as a pipeline
 processing property and are not filesystem objects, you can never
 list or copy a datum. Instead, a datum, as a representation of a unit
