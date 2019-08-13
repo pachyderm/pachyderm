@@ -1682,6 +1682,13 @@ func (w *putBlockWriteCloser) Write(p []byte) (int, error) {
 }
 
 func (w *putBlockWriteCloser) Close() error {
+	if w.request.Block != nil {
+		// This happens if the block is empty in which case Write was never
+		// called, so we need to send an empty request to identify the block.
+		if err := w.client.Send(w.request); err != nil {
+			return grpcutil.ScrubGRPC(err)
+		}
+	}
 	_, err := w.client.CloseAndRecv()
 	return grpcutil.ScrubGRPC(err)
 }

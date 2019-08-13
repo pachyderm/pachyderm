@@ -80,7 +80,6 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	ctx := extractServer.Context()
 	pachClient := a.getPachClient().WithCtx(ctx)
 	writeOp := func(op *admin.Op) error {
-		fmt.Println(op)
 		return extractServer.Send(op)
 	}
 	if request.URL != "" {
@@ -122,16 +121,11 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 			if err := pachClient.GetBlock(block.Hash, w); err != nil {
 				return err
 			}
-			// Put an empty request to indicate an EOF
-			if err := writeOp(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{}}}); err != nil {
-				return err
-			}
-			return nil
+			return w.Close()
 		}); err != nil {
 			return err
 		}
 		if err := pachClient.ListObject(func(oi *pfs.ObjectInfo) error {
-			fmt.Printf("Got object: %s\n", oi.Object.Hash)
 			return writeOp(&admin.Op{Op1_9: &admin.Op1_9{CreateObject: &pfs.CreateObjectRequest{
 				Object:   oi.Object,
 				BlockRef: oi.BlockRef,
@@ -476,12 +470,18 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					return fmt.Errorf("error putting object: %v", err)
 				}
 			} else if op.Op1_9.Block != nil {
+				if len(op.Op1_9.Block.Value) == 0 {
+					// Empty block
+					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
+						return fmt.Errorf("error putting block: %v", err)
+					}
+					return nil
+				}
 				extractReader := &extractBlockReader{
 					adminAPIRestoreServer: restoreServer,
 					restoreURLReader:      r,
 					version:               v1_9,
 				}
-				fmt.Println(op)
 				extractReader.buf.Write(op.Op1_9.Block.Value)
 				if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, extractReader); err != nil {
 					return fmt.Errorf("error putting block: %v", err)
@@ -670,7 +670,6 @@ func (w extractBlockWriter) Write(p []byte) (int, error) {
 		if len(value) > chunkSize {
 			value = value[:chunkSize]
 		}
-		fmt.Println(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}})
 		if err := w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block, Value: value}}}); err != nil {
 			return n, err
 		}
@@ -678,6 +677,10 @@ func (w extractBlockWriter) Write(p []byte) (int, error) {
 		n += len(value)
 	}
 	return n, nil
+}
+
+func (w extractBlockWriter) Close() error {
+	return w.f(&admin.Op{Op1_9: &admin.Op1_9{Block: &pfs.PutBlockRequest{Block: w.block}}})
 }
 
 type extractBlockReader struct {
@@ -724,7 +727,6 @@ func (r *extractBlockReader) Read(p []byte) (int, error) {
 				return 0, fmt.Errorf("unexpected error while restoring object: %v", err)
 			}
 		}
-		fmt.Println(op)
 
 		// Validate op version
 		if r.version != version(op) {
@@ -746,7 +748,6 @@ func (r *extractBlockReader) Read(p []byte) (int, error) {
 		}
 
 		if len(value) == 0 {
-			fmt.Println("EOF")
 			r.eof = true
 		} else {
 			r.buf.Write(value)
