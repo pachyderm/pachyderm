@@ -1240,8 +1240,8 @@ Tags are a low-level resource and should not be accessed directly by most users.
 			return nil
 		}),
 	}
-	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
+	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
 
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
