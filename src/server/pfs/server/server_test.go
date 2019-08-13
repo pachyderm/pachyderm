@@ -5239,19 +5239,29 @@ func TestMonkeyObjectStorage(t *testing.T) {
 func TestFsckFix(t *testing.T) {
 	client := GetPachClient(t)
 	input := "input"
-	output := "output"
+	output1 := "output1"
+	output2 := "output2"
 	require.NoError(t, client.CreateRepo(input))
-	require.NoError(t, client.CreateRepo(output))
-	require.NoError(t, client.CreateBranch(output, "master", "", []*pfs.Branch{pclient.NewBranch("input", "master")}))
-	_, err := client.PutFile(input, "master", "file", strings.NewReader("1"))
-	require.NoError(t, err)
+	require.NoError(t, client.CreateRepo(output1))
+	require.NoError(t, client.CreateRepo(output2))
+	require.NoError(t, client.CreateBranch(output1, "master", "", []*pfs.Branch{pclient.NewBranch(input, "master")}))
+	require.NoError(t, client.CreateBranch(output2, "master", "", []*pfs.Branch{pclient.NewBranch(output1, "master")}))
+	numCommits := 10
+	for i := 0; i < numCommits; i++ {
+		_, err := client.PutFile(input, "master", "file", strings.NewReader("1"))
+		require.NoError(t, err)
+	}
 	require.NoError(t, client.DeleteRepo(input, true))
 	require.NoError(t, client.CreateRepo(input))
 	require.NoError(t, client.CreateBranch(input, "master", "", nil))
 	require.YesError(t, client.FsckFastExit())
-	require.YesError(t, client.DeleteRepo(output, false))
+	// Deleting both repos should error, because they were broken by deleting the upstream repo.
+	require.YesError(t, client.DeleteRepo(output2, false))
+	require.YesError(t, client.DeleteRepo(output1, false))
 	require.NoError(t, client.Fsck(true, func(string) error { return nil }))
-	require.NoError(t, client.DeleteRepo(output, false))
+	// Deleting should now work due to fixing, must delete 2 before 1 though.
+	require.NoError(t, client.DeleteRepo(output2, false))
+	require.NoError(t, client.DeleteRepo(output1, false))
 }
 
 const (
