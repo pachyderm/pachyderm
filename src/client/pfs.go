@@ -1326,8 +1326,8 @@ func (c APIClient) Fsck(fix bool, onError func(err string) error) error {
 	return nil
 }
 
-// FsckFast performs checks on pfs, similar to Fsck, except that returns the
-// first fsck error in encounters and exits.
+// FsckFastExit performs checks on pfs, similar to Fsck, except that it returns the
+// first fsck error it encounters and exits.
 func (c APIClient) FsckFastExit() error {
 	ctx, cancel := context.WithCancel(c.Ctx())
 	defer cancel()
