@@ -5249,8 +5249,9 @@ func TestFsckFix(t *testing.T) {
 	require.NoError(t, client.CreateRepo(input))
 	require.NoError(t, client.CreateBranch(input, "master", "", nil))
 	require.YesError(t, client.FsckFastExit())
+	require.YesError(t, client.DeleteRepo(output, false))
 	require.NoError(t, client.Fsck(true, func(string) error { return nil }))
-	require.NoError(t, client.FsckFastExit())
+	require.NoError(t, client.DeleteRepo(output, false))
 }
 
 const (

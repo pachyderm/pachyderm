@@ -1218,6 +1218,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 	}
 	commands = append(commands, cmdutil.CreateAlias(getTag, "get tag"))
 
+	var fix bool
 	fsck := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Run a file system consistency check on pfs.",
@@ -1228,7 +1229,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				return err
 			}
 			defer c.Close()
-			if err = c.Fsck(false, func(err string) error {
+			if err = c.Fsck(fix, func(err string) error {
 				fmt.Println(err)
 				return nil
 			}); err != nil {
@@ -1240,6 +1241,7 @@ Tags are a low-level resource and should not be accessed directly by most users.
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(fsck, "fsck"))
+	fsck.Flags().BoolVarP(&fix, "fix", "f", false, "Attempt to fix as many issues as possible.")
 
 	var debug bool
 	var commits cmdutil.RepeatedStringArg
