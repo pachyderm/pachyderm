@@ -390,6 +390,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 func (a *apiServer) githubEnabled() bool {
 	githubEnabled := false
 	config := a.getCacheConfig()
+	fmt.Printf(">>> config:\n%+v\n\n", config)
 	// // TODO(kevin): rm this
 	// fmt.Println("config", config)
 	// if config.IDPs == nil || len(config.IDPs) == 0 {
@@ -400,6 +401,7 @@ func (a *apiServer) githubEnabled() bool {
 			githubEnabled = true
 		}
 	}
+	fmt.Printf(">>> githubEnabled: %v", githubEnabled)
 	return githubEnabled
 }
 
