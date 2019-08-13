@@ -25,9 +25,9 @@ and one set of optional flags.
 The first two sets of required flags configure the primary components for a Pachyderm deployment, 
 the persistent volume and the object store.
 They take a parameter to indicate the style of pv and object store backend.
-Those parameters will drive the kind and number of arguments that follow the two required flags.
+Those parameters will drive the kind and number of parameters that follow the two required flags.
 The last require flag configures the type of etcd deployment: static volume or StatefulSet.
-An additional set of optional flags configures other deployment parameters.
+An additional set of optional flags configures other deployment attributes.
 
 A `pachctl deploy custom` invocation looks like this
 ```
@@ -36,7 +36,7 @@ pachctl deploy custom --persistent-disk <persistent disk backend> --object-store
 
 Let's look at each set of flags in turn
 
-### Persistent volume configuration
+### Persistent disk configuration
 
 The `--persistent-disk` flag takes on the style of pv backend.
 Pachyderm currently only has automated configuration for styles of backend for the major cloud providers: 
@@ -53,36 +53,87 @@ That third one is either of these flags,
 `--dynamic-etcd-nodes` or 
 `--static-etc-volume`.
 
+
 [//]: # (todo: provide links to statefulsets)
 
 `--dynamic-etcd-nodes` is used when your Kubernetes installation has been configured to use StatefulSets. 
-It takes as an parameter the number of `etcd` nodes which your deployment will create.
+As StatefulSet is a useful technology which has been in stable releases of Kubernetes since 2018,
+it is likely that your on-premises Kubernetes installation is configured to use StatefulSets.
+
+The `--dynamic-etcd-nodes` flag has a parameter which specifies the number of `etcd` nodes which your deployment will create.
 Pachyderm recommends you keep this number at 1.
 Consult with your Pachyderm support team if you want to change it.
+
 This flag will create a `VolumeClaimTemplate` in the `etcd` `StatefulSet` that uses the standard `etcd-storage-class`.
 Consult with your Kubernetes administrator on the availability of this storage class in your Kubernetes deployment.
 
-`--static-etc-volume` is used when your Kubernetes installation has been configured to use static volumes.
-It'll create a PV with a spec appropriate for one of cloud providers 
-(gcePersistentDisk for Google Cloud Storage, 
-awsElasticBlockStore for Amazon Web Services, 
-azureDisk for Microsoft Azure).
+
+`--static-etc-volume` is used when your Kubernetes installation has not been configured to use StatefulSets.
+It will use a static volume with Pachyderm's `etcd`, 
+creating a PV with a spec appropriate for one of cloud providers:
+
+- gcePersistentDisk for Google Cloud Storage,
+- awsElasticBlockStore for Amazon Web Services, and
+- azureDisk for Microsoft Azure.
+
 Of course, 
 these choices are not relevant for most on-premises deployments,
-so you will need to consult with your Kubernetes administrators to figure out the correct choices for your infrastructure.
+so you will need manually edit your manifest 
+after consulting with your Kubernetes administrators
+to determine the correct choices for your infrastructure.
 
 [//]: # (todo: provide links to storage manifest sections)
 
 In the section on that storage manifests,
-we'll give you pointers to some common ones.
+we will give you pointers to some common ones.
 
+#### Persistent disk parameters
+
+Regardless whether you choose to deploy with StatefulSets or static volumes,
+the `--persistent-disk` flag takes two arguments
+that you specify right after the single argument to the `--object-store` flag.
+
+[The first argument is always ignored,
+but must be present.](https://github.com/pachyderm/pachyderm/issues/3312)
+You may set it to any text value you like.
+
+The second argument is the size, 
+in gigabytes,
+that will be requested for `etcd`'s disk.
+A good value for most deployments is 10.
 
 ### Object store configuration
-- [object store configuration](#object-store-configuration): `--object-store` immediately after the flag to 
 
-- [other flags]: various flags to configure the deployment.
-Each of these flagged arguments takes one parameter which indicates the style of configuration.
-Different styles of configuration will take further downstream arguments to further configure them.
+The flag `--object-store` is used to configure Pachyderm to use one of two object store drivers.
+It can take one argument, [which must be the value `s3`](https://github.com/pachyderm/pachyderm/issues/3996).
+This will use the Amazon S3 driver to access your on-premises object store, 
+regardless of the vendor,
+since the Amazon S3 API is the standard that every object store is designed to work with.
+
+However, the S3 API has two different extant versions of "signature styles", 
+which are how the object store validates client requests.
+S3v4 is the most current version,
+but there are many S3v2 object store servers in the field.
+[Amazon itself has announced the end-of-life of S3v2-type signatures on its own service](https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingAWSSDK.html#UsingAWSSDK-sig2-deprecation),
+and their own drivers don't support it any more.
+
+If you need to access an object store that uses S3v2 signatures,
+you can specify the flag `--isS3V2`. 
+
+This will configure Pachyderm to use the Min.io driver,
+allowing the use of the older signature.
+Using this flag will also disable SSL for connections to the object store with the `minio` driver.
+You can reenable it with the `-s` or `--secure` flag.
+
+#### Object store parameters
+
+The `--object-store` flag takes four (4) required, additional configuration arguments.
+These arguments must be placed immediately after [the persistent disk configuration parameters](#persistent-disk-parameters).
+
+- _bucket-name_: the name of the bucket, without the `s3://` prefix or a trailing `/`.
+- _access-key_: the user access id used to access the object store.
+- _secret-key_: the associated password used with the user access id to access the object store.
+- _endpoint_: the hostname and port used to access the object store, in <hostname>:<port> format.
 
 
 ## Anatomy of a Pachyderm deployment manifest
