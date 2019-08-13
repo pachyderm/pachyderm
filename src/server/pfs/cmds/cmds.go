@@ -1229,14 +1229,17 @@ Tags are a low-level resource and should not be accessed directly by most users.
 				return err
 			}
 			defer c.Close()
+			errors := false
 			if err = c.Fsck(fix, func(err string) error {
+				errors = true
 				fmt.Println(err)
 				return nil
 			}); err != nil {
-				fmt.Println(grpcutil.ScrubGRPC(err))
-				return nil
+				return err
 			}
-			fmt.Println("No errors found.")
+			if !errors {
+				fmt.Println("No errors found.")
+			}
 			return nil
 		}),
 	}
