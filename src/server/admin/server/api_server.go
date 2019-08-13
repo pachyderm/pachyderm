@@ -79,9 +79,7 @@ func (a *apiServer) Extract(request *admin.ExtractRequest, extractServer admin.A
 	defer func(start time.Time) { a.Log(request, nil, retErr, time.Since(start)) }(time.Now())
 	ctx := extractServer.Context()
 	pachClient := a.getPachClient().WithCtx(ctx)
-	writeOp := func(op *admin.Op) error {
-		return extractServer.Send(op)
-	}
+	writeOp := extractServer.Send
 	if request.URL != "" {
 		url, err := obj.ParseURL(request.URL)
 		if err != nil {
@@ -475,16 +473,16 @@ func (a *apiServer) Restore(restoreServer admin.API_RestoreServer) (retErr error
 					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, bytes.NewReader(nil)); err != nil {
 						return fmt.Errorf("error putting block: %v", err)
 					}
-					return nil
-				}
-				extractReader := &extractBlockReader{
-					adminAPIRestoreServer: restoreServer,
-					restoreURLReader:      r,
-					version:               v1_9,
-				}
-				extractReader.buf.Write(op.Op1_9.Block.Value)
-				if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, extractReader); err != nil {
-					return fmt.Errorf("error putting block: %v", err)
+				} else {
+					extractReader := &extractBlockReader{
+						adminAPIRestoreServer: restoreServer,
+						restoreURLReader:      r,
+						version:               v1_9,
+					}
+					extractReader.buf.Write(op.Op1_9.Block.Value)
+					if _, err := pachClient.PutBlock(op.Op1_9.Block.Block.Hash, extractReader); err != nil {
+						return fmt.Errorf("error putting block: %v", err)
+					}
 				}
 			} else {
 				if err := a.applyOp(pachClient, op.Op1_9); err != nil {
