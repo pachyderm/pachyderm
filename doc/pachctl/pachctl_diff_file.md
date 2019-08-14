@@ -14,7 +14,6 @@ pachctl diff file <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-
 ### Examples
 
 ```
-```sh
 
 # Return the diff of the file "path" of the repo "foo" between the head of the
 # "master" branch and its parent.
@@ -24,20 +23,21 @@ $ pachctl diff file foo@master:path
 # path1 and path2, respectively.
 $ pachctl diff file foo@master:path1 bar@master:path2
 ```
-```
 
 ### Options
 
 ```
-      --full-timestamps   Return absolute timestamps (as opposed to the default, relative timestamps).
-  -s, --shallow           Specifies whether or not to diff subdirectories
+      --diff-command string   Use a program other than git to diff files.
+      --full-timestamps       Return absolute timestamps (as opposed to the default, relative timestamps).
+      --name-only             Show only the names of changed files.
+      --no-pager              Don't pipe output into a pager (i.e. less).
+  -s, --shallow               Don't descend into sub directories.
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --no-metrics           Don't report user metrics for this command
-      --no-port-forwarding   Disable implicit port forwarding
-  -v, --verbose              Output verbose logs
+      --no-color   Turn off colors.
+  -v, --verbose    Output verbose logs
 ```
 

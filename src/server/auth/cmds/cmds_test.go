@@ -286,7 +286,7 @@ func TestConfig(t *testing.T) {
 		echo "admin" | pachctl auth login
 		pachctl auth set-config <<EOF
 		{
-		  "live_config_version": 0,
+		  "live_config_version": 1,
 		  "id_providers": [{
 		    "name": "idp",
 		    "description": "fake ID provider for testing",
@@ -301,7 +301,7 @@ func TestConfig(t *testing.T) {
 		}
 		EOF
 		pachctl auth get-config \
-		  | match '"live_config_version": 1,' \
+		  | match '"live_config_version": 2,' \
 		  | match '"saml_svc_options": {' \
 		  | match '"acs_url": "http://www.example.com",' \
 		  | match '"metadata_url": "http://www.example.com"' \

@@ -25,11 +25,11 @@ cd $GOPATH/src/google.golang.org/grpc
 git checkout 21f8ed309495401e6fd79b3a9fd549582aed1b4c
 ```
 
-## Python Client -
+## Python Client
 
-The Python client is a user contributed client that has just recently been brought under the Pachyderm umbrella and made into an official client. We're working on getting it fully up to date and will be supporting it full going forward.
+The Python client is officially supported by the Pachyderm team. It implements almost all of the functionality that is provided with the `pachctl` CLI tool, and, thus, you can easily integrated operations like `put file` into your applications.
 
-For more info, check out [`pypachy` on GitHub](https://github.com/kalugny/pypachy).
+For more info, check out [the repo](http://github.com/pachyderm/python-pachyderm).
 
 ## Scala Client
 

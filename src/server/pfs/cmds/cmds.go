@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	gosync "sync"
@@ -26,6 +28,8 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pfs/fuse"
 	"github.com/pachyderm/pachyderm/src/server/pfs/pretty"
 	"github.com/pachyderm/pachyderm/src/server/pkg/cmdutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
+	"github.com/pachyderm/pachyderm/src/server/pkg/pager"
 	"github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/tabwriter"
 	txncmds "github.com/pachyderm/pachyderm/src/server/transaction/cmds"
@@ -50,6 +54,10 @@ func Cmds() []*cobra.Command {
 	fullTimestampsFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
 	fullTimestampsFlags.BoolVar(&fullTimestamps, "full-timestamps", false, "Return absolute timestamps (as opposed to the default, relative timestamps).")
 
+	noPager := false
+	noPagerFlags := pflag.NewFlagSet("", pflag.ContinueOnError)
+	noPagerFlags.BoolVar(&noPager, "no-pager", false, "Don't pipe output into a pager (i.e. less).")
+
 	marshaller := &jsonpb.Marshaler{Indent: "  "}
 
 	repoDocs := &cobra.Command{
@@ -59,8 +67,7 @@ func Cmds() []*cobra.Command {
 Repos contain version-controlled directories and files. Files can be of any size
 or type (e.g. csv, binary, images, etc).`,
 	}
-	cmdutil.SetDocsUsage(repoDocs, " repo$")
-	commands = append(commands, cmdutil.CreateAlias(repoDocs, "repo"))
+	commands = append(commands, cmdutil.CreateDocsAlias(repoDocs, "repo", " repo$"))
 
 	var description string
 	createRepo := &cobra.Command{
@@ -237,8 +244,7 @@ Commits become reliable (and immutable) when they are finished.
 
 Commits can be created with another commit as a parent.`,
 	}
-	cmdutil.SetDocsUsage(commitDocs, " commit$")
-	commands = append(commands, cmdutil.CreateAlias(commitDocs, "commit"))
+	commands = append(commands, cmdutil.CreateDocsAlias(commitDocs, "commit", " commit$"))
 
 	var parent string
 	startCommit := &cobra.Command{
@@ -563,8 +569,7 @@ multiple branches can refer to the same commit.
 
 Any pachctl command that can take a Commit ID, can take a branch name instead.`,
 	}
-	cmdutil.SetDocsUsage(branchDocs, " branch$")
-	commands = append(commands, cmdutil.CreateAlias(branchDocs, "branch"))
+	commands = append(commands, cmdutil.CreateDocsAlias(branchDocs, "branch", " branch$"))
 
 	var branchProvenance cmdutil.RepeatedStringArg
 	var head string
@@ -661,8 +666,7 @@ Files can be of any type (e.g. csv, binary, images, etc) or size and can be
 written to started (but not finished) commits with 'put file'. Files can be read
 from commits with 'get file'.`,
 	}
-	cmdutil.SetDocsUsage(fileDocs, " file$")
-	commands = append(commands, cmdutil.CreateAlias(fileDocs, "file"))
+	commands = append(commands, cmdutil.CreateDocsAlias(fileDocs, "file", " file$"))
 
 	var filePaths []string
 	var recursive bool
@@ -1047,6 +1051,8 @@ $ {{alias}} "foo@master:data/*"`,
 	commands = append(commands, cmdutil.CreateAlias(globFile, "glob file"))
 
 	var shallow bool
+	var nameOnly bool
+	var diffCmdArg string
 	diffFile := &cobra.Command{
 		Use:   "{{alias}} <new-repo>@<new-branch-or-commit>:<new-path> [<old-repo>@<old-branch-or-commit>:<old-path>]",
 		Short: "Return a diff of two file trees.",
@@ -1071,47 +1077,80 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 					return err
 				}
 			}
-
 			c, err := client.NewOnUserMachine("user")
 			if err != nil {
 				return err
 			}
 			defer c.Close()
 
-			newFiles, oldFiles, err := c.DiffFile(
-				newFile.Commit.Repo.Name, newFile.Commit.ID, newFile.Path,
-				oldFile.Commit.Repo.Name, oldFile.Commit.ID, oldFile.Path,
-				shallow,
-			)
-			if err != nil {
-				return err
-			}
+			return pager.Page(noPager, os.Stdout, func(w io.Writer) (retErr error) {
+				var writer *tabwriter.Writer
+				if nameOnly {
+					writer = tabwriter.NewWriter(w, pretty.DiffFileHeader)
+					defer func() {
+						if err := writer.Flush(); err != nil && retErr == nil {
+							retErr = err
+						}
+					}()
+				}
 
-			if len(newFiles) > 0 {
-				fmt.Println("New Files:")
-				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-				for _, fileInfo := range newFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
-				}
-				if err := writer.Flush(); err != nil {
+				newFiles, oldFiles, err := c.DiffFile(
+					newFile.Commit.Repo.Name, newFile.Commit.ID, newFile.Path,
+					oldFile.Commit.Repo.Name, oldFile.Commit.ID, oldFile.Path,
+					shallow,
+				)
+				if err != nil {
 					return err
 				}
-			}
-			if len(oldFiles) > 0 {
-				fmt.Println("Old Files:")
-				writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
-				for _, fileInfo := range oldFiles {
-					pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
-				}
-				if err := writer.Flush(); err != nil {
-					return err
-				}
-			}
-			return nil
+				diffCmd := diffCommand(diffCmdArg)
+				return forEachDiffFile(newFiles, oldFiles, func(nFI, oFI *pfsclient.FileInfo) error {
+					if nameOnly {
+						if nFI != nil {
+							pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
+						}
+						if oFI != nil {
+							pretty.PrintDiffFileInfo(writer, false, oFI, fullTimestamps)
+						}
+						return nil
+					}
+					nPath, oPath := "/dev/null", "/dev/null"
+					if nFI != nil {
+						nPath, err = dlFile(c, nFI.File)
+						if err != nil {
+							return err
+						}
+						defer func() {
+							if err := os.RemoveAll(nPath); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+					}
+					if oFI != nil {
+						oPath, err = dlFile(c, oFI.File)
+						defer func() {
+							if err := os.RemoveAll(oPath); err != nil && retErr == nil {
+								retErr = err
+							}
+						}()
+					}
+					cmd := exec.Command(diffCmd[0], append(diffCmd[1:], oPath, nPath)...)
+					cmd.Stdout = w
+					cmd.Stderr = os.Stderr
+					// Diff returns exit code 1 when it finds differences
+					// between the files, so we catch it.
+					if err := cmd.Run(); err != nil && cmd.ProcessState.ExitCode() != 1 {
+						return err
+					}
+					return nil
+				})
+			})
 		}),
 	}
-	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Specifies whether or not to diff subdirectories")
+	diffFile.Flags().BoolVarP(&shallow, "shallow", "s", false, "Don't descend into sub directories.")
+	diffFile.Flags().BoolVar(&nameOnly, "name-only", false, "Show only the names of changed files.")
+	diffFile.Flags().StringVar(&diffCmdArg, "diff-command", "", "Use a program other than git to diff files.")
 	diffFile.Flags().AddFlagSet(fullTimestampsFlags)
+	diffFile.Flags().AddFlagSet(noPagerFlags)
 	commands = append(commands, cmdutil.CreateAlias(diffFile, "diff file"))
 
 	deleteFile := &cobra.Command{
@@ -1140,8 +1179,7 @@ $ {{alias}} foo@master:path1 bar@master:path2`,
 
 Objects are a low-level resource and should not be accessed directly by most users.`,
 	}
-	cmdutil.SetDocsUsage(objectDocs, " object$")
-	commands = append(commands, cmdutil.CreateAlias(objectDocs, "object"))
+	commands = append(commands, cmdutil.CreateDocsAlias(objectDocs, "object", " object$"))
 
 	getObject := &cobra.Command{
 		Use:   "{{alias}} <hash>",
@@ -1164,8 +1202,7 @@ Objects are a low-level resource and should not be accessed directly by most use
 
 Tags are a low-level resource and should not be accessed directly by most users.`,
 	}
-	cmdutil.SetDocsUsage(tagDocs, " tag$")
-	commands = append(commands, cmdutil.CreateAlias(tagDocs, "tag"))
+	commands = append(commands, cmdutil.CreateDocsAlias(tagDocs, "tag", " tag$"))
 
 	getTag := &cobra.Command{
 		Use:   "{{alias}} <tag>",
@@ -1324,10 +1361,18 @@ func putFileHelper(c *client.APIClient, pfc client.PutFileClient,
 	}
 	putFile := func(reader io.ReadSeeker) error {
 		if split == "" {
-			if overwrite {
+			pipe, err := isPipe(reader)
+			if err != nil {
+				return err
+			}
+			if overwrite && !pipe {
 				return sync.PushFile(c, pfc, client.NewFile(repo, commit, path), reader)
 			}
-			_, err := pfc.PutFile(repo, commit, path, reader)
+			if overwrite {
+				_, err = pfc.PutFileOverwrite(repo, commit, path, reader, 0)
+				return err
+			}
+			_, err = pfc.PutFile(repo, commit, path, reader)
 			return err
 		}
 
@@ -1417,4 +1462,76 @@ func joinPaths(prefix, filePath string) string {
 		return filepath.Join(prefix, strings.TrimPrefix(url.Path, "/"))
 	}
 	return filepath.Join(prefix, filePath)
+}
+
+func isPipe(r io.ReadSeeker) (bool, error) {
+	file, ok := r.(*os.File)
+	if !ok {
+		return false, nil
+	}
+	fi, err := file.Stat()
+	if err != nil {
+		return false, err
+	}
+	return fi.Mode()&os.ModeNamedPipe != 0, nil
+}
+
+func dlFile(pachClient *client.APIClient, f *pfsclient.File) (_ string, retErr error) {
+	if err := os.MkdirAll(filepath.Join(os.TempDir(), filepath.Dir(f.Path)), 0777); err != nil {
+		return "", err
+	}
+	file, err := ioutil.TempFile("", f.Path+"_")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err := file.Close(); err != nil && retErr == nil {
+			retErr = err
+		}
+	}()
+	if err := pachClient.GetFile(f.Commit.Repo.Name, f.Commit.ID, f.Path, 0, 0, file); err != nil {
+		return "", err
+	}
+	return file.Name(), nil
+}
+
+func diffCommand(cmdArg string) []string {
+	if cmdArg != "" {
+		return strings.Fields(cmdArg)
+	}
+	_, err := exec.LookPath("git")
+	if err == nil {
+		return []string{"git", "-c", "color.ui=always", "--no-pager", "diff", "--no-index"}
+	}
+	return []string{"diff"}
+}
+
+func forEachDiffFile(newFiles, oldFiles []*pfsclient.FileInfo, f func(newFile, oldFile *pfsclient.FileInfo) error) error {
+	nI, oI := 0, 0
+	for {
+		if nI == len(newFiles) && oI == len(oldFiles) {
+			return nil
+		}
+		var oFI *pfsclient.FileInfo
+		var nFI *pfsclient.FileInfo
+		switch {
+		case oI == len(oldFiles) || newFiles[nI].File.Path < oldFiles[oI].File.Path:
+			nFI = newFiles[nI]
+			nI++
+		case nI == len(newFiles) || oldFiles[oI].File.Path < newFiles[nI].File.Path:
+			oFI = oldFiles[oI]
+			oI++
+		case newFiles[nI].File.Path == oldFiles[oI].File.Path:
+			nFI = newFiles[nI]
+			nI++
+			oFI = oldFiles[oI]
+			oI++
+		}
+		if err := f(nFI, oFI); err != nil {
+			if err == errutil.ErrBreak {
+				return nil
+			}
+			return err
+		}
+	}
 }

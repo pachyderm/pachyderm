@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"path"
 	"path/filepath"
 	"strconv"
@@ -115,8 +116,10 @@ func (s *objBlockAPIServer) watchGC(etcdAddress string) {
 	b := backoff.NewInfiniteBackOff()
 	backoff.RetryNotify(func() error {
 		etcdClient, err := etcd.New(etcd.Config{
-			Endpoints:   []string{etcdAddress},
-			DialOptions: client.DefaultDialOptions(),
+			Endpoints:          []string{etcdAddress},
+			DialOptions:        client.DefaultDialOptions(),
+			MaxCallSendMsgSize: math.MaxInt32,
+			MaxCallRecvMsgSize: math.MaxInt32,
 		})
 		if err != nil {
 			return fmt.Errorf("error instantiating etcd client: %v", err)

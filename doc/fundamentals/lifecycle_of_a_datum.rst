@@ -165,7 +165,7 @@ pipeline, the “input” object in the pipeline spec might look like this.
 If each repo had those three files at the top, there would be six (6)
 datums overall, which is the sum of the number of input files. You’d see
 the following datums, in a random order, in your pipeline as it ran
-though them.
+through them.
 
 ::
 
@@ -214,7 +214,7 @@ field for the ``pfs`` object and give each of those repos the same name.
      }
 
 You’d still see the same six datums, in a random order, in your pipeline
-as it ran though them, but they’d all be in a directory with the same
+as it ran through them, but they’d all be in a directory with the same
 name: C.
 
 ::
@@ -283,7 +283,7 @@ In the case of cross inputs, you can’t give the repos being crossed
 identical names, because of that need to avoid name collisions. If each
 repo had those three files at the top, there would be nine (9) datums
 overall, which is every permutation of the input files. You’d see the
-following datums, in a random order, in your pipeline as it ran though
+following datums, in a random order, in your pipeline as it ran through
 the nine permutations.
 
 ::
