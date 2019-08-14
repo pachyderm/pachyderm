@@ -341,7 +341,7 @@ Consult with your Kubernetes administrators to learn what resources are availabl
 ### PersistentVolumeClaim
 
 Pachyderm's `etcd` uses this `PersistentVolumeClaim` if you deployed using `--static-etc-volume`.
-See this manifest's name in the `etcd` Deployment manifest, below.
+See this manifest's name in the `etcd` Deployment manifest below.
 
 ### StorageClass
 
