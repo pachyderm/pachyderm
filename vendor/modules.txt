@@ -8,8 +8,9 @@ cloud.google.com/go/internal/version
 cloud.google.com/go/compute/metadata
 # contrib.go.opencensus.io/exporter/ocagent v0.4.12
 contrib.go.opencensus.io/exporter/ocagent
-# github.com/Azure/azure-sdk-for-go v5.0.0-beta+incompatible
+# github.com/Azure/azure-sdk-for-go v32.4.0+incompatible
 github.com/Azure/azure-sdk-for-go/storage
+github.com/Azure/azure-sdk-for-go/version
 # github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
 github.com/Azure/go-ansiterm/winterm
 github.com/Azure/go-ansiterm
@@ -116,6 +117,9 @@ github.com/crewjam/saml/logger
 github.com/crewjam/saml/xmlenc
 # github.com/dgrijalva/jwt-go v3.2.0+incompatible
 github.com/dgrijalva/jwt-go
+# github.com/dlclark/regexp2 v1.2.0
+github.com/dlclark/regexp2
+github.com/dlclark/regexp2/syntax
 # github.com/docker/distribution v2.7.1+incompatible
 github.com/docker/distribution/registry/api/errcode
 # github.com/docker/docker v0.7.3-0.20190621081258-52c16677b22d
@@ -374,12 +378,12 @@ github.com/opentracing-contrib/go-grpc
 github.com/opentracing/opentracing-go
 github.com/opentracing/opentracing-go/ext
 github.com/opentracing/opentracing-go/log
-# github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad
-github.com/pachyderm/glob
-github.com/pachyderm/glob/compiler
-github.com/pachyderm/glob/syntax
-github.com/pachyderm/glob/syntax/ast
-github.com/pachyderm/glob/syntax/lexer
+# github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
+github.com/pachyderm/ohmyglob
+github.com/pachyderm/ohmyglob/compiler
+github.com/pachyderm/ohmyglob/syntax
+github.com/pachyderm/ohmyglob/syntax/ast
+github.com/pachyderm/ohmyglob/syntax/lexer
 # github.com/pachyderm/s2 v0.0.0-20190708210605-9ba42cb3cead
 github.com/pachyderm/s2
 # github.com/pelletier/go-buffruneio v0.2.0
