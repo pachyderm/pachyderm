@@ -390,7 +390,7 @@ func (a *apiServer) getEnterpriseTokenState() (enterpriseclient.State, error) {
 func (a *apiServer) githubEnabled() bool {
 	githubEnabled := false
 	config := a.getCacheConfig()
-	fmt.Printf(">>> config:\n%+v\n\n", config)
+	fmt.Printf(">>> config:\n%+v\n", config)
 	// // TODO(kevin): rm this
 	// fmt.Println("config", config)
 	// if config.IDPs == nil || len(config.IDPs) == 0 {
@@ -401,7 +401,7 @@ func (a *apiServer) githubEnabled() bool {
 			githubEnabled = true
 		}
 	}
-	fmt.Printf(">>> githubEnabled: %v", githubEnabled)
+	fmt.Printf(">>> githubEnabled: %v\n", githubEnabled)
 	return githubEnabled
 }
 
@@ -598,6 +598,9 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 		return nil, err
 	}
 
+	// clear the cache
+	a.configCache = nil
+
 	// wait until watchAdmins has deactivated auth, so that Deactivate() is less
 	// likely to race with subsequent calls that expect auth to be deactivated.
 	// TODO this is a bit hacky (checking repeatedly in a spin loop) but
@@ -620,6 +623,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest)
 // the code belongs to githubUsername). This is how Pachyderm currently
 // implements authorization in a production cluster
 func GitHubTokenToUsername(ctx context.Context, oauthToken string) (string, error) {
+	// fmt.Printf(">>> oauthToken: %s envar: %s\n", oauthToken, os.Getenv(DisableAuthenticationEnvVar))
 	if !githubTokenRegex.MatchString(oauthToken) && os.Getenv(DisableAuthenticationEnvVar) == "true" {
 		logrus.Warnf("Pachyderm is deployed in DEV mode. The provided auth token "+
 			"will NOT be verified with GitHub; the caller is automatically "+
@@ -811,6 +815,7 @@ func (a *apiServer) expiredClusterAdminCheck(ctx context.Context, username strin
 
 // Authenticate implements the protobuf auth.Authenticate RPC
 func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequest) (resp *auth.AuthenticateResponse, retErr error) {
+	// fmt.Println(">> Authenticate")
 	switch a.activationState() {
 	case none:
 		// PPS is authenticated by a token read from etcd. It never calls or needs
@@ -835,6 +840,7 @@ func (a *apiServer) Authenticate(ctx context.Context, req *auth.AuthenticateRequ
 		}
 		// Determine caller's Pachyderm/GitHub username
 		username, err := GitHubTokenToUsername(ctx, req.GitHubToken)
+		// fmt.Printf(">>> uname: %s\n", username)
 		if err != nil {
 			return nil, err
 		}

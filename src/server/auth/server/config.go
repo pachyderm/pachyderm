@@ -461,6 +461,7 @@ func (a *apiServer) getCacheConfig() *canonicalConfig {
 	}
 	// copy config to avoid data races
 	newConfig := *a.configCache
+	// fmt.Printf(">>> config in cache:\n%+v\n", newConfig)
 	return &newConfig
 }
 
