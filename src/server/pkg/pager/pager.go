@@ -4,12 +4,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	defaultPager = "less"
+var (
+	defaultPager = []string{"less", "-R"}
 )
 
 // Page pages content to whichever pager is defined by the PAGER env-var
@@ -24,11 +25,11 @@ func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
 		return w.CloseWithError(run(w))
 	})
 	eg.Go(func() error {
-		pager := os.Getenv("PAGER")
-		if pager == "" {
+		pager := strings.Fields(os.Getenv("PAGER"))
+		if len(pager) == 0 {
 			pager = defaultPager
 		}
-		cmd := exec.Command(pager)
+		cmd := exec.Command(pager[0], pager[1:]...)
 		cmd.Stdin = r
 		cmd.Stdout = out
 		cmd.Stderr = os.Stderr

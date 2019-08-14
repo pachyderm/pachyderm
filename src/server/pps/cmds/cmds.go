@@ -172,6 +172,7 @@ $ {{alias}} -p foo -i bar@YYY`,
 	listJob.MarkFlagCustom("input", "__pachctl_get_repo_commit")
 	listJob.Flags().AddFlagSet(rawFlags)
 	listJob.Flags().AddFlagSet(fullTimestampsFlags)
+	listJob.Flags().AddFlagSet(noPagerFlags)
 	listJob.Flags().StringVar(&history, "history", "none", "Return jobs from historical versions of pipelines.")
 	commands = append(commands, cmdutil.CreateAlias(listJob, "list job"))
 

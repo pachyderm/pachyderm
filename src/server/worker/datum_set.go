@@ -207,9 +207,3 @@ func NewDatumFactory(pachClient *client.APIClient, input *pps.Input) (DatumFacto
 	}
 	return nil, fmt.Errorf("unrecognized input type")
 }
-
-func sortInputs(inputs []*Input) {
-	sort.Slice(inputs, func(i, j int) bool {
-		return inputs[i].Name < inputs[j].Name
-	})
-}
