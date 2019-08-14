@@ -1,20 +1,78 @@
+
 # Custom Deployments
 
 If you are deploying Pachyderm to a cloud infrastructure, 
 such as [Amazon Web Services (AWS)](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html),
 [Google Cloud Platform (GCP)](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html), or 
 [Microsoft Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), 
-use a related `pachctl deploy` subcommand, such as `amazon`, `google`, or `microsoft`, respectively.
-Also, you can customize cloud provider deployments extensively through flags available for each provider.
+you would use a related `pachctl deploy` subcommand, such as `amazon`, `google`, or `microsoft`, respectively.
+You can customize cloud provider deployments extensively through flags available for each provider.
 
-Pachyderm includes `pachctl deploy custom` for creating customized deployments for cloud providers or on-premises use.
+Pachyderm also includes `pachctl deploy custom` for creating customized deployments for both cloud providers or on-premises use.
 Typically, you customize a deployment by running the command with the `--dry-run` flag.
 The command's standard output is directed into a series of customization scripts or a file for editing.
 
 This section describes how to use `pachctl deploy custom ... --dry-run` to create a manifest for a custom, on-premises deployment.
-Although deployment automation is out of scope of this section, Pachyderm strongly encourages you to configure your [infrastructure as code](./on-premises.html#infrastructure-as-code).
-but we do encourage you to treat your [infrastructure as code](./on-premises.html#infrastructure-as-code).
+Although deployment automation is out of scope of this section, Pachyderm strongly encourages you  to treat your [infrastructure as code](./on-premises.html#infrastructure-as-code).
 
+This document details that customization in two parts: invoking `pachctl deploy custom` to create a custom manifest, and then examining that manifest in detail.
+
+- [Prerequisites](prerequisites)
+  - [Software you will need](software-you-will-need)
+  - [Preparing your environment](preparing-your-environment)
+- [Creating a Pachyderm deployment manifest](#creating-a-pachyderm-deployment-manifest)
+  - [Persistent disk configuration](#persistent-disk-configuration)
+    - [Persistent disk parameters](#persistent-disk-parameters)
+    - [Example invocation with persistent disk parameters](#example-invocation-with-persistent-disk-parameters)
+  - [Object store configuration](#object-store-configuration)
+    - [Object store parameters](#object-store-parameters)
+    - [Example invocation with pv and object store](example-invocation-with-pv-and-object-store)
+  - [Additional flags](#additional-flags)
+    - [Local vs cluster roles](local-vs-cluster-roles)
+    - [Resource requests and limits](resource-requests-and-limits)
+    - [Enterprise Edition features](enterprise-edition-features)
+    - [Output formats](output-formats)
+    - [Logging](logging)
+    - [Complete example invocation](complete-example-invocation)
+- [Anatomy of a Pachyderm deployment manifest](anatomy-of-a-pachyderm-deployment-manifest)
+  - [Roles and permissions manifests](roles-and-permissions-manifests)
+    - [ServiceAccount](serviceaccount)
+    - [Role or ClusterRole](role-or-clusterrole)
+    - [RoleBinding or ClusterRoleBinding](rolebinding-or-clusterrolebinding)
+  - [Application-related](application-related)
+    - [PersistentVolume](persistentvolume)
+    - [PersistentVolumeClaim](persistentvolumeclaim)
+    - [StorageClass](storageclass)
+    - [Service](service)
+  - [The Pachyderm pods](the-pachyderm-pods)
+    - [Deployment](deployment)
+    - [StatefulSet](statefulset)
+  - [Secret](secret)
+- [More examples](more-examples)
+  - [Configuring with a static persistent volume](configuring-with-a-static-persistent-volume)
+  - [Configuring with StatefulSets](configuring-with-statefulsets)
+  - [Configuring with StatefulSets using StorageClasses](configuring-with-statefulsets-using-storageclasses)
+- [Next steps](next steps)
+  - [Editing your manifest to customize it further](editing-your-manifest-to-customize-it-further)
+  - [Deploying with a static persistent volume](deploying-with-a-static-persistent-volume)
+  - [Deploying with StatefulSets](deploying-with-statefulsets)
+  - [Deploying with StatefulSets using StorageClasses](deploying-with-statefulsets-using-storageclasses)
+
+## Prerequisites
+
+### Software you will need 
+    
+1. [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
+2. [pachctl](http://docs.pachyderm.io/en/latest/pachctl/pachctl.html)
+
+### Preparing your environment
+
+See the [introduction to on-premises deployment](./on_premises.html) for steps that you need to take before to creating a custom Pachyderm deployment manifest. 
+It also provides an explanation of the differences among static persistent volumes, 
+StatefulSets and StatefulSets with StorageClasses, 
+as well as the meanings of the variables, 
+like  `PVC_STORAGE_SIZE` and `OS_ENDPOINT`, 
+used in examples below.
 
 ## Creating a Pachyderm deployment manifest
 
@@ -28,28 +86,6 @@ pachctl deploy custom --persistent-disk <persistent disk backend> --object-store
     [[--dynamic-etcd-nodes n] | [--static-etcd-volume <volume name>]]
     [optional flags]
 ```
-
-As shown above,
-`pachctl deploy custom` takes 
-- 2 sets of required, primary flags with one argument each, 
-- 6 arguments,
-- 1 required flag with an argument from a set of 2 possible flags, and
-- 1 set of optional flags.
-
-The first two sets of required flags configure the primary components for a Pachyderm deployment, 
-the persistent volume and the object store.
-They take a parameter to indicate the style of pv and object store backend.
-
-In addition,
-the persistent volume flag will take two (2) additional arguments and
-the object store flag will take four (4) additional arguments,
-for a total of six (6) arguments.
-
-The last required flag configures the type of etcd deployment: 
-- [static volume](./on_premises.html#static-pv) (`--static-etcd-volume`) or 
-- [StatefulSets](./on_premises.html#statefulsets).  (`--dynamic-etcd-nodes`)
-
-An additional set of optional flags configures other deployment attributes.
 
 Let's look at each set of flags in turn. 
 As we go through each set of flags, 
@@ -125,7 +161,7 @@ in gigabytes,
 that will be requested for `etcd`'s disk.
 A good value for most deployments is 10.
 
-#### Example invocation
+#### Example invocation with persistent disk parameters
 Our example on-premises cluster has StatefulSets enabled,
 with the standard etcd storage class configured.
 Our deployment flags for our sample cluster look like this, so far:
@@ -181,7 +217,7 @@ These arguments must be placed immediately after [the persistent disk configurat
 - _secret-key_: the associated password used with the user access id to access the object store.
 - _endpoint_: the hostname and port used to access the object store, in <hostname>:<port> format.
 
-#### Example invocation
+#### Example invocation with pv and object store
 Our example on-premises cluster will use an on-premises Min.io object store
   - with SSL turned on,
   - S3v4 signatures,
@@ -201,7 +237,7 @@ Note that we enclosed the arguments that may contain characters that the shell c
 
 ### Additional flags
 
-#### Local vs Cluster Roles
+#### Local vs cluster roles
 
 The `--local-roles` flag is used to change the kind of role the `pachyderm` service account will use from cluster-wide (`ClusterRole`) to namespace-specific (`Role`). 
 Using `--local-roles` will inhibit your ability to use a Pachyderm feature called [coefficient parallelism](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#parallelism-spec-optional).
@@ -241,7 +277,7 @@ None of these flags should be modifed from the default values for production dep
 - `log-level`: sets the verbosity level of `pachd`, from most verbose to least the settings are `debug`, `info`, and `error`.
   - `-v` or `--verbose`: controls the chattiness of the `pachctl` invocation itself.
 
-#### Example invocation
+#### Complete example invocation
 Since we're deploying to a code infrastructure that works with YAML files,
 we'll add the flags for that.
 We need to limit ourselves to local roles only, so we'll add the `--local-roles` flag.
@@ -258,6 +294,7 @@ pachctl deploy custom --persistent-disk aws --object-store s3 \
 What does a file like `custom_deploy.yaml` have inside of it?
 That's in the next section: 
 a general exploration of all the deployment manifests that `pachctl deploy custom` produces.
+
 
 ## Anatomy of a Pachyderm deployment manifest
 
@@ -363,30 +400,8 @@ The exact values in the secret depend on the kind of object store you configure 
 You can update the values after the deployment either by using `kubectl` to deploy a new `Secret`
 or the `pachctl deploy storage` command.
 
-## Prerequisites
 
-### Software you will need 
-    
-1. [kubectl](https://kubernetes.io/docs/user-guide/prereqs/)
-2. [pachctl](http://docs.pachyderm.io/en/latest/pachctl/pachctl.html)
-
-### Preparing your environment
-
-See the [introduction to on-premises deployment](./on_premises.html) for steps that you need to take before to creating a custom Pachyderm deployment manifest.
-
-### Customizing `pachctl` flags
-
-`pachctl` includes flags for customizing aspects of your deployment,
-from memory and cpu requests for `etcd` and `pachd` to specifying a Kubernetes namespace.
-
-You can learn what flags are available in your version of Pachyderm by running `pachctl deploy custom --help`.
-Some of the flags are marked as to be used with caution.
-When you are unsure of the effect of a flag, consult with your Kubernetes administrator and your Pachyderm support team.
-Some flags, such as `--image-pull-secret`, require the creation and loading of Kubernetes manifests outside of `pachctl`.
-
-## Creating a Pachyderm manifest
-
-Please see the [introduction to on-premises deployment](./on_premises.html) for an explanation of the differences among static persistent volumes, StatefulSets and StatefulSets with StorageClasses, as well as the meanings of the variables, like  `PVC_STORAGE_SIZE` and `OS_ENDPOINT`, used below.
+## More examples
 
 ### Configuring with a static persistent volume
 The command you'll want to run is 
@@ -434,11 +449,11 @@ The command you'll want to run depends on the command you ran, above.
 ```sh
 $ kubectl apply -f ./pachyderm-with-static-volume.json
 ```
-#### Deploying  with StatefulSets
+#### Deploying with StatefulSets
 ```sh
 $ kubectl apply -f ./pachyderm-with-statefulset.json
 ```
-#### Deploying  with StatefulSets using StorageClasses
+#### Deploying with StatefulSets using StorageClasses
 ```sh
 $ kubectl apply -f ./pachyderm-with-statefulset-using-storageclasses.json
 ```
