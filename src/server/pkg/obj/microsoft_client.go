@@ -46,9 +46,8 @@ func (c *microsoftClient) Reader(ctx context.Context, name string, offset uint64
 	blobRange := blobRange(offset, size)
 	if blobRange == nil {
 		return c.container.GetBlobReference(name).Get(nil)
-	} else {
-		return c.container.GetBlobReference(name).GetRange(&storage.GetBlobRangeOptions{Range: blobRange})
 	}
+	return c.container.GetBlobReference(name).GetRange(&storage.GetBlobRangeOptions{Range: blobRange})
 }
 
 func blobRange(offset, size uint64) *storage.BlobRange {
