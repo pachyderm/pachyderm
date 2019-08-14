@@ -265,9 +265,9 @@ Below is the pipeline spec for this new pipeline:
     }
   }
 
-This ``montage`` pipeline spec is similar to our ``edges`` pipeline except for three differences: (1) we are using a different Docker image that has imagemagick installed, (2) we are executing a ``sh`` command with ``stdin`` instead of a python script, and (3) we have multiple input data repositories.  
+This ``montage`` pipeline spec is similar to our ``edges`` pipeline except for three differences: (1) we are using a different Docker image that has imagemagick installed, (2) we are executing a ``sh`` command with ``stdin`` instead of a python script, and (3) we have multiple input data repositories.
 
-In the ``montage`` pipeline we are combining our multiple input data repositories using a ``cross`` pattern. This ``cross`` pattern creates a single pairing of our input images with our edge detected images. There are several interesting ways to combine data in Pachyderm, which are discussed `here <http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required>`_ and `here <http://pachyderm.readthedocs.io/en/latest/cookbook/combining.html>`_.
+In the ``montage`` pipeline we are combining our multiple input data repositories using a ``cross`` pattern. This ``cross`` pattern creates a single pairing of our input images with our edge detected images. There are several interesting ways to combine data in Pachyderm, which are discussed `here <http://pachyderm.readthedocs.io/en/latest/reference/pipeline_spec.html#input-required>`__ and `here <http://pachyderm.readthedocs.io/en/latest/cookbook/combining.html>`__.
 
 We create the ``montage`` pipeline as before, with ``pachctl``:
 
@@ -299,7 +299,7 @@ And you can view the generated montage image via:
 .. image:: montage-screenshot.png
 
 Exploring your DAG in the Pachyderm dashboard
---------------------------------------------
+---------------------------------------------
 
 When you deployed Pachyderm locally, the Pachyderm Enterprise dashboard was also deployed by default. This dashboard will let you interactively explore your pipeline, visualize the structure of the pipeline, explore your data, debug jobs, etc. To access the dashboard visit ``localhost:30080`` in an Internet browser (e.g., Google Chrome). You should see something similar to this:
 

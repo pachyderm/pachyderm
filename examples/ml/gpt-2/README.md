@@ -4,7 +4,7 @@ In this example we'll create a machine learning pipeline that generates tweets
 using OpenAI's gpt-2 text generation model. This tutorial assumes that
 you already have Pachyderm up and running and just focuses on the pipeline
 creation. If that's not the case, head over to our [getting started
-guide](../../doc/getting_started/getting_started.html).
+guide](http://docs.pachyderm.io/en/latest/getting_started/index.html).
 
 The pipeline we're making has 3 steps in it:
 
