@@ -7,7 +7,7 @@ for cloud providers or on-premises use.
 This section describes how to use `pachctl deploy custom` to create a manifest for a custom, on-premises deployment.
 Although deployment automation is out of scope of this section, Pachyderm strongly encourages you  to treat your [infrastructure as code](./on-premises.html#infrastructure-as-code).
 
-This document details that customization in two primary parts: 
+This document describes that customization in two primary parts: 
 invoking `pachctl deploy custom` to create a custom manifest 
 and then examining that manifest in detail.
 We also go through some examples and
