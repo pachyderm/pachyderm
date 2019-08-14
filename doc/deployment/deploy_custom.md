@@ -179,8 +179,6 @@ as all the cloud providers use the standard etcd storage class.
 The VolumeClaimTemplate manifests will be identical regardless of whether `aws`, `google` or `azure` is specified,
 when using StatefulSets.
 That's not the case for static volumes, of course.
-At the very end is the `--dry-run` flag, 
-mostly used for saving the deployment to a file.
 
 ### Object store configuration
 
@@ -333,26 +331,24 @@ This manifest binds the `Rule` or `ClusterRole` to the `ServiceAccount` created 
 
 ### PersistentVolume
 
-If you did not use [StatefulSets](./on_premises.html#statefulsets) to deploy Pachyderm,
-that is, you do not specify `--dynamic-etcd-nodes` flag, 
+If you used `--static-etc-volume` to deploy Pachyderm,
 the value that you specify for `--persistent-disk` causes `pachctl` to write a manifest for creating a [`PersistentVolume`](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) that Pachyderm's `etcd` uses in its [`PersistentVolumeClaim`](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims).
 
 A common persistent volume uses in enterprises is an NFS mount backed by a storage fabric of some sort.
 In this case, a StorageClass for an NFS mount will be made available for consumption.
 Consult with your Kubernetes administrators to learn what resources are available for your deployment
 
-
 ### PersistentVolumeClaim
 
-Pachyderm's `etcd` uses this `PersistentVolumeClaim` unless you deploy using [StatefulSets](./on_premises.html#statefulsets).
+Pachyderm's `etcd` uses this `PersistentVolumeClaim` if you deployed using `--static-etc-volume`.
 See this manifest's name in the `etcd` Deployment manifest, below.
 
 ### StorageClass
 
-If you *do* use [StatefulSets](./on_premises.html#statefulsets) to deploy Pachyderm
-that is, you use `--dynamic-etcd-nodes` flag, 
+If you used the `--dynamic-etcd-nodes` flag to deploy Pachyderm,
 this manifest specifies the kind of storage and provisioner that is appropriate for what you have specified in the `--persistent-disk` flag. 
-You won't see this manifest if you specified `azure` as the argument to `--persistent-disk`.
+
+(**NOTE** You won't see this manifest if you specified `azure` as the argument to `--persistent-disk`.)
 
 ### Service
 
