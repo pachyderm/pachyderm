@@ -348,7 +348,7 @@ See this manifest's name in the `etcd` Deployment manifest below.
 If you used the `--dynamic-etcd-nodes` flag to deploy Pachyderm,
 this manifest specifies the kind of storage and provisioner that is appropriate for what you have specified in the `--persistent-disk` flag. 
 
-(**NOTE** You won't see this manifest if you specified `azure` as the argument to `--persistent-disk`.)
+**Note:** You will not see this manifest if you specified `azure` as the argument to `--persistent-disk`.
 
 ### Service
 
