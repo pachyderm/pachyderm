@@ -3,7 +3,7 @@
 Pachyderm triggers pipelines when new changes appear in the input repository.
 However, if you want to trigger a pipeline based on time instead of upon
 arrival of input data, you can schedule such pipelines to run periodically
-by using the Pachyderm built-in cron input type.
+by using the built-in `cron` input type.
 
 A standard pipeline with a PFS input might not satisfy
 the requirements of the following tasks:

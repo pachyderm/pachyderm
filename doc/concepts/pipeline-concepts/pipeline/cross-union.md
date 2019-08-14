@@ -10,11 +10,11 @@ input repositories in a single pipeline by using the `union` and
 are called *union pipeline or input* and *cross pipeline or input*.
 
 If you are familiar with [Set theory](https://en.wikipedia.org/wiki/Set_theory),
-you can think of union as a *disjoint union binary operator* and of cross as a
+you can think of union as a *disjoint union binary operator* and cross as a
 *cartesian product binary operator*. However, if you are unfamiliar with these
 concepts, it is still easy to understand how cross and union work in Pachyderm.
 
-This section describes how to use `cross` and `union` pipelines and how you
+This section describes how to use `cross` and `union` in your pipelines and how you
 can optimize your code when you work with them.
 
 ## Union Input

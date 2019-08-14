@@ -51,7 +51,7 @@ For more information, see [Cross and Union](cross-union.html).
 
 ## Example of Defining Datums
 
-For example, you have the following directory:
+For example, you have the following directories:
 
 ```bash
 /California

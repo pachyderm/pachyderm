@@ -12,7 +12,7 @@ Pipeline
  A pipeline is a job-spawner that waits for certain
  conditions to be met. Most commonly, this means
  watching one or more Pachyderm repositories for new
- data. When a new data arrives, a pipeline executes
+ commits of data. When new data arrives, a pipeline executes
  a user-defined piece of code to perform an operation
  and process the data. Each of these executions is
  called a job.
