@@ -26,7 +26,7 @@ jobs: # basic units of work in a run
           command: |
             for i in `seq 1 10`;
             do
-              curl --output /dev/null --silent --head --fail http://etcd:2379/health && echo Success && exit 0
+              curl --output /dev/null --silent --head --fail http://localhost:2379/health && echo Success && exit 0
               echo -n .
               sleep 1
             done
