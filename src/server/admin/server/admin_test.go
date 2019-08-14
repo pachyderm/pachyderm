@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
@@ -23,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 	versionlib "github.com/pachyderm/pachyderm/src/client/version"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ppsconsts"
 	tu "github.com/pachyderm/pachyderm/src/server/pkg/testutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/workload"
 
@@ -95,6 +97,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 	}
 
 	// Create test pipelines
+	var pipelines []string
 	numPipelines := 3
 	var input, pipeline string
 	input = dataRepo
@@ -115,6 +118,7 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 			false,
 		))
 		input = pipeline
+		pipelines = append(pipelines, pipeline)
 	}
 
 	// Wait for pipelines to process input data
@@ -239,6 +243,29 @@ func testExtractRestore(t *testing.T, testObjects bool) {
 		return nil
 	}, backoff.NewTestingBackOff()))
 	require.ElementsEqual(t, fileHashes, restoredFileHashes)
+
+	// Check that spec commits made it ok
+	pis, err := pachClient.ListPipeline()
+	require.NoError(t, err)
+	require.Equal(t, numPipelines, len(pis))
+	for _, pi := range pis {
+		pachClient.GetFile(pi.SpecCommit.Repo.Name, pi.SpecCommit.ID, ppsconsts.SpecFile, 0, 0, ioutil.Discard)
+	}
+
+	// make more commits
+	for i := nCommits; i < nCommits*2; i++ {
+		hash := md5.New()
+		fileContent := workload.RandString(r, 40*MB)
+		_, err := c.PutFile(dataRepo, "master", fmt.Sprintf("file-%d", i),
+			io.TeeReader(strings.NewReader(fileContent), hash))
+		require.NoError(t, err)
+		fileHashes = append(fileHashes, hex.EncodeToString(hash.Sum(nil)))
+	}
+
+	// Wait for pipelines to process input data
+	commitInfos, err = c.FlushCommitAll([]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, numPipelines, len(commitInfos))
 }
 
 // TestExtractRestoreNoObjects tests extraction and restoration in the case
