@@ -1,21 +1,17 @@
 
 # Custom Deployments
 
-If you are deploying Pachyderm to a cloud infrastructure, 
-such as [Amazon Web Services (AWS)](https://pachyderm.readthedocs.io/en/latest/deployment/amazon_web_services.html),
-[Google Cloud Platform (GCP)](https://pachyderm.readthedocs.io/en/latest/deployment/google_cloud_platform.html), or 
-[Microsoft Azure](https://pachyderm.readthedocs.io/en/latest/deployment/azure.html), 
-you would use a related `pachctl deploy` subcommand, such as `amazon`, `google`, or `microsoft`, respectively.
-You can customize cloud provider deployments extensively through flags available for each provider.
+Pachyderm includes the `pachctl deploy custom` command for creating customized deployments
+for cloud providers or on-premises use.
 
-Pachyderm also includes `pachctl deploy custom` for creating customized deployments for both cloud providers or on-premises use.
-Typically, you customize a deployment by running the command with the `--dry-run` flag.
-The command's standard output is directed into a series of customization scripts or a file for editing.
-
-This section describes how to use `pachctl deploy custom ... --dry-run` to create a manifest for a custom, on-premises deployment.
+This section describes how to use `pachctl deploy custom` to create a manifest for a custom, on-premises deployment.
 Although deployment automation is out of scope of this section, Pachyderm strongly encourages you  to treat your [infrastructure as code](./on-premises.html#infrastructure-as-code).
 
-This document details that customization in two parts: invoking `pachctl deploy custom` to create a custom manifest, and then examining that manifest in detail.
+This document details that customization in two primary parts: 
+invoking `pachctl deploy custom` to create a custom manifest 
+and then examining that manifest in detail.
+We also go through some examples and
+detail the next steps for editing and deployment.
 
 - [Prerequisites](prerequisites)
   - [Software you will need](software-you-will-need)
@@ -52,7 +48,7 @@ This document details that customization in two parts: invoking `pachctl deploy 
   - [Configuring with a static persistent volume](configuring-with-a-static-persistent-volume)
   - [Configuring with StatefulSets](configuring-with-statefulsets)
   - [Configuring with StatefulSets using StorageClasses](configuring-with-statefulsets-using-storageclasses)
-- [Next steps](next steps)
+- [Next steps](next-steps)
   - [Editing your manifest to customize it further](editing-your-manifest-to-customize-it-further)
   - [Deploying with a static persistent volume](deploying-with-a-static-persistent-volume)
   - [Deploying with StatefulSets](deploying-with-statefulsets)
@@ -67,8 +63,9 @@ This document details that customization in two parts: invoking `pachctl deploy 
 
 ### Preparing your environment
 
-See the [introduction to on-premises deployment](./on_premises.html) for steps that you need to take before to creating a custom Pachyderm deployment manifest. 
-It also provides an explanation of the differences among static persistent volumes, 
+See the [introduction to on-premises deployment](./on_premises.html) for steps that you need to take 
+before creating a custom Pachyderm deployment manifest. 
+That document also provides an explanation of the differences among static persistent volumes, 
 StatefulSets and StatefulSets with StorageClasses, 
 as well as the meanings of the variables, 
 like  `PVC_STORAGE_SIZE` and `OS_ENDPOINT`, 
@@ -101,7 +98,9 @@ we'll build up a sample `pachctl deploy custom`  deployment invocation for
   - the access key `OBSIJRBE0PP2NO4QOA27`,
   - the secret key `tfteSlswRu7BJ86wekitnifILbZam1KYY3TG`,
   - and a bucket named `pachyderm-bucket`.
+
 We'll save the output of the the invocation to a file that will be used by our [code infrastructure](./on-premises.html#infrastructure-as-code) to configure our deployment. 
+
 Our scripts in that infrastructure work with YAML manifests.
   
 ### Persistent disk configuration
@@ -114,21 +113,22 @@ Pachyderm currently only has automated configuration for styles of backend for t
 - azure
 
 For each of those providers, 
-different configurations will result depending on that third required deployment flag.
-That third one is either of these flags, 
+different configurations will result depending on a third required deployment flag, one of 
 `--dynamic-etcd-nodes` or 
 `--static-etc-volume`.
 
 `--dynamic-etcd-nodes` is used when your Kubernetes installation has been configured to use [StatefulSets](./on_premises.html#statefulsets). 
-As StatefulSet is a useful technology which has been in stable releases of Kubernetes since 2018,
-it is likely that your on-premises Kubernetes installation is configured to use StatefulSets.
+StatefulSets is a useful technology which has been in stable releases of Kubernetes since 2018.
+It is likely that your on-premises Kubernetes installation is configured to use StatefulSets.
 
 The `--dynamic-etcd-nodes` flag has a parameter which specifies the number of `etcd` nodes which your deployment will create.
 Pachyderm recommends you keep this number at 1.
 Consult with your Pachyderm support team if you want to change it.
 
 This flag will create a `VolumeClaimTemplate` in the `etcd` `StatefulSet` that uses the standard `etcd-storage-class`.
-Consult with your Kubernetes administrator on the availability of this storage class in your Kubernetes deployment.
+
+**NOTE** Consult with your Kubernetes administrator on the StorageClass you should use for `etcd` in your Kubernetes deployment.
+If it's not the default, you can use the flag `--etcd-storage-class` to specify the StorageClass.
 
 `--static-etc-volume` is used when your Kubernetes installation has not been configured to use StatefulSets.
 It will use a static volume with Pachyderm's `etcd`, 
@@ -275,7 +275,7 @@ None of these flags should be modifed from the default values for production dep
 
 #### Logging
 - `log-level`: sets the verbosity level of `pachd`, from most verbose to least the settings are `debug`, `info`, and `error`.
-  - `-v` or `--verbose`: controls the chattiness of the `pachctl` invocation itself.
+- `-v` or `--verbose`: controls the chattiness of the `pachctl` invocation itself.
 
 #### Complete example invocation
 Since we're deploying to a code infrastructure that works with YAML files,
