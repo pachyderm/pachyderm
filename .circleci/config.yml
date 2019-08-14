@@ -1,0 +1,35 @@
+# Golang CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+version: 2
+jobs: # basic units of work in a run
+  build: # runs not using Workflows must have a `build` job as entry point
+    docker: # run the steps with Docker
+      # specify the version
+      - image: circleci/golang:1.9
+
+      # Specify service dependencies here if necessary
+      # CircleCI maintains a library of pre-built images
+      # documented at https://circleci.com/docs/2.0/circleci-images/
+      - image: quay.io/coreos/etcd:v3.3.5
+        name: etcd
+        command:
+          - etcd
+          - --listen-client-urls=http://0.0.0.0:2379
+          - --advertise-client-urls=http://0.0.0.0:2379
+
+
+    working_directory: /workspace
+    steps:
+      - checkout
+
+      - run:
+          name: Waiting for Postgres to be ready
+          command: |
+            for i in `seq 1 10`;
+            do
+              curl --output /dev/null --silent --head --fail http://etcd:2379/health && echo Success && exit 0
+              echo -n .
+              sleep 1
+            done
+            echo Failed waiting for Etcd && exit 1
