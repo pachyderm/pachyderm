@@ -56,6 +56,7 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
 const (
@@ -193,7 +194,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		shard:           noShard,
 		clients:         make(map[string]Client),
 	}
-	logger, err := logger.NewLogger(pipelineInfo, nil)
+	logger, err := logs.NewLogger(pipelineInfo, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1291,8 +1292,10 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
-		a.getWorkerLogger().Logf("blocking on parent commit %q before writing to output commit %q",
-			commitInfo.ParentCommit.ID, outputCommitID)
+		logs.NewLogger(a.pipelineInfo, nil).Logf(
+			"blocking on parent commit %q before writing to output commit %q",
+			commitInfo.ParentCommit.ID, outputCommitID,
+		)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
 				Commit:     commitInfo.ParentCommit,
@@ -1440,7 +1443,7 @@ func isDone(ctx context.Context) bool {
 // terminal state (KILLED, FAILED, or SUCCESS) cancel the jobCtx so we kill any
 // user processes
 func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func(), jobID string) {
-	logger := a.getWorkerLogger() // this worker's formatting logger
+	logger := logs.NewLogger(a.pipelineInfo, nil)
 
 	backoff.RetryNotify(func() error {
 		// Check if job was cancelled while backoff was sleeping
@@ -1500,7 +1503,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 //  - processes the chunks with processDatums
 //  - merges the chunks with mergeDatums
 func (a *APIServer) worker() {
-	logger := a.getWorkerLogger() // this worker's formatting logger
+	logger := logs.NewLogger(a.pipelineInfo, nil)
 
 	// claim a shard if one is available or becomes available
 	go a.claimShard(a.pachClient.Ctx())
@@ -1719,7 +1722,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			defer atomic.AddInt64(&a.queueSize, -1)
 
 			data := df.Datum(int(datumIdx))
-			logger, err := logger.NewLogger(a.pipelineInfo, pachClient)
+			logger, err := logs.NewLogger(a.pipelineInfo, pachClient)
 			if err != nil {
 				return err
 			}

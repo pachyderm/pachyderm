@@ -50,7 +50,7 @@ func TestAcquireDatums(t *testing.T) {
 			var eg errgroup.Group
 			for i := 0; i < nWorkers; i++ {
 				server := newTestAPIServer(c, etcdClient, "", t)
-				logger := server.getMasterLogger()
+				logger := logs.NewMasterLogger(&pps.PipelineInfo{})
 				eg.Go(func() error {
 					return server.acquireDatums(context.Background(), jobInfo.Job.ID, plan, logger, func(low, high int64) (*processResult, error) {
 						chunksMu.Lock()

@@ -31,6 +31,7 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
 const (
@@ -46,38 +47,9 @@ const (
 	ttl = int64(30)
 )
 
-func (a *APIServer) getMasterLogger() *taggedLogger {
-	result := &taggedLogger{
-		template:  a.logMsgTemplate, // Copy struct
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
-	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-	result.template.Master = true
-	return result
-}
-
-func (a *APIServer) getWorkerLogger() *taggedLogger {
-	result := &taggedLogger{
-		template:  a.logMsgTemplate, // Copy struct
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
-	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-	return result
-}
-
-func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
-	result := logger.clone()
-	result.template.JobID = jobID
-	return result
-}
-
 func (a *APIServer) master(masterType string, spawner func(*client.APIClient) error) {
+	logger := logs.NewMasterLogger(a.pipelineInfo)
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
-	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
 	// Setting a high backoff so that when this master fails, the other
 	// workers are more likely to become the master.
@@ -107,7 +79,7 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 }
 
 func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
-	logger := a.getMasterLogger()
+	logger := logs.NewMasterLogger(a.pipelineInfo)
 	// Listen for new commits, and create jobs when they arrive
 	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
 	if err != nil {
@@ -967,7 +939,7 @@ func (a *APIServer) aggregateProcessStats(stats []*pps.ProcessStats) (*pps.Aggre
 }
 
 func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
-	logger := a.getMasterLogger()
+	logger := logs.NewMasterLogger(a.pipelineInfo)
 	mean, err := stats.Mean(datums)
 	if err != nil {
 		logger.Logf("error aggregating mean: %v", err)
