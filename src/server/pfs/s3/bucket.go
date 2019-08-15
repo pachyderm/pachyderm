@@ -71,6 +71,11 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 		return nil, invalidDelimiterError(r)
 	}
 
+	result := s2.ListObjectsResult{
+		Contents:       []s2.Contents{},
+		CommonPrefixes: []s2.CommonPrefixes{},
+	}
+
 	// ensure the branch exists and has a head
 	branchInfo, err := pc.InspectBranch(repo, branch)
 	if err != nil {
@@ -78,7 +83,7 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 	}
 	if branchInfo.Head == nil {
 		// if there's no head commit, just print an empty list of files
-		return nil, nil
+		return &result, nil
 	}
 
 	recursive := delimiter == ""
@@ -87,11 +92,6 @@ func (c controller) ListObjects(r *http.Request, bucket, prefix, marker, delimit
 		pattern = fmt.Sprintf("%s**", glob.QuoteMeta(prefix))
 	} else {
 		pattern = fmt.Sprintf("%s*", glob.QuoteMeta(prefix))
-	}
-
-	result := s2.ListObjectsResult{
-		Contents:       []s2.Contents{},
-		CommonPrefixes: []s2.CommonPrefixes{},
 	}
 
 	err = pc.GlobFileF(repo, branch, pattern, func(fileInfo *pfsClient.FileInfo) error {
