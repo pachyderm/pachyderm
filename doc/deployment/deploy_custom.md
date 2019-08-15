@@ -1,11 +1,11 @@
-
-# Custom Deployments
+# Create a custom Pachyderm deployment
 
 Pachyderm includes the `pachctl deploy custom` command for creating customized deployments
 for cloud providers or on-premises use.
 
 This section describes how to use `pachctl deploy custom` to create a manifest for a custom, on-premises deployment.
-Although deployment automation is out of scope of this section, Pachyderm strongly encourages you  to treat your [infrastructure as code](./on-premises.html#infrastructure-as-code).
+Although deployment automation is out of scope of this section, 
+Pachyderm strongly encourages you to treat your [infrastructure as code](./on-premises.html#infrastructure-as-code).
 
 This document describes that customization in two primary parts: 
 invoking `pachctl deploy custom` to create a custom manifest 
@@ -352,9 +352,10 @@ this manifest specifies the kind of storage and provisioner that is appropriate 
 
 ### Service
 
-In a typical Pachyderm deployment, you see three [`Service`](https://kubernetes.io/docs/concepts/services-networking/service/) manifests. 
+In a typical Pachyderm deployment, 
+you see three [`Service`](https://kubernetes.io/docs/concepts/services-networking/service/) manifests. 
 Services are how Kubernetes exposes Pods to the network.
-If you  use StatefulSets to deploy Pachyderm,
+If you use StatefulSets to deploy Pachyderm,
 that is, you use `--dynamic-etcd-nodes` flag,
 Pachyderm deploys one `Service` for `etcd-headless`, one for `pachd`, and one for `dash`.
 A static deployment has `Services` for `etcd`, `pachd`, and `dash`.
@@ -391,7 +392,8 @@ For a `--dynamic-etcd-nodes` deployment, Pachyderm replaces the `etcd` `Deployme
 The final manifest is a Kubernetes [`Secret`](https://kubernetes.io/docs/concepts/configuration/secret/).
 Pachyderm uses the `Secret` to store the credentials that are necessary to access object storage.
 The final manifest uses the command-line arguments that you submit to the `pachctl deploy` command to store the parameters, 
-like region, secret, token, and endpoint that are used to access an object store. 
+such as region, secret, token, and endpoint,
+that are used to access an object store. 
 The exact values in the secret depend on the kind of object store you configure for your deployment.
 You can update the values after the deployment either by using `kubectl` to deploy a new `Secret`
 or the `pachctl deploy storage` command.
