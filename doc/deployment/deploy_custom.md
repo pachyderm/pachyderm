@@ -10,7 +10,7 @@ Although deployment automation is out of scope of this section, Pachyderm strong
 This document describes that customization in two primary parts: 
 invoking `pachctl deploy custom` to create a custom manifest 
 and examining that manifest in detail.
-We also go through some examples and
+This section also goes through some examples and
 detail the next steps for editing and deployment.
 
 - [Prerequisites](prerequisites)
