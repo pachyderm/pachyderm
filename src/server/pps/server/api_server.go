@@ -397,7 +397,7 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 		return err
 	}
 
-	if input != nil {
+	if input != nil && operation != pipelineOpDelete {
 		// Check that the user is authorized to read all input repos, and write to the
 		// output repo (which the pipeline needs to be able to do on the user's
 		// behalf)
@@ -458,6 +458,11 @@ func (a *apiServer) authorizePipelineOp(pachClient *client.APIClient, operation 
 	case pipelineOpUpdate:
 		required = auth.Scope_WRITER
 	case pipelineOpDelete:
+		if _, err := pachClient.InspectRepo(output); isNotFoundErr(err) {
+			// special case: the pipeline output repo has been deleted (so the
+			// pipeline is now invalid). It should be possible to delete the pipeline.
+			return nil
+		}
 		required = auth.Scope_OWNER
 	default:
 		return fmt.Errorf("internal error, unrecognized operation %v", operation)
@@ -1495,6 +1500,9 @@ func (a *apiServer) validatePipeline(pachClient *client.APIClient, pipelineInfo 
 	if err := ancestry.ValidateName(pipelineInfo.Pipeline.Name); err != nil {
 		return fmt.Errorf("Invalid pipeline name: %v", err)
 	}
+	if len(pipelineInfo.Pipeline.Name) > 63 {
+		return fmt.Errorf("Pipeline name is longer than 63 characters: ", len(pipelineInfo.Pipeline.Name))
+	}
 	if err := a.validateInput(pachClient, pipelineInfo.Pipeline.Name, pipelineInfo.Input, false); err != nil {
 		return err
 	}
@@ -1764,6 +1772,10 @@ func (a *apiServer) fixPipelineInputRepoACLs(pachClient *client.APIClient, pipel
 					Username: auth.PipelinePrefix + pipelineName,
 					Scope:    auth.Scope_NONE,
 				})
+				if isNotFoundErr(err) {
+					// can happen if input repo is force-deleted; nothing to remove
+					return nil
+				}
 				return grpcutil.ScrubGRPC(err)
 			})
 		})
@@ -1838,7 +1850,7 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	// propagate trace info (doesn't affect intra-RPC trace)
 	ctx = extended.TraceIn2Out(ctx)
 	pachClient := a.env.GetPachClient(ctx)
-	ctx = pachClient.Ctx() // GetPachClient propagates auth info
+	ctx = pachClient.Ctx() // GetPachClient propagates auth info to inner ctx
 	pfsClient := pachClient.PfsAPIClient
 	if request.Salt == "" {
 		request.Salt = uuid.NewWithoutDashes()
@@ -1872,7 +1884,9 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		PodSpec:          request.PodSpec,
 		PodPatch:         request.PodPatch,
 	}
-	setPipelineDefaults(pipelineInfo)
+	if err := setPipelineDefaults(pipelineInfo); err != nil {
+		return nil, err
+	}
 
 	// Validate new pipeline
 	if err := a.validatePipeline(pachClient, pipelineInfo); err != nil {
@@ -1959,9 +1973,13 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 					return newErrPipelineUpdate(pipelineInfo.Pipeline.Name, fmt.Errorf("cannot disable stats"))
 				}
 
-				// Modify pipelineInfo
+				// Modify pipelineInfo (increment Version, and *preserve Stopped* so
+				// that updating a pipeline doesn't restart it)
 				pipelineInfo.Version = oldPipelineInfo.Version + 1
-				pipelineInfo.Stopped = oldPipelineInfo.Stopped
+				if oldPipelineInfo.Stopped {
+					provenance = nil // CreateBranch() below shouldn't create new output
+					pipelineInfo.Stopped = true
+				}
 				if !request.Reprocess {
 					pipelineInfo.Salt = oldPipelineInfo.Salt
 				}
@@ -2081,7 +2099,11 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 }
 
 // setPipelineDefaults sets the default values for a pipeline info
-func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
+func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) error {
+	if pipelineInfo.Transform == nil {
+		return fmt.Errorf("pipeline spec is missing transform: %v", pipelineInfo)
+	}
+
 	now := time.Now()
 	if pipelineInfo.Transform.Image == "" {
 		pipelineInfo.Transform.Image = DefaultUserImage
@@ -2142,6 +2164,7 @@ func setPipelineDefaults(pipelineInfo *pps.PipelineInfo) {
 	if pipelineInfo.Spout != nil && pipelineInfo.Spout.Service != nil && pipelineInfo.Spout.Service.Type == "" {
 		pipelineInfo.Spout.Service.Type = string(v1.ServiceTypeNodePort)
 	}
+	return nil
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
@@ -2327,6 +2350,24 @@ func (a *apiServer) DeletePipeline(ctx context.Context, request *pps.DeletePipel
 	return a.deletePipeline(pachClient, request)
 }
 
+// cleanUpSpecBranch handles the corner case where a spec branch was created for
+// a new pipeline, but the etcdPipelineInfo was never created successfully (and
+// the pipeline is in an inconsistent state). It's called if a pipeline's
+// etcdPipelineInfo wasn't found, checks if an orphaned branch exists, and if
+// so, deletes the orphaned branch.
+func (a *apiServer) cleanUpSpecBranch(pachClient *client.APIClient, pipeline string) error {
+	specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, pipeline)
+	if err != nil && specBranchInfo.Head != nil {
+		// No spec branch (and no etcd pointer) => the pipeline doesn't exist
+		return fmt.Errorf("pipeline %v was not found: %v", pipeline, err)
+	}
+	// branch exists but head is nil => pipeline creation never finished/
+	// pps state is invalid. Delete nil branch
+	return grpcutil.ScrubGRPC(a.sudo(pachClient, func(superUserClient *client.APIClient) error {
+		return superUserClient.DeleteBranch(ppsconsts.SpecRepo, pipeline, true)
+	}))
+}
+
 func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.DeletePipelineRequest) (response *types.Empty, retErr error) {
 	ctx := pachClient.Ctx() // pachClient will propagate auth info
 
@@ -2335,42 +2376,41 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 	pipelinePtr := pps.EtcdPipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).Get(request.Pipeline.Name, &pipelinePtr); err != nil {
 		if col.IsErrNotFound(err) {
-			// There's no etcd pointer. Check if there's an pipeline branch in the
-			// Spec repo (i.e. pipeline creation failed & left pps in invalid state).
-			specBranchInfo, err := pachClient.InspectBranch(ppsconsts.SpecRepo, request.Pipeline.Name)
-			if err == nil && specBranchInfo.Head == nil {
-				// branch exists but head is nil => pipeline creation never finished/
-				// pps state is invalid. Delete nil branch
-				if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-					return superUserClient.DeleteBranch(ppsconsts.SpecRepo, request.Pipeline.Name, true)
-				}); err != nil {
-					return nil, grpcutil.ScrubGRPC(err)
-				}
-				return &types.Empty{}, nil
+			if err := a.cleanUpSpecBranch(pachClient, request.Pipeline.Name); err != nil {
+				return nil, err
 			}
-			// No spec branch (and no etcd pointer) => the pipeline doesn't exist
-			return nil, fmt.Errorf("pipeline %v was not found: %v", request.Pipeline.Name, err)
+			return &types.Empty{}, nil
+
 		}
 		return nil, err
 	}
 
-	// Get current pipeline info from EtcdPipelineInfo (which may not be the spec
-	// branch HEAD)
+	// Get current pipeline info from:
+	// - etcdPipelineInfo
+	// - spec commit in etcdPipelineInfo (which may not be the HEAD of the
+	//   pipeline's spec branch_
+	// - kubernetes services (for service pipelines, githook pipelines, etc)
 	pipelineInfo, err := a.inspectPipeline(pachClient, request.Pipeline.Name)
 	if err != nil {
 		logrus.Errorf("error inspecting pipeline: %v", err)
 		pipelineInfo = &pps.PipelineInfo{Pipeline: request.Pipeline, OutputBranch: "master"}
 	}
 
-	// Check if the caller is authorized to delete this pipeline. This must be
-	// done after cleaning up the spec branch HEAD commit, because the
-	// authorization condition depends on the pipeline's PipelineInfo
-	if err := a.authorizePipelineOp(pachClient, pipelineOpDelete, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+	// check if the output repo exists--if not, the pipeline is non-functional and
+	// the rest of the delete operation continues without any auth checks
+	if _, err := pachClient.InspectRepo(request.Pipeline.Name); err != nil && !isNotFoundErr(err) {
 		return nil, err
-	}
-
-	if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
-		return nil, err
+	} else if !isNotFoundErr(err) {
+		// Check if the caller is authorized to delete this pipeline. This must be
+		// done after cleaning up the spec branch HEAD commit, because the
+		// authorization condition depends on the pipeline's PipelineInfo
+		if err := a.authorizePipelineOp(pachClient, pipelineOpDelete, pipelineInfo.Input, pipelineInfo.Pipeline.Name); err != nil {
+			return nil, err
+		}
+		// delete the pipeline's output repo
+		if err := pachClient.DeleteRepo(request.Pipeline.Name, request.Force); err != nil {
+			return nil, err
+		}
 	}
 
 	// Delete pipeline's workers
@@ -2378,12 +2418,14 @@ func (a *apiServer) deletePipeline(pachClient *client.APIClient, request *pps.De
 		return nil, fmt.Errorf("error deleting workers: %v", err)
 	}
 
-	// If necessary, revoke the pipeline's auth token and remove it from its inputs' ACLs
+	// If necessary, revoke the pipeline's auth token and remove it from its
+	// inputs' ACLs
 	if pipelinePtr.AuthToken != "" {
-		// If auth was deactivated after the pipeline was created, don't try to revoke
+		// If auth was deactivated after the pipeline was created, don't bother
+		// revoking
 		if _, err := pachClient.WhoAmI(pachClient.Ctx(), &auth.WhoAmIRequest{}); err == nil {
 			if err := a.sudo(pachClient, func(superUserClient *client.APIClient) error {
-				// pipelineInfo = nil -> remove pipeline from all inputs in pipelineInfo
+				// 'pipelineInfo' == nil => remove pipeline from all input repos
 				if err := a.fixPipelineInputRepoACLs(superUserClient, nil, pipelineInfo); err != nil {
 					return grpcutil.ScrubGRPC(err)
 				}
@@ -2465,6 +2507,16 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		return nil, err
 	}
 
+	// Remove 'Stopped' from the pipeline spec
+	pipelineInfo.Stopped = false
+	commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
+	if err != nil {
+		return nil, err
+	}
+	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
+		return nil, err
+	}
+
 	// Replace missing branch provenance (removed by StopPipeline)
 	provenance := append(branchProvenance(pipelineInfo.Input),
 		client.NewBranch(ppsconsts.SpecRepo, pipelineInfo.Pipeline.Name))
@@ -2474,15 +2526,6 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 		pipelineInfo.OutputBranch,
 		provenance,
 	); err != nil {
-		return nil, err
-	}
-
-	pipelineInfo.Stopped = false
-	commit, err := a.makePipelineInfoCommit(pachClient, pipelineInfo)
-	if err != nil {
-		return nil, err
-	}
-	if a.updatePipelineSpecCommit(pachClient, request.Pipeline.Name, commit); err != nil {
 		return nil, err
 	}
 	return &types.Empty{}, nil

@@ -1,115 +1,105 @@
-# Upgrades
+# Upgrade Pachyderm
 
-- [Introduction](#introduction)
-- [General upgrade procedure](#general-upgrade-procedure)
-  - [Before you start: backups](#before-you-start-backups)
-  - [Migration steps](#migration-steps)
-    - [1. Spin down current pachd server](#spin-down-old-cluster)
-    - [2. Upgrading `pachctl`](#upgrading-pachctl)
-    - [3. Re-deploying Pachyderm](#re-deploying-pachyderm)
-- [Common Issues](#common-issues)
-  - [StatefulSets vs static persistent volumes](#statefulsets-vs-static-persistent-volumes)
-  - [`etcd` re-deploy problems](#etcd-re-deploy-problems)
-  - [`AlreadyExists` errors on re-deploy](#alreadyexists-errors-on-re-deploy)
-  - [`pachctl` connnection problems](#pachctl-connnection-problems)
-  
+If you need to upgrade Pachyderm from one major version
+to another, such as from `1.8.x` to `1.9.x`, follow the
+instructions in the [Migrate between major versions]((./migrations.html).
 
-## Introduction
+Upgrades from one minor version to another, such as from version `1.9.0` to
+version `1.9.2` do not introduce breaking changes. Therefore, the upgrade
+procedure is simple and requires little to no downtime.
 
-These updates fall into two categories, upgrades and migrations.
+**Warning:** Do not use these steps to upgrade between major versions because
+it might result in data corruption.
 
-Migrations involve moving between major releases, 
-like 1.8.6 to 1.9.0.
-They're covered in a [separate document](./migrations.html).
+To upgrade Pachyderm to a minor version, complete the following steps:
 
-An upgrade is moving between point releases within the same major release, 
-like 1.7.2 to 1.7.3.
-Upgrades are typically a simple process that require little to no downtime.
-They're covered in this document.
+1. Back up your cluster as described in the [Backup and Restore](./backup_restore.html#general-backup-procedure)
+section.
 
-*Important*: Performing an _upgrade_ when going between _major releases_ may lead to corrupted data. 
-*You must perform a [migration](./migrations.html) when going between major releases!*
+1. Destroy your Pachyderm cluster:
 
-To upgrade your Pachyderm cluster between minor releases, you should follow the steps below
+   ```
+   pachctl undeploy
+   ```
 
-## General upgrade procedure
+1. Upgrade `pachctl` by using `brew` for macOS or `apt` for Linux:
 
-### Before you start: backups
+   **Example:**
 
-Please refer to [the documentation on backing up your cluster](./backup_restore.html#general-backup-procedure).
+   ```bash
+   $ brew upgrade pachyderm/tap/pachctl@1.9
+   ==> Upgrading 1 outdated package:
+   pachyderm/tap/pachctl@1.9
+   ==> Upgrading pachyderm/tap/pachctl@1.9
+   ...
+   ```
 
-### Upgrade steps
+   **Note:** You need to specify the version of `pachctl` to which
+   you want to upgrade. For example, if you want to upgrade `1.9.0` to
+   `1.9.2`, add `@1.9` at the end of the upgrade path.
 
-[Back up your cluster](./backups.md) using Pachyderm's recommended procedures.
+1. Confirm that the new version has been successfully installed by running
+the following command:
 
-### 1. Spin down old cluster
+   ```sh
+   $ pachctl version --client-only
+   COMPONENT           VERSION
+   pachctl             1.9.2
+   ```
 
-```
-pachctl undeploy
-```
+1. Redeploy Pachyderm by running the `pachctl deploy` command
+with the same arguments, fields, and storage resources
+that you specified when you deployed the previous version
+of Pachyderm:
 
-### 2. Upgrading `pachctl`
+   ```sh
+   $ pachctl deploy <args>
+   serviceaccount "pachyderm" created
+   storageclass "etcd-storage-class" created
+   service "etcd-headless" created
+   statefulset "etcd" created
+   service "etcd" created
+   service "pachd" created
+   deployment "pachd" created
+   service "dash" created
+   deployment "dash" created
+   secret "pachyderm-storage-secret" created
 
-To deploy an upgraded Pachyderm, we need to retrieve the latest version of `pachctl`.
-Details on installing the latest version can be found [here](http://pachyderm.readthedocs.io/en/latest/getting_started/local_installation.html#pachctl). 
-You should be able to upgrade via `brew upgrade` or `apt` depending on your environment.
+   Pachyderm is launching. Check its status with "kubectl get all"
+   Once launched, access the dashboard by running "pachctl port-forward"
+   ```
 
-Once you install the new version of `pachctl` (e.g., 1.8.4 in our example),
-you can confirm this via:
+   The deployment takes some time. You can run `kubectl get pods` periodically
+   to check the status of the deployment. When Pachyderm is deployed, the command
+   shows all pods as `READY`:
 
-```sh
-$ pachctl version --client-only
-COMPONENT           VERSION
-pachctl             1.8.4
-```
 
-### 3. Re-deploying Pachyderm
+   ```sh
+   $ kubectl get pods
+   NAME                     READY     STATUS    RESTARTS   AGE
+   dash-482120938-np8cc     2/2       Running   0          4m
+   etcd-0                   1/1       Running   0          4m
+   pachd-3677268306-9sqm0   1/1       Running   0          4m
+   ```
 
-You can now re-deploy Pachyderm with the **same** deploy command that you originally used to deploy Pachyderm.
-That is,
-you should specify the same arguments, fields, and storage resources that you specified when deploying the previously utilized version of Pachyderm. 
-The various deploy options/commands are further detailed [here](deploy_intro.html). 
-However, it should look something like:
+1. Verify that the new version has been deployed:
 
-```sh
-$ pachctl deploy <args>
-serviceaccount "pachyderm" created
-storageclass "etcd-storage-class" created
-service "etcd-headless" created
-statefulset "etcd" created
-service "etcd" created
-service "pachd" created
-deployment "pachd" created
-service "dash" created
-deployment "dash" created
-secret "pachyderm-storage-secret" created
+   ```sh
+   pachctl version
+   COMPONENT           VERSION
+   pachctl             1.9.2
+   pachd               1.9.2
+   ```
 
-Pachyderm is launching. Check its status with "kubectl get all"
-Once launched, access the dashboard by running "pachctl port-forward"
-```
+   The `pachd` and `pachctl` versions must both match the new version.
 
-After a few minutes, you should then see a healthy Pachyderm cluster running in Kubernetes:
+## Troubleshooting Minor Upgrades
 
-```sh
-$ kubectl get pods
-NAME                     READY     STATUS    RESTARTS   AGE
-dash-482120938-np8cc     2/2       Running   0          4m
-etcd-0                   1/1       Running   0          4m
-pachd-3677268306-9sqm0   1/1       Running   0          4m
-```
+<!-- We might want to move this section to Troubleshooting -->
 
-And you can confirm the new version of Pachyderm as follows:
-
-```sh
-pachctl version
-COMPONENT           VERSION
-pachctl             1.8.4
-pachd               1.8.4
-```
-
-You'll want to make sure your pachd and pachctl versions both match the new version.
-
-## Common Issues
+This section describes issues that you might run into when
+upgrading Pachyderm and provides guidelines on how to resolve
+them.
 
 ### StatefulSets vs static persistent volumes
 

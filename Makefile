@@ -319,7 +319,7 @@ delete-all-launch-bench:
 bench: clean-launch-bench build-bench-images push-bench-images launch-bench run-bench clean-launch-bench
 
 launch-kube: check-kubectl
-	etc/kube/start-minikube.sh -r
+	etc/kube/start-minikube.sh
 
 launch-dev-vm: check-kubectl
 	@# Make sure the caller sets address to avoid confusion later

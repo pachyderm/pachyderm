@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import sys
+import json
 import time
 import select
 import logging
@@ -24,6 +26,8 @@ LOG_COLORS = {
     "error": "\x1b[31;1m",
     "warning": "\x1b[33;1m",
 }
+
+LOCAL_CONFIG_PATTERN = re.compile(r"^local(-\d+)?$")
 
 log = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -115,27 +119,30 @@ def parse_log_level(s):
     except KeyError:
         raise Exception("Unknown log level: {}".format(s))
 
-def redirect_to_logger(stdout, stderr):
-    for io in select.select([stdout.pipe, stderr.pipe], [], [], 5000)[0]:
-        line = io.readline().decode().rstrip()
-
-        if line == "":
-            continue
-
-        dest = stdout if io == stdout.pipe else stderr
-        log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
-        dest.lines.append(line)
-
 def run(cmd, *args, raise_on_error=True, shell=False, stdout_log_level="info", stderr_log_level="error"):
     log.debug("Running `%s %s`", cmd, " ".join(args))
 
     proc = subprocess.Popen([cmd, *args], shell=shell, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout = Output(proc.stdout, stdout_log_level)
     stderr = Output(proc.stderr, stderr_log_level)
+    timed_out_last = False
 
-    while proc.poll() is None:
-        redirect_to_logger(stdout, stderr)
-    redirect_to_logger(stdout, stderr)
+    while True:
+        if (proc.poll() is not None and timed_out_last) or (stdout.pipe.closed and stderr.pipe.closed):
+            break
+
+        for io in select.select([stdout.pipe, stderr.pipe], [], [], 100)[0]:
+            timed_out_last = False
+            line = io.readline().decode().rstrip()
+
+            if line == "":
+                continue
+
+            dest = stdout if io == stdout.pipe else stderr
+            log.log(LOG_LEVELS[dest.level], "{}{}\x1b[0m".format(LOG_COLORS.get(dest.level, ""), line))
+            dest.lines.append(line)
+        else:
+            timed_out_last = True
 
     rc = proc.wait()
 
@@ -165,9 +172,40 @@ def get_pachyderm(deploy_version):
     run("docker", "pull", "pachyderm/pachd:{}".format(deploy_version))
     run("docker", "pull", "pachyderm/worker:{}".format(deploy_version))
 
+def rewrite_config():
+    log.info("Rewriting config")
+
+    keys = set([])
+
+    try:
+        with open(os.path.expanduser("~/.pachyderm/config.json"), "r") as f:
+            j = json.load(f)
+    except:
+        return
+        
+    v2 = j.get("v2")
+    if not v2:
+        return
+
+    contexts = v2["contexts"]
+
+    for k, v in contexts.items():
+        if not LOCAL_CONFIG_PATTERN.fullmatch(k):
+            continue
+        if len(v) == 0:
+            continue
+        keys.add(k)
+
+    for k in keys:
+        del contexts[k]
+
+    with open(os.path.expanduser("~/.pachyderm/config.json"), "w") as f:
+        json.dump(j, f, indent=2)
+
 def main():
     parser = argparse.ArgumentParser(description="Recompiles pachyderm tooling and restarts the cluster with a clean slate.")
     parser.add_argument("--no-deploy", default=False, action="store_true", help="Disables deployment")
+    parser.add_argument("--no-config-rewrite", default=False, action="store_true", help="Disables config rewriting")
     parser.add_argument("--deploy-args", default="", help="Arguments to be passed into `pachctl deploy`")
     parser.add_argument("--deploy-version", default="local", help="Sets the deployment version")
     parser.add_argument("--log-level", default="info", type=parse_log_level, help="Sets the log level; defaults to 'info', other options include 'critical', 'error', 'warning', and 'debug'")
@@ -200,11 +238,16 @@ def main():
         except:
             pass
 
-        join(
+        procs = [
             driver.start,
             lambda: run("make", "install"),
             lambda: run("make", "docker-build"),
-        )
+        ]
+
+        if not args.no_config_rewrite:
+            procs.append(rewrite_config)
+
+        join(*procs)
     else:
         join(
             driver.start,

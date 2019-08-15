@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	listContextHeader = "ACITVE\tNAME"
+	listContextHeader = "ACTIVE\tNAME"
 )
 
 func readContext() (*config.Context, error) {

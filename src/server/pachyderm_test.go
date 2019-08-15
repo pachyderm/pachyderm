@@ -2894,7 +2894,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
-	// create repos
+	// create repo & pipeline
 	dataRepo := tu.UniqueString("TestUpdateStoppedPipeline_data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 	pipelineName := tu.UniqueString("pipeline")
@@ -2902,7 +2902,7 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		pipelineName,
 		"",
 		[]string{"bash"},
-		[]string{"echo foo >/pfs/out/file"},
+		[]string{"cp /pfs/*/file /pfs/out/file"},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -2910,21 +2910,53 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		"",
 		false,
 	))
+
+	commits, err := c.ListCommit(pipelineName, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(commits))
+
+	// Add input data
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(commits))
+
+	// Make sure the pipeline runs once (i.e. it's all the way up)
+	commitIter, err := c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos := collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+
+	// Stop the pipeline (and confirm that it's stopped)
 	require.NoError(t, c.StopPipeline(pipelineName))
 	pipelineInfo, err := c.InspectPipeline(pipelineName)
 	require.NoError(t, err)
 	require.Equal(t, true, pipelineInfo.Stopped)
-	// It takes a bit for the master to stop the pods
-	time.Sleep(10 * time.Second)
-	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err = c.InspectPipeline(pipelineName)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
+			return fmt.Errorf("expected pipeline to be in state PAUSED, but was in %s",
+				pipelineInfo.State)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, pps.PipelineState_PIPELINE_PAUSED, pipelineInfo.State)
-	// Update shouldn't restart it
+	require.Equal(t, 1, len(commits))
+
+	// Update shouldn't restart it (wait for version to increment)
 	require.NoError(t, c.CreatePipeline(
 		pipelineName,
-		"bash:4",
+		"",
 		[]string{"bash"},
-		[]string{"echo bar >/pfs/out/file"},
+		[]string{"cp /pfs/*/file /pfs/out/file"},
 		&pps.ParallelismSpec{
 			Constant: 1,
 		},
@@ -2933,9 +2965,45 @@ func TestUpdateStoppedPipeline(t *testing.T) {
 		true,
 	))
 	time.Sleep(10 * time.Second)
-	pipelineInfo, err = c.InspectPipeline(pipelineName)
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err = c.InspectPipeline(pipelineName)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_PAUSED {
+			return fmt.Errorf("expected pipeline to be in state PAUSED, but was in %s",
+				pipelineInfo.State)
+		}
+		if pipelineInfo.Version != 2 {
+			return fmt.Errorf("expected pipeline to be on v2, but was on v%d",
+				pipelineInfo.Version)
+		}
+		return nil
+	}, backoff.NewTestingBackOff()))
+
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
 	require.NoError(t, err)
-	require.Equal(t, true, pipelineInfo.Stopped)
+	require.Equal(t, 1, len(commits))
+
+	// Create a commit (to give the pipeline pending work), then start the pipeline
+	_, err = c.PutFile(dataRepo, "master", "file", strings.NewReader("bar"))
+	require.NoError(t, err)
+	require.NoError(t, c.StartPipeline(pipelineName))
+
+	// Pipeline should start and create a job should succeed -- fix
+	// https://github.com/pachyderm/pachyderm/issues/3934)
+	commitIter, err = c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(dataRepo, "master")}, nil)
+	require.NoError(t, err)
+	commitInfos = collectCommitInfos(t, commitIter)
+	require.Equal(t, 1, len(commitInfos))
+	commits, err = c.ListCommit(pipelineName, "master", "", 0)
+	require.NoError(t, err)
+	require.Equal(t, 2, len(commits))
+
+	var buf bytes.Buffer
+	require.NoError(t, c.GetFile(commitInfos[0].Commit.Repo.Name, commitInfos[0].Commit.ID, "file", 0, 0, &buf))
+	require.Equal(t, "foobar", buf.String())
 }
 
 func TestUpdatePipelineRunningJob(t *testing.T) {
@@ -4321,7 +4389,7 @@ func TestSystemResourceRequests(t *testing.T) {
 	// Expected resource requests for pachyderm system pods:
 	defaultLocalMem := map[string]string{
 		"pachd": "512M",
-		"etcd":  "256M",
+		"etcd":  "512M",
 	}
 	defaultLocalCPU := map[string]string{
 		"pachd": "250m",
@@ -5232,10 +5300,19 @@ func TestGarbageCollection(t *testing.T) {
 			"",
 			false,
 		))
-		jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
-		require.NoError(t, err)
-		require.Equal(t, 1, len(jobInfos))
-		require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfos[0].State)
+		// run FlushJob inside a retry loop, as the pipeline may take a few moments
+		// to start the worker master and create a job
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			jobInfos, err := c.FlushJobAll([]*pfs.Commit{commit}, nil)
+			require.NoError(t, err)
+			if len(jobInfos) != 1 {
+				return fmt.Errorf("expected one job but got %d", len(jobInfos))
+			}
+			if jobInfos[0].State != pps.JobState_JOB_SUCCESS {
+				return fmt.Errorf("Expected job in state SUCCESS but was in %s", jobInfos[0].State)
+			}
+			return nil
+		})
 	}
 	createInputAndPipeline()
 
@@ -5287,28 +5364,37 @@ func TestGarbageCollection(t *testing.T) {
 	// Now delete both pipelines and GC
 	require.NoError(t, c.DeletePipeline(pipeline, false))
 	require.NoError(t, c.DeletePipeline(failurePipeline, false))
-	require.NoError(t, c.GarbageCollect(0))
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		require.NoError(t, c.GarbageCollect(0))
 
-	// We should've deleted one tag since the functioning pipeline only processed
-	// one datum.
-	tagsAfter = getAllTags(t, c)
-	require.Equal(t, 1, len(tagsBefore)-len(tagsAfter))
+		// We should've deleted one tag since the functioning pipeline only processed
+		// one datum.
+		tagsAfter = getAllTags(t, c)
+		if dTags := len(tagsBefore) - len(tagsAfter); dTags != 1 {
+			return fmt.Errorf("expected 1 tag after GC but found %d", dTags)
+		}
 
-	// We should've deleted 2 objects:
-	// - the hashtree referenced by the tag (datum hashtree)
-	//   - Note that the hashtree for the output commit is the same object as the
-	//     datum hashtree. It contains the same metadata, and b/c hashtrees are
-	//     stored as objects, it's deduped with the datum hashtree
-	//   - The "datums" object attached to 'pipeline's output commit
-	// Note that deleting a pipeline doesn't delete the spec commits
-	objectsAfter = getAllObjects(t, c)
-	require.Equal(t, 2, len(objectsBefore)-len(objectsAfter))
-	// The 9 remaining objects are:
-	// - hashtree for input commit
-	// - object w/ contents of /foo + object w/ contents of /bar
-	// - 6 objects in __spec__:
-	//   (hashtree + /spec file) * (2 'pipeline' commits + 1 'failurePipeline' commit)
-	require.Equal(t, 9, len(objectsAfter))
+		// We should've deleted 2 objects:
+		// - the hashtree referenced by the tag (datum hashtree)
+		//   - Note that the hashtree for the output commit is the same object as the
+		//     datum hashtree. It contains the same metadata, and b/c hashtrees are
+		//     stored as objects, it's deduped with the datum hashtree
+		// - The "datums" object attached to 'pipeline's output commit
+		// Note that deleting a pipeline doesn't delete the spec commits
+		objectsAfter = getAllObjects(t, c)
+		if dObjects := len(objectsBefore) - len(objectsAfter); dObjects != 2 {
+			return fmt.Errorf("expected 3 objects but found %d", dObjects)
+		}
+		// The 9 remaining objects are:
+		// - hashtree for input commit
+		// - object w/ contents of /foo + object w/ contents of /bar
+		// - 6 objects in __spec__:
+		//   (hashtree + /spec file) * (2 'pipeline' commits + 1 'failurePipeline' commit)
+		if len(objectsAfter) != 9 {
+			return fmt.Errorf("expected 9 objects remaining, but found %d", len(objectsAfter))
+		}
+		return nil
+	})
 
 	// Now we delete everything.
 	require.NoError(t, c.DeleteAll())
@@ -8384,7 +8470,7 @@ func TestEntryPoint(t *testing.T) {
 	c := getPachClient(t)
 	require.NoError(t, c.DeleteAll())
 
-	dataRepo := tu.UniqueString("TestEntryPoint_data")
+	dataRepo := tu.UniqueString(t.Name() + "-data")
 	require.NoError(t, c.CreateRepo(dataRepo))
 
 	commit1, err := c.StartCommit(dataRepo, "master")
@@ -8393,7 +8479,7 @@ func TestEntryPoint(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.FinishCommit(dataRepo, commit1.ID))
 
-	pipeline := tu.UniqueString("TestSimplePipeline")
+	pipeline := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreatePipeline(
 		pipeline,
 		"pachyderm_entrypoint",
@@ -9131,7 +9217,7 @@ func TestSpout(t *testing.T) {
 					Stdin: []string{
 						"while [ : ]",
 						"do",
-						"sleep 2",
+						"sleep 5",
 						"date > date",
 						"tar -cvf /pfs/out ./date*",
 						"done"},
@@ -9170,7 +9256,7 @@ func TestSpout(t *testing.T) {
 					Stdin: []string{
 						"while [ : ]",
 						"do",
-						"sleep 3",
+						"sleep 5",
 						"date > date",
 						"tar -cvf /pfs/out ./date*",
 						"done"},
@@ -9680,6 +9766,186 @@ func TestFileHistory(t *testing.T) {
 
 	_, err = c.ListFileHistory(pipeline, "master", "", -1)
 	require.NoError(t, err)
+}
+
+// TestNoOutputRepoDoesntCrashPPSMaster creates a pipeline, then deletes its
+// output repo while it's running (failing the pipeline and preventing the PPS
+// master from finishing the pipeline's output commit) and makes sure new
+// pipelines can be created (i.e. that the PPS master doesn't crashloop due to
+// the missing output repo).
+func TestNoOutputRepoDoesntCrashPPSMaster(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// Create input repo w/ initial commit
+	repo := tu.UniqueString(t.Name())
+	require.NoError(t, c.CreateRepo(repo))
+	_, err := c.PutFile(repo, "master", "/file.1", strings.NewReader("1"))
+	require.NoError(t, err)
+
+	// Create pipeline
+	pipeline := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{
+			"sleep 10",
+			"cp /pfs/*/* /pfs/out/",
+		},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+
+	// force-delete output repo while 'sleep 10' is running, failing the pipeline
+	require.NoError(t, c.DeleteRepo(pipeline, true))
+
+	// make sure the pipeline is failed
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pi, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
+			return fmt.Errorf("%q should be in state FAILURE but is in %q", pipeline, pi.State.String())
+		}
+		return nil
+	})
+
+	// Delete the pachd pod, so that it restarts and the PPS master has to process
+	// the failed pipeline
+	tu.DeletePachdPod(t) // delete the pachd pod
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		_, err := c.Version() // wait for pachd to come back
+		return err
+	})
+
+	// Create a new input commit, and flush its output to 'pipeline', to make sure
+	// the pipeline either restarts the RC and recreates the output repo, or fails
+	_, err = c.PutFile(repo, "master", "/file.2", strings.NewReader("2"))
+	require.NoError(t, err)
+	iter, err := c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		// TODO(msteffen): While not currently possible, PFS could return
+		// CommitDeleted here. This should detect that error, but first:
+		// - src/server/pfs/pfs.go should be moved to src/client/pfs (w/ other err
+		//   handling code)
+		// - packages depending on that code should be migrated
+		// Then this could add "|| pfs.IsCommitDeletedErr(err)" and satisfy the todo
+		if err == io.EOF {
+			return nil // expected--with no output repo, FlushCommit can't return anything
+		}
+		return fmt.Errorf("unexpected error value: %v", err)
+	})
+
+	// Create a new pipeline, make sure FlushCommit eventually returns, and check
+	// pipeline output (i.e. the PPS master does not crashloop--pipeline2
+	// eventually starts successfully)
+	pipeline2 := tu.UniqueString("pipeline")
+	require.NoError(t, c.CreatePipeline(
+		pipeline2,
+		"", // default image: ubuntu:16.04
+		[]string{"bash"},
+		[]string{"cp /pfs/*/* /pfs/out/"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(repo, "/*"),
+		"", // default output branch: master
+		false,
+	))
+	iter, err = c.FlushCommit(
+		[]*pfs.Commit{client.NewCommit(repo, "master")},
+		[]*pfs.Repo{client.NewRepo(pipeline2)})
+	require.NoError(t, err)
+	require.NoErrorWithinT(t, 30*time.Second, func() error {
+		_, err := iter.Next()
+		return err
+	})
+	buf := &bytes.Buffer{}
+	require.NoError(t, c.GetFile(pipeline2, "master", "/file.1", 0, 0, buf))
+	require.Equal(t, "1", buf.String())
+	buf.Reset()
+	require.NoError(t, c.GetFile(pipeline2, "master", "/file.2", 0, 0, buf))
+	require.Equal(t, "2", buf.String())
+}
+
+// TestNoTransform tests that sending a CreatePipeline request to pachd with no
+// 'transform' field doesn't kill pachd
+func TestNoTransform(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// Create input repo
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+
+	// Create pipeline w/ no transform--make sure we get a response (& make sure
+	// it explains the problem)
+	pipeline := tu.UniqueString("no-transform-")
+	_, err := c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pipeline),
+			Transform: nil,
+			Input:     client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.YesError(t, err)
+	require.Matches(t, "transform", err.Error())
+}
+
+// TestNoCmd tests that sending a CreatePipeline request to pachd with no
+// 'transform.cmd' field doesn't kill pachd
+func TestNoCmd(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	// Create input data
+	dataRepo := tu.UniqueString(t.Name() + "-data")
+	require.NoError(t, c.CreateRepo(dataRepo))
+	_, err := c.PutFile(dataRepo, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	// create pipeline
+	pipeline := tu.UniqueString("no-cmd-")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(pipeline),
+			Transform: &pps.Transform{
+				Cmd:   nil,
+				Stdin: []string{`cat foo >/pfs/out/file`},
+			},
+			Input: client.NewPFSInput(dataRepo, "/*"),
+		})
+	require.NoError(t, err)
+	time.Sleep(5 * time.Second) // give pipeline time to start
+
+	require.NoErrorWithinTRetry(t, 30*time.Second, func() error {
+		pipelineInfo, err := c.InspectPipeline(pipeline)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_FAILURE {
+			return fmt.Errorf("pipeline should be in state FAILURE, not: %s", pipelineInfo.State.String())
+		}
+		return nil
+	})
 }
 
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
