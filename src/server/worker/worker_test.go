@@ -19,6 +19,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
 var (
@@ -111,12 +112,8 @@ func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etc
 		pachClient: pachClient,
 		etcdClient: etcdClient,
 		etcdPrefix: etcdPrefix,
-		logMsgTemplate: pps.LogMessage{
-			PipelineName: "test",
-			WorkerID:     "local",
-		},
-		jobs:      ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines: ppsdb.Pipelines(etcdClient, etcdPrefix),
-		plans:     col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
+		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		plans:      col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
 	}
 }

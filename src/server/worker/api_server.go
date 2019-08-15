@@ -3,8 +3,6 @@ package worker
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,6 +54,7 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
@@ -102,7 +101,7 @@ type APIServer struct {
 	// The currently running job ID
 	jobID string
 	// The currently running data
-	data []*Input
+	data []*common.Input
 	// The time we started the currently running
 	started time.Time
 	// Func to cancel the currently running datum
@@ -193,10 +192,8 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		shard:           noShard,
 		clients:         make(map[string]Client),
 	}
-	logger, err := logs.NewLogger(pipelineInfo, nil)
-	if err != nil {
-		return nil, err
-	}
+	logger := logs.NewStatlessLogger(pipelineInfo)
+
 	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		logger.Logf("failed to get enterprise state with error: %v\n", err)
@@ -283,7 +280,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, input *Input) error {
+func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, input *common.Input) error {
 	file := input.FileInfo.File
 	pachydermRepoName := input.Name
 	var rawJSON bytes.Buffer
@@ -354,7 +351,7 @@ func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessS
 	}
 }
 
-func (a *APIServer) downloadData(pachClient *client.APIClient, logger logs.TaggedLogger, inputs []*Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
+func (a *APIServer) downloadData(pachClient *client.APIClient, logger logs.TaggedLogger, inputs []*common.Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
 	defer a.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -402,7 +399,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger logs.Tagge
 	return dir, nil
 }
 
-func (a *APIServer) linkData(inputs []*Input, dir string) error {
+func (a *APIServer) linkData(inputs []*common.Input, dir string) error {
 	// Make sure that previously symlinked outputs are removed.
 	if err := a.unlinkData(inputs); err != nil {
 		return err
@@ -417,7 +414,7 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
 }
 
-func (a *APIServer) unlinkData(inputs []*Input) error {
+func (a *APIServer) unlinkData(inputs []*common.Input) error {
 	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
 	if err != nil {
 		return fmt.Errorf("ioutil.ReadDir: %v", err)
@@ -496,8 +493,8 @@ func (a *APIServer) runUserCode(ctx context.Context, logger logs.TaggedLogger, e
 	if a.pipelineInfo.Transform.Stdin != nil {
 		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
 	}
-	cmd.Stdout = logger.userLogger()
-	cmd.Stderr = logger.userLogger()
+	cmd.Stdout = logger.WithUserCode()
+	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
 	if a.uid != nil && a.gid != nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -565,8 +562,8 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger logs.Ta
 	if a.pipelineInfo.Transform.ErrStdin != nil {
 		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
 	}
-	cmd.Stdout = logger.userLogger()
-	cmd.Stderr = logger.userLogger()
+	cmd.Stdout = logger.WithUserCode()
+	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
 	if a.uid != nil && a.gid != nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -645,7 +642,7 @@ func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, 
 	}
 }
 
-func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger logs.TaggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
+func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger logs.TaggedLogger, inputs []*common.Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
 	defer a.reportUploadStats(time.Now(), stats, logger)
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -728,7 +725,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 
 					// The name of the input
 					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-					var input *Input
+					var input *common.Input
 					for _, i := range inputs {
 						if i.Name == inputName {
 							input = i
@@ -916,7 +913,7 @@ func (a *APIServer) datum() []*pps.InputFile {
 	return result
 }
 
-func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Input) []string {
+func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*common.Input) []string {
 	result := os.Environ()
 	for _, input := range data {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
@@ -1194,7 +1191,7 @@ func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[strin
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
 		files := df.Datum(int(i))
-		datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+		datumHash := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
 		if _, ok := skip[datumHash]; ok && useParentHashTree {
 			continue
@@ -1290,7 +1287,7 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
-		logs.NewLogger(a.pipelineInfo, nil).Logf(
+		logs.NewStatlessLogger(a.pipelineInfo).Logf(
 			"blocking on parent commit %q before writing to output commit %q",
 			commitInfo.ParentCommit.ID, outputCommitID,
 		)
@@ -1441,7 +1438,7 @@ func isDone(ctx context.Context) bool {
 // terminal state (KILLED, FAILED, or SUCCESS) cancel the jobCtx so we kill any
 // user processes
 func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func(), jobID string) {
-	logger := logs.NewLogger(a.pipelineInfo, nil)
+	logger := logs.NewStatlessLogger(a.pipelineInfo)
 
 	backoff.RetryNotify(func() error {
 		// Check if job was cancelled while backoff was sleeping
@@ -1501,7 +1498,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 //  - processes the chunks with processDatums
 //  - merges the chunks with mergeDatums
 func (a *APIServer) worker() {
-	logger := logs.NewLogger(a.pipelineInfo, nil)
+	logger := logs.NewStatlessLogger(a.pipelineInfo)
 
 	// claim a shard if one is available or becomes available
 	go a.claimShard(a.pachClient.Ctx())
@@ -1604,7 +1601,7 @@ func (a *APIServer) worker() {
 				var count int
 				for i := 0; i < df.Len(); i++ {
 					files := df.Datum(i)
-					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+					datumHash := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 					if _, ok := skip[datumHash]; ok {
 						count++
 					}
@@ -1727,7 +1724,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 			logger = logger.WithJob(jobInfo.Job.ID).WithData(data)
 
 			// Hash inputs
-			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
+			tag := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
 			if _, ok := skip[tag]; ok {
 				if !useParentHashTree {
 					if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
@@ -1750,7 +1747,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 			var inputTree, outputTree *hashtree.Ordered
 			var statsTree *hashtree.Unordered
 			if a.pipelineInfo.EnableStats {
-				statsRoot := path.Join("/", logger.template.DatumID)
+				statsRoot := path.Join("/", common.DatumID(data))
 				inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
 				outputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs", "out"))
 				statsTree = hashtree.NewUnordered(statsRoot)
@@ -1875,7 +1872,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 					if statsTree != nil {
 						object, size, err := pachClient.PutObject(strings.NewReader(err.Error()))
 						if err != nil {
-							logger.stderrLog.Printf("could not put error object: %s\n", err)
+							logger.Errf("could not put error object: %s\n", err)
 						} else {
 							objectInfo, err := pachClient.InspectObject(object.Hash)
 							if err != nil {
@@ -1896,7 +1893,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 				atomic.AddInt64(&result.datumsRecovered, 1)
 				return nil
 			} else if err != nil {
-				result.failedDatumID = a.DatumID(data)
+				result.failedDatumID = common.DatumID(data)
 				atomic.AddInt64(&result.datumsFailed, 1)
 				return nil
 			}
@@ -1962,12 +1959,12 @@ func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Clien
 	marshaler := &jsonpb.Marshaler{}
 	statsString, err := marshaler.MarshalToString(stats)
 	if err != nil {
-		logger.stderrLog.Printf("could not serialize stats: %s\n", err)
+		logger.Errf("could not serialize stats: %s\n", err)
 		return err
 	}
 	object, size, err := pachClient.PutObject(strings.NewReader(statsString))
 	if err != nil {
-		logger.stderrLog.Printf("could not put stats object: %s\n", err)
+		logger.Errf("could not put stats object: %s\n", err)
 		return err
 	}
 	objectInfo, err := pachClient.InspectObject(object.Hash)

@@ -6,13 +6,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
 
@@ -31,6 +29,7 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
@@ -170,19 +169,20 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 
 	var dir string
 
-	logger, err := a.getTaggedLogger(pachClient, "spout", nil, false)
+	logger := logs.NewMasterLogger(a.pipelineInfo).WithJob("spout")
 	puller := filesync.NewPuller()
 
 	if err := a.unlinkData(nil); err != nil {
 		return fmt.Errorf("unlinkData: %v", err)
 	}
 	// If this is our second time through the loop cleanup the old data.
+	// TODO: this won't get hit
 	if dir != "" {
 		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("os.RemoveAll: %v", err)
 		}
 	}
-	dir, err = a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
+	dir, err := a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
 	if err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			return fmt.Errorf("services must have a single datum")
 		}
 		data := df.Datum(0)
-		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
+		logger := logs.NewMasterLogger(a.pipelineInfo).WithJob(job.ID).WithData(data)
 		puller := filesync.NewPuller()
 		// If this is our second time through the loop cleanup the old data.
 		if dir != "" {
@@ -639,7 +639,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		pbw := pbutil.NewWriter(buf)
 		for i := 0; i < df.Len(); i++ {
 			files := df.Datum(i)
-			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+			datumHash := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
 				return err
 			}

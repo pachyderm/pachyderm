@@ -18,20 +18,35 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
 const (
 	logBuffer = 25
 )
 
+// TaggedLogger is an interface providing logging functionality for use by the
+// worker, worker master, and user code processes
 type TaggedLogger interface {
+	// The TaggedLogger is usable as a io.Writer so that it can be set as the
+	// user code's subprocess stdout/stderr and still provide the same guarantees
 	io.Writer
 
+	// Logf logs to stdout and object storage (if stats are enabled), including
+	// metadata about the current pipeline and job
 	Logf(formatString string, args ...interface{})
+	// Errf logs only to stderr
+	Errf(formatString string, args ...interface{})
 
+	// These helpers will clone the current logger and construct a new logger that
+	// includes the given metadata in log messages.
 	WithJob(jobID string) TaggedLogger
-	WithData(data []*Input) TaggedLogger
+	WithData(data []*common.Input) TaggedLogger
 	WithUserCode() TaggedLogger
+
+	// Close will flush any writes to object storage and return information about
+	// where log statements were stored in object storage.
+	Close() (*pfs.Object, int64, error)
 }
 
 type taggedLogger struct {
@@ -53,6 +68,7 @@ func makeLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
 			PipelineName: pipelineInfo.Pipeline.Name,
 			WorkerID:     os.Getenv(client.PPSPodNameEnv),
 		},
+		// TODO: use log.New
 		stderrLog: log.Logger{},
 		marshaler: &jsonpb.Marshaler{},
 		msgCh:     make(chan string, logBuffer),
@@ -63,16 +79,19 @@ func makeLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
 	return result
 }
 
+// NewLogger constructs a TaggedLogger for the given pipeline, optionally
+// including mirroring log statements to object storage.
+//
+// If a pachClient is passed in and stats are enabled on the pipeline, log
+// statements will be chunked and written to the Object API on the given
+// client.
+//
 // TODO: the whole object api interface here is bad, there are a few shortcomings:
 //  - it's only used under the worker function when stats are enabled
 //  - 'Close' is used to end the object, but it must be explicitly called
 //  - the 'eg', 'putObjClient', 'msgCh', 'buffer', and 'objSize' don't play well
 //      with cloned loggers.
 // Abstract this into a separate object with a more explicit lifetime?
-
-// If a pachClient is passed in, and stats are enabled on the pipeline, log
-// statements will be chunked and written to the Object API on the given
-// client.
 func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (TaggedLogger, error) {
 	result := makeLogger(pipelineInfo)
 
@@ -99,19 +118,32 @@ func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (Ta
 	return result, nil
 }
 
+// NewStatlessLogger constructs a TaggedLogger for the given pipeline.  This is
+// typically used outside of the worker/master main path.
+func NewStatlessLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
+	return makeLogger(pipelineInfo)
+}
+
+// NewMasterLogger constructs a TaggedLogger for the given pipeline that
+// includes the 'Master' flag.  This is typically used for all logging from the
+// worker master goroutine.
 func NewMasterLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
 	result := makeLogger(pipelineInfo) // master loggers don't log stats
 	result.template.Master = true
 	return result
 }
 
+// WithJob clones the current logger and returns a new one that will include
+// the given job ID in log statement metadata.
 func (logger *taggedLogger) WithJob(jobID string) TaggedLogger {
 	result := logger.clone()
 	result.template.JobID = jobID
 	return result
 }
 
-func (logger *taggedLogger) WithData(data []*Input) TaggedLogger {
+// WithJob clones the current logger and returns a new one that will include
+// the given data inputs in log statement metadata.
+func (logger *taggedLogger) WithData(data []*common.Input) TaggedLogger {
 	result := logger.clone()
 
 	// Add inputs' details to log metadata, so we can find these logs later
@@ -123,12 +155,13 @@ func (logger *taggedLogger) WithData(data []*Input) TaggedLogger {
 		})
 	}
 
-	// InputFileID is a single string id for the data from this input, it's used in logs and in
-	// the statsTree
-	result.template.DatumID = DatumID(data)
+	// This is the same ID used in the stats tree for the datum
+	result.template.DatumID = common.DatumID(data)
 	return result
 }
 
+// WithUserCode clones the current logger and returns a new one that will
+// include the 'User' flag in log statement metadata.
 func (logger *taggedLogger) WithUserCode() TaggedLogger {
 	result := logger.clone()
 	result.template.User = true
@@ -137,7 +170,8 @@ func (logger *taggedLogger) WithUserCode() TaggedLogger {
 
 func (logger *taggedLogger) clone() *taggedLogger {
 	return &taggedLogger{
-		template:     logger.template, // Copy struct
+		template: logger.template, // Copy struct
+		// TODO: copy logger's stderrLog (should be goro-safe)
 		stderrLog:    log.Logger{},
 		marshaler:    &jsonpb.Marshaler{},
 		putObjClient: logger.putObjClient,
@@ -154,18 +188,24 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 	if ts, err := types.TimestampProto(time.Now()); err == nil {
 		logger.template.Ts = ts
 	} else {
-		logger.stderrLog.Printf("could not generate logging timestamp: %s\n", err)
+		logger.Errf("could not generate logging timestamp: %s\n", err)
 		return
 	}
 	msg, err := logger.marshaler.MarshalToString(&logger.template)
 	if err != nil {
-		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
+		logger.Errf("could not marshal %v for logging: %s\n", &logger.template, err)
 		return
 	}
 	fmt.Println(msg)
 	if logger.putObjClient != nil {
 		logger.msgCh <- msg + "\n"
 	}
+}
+
+// Errf writes the given line to the stderr of the worker process.  This does
+// not go to a persistent log.
+func (logger *taggedLogger) Errf(formatString string, args ...interface{}) {
+	logger.stderrLog.Printf(formatString, args...)
 }
 
 // This is provided so that taggedLogger can be used as a io.Writer for stdout

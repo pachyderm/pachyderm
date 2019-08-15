@@ -1,5 +1,18 @@
 package common
 
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gogo/protobuf/types"
+
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pps"
+)
+
 // DatumID computes the id for a datum, this value is used in ListDatum and
 // InspectDatum.
 func DatumID(data []*Input) string {
