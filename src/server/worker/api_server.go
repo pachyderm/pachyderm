@@ -62,7 +62,6 @@ import (
 const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 100
-	logBuffer   = 25
 
 	planPrefix        = "/plan"
 	chunkPrefix       = "/chunk"
@@ -323,8 +322,7 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 	return nil
 }
 
-func (a *APIServer) reportDownloadSizeStats(downSize float64, logger *taggedLogger) {
-
+func (a *APIServer) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
 	if a.exportStats {
 		if hist, err := datumDownloadSize.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
 			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
@@ -339,7 +337,7 @@ func (a *APIServer) reportDownloadSizeStats(downSize float64, logger *taggedLogg
 	}
 }
 
-func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessStats, logger logs.TaggedLogger) {
 	duration := time.Since(start)
 	stats.DownloadTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -356,7 +354,7 @@ func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessS
 	}
 }
 
-func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
+func (a *APIServer) downloadData(pachClient *client.APIClient, logger logs.TaggedLogger, inputs []*Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
 	defer a.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -435,7 +433,7 @@ func (a *APIServer) unlinkData(inputs []*Input) error {
 	return nil
 }
 
-func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
+func (a *APIServer) reportUserCodeStats(logger logs.TaggedLogger) {
 	if a.exportStats {
 		if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, "started"); err != nil {
 			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
@@ -445,7 +443,7 @@ func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
 	}
 }
 
-func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stats *pps.ProcessStats, logger logs.TaggedLogger) {
 	duration := time.Since(start)
 	stats.ProcessTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -472,7 +470,7 @@ func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stat
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 	a.reportUserCodeStats(logger)
 	defer func(start time.Time) { a.reportDeferredUserCodeStats(retErr, start, stats, logger) }(time.Now())
 	logger.Logf("beginning to run user code")
@@ -553,7 +551,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 }
 
 // Run user error code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -620,7 +618,7 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *tagged
 	return nil
 }
 
-func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, logger logs.TaggedLogger) {
 	duration := time.Since(start)
 	stats.UploadTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -647,7 +645,7 @@ func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, 
 	}
 }
 
-func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
+func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger logs.TaggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
 	defer a.reportUploadStats(time.Now(), stats, logger)
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -939,7 +937,7 @@ type processResult struct {
 
 type processFunc func(low, high int64) (*processResult, error)
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger, process processFunc) error {
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger logs.TaggedLogger, process processFunc) error {
 	chunks := a.chunks(jobID)
 	watcher, err := chunks.ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
@@ -1013,7 +1011,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 	return nil
 }
 
-func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger logs.TaggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1692,7 +1690,7 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.TaggedLogger, jobInfo *pps.JobInfo,
 	df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
@@ -1959,7 +1957,7 @@ func (a *APIServer) cacheHashtree(pachClient *client.APIClient, tag string, datu
 	return nil
 }
 
-func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger *taggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered, datumIdx int64) (retErr error) {
+func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger logs.TaggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered, datumIdx int64) (retErr error) {
 	// Store stats and add stats file
 	marshaler := &jsonpb.Marshaler{}
 	statsString, err := marshaler.MarshalToString(stats)
@@ -2048,7 +2046,7 @@ func mergeStats(x, y *pps.ProcessStats) error {
 }
 
 // mergeChunk merges the datum hashtrees into a chunk hashtree and stores it.
-func (a *APIServer) mergeChunk(logger *taggedLogger, high int64, result *processResult) (retErr error) {
+func (a *APIServer) mergeChunk(logger logs.TaggedLogger, high int64, result *processResult) (retErr error) {
 	logger.Logf("starting to merge chunk")
 	defer func(start time.Time) {
 		if retErr != nil {

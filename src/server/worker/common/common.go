@@ -1,4 +1,4 @@
-package worker
+package common
 
 // DatumID computes the id for a datum, this value is used in ListDatum and
 // InspectDatum.

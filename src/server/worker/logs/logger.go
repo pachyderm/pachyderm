@@ -1,26 +1,66 @@
-package logger
+package logs
+
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/gogo/protobuf/jsonpb"
+	"github.com/gogo/protobuf/types"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/client/pkg/grpcutil"
+	"github.com/pachyderm/pachyderm/src/client/pps"
+)
+
+const (
+	logBuffer = 25
+)
 
 type TaggedLogger interface {
 	io.Writer
 
-	func Logf(formatString string, args ...interface{})
+	Logf(formatString string, args ...interface{})
 
-  func WithJob(jobID string) TaggedLogger
-	func WithData(data []*Input) TaggedLogger
-	func WithUserCode() TaggedLogger
+	WithJob(jobID string) TaggedLogger
+	WithData(data []*Input) TaggedLogger
+	WithUserCode() TaggedLogger
 }
 
 type taggedLogger struct {
-	template     pps.LogMessage
-	stderrLog    log.Logger
-	marshaler    *jsonpb.Marshaler
+	template  pps.LogMessage
+	stderrLog log.Logger
+	marshaler *jsonpb.Marshaler
 
 	// Used for mirroring log statements to object storage
 	putObjClient pfs.ObjectAPI_PutObjectClient
 	objSize      int64
 	msgCh        chan string
-	buffer			 bytes.Buffer
+	buffer       bytes.Buffer
 	eg           errgroup.Group
+}
+
+func makeLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
+	result := &taggedLogger{
+		template: pps.LogMessage{
+			PipelineName: pipelineInfo.Pipeline.Name,
+			WorkerID:     os.Getenv(client.PPSPodNameEnv),
+		},
+		stderrLog: log.Logger{},
+		marshaler: &jsonpb.Marshaler{},
+		msgCh:     make(chan string, logBuffer),
+	}
+	result.stderrLog.SetOutput(os.Stderr)
+	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
+
+	return result
 }
 
 // TODO: the whole object api interface here is bad, there are a few shortcomings:
@@ -34,17 +74,7 @@ type taggedLogger struct {
 // statements will be chunked and written to the Object API on the given
 // client.
 func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (TaggedLogger, error) {
-	result := &taggedLogger{
-		template:  pps.LogMessage{
-			PipelineName: pipelineInfo.Pipeline.Name,
-			WorkerID:     os.Getenv(client.PPSPodNameEnv),
-		},
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
-		msgCh:     make(chan string, logBuffer),
-	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
+	result := makeLogger(pipelineInfo)
 
 	if pachClient != nil && pipelineInfo.EnableStats {
 		putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
@@ -69,16 +99,13 @@ func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (Ta
 	return result, nil
 }
 
-func NewMasterLogger(pipelineInfo *pps.PipelineInfo) (TaggedLogger, error) {
-	result, err := newLogger(pipelineInfo, nil) // master loggers don't log stats
-	if err != nil {
-		return nil, err
-	}
+func NewMasterLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
+	result := makeLogger(pipelineInfo) // master loggers don't log stats
 	result.template.Master = true
-	return result, nil
+	return result
 }
 
-func (logger *taggedLogger) WithJob(jobID string) TtaggedLogger {
+func (logger *taggedLogger) WithJob(jobID string) TaggedLogger {
 	result := logger.clone()
 	result.template.JobID = jobID
 	return result
@@ -88,7 +115,7 @@ func (logger *taggedLogger) WithData(data []*Input) TaggedLogger {
 	result := logger.clone()
 
 	// Add inputs' details to log metadata, so we can find these logs later
-	result.template.Data = []pps.InputFile{}
+	result.template.Data = []*pps.InputFile{}
 	for _, d := range data {
 		result.template.Data = append(result.template.Data, &pps.InputFile{
 			Path: d.FileInfo.File.Path,
@@ -144,26 +171,26 @@ func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
 // This is provided so that taggedLogger can be used as a io.Writer for stdout
 // and stderr when running user code.
 func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
-  // never errors
-  logger.buffer.Write(p)
-  r := bufio.NewReader(&logger.buffer)
-  for {
-    message, err := r.ReadString('\n')
-    if err != nil {
-      if err == io.EOF {
-        logger.buffer.Write([]byte(message))
-        return len(p), nil
-      }
-      // this shouldn't technically be possible to hit io.EOF should be
-      // the only error bufio.Reader can return when using a buffer.
-      return 0, fmt.Errorf("error ReadString: %v", err)
-    }
-    // We don't want to make this call as:
-    // logger.Logf(message)
-    // because if the message has format characters like %s in it those
-    // will result in errors being logged.
-    logger.Logf("%s", strings.TrimSuffix(message, "\n"))
-  }
+	// never errors
+	logger.buffer.Write(p)
+	r := bufio.NewReader(&logger.buffer)
+	for {
+		message, err := r.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				logger.buffer.Write([]byte(message))
+				return len(p), nil
+			}
+			// this shouldn't technically be possible to hit io.EOF should be
+			// the only error bufio.Reader can return when using a buffer.
+			return 0, fmt.Errorf("error ReadString: %v", err)
+		}
+		// We don't want to make this call as:
+		// logger.Logf(message)
+		// because if the message has format characters like %s in it those
+		// will result in errors being logged.
+		logger.Logf("%s", strings.TrimSuffix(message, "\n"))
+	}
 }
 
 // Close flushes and closes the object storage client used to mirror log

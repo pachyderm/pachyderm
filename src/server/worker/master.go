@@ -386,7 +386,7 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 // waitJob waits for the job in 'jobInfo' to finish, and then it collects the
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
-func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
+func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.TaggedLogger) (retErr error) {
 	logger.Logf("waiting on job %q (pipeline version: %d, state: %s)", jobInfo.Job.ID, jobInfo.PipelineVersion, jobInfo.State)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
@@ -756,7 +756,7 @@ func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
-func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) error {
+func (a *APIServer) egress(pachClient *client.APIClient, logger logs.TaggedLogger, jobInfo *pps.JobInfo) error {
 	// copy the pach client (preserving auth info) so we can set a different
 	// number of concurrent streams
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
@@ -790,7 +790,7 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 	})
 }
 
-func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) receiveSpout(ctx context.Context, logger logs.TaggedLogger) error {
 	return backoff.RetryNotify(func() error {
 		repo := a.pipelineInfo.Pipeline.Name
 		for {
@@ -865,7 +865,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 	})
 }
 
-func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) runService(ctx context.Context, logger logs.TaggedLogger) error {
 	return backoff.RetryNotify(func() error {
 		// if we have a spout, then asynchronously receive spout data
 		if a.pipelineInfo.Spout != nil {
