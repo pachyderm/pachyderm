@@ -992,15 +992,3 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 		NinetyFifthPercentile: ninetyFifth,
 	}, nil
 }
-
-func isNotFoundErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
-}

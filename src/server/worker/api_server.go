@@ -94,9 +94,6 @@ type APIServer struct {
 	// Information needed to process input data and upload output
 	pipelineInfo *pps.PipelineInfo
 
-	// Information attached to log lines
-	logMsgTemplate pps.LogMessage
-
 	// The k8s pod name of this worker
 	workerName string
 
@@ -159,159 +156,6 @@ type APIServer struct {
 	clients map[string]Client
 }
 
-type putObjectResponse struct {
-	object *pfs.Object
-	size   int64
-	err    error
-}
-
-type taggedLogger struct {
-	template     pps.LogMessage
-	stderrLog    log.Logger
-	marshaler    *jsonpb.Marshaler
-	buffer       bytes.Buffer
-	putObjClient pfs.ObjectAPI_PutObjectClient
-	objSize      int64
-	msgCh        chan string
-	eg           errgroup.Group
-}
-
-// DatumID computes the id for a datum, this value is used in ListDatum and
-// InspectDatum.
-func (a *APIServer) DatumID(data []*Input) string {
-	hash := sha256.New()
-	for _, d := range data {
-		hash.Write([]byte(d.FileInfo.File.Path))
-		hash.Write(d.FileInfo.Hash)
-	}
-	// InputFileID is a single string id for the data from this input, it's used in logs and in
-	// the statsTree
-	return hex.EncodeToString(hash.Sum(nil))
-}
-
-func (a *APIServer) getTaggedLogger(pachClient *client.APIClient, jobID string, data []*Input, enableStats bool) (*taggedLogger, error) {
-	result := &taggedLogger{
-		template:  a.logMsgTemplate, // Copy struct
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
-		msgCh:     make(chan string, logBuffer),
-	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-
-	// Add Job ID to log metadata
-	result.template.JobID = jobID
-
-	// Add inputs' details to log metadata, so we can find these logs later
-	for _, d := range data {
-		result.template.Data = append(result.template.Data, &pps.InputFile{
-			Path: d.FileInfo.File.Path,
-			Hash: d.FileInfo.Hash,
-		})
-	}
-	// InputFileID is a single string id for the data from this input, it's used in logs and in
-	// the statsTree
-	result.template.DatumID = a.DatumID(data)
-	if enableStats {
-		putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
-		if err != nil {
-			return nil, err
-		}
-		result.putObjClient = putObjClient
-		result.eg.Go(func() error {
-			for msg := range result.msgCh {
-				for _, chunk := range grpcutil.Chunk([]byte(msg), grpcutil.MaxMsgSize/2) {
-					if err := result.putObjClient.Send(&pfs.PutObjectRequest{
-						Value: chunk,
-					}); err != nil && err != io.EOF {
-						return err
-					}
-				}
-				result.objSize += int64(len(msg))
-			}
-			return nil
-		})
-	}
-	return result, nil
-}
-
-// Logf logs the line Sprintf(formatString, args...), but formatted as a json
-// message and annotated with all of the metadata stored in 'loginfo'.
-//
-// Note: this is not thread-safe, as it modifies fields of 'logger.template'
-func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
-	logger.template.Message = fmt.Sprintf(formatString, args...)
-	if ts, err := types.TimestampProto(time.Now()); err == nil {
-		logger.template.Ts = ts
-	} else {
-		logger.stderrLog.Printf("could not generate logging timestamp: %s\n", err)
-		return
-	}
-	msg, err := logger.marshaler.MarshalToString(&logger.template)
-	if err != nil {
-		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
-		return
-	}
-	fmt.Println(msg)
-	if logger.putObjClient != nil {
-		logger.msgCh <- msg + "\n"
-	}
-}
-
-func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
-	// never errors
-	logger.buffer.Write(p)
-	r := bufio.NewReader(&logger.buffer)
-	for {
-		message, err := r.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				logger.buffer.Write([]byte(message))
-				return len(p), nil
-			}
-			// this shouldn't technically be possible to hit io.EOF should be
-			// the only error bufio.Reader can return when using a buffer.
-			return 0, fmt.Errorf("error ReadString: %v", err)
-		}
-		// We don't want to make this call as:
-		// logger.Logf(message)
-		// because if the message has format characters like %s in it those
-		// will result in errors being logged.
-		logger.Logf("%s", strings.TrimSuffix(message, "\n"))
-	}
-}
-
-func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
-	close(logger.msgCh)
-	if logger.putObjClient != nil {
-		if err := logger.eg.Wait(); err != nil {
-			return nil, 0, err
-		}
-		object, err := logger.putObjClient.CloseAndRecv()
-		// we set putObjClient to nil so that future calls to Logf won't send
-		// msg down logger.msgCh as we've just closed that channel.
-		logger.putObjClient = nil
-		return object, logger.objSize, err
-	}
-	return nil, 0, nil
-}
-
-func (logger *taggedLogger) clone() *taggedLogger {
-	return &taggedLogger{
-		template:     logger.template, // Copy struct
-		stderrLog:    log.Logger{},
-		marshaler:    &jsonpb.Marshaler{},
-		putObjClient: logger.putObjClient,
-		msgCh:        logger.msgCh,
-	}
-}
-
-func (logger *taggedLogger) userLogger() *taggedLogger {
-	result := logger.clone()
-	result.template.User = true
-	return result
-}
-
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreeStorage string) (*APIServer, error) {
 	initPrometheus()
@@ -333,15 +177,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, err
 	}
 	server := &APIServer{
-		pachClient:   oldPachClient,
-		kubeClient:   kubeClient,
-		etcdClient:   etcdClient,
-		etcdPrefix:   etcdPrefix,
-		pipelineInfo: pipelineInfo,
-		logMsgTemplate: pps.LogMessage{
-			PipelineName: pipelineInfo.Pipeline.Name,
-			WorkerID:     os.Getenv(client.PPSPodNameEnv),
-		},
+		pachClient:      oldPachClient,
+		kubeClient:      kubeClient,
+		etcdClient:      etcdClient,
+		etcdPrefix:      etcdPrefix,
+		pipelineInfo:    pipelineInfo,
 		workerName:      workerName,
 		namespace:       namespace,
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
@@ -353,7 +193,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		shard:           noShard,
 		clients:         make(map[string]Client),
 	}
-	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
+	logger, err := logger.NewLogger(pipelineInfo, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -1018,53 +858,6 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	}
 	// Cache datum hashtree locally
 	return a.datumCache.Put(datumIdx, bytes.NewReader(b.Bytes()))
-}
-
-// HashDatum computes and returns the hash of datum + pipeline, with a
-// pipeline-specific prefix.
-func HashDatum(pipelineName string, pipelineSalt string, data []*Input) string {
-	hash := sha256.New()
-	for _, datum := range data {
-		hash.Write([]byte(datum.Name))
-		hash.Write([]byte(datum.FileInfo.File.Path))
-		hash.Write(datum.FileInfo.Hash)
-	}
-
-	hash.Write([]byte(pipelineName))
-	hash.Write([]byte(pipelineSalt))
-
-	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
-}
-
-// HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
-// pipeline-specific prefix.
-func HashDatum15(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
-	hash := sha256.New()
-	for _, datum := range data {
-		hash.Write([]byte(datum.Name))
-		hash.Write([]byte(datum.FileInfo.File.Path))
-		hash.Write(datum.FileInfo.Hash)
-	}
-
-	// We set env to nil because if env contains more than one elements,
-	// since it's a map, the output of Marshal() can be non-deterministic.
-	env := pipelineInfo.Transform.Env
-	pipelineInfo.Transform.Env = nil
-	defer func() {
-		pipelineInfo.Transform.Env = env
-	}()
-	bytes, err := pipelineInfo.Transform.Marshal()
-	if err != nil {
-		return "", err
-	}
-	hash.Write(bytes)
-	hash.Write([]byte(pipelineInfo.Pipeline.Name))
-	hash.Write([]byte(pipelineInfo.ID))
-	hash.Write([]byte(strconv.Itoa(int(pipelineInfo.Version))))
-
-	// Note in 1.5.0 this function was called HashPipelineID, it's now called
-	// HashPipelineName but it has the same implementation.
-	return client.DatumTagPrefix(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // Status returns the status of the current worker.
@@ -1926,10 +1719,12 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			defer atomic.AddInt64(&a.queueSize, -1)
 
 			data := df.Datum(int(datumIdx))
-			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
+			logger, err := logger.NewLogger(a.pipelineInfo, pachClient)
 			if err != nil {
 				return err
 			}
+			logger = logger.WithJob(jobInfo.Job.ID).WithData(data)
+
 			// Hash inputs
 			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
 			if _, ok := skip[tag]; ok {
