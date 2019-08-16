@@ -6,8 +6,7 @@ but does not really have a good and clear explanation of what they are -->
 
 Pachyderm enables you to combine multiple
 input repositories in a single pipeline by using the `union` and
-`cross` operators in the pipeline specification. Such pipelines
-are called *union pipeline or input* and *cross pipeline or input*.
+`cross` operators in the pipeline specification.
 
 If you are familiar with [Set theory](https://en.wikipedia.org/wiki/Set_theory),
 you can think of union as a *disjoint union binary operator* and cross as a
@@ -70,8 +69,8 @@ in the pipeline spec might have the following structure:
 ```
 
 In this example, each Pachyderm repository has those three files in the root
-directory, and you have six datums in total, which is the sum of the number
-of input files.
+directory, so three datums from each input. Therefore, the union of `A` and `B`
+has six datums in total.
 Your pipeline processes the following datums without any specific order:
 
 ```bash
@@ -88,13 +87,13 @@ execution of your code. In this example, your code runs six times and each
 datum is available to it one at a time. For example, your code
 processes `pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a different run,
 and so on. In a union, two or more datums are never available to your code
-at the same time. Read next section to learn how you can simplify
-your pipeline by using the `name` property.
+at the same time. You can simplify
+your union code by using the `name` property as described below.
 
 ### Simplifying the Union Pipelines code
 
 In the example above, your code needs to read into the `pfs/A`
-or `pfs/B` directory because only one of them exists in the datum.
+_or_ `pfs/B` directory because only one of them is present in any given datum.
 To simplify your code, you can add the `name` field to the `pfs` object and
 give the same name to each of the input repos. For example, you can add, the
 `name` field with the value `C` to the input repositories `A` and `B`:
@@ -134,19 +133,18 @@ Then, in the pipeline, all datums appear in the same directory.
 ## Cross Input
 
 In a cross input, Pachyderm exposes every combination of datums,
-or a cross-product, from each of your input repository to your code
+or a cross-product, from each of your input repositories to your code
 in a single run.
-In other words, a cross input
-combines all the datums and provides them to the pipeline
-that uses this combination as input and treats each combination
-as a separate datum.
+In other words, a cross input pairs every datum in one repository with
+each datum in another, creating sets of datums. Your transformation
+code is provided one of these sets at the time to process.
 
-For example, you have repositories `A` and `B` with the following
-structures:
+For example, you have repositories `A` and `B` with three datums each
+with the following structure:
 
 **Note:** For this example, the glob pattern is set to `/*`.
 
-Repository `A` has the following structure:
+Repository `A` has three files at the top level:
 
 ```bash
 A
@@ -155,7 +153,7 @@ A
 └── 3.txt
 ```
 
-Repository `B` has the following structure:
+Repository `B` has three files at the top level:
 
 ```bash
 B
@@ -182,9 +180,8 @@ Run 9: /pfs/A/3.txt
        /pfs/B/3.txt
 ```
 
-In cross inputs, you cannot specify the same `name` to the combined
-input repositories or name collisions might occur. Both directories are
-visible during the processing.
+**Note:** In cross inputs, if you use the `name` field, your two
+inputs cannot have the same name. This could cause file system collisions.
 
 **See Also:**
 

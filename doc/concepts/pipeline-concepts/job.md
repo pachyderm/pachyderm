@@ -11,6 +11,6 @@ Each job has the following stages:
 
 | Stage     | Description  |
 | --------- | ------------ |
-| Starting  | Pachyderm starts the job when it detects new data in the input repository. <br> The new data appears as a commit in the input repository, and Pachyderm <br> automatically launches the job. Pachyderm spins the number of Pachyderm worker pods <br> specified in the pipeline spec and spreads the workload among them. |
-| Running   | Pachyderm runs the transformation code that is specified <br> in the pipeline specification against the data in the input commit. |
-| Merging   | Pachyderm concatenates the results of the processed <br> data into one or more files, uploads them to the output repository, completes the final output commits, and creates/persists all the versioning metadata |
+| Starting  | Pachyderm starts the job when it detects new data in the input repository. <br> A job is in the *starting* state when it is pulling the user Docker image, creating <br> the worker pods, and waiting for Kubernetes to schedule them. |
+| Running   | Pachyderm is running the user code over all <br> input datums. |
+| Merging   | Pachyderm concatenates the results of the processed <br> data into one or more files, uploads them to the output repository, completes <br> the final output commits, and creates/persists all the versioning metadata. |

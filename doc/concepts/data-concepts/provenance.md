@@ -43,7 +43,7 @@ complete audit trail so that all results are reproducible.
 
 The following diagram demonstrates how provenance works:
 
-![Provenance example](../../images/provenance.png)
+![Provenance example](../../images/provenance.svg)
 
 In the diagram above, you can see two input repositories called `parameters`
 and `training-data`. The `training-data` repository continuously collects

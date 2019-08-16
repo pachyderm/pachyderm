@@ -5,13 +5,13 @@ However, if you want to trigger a pipeline based on time instead of upon
 arrival of input data, you can schedule such pipelines to run periodically
 by using the built-in `cron` input type.
 
-A standard pipeline with a PFS input might not satisfy
-the requirements of the following tasks:
+Cron inputs are well suited for a variety of use cases including
+the following:
 
-- Scrape websites
-- Make API calls
-- Query a database
-- Retrieve a file from a location accessible through an S3 protocol
+- Scraping websites
+- Making API calls
+- Querying a database
+- Retrieving a file from a location accessible through an S3 protocol
 or a File Transfer Protocol (FTP).
 
 A minimum cron pipeline must include the following parameters:
@@ -19,7 +19,7 @@ A minimum cron pipeline must include the following parameters:
 | Parameter  | Description  |
 | ---------- | ------------ |
 | `"name"`   | A descriptive name of the cron pipeline. |
-| `"spec"`   | An interval between scheduled cron jobs. You can specify any value that is <br> formatted according to [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt). <br> For example, if you set `*/10 * * * *`, the pipeline runs every ten minutes. |
+| `"spec"`   | The `spec` parameter defines when to trigger a cron job. You can specify any value that is <br> formatted according to [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt). <br> For example, if you set `*/10 * * * *`, the pipeline runs every ten minutes. |
 
 ## Example of a Cron Pipeline
 
@@ -46,10 +46,10 @@ triggers the pipeline.
 The pipeline runs every ten seconds, queries the database, and updates its
 output. By default, each cron trigger adds a new tick file to the cron input
 repository, accumulating more datums over time. This behavior works for some
-pipelines. For others you might want each tick file to overwrite the
-previous one. You can set the overwrite flag to true to overwrite the
-timestamp file on each tick. To learn more about overwriting commits in
-Pachyderm, see [Datum processing](../datum/index.rst)
+pipelines. For others, you can set the `--overwrite` flag to `true` to
+overwrite the timestamp file on each tick. To learn more about overwriting files
+within a commit as opposed to adding a new file, and how that
+affects the datums in the subsequent jobs , see [Datum processing](../datum/index.rst)
 
 **Example:**
 

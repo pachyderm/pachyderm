@@ -108,23 +108,23 @@ you to test various glob patterns before you use them in a pipeline.
 **Example:**
 
 * If you set the `glob` property to `/`, Pachyderm detects all
-top-level filesystem objects in the `train` repository as one
+top-level filesystem objects in the `census_data` repository as one
 datum:
 
   ```bash
-  $ pachctl glob file train@master:/
+  $ pachctl glob file census_data@master:/
   NAME TYPE SIZE
-  /    dir  15.11KiB
+  /    dir  15.11GiB
   ```
 
-* If you set the `glob` property to `/`, Pachyderm detects each
-top-level filesystem object in the `train` repository as a separate
+* If you set the `glob` property to `/*`, Pachyderm detects each
+top-level filesystem object in the `census_data` repository as a separate
 datum:
 
   ```bash
-  $ pachctl glob file train@master:/*
-  NAME                   TYPE SIZE
-  /IssueSummarization.py file 1.224KiB
-  /requirements.txt      file 74B
-  /seq2seq_utils.py      file 13.81KiB
+  $ pachctl glob file census_data@master:/*
+  NAME              TYPE SIZE
+  /California       dir  1.224GiB
+  /Colorado         dir  74GiB
+  /Connecticut      dir  13.81GiB
   ```

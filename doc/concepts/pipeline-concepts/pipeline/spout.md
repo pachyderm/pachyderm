@@ -17,7 +17,8 @@ Pachyderm creates a new commit and triggers the pipeline to
 process it.
 
 One main difference from regular pipelines is that
-you cannot specify input in the spout pipeline.
+spouts ingest their data from outside sources. Therefore, they
+do not take an input.
 
 Another important aspect is that in spouts, `pfs/out` is
 a *named pipe*, or *First in, First Out* (FIFO), and is not
@@ -37,9 +38,14 @@ To create a spout pipeline, you need the following items:
 Your spout code performs the following actions:
 
 1. Connects to the specified streaming data source.
+1. Opens `/pfs/out` as a named pipe.
 1. Reads the data from the streaming data source.
 1. Packages the data into a `tar` stream.
-1. Writes the `tar` stream into the `pfs/out` pipe.
+1. Writes the `tar` stream into the `pfs/out` pipe. In case of transient
+errors produced by closing a previous write to the pipe, retries the write
+operation.
+1. Closes the `tar` stream and connection to `/pfs/out`, which produces the
+commit.
 
 A minimum spout specification must include the following
 parameters:

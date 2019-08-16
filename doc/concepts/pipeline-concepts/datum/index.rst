@@ -21,8 +21,8 @@ and are instrumental in optimizing your configuration for best performance.
 
 Pachyderm takes each datum and processes it in isolation on one of
 the pipeline worker nodes. You can define datums, workers, and other
-performance parameters can all be configured through the
-corresponding fields in the `pipeline specification <../../../reference/pipeline-spec.html>`__
+performance parameters through the
+corresponding fields in the `pipeline specification <../../../reference/pipeline-spec.html>`__.
 
 To understand how datums affect data processing in Pachyderm, you need to
 understand the following subconcepts:
@@ -32,3 +32,4 @@ understand the following subconcepts:
 
    glob-pattern.md
    relationship-between-datums.md
+   cross-union.md

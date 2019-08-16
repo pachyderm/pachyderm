@@ -63,12 +63,18 @@ A minimum pipeline specification must include the following parameters:
        }
    }
 
+Also, Pachyderm provides special types of pipelines that allow for other
+use cases, such as running periodically, serving an endpoint, or
+automatically ingesting data from a message stream.
+
+You can configure the following special types of pipelines:
+
 .. toctree::
    :maxdepth: 2
 
-   cross-union.md
    cron.md
    service.md
+   spout.md
 
 **See also**
 
