@@ -35,7 +35,7 @@ var (
 	bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_\.]{1,255}/`)
 	// authV2HeaderValidator is a regex for validating the authorization
 	// header when using AWs' auth V2
-	authV2HeaderValidator = regexp.MustCompile(`^AWS ([^:]+):(.+)$`)
+	authV2HeaderValidator = regexp.MustCompile(`^AWS ([^:]*):(.*)$`)
 	// authV4HeaderValidator is a regex for validating the authorization
 	// header when using AWs' auth V4
 	authV4HeaderValidator = regexp.MustCompile(`^AWS4-HMAC-SHA256 Credential=([^/]*)/([^/]*)/([^/]*)/s3/aws4_request, SignedHeaders=([^,]+), Signature=(.+)$`)
