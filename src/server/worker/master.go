@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/montanaflynn/stats"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"

@@ -130,7 +130,7 @@ require (
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190815212832-922a4ee32d1a // indirect
+	golang.org/x/tools v0.0.0-20190815235612-5b08f89bfc0c // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.21.1
 	gopkg.in/go-playground/webhooks.v5 v5.11.0

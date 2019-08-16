@@ -886,7 +886,7 @@ func (a *APIServer) Cancel(ctx context.Context, request *CancelRequest) (*Cancel
 	if request.JobID != a.jobID {
 		return &CancelResponse{Success: false}, nil
 	}
-	if !MatchDatum(request.DataFilters, a.datum()) {
+	if !common.MatchDatum(request.DataFilters, a.datum()) {
 		return &CancelResponse{Success: false}, nil
 	}
 	a.cancel()

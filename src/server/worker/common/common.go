@@ -4,11 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
