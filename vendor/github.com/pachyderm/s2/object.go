@@ -1,6 +1,7 @@
 package s2
 
 import (
+	"encoding/xml"
 	"io"
 	"net/http"
 	"time"
@@ -149,4 +150,85 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("x-amz-delete-marker", "true")
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *objectHandler) post(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+
+	payload := struct {
+		XMLName xml.Name `xml:"Delete"`
+		Quiet   bool     `xml:"Quiet"`
+		Objects []struct {
+			Key     string `xml:"Key"`
+			Version string `xml:"VersionId"`
+		} `xml:"Object"`
+	}{}
+	if err := readXMLBody(r, &payload); err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
+	marshallable := struct {
+		XMLName xml.Name `xml:"DeleteResult"`
+		Deleted []struct {
+			Key                 string `xml:"Key"`
+			Version             string `xml:"Version,omitempty"`
+			DeleteMarker        bool   `xml:"Code,omitempty"`
+			DeleteMarkerVersion string `xml:"DeleteMarkerVersionId,omitempty"`
+		} `xml:"Deleted"`
+		Errors []struct {
+			Key     string `xml:"Key"`
+			Code    string `xml:"Code"`
+			Message string `xml:"Message"`
+		} `xml:"Error"`
+	}{
+		Deleted: []struct {
+			Key                 string `xml:"Key"`
+			Version             string `xml:"Version,omitempty"`
+			DeleteMarker        bool   `xml:"Code,omitempty"`
+			DeleteMarkerVersion string `xml:"DeleteMarkerVersionId,omitempty"`
+		}{},
+		Errors: []struct {
+			Key     string `xml:"Key"`
+			Code    string `xml:"Code"`
+			Message string `xml:"Message"`
+		}{},
+	}
+
+	for _, object := range payload.Objects {
+		result, err := h.controller.DeleteObject(r, bucket, object.Key, object.Version)
+		if err != nil {
+			s3Err := NewFromGenericError(r, err)
+
+			marshallable.Errors = append(marshallable.Errors, struct {
+				Key     string `xml:"Key"`
+				Code    string `xml:"Code"`
+				Message string `xml:"Message"`
+			}{
+				Key:     object.Key,
+				Code:    s3Err.Code,
+				Message: s3Err.Message,
+			})
+		} else {
+			deleteMarkerVersion := ""
+			if result.DeleteMarker {
+				deleteMarkerVersion = result.Version
+			}
+
+			marshallable.Deleted = append(marshallable.Deleted, struct {
+				Key                 string `xml:"Key"`
+				Version             string `xml:"Version,omitempty"`
+				DeleteMarker        bool   `xml:"Code,omitempty"`
+				DeleteMarkerVersion string `xml:"DeleteMarkerVersionId,omitempty"`
+			}{
+				Key:                 object.Key,
+				Version:             object.Version,
+				DeleteMarker:        result.DeleteMarker,
+				DeleteMarkerVersion: deleteMarkerVersion,
+			})
+		}
+	}
+
+	writeXML(h.logger, w, r, http.StatusOK, marshallable)
 }

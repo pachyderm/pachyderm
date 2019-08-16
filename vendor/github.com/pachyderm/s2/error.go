@@ -32,6 +32,18 @@ func NewError(r *http.Request, httpStatus int, code string, message string) *Err
 	}
 }
 
+// NewFromGenericError takes in a generic error, and returns an s2 `Error`. If
+// the input error is not already an s2 `Error`, it is turned into an
+// `InternalError`.
+func NewFromGenericError(r *http.Request, err error) *Error {
+	switch e := err.(type) {
+	case *Error:
+		return e
+	default:
+		return InternalError(r, e)
+	}
+}
+
 func (e *Error) Error() string {
 	return fmt.Sprintf("[%s] %s", e.Code, e.Message)
 }
