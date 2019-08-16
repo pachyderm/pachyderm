@@ -224,8 +224,10 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 
 	_, err = pc.InspectFile(c.repo, "master", keepPath(repo, branch, key, uploadID))
 	if err != nil {
-		// TODO: differentiate between not found errors and other kinds
-		return nil, s2.NoSuchUploadError(r)
+		if pfsServer.IsFileNotFoundErr(err) {
+			return nil, s2.NoSuchUploadError(r)
+		}
+		return nil, err
 	}
 
 	// check if the destination file already exists, and if so, delete it
@@ -245,8 +247,10 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 
 		fileInfo, err := pc.InspectFile(c.repo, "master", srcPath)
 		if err != nil {
-			// TODO: differentiate between not found errors and other kinds
-			return nil, s2.InvalidPartError(r)
+			if pfsServer.IsFileNotFoundErr(err) {
+				return nil, s2.NoSuchUploadError(r)
+			}
+			return nil, err
 		}
 
 		// Only verify the ETag when it's of the same length as PFS file
@@ -361,8 +365,10 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 
 	_, err = pc.InspectFile(c.repo, "master", keepPath(repo, branch, key, uploadID))
 	if err != nil {
-		// TODO: differentiate between not found errors and other kinds
-		return "", s2.NoSuchUploadError(r)
+		if pfsServer.IsFileNotFoundErr(err) {
+			return nil, s2.NoSuchUploadError(r)
+		}
+		return nil, err
 	}
 
 	path := chunkPath(repo, branch, key, uploadID, partNumber)
