@@ -29,19 +29,19 @@ func configPath() string {
 }
 
 // ActiveContext gets the active context in the config
-func (c *Config) ActiveContext() (*Context, error) {
+func (c *Config) ActiveContext() (string, *Context, error) {
 	if env, ok := os.LookupEnv(contextEnvVar); ok {
 		context := c.V2.Contexts[env]
 		if context == nil {
-			return nil, fmt.Errorf("`%s` refers to a context that does not exist", contextEnvVar)
+			return "", nil, fmt.Errorf("`%s` refers to a context that does not exist", contextEnvVar)
 		}
-		return context, nil
+		return env, context, nil
 	}
 	context := c.V2.Contexts[c.V2.ActiveContext]
 	if context == nil {
-		return nil, fmt.Errorf("the active context references one that does exist; set the active context first like so: pachctl config set active-context [value]")
+		return "", nil, fmt.Errorf("the active context references one that does exist; set the active context first like so: pachctl config set active-context [value]")
 	}
-	return context, nil
+	return c.V2.ActiveContext, context, nil
 }
 
 // Read loads the Pachyderm config on this machine.
@@ -92,7 +92,6 @@ func Read() (*Config, error) {
 				return
 			}
 		}
-
 	})
 
 	return value, readErr
