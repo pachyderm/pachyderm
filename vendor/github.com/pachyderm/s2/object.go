@@ -216,17 +216,19 @@ func (h *objectHandler) post(w http.ResponseWriter, r *http.Request) {
 				deleteMarkerVersion = result.Version
 			}
 
-			marshallable.Deleted = append(marshallable.Deleted, struct {
-				Key                 string `xml:"Key"`
-				Version             string `xml:"Version,omitempty"`
-				DeleteMarker        bool   `xml:"Code,omitempty"`
-				DeleteMarkerVersion string `xml:"DeleteMarkerVersionId,omitempty"`
-			}{
-				Key:                 object.Key,
-				Version:             object.Version,
-				DeleteMarker:        result.DeleteMarker,
-				DeleteMarkerVersion: deleteMarkerVersion,
-			})
+			if !payload.Quiet {
+				marshallable.Deleted = append(marshallable.Deleted, struct {
+					Key                 string `xml:"Key"`
+					Version             string `xml:"Version,omitempty"`
+					DeleteMarker        bool   `xml:"Code,omitempty"`
+					DeleteMarkerVersion string `xml:"DeleteMarkerVersionId,omitempty"`
+				}{
+					Key:                 object.Key,
+					Version:             object.Version,
+					DeleteMarker:        result.DeleteMarker,
+					DeleteMarkerVersion: deleteMarkerVersion,
+				})
+			}
 		}
 	}
 
