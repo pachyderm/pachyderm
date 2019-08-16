@@ -358,6 +358,10 @@ github.com/pachyderm/s2 v0.0.0-20190808221121-2a1bcfd73950 h1:mh/fVIhPTTVRVgvM87
 github.com/pachyderm/s2 v0.0.0-20190808221121-2a1bcfd73950/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pachyderm/s2 v0.0.0-20190809164129-a794a47a9c2d h1:PUtBVUeliGCp3yzOQcM/fccD2rPN/baJu1ApOMMfXyU=
 github.com/pachyderm/s2 v0.0.0-20190809164129-a794a47a9c2d/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
+github.com/pachyderm/s2 v0.0.0-20190815155937-787778722098 h1:BTYtYuYMlJznBNUB7QiU6/NdNM4G0J38xCRBdIDkurY=
+github.com/pachyderm/s2 v0.0.0-20190815155937-787778722098/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
+github.com/pachyderm/s2 v0.0.0-20190816144759-fd9236460707 h1:HcYmS9txxSKLgz2x2x8lGp+7COHgeSrTupRAujG0tEY=
+github.com/pachyderm/s2 v0.0.0-20190816144759-fd9236460707/go.mod h1:ElO4u0RXSPaw9RGOyFafJ9GzaWS1bteLwywxyduiGNU=
 github.com/pelletier/go-buffruneio v0.2.0 h1:U4t4R6YkofJ5xHm3dJzuRpPZ0mr5MMCoAWooScCR7aA=
 github.com/pelletier/go-buffruneio v0.2.0/go.mod h1:JkE26KsDizTr40EUHkXVtNPvgGtbSNq5BcowyYOWdKo=
 github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=
