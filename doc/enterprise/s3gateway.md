@@ -195,13 +195,13 @@ For example, in macOS, run:
 
 The Pachyderm S3 gateway supports the following operations:
 
-* Creating buckets: creates a repo and/or branch.
-* Deleting buckets: Deletings a branch and/or repo.
-* Listing buckets: Lists all branches on all repos as s3 buckets.
-* Writing objects (including multipart uploads): Atomically overwrites a file on the HEAD of a branch.
-* Removing objects: Atomically removes a file on the HEAD of a branch.
-* Listing objects: Lists the files in the HEAD of a branch.
-* Getting objects: Gets file contents on the HEAD of a branch.
+* Create buckets: Creates a repo and branch.
+* Delete buckets: Deletes a branch or a repo with all branches.
+* List buckets: Lists all branches on all repos as S3 buckets.
+* Write objects: Atomically overwrites a file on the HEAD of a branch.
+* Remove objects: Atomically removes a file on the HEAD of a branch.
+* List objects: Lists the files in the HEAD of a branch.
+* Get objects: Gets file contents on the HEAD of a branch.
 
 You can use any S3 compatible tool, such as MinIO, AWS CLI, or
 S3cmd to interact with the Pachyderm S3 gateway.

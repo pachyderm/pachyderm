@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pachyderm/pachyderm/src/client"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
+	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/s2"
@@ -223,8 +224,22 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 
 	_, err = pc.InspectFile(c.repo, "master", keepPath(repo, branch, key, uploadID))
 	if err != nil {
-		// TODO: differentiate between not found errors and other kinds
-		return nil, s2.NoSuchUploadError(r)
+		if pfsServer.IsFileNotFoundErr(err) {
+			return nil, s2.NoSuchUploadError(r)
+		}
+		return nil, err
+	}
+
+	// check if the destination file already exists, and if so, delete it
+	_, err = pc.InspectFile(repo, branch, key)
+	if err != nil && !pfsServer.IsFileNotFoundErr(err) {
+		return nil, err
+	}
+	if !pfsServer.IsFileNotFoundErr(err) {
+		err = pc.DeleteFile(repo, branch, key)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for i, part := range parts {
@@ -232,8 +247,10 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 
 		fileInfo, err := pc.InspectFile(c.repo, "master", srcPath)
 		if err != nil {
-			// TODO: differentiate between not found errors and other kinds
-			return nil, s2.InvalidPartError(r)
+			if pfsServer.IsFileNotFoundErr(err) {
+				return nil, s2.NoSuchUploadError(r)
+			}
+			return nil, err
 		}
 
 		// Only verify the ETag when it's of the same length as PFS file
@@ -256,7 +273,6 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 		}
 	}
 
-	// TODO: verify that this works
 	err = pc.DeleteFile(c.repo, "master", parentDirPath(repo, branch, key, uploadID))
 	if err != nil {
 		return nil, err
@@ -349,8 +365,10 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 
 	_, err = pc.InspectFile(c.repo, "master", keepPath(repo, branch, key, uploadID))
 	if err != nil {
-		// TODO: differentiate between not found errors and other kinds
-		return "", s2.NoSuchUploadError(r)
+		if pfsServer.IsFileNotFoundErr(err) {
+			return "", s2.NoSuchUploadError(r)
+		}
+		return "", err
 	}
 
 	path := chunkPath(repo, branch, key, uploadID, partNumber)
