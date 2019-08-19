@@ -366,9 +366,9 @@ func (c *controller) UploadMultipartChunk(r *http.Request, bucket, key, uploadID
 	_, err = pc.InspectFile(c.repo, "master", keepPath(repo, branch, key, uploadID))
 	if err != nil {
 		if pfsServer.IsFileNotFoundErr(err) {
-			return nil, s2.NoSuchUploadError(r)
+			return "", s2.NoSuchUploadError(r)
 		}
-		return nil, err
+		return "", err
 	}
 
 	path := chunkPath(repo, branch, key, uploadID, partNumber)
