@@ -38,3 +38,10 @@ func IsInvalidNameError(err error) bool {
 	}
 	return strings.Contains(err.Error(), "only alphanumeric characters, underscores, and dashes are allowed")
 }
+
+func IsHasNoHeadError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "has no head")
+}

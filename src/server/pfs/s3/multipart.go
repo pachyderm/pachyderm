@@ -232,10 +232,9 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 
 	// check if the destination file already exists, and if so, delete it
 	_, err = pc.InspectFile(repo, branch, key)
-	if err != nil && !pfsServer.IsFileNotFoundErr(err) {
+	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !errutil.IsHasNoHeadError(err) {
 		return nil, err
-	}
-	if !pfsServer.IsFileNotFoundErr(err) {
+	} else if err == nil {
 		err = pc.DeleteFile(repo, branch, key)
 		if err != nil {
 			return nil, err
