@@ -9964,7 +9964,7 @@ func getAllObjects(t testing.TB, c *client.APIClient) []*pfs.Object {
 	var objects []*pfs.Object
 	for object, err := objectsClient.Recv(); err != io.EOF; object, err = objectsClient.Recv() {
 		require.NoError(t, err)
-		objects = append(objects, object)
+		objects = append(objects, object.Object)
 	}
 	return objects
 }

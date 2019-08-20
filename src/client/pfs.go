@@ -616,7 +616,7 @@ func (c APIClient) PutObjectSplit(_r io.Reader) (objects []*pfs.Object, _ int64,
 	return nil, written, nil
 }
 
-// Create Object creates an object with hash, referencing the range
+// CreateObject creates an object with hash, referencing the range
 // [lower,upper] in block. The block should already exist.
 func (c APIClient) CreateObject(hash, block string, lower, upper uint64) error {
 	_, err := c.ObjectAPIClient.CreateObject(c.Ctx(), &pfs.CreateObjectRequest{
