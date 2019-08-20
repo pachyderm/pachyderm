@@ -47,3 +47,12 @@ func IsHasNoHeadError(err error) bool {
 	}
 	return strings.Contains(err.Error(), "has no head")
 }
+
+// IsWriteToOutputBranchError returns true if the err is due to an attempt to
+// write to an output repo/branch
+func IsWriteToOutputBranchError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "cannot start a commit on an output branch")
+}

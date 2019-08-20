@@ -11,16 +11,16 @@ func enterpriseDisabledError(r *http.Request) *s2.Error {
 	return s2.NewError(r, http.StatusForbidden, "EnterpriseDisabled", "Enterprise mode must be enabled to use the s3gateway.")
 }
 
-func illegalVersioningConfigurationError(r *http.Request) *s2.Error {
-	return s2.NewError(r, http.StatusBadRequest, "IllegalVersioningConfigurationException", "The operation cannot be completed on the specified version")
-}
-
 func invalidDelimiterError(r *http.Request) *s2.Error {
 	return s2.NewError(r, http.StatusBadRequest, "InvalidDelimiter", "The delimiter you specified is invalid. It must be '' or '/'.")
 }
 
 func invalidFilePathError(r *http.Request) *s2.Error {
 	return s2.NewError(r, http.StatusBadRequest, "InvalidFilePath", "Invalid file path")
+}
+
+func writeToOutputBranchError(r *http.Request) *s2.Error {
+	return s2.NewError(r, http.StatusBadRequest, "WriteToOutputBranch", "You cannot write to an output branch")
 }
 
 func maybeNotFoundError(r *http.Request, err error) *s2.Error {

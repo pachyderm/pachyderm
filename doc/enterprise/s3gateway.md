@@ -391,14 +391,6 @@ version of the file if it already exists.
 Uploading new files is not supported for output repositories,
 these are the repositories that are the output of a pipeline.
 
-If you try to upload
-a file to an output repository, you get an error message:
-
-```bash
-Failed to copy `github_issues_medium.csv`. cannot start a commit on an output
-branch
-```
-
 Not all the repositories that you see in the results of the `ls` command are
 input repositories that can be written to. Some of them might be read-only
 output repos. Check your pipeline specification to verify which
