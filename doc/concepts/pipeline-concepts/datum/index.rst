@@ -5,12 +5,12 @@ Datum
 
 A datum is the smallest indivisible unit of computation within a job.
 A job can have one, many, or no datums. Each datum is processed
-independently with a single execution of the user code and
+independently with a single execution of the user codei, and
 then the results of all the datums are merged together to
 create the final output commit.
 
 The number of datums for a job is defined by the `glob pattern
-<glob-pattern.html`__ which you specify for each input. Think of
+<glob-pattern.html>`__ which you specify for each input. Think of
 datums as if you were telling Pachyderm how to divide your
 input data to efficiently distribute computation and
 only process the *new* data. You can configure a whole

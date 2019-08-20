@@ -53,7 +53,7 @@ parameters:
 | Parameter   | Description |
 | ----------- | ----------- |
 | `name`      | The name of your data pipeline and the output repository. You can set an <br> arbitrary name that is meaningful to the code you want to run. |
-| `transform` | Specifies the code that you want to run against your data, such as a Python <br> or Go script. Also, specifies a Docker image that you want to use to run that script. |
+| `transform` | Specifies the code that you want to run against your data, such as a Python <br> or Go script. Also, it specifies a Docker image that you want to use to run that script. |
 | `overwrite` | (Optional) Specifies whether to overwrite the existing content <br> of the file from previous commits or previous calls to the <br> `put file` command  within this commit. The default value is `false`. |
 
 The following text is an example of a minimum specification:

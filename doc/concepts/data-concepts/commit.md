@@ -22,7 +22,7 @@ finished, Pachyderm saves the new state of the repository.
 
 When you *start*, or *open*, a commit, it means that you can make changes
 by using `put file`, `delete file`, or other commands. You can
-*finish*, or *close* a commit which means the commit is immutable and
+*finish*, or *close* a commit, which means the commit is immutable and
 cannot be changed.
 
 The `pachctl list commit repo@branch` command. This command returns a
@@ -76,8 +76,8 @@ commit never happened. If the deleted commit was the HEAD of the
 branch, its parent becomes the HEAD.
 You can only delete a commit from an input repository at the top of
 your commit history, also known as DAG. Deleting a commit in the middle
-of a DAG, breaks the provenance chain. When you delete a commit from
-the top of your DAG, Pachyderm automatically delete all the commits
+of a DAG breaks the provenance chain. When you delete a commit from
+the top of your DAG, Pachyderm automatically deletes all the commits
 that were created in downstream output repos by processing the deleted commit,
 making it as if the commit never existed.
 

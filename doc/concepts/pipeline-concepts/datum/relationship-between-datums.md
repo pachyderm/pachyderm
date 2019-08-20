@@ -17,7 +17,7 @@ small groups of files need to be processed together, and
 therefore, different groups of files can be processed in parallel.
 
 In addition to parallelizing your data processing, datums leverage
-Pachyderm's versioning semantics to enable your pipelines run much
+Pachyderm's versioning semantics to enable your pipelines to run much
 faster by avoiding repeated processing of unchanged datums. For example,
 if you have multiple datums and only one datum was modified,
 Pachyderm processes only the changed datum and skips re-processing
@@ -86,7 +86,7 @@ The following examples demonstrate these fundamental concepts.
 
 In the diagram below, you can see three input datums, which might consist of
 one or many input files. Because there are three input datums, the result in
-exactly three output datums. In this example, each output datum is
+precisely three output datums. In this example, each output datum is
 just a single file with a unique name. Since none of the files in the output
 datums overlap, the merge step is trivial and you have three files in the
 final output commit.
@@ -102,7 +102,7 @@ Pachyderm notes that there are no changes in `datum 1` and
 
 ## Example 2: Output datums with overlapping file paths
 
-Often times, you want different output datums in a job to write to the same file
+Often, you want different output datums in a job to write to the same file
 path and then merge those results together. The merge step might include appending
 certain files together or overwriting outdated chunks of files.
 
@@ -121,20 +121,20 @@ to happen for `file 2` and `file 3`.
 
 ![One to many](../../../images/d_datum_processing_one_to_many.svg)
 
-For example, in a new commit you decide to modify a file in `datum 2`.
+For example, in a new commit, you decide to modify a file in `datum 2`.
 Because `datum 1` and `datum 3` are
 unchanged, Pachyderm skips processing these datums. Pachyderm detects
 that something has changed in `datum 2` and processes it. Let's say that
 based on the new input data, the output of `datum 2` now includes
-three files, `file 1`, `file 3`,and `file 4`. Pachyderm then needs to
+three files, `file 1`, `file 3`, and `file 4`. Pachyderm then needs to
 re-merge all these files together to create the new final output files.
 
 The following transformations happen during this re-merge:
 
 * `file 1` now has three chunks, the previous two from `datum 1` and `datum 3`
 which have not changed, but also the third new chunk from `datum 2'`.
-* The `file 2` chunk from datum 2 is deleted leaving only the `file 2`
-from `datum 3`.
+* `file 2` has a `file 2` from `datum 3`, while a chunk from `datum 2` has
+been deleted.
 * `file 3` still has two chunks, but the new `file 3` chunk from `datum 2'`
 replaces the previous one.
 * `file 4` is new and only has one chunk.

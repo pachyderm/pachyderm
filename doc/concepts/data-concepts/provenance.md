@@ -2,7 +2,7 @@
 
 Data versioning enables Pachyderm users to go back in time and see the state
 of a dataset or repository at a particular moment in time. Data provenance
-(from the French *provenir* which means *the place of origin*),
+(from the French *provenir*, which means *the place of origin*),
 also known as data lineage, tracks the dependencies and relationships
 *between* datasets. Provenance answers not only the question of
 where the data comes from, but also how the data was transformed along
@@ -17,7 +17,7 @@ computations result in unexpected numbers, the first place to look
 is the historical data that gives insights into possible flaws in the
 transformation chain or the data itself.
 
-For example, when a bank makes a decision about a mortgage
+For example, when a bank decides on a mortgage
 application, many factors are taken into consideration, including the
 credit history, annual income, and loan size. This data goes through multiple
 automated steps of analysis with numerous dependencies and decisions made
@@ -26,7 +26,7 @@ the historical data is the first place to look for proof of authenticity,
 as well as for possible prejudice or model bias against the applicant.
 Data provenance creates a complete audit trail that enables data scientists
 to track the data from its origin through to the final decision and make
-appropriate changes that address issues. With the adoption of General Data
+appropriate changes that address issues. With the adoption of the General Data
 Protection Regulation (GDPR) compliance requirements, monitoring data lineage
 is becoming a necessity for many organizations that work with sensitive data.
 
@@ -45,18 +45,20 @@ The following diagram demonstrates how provenance works:
 
 ![Provenance example](../../images/provenance.svg)
 
-In the diagram above, you can see two input repositories called `parameters`
-and `training-data`. The `training-data` repository continuously collects
+In the diagram above, you can see two input repositories called `params`
+and `data`. The `data` repository continuously collects
 data from an outside source. The training model pipeline combines the
-data from these two repositories, trains many models, and runs tests to select the best
-one.
+data from the first repository with the parameters in the second repository,
+runs them through the pipeline code, and collects the results in the
+output repo.
 
-Provenance helps you to understand how and why the best model was
-selected and enables you to track the origin of the best model.
-In the diagram above, the best model is represented with a purple
-circle. By using provenance, you can find that the best model was
-created from the commit **2** in the `training-data` repository
-and the commit **1** in the `parameters` repository.
+Provenance helps you to understand where commits in the output repo
+originates in.
+For example, in the diagram above, you can see that the commit `3b` was
+created from the commit `1b` from the `data` repository and the commit `2a`
+in the `params` repository. Similar, the commit `3a` was created from
+the commit `1a` from the `data` repository and the commit `2a` from
+the `params` repository.
 
 ## Tracking the Provenance Upstream
 
@@ -88,7 +90,7 @@ the output commit `f71e42704b734598a89c02026c8f7d13` in the `split` repository.
 Pachyderm provides the `flush commit` command that enables you
 to track the provenance downstream. Tracking downstream means that instead of
 tracking the origin of a commit, you can learn in which output repository
-a certain input has resulted.
+a particular input has resulted.
 
 For example, you have the `ccf82debb4b94ca3bfe165aca8d517c3` commit in
 the `raw_data` repository. If you run the `pachctl flush commit` command

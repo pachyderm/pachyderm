@@ -5,7 +5,7 @@ However, if you want to trigger a pipeline based on time instead of upon
 arrival of input data, you can schedule such pipelines to run periodically
 by using the built-in `cron` input type.
 
-Cron inputs are well suited for a variety of use cases including
+Cron inputs are well suited for a variety of use cases, including
 the following:
 
 - Scraping websites
@@ -49,7 +49,7 @@ repository, accumulating more datums over time. This behavior works for some
 pipelines. For others, you can set the `--overwrite` flag to `true` to
 overwrite the timestamp file on each tick. To learn more about overwriting files
 within a commit as opposed to adding a new file, and how that
-affects the datums in the subsequent jobs , see [Datum processing](../datum/index.rst)
+affects the datums in the subsequent jobs, see [Datum processing](../datum/index.rst)
 
 **Example:**
 

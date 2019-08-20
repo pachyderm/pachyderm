@@ -6,7 +6,7 @@ Versioned Data Concepts
 Pachyderm data concepts describe version control primitives that
 you interact with when you use Pachyderm.
 
-These conecpts are similar to the Git version control
+These concepts are similar to the Git version control
 system with a few notable exceptions. Because Pachyderm
 deals not only with plain text but also with binary files and
 large datasets, it does not manage the data in the same way as Git.
@@ -16,7 +16,7 @@ then send the changes to the upstream master copy of the repository
 where it gets merged.
 
 The Pachyderm version control works slightly differently. In Pachyderm,
-only a centralized repository exists and you do not store any local copies
+only a centralized repository exists, and you do not store any local copies
 of that repository. Therefore, the merge, in the traditional Git meaning,
 does not occur.
 

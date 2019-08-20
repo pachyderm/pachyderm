@@ -83,14 +83,14 @@ Your pipeline processes the following datums without any specific order:
 ```
 
 **Note:** Each datum in a pipeline is processed independently by a single
-execution of your code. In this example, your code runs six times and each
+execution of your code. In this example, your code runs six times, and each
 datum is available to it one at a time. For example, your code
 processes `pfs/A/1.txt` in one of the runs and `pfs/B/5.txt` in a different run,
 and so on. In a union, two or more datums are never available to your code
 at the same time. You can simplify
 your union code by using the `name` property as described below.
 
-### Simplifying the Union Pipelines code
+### Simplifying the Union Pipelines Code
 
 In the example above, your code needs to read into the `pfs/A`
 _or_ `pfs/B` directory because only one of them is present in any given datum.
@@ -139,7 +139,7 @@ In other words, a cross input pairs every datum in one repository with
 each datum in another, creating sets of datums. Your transformation
 code is provided one of these sets at the time to process.
 
-For example, you have repositories `A` and `B` with three datums each
+For example, you have repositories `A` and `B` with three datums, each
 with the following structure:
 
 **Note:** For this example, the glob pattern is set to `/*`.
