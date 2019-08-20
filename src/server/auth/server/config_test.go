@@ -40,26 +40,6 @@ func requireConfigsEqual(t testing.TB, expected, actual *auth.AuthConfig) {
 		"expected: %v\n           actual: %v", e, a)
 }
 
-// func isConfigsEqual(t testing.TB, expected, actual *auth.AuthConfig) bool {
-// 	e, a := proto.Clone(expected).(*auth.AuthConfig), proto.Clone(actual).(*auth.AuthConfig)
-// 	// Format IdP metadata (which is serialized XML) to fix e.g. whitespace
-// 	formatIDP := func(c *auth.IDProvider) {
-// 		if c.SAML == nil || c.SAML.MetadataXML == nil {
-// 			return
-// 		}
-// 		var d saml.EntityDescriptor
-// 		require.NoError(t, xml.Unmarshal(c.SAML.MetadataXML, &d))
-// 		c.SAML.MetadataXML = tu.MustMarshalXML(t, &d)
-// 	}
-// 	for _, idp := range e.IDProviders {
-// 		formatIDP(idp)
-// 	}
-// 	for _, idp := range a.IDProviders {
-// 		formatIDP(idp)
-// 	}
-// 	return proto.Equal(e, a)
-// }
-
 // TestSetGetConfigBasic sets an auth config and then retrieves it, to make
 // sure it's stored propertly
 func TestSetGetConfigBasic(t *testing.T) {
@@ -110,7 +90,6 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 		&auth.GetConfigurationRequest{})
 	require.NoError(t, err)
 	requireConfigsEqual(t, &defaultAuthConfig, configResp.GetConfiguration())
-	// fmt.Printf(">>> config:\n%+v\n", configResp.GetConfiguration())
 
 	alice := tu.UniqueString("alice")
 	anonClient := getPachClient(t, "")
@@ -360,7 +339,6 @@ func TestConfigRestartAuth(t *testing.T) {
 	})
 	require.NoError(t, err)
 	adminClient.SetAuthToken(activateResp.PachToken)
-	// TODO(kdelga): check if this is required for second delete to succeed
 	tokenMap[admin] = activateResp.PachToken
 
 	// Wait for auth to be re-activated

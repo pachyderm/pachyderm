@@ -74,19 +74,6 @@ func isAuthActive(tb testing.TB, checkConfig bool) bool {
 	}
 }
 
-// // validate cluster checks that the cluster is in one of two valid states:
-// // - auth off
-// // - auth on, default config
-// func validateCluster(tb testing.TB) {
-// 	tb.Helper()
-// 	if isAuthActive(tb) {
-// 		adminClient := getPachClientInternal(tb, admin)
-// 		cfg, err := adminClient.GetConfiguration(adminClient.Ctx(), &auth.GetConfigurationRequest{})
-// 		require.NoError(tb, err)
-// 		requireConfigsEqual(tb, &defaultAuthConfig, cfg.GetConfiguration())
-// 	}
-// }
-
 // getPachClientInternal is a helper function called by getPachClient. It
 // returns (or creates) a pach client authenticated as 'subject', but doesn't
 // do any any checks to confirm that auth is activated and the cluster is
@@ -199,7 +186,6 @@ func getPachClient(tb testing.TB, subject string) *client.APIClient {
 func getPachClientP(tb testing.TB, subject string, checkConfig bool) *client.APIClient {
 	tb.Helper()
 	tokenMapMut.Lock()
-	// validateCluster(tb)
 	defer tokenMapMut.Unlock()
 
 	// Check if seed client exists -- if not, create it
