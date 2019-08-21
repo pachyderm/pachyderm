@@ -363,7 +363,7 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
-	context, err := cfg.ActiveContext()
+	_, context, err := cfg.ActiveContext()
 	if err != nil {
 		return nil, fmt.Errorf("could not get active context: %v", err)
 	}

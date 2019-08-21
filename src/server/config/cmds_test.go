@@ -23,14 +23,36 @@ func run(t *testing.T, cmd string) error {
 
 	return tu.BashCmd(`
 		export PACH_CONFIG={{.config}}
-		# ensure setting PACH_CONTEXT has no effect in various tests
-		export PACH_CONTEXT=from_env_var
-
 		{{.cmd}}
 		`,
 		"config", tmpfile.Name(),
 		"cmd", cmd,
 	).Run()
+}
+
+func TestInvalidEnvValue(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	require.YesError(t, run(t, `
+		export PACH_CONTEXT=foobar
+		pachctl config get active-context
+	`))
+}
+
+func TestEnvValue(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	require.NoError(t, run(t, `
+		echo '{}' | pachctl config set context foo --overwrite
+		echo '{}' | pachctl config set context bar --overwrite
+		pachctl config set active-context bar
+		export PACH_CONTEXT=foo
+		pachctl config get active-context | match foo
+	`))
 }
 
 func TestMetrics(t *testing.T) {
