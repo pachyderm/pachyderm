@@ -167,7 +167,7 @@ type bucketHandler struct {
 	logger     *logrus.Entry
 }
 
-func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
+func (h *bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -185,7 +185,7 @@ func (h bucketHandler) location(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
+func (h *bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -251,7 +251,7 @@ func (h bucketHandler) get(w http.ResponseWriter, r *http.Request) {
 	writeXML(h.logger, w, r, http.StatusOK, marshallable)
 }
 
-func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
+func (h *bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -263,7 +263,7 @@ func (h bucketHandler) put(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
+func (h *bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -275,7 +275,7 @@ func (h bucketHandler) del(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h bucketHandler) versioning(w http.ResponseWriter, r *http.Request) {
+func (h *bucketHandler) versioning(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -295,7 +295,7 @@ func (h bucketHandler) versioning(w http.ResponseWriter, r *http.Request) {
 	writeXML(h.logger, w, r, http.StatusOK, result)
 }
 
-func (h bucketHandler) setVersioning(w http.ResponseWriter, r *http.Request) {
+func (h *bucketHandler) setVersioning(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -322,7 +322,7 @@ func (h bucketHandler) setVersioning(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
+func (h *bucketHandler) listVersions(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 

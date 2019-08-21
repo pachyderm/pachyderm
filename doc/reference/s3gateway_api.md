@@ -73,6 +73,12 @@ error.
 Object operations act upon the HEAD commit of branches. Authorization-gated
 PFS branches are not supported.
 
+#### Delete Multiple Objects
+
+Route: `POST /<branch>.<repo>/?delete`.
+
+Deletes multiple files specified in the request payload.
+
 #### DELETE Object
 
 Route: `DELETE /<branch>.<repo>/<filepath>`.
