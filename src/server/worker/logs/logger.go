@@ -62,7 +62,7 @@ type taggedLogger struct {
 	eg           errgroup.Group
 }
 
-func makeLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
+func newLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
 	result := &taggedLogger{
 		template: pps.LogMessage{
 			PipelineName: pipelineInfo.Pipeline.Name,
@@ -93,7 +93,7 @@ func makeLogger(pipelineInfo *pps.PipelineInfo) *taggedLogger {
 //      with cloned loggers.
 // Abstract this into a separate object with a more explicit lifetime?
 func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (TaggedLogger, error) {
-	result := makeLogger(pipelineInfo)
+	result := newLogger(pipelineInfo)
 
 	if pachClient != nil && pipelineInfo.EnableStats {
 		putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
@@ -121,14 +121,14 @@ func NewLogger(pipelineInfo *pps.PipelineInfo, pachClient *client.APIClient) (Ta
 // NewStatlessLogger constructs a TaggedLogger for the given pipeline.  This is
 // typically used outside of the worker/master main path.
 func NewStatlessLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
-	return makeLogger(pipelineInfo)
+	return newLogger(pipelineInfo)
 }
 
 // NewMasterLogger constructs a TaggedLogger for the given pipeline that
 // includes the 'Master' flag.  This is typically used for all logging from the
 // worker master goroutine.
 func NewMasterLogger(pipelineInfo *pps.PipelineInfo) TaggedLogger {
-	result := makeLogger(pipelineInfo) // master loggers don't log stats
+	result := newLogger(pipelineInfo) // master loggers don't log stats
 	result.template.Master = true
 	return result
 }
