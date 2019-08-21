@@ -1,5 +1,8 @@
 # Configuring Persistent Disk Parameters
 
+Before reading this section, complete the steps in [Before You
+Begin](./deploy_custom_before_you_begin.html).
+
 To create a custom deployment, you need to configure
 persistent storage that Pachyderm will use to store metadata.
 You can do so by using the `--persistent-disk` flag
@@ -12,10 +15,11 @@ following major cloud providers:
 - Google Cloud Platform™ (GCP)
 - Microsoft® Azure™
 
-Choosing one of these providers will create a configuration close to what you need.
-After carefully reading the section below, 
+Choosing one of these providers creates a configuration close to what
+you need.
+After carefully reading the section below,
 consult with your Kubernetes administrators on which provider to choose.
-You may have to then edit your manifest manually, 
+You might need to then edit your manifest manually,
 based on configuration information they provide to you.
 
 For each of the providers above,
@@ -50,10 +54,11 @@ for each of the cloud providers:
 - `google`: gcePersistentDisk for Google Cloud Storage
 - `azure`: azureDisk for Microsoft Azure
 
-As stated above, the specifics of a one of these choices may not be precisely what your on-premises deployment requires.
+As stated above, the specifics of one of these choices might
+not match precisely what your on-premises deployment requires.
 To determine the closest correct choices for your on-prem infrastructure,
 consult with your Kubernetes administrators.
-You may have to then edit your manifest manually, 
+You migth have to then edit your manifest manually,
 based on configuration information they provide to you.
 
 ## Example invocation with persistent disk parameters
@@ -78,3 +83,6 @@ example above.
 The second argument is the size,
 in gigabytes (GB), that Pachyderm requests for the `etcd` disk.
 A good value for most deployments is 10.
+
+After completing the steps described in this section, proceed to
+[Configuring Object Store](./deploy_custom_configuring_object_store.html).

@@ -1,5 +1,8 @@
 # Configuring Object Store
 
+Before reading this section, complete the steps in
+[Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.html).
+
 You can use the `--object-store` flag to configure Pachyderm to use an
 s3 storage protocol to access the configured object store.
 This configuration uses the Amazon S3 driver to access your on-premises
@@ -58,10 +61,14 @@ pachctl deploy custom --persistent-disk aws --object-store s3 \
     --dynamic-etcd-nodes 1
     [optional flags]
 ```
-In the example command above, some of the arguments may
+In the example command above, some of the arguments might
 contain characters that the shell could interpret.
 Those are enclosed in single-quotes.
 
-**Note**: we use `any-string` above because
-the `deploy custom` command will ignore the first persistent-disk configuration argument.
-See [Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.html)
+**Note**: Because the `deploy custom` command ignores the first
+configuration argument for the `--persistent-disk` flag,
+you can specify any string. For more information,
+see [Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.html)
+
+After completing the steps described in this section, proceed to
+[Create a Complete Configuration](./deploy_custom_complete_example_invocation.html).

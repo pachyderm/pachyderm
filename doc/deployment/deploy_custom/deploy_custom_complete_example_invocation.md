@@ -1,5 +1,8 @@
 # Create a Complete Configuration
 
+Before reading this section, complete the steps in
+[Configuring Object Store](deploy_custom_configuring_object_store.html).
+
 The following is a complete deploy command example of a
 custom deployment. The command generates the manifest
 and saves it as a YAML configuration file.

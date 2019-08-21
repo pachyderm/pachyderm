@@ -37,7 +37,8 @@ you can later use to deploy and configure your environment.
 For the purposes of our example,
 all scripts in that hypothetical infrastructure work with YAML manifests.
 
-This section includes the following topics:
+Complete the steps described in the following topics to deploy
+your custom environment:
 
 .. toctree::
    :maxdepth: 1

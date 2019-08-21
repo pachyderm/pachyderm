@@ -10,3 +10,4 @@ Also, it explains the meanings of the variables, such as  `PVC_STORAGE_SIZE`
 and `OS_ENDPOINT` that are used in the examples below.
 1. Install [kubectl](https://kubernetes.io/docs/user-guide/prereqs/).
 1. Install [pachctl](http://docs.pachyderm.io/en/latest/pachctl/pachctl.html).
+1. Proceed to [Pachyderm Deployment Manifest](./deploy_custom_pachyderm_deployment_manifest.html).

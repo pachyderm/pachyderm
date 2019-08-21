@@ -1,8 +1,15 @@
 
 # Pachyderm Deployment Manifest
 
+This section provides an overview of the Kubernetes manifest that
+you use to deploy your Pachyderm cluster. This section is provided for
+your reference and does not include configuration steps. If you are
+familiar with Kubernetes or do not have immediate questions about
+the configuration parameters, you can skip this section and proceed to
+[Configuring Persistent Disk Parameters](deploy_custom_configuring_persistent_disk_parameters.html).
+
 When you run the `pachctl deploy` command, Pachyderm generates a JSON-encoded
-Kubernetes manifest  which consists of sections that
+Kubernetes manifest which consists of sections that
 describe a Pachyderm deployment.
 
 Pachyderm deploys the following sets of application components:
