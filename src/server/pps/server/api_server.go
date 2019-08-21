@@ -1396,7 +1396,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 						if request.Master != msg.Master {
 							continue
 						}
-						if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+						if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 							continue
 						}
 					}
@@ -1476,7 +1476,7 @@ func (a *apiServer) getLogsFromStats(pachClient *client.APIClient, request *pps.
 				if request.Master != msg.Master {
 					continue
 				}
-				if !workerpkg.MatchDatum(request.DataFilters, msg.Data) {
+				if !workercommon.MatchDatum(request.DataFilters, msg.Data) {
 					continue
 				}
 

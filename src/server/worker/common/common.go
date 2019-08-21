@@ -2,12 +2,8 @@ package common
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/gogo/protobuf/types"
 
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pps"
@@ -42,45 +38,24 @@ func HashDatum(pipelineName string, pipelineSalt string, data []*Input) string {
 	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
 }
 
-// HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
-// pipeline-specific prefix.
-func HashDatum15(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
-	hash := sha256.New()
-	for _, datum := range data {
-		hash.Write([]byte(datum.Name))
-		hash.Write([]byte(datum.FileInfo.File.Path))
-		hash.Write(datum.FileInfo.Hash)
+// MatchDatum checks if a datum matches a filter.  To match each string in
+// filter must correspond match at least 1 datum's Path or Hash. Order of
+// filter and data is irrelevant.
+func MatchDatum(filter []string, data []*pps.InputFile) bool {
+	// All paths in request.DataFilters must appear somewhere in the log
+	// line's inputs, or it's filtered
+	matchesData := true
+dataFilters:
+	for _, dataFilter := range filter {
+		for _, datum := range data {
+			if dataFilter == datum.Path ||
+				dataFilter == base64.StdEncoding.EncodeToString(datum.Hash) ||
+				dataFilter == hex.EncodeToString(datum.Hash) {
+				continue dataFilters // Found, move to next filter
+			}
+		}
+		matchesData = false
+		break
 	}
-
-	// We set env to nil because if env contains more than one elements,
-	// since it's a map, the output of Marshal() can be non-deterministic.
-	env := pipelineInfo.Transform.Env
-	pipelineInfo.Transform.Env = nil
-	defer func() {
-		pipelineInfo.Transform.Env = env
-	}()
-	bytes, err := pipelineInfo.Transform.Marshal()
-	if err != nil {
-		return "", err
-	}
-	hash.Write(bytes)
-	hash.Write([]byte(pipelineInfo.Pipeline.Name))
-	hash.Write([]byte(pipelineInfo.ID))
-	hash.Write([]byte(strconv.Itoa(int(pipelineInfo.Version))))
-
-	// Note in 1.5.0 this function was called HashPipelineID, it's now called
-	// HashPipelineName but it has the same implementation.
-	return client.DatumTagPrefix(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
-}
-
-func isNotFoundErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
+	return matchesData
 }
