@@ -19,6 +19,7 @@ import (
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/ppsdb"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
 var (
@@ -50,7 +51,7 @@ func TestAcquireDatums(t *testing.T) {
 			var eg errgroup.Group
 			for i := 0; i < nWorkers; i++ {
 				server := newTestAPIServer(c, etcdClient, "", t)
-				logger := server.getMasterLogger()
+				logger := logs.NewMasterLogger(&pps.PipelineInfo{})
 				eg.Go(func() error {
 					return server.acquireDatums(context.Background(), jobInfo.Job.ID, plan, logger, func(low, high int64) (*processResult, error) {
 						chunksMu.Lock()
@@ -111,12 +112,8 @@ func newTestAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etc
 		pachClient: pachClient,
 		etcdClient: etcdClient,
 		etcdPrefix: etcdPrefix,
-		logMsgTemplate: pps.LogMessage{
-			PipelineName: "test",
-			WorkerID:     "local",
-		},
-		jobs:      ppsdb.Jobs(etcdClient, etcdPrefix),
-		pipelines: ppsdb.Pipelines(etcdClient, etcdPrefix),
-		plans:     col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
+		jobs:       ppsdb.Jobs(etcdClient, etcdPrefix),
+		pipelines:  ppsdb.Pipelines(etcdClient, etcdPrefix),
+		plans:      col.NewCollection(etcdClient, path.Join(etcdPrefix, planPrefix), nil, &Plan{}, nil, nil),
 	}
 }

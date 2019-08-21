@@ -3,8 +3,6 @@ package worker
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -56,12 +54,13 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/uuid"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
 const (
 	// The maximum number of concurrent download/upload operations
 	concurrency = 100
-	logBuffer   = 25
 
 	planPrefix        = "/plan"
 	chunkPrefix       = "/chunk"
@@ -94,9 +93,6 @@ type APIServer struct {
 	// Information needed to process input data and upload output
 	pipelineInfo *pps.PipelineInfo
 
-	// Information attached to log lines
-	logMsgTemplate pps.LogMessage
-
 	// The k8s pod name of this worker
 	workerName string
 
@@ -105,7 +101,7 @@ type APIServer struct {
 	// The currently running job ID
 	jobID string
 	// The currently running data
-	data []*Input
+	data []*common.Input
 	// The time we started the currently running
 	started time.Time
 	// Func to cancel the currently running datum
@@ -159,159 +155,6 @@ type APIServer struct {
 	clients map[string]Client
 }
 
-type putObjectResponse struct {
-	object *pfs.Object
-	size   int64
-	err    error
-}
-
-type taggedLogger struct {
-	template     pps.LogMessage
-	stderrLog    log.Logger
-	marshaler    *jsonpb.Marshaler
-	buffer       bytes.Buffer
-	putObjClient pfs.ObjectAPI_PutObjectClient
-	objSize      int64
-	msgCh        chan string
-	eg           errgroup.Group
-}
-
-// DatumID computes the id for a datum, this value is used in ListDatum and
-// InspectDatum.
-func (a *APIServer) DatumID(data []*Input) string {
-	hash := sha256.New()
-	for _, d := range data {
-		hash.Write([]byte(d.FileInfo.File.Path))
-		hash.Write(d.FileInfo.Hash)
-	}
-	// InputFileID is a single string id for the data from this input, it's used in logs and in
-	// the statsTree
-	return hex.EncodeToString(hash.Sum(nil))
-}
-
-func (a *APIServer) getTaggedLogger(pachClient *client.APIClient, jobID string, data []*Input, enableStats bool) (*taggedLogger, error) {
-	result := &taggedLogger{
-		template:  a.logMsgTemplate, // Copy struct
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
-		msgCh:     make(chan string, logBuffer),
-	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-
-	// Add Job ID to log metadata
-	result.template.JobID = jobID
-
-	// Add inputs' details to log metadata, so we can find these logs later
-	for _, d := range data {
-		result.template.Data = append(result.template.Data, &pps.InputFile{
-			Path: d.FileInfo.File.Path,
-			Hash: d.FileInfo.Hash,
-		})
-	}
-	// InputFileID is a single string id for the data from this input, it's used in logs and in
-	// the statsTree
-	result.template.DatumID = a.DatumID(data)
-	if enableStats {
-		putObjClient, err := pachClient.ObjectAPIClient.PutObject(pachClient.Ctx())
-		if err != nil {
-			return nil, err
-		}
-		result.putObjClient = putObjClient
-		result.eg.Go(func() error {
-			for msg := range result.msgCh {
-				for _, chunk := range grpcutil.Chunk([]byte(msg), grpcutil.MaxMsgSize/2) {
-					if err := result.putObjClient.Send(&pfs.PutObjectRequest{
-						Value: chunk,
-					}); err != nil && err != io.EOF {
-						return err
-					}
-				}
-				result.objSize += int64(len(msg))
-			}
-			return nil
-		})
-	}
-	return result, nil
-}
-
-// Logf logs the line Sprintf(formatString, args...), but formatted as a json
-// message and annotated with all of the metadata stored in 'loginfo'.
-//
-// Note: this is not thread-safe, as it modifies fields of 'logger.template'
-func (logger *taggedLogger) Logf(formatString string, args ...interface{}) {
-	logger.template.Message = fmt.Sprintf(formatString, args...)
-	if ts, err := types.TimestampProto(time.Now()); err == nil {
-		logger.template.Ts = ts
-	} else {
-		logger.stderrLog.Printf("could not generate logging timestamp: %s\n", err)
-		return
-	}
-	msg, err := logger.marshaler.MarshalToString(&logger.template)
-	if err != nil {
-		logger.stderrLog.Printf("could not marshal %v for logging: %s\n", &logger.template, err)
-		return
-	}
-	fmt.Println(msg)
-	if logger.putObjClient != nil {
-		logger.msgCh <- msg + "\n"
-	}
-}
-
-func (logger *taggedLogger) Write(p []byte) (_ int, retErr error) {
-	// never errors
-	logger.buffer.Write(p)
-	r := bufio.NewReader(&logger.buffer)
-	for {
-		message, err := r.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				logger.buffer.Write([]byte(message))
-				return len(p), nil
-			}
-			// this shouldn't technically be possible to hit io.EOF should be
-			// the only error bufio.Reader can return when using a buffer.
-			return 0, fmt.Errorf("error ReadString: %v", err)
-		}
-		// We don't want to make this call as:
-		// logger.Logf(message)
-		// because if the message has format characters like %s in it those
-		// will result in errors being logged.
-		logger.Logf("%s", strings.TrimSuffix(message, "\n"))
-	}
-}
-
-func (logger *taggedLogger) Close() (*pfs.Object, int64, error) {
-	close(logger.msgCh)
-	if logger.putObjClient != nil {
-		if err := logger.eg.Wait(); err != nil {
-			return nil, 0, err
-		}
-		object, err := logger.putObjClient.CloseAndRecv()
-		// we set putObjClient to nil so that future calls to Logf won't send
-		// msg down logger.msgCh as we've just closed that channel.
-		logger.putObjClient = nil
-		return object, logger.objSize, err
-	}
-	return nil, 0, nil
-}
-
-func (logger *taggedLogger) clone() *taggedLogger {
-	return &taggedLogger{
-		template:     logger.template, // Copy struct
-		stderrLog:    log.Logger{},
-		marshaler:    &jsonpb.Marshaler{},
-		putObjClient: logger.putObjClient,
-		msgCh:        logger.msgCh,
-	}
-}
-
-func (logger *taggedLogger) userLogger() *taggedLogger {
-	result := logger.clone()
-	result.template.User = true
-	return result
-}
-
 // NewAPIServer creates an APIServer for a given pipeline
 func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPrefix string, pipelineInfo *pps.PipelineInfo, workerName string, namespace string, hashtreeStorage string) (*APIServer, error) {
 	initPrometheus()
@@ -333,15 +176,11 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		return nil, err
 	}
 	server := &APIServer{
-		pachClient:   oldPachClient,
-		kubeClient:   kubeClient,
-		etcdClient:   etcdClient,
-		etcdPrefix:   etcdPrefix,
-		pipelineInfo: pipelineInfo,
-		logMsgTemplate: pps.LogMessage{
-			PipelineName: pipelineInfo.Pipeline.Name,
-			WorkerID:     os.Getenv(client.PPSPodNameEnv),
-		},
+		pachClient:      oldPachClient,
+		kubeClient:      kubeClient,
+		etcdClient:      etcdClient,
+		etcdPrefix:      etcdPrefix,
+		pipelineInfo:    pipelineInfo,
 		workerName:      workerName,
 		namespace:       namespace,
 		jobs:            ppsdb.Jobs(etcdClient, etcdPrefix),
@@ -353,10 +192,8 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 		shard:           noShard,
 		clients:         make(map[string]Client),
 	}
-	logger, err := server.getTaggedLogger(pachClient, "", nil, false)
-	if err != nil {
-		return nil, err
-	}
+	logger := logs.NewStatlessLogger(pipelineInfo)
+
 	resp, err := pachClient.Enterprise.GetState(context.Background(), &enterprise.GetStateRequest{})
 	if err != nil {
 		logger.Logf("failed to get enterprise state with error: %v\n", err)
@@ -448,7 +285,7 @@ func NewAPIServer(pachClient *client.APIClient, etcdClient *etcd.Client, etcdPre
 	return server, nil
 }
 
-func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, input *Input) error {
+func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, input *common.Input) error {
 	file := input.FileInfo.File
 	pachydermRepoName := input.Name
 	var rawJSON bytes.Buffer
@@ -487,8 +324,7 @@ func (a *APIServer) downloadGitData(pachClient *client.APIClient, dir string, in
 	return nil
 }
 
-func (a *APIServer) reportDownloadSizeStats(downSize float64, logger *taggedLogger) {
-
+func (a *APIServer) reportDownloadSizeStats(downSize float64, logger logs.TaggedLogger) {
 	if a.exportStats {
 		if hist, err := datumDownloadSize.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
 			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
@@ -503,7 +339,7 @@ func (a *APIServer) reportDownloadSizeStats(downSize float64, logger *taggedLogg
 	}
 }
 
-func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessStats, logger logs.TaggedLogger) {
 	duration := time.Since(start)
 	stats.DownloadTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -520,7 +356,7 @@ func (a *APIServer) reportDownloadTimeStats(start time.Time, stats *pps.ProcessS
 	}
 }
 
-func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLogger, inputs []*Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
+func (a *APIServer) downloadData(pachClient *client.APIClient, logger logs.TaggedLogger, inputs []*common.Input, puller *filesync.Puller, stats *pps.ProcessStats, statsTree *hashtree.Ordered) (_ string, retErr error) {
 	defer a.reportDownloadTimeStats(time.Now(), stats, logger)
 	logger.Logf("starting to download data")
 	defer func(start time.Time) {
@@ -568,7 +404,7 @@ func (a *APIServer) downloadData(pachClient *client.APIClient, logger *taggedLog
 	return dir, nil
 }
 
-func (a *APIServer) linkData(inputs []*Input, dir string) error {
+func (a *APIServer) linkData(inputs []*common.Input, dir string) error {
 	// Make sure that previously symlinked outputs are removed.
 	if err := a.unlinkData(inputs); err != nil {
 		return err
@@ -583,7 +419,7 @@ func (a *APIServer) linkData(inputs []*Input, dir string) error {
 	return os.Symlink(filepath.Join(dir, "out"), filepath.Join(client.PPSInputPrefix, "out"))
 }
 
-func (a *APIServer) unlinkData(inputs []*Input) error {
+func (a *APIServer) unlinkData(inputs []*common.Input) error {
 	dirs, err := ioutil.ReadDir(client.PPSInputPrefix)
 	if err != nil {
 		return fmt.Errorf("ioutil.ReadDir: %v", err)
@@ -599,7 +435,7 @@ func (a *APIServer) unlinkData(inputs []*Input) error {
 	return nil
 }
 
-func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
+func (a *APIServer) reportUserCodeStats(logger logs.TaggedLogger) {
 	if a.exportStats {
 		if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, "started"); err != nil {
 			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
@@ -609,7 +445,7 @@ func (a *APIServer) reportUserCodeStats(logger *taggedLogger) {
 	}
 }
 
-func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stats *pps.ProcessStats, logger logs.TaggedLogger) {
 	duration := time.Since(start)
 	stats.ProcessTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -636,7 +472,7 @@ func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stat
 }
 
 // Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (a *APIServer) runUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 	a.reportUserCodeStats(logger)
 	defer func(start time.Time) { a.reportDeferredUserCodeStats(retErr, start, stats, logger) }(time.Now())
 	logger.Logf("beginning to run user code")
@@ -662,8 +498,8 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 	if a.pipelineInfo.Transform.Stdin != nil {
 		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
 	}
-	cmd.Stdout = logger.userLogger()
-	cmd.Stderr = logger.userLogger()
+	cmd.Stdout = logger.WithUserCode()
+	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
 	if a.uid != nil && a.gid != nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -717,7 +553,7 @@ func (a *APIServer) runUserCode(ctx context.Context, logger *taggedLogger, envir
 }
 
 // Run user error code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *taggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
+func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 	logger.Logf("beginning to run user error handling code")
 	defer func(start time.Time) {
 		if retErr != nil {
@@ -731,8 +567,8 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *tagged
 	if a.pipelineInfo.Transform.ErrStdin != nil {
 		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.ErrStdin, "\n") + "\n")
 	}
-	cmd.Stdout = logger.userLogger()
-	cmd.Stderr = logger.userLogger()
+	cmd.Stdout = logger.WithUserCode()
+	cmd.Stderr = logger.WithUserCode()
 	cmd.Env = environ
 	if a.uid != nil && a.gid != nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{
@@ -784,7 +620,7 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger *tagged
 	return nil
 }
 
-func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, logger *taggedLogger) {
+func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, logger logs.TaggedLogger) {
 	duration := time.Since(start)
 	stats.UploadTime = types.DurationProto(duration)
 	if a.exportStats {
@@ -811,7 +647,7 @@ func (a *APIServer) reportUploadStats(start time.Time, stats *pps.ProcessStats, 
 	}
 }
 
-func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger *taggedLogger, inputs []*Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
+func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag string, logger logs.TaggedLogger, inputs []*common.Input, stats *pps.ProcessStats, statsTree *hashtree.Ordered, datumIdx int64) (retErr error) {
 	defer a.reportUploadStats(time.Now(), stats, logger)
 	logger.Logf("starting to upload output")
 	defer func(start time.Time) {
@@ -894,7 +730,7 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 
 					// The name of the input
 					inputName := strings.Split(pathWithInput, string(os.PathSeparator))[0]
-					var input *Input
+					var input *common.Input
 					for _, i := range inputs {
 						if i.Name == inputName {
 							input = i
@@ -1025,53 +861,6 @@ func (a *APIServer) uploadOutput(pachClient *client.APIClient, dir string, tag s
 	return a.datumCache.Put(datumIdx, bytes.NewReader(b.Bytes()))
 }
 
-// HashDatum computes and returns the hash of datum + pipeline, with a
-// pipeline-specific prefix.
-func HashDatum(pipelineName string, pipelineSalt string, data []*Input) string {
-	hash := sha256.New()
-	for _, datum := range data {
-		hash.Write([]byte(datum.Name))
-		hash.Write([]byte(datum.FileInfo.File.Path))
-		hash.Write(datum.FileInfo.Hash)
-	}
-
-	hash.Write([]byte(pipelineName))
-	hash.Write([]byte(pipelineSalt))
-
-	return client.DatumTagPrefix(pipelineSalt) + hex.EncodeToString(hash.Sum(nil))
-}
-
-// HashDatum15 computes and returns the hash of datum + pipeline for version <= 1.5.0, with a
-// pipeline-specific prefix.
-func HashDatum15(pipelineInfo *pps.PipelineInfo, data []*Input) (string, error) {
-	hash := sha256.New()
-	for _, datum := range data {
-		hash.Write([]byte(datum.Name))
-		hash.Write([]byte(datum.FileInfo.File.Path))
-		hash.Write(datum.FileInfo.Hash)
-	}
-
-	// We set env to nil because if env contains more than one elements,
-	// since it's a map, the output of Marshal() can be non-deterministic.
-	env := pipelineInfo.Transform.Env
-	pipelineInfo.Transform.Env = nil
-	defer func() {
-		pipelineInfo.Transform.Env = env
-	}()
-	bytes, err := pipelineInfo.Transform.Marshal()
-	if err != nil {
-		return "", err
-	}
-	hash.Write(bytes)
-	hash.Write([]byte(pipelineInfo.Pipeline.Name))
-	hash.Write([]byte(pipelineInfo.ID))
-	hash.Write([]byte(strconv.Itoa(int(pipelineInfo.Version))))
-
-	// Note in 1.5.0 this function was called HashPipelineID, it's now called
-	// HashPipelineName but it has the same implementation.
-	return client.DatumTagPrefix(pipelineInfo.ID) + hex.EncodeToString(hash.Sum(nil)), nil
-}
-
 // Status returns the status of the current worker.
 func (a *APIServer) Status(ctx context.Context, _ *types.Empty) (*pps.WorkerStatus, error) {
 	a.statusMu.Lock()
@@ -1129,7 +918,7 @@ func (a *APIServer) datum() []*pps.InputFile {
 	return result
 }
 
-func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*Input) []string {
+func (a *APIServer) userCodeEnv(jobID string, outputCommitID string, data []*common.Input) []string {
 	result := os.Environ()
 	for _, input := range data {
 		result = append(result, fmt.Sprintf("%s=%s", input.Name, filepath.Join(client.PPSInputPrefix, input.Name, input.FileInfo.File.Path)))
@@ -1150,7 +939,7 @@ type processResult struct {
 
 type processFunc func(low, high int64) (*processResult, error)
 
-func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger *taggedLogger, process processFunc) error {
+func (a *APIServer) acquireDatums(ctx context.Context, jobID string, plan *Plan, logger logs.TaggedLogger, process processFunc) error {
 	chunks := a.chunks(jobID)
 	watcher, err := chunks.ReadOnly(ctx).Watch(watch.WithFilterPut())
 	if err != nil {
@@ -1224,7 +1013,7 @@ func (a *APIServer) processChunk(ctx context.Context, jobID string, low, high in
 	return nil
 }
 
-func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger *taggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
+func (a *APIServer) mergeDatums(jobCtx context.Context, pachClient *client.APIClient, jobInfo *pps.JobInfo, jobID string, plan *Plan, logger logs.TaggedLogger, df DatumFactory, skip map[string]struct{}, useParentHashTree bool) (retErr error) {
 	for {
 		if err := func() error {
 			// if this worker is not responsible for a shard, it waits to be assigned one or for the job to finish
@@ -1407,7 +1196,7 @@ func (a *APIServer) computeTags(df DatumFactory, low, high int64, skip map[strin
 	var tags []*pfs.Tag
 	for i := low; i < high; i++ {
 		files := df.Datum(int(i))
-		datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+		datumHash := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 		// Skip datum if it is in the parent hashtree and the parent hashtree is being used in the merge
 		if _, ok := skip[datumHash]; ok && useParentHashTree {
 			continue
@@ -1503,8 +1292,10 @@ func (a *APIServer) getParentCommitInfo(ctx context.Context, pachClient *client.
 		return nil, err
 	}
 	for commitInfo.ParentCommit != nil {
-		a.getWorkerLogger().Logf("blocking on parent commit %q before writing to output commit %q",
-			commitInfo.ParentCommit.ID, outputCommitID)
+		logs.NewStatlessLogger(a.pipelineInfo).Logf(
+			"blocking on parent commit %q before writing to output commit %q",
+			commitInfo.ParentCommit.ID, outputCommitID,
+		)
 		parentCommitInfo, err := pachClient.PfsAPIClient.InspectCommit(ctx,
 			&pfs.InspectCommitRequest{
 				Commit:     commitInfo.ParentCommit,
@@ -1652,7 +1443,7 @@ func isDone(ctx context.Context) bool {
 // terminal state (KILLED, FAILED, or SUCCESS) cancel the jobCtx so we kill any
 // user processes
 func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func(), jobID string) {
-	logger := a.getWorkerLogger() // this worker's formatting logger
+	logger := logs.NewStatlessLogger(a.pipelineInfo)
 
 	backoff.RetryNotify(func() error {
 		// Check if job was cancelled while backoff was sleeping
@@ -1712,7 +1503,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 //  - processes the chunks with processDatums
 //  - merges the chunks with mergeDatums
 func (a *APIServer) worker() {
-	logger := a.getWorkerLogger() // this worker's formatting logger
+	logger := logs.NewStatlessLogger(a.pipelineInfo)
 
 	// claim a shard if one is available or becomes available
 	go a.claimShard(a.pachClient.Ctx())
@@ -1815,7 +1606,7 @@ func (a *APIServer) worker() {
 				var count int
 				for i := 0; i < df.Len(); i++ {
 					files := df.Datum(i)
-					datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+					datumHash := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 					if _, ok := skip[datumHash]; ok {
 						count++
 					}
@@ -1901,7 +1692,7 @@ func (a *APIServer) claimShard(ctx context.Context) {
 // processDatums processes datums from low to high in df, if a datum fails it
 // returns the id of the failed datum it also may return a variety of errors
 // such as network errors.
-func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo,
+func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.TaggedLogger, jobInfo *pps.JobInfo,
 	df DatumFactory, low, high int64, skip map[string]struct{}, useParentHashTree bool) (result *processResult, retErr error) {
 	defer func() {
 		if err := a.datumCache.Clear(); err != nil && retErr == nil {
@@ -1931,12 +1722,14 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			defer atomic.AddInt64(&a.queueSize, -1)
 
 			data := df.Datum(int(datumIdx))
-			logger, err := a.getTaggedLogger(pachClient, jobInfo.Job.ID, data, a.pipelineInfo.EnableStats)
+			logger, err := logs.NewLogger(a.pipelineInfo, pachClient)
 			if err != nil {
 				return err
 			}
+			logger = logger.WithJob(jobInfo.Job.ID).WithData(data)
+
 			// Hash inputs
-			tag := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
+			tag := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, data)
 			if _, ok := skip[tag]; ok {
 				if !useParentHashTree {
 					if err := a.cacheHashtree(pachClient, tag, datumIdx); err != nil {
@@ -1959,7 +1752,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 			var inputTree, outputTree *hashtree.Ordered
 			var statsTree *hashtree.Unordered
 			if a.pipelineInfo.EnableStats {
-				statsRoot := path.Join("/", logger.template.DatumID)
+				statsRoot := path.Join("/", common.DatumID(data))
 				inputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs"))
 				outputTree = hashtree.NewOrdered(path.Join(statsRoot, "pfs", "out"))
 				statsTree = hashtree.NewUnordered(statsRoot)
@@ -2084,7 +1877,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 					if statsTree != nil {
 						object, size, err := pachClient.PutObject(strings.NewReader(err.Error()))
 						if err != nil {
-							logger.stderrLog.Printf("could not put error object: %s\n", err)
+							logger.Errf("could not put error object: %s\n", err)
 						} else {
 							objectInfo, err := pachClient.InspectObject(object.Hash)
 							if err != nil {
@@ -2105,7 +1898,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger *taggedLo
 				atomic.AddInt64(&result.datumsRecovered, 1)
 				return nil
 			} else if err != nil {
-				result.failedDatumID = a.DatumID(data)
+				result.failedDatumID = common.DatumID(data)
 				atomic.AddInt64(&result.datumsFailed, 1)
 				return nil
 			}
@@ -2166,17 +1959,17 @@ func (a *APIServer) cacheHashtree(pachClient *client.APIClient, tag string, datu
 	return nil
 }
 
-func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger *taggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered, datumIdx int64) (retErr error) {
+func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Client, tag string, stats *pps.ProcessStats, logger logs.TaggedLogger, inputTree, outputTree *hashtree.Ordered, statsTree *hashtree.Unordered, datumIdx int64) (retErr error) {
 	// Store stats and add stats file
 	marshaler := &jsonpb.Marshaler{}
 	statsString, err := marshaler.MarshalToString(stats)
 	if err != nil {
-		logger.stderrLog.Printf("could not serialize stats: %s\n", err)
+		logger.Errf("could not serialize stats: %s\n", err)
 		return err
 	}
 	object, size, err := pachClient.PutObject(strings.NewReader(statsString))
 	if err != nil {
-		logger.stderrLog.Printf("could not put stats object: %s\n", err)
+		logger.Errf("could not put stats object: %s\n", err)
 		return err
 	}
 	objectInfo, err := pachClient.InspectObject(object.Hash)
@@ -2255,7 +2048,7 @@ func mergeStats(x, y *pps.ProcessStats) error {
 }
 
 // mergeChunk merges the datum hashtrees into a chunk hashtree and stores it.
-func (a *APIServer) mergeChunk(logger *taggedLogger, high int64, result *processResult) (retErr error) {
+func (a *APIServer) mergeChunk(logger logs.TaggedLogger, high int64, result *processResult) (retErr error) {
 	logger.Logf("starting to merge chunk")
 	defer func(start time.Time) {
 		if retErr != nil {

@@ -39,6 +39,7 @@ import (
 	ppsserver "github.com/pachyderm/pachyderm/src/server/pps"
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	workerpkg "github.com/pachyderm/pachyderm/src/server/worker"
+	workercommon "github.com/pachyderm/pachyderm/src/server/worker/common"
 	"github.com/robfig/cron"
 	"github.com/willf/bloom"
 
@@ -1007,7 +1008,7 @@ func (a *apiServer) listDatum(pachClient *client.APIClient, job *pps.Job, page, 
 		var datumInfos []*pps.DatumInfo
 		for i := start; i < end; i++ {
 			datum := df.Datum(i) // flattened slice of *worker.Input to job
-			id := workerpkg.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
+			id := workercommon.HashDatum(jobInfo.Pipeline.Name, jobInfo.Salt, datum)
 			datumInfo := &pps.DatumInfo{
 				Datum: &pps.Datum{
 					ID:  id,

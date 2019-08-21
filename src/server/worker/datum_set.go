@@ -8,17 +8,18 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
 // DatumFactory is an interface which allows you to iterate through the datums
 // for a job.
 type DatumFactory interface {
 	Len() int
-	Datum(i int) []*Input
+	Datum(i int) []*common.Input
 }
 
 type pfsDatumFactory struct {
-	inputs []*Input
+	inputs []*common.Input
 }
 
 func newPFSDatumFactory(pachClient *client.APIClient, input *pps.PFSInput) (DatumFactory, error) {
@@ -42,7 +43,7 @@ func newPFSDatumFactory(pachClient *client.APIClient, input *pps.PFSInput) (Datu
 		} else if err != nil {
 			return nil, err
 		}
-		result.inputs = append(result.inputs, &Input{
+		result.inputs = append(result.inputs, &common.Input{
 			FileInfo:   fileInfo,
 			Name:       input.Name,
 			Lazy:       input.Lazy,
@@ -68,8 +69,8 @@ func (d *pfsDatumFactory) Len() int {
 	return len(d.inputs)
 }
 
-func (d *pfsDatumFactory) Datum(i int) []*Input {
-	return []*Input{d.inputs[i]}
+func (d *pfsDatumFactory) Datum(i int) []*common.Input {
+	return []*common.Input{d.inputs[i]}
 }
 
 type unionDatumFactory struct {
@@ -96,7 +97,7 @@ func (d *unionDatumFactory) Len() int {
 	return result
 }
 
-func (d *unionDatumFactory) Datum(i int) []*Input {
+func (d *unionDatumFactory) Datum(i int) []*common.Input {
 	for _, datumFactory := range d.inputs {
 		if i < datumFactory.Len() {
 			return datumFactory.Datum(i)
@@ -121,11 +122,11 @@ func (d *crossDatumFactory) Len() int {
 	return result
 }
 
-func (d *crossDatumFactory) Datum(i int) []*Input {
+func (d *crossDatumFactory) Datum(i int) []*common.Input {
 	if i >= d.Len() {
 		panic("index out of bounds")
 	}
-	var result []*Input
+	var result []*common.Input
 	for _, datumFactory := range d.inputs {
 		result = append(result, datumFactory.Datum(i%datumFactory.Len())...)
 		i /= datumFactory.Len()
@@ -135,7 +136,7 @@ func (d *crossDatumFactory) Datum(i int) []*Input {
 }
 
 type gitDatumFactory struct {
-	inputs []*Input
+	inputs []*common.Input
 }
 
 func newGitDatumFactory(pachClient *client.APIClient, input *pps.GitInput) (DatumFactory, error) {
@@ -151,7 +152,7 @@ func newGitDatumFactory(pachClient *client.APIClient, input *pps.GitInput) (Datu
 	}
 	result.inputs = append(
 		result.inputs,
-		&Input{
+		&common.Input{
 			FileInfo: fileInfo,
 			Name:     input.Name,
 			Branch:   input.Branch,
@@ -165,8 +166,8 @@ func (d *gitDatumFactory) Len() int {
 	return len(d.inputs)
 }
 
-func (d *gitDatumFactory) Datum(i int) []*Input {
-	return []*Input{d.inputs[i]}
+func (d *gitDatumFactory) Datum(i int) []*common.Input {
+	return []*common.Input{d.inputs[i]}
 }
 
 func newCrossDatumFactory(pachClient *client.APIClient, cross []*pps.Input) (DatumFactory, error) {

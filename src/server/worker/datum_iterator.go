@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/pfs"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
 )
 
 // DatumIterator is an interface which allows you to iterate through the datums
@@ -18,11 +19,11 @@ type DatumIterator interface {
 	Reset()
 	Len() int
 	Next() bool
-	Datum() []*Input
+	Datum() []*common.Input
 }
 
 type pfsDatumIterator struct {
-	inputs   []*Input
+	inputs   []*common.Input
 	location int
 }
 
@@ -49,7 +50,7 @@ func newPFSDatumIterator(pachClient *client.APIClient, input *pps.PFSInput) (Dat
 		} else if err != nil {
 			return nil, err
 		}
-		result.inputs = append(result.inputs, &Input{
+		result.inputs = append(result.inputs, &common.Input{
 			FileInfo:   fileInfo,
 			Name:       input.Name,
 			Lazy:       input.Lazy,
@@ -79,8 +80,8 @@ func (d *pfsDatumIterator) Len() int {
 	return len(d.inputs)
 }
 
-func (d *pfsDatumIterator) Datum() []*Input {
-	return []*Input{d.inputs[d.location]}
+func (d *pfsDatumIterator) Datum() []*common.Input {
+	return []*common.Input{d.inputs[d.location]}
 }
 
 func (d *pfsDatumIterator) Next() bool {
@@ -132,7 +133,7 @@ func (d *unionDatumIterator) Next() bool {
 	return true
 }
 
-func (d *unionDatumIterator) Datum() []*Input {
+func (d *unionDatumIterator) Datum() []*common.Input {
 	return d.iterators[d.unionIdx].Datum()
 }
 
@@ -199,8 +200,8 @@ func (d *crossDatumIterator) Next() bool {
 	return false
 }
 
-func (d *crossDatumIterator) Datum() []*Input {
-	var result []*Input
+func (d *crossDatumIterator) Datum() []*common.Input {
+	var result []*common.Input
 	for _, datumIterator := range d.iterators {
 		result = append(result, datumIterator.Datum()...)
 	}
@@ -209,7 +210,7 @@ func (d *crossDatumIterator) Datum() []*Input {
 }
 
 type gitDatumIterator struct {
-	inputs   []*Input
+	inputs   []*common.Input
 	location int
 }
 
@@ -227,7 +228,7 @@ func newGitDatumIterator(pachClient *client.APIClient, input *pps.GitInput) (Dat
 	}
 	result.inputs = append(
 		result.inputs,
-		&Input{
+		&common.Input{
 			FileInfo: fileInfo,
 			Name:     input.Name,
 			Branch:   input.Branch,
@@ -245,8 +246,8 @@ func (d *gitDatumIterator) Len() int {
 	return len(d.inputs)
 }
 
-func (d *gitDatumIterator) Datum() []*Input {
-	return []*Input{d.inputs[d.location]}
+func (d *gitDatumIterator) Datum() []*common.Input {
+	return []*common.Input{d.inputs[d.location]}
 }
 
 func (d *gitDatumIterator) Next() bool {
@@ -281,7 +282,7 @@ func NewDatumIterator(pachClient *client.APIClient, input *pps.Input) (DatumIter
 	return nil, fmt.Errorf("unrecognized input type")
 }
 
-func sortInputs(inputs []*Input) {
+func sortInputs(inputs []*common.Input) {
 	sort.Slice(inputs, func(i, j int) bool {
 		return inputs[i].Name < inputs[j].Name
 	})

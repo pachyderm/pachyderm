@@ -6,13 +6,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/jsonpb"
 	"github.com/gogo/protobuf/types"
 	"github.com/montanaflynn/stats"
 
@@ -32,6 +30,8 @@ import (
 	filesync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	pfs_sync "github.com/pachyderm/pachyderm/src/server/pkg/sync"
 	"github.com/pachyderm/pachyderm/src/server/pkg/watch"
+	"github.com/pachyderm/pachyderm/src/server/worker/common"
+	"github.com/pachyderm/pachyderm/src/server/worker/logs"
 )
 
 const (
@@ -47,38 +47,9 @@ const (
 	ttl = int64(30)
 )
 
-func (a *APIServer) getMasterLogger() *taggedLogger {
-	result := &taggedLogger{
-		template:  a.logMsgTemplate, // Copy struct
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
-	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-	result.template.Master = true
-	return result
-}
-
-func (a *APIServer) getWorkerLogger() *taggedLogger {
-	result := &taggedLogger{
-		template:  a.logMsgTemplate, // Copy struct
-		stderrLog: log.Logger{},
-		marshaler: &jsonpb.Marshaler{},
-	}
-	result.stderrLog.SetOutput(os.Stderr)
-	result.stderrLog.SetFlags(log.LstdFlags | log.Llongfile) // Log file/line
-	return result
-}
-
-func (logger *taggedLogger) jobLogger(jobID string) *taggedLogger {
-	result := logger.clone()
-	result.template.JobID = jobID
-	return result
-}
-
 func (a *APIServer) master(masterType string, spawner func(*client.APIClient) error) {
+	logger := logs.NewMasterLogger(a.pipelineInfo)
 	masterLock := dlock.NewDLock(a.etcdClient, path.Join(a.etcdPrefix, masterLockPath, a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt))
-	logger := a.getMasterLogger()
 	b := backoff.NewInfiniteBackOff()
 	// Setting a high backoff so that when this master fails, the other
 	// workers are more likely to become the master.
@@ -114,7 +85,7 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 }
 
 func (a *APIServer) jobSpawner(pachClient *client.APIClient) error {
-	logger := a.getMasterLogger()
+	logger := logs.NewMasterLogger(a.pipelineInfo)
 	// Listen for new commits, and create jobs when they arrive
 	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
 	if err != nil {
@@ -211,19 +182,20 @@ func (a *APIServer) spoutSpawner(pachClient *client.APIClient) error {
 
 	var dir string
 
-	logger, err := a.getTaggedLogger(pachClient, "spout", nil, false)
+	logger := logs.NewMasterLogger(a.pipelineInfo).WithJob("spout")
 	puller := filesync.NewPuller()
 
 	if err := a.unlinkData(nil); err != nil {
 		return fmt.Errorf("unlinkData: %v", err)
 	}
 	// If this is our second time through the loop cleanup the old data.
+	// TODO: this won't get hit
 	if dir != "" {
 		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("os.RemoveAll: %v", err)
 		}
 	}
-	dir, err = a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
+	dir, err := a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
 	if err != nil {
 		return err
 	}
@@ -271,7 +243,7 @@ func (a *APIServer) serviceSpawner(pachClient *client.APIClient) error {
 			return fmt.Errorf("services must have a single datum")
 		}
 		data := df.Datum(0)
-		logger, err := a.getTaggedLogger(pachClient, job.ID, data, false)
+		logger := logs.NewMasterLogger(a.pipelineInfo).WithJob(job.ID).WithData(data)
 		puller := filesync.NewPuller()
 		// If this is our second time through the loop cleanup the old data.
 		if dir != "" {
@@ -427,7 +399,7 @@ func (a *APIServer) failedInputs(ctx context.Context, jobInfo *pps.JobInfo) ([]s
 // waitJob waits for the job in 'jobInfo' to finish, and then it collects the
 // output from the job's workers and merges it into a commit (and may merge
 // stats into a commit in the stats branch as well)
-func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger *taggedLogger) (retErr error) {
+func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, logger logs.TaggedLogger) (retErr error) {
 	logger.Logf("waiting on job %q (pipeline version: %d, state: %s)", jobInfo.Job.ID, jobInfo.PipelineVersion, jobInfo.State)
 	ctx, cancel := context.WithCancel(pachClient.Ctx())
 	pachClient = pachClient.WithCtx(ctx)
@@ -694,7 +666,7 @@ func (a *APIServer) waitJob(pachClient *client.APIClient, jobInfo *pps.JobInfo, 
 		pbw := pbutil.NewWriter(buf)
 		for i := 0; i < df.Len(); i++ {
 			files := df.Datum(i)
-			datumHash := HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
+			datumHash := common.HashDatum(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.Salt, files)
 			if _, err := pbw.WriteBytes([]byte(datumHash)); err != nil {
 				return err
 			}
@@ -787,7 +759,7 @@ func (a *APIServer) deleteJob(stm col.STM, jobPtr *pps.EtcdJobInfo) error {
 	return a.jobs.ReadWrite(stm).Delete(jobPtr.Job.ID)
 }
 
-func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, jobInfo *pps.JobInfo) error {
+func (a *APIServer) egress(pachClient *client.APIClient, logger logs.TaggedLogger, jobInfo *pps.JobInfo) error {
 	// copy the pach client (preserving auth info) so we can set a different
 	// number of concurrent streams
 	pachClient = pachClient.WithCtx(pachClient.Ctx())
@@ -821,7 +793,7 @@ func (a *APIServer) egress(pachClient *client.APIClient, logger *taggedLogger, j
 	})
 }
 
-func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) receiveSpout(ctx context.Context, logger logs.TaggedLogger) error {
 	return backoff.RetryNotify(func() error {
 		repo := a.pipelineInfo.Pipeline.Name
 		for {
@@ -896,7 +868,7 @@ func (a *APIServer) receiveSpout(ctx context.Context, logger *taggedLogger) erro
 	})
 }
 
-func (a *APIServer) runService(ctx context.Context, logger *taggedLogger) error {
+func (a *APIServer) runService(ctx context.Context, logger logs.TaggedLogger) error {
 	return backoff.RetryNotify(func() error {
 		// if we have a spout, then asynchronously receive spout data
 		if a.pipelineInfo.Spout != nil {
@@ -970,7 +942,7 @@ func (a *APIServer) aggregateProcessStats(stats []*pps.ProcessStats) (*pps.Aggre
 }
 
 func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
-	logger := a.getMasterLogger()
+	logger := logs.NewMasterLogger(a.pipelineInfo)
 	mean, err := stats.Mean(datums)
 	if err != nil {
 		logger.Logf("error aggregating mean: %v", err)
@@ -994,16 +966,4 @@ func (a *APIServer) aggregate(datums []float64) (*pps.Aggregate, error) {
 		FifthPercentile:       fifth,
 		NinetyFifthPercentile: ninetyFifth,
 	}, nil
-}
-
-func isNotFoundErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "not found")
-}
-
-func now() *types.Timestamp {
-	t, err := types.TimestampProto(time.Now())
-	if err != nil {
-		panic(err)
-	}
-	return t
 }
