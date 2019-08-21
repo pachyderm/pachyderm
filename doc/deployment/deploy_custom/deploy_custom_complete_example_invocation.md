@@ -13,7 +13,7 @@ Run the following command to deploy your example cluster:
 pachctl deploy custom --persistent-disk aws --object-store s3 \
     foobar 10 \
     pachyderm-bucket  'OBSIJRBE0PP2NO4QOA27' 'tfteSlswRu7BJ86wekitnifILbZam1KYY3TG' 'minio:9000' \
-    --dynamic-etcd-nodes 10
+    --dynamic-etcd-nodes 1
     --local-roles --output yaml  --dry-run > custom_deploy.yaml
 ```
 
@@ -30,21 +30,8 @@ experienced Kubernetes administrator.
 If you are attempting a highly customized deployment,
 use one of the Pachyderm support resources listed below.
 
-To deploy your configuration, run one of the following commands:
+To deploy your configuration, run the following command:
+```bash
+$ kubectl apply -f ./custom_deploy.yaml
+```
 
-* If you are deploying with a static persistent volume, run:
-
-  ```bash
-  $ kubectl apply -f ./pachyderm-with-static-volume.json
-  ```
-* If you are deploying with `StatefulSets`, run:
-
-  ```bash
-  $ kubectl apply -f ./pachyderm-with-statefulset.json
-  ```
-
-* If you are deploying with `StatefulSets` by using `StorageClasses`:
-
-  ```bash
-  $ kubectl apply -f ./pachyderm-with-statefulset-using-storageclasses.json
-  ```

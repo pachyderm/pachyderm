@@ -11,10 +11,13 @@ from cluster-wide (`ClusterRole`) to namespace-specific (`Role`).
 Using `--local-roles` inhibits your ability to use the
 [coefficient parallelism](http://docs.pachyderm.io/en/latest/reference/pipeline_spec.html#parallelism-spec-optional)
 feature. After you set the `--local-roles` flag,
-you might see the following message in the `pachd` pod Kubernetes logs:
+you might see a message similar to this in the `pachd` pod Kubernetes logs:
 
   ```
-  ERROR unable to access kubernetes nodeslist, Pachyderm will continue to work but it will not be possible to use COEFFICIENT parallelism. error: nodes is   forbidden: User "system:serviceaccount:pachyderm-test-1:pachyderm" cannot list nodes at the cluster scope
+  ERROR unable to access kubernetes nodeslist, Pachyderm will continue to work 
+  but it will not be possible to use COEFFICIENT parallelism. error: nodes is 
+  forbidden: User "system:serviceaccount:pachyderm-test-1:pachyderm" cannot 
+  list nodes at the cluster scope
   ```
 
 **Resource requests and limits flags:**
@@ -34,7 +37,7 @@ Do not use this flag in production environments.
 allocates to `pachd`. Fractions are allowed.
 * `--pachd-memory-request`: The amount of memory that Kubernetes
 allocates to `pachd`. This flag accepts the SI suffixes.
-* `shards`: The maximum number of `pachd` nodes allowed in the
+* `--shards`: The maximum number of `pachd` nodes allowed in the
 cluster. Increasing this number from the default value of `16`
 might result in degraded performance.
 

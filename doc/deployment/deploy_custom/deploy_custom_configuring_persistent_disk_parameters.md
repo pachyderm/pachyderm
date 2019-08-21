@@ -3,7 +3,7 @@
 To create a custom deployment, you need to configure
 persistent storage that Pachyderm will use to store metadata.
 You can do so by using the `--persistent-disk` flag
-that creates a PV backend on a supported provider.
+that creates a PersistentVolume (PV) backend on a supported provider.
 
 Pachyderm has automated configuration for styles of backend for the
 following major cloud providers:
@@ -12,8 +12,14 @@ following major cloud providers:
 - Google Cloud Platform™ (GCP)
 - Microsoft® Azure™
 
-For each of those providers,
-the final configuration highly depends on which of
+Choosing one of these providers will create a configuration close to what you need.
+After carefully reading the section below, 
+consult with your Kubernetes administrators on which provider to choose.
+You may have to then edit your manifest manually, 
+based on configuration information they provide to you.
+
+For each of the providers above,
+the final configuration depends on which of
 the following flags you define:
 
 * `--dynamic-etcd-nodes`. The `--dynamic-etcd-nodes` flag is
@@ -34,7 +40,7 @@ that uses the standard `etcd-storage-class`.
   If you need to use a different than the default setting,
   you can use the `--etcd-storage-class` flag to specify the StorageClass.
 
-* `--static-etc-volume`. The `--static-etc-volume` is used when
+* `--static-etc-volume`. The `--static-etc-volume` flag is used when
 your Kubernetes installation has not been configured to use StatefulSets.
 When you specify `--static-etc-volume` flag, Pachyderm creates a static
 volume for `etcd`. Pachyderm creates a PV with a spec appropriate
@@ -44,10 +50,11 @@ for each of the cloud providers:
 - `google`: gcePersistentDisk for Google Cloud Storage
 - `azure`: azureDisk for Microsoft Azure
 
-These choices do not apply to  most on-premises deployments.
-To determine the correct choices for your on-prem infrastructure,
-consult with your Kubernetes administrators
-and edit your manifest manually.
+As stated above, the specifics of a one of these choices may not be precisely what your on-premises deployment requires.
+To determine the closest correct choices for your on-prem infrastructure,
+consult with your Kubernetes administrators.
+You may have to then edit your manifest manually, 
+based on configuration information they provide to you.
 
 ## Example invocation with persistent disk parameters
 
@@ -57,7 +64,7 @@ The deployment command uses the following flags:
 
 ```
 pachctl deploy custom --persistent-disk aws --object-store <object store backend> \
-    foobar 10 \
+    any-string 10 \
     <object store arg 1> <object store arg 2>  <object store arg 3>  <object store arg 4> \
     --dynamic-etcd-nodes 1
     [optional flags]
@@ -66,7 +73,7 @@ pachctl deploy custom --persistent-disk aws --object-store <object store backend
 The `--persistent-disk` flag takes two arguments
 that you specify right after the single argument to the `--object-store` flag.
 Although the first argument is required, Pachyderm ignores it.
-Therefore, you can set it to any text value, such as `foobar` in the
+Therefore, you can set it to any text value, such as `any-string` in the
 example above.
 The second argument is the size,
 in gigabytes (GB), that Pachyderm requests for the `etcd` disk.

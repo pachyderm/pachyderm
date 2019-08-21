@@ -16,10 +16,12 @@ The topics in this section walk you through the process of using the
 available flags to create the following components of your
 Pachyderm infrastructure:
 
-* A StatefulSet deployment.
-* An on-premises Kubernetes cluster that has the standard etcd StorageClass
-  configured along with access controls that limit the deployment to
-  namespace-local roles only.
+* A Pachyderm deployment using StatefulSets.
+* An on-premises Kubernetes cluster with StatefulSets configured.
+  It has the standard etcd StorageClass,
+  along with access controls
+  that limit the deployment 
+  to namespace-local roles only.
 * An on-premises MinIO object store with the following parameters:
 
   * SSL is enabled.
@@ -32,7 +34,8 @@ Pachyderm infrastructure:
 After configuring these parameters,
 you save the output of the invocation to a configuration file that
 you can later use to deploy and configure your environment.
-All scripts in that infrastructure work with YAML manifests.
+For the purposes of our example,
+all scripts in that hypothetical infrastructure work with YAML manifests.
 
 This section includes the following topics:
 

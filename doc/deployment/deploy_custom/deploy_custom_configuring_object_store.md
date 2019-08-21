@@ -18,13 +18,12 @@ If you need to access an object store that uses S3v2
 signatures, you can specify the `--isS3V2` flag.
 This parameter configures Pachyderm to use the MinIO driver,
 which allows the use of the older signature.
-Also, this flag disables SSL for connections to the object store
+This `--isS3V2` flag disables SSL for connections to the object store
 with the `minio` driver.
 You can re-enable it with the `-s` or `--secure` flag.
+You may also manually edit the `pachyderm-storage-secret` Kubernetes manifest.
 
-Also, you can edit the `pachyderm-storage-secret` Kubernetes manifest.
-The `--object-store` flag takes four required, additional
-configuration arguments.
+The `--object-store` flag takes four required  configuration arguments.
 Place these arguments immediately after
 [the persistent disk parameters](deploy_custom_configuring_persistent_disk_parameters.html):
 
@@ -54,11 +53,15 @@ The deployment command uses the following flags:
 
 ```
 pachctl deploy custom --persistent-disk aws --object-store s3 \
-    foobar 10 \
+    any-string 10 \
     pachyderm-bucket  'OBSIJRBE0PP2NO4QOA27' 'tfteSlswRu7BJ86wekitnifILbZam1KYY3TG' 'minio:9000' \
-    --dynamic-etcd-nodes 10
+    --dynamic-etcd-nodes 1
     [optional flags]
 ```
+In the example command above, some of the arguments may
+contain characters that the shell could interpret.
+Those are enclosed in single-quotes.
 
-In the example command above, some of the arguments might
-contain characters that the shell could interpret in single-quotes.
+**Note**: we use `any-string` above because
+the `deploy custom` command will ignore the first persistent-disk configuration argument.
+See [Configuring Persistent Disk Parameters](./deploy_custom_configuring_persistent_disk_parameters.html)
