@@ -73,13 +73,13 @@ func keepPath(repo, branch, key, uploadID string) string {
 func (c *controller) ensureRepo(pc *client.APIClient) error {
 	_, err := pc.InspectBranch(c.repo, "master")
 	if err != nil {
-		err = pc.CreateRepo(c.repo)
-		if err != nil && !strings.Contains(err.Error(), "as it already exists") {
+		err = pc.UpdateRepo(c.repo)
+		if err != nil {
 			return err
 		}
 
 		err = pc.CreateBranch(c.repo, "master", "", nil)
-		if err != nil && !strings.Contains(err.Error(), "as it already exists") {
+		if err != nil {
 			return err
 		}
 	}
