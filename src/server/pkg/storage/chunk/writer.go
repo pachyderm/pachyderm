@@ -10,6 +10,8 @@ import (
 	"github.com/chmduquesne/rollinghash/buzhash64"
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
 	"github.com/pachyderm/pachyderm/src/server/pkg/storage/hash"
+	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -17,6 +19,8 @@ const (
 	MB = 1024 * 1024
 	// WindowSize is the size of the rolling hash window.
 	WindowSize = 64
+	// (bryce) this should be configurable.
+	bufSize = 50 * MB
 )
 
 var initialWindow = make([]byte, WindowSize)
@@ -24,102 +28,123 @@ var initialWindow = make([]byte, WindowSize)
 // WriterFunc is a callback that returns a data reference to the next chunk and the annotations within the chunk.
 type WriterFunc func(*DataRef, []*Annotation) error
 
-// Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
-// Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
-type Writer struct {
-	ctx            context.Context
-	objC           obj.Client
-	buf            *bytes.Buffer
-	hash           *buzhash64.Buzhash64
-	splitMask      uint64
-	f              WriterFunc
-	annotations    []*Annotation
-	chunkCount     int64
-	annotationSize int64
-	splitF         func() error
+type byteSet struct {
+	data        []byte
+	annotations []*Annotation
 }
 
-// newWriter creates a new Writer.
-func newWriter(ctx context.Context, objC obj.Client, averageBits int, f WriterFunc, seed int64) *Writer {
-	// Initialize buzhash64 with WindowSize window.
-	hash := buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(seed))
-	w := &Writer{
-		ctx:       ctx,
-		objC:      objC,
-		buf:       &bytes.Buffer{},
-		hash:      hash,
-		splitMask: (1 << uint64(averageBits)) - 1,
-		f:         f,
+type worker struct {
+	ctx                        context.Context
+	objC                       obj.Client
+	hash                       *buzhash64.Buzhash64
+	splitMask                  uint64
+	first                      bool
+	buf                        *bytes.Buffer
+	annotations                []*Annotation
+	f                          WriterFunc
+	callbacks                  []func() error
+	prevChan, nextChan         chan *byteSet
+	prevDoneChan, nextDoneChan chan struct{}
+	stats                      *stats
+}
+
+// (bryce) edge case where no split point was found, or found before window size bytes.
+func (w *worker) run(byteSet *byteSet) error {
+	// Roll through the assigned byte set.
+	if err := w.rollByteSet(byteSet); err != nil {
+		return err
 	}
-	w.resetHash()
-	return w
-}
-
-func (w *Writer) resetHash() {
-	w.hash.Reset()
-	w.hash.Write(initialWindow)
-}
-
-// Annotate associates an annotation with the next set of bytes that are written.
-func (w *Writer) Annotate(a *Annotation) {
-	a.Offset = int64(w.buf.Len())
-	// Handle the edge case when the last annotation from the prior chunk
-	// should not carry over into the next.
-	if a.Offset == 0 {
-		w.annotations = nil
+	select {
+	case byteSet, more := <-w.nextChan:
+		if !more {
+			if err := w.put(); err != nil {
+				return err
+			}
+		} else if err := w.rollByteSet(byteSet); err != nil {
+			return err
+		}
+	case <-w.ctx.Done():
+		return w.ctx.Err()
 	}
-	w.annotations = append(w.annotations, a)
-	w.annotationSize = 0
-	// Reset hash between annotations.
-	w.resetHash()
+	if w.prevDoneChan != nil {
+		select {
+		case <-w.prevDoneChan:
+		case <-w.ctx.Done():
+			return w.ctx.Err()
+		}
+	}
+	// Execute the writer function for each chunk.
+	for _, c := range w.callbacks {
+		w.stats.chunkCount++
+		if err := c(); err != nil {
+			return err
+		}
+	}
+	// Signal to the next worker that this worker is done.
+	w.nextDoneChan <- struct{}{}
+	return nil
 }
 
-// AnnotationSize returns the size of the current annotation.
-func (w *Writer) AnnotationSize() int64 {
-	return w.annotationSize
+func (w *worker) rollByteSet(byteSet *byteSet) error {
+	// Roll across the byte set.
+	for i, a := range byteSet.annotations {
+		w.annotations = joinAnnotations(w.annotations, a)
+		var data []byte
+		if i == len(byteSet.annotations)-1 {
+			data = byteSet.data[a.Offset:len(byteSet.data)]
+		} else {
+			data = byteSet.data[a.Offset:byteSet.annotations[i+1].Offset]
+		}
+		// Convert from byte set offset to chunk offset.
+		a.Offset = int64(w.buf.Len())
+		if err := w.roll(data); err != nil {
+			return err
+		}
+		// Reset hash between annotations.
+		w.resetHash()
+	}
+	return nil
 }
 
-// Reset resets the buffer and annotations.
-func (w *Writer) Reset() {
-	w.buf = &bytes.Buffer{}
-	w.resetHash()
-	w.annotations = nil
-	w.annotationSize = 0
+func joinAnnotations(as []*Annotation, a *Annotation) []*Annotation {
+	if as != nil && as[len(as)-1].Meta == a.Meta {
+		return as
+	}
+	return append(as, a)
 }
 
-// ChunkCount returns a count of the number of chunks created/referenced by
-// the writer.
-func (w *Writer) ChunkCount() int64 {
-	return w.chunkCount
-}
-
-// Write rolls through the data written, calling c.f when a chunk is found.
-// Note: If making changes to this function, be wary of the performance
-// implications (check before and after performance with chunker benchmarks).
-func (w *Writer) Write(data []byte) (int, error) {
+func (w *worker) roll(data []byte) error {
 	offset := 0
-	size := w.buf.Len()
 	for i, b := range data {
-		size++
 		w.hash.Roll(b)
 		if w.hash.Sum64()&w.splitMask == 0 {
 			w.buf.Write(data[offset : i+1])
-			if err := w.put(); err != nil {
-				return 0, err
-			}
-			w.buf.Reset()
-			// Reset hash between chunks.
-			w.resetHash()
 			offset = i + 1
-			size = 0
+			if w.prevChan != nil {
+				// We do not consider chunk split points within WindowSize bytes
+				// of the start of the byte set.
+				if w.first && w.buf.Len() < WindowSize {
+					continue
+				}
+				w.first = false
+				byteSet := &byteSet{
+					data:        w.buf.Bytes(),
+					annotations: w.annotations,
+				}
+				w.prevChan <- byteSet
+				w.prevChan = nil
+			} else if err := w.put(); err != nil {
+				return err
+			}
+			w.buf = &bytes.Buffer{}
+			w.annotations = splitAnnotations(w.annotations)
 		}
 	}
 	w.buf.Write(data[offset:])
-	w.annotationSize += int64(len(data))
-	return len(data), nil
+	return nil
 }
 
-func (w *Writer) put() error {
+func (w *worker) put() error {
 	chunk := &Chunk{Hash: hash.EncodeHash(hash.Sum(w.buf.Bytes()))}
 	path := path.Join(prefix, chunk.Hash)
 	// If the chunk does not exist, upload it.
@@ -128,21 +153,47 @@ func (w *Writer) put() error {
 			return err
 		}
 	}
-	w.chunkCount++
 	chunkRef := &DataRef{
 		Chunk:     chunk,
-		SizeBytes: int64(len(w.buf.Bytes())),
+		SizeBytes: int64(w.buf.Len()),
 	}
-	if err := w.executeFunc(chunkRef); err != nil {
-		return err
-	}
-	if w.splitF != nil {
-		return w.splitF()
-	}
+	// Update the annotations for the current chunk.
+	w.updateAnnotations(chunkRef)
+	annotations := w.annotations
+	w.callbacks = append(w.callbacks, func() error {
+		return w.f(chunkRef, annotations)
+	})
 	return nil
 }
 
-func (w *Writer) upload(path string) error {
+func (w *worker) updateAnnotations(chunkRef *DataRef) {
+	// Fast path for next data reference being full chunk.
+	if len(w.annotations) == 1 && w.annotations[0].NextDataRef != nil {
+		w.annotations[0].NextDataRef = chunkRef
+	}
+	for i, a := range w.annotations {
+		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
+		if a.NextDataRef != nil {
+			a.NextDataRef.Chunk = chunkRef.Chunk
+			var data []byte
+			if i == len(w.annotations)-1 {
+				data = w.buf.Bytes()[a.Offset:w.buf.Len()]
+			} else {
+				data = w.buf.Bytes()[a.Offset:w.annotations[i+1].Offset]
+			}
+			a.NextDataRef.Hash = hash.EncodeHash(hash.Sum(data))
+			a.NextDataRef.OffsetBytes = a.Offset
+			a.NextDataRef.SizeBytes = int64(len(data))
+		}
+	}
+}
+
+func (w *worker) resetHash() {
+	w.hash.Reset()
+	w.hash.Write(initialWindow)
+}
+
+func (w *worker) upload(path string) error {
 	objW, err := w.objC.Writer(w.ctx, path)
 	if err != nil {
 		return err
@@ -158,45 +209,141 @@ func (w *Writer) upload(path string) error {
 	return err
 }
 
-func (w *Writer) executeFunc(chunkRef *DataRef) error {
-	// Update the annotations for the current chunk.
-	w.updateAnnotations(chunkRef)
-	// Execute the chunk callback.
-	if err := w.f(chunkRef, w.annotations); err != nil {
-		return err
-	}
-	// Keep the last annotation because it may span into the next chunk.
-	if len(w.annotations) > 0 {
-		lastA := w.annotations[len(w.annotations)-1]
-		a := &Annotation{Meta: lastA.Meta}
-		if lastA.NextDataRef != nil {
-			a.NextDataRef = &DataRef{}
+type stats struct {
+	chunkCount     int64
+	annotationSize int64
+}
+
+// Writer splits a byte stream into content defined chunks that are hashed and deduplicated/uploaded to object storage.
+// Chunk split points are determined by a bit pattern in a rolling hash function (buzhash64 at https://github.com/chmduquesne/rollinghash).
+type Writer struct {
+	ctx           context.Context
+	buf           *bytes.Buffer
+	annotations   []*Annotation
+	memoryLimiter *semaphore.Weighted
+	eg            *errgroup.Group
+	newWorkerFunc func(chan *byteSet, chan *byteSet, chan struct{}, chan struct{}) *worker
+	prevChan      chan *byteSet
+	prevDoneChan  chan struct{}
+	stats         *stats
+}
+
+func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.Weighted, averageBits int, f WriterFunc, seed int64) *Writer {
+	eg, cancelCtx := errgroup.WithContext(ctx)
+	stats := &stats{}
+	newWorkerFunc := func(prevChan, nextChan chan *byteSet, prevDoneChan, nextDoneChan chan struct{}) *worker {
+		w := &worker{
+			ctx:          cancelCtx,
+			objC:         objC,
+			hash:         buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(seed)),
+			splitMask:    (1 << uint64(averageBits)) - 1,
+			first:        true,
+			buf:          &bytes.Buffer{},
+			prevChan:     prevChan,
+			nextChan:     nextChan,
+			prevDoneChan: prevDoneChan,
+			nextDoneChan: nextDoneChan,
+			f:            f,
+			stats:        stats,
 		}
-		w.annotations = []*Annotation{a}
+		w.resetHash()
+		return w
 	}
+	w := &Writer{
+		ctx:           cancelCtx,
+		buf:           &bytes.Buffer{},
+		memoryLimiter: memoryLimiter,
+		eg:            eg,
+		newWorkerFunc: newWorkerFunc,
+		stats:         stats,
+	}
+	return w
+}
+
+// Annotate associates an annotation with the current byte set.
+func (w *Writer) Annotate(a *Annotation) {
+	a.Offset = int64(w.buf.Len())
+	if a.Offset == 0 {
+		w.annotations = nil
+	}
+	w.annotations = append(w.annotations, a)
+	w.stats.annotationSize = 0
+}
+
+// AnnotationSize returns the size of the current annotation.
+func (w *Writer) AnnotationSize() int64 {
+	return w.stats.annotationSize
+}
+
+func (w *Writer) Flush() error {
+	// (bryce) should wait for outstanding work.
+	// might need to treat buffering differently here.
 	return nil
 }
 
-func (w *Writer) updateAnnotations(chunkRef *DataRef) {
-	// Fast path for next data reference being full chunk.
-	if len(w.annotations) == 1 && w.annotations[0].NextDataRef != nil {
-		w.annotations[0].NextDataRef = chunkRef
+// Reset resets the buffer and annotations.
+func (w *Writer) Reset() {
+	// (bryce) should cancel all workers.
+	w.buf = &bytes.Buffer{}
+	w.annotations = nil
+	w.stats.annotationSize = 0
+}
+
+// ChunkCount returns a count of the number of chunks created/referenced by
+// the writer.
+func (w *Writer) ChunkCount() int64 {
+	return w.stats.chunkCount
+}
+
+// Write rolls through the data written, calling c.f when a chunk is found.
+// Note: If making changes to this function, be wary of the performance
+// implications (check before and after performance with chunker benchmarks).
+func (w *Writer) Write(data []byte) (int, error) {
+	var written int
+	for w.buf.Len()+len(data) >= bufSize {
+		i := bufSize - w.buf.Len()
+		w.buf.Write(data[:i])
+		w.writeByteSet(false)
+		written += i
+		data = data[i:]
 	}
-	for i, a := range w.annotations {
-		// (bryce) probably a better way to communicate whether to compute datarefs for an annotation.
-		if a.NextDataRef != nil {
-			a.NextDataRef.Chunk = chunkRef.Chunk
-			data := w.buf.Bytes()
-			if i == len(w.annotations)-1 {
-				data = data[a.Offset:w.buf.Len()]
-			} else {
-				data = data[a.Offset:w.annotations[i+1].Offset]
-			}
-			a.NextDataRef.Hash = hash.EncodeHash(hash.Sum(data))
-			a.NextDataRef.OffsetBytes = a.Offset
-			a.NextDataRef.SizeBytes = int64(len(data))
-		}
+	w.buf.Write(data)
+	written += len(data)
+	w.stats.annotationSize += int64(written)
+	return written, nil
+}
+
+func (w *Writer) writeByteSet(closed bool) {
+	w.memoryLimiter.Acquire(w.ctx, bufSize)
+	prevChan, nextChan := w.prevChan, make(chan *byteSet, 1)
+	prevDoneChan, nextDoneChan := w.prevDoneChan, make(chan struct{}, 1)
+	if closed {
+		nextDoneChan = nil
 	}
+	byteSet := &byteSet{
+		data:        w.buf.Bytes(),
+		annotations: w.annotations,
+	}
+	w.eg.Go(func() error {
+		defer w.memoryLimiter.Release(bufSize)
+		return w.newWorkerFunc(prevChan, nextChan, prevDoneChan, nextDoneChan).run(byteSet)
+	})
+	w.prevChan = nextChan
+	w.prevDoneChan = nextDoneChan
+	w.buf = &bytes.Buffer{}
+	w.annotations = splitAnnotations(w.annotations)
+}
+
+func splitAnnotations(as []*Annotation) []*Annotation {
+	if len(as) == 0 {
+		return nil
+	}
+	lastA := as[len(as)-1]
+	copyA := &Annotation{Meta: lastA.Meta}
+	if lastA.NextDataRef != nil {
+		copyA.NextDataRef = &DataRef{}
+	}
+	return []*Annotation{copyA}
 }
 
 // Copy does a cheap copy from a reader to a writer.
@@ -214,19 +361,18 @@ func (w *Writer) WriteCopy(c *Copy) error {
 		return err
 	}
 	for _, chunkRef := range c.chunkRefs {
-		w.chunkCount++
+		w.stats.chunkCount++
 		// (bryce) might want to double check if this is correct.
-		w.annotationSize += chunkRef.SizeBytes
-		if err := w.executeFunc(chunkRef); err != nil {
-			return err
-		}
+		w.stats.annotationSize += chunkRef.SizeBytes
+		//if err := w.executeFunc(chunkRef); err != nil {
+		//	return err
+		//}
 	}
 	_, err := io.Copy(w, c.after)
 	return err
 }
 
-// Close closes the writer and flushes the remaining bytes to a chunk and finishes
-// the final range.
 func (w *Writer) Close() error {
-	return w.put()
+	close(w.prevChan)
+	return w.eg.Wait()
 }

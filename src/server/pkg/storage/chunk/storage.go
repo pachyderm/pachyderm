@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/src/server/pkg/obj"
+	"golang.org/x/sync/semaphore"
 )
 
 const (
@@ -21,13 +22,15 @@ type Annotation struct {
 
 // Storage is the abstraction that manages chunk storage.
 type Storage struct {
-	objC obj.Client
+	objC          obj.Client
+	memoryLimiter *semaphore.Weighted
 }
 
 // NewStorage creates a new Storage.
-func NewStorage(objC obj.Client) *Storage {
+func NewStorage(objC obj.Client, memoryLimit int64) *Storage {
 	return &Storage{
-		objC: objC,
+		objC:          objC,
+		memoryLimiter: semaphore.NewWeighted(memoryLimit),
 	}
 }
 
@@ -44,7 +47,7 @@ func (s *Storage) NewReader(ctx context.Context, f ...ReaderFunc) *Reader {
 // object storage.
 // The callback arguments are the chunk hash and content.
 func (s *Storage) NewWriter(ctx context.Context, averageBits int, f WriterFunc, seed int64) *Writer {
-	return newWriter(ctx, s.objC, averageBits, f, seed)
+	return newWriter(ctx, s.objC, s.memoryLimiter, averageBits, f, seed)
 }
 
 // List lists all of the chunks in object storage.

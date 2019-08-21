@@ -17,7 +17,7 @@ func LocalStorage(tb testing.TB) (obj.Client, *Storage) {
 	require.NoError(tb, err)
 	objC, err := obj.NewLocalClient(wd)
 	require.NoError(tb, err)
-	return objC, NewStorage(objC)
+	return objC, NewStorage(objC, 200*MB)
 }
 
 // Cleanup cleans up a local chunk storage instance.
