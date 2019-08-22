@@ -11,4 +11,3 @@ data operations in Pachyderm, including the following topics:
 
    load-data-into-pachyderm.md
 
-# extract-data-out-of-pachyderm.md
