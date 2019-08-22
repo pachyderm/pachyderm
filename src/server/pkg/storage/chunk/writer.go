@@ -80,7 +80,6 @@ func (w *worker) run(byteSet *byteSet) error {
 func (w *worker) rollByteSet(byteSet *byteSet) error {
 	// Roll across the byte set.
 	for i, a := range byteSet.annotations {
-		w.annotations = joinAnnotations(w.annotations, a)
 		var data []byte
 		if i == len(byteSet.annotations)-1 {
 			data = byteSet.data[a.Offset:len(byteSet.data)]
@@ -89,6 +88,7 @@ func (w *worker) rollByteSet(byteSet *byteSet) error {
 		}
 		// Convert from byte set offset to chunk offset.
 		a.Offset = int64(w.buf.Len())
+		w.annotations = joinAnnotations(w.annotations, a)
 		if err := w.roll(data); err != nil {
 			return err
 		}
@@ -99,6 +99,8 @@ func (w *worker) rollByteSet(byteSet *byteSet) error {
 }
 
 func joinAnnotations(as []*Annotation, a *Annotation) []*Annotation {
+	// If the annotation being added is the same as the
+	// last, then they are merged.
 	if as != nil && as[len(as)-1].Meta == a.Meta {
 		return as
 	}
@@ -115,15 +117,15 @@ func (w *worker) roll(data []byte) error {
 			if w.prev != nil && w.first {
 				// We do not consider chunk split points within WindowSize bytes
 				// of the start of the byte set.
-				if w.first && w.buf.Len() < WindowSize {
+				if w.buf.Len() < WindowSize {
 					continue
 				}
-				w.first = false
 				byteSet := &byteSet{
 					data:        w.buf.Bytes(),
 					annotations: w.annotations,
 				}
 				w.prev.bytes <- byteSet
+				w.first = false
 			} else if err := w.put(); err != nil {
 				return err
 			}
@@ -177,6 +179,19 @@ func (w *worker) updateAnnotations(chunkRef *DataRef) {
 			a.NextDataRef.SizeBytes = int64(len(data))
 		}
 	}
+}
+
+func splitAnnotations(as []*Annotation) []*Annotation {
+	if len(as) == 0 {
+		return nil
+	}
+	// Copy the last annotation.
+	lastA := as[len(as)-1]
+	copyA := &Annotation{Meta: lastA.Meta}
+	if lastA.NextDataRef != nil {
+		copyA.NextDataRef = &DataRef{}
+	}
+	return []*Annotation{copyA}
 }
 
 func (w *worker) resetHash() {
@@ -341,18 +356,6 @@ func (w *Writer) writeByteSet() {
 	w.prev = next
 	w.buf = &bytes.Buffer{}
 	w.annotations = splitAnnotations(w.annotations)
-}
-
-func splitAnnotations(as []*Annotation) []*Annotation {
-	if len(as) == 0 {
-		return nil
-	}
-	lastA := as[len(as)-1]
-	copyA := &Annotation{Meta: lastA.Meta}
-	if lastA.NextDataRef != nil {
-		copyA.NextDataRef = &DataRef{}
-	}
-	return []*Annotation{copyA}
 }
 
 // Copy does a cheap copy from a reader to a writer.
