@@ -1,14 +1,24 @@
 package config
 
 import (
+	"sync"
+
 	"k8s.io/client-go/tools/clientcmd"
+)
+
+var (
+	kubeConfigOnce  sync.Once
+	kubeConfigValue clientcmd.ClientConfig
 )
 
 // ReadKubeConfig gets the kubernetes config
 func ReadKubeConfig() clientcmd.ClientConfig {
-	rules := clientcmd.NewDefaultClientConfigLoadingRules()
-	overrides := &clientcmd.ConfigOverrides{}
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
+	kubeConfig.Do(func() error {
+		rules := clientcmd.NewDefaultClientConfigLoadingRules()
+		overrides := &clientcmd.ConfigOverrides{}
+		kubeConfigValue = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)
+	})
+	return kubeConfigValue
 }
 
 // KubeNamespace gets the default namespace for the active context
