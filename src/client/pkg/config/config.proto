@@ -22,6 +22,7 @@ message Config {
     // (depending on which version of the config is being used)
     ConfigV1 v1 = 2;
     ConfigV2 v2 = 3;
+    ConfigV3 v3 = 4;
 }
 
 // ConfigV1 specifies v1 of the pachyderm config (June 30 2017 - June 2019)
@@ -48,11 +49,16 @@ message ConfigV1 {
     string active_transaction = 4;
 }
 
-// ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
+// ConfigV2 specifies v2 of the pachyderm config (June 2019 - September 2019)
 message ConfigV2 {
     string active_context = 1;
     map<string, Context> contexts = 2;
     bool metrics = 3;
+}
+
+// ConfigV3 specifies v3 of the pachyderm config (September 2019 - present)
+message ConfigV3 {
+    bool metrics = 1;
 }
 
 message Context {
