@@ -43,20 +43,17 @@ func (c *microsoftClient) Writer(ctx context.Context, name string) (io.WriteClos
 }
 
 func (c *microsoftClient) Reader(ctx context.Context, name string, offset uint64, size uint64) (io.ReadCloser, error) {
-	blobRange := blobRange(offset, size)
-	if blobRange == nil {
-		return c.container.GetBlobReference(name).Get(nil)
-	}
-	return c.container.GetBlobReference(name).GetRange(&storage.GetBlobRangeOptions{Range: blobRange})
+	return c.container.GetBlobReference(name).GetRange(blobRangeOptions(offset, size))
 }
 
-func blobRange(offset, size uint64) *storage.BlobRange {
-	if offset == 0 && size == 0 {
-		return nil
-	} else if size == 0 {
-		return &storage.BlobRange{Start: offset}
+func blobRangeOptions(offset, size uint64) *storage.GetBlobRangeOptions {
+	var blobRange *storage.BlobRange
+	if size == 0 {
+		blobRange = &storage.BlobRange{Start: offset}
+	} else {
+		blobRange = &storage.BlobRange{Start: offset, End: offset + size}
 	}
-	return &storage.BlobRange{Start: offset, End: offset + size}
+	return &storage.GetBlobRangeOptions{Range: blobRange}
 }
 
 func (c *microsoftClient) Delete(_ context.Context, name string) error {
