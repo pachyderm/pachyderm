@@ -2030,6 +2030,25 @@ func (a *APIServer) writeStats(pachClient *client.APIClient, objClient obj.Clien
 	return a.datumStatsCache.Put(datumIdx, bytes.NewReader(buf.Bytes()))
 }
 
+func plusDuration(x *types.Duration, y *types.Duration) (*types.Duration, error) {
+	var xd time.Duration
+	var yd time.Duration
+	var err error
+	if x != nil {
+		xd, err = types.DurationFromProto(x)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if y != nil {
+		yd, err = types.DurationFromProto(y)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return types.DurationProto(xd + yd), nil
+}
+
 // mergeStats merges y into x
 func mergeStats(x, y *pps.ProcessStats) error {
 	var err error
