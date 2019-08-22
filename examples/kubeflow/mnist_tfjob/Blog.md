@@ -38,7 +38,7 @@ With our repos set, it's time to check our data in:
 
 This will copy the minst file from your local machine to your Pachyderm repo `inputrepo` where it will get a commit id. Congrats, your data now has a HEAD commit! You can verify that with:
 
-`pachctl list file outputrepo@master:/data/ --history all` _(the `--history` flag tells pachyderm to show the commit infromation)_
+`pachctl list file outputrepo@master:/data/ --history all` _(the `--history` flag tells pachyderm to show the commit information)_
 
 ```
 ➜ pachctl list file inputrepo@master:/data/ --history all
@@ -175,7 +175,7 @@ Finished: 7 hours ago
 Size: 15.64MiB
 ```
 
-How cool is that, our `my_model.h5` (commit: eb7e51147b4d42cfbcd555c84be778d2) has a _parent_ of `a0f654c7a65f42f69e8bddd1a2035a7e` which is the commit id of `mnist.npz` file we checked in earlier. Now when anyone asks, "What data was used to train that model?" With just one command you can tell them. 
+How cool is that. Our `my_model.h5` (commit: eb7e51147b4d42cfbcd555c84be778d2) has a _parent_ of `a0f654c7a65f42f69e8bddd1a2035a7e` which is the commit id of `mnist.npz` file we checked in earlier. Now when anyone asks, "What data was used to train that model?" With just one command you can tell them. 
 
 ### Wrap up time 
 Great work! You successfully layed some data lineage groundwork for you and your team. As fun as that was, it's important that we make it clear that there's still more work to be done. A True data lineage solution provides users with a complete understanding of the entire journey from top to bottom. What we did here was take our first few steps by introducing version-control for the data. Don't worry though, Pachyderm and the Kubeflow community are on it and we're collaborating together to create the best possible solution.  
