@@ -33,19 +33,23 @@ type byteSet struct {
 	annotations []*Annotation
 }
 
+type chanSet struct {
+	bytes chan *byteSet
+	done  chan struct{}
+}
+
 type worker struct {
-	ctx                        context.Context
-	objC                       obj.Client
-	hash                       *buzhash64.Buzhash64
-	splitMask                  uint64
-	first                      bool
-	buf                        *bytes.Buffer
-	annotations                []*Annotation
-	f                          WriterFunc
-	callbacks                  []func() error
-	prevChan, nextChan         chan *byteSet
-	prevDoneChan, nextDoneChan chan struct{}
-	stats                      *stats
+	ctx         context.Context
+	objC        obj.Client
+	hash        *buzhash64.Buzhash64
+	splitMask   uint64
+	first       bool
+	buf         *bytes.Buffer
+	annotations []*Annotation
+	f           WriterFunc
+	callbacks   []func() error
+	prev, next  *chanSet
+	stats       *stats
 }
 
 // (bryce) edge case where no split point was found, or found before window size bytes.
@@ -55,7 +59,7 @@ func (w *worker) run(byteSet *byteSet) error {
 		return err
 	}
 	select {
-	case byteSet, more := <-w.nextChan:
+	case byteSet, more := <-w.next.bytes:
 		if !more {
 			if err := w.put(); err != nil {
 				return err
@@ -66,9 +70,9 @@ func (w *worker) run(byteSet *byteSet) error {
 	case <-w.ctx.Done():
 		return w.ctx.Err()
 	}
-	if w.prevDoneChan != nil {
+	if w.prev != nil {
 		select {
-		case <-w.prevDoneChan:
+		case <-w.prev.done:
 		case <-w.ctx.Done():
 			return w.ctx.Err()
 		}
@@ -81,7 +85,7 @@ func (w *worker) run(byteSet *byteSet) error {
 		}
 	}
 	// Signal to the next worker that this worker is done.
-	w.nextDoneChan <- struct{}{}
+	w.next.done <- struct{}{}
 	return nil
 }
 
@@ -120,7 +124,7 @@ func (w *worker) roll(data []byte) error {
 		if w.hash.Sum64()&w.splitMask == 0 {
 			w.buf.Write(data[offset : i+1])
 			offset = i + 1
-			if w.prevChan != nil {
+			if w.prev != nil && w.first {
 				// We do not consider chunk split points within WindowSize bytes
 				// of the start of the byte set.
 				if w.first && w.buf.Len() < WindowSize {
@@ -131,8 +135,7 @@ func (w *worker) roll(data []byte) error {
 					data:        w.buf.Bytes(),
 					annotations: w.annotations,
 				}
-				w.prevChan <- byteSet
-				w.prevChan = nil
+				w.prev.bytes <- byteSet
 			} else if err := w.put(); err != nil {
 				return err
 			}
@@ -222,29 +225,26 @@ type Writer struct {
 	annotations   []*Annotation
 	memoryLimiter *semaphore.Weighted
 	eg            *errgroup.Group
-	newWorkerFunc func(chan *byteSet, chan *byteSet, chan struct{}, chan struct{}) *worker
-	prevChan      chan *byteSet
-	prevDoneChan  chan struct{}
+	newWorkerFunc func(*chanSet, *chanSet) *worker
+	prev          *chanSet
 	stats         *stats
 }
 
 func newWriter(ctx context.Context, objC obj.Client, memoryLimiter *semaphore.Weighted, averageBits int, f WriterFunc, seed int64) *Writer {
 	eg, cancelCtx := errgroup.WithContext(ctx)
 	stats := &stats{}
-	newWorkerFunc := func(prevChan, nextChan chan *byteSet, prevDoneChan, nextDoneChan chan struct{}) *worker {
+	newWorkerFunc := func(prev, next *chanSet) *worker {
 		w := &worker{
-			ctx:          cancelCtx,
-			objC:         objC,
-			hash:         buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(seed)),
-			splitMask:    (1 << uint64(averageBits)) - 1,
-			first:        true,
-			buf:          &bytes.Buffer{},
-			prevChan:     prevChan,
-			nextChan:     nextChan,
-			prevDoneChan: prevDoneChan,
-			nextDoneChan: nextDoneChan,
-			f:            f,
-			stats:        stats,
+			ctx:       cancelCtx,
+			objC:      objC,
+			hash:      buzhash64.NewFromUint64Array(buzhash64.GenerateHashes(seed)),
+			splitMask: (1 << uint64(averageBits)) - 1,
+			first:     true,
+			buf:       &bytes.Buffer{},
+			prev:      prev,
+			next:      next,
+			f:         f,
+			stats:     stats,
 		}
 		w.resetHash()
 		return w
@@ -303,7 +303,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 	for w.buf.Len()+len(data) >= bufSize {
 		i := bufSize - w.buf.Len()
 		w.buf.Write(data[:i])
-		w.writeByteSet(false)
+		w.writeByteSet()
 		written += i
 		data = data[i:]
 	}
@@ -313,12 +313,12 @@ func (w *Writer) Write(data []byte) (int, error) {
 	return written, nil
 }
 
-func (w *Writer) writeByteSet(closed bool) {
+func (w *Writer) writeByteSet() {
 	w.memoryLimiter.Acquire(w.ctx, bufSize)
-	prevChan, nextChan := w.prevChan, make(chan *byteSet, 1)
-	prevDoneChan, nextDoneChan := w.prevDoneChan, make(chan struct{}, 1)
-	if closed {
-		nextDoneChan = nil
+	prev := w.prev
+	next := &chanSet{
+		bytes: make(chan *byteSet, 1),
+		done:  make(chan struct{}, 1),
 	}
 	byteSet := &byteSet{
 		data:        w.buf.Bytes(),
@@ -326,10 +326,9 @@ func (w *Writer) writeByteSet(closed bool) {
 	}
 	w.eg.Go(func() error {
 		defer w.memoryLimiter.Release(bufSize)
-		return w.newWorkerFunc(prevChan, nextChan, prevDoneChan, nextDoneChan).run(byteSet)
+		return w.newWorkerFunc(prev, next).run(byteSet)
 	})
-	w.prevChan = nextChan
-	w.prevDoneChan = nextDoneChan
+	w.prev = next
 	w.buf = &bytes.Buffer{}
 	w.annotations = splitAnnotations(w.annotations)
 }
@@ -373,6 +372,14 @@ func (w *Writer) WriteCopy(c *Copy) error {
 }
 
 func (w *Writer) Close() error {
-	close(w.prevChan)
+	// Write out the last buffer.
+	if w.buf.Len() > 0 {
+		w.writeByteSet()
+	}
+	// Signal to the last worker that it is last.
+	if w.prev != nil {
+		close(w.prev.bytes)
+	}
+	// Wait for the workers to finish.
 	return w.eg.Wait()
 }
