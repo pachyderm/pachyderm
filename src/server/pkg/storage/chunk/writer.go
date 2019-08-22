@@ -47,7 +47,7 @@ type worker struct {
 	buf         *bytes.Buffer
 	annotations []*Annotation
 	f           WriterFunc
-	callbacks   []func() error
+	fs          []func() error
 	prev, next  *chanSet
 	stats       *stats
 }
@@ -58,8 +58,11 @@ func (w *worker) run(byteSet *byteSet) error {
 	if err := w.rollByteSet(byteSet); err != nil {
 		return err
 	}
+	// Wait for the next byte set to roll.
 	select {
 	case byteSet, more := <-w.next.bytes:
+		// The next bytes channel is closed for the last worker,
+		// so it uploads the last buffer as a chunk.
 		if !more {
 			if err := w.put(); err != nil {
 				return err
@@ -70,23 +73,8 @@ func (w *worker) run(byteSet *byteSet) error {
 	case <-w.ctx.Done():
 		return w.ctx.Err()
 	}
-	if w.prev != nil {
-		select {
-		case <-w.prev.done:
-		case <-w.ctx.Done():
-			return w.ctx.Err()
-		}
-	}
-	// Execute the writer function for each chunk.
-	for _, c := range w.callbacks {
-		w.stats.chunkCount++
-		if err := c(); err != nil {
-			return err
-		}
-	}
-	// Signal to the next worker that this worker is done.
-	w.next.done <- struct{}{}
-	return nil
+	// Execute the writer function for the chunks that were found.
+	return w.executeFuncs()
 }
 
 func (w *worker) rollByteSet(byteSet *byteSet) error {
@@ -163,7 +151,7 @@ func (w *worker) put() error {
 	// Update the annotations for the current chunk.
 	w.updateAnnotations(chunkRef)
 	annotations := w.annotations
-	w.callbacks = append(w.callbacks, func() error {
+	w.fs = append(w.fs, func() error {
 		return w.f(chunkRef, annotations)
 	})
 	return nil
@@ -210,6 +198,28 @@ func (w *worker) upload(path string) error {
 	// (bryce) Encrypt?
 	_, err = io.Copy(gzipW, bytes.NewReader(w.buf.Bytes()))
 	return err
+}
+
+func (w *worker) executeFuncs() error {
+	// Wait for the prior worker in the chain to signal
+	// that it is done.
+	if w.prev != nil {
+		select {
+		case <-w.prev.done:
+		case <-w.ctx.Done():
+			return w.ctx.Err()
+		}
+	}
+	// Execute the writer function for each chunk.
+	for _, f := range w.fs {
+		w.stats.chunkCount++
+		if err := f(); err != nil {
+			return err
+		}
+	}
+	// Signal to the next worker in the chain that this worker is done.
+	w.next.done <- struct{}{}
+	return nil
 }
 
 type stats struct {
