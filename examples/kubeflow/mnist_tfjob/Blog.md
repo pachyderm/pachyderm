@@ -17,7 +17,7 @@ For the lazy, we have a simple [bash script](###########) you can use to deploy 
 #### Working setup check
 1. `kubectl get pods -n kubeflow` returns running pods.
 2. `pachctl version` returns *both* pachctl and pachd versions.
-3. 'pachctl enterprise get-state' returns: `Pachyderm Enterprise token state: ACTIVE` (If it doesn't, [Register Pachyderm](http://docs.pachyderm.com/en/latest/enterprise/deployment.html#activate-via-the-dashboard)) 
+3. `pachctl enterprise get-state` returns: `Pachyderm Enterprise token state: ACTIVE` (If it doesn't, [Register Pachyderm](http://docs.pachyderm.com/en/latest/enterprise/deployment.html#activate-via-the-dashboard)) 
 
 ## Step 2 - Lets start with checking in our data 
 Just like every other data science project, we begin with getting the data. In a blank directory on your local machine run:  
