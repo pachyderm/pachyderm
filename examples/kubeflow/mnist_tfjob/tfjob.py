@@ -65,7 +65,6 @@ def main(_):
 
     return model
 
-
   # Create a basic model instance
   model = create_model()
   model.summary()
