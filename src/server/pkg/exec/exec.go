@@ -33,6 +33,8 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+
+	"github.com/pachyderm/pachyderm/src/client/pkg/erronce"
 )
 
 // Error records the name of a binary that failed to be executed
@@ -537,19 +539,14 @@ func (c *Cmd) StdinPipe() (io.WriteCloser, error) {
 
 type closeOnce struct {
 	*os.File
-
 	writers sync.RWMutex // coordinate safeClose and Write
-	once    sync.Once
-	err     error
+	once    erronce.ErrOnce
 }
 
 func (c *closeOnce) Close() error {
-	c.once.Do(c.close)
-	return c.err
-}
-
-func (c *closeOnce) close() {
-	c.err = c.File.Close()
+	return c.once.Do(func() error {
+		return c.File.Close()
+	})
 }
 
 type closerFunc func() error

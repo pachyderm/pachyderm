@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/pachyderm/pachyderm/src/client/pkg/discovery"
+	"github.com/pachyderm/pachyderm/src/client/pkg/erronce"
 	log "github.com/sirupsen/logrus"
 
 	"golang.org/x/sync/errgroup"
@@ -64,7 +65,7 @@ func (a *sharder) GetShardToAddress(version int64) (result map[uint64]string, re
 }
 
 func (a *sharder) Register(cancel chan bool, address string, servers []Server) (retErr error) {
-	var once sync.Once
+	var once erronce.ErrOnce
 	versionChan := make(chan int64)
 	internalCancel := make(chan bool)
 	var wg sync.WaitGroup
@@ -72,18 +73,18 @@ func (a *sharder) Register(cancel chan bool, address string, servers []Server) (
 	go func() {
 		defer wg.Done()
 		if err := a.announceServers(address, servers, versionChan, internalCancel); err != nil {
-			once.Do(func() {
-				retErr = err
+			retErr = once.Do(func() error {
 				close(internalCancel)
+				return err
 			})
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		if err := a.fillRoles(address, servers, versionChan, internalCancel); err != nil {
-			once.Do(func() {
-				retErr = err
+			retErr = once.Do(func() error {
 				close(internalCancel)
+				return err
 			})
 		}
 	}()
@@ -91,9 +92,9 @@ func (a *sharder) Register(cancel chan bool, address string, servers []Server) (
 		defer wg.Done()
 		select {
 		case <-cancel:
-			once.Do(func() {
-				retErr = ErrCancelled
+			retErr = once.Do(func() error {
 				close(internalCancel)
+				return ErrCancelled
 			})
 		case <-internalCancel:
 		}
@@ -103,7 +104,7 @@ func (a *sharder) Register(cancel chan bool, address string, servers []Server) (
 }
 
 func (a *sharder) RegisterFrontends(cancel chan bool, address string, frontends []Frontend) (retErr error) {
-	var once sync.Once
+	var once erronce.ErrOnce
 	versionChan := make(chan int64)
 	internalCancel := make(chan bool)
 	var wg sync.WaitGroup
@@ -111,18 +112,18 @@ func (a *sharder) RegisterFrontends(cancel chan bool, address string, frontends 
 	go func() {
 		defer wg.Done()
 		if err := a.announceFrontends(address, frontends, versionChan, internalCancel); err != nil {
-			once.Do(func() {
-				retErr = err
+			retErr = once.Do(func() error {
 				close(internalCancel)
+				return err
 			})
 		}
 	}()
 	go func() {
 		defer wg.Done()
 		if err := a.runFrontends(address, frontends, versionChan, internalCancel); err != nil {
-			once.Do(func() {
-				retErr = err
+			retErr = once.Do(func() error {
 				close(internalCancel)
+				return err
 			})
 		}
 	}()
@@ -130,9 +131,9 @@ func (a *sharder) RegisterFrontends(cancel chan bool, address string, frontends 
 		defer wg.Done()
 		select {
 		case <-cancel:
-			once.Do(func() {
-				retErr = ErrCancelled
+			retErr = once.Do(func() error {
 				close(internalCancel)
+				return ErrCancelled
 			})
 		case <-internalCancel:
 		}
