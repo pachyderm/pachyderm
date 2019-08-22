@@ -47,7 +47,7 @@ type PortForwarder struct {
 
 // NewPortForwarder creates a new port forwarder
 func NewPortForwarder(namespace string) (*PortForwarder, error) {
-	kubeConfig := config.KubeConfig()
+	kubeConfig := config.ReadKubeConfig()
 	if namespace == "" {
 		var err error
 		namespace, err = config.KubeNamespace(kubeConfig)

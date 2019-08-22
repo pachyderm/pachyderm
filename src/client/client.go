@@ -359,7 +359,7 @@ func NewForTest() (*APIClient, error) {
 // (and similar) logic into src/server and have it call a NewFromOptions()
 // constructor.
 func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
-	cfg, err := config.Read()
+	cfg, err := config.ReadPachConfig()
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}

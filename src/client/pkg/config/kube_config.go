@@ -4,8 +4,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// KubeConfig gets the kubernetes config
-func KubeConfig() clientcmd.ClientConfig {
+// ReadKubeConfig gets the kubernetes config
+func ReadKubeConfig() clientcmd.ClientConfig {
 	rules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)

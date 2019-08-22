@@ -134,7 +134,7 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) e
 }
 
 func contextCreate(contextPrefix string) error {
-	cfg, err := config.Read()
+	cfg, err := config.ReadPachConfig()
 	if err != nil {
 		return err
 	}
@@ -644,13 +644,13 @@ If <object store backend> is \"s3\", then the arguments are:
 		Short: "Deploy a Pachyderm cluster.",
 		Long:  "Deploy a Pachyderm cluster.",
 		PersistentPreRun: cmdutil.Run(func([]string) error {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "WARNING: could not read config to check whether cluster metrics will be enabled: %v.\n", err)
 			}
 
 			if namespace == "" {
-				kubeConfig := config.KubeConfig()
+				kubeConfig := config.ReadKubeConfig()
 				namespace, err = config.KubeNamespace(kubeConfig)
 				if err != nil {
 					return err
@@ -785,7 +785,7 @@ underlying volume will not be removed.
 			}
 			if bytes[0] == 'y' || bytes[0] == 'Y' {
 				if namespace == "" {
-					kubeConfig := config.KubeConfig()
+					kubeConfig := config.ReadKubeConfig()
 					namespace, err = config.KubeNamespace(kubeConfig)
 					if err != nil {
 						return err

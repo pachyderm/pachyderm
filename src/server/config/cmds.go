@@ -51,7 +51,7 @@ func Cmds() []*cobra.Command {
 		Short: "Gets whether metrics are enabled.",
 		Long:  "Gets whether metrics are enabled.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}
@@ -72,7 +72,7 @@ func Cmds() []*cobra.Command {
 				return errors.New("invalid argument; use either `true` or `false`")
 			}
 
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}
@@ -87,7 +87,7 @@ func Cmds() []*cobra.Command {
 		Short: "Gets the currently active context.",
 		Long:  "Gets the currently active context.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}
@@ -105,7 +105,7 @@ func Cmds() []*cobra.Command {
 		Short: "Sets the currently active context.",
 		Long:  "Sets the currently active context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func Cmds() []*cobra.Command {
 		Short: "Gets a context.",
 		Long:  "Gets the config of a context by its name.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}
@@ -147,7 +147,7 @@ func Cmds() []*cobra.Command {
 		Short: "Set a context.",
 		Long:  "Set a context config from a given name and JSON stdin.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}
@@ -175,7 +175,7 @@ func Cmds() []*cobra.Command {
 		Short: "Updates a context.",
 		Long:  "Updates an existing context config from a given name.",
 		Run: cmdutil.RunCmdFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}
@@ -203,7 +203,7 @@ func Cmds() []*cobra.Command {
 		Short: "Deletes a context.",
 		Long:  "Deletes a context.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}
@@ -223,7 +223,7 @@ func Cmds() []*cobra.Command {
 		Short: "Lists contexts.",
 		Long:  "Lists contexts.",
 		Run: cmdutil.Run(func(args []string) (retErr error) {
-			cfg, err := config.Read()
+			cfg, err := config.ReadPachConfig()
 			if err != nil {
 				return err
 			}

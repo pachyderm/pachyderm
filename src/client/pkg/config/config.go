@@ -7,89 +7,72 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/erronce"
 	uuid "github.com/satori/go.uuid"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-const configEnvVar = "PACH_CONFIG"
-const contextEnvVar = "PACH_CONTEXT"
+const (
+	configEnvVar  = "PACH_CONFIG"
+	contextEnvVar = "PACH_CONTEXT"
+)
 
-var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
-var defaultConfigPath = filepath.Join(defaultConfigDir, "config.json")
+var (
+	defaultPachConfigDir  string = filepath.Join(os.Getenv("HOME"), ".pachyderm")
+	defaultPachConfigPath string = filepath.Join(defaultPachConfigDir, "config.json")
+	pachConfigOnce        erronce.ErrOnce
+	pachConfigValue       *Config
+)
 
-var readerOnce sync.Once
-var value *Config
-var readErr error
-
-func configPath() string {
+func pachConfigPath() string {
 	if env, ok := os.LookupEnv(configEnvVar); ok {
 		return env
 	}
-	return defaultConfigPath
+	return defaultPachConfigPath
 }
 
-// ActiveContext gets the active context in the config
-func (c *Config) ActiveContext() (string, *Context, error) {
-	if env, ok := os.LookupEnv(contextEnvVar); ok {
-		context := c.V2.Contexts[env]
-		if context == nil {
-			return "", nil, fmt.Errorf("`%s` refers to a context that does not exist", contextEnvVar)
-		}
-		return env, context, nil
-	}
-	context := c.V2.Contexts[c.V2.ActiveContext]
-	if context == nil {
-		return "", nil, fmt.Errorf("the active context references one that does exist; set the active context first like so: pachctl config set active-context [value]")
-	}
-	return c.V2.ActiveContext, context, nil
-}
-
-// Read loads the Pachyderm config on this machine.
+// ReadPachConfig loads the Pachyderm config on this machine.
 // If an existing configuration cannot be found, it sets up the defaults. Read
 // returns a nil Config if and only if it returns a non-nil error.
-func Read() (*Config, error) {
-	readerOnce.Do(func() {
+func ReadPachConfig() (*Config, error) {
+	err := pachConfigOnce.Do(func() error {
 		// Read json file
-		p := configPath()
+		p := pachConfigPath()
 		if raw, err := ioutil.ReadFile(p); err == nil {
-			err = json.Unmarshal(raw, &value)
+			err = json.Unmarshal(raw, &pachConfigValue)
 			if err != nil {
-				readErr = err
-				return
+				return err
 			}
 		} else if os.IsNotExist(err) {
 			// File doesn't exist, so create a new config
 			fmt.Fprintf(os.Stderr, "No config detected at %q. Generating new config...\n", p)
-			value = &Config{}
+			pachConfigValue = &Config{}
 		} else {
-			readErr = fmt.Errorf("fatal: could not read config at %q: %v", p, err)
-			return
+			return fmt.Errorf("fatal: could not read config at %q: %v", p, err)
 		}
 
 		updated := false
 
-		if value.UserID == "" {
+		if pachConfigValue.UserID == "" {
 			updated = true
 			fmt.Fprintln(os.Stderr, "No UserID present in config - generating new one.")
 			uuid := uuid.NewV4()
-			value.UserID = uuid.String()
+			pachConfigValue.UserID = uuid.String()
 		}
 
-		if value.V3 == nil {
+		if pachConfigValue.V3 == nil {
 			updated = true
 			fmt.Fprintln(os.Stderr, "No config V3 present in config - generating a new one.")
 
-			value.V3 = &ConfigV3{
+			pachConfigValue.V3 = &ConfigV3{
 				Metrics: true,
 			}
 
-			if value.V2 != nil {
-				readErr = value.migrateV3()
-				if readErr != nil {
-					return
+			if pachConfigValue.V2 != nil {
+				if err := pachConfigValue.migrateV3(); err != nil {
+					return err
 				}
 			}
 		}
@@ -97,14 +80,15 @@ func Read() (*Config, error) {
 		if updated {
 			fmt.Fprintf(os.Stderr, "Rewriting config at %q.\n", p)
 
-			if err := value.Write(); err != nil {
-				readErr = fmt.Errorf("could not rewrite config at %q: %v", p, err)
-				return
+			if err := pachConfigValue.Write(); err != nil {
+				return fmt.Errorf("could not rewrite config at %q: %v", p, err)
 			}
 		}
+
+		return nil
 	})
 
-	return value, readErr
+	return pachConfigValue, err
 }
 
 func (c *Config) migrateV3() error {
@@ -115,7 +99,7 @@ func (c *Config) migrateV3() error {
 		return err
 	}
 
-	kubeConfig := KubeConfig()
+	kubeConfig := ReadKubeConfig()
 	kubeConfigAccess := kubeConfig.ConfigAccess()
 	kubeStartingConfig, err := kubeConfigAccess.GetStartingConfig()
 	if err != nil {
@@ -148,6 +132,22 @@ func (c *Config) migrateV3() error {
 	return nil
 }
 
+// ActiveContext gets the active context in the config
+func (c *Config) ActiveContext() (string, *Context, error) {
+	if env, ok := os.LookupEnv(contextEnvVar); ok {
+		context := c.V2.Contexts[env]
+		if context == nil {
+			return "", nil, fmt.Errorf("`%s` refers to a context that does not exist", contextEnvVar)
+		}
+		return env, context, nil
+	}
+	context := c.V2.Contexts[c.V2.ActiveContext]
+	if context == nil {
+		return "", nil, fmt.Errorf("the active context references one that does exist; set the active context first like so: pachctl config set active-context [value]")
+	}
+	return c.V2.ActiveContext, context, nil
+}
+
 // Write writes the configuration in 'c' to this machine's Pachyderm config
 // file.
 func (c *Config) Write() error {
@@ -164,7 +164,7 @@ func (c *Config) Write() error {
 	}
 
 	// If we're not using a custom config path, create the default config path
-	p := configPath()
+	p := pachConfigPath()
 	if _, ok := os.LookupEnv(configEnvVar); ok {
 		// using overridden config path -- just make sure the parent dir exists
 		d := filepath.Dir(p)
@@ -173,7 +173,7 @@ func (c *Config) Write() error {
 		}
 	} else {
 		// using the default config path, create the config directory
-		err = os.MkdirAll(defaultConfigDir, 0755)
+		err = os.MkdirAll(defaultPachConfigDir, 0755)
 		if err != nil {
 			return err
 		}
