@@ -38,12 +38,3 @@ func IsInvalidNameError(err error) bool {
 	}
 	return strings.Contains(err.Error(), "only alphanumeric characters, underscores, and dashes are allowed")
 }
-
-// IsHasNoHeadError returns true if the err is due to an operation that cannot
-// be performed on a headless branch
-func IsHasNoHeadError(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "has no head")
-}

@@ -105,6 +105,7 @@ var (
 	repoNotFoundRe   = regexp.MustCompile(`repos/ ?[a-zA-Z0-9.\-_]{1,255} not found`)
 	branchNotFoundRe = regexp.MustCompile(`branches/[a-zA-Z0-9.\-_]{1,255}/ [^ ]+ not found`)
 	fileNotFoundRe   = regexp.MustCompile(`file .+ not found`)
+	hasNoHeadRe      = regexp.MustCompile(`the branch .+ has no head \(create one with 'start commit'\)`)
 )
 
 // IsCommitNotFoundErr returns true if 'err' has an error message that matches
@@ -159,4 +160,13 @@ func IsFileNotFoundErr(err error) bool {
 		return false
 	}
 	return fileNotFoundRe.MatchString(err.Error())
+}
+
+// IsNoHeadError returns true if the err is due to an operation that cannot be
+// performed on a headless branch
+func IsNoHeadError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return hasNoHeadRe.MatchString(err.Error())
 }
