@@ -58,7 +58,7 @@ As stated above, the specifics of one of these choices might
 not match precisely what your on-premises deployment requires.
 To determine the closest correct choices for your on-prem infrastructure,
 consult with your Kubernetes administrators.
-You migth have to then edit your manifest manually,
+You might have to then edit your manifest manually,
 based on configuration information they provide to you.
 
 ## Example invocation with persistent disk parameters
