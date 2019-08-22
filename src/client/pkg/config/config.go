@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,6 +10,8 @@ import (
 	"sync"
 
 	uuid "github.com/satori/go.uuid"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const configEnvVar = "PACH_CONFIG"
@@ -75,12 +78,19 @@ func Read() (*Config, error) {
 			value.UserID = uuid.String()
 		}
 
-		if value.V2 == nil {
+		if value.V3 == nil {
 			updated = true
-			fmt.Fprintln(os.Stderr, "No config V2 present in config - generating a new one.")
-			if err := value.initV2(); err != nil {
-				readErr = err
-				return
+			fmt.Fprintln(os.Stderr, "No config V3 present in config - generating a new one.")
+
+			value.V3 = &ConfigV3{
+				Metrics: true,
+			}
+
+			if value.V2 != nil {
+				readErr = value.migrateV3()
+				if readErr != nil {
+					return
+				}
 			}
 		}
 
@@ -97,28 +107,44 @@ func Read() (*Config, error) {
 	return value, readErr
 }
 
-func (c *Config) initV2() error {
-	c.V2 = &ConfigV2{
-		ActiveContext: "default",
-		Contexts:      map[string]*Context{},
-		Metrics:       true,
+func (c *Config) migrateV3() error {
+	c.V3.Metrics = c.V2.Metrics
+
+	_, pachActiveContext, err := c.ActiveContext()
+	if err != nil {
+		return err
 	}
 
-	if c.V1 != nil {
-		c.V2.Contexts["default"] = &Context{
-			Source:            ContextSource_CONFIG_V1,
-			PachdAddress:      c.V1.PachdAddress,
-			ServerCAs:         c.V1.ServerCAs,
-			SessionToken:      c.V1.SessionToken,
-			ActiveTransaction: c.V1.ActiveTransaction,
-		}
-
-		c.V1 = nil
-	} else {
-		c.V2.Contexts["default"] = &Context{
-			Source: ContextSource_NONE,
-		}
+	kubeConfig := KubeConfig()
+	kubeConfigAccess := kubeConfig.ConfigAccess()
+	kubeStartingConfig, err := kubeConfigAccess.GetStartingConfig()
+	if err != nil {
+		return fmt.Errorf("could not fetch kubernetes' starting config: %v", err)
 	}
+
+	if len(kubeStartingConfig.CurrentContext) == 0 {
+		return errors.New("kubernetes' current context has not been set")
+	}
+
+	kubeContext, ok := kubeStartingConfig.Contexts[kubeStartingConfig.CurrentContext]
+	if !ok {
+		return errors.New("kubernetes' current config refers to one that does not exist")
+	}
+
+	kubeContext.Extensions["pachyderm:v1"] = &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"pachd_address":      pachActiveContext.PachdAddress,
+			"server_cas":         pachActiveContext.ServerCAs,
+			"session_token":      pachActiveContext.SessionToken,
+			"active_transaction": pachActiveContext.ActiveTransaction,
+		},
+	}
+
+	if err := clientcmd.ModifyConfig(kubeConfigAccess, *kubeStartingConfig, true); err != nil {
+		return fmt.Errorf("could not modify kubernetes config: %v", err)
+	}
+
+	c.V2 = nil
 	return nil
 }
 
@@ -127,6 +153,9 @@ func (c *Config) initV2() error {
 func (c *Config) Write() error {
 	if c.V1 != nil {
 		panic("config V1 included (this is a bug)")
+	}
+	if c.V2 != nil {
+		panic("config V2 included (this is a bug)")
 	}
 
 	rawConfig, err := json.MarshalIndent(c, "", "  ")
