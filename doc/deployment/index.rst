@@ -15,6 +15,7 @@ on a supported cloud platform of your choice.
    azure.md
    openshift.md
    on_premises.md
+   deploy_custom/index.rst
    connect-to-cluster.md
    custom_object_stores.md
    namespaces.md

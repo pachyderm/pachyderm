@@ -17,7 +17,7 @@ func getActiveTransaction() (*transaction.Transaction, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading Pachyderm config: %v", err)
 	}
-	context, err := cfg.ActiveContext()
+	_, context, err := cfg.ActiveContext()
 	if err != nil {
 		return nil, fmt.Errorf("error getting the active context: %v", err)
 	}
@@ -42,7 +42,7 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 	if err != nil {
 		return fmt.Errorf("error reading Pachyderm config: %v", err)
 	}
-	context, err := cfg.ActiveContext()
+	_, context, err := cfg.ActiveContext()
 	if err != nil {
 		return fmt.Errorf("error getting the active context: %v", err)
 	}
