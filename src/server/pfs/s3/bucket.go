@@ -10,6 +10,7 @@ import (
 	glob "github.com/pachyderm/ohmyglob"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
 	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/ancestry"
 	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
 )
@@ -166,7 +167,7 @@ func (c controller) CreateBucket(r *http.Request, bucket string) error {
 			} else {
 				return s2.BucketAlreadyOwnedByYouError(r)
 			}
-		} else if errutil.IsInvalidNameError(err) {
+		} else if ancestry.IsInvalidNameError(err) {
 			return s2.InvalidBucketNameError(r)
 		} else {
 			return s2.InternalError(r, err)
@@ -175,7 +176,7 @@ func (c controller) CreateBucket(r *http.Request, bucket string) error {
 
 	err = pc.CreateBranch(repo, branch, "", nil)
 	if err != nil {
-		if errutil.IsInvalidNameError(err) {
+		if ancestry.IsInvalidNameError(err) {
 			return s2.InvalidBucketNameError(r)
 		}
 		return s2.InternalError(r, err)

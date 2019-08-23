@@ -71,9 +71,11 @@ func Add(s string, ancestors int) string {
 }
 
 var (
-	valid   = regexp.MustCompile("^[a-zA-Z0-9_-]+$") // Matches a valid name
-	invalid = regexp.MustCompile("[^a-zA-Z0-9_-]")   // matches an invalid character
-	repl    = []byte("_")
+	valid              = regexp.MustCompile("^[a-zA-Z0-9_-]+$") // Matches a valid name
+	invalid            = regexp.MustCompile("[^a-zA-Z0-9_-]")   // matches an invalid character
+	invalidNameErrorRe = regexp.MustCompile(`name \(.+\) invalid: only alphanumeric characters, underscores, and dashes are allowed`)
+
+	repl = []byte("_")
 )
 
 // ValidateName validates a name to make sure that it can be used unambiguously
@@ -89,4 +91,12 @@ func ValidateName(name string) error {
 // characters with _s
 func SanitizeName(name string) string {
 	return invalid.ReplaceAllString(name, "_")
+}
+
+// IsInvalidNameError returns true if err is due to an invalid name
+func IsInvalidNameError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return invalidNameErrorRe.MatchString(err.Error())
 }
