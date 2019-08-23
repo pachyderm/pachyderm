@@ -65,9 +65,8 @@ func ReadPachConfig() (*Config, error) {
 			}
 
 			if pachConfigValue.V2 != nil {
-				if err := pachConfigValue.migrateV3(); err != nil {
-					return err
-				}
+				pachConfigValue.V3.Metrics = pachConfigValue.V2.Metrics
+				pachConfigValue.V2 = nil
 			}
 		}
 
@@ -83,19 +82,6 @@ func ReadPachConfig() (*Config, error) {
 	})
 
 	return pachConfigValue, err
-}
-
-func (c *Config) migrateV3() error {
-	oldActivePachContext := c.V2.Contexts[c.V2.ActiveContext]
-	if oldActivePachContext != nil {
-		if err := oldActivePachContext.Write(); err != nil {
-			return err
-		}
-	}
-
-	c.V3.Metrics = c.V2.Metrics
-	c.V2 = nil
-	return nil
 }
 
 // Write writes the configuration in 'c' to this machine's Pachyderm config
