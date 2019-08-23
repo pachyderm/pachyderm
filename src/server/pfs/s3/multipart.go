@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,27 +59,27 @@ func multipartKeepArgs(path string) (repo string, branch string, key string, upl
 }
 
 func parentDirPath(repo, branch, key, uploadID string) string {
-	return fmt.Sprintf("%s/%s/%s/%s", repo, branch, key, uploadID)
+	return path.Join(repo, branch, key, uploadID)
 }
 
 func chunkPath(repo, branch, key, uploadID string, partNumber int) string {
-	return fmt.Sprintf("%s/%d", parentDirPath(repo, branch, key, uploadID), partNumber)
+	return path.Join(parentDirPath(repo, branch, key, uploadID), strconv.Itoa(partNumber))
 }
 
 func keepPath(repo, branch, key, uploadID string) string {
-	return fmt.Sprintf("%s/.keep", parentDirPath(repo, branch, key, uploadID))
+	return path.Join(parentDirPath(repo, branch, key, uploadID), ".keep")
 }
 
 func (c *controller) ensureRepo(pc *client.APIClient) error {
 	_, err := pc.InspectBranch(c.repo, "master")
 	if err != nil {
-		err = pc.CreateRepo(c.repo)
-		if err != nil && !strings.Contains(err.Error(), "as it already exists") {
+		err = pc.UpdateRepo(c.repo)
+		if err != nil {
 			return err
 		}
 
 		err = pc.CreateBranch(c.repo, "master", "", nil)
-		if err != nil && !strings.Contains(err.Error(), "as it already exists") {
+		if err != nil {
 			return err
 		}
 	}
@@ -108,7 +109,8 @@ func (c *controller) ListMultipart(r *http.Request, bucket, keyMarker, uploadIDM
 		Uploads: []s2.Upload{},
 	}
 
-	err = pc.GlobFileF(c.repo, "master", fmt.Sprintf("%s/%s/*/*/.keep", repo, branch), func(fileInfo *pfsClient.FileInfo) error {
+	globPattern := path.Join(repo, branch, "*", "*", ".keep")
+	err = pc.GlobFileF(c.repo, "master", globPattern, func(fileInfo *pfsClient.FileInfo) error {
 		_, _, key, uploadID, err := multipartKeepArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil
@@ -164,8 +166,7 @@ func (c *controller) InitMultipart(r *http.Request, bucket, key string) (string,
 
 	uploadID := uuid.NewWithoutDashes()
 
-	path := fmt.Sprintf("%s/.keep", parentDirPath(repo, branch, key, uploadID))
-	_, err = pc.PutFileOverwrite(c.repo, "master", path, strings.NewReader(""), 0)
+	_, err = pc.PutFileOverwrite(c.repo, "master", keepPath(repo, branch, key, uploadID), strings.NewReader(""), 0)
 	if err != nil {
 		return "", err
 	}
@@ -232,7 +233,7 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 
 	// check if the destination file already exists, and if so, delete it
 	_, err = pc.InspectFile(repo, branch, key)
-	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !errutil.IsHasNoHeadError(err) {
+	if err != nil && !pfsServer.IsFileNotFoundErr(err) && !pfsServer.IsNoHeadError(err) {
 		return nil, err
 	} else if err == nil {
 		err = pc.DeleteFile(repo, branch, key)
@@ -321,7 +322,8 @@ func (c *controller) ListMultipartChunks(r *http.Request, bucket, key, uploadID 
 		Parts:        []s2.Part{},
 	}
 
-	err = pc.GlobFileF(c.repo, "master", fmt.Sprintf("%s/%s/%s/%s/*", repo, branch, key, uploadID), func(fileInfo *pfsClient.FileInfo) error {
+	globPattern := path.Join(parentDirPath(repo, branch, key, uploadID), "*")
+	err = pc.GlobFileF(c.repo, "master", globPattern, func(fileInfo *pfsClient.FileInfo) error {
 		_, _, _, _, partNumber, err := multipartChunkArgs(fileInfo.File.Path)
 		if err != nil {
 			return nil

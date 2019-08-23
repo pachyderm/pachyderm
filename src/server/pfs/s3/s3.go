@@ -92,7 +92,13 @@ func Server(port, pachdPort uint16) (*http.Server, error) {
 					s2.WriteError(logger, w, r, s2.InternalError(r, err))
 					return
 				}
-				defer pc.Close()
+
+				defer func() {
+					if err := pc.Close(); err != nil {
+						logger.Errorf("could not close enterprise check pach client: %v", err.Error())
+					}
+				}()
+
 				resp, err := pc.Enterprise.GetState(context.Background(), &enterpriseclient.GetStateRequest{})
 				if err != nil {
 					err = fmt.Errorf("enterprise status check: %v", grpcutil.ScrubGRPC(err))
