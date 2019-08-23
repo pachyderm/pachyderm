@@ -9,6 +9,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/gorilla/mux"
 	pfsClient "github.com/pachyderm/pachyderm/src/client/pfs"
+	"github.com/pachyderm/pachyderm/src/server/pkg/errutil"
 	"github.com/pachyderm/s2"
 )
 
@@ -94,6 +95,9 @@ func (c *controller) PutObject(r *http.Request, bucket, file string, reader io.R
 
 	_, err = pc.PutFileOverwrite(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file, reader, 0)
 	if err != nil {
+		if errutil.IsWriteToOutputBranchError(err) {
+			return nil, writeToOutputBranchError(r)
+		}
 		return nil, err
 	}
 
@@ -136,6 +140,9 @@ func (c *controller) DeleteObject(r *http.Request, bucket, file, version string)
 	}
 
 	if err = pc.DeleteFile(branchInfo.Branch.Repo.Name, branchInfo.Branch.Name, file); err != nil {
+		if errutil.IsWriteToOutputBranchError(err) {
+			return nil, writeToOutputBranchError(r)
+		}
 		return nil, maybeNotFoundError(r, err)
 	}
 

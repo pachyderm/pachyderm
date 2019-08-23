@@ -238,6 +238,9 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 	} else if err == nil {
 		err = pc.DeleteFile(repo, branch, key)
 		if err != nil {
+			if errutil.IsWriteToOutputBranchError(err) {
+				return nil, writeToOutputBranchError(r)
+			}
 			return nil, err
 		}
 	}
@@ -269,6 +272,9 @@ func (c *controller) CompleteMultipart(r *http.Request, bucket, key, uploadID st
 
 		err = pc.CopyFile(c.repo, "master", srcPath, repo, branch, key, false)
 		if err != nil {
+			if errutil.IsWriteToOutputBranchError(err) {
+				return nil, writeToOutputBranchError(r)
+			}
 			return nil, err
 		}
 	}
