@@ -35,17 +35,13 @@ func githubLogin() (string, error) {
 }
 
 func writePachTokenToCfg(token string) error {
-	cfg, err := config.ReadPachConfig()
+	context, err := config.ReadPachContext()
 	if err != nil {
-		return fmt.Errorf("error reading Pachyderm config (for cluster "+
+		return fmt.Errorf("error reading Pachyderm context (for cluster "+
 			"address): %v", err)
 	}
-	_, context, err := cfg.ActiveContext()
-	if err != nil {
-		return fmt.Errorf("error getting the active context: %v", err)
-	}
 	context.SessionToken = token
-	if err := cfg.Write(); err != nil {
+	if err := context.Write(); err != nil {
 		return fmt.Errorf("error writing pachyderm config: %v", err)
 	}
 	return nil
@@ -208,17 +204,13 @@ func LogoutCmd() *cobra.Command {
 			"(simply run 'pachctl auth login' twice) but 'logout' can be useful on " +
 			"shared workstations.",
 		Run: cmdutil.Run(func([]string) error {
-			cfg, err := config.ReadPachConfig()
+			context, err := config.ReadPachContext()
 			if err != nil {
-				return fmt.Errorf("error reading Pachyderm config (for cluster "+
-					"address): %v", err)
-			}
-			_, context, err := cfg.ActiveContext()
-			if err != nil {
-				return fmt.Errorf("error getting the active context: %v", err)
+				return fmt.Errorf("error reading Pachyderm context (for "+
+					"cluster address): %v", err)
 			}
 			context.SessionToken = ""
-			return cfg.Write()
+			return context.Write()
 		}),
 	}
 	return cmdutil.CreateAlias(logout, "auth logout")

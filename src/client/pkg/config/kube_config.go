@@ -13,7 +13,7 @@ var (
 
 // ReadKubeConfig gets the kubernetes config
 func ReadKubeConfig() clientcmd.ClientConfig {
-	kubeConfig.Do(func() error {
+	kubeConfigOnce.Do(func() {
 		rules := clientcmd.NewDefaultClientConfigLoadingRules()
 		overrides := &clientcmd.ConfigOverrides{}
 		kubeConfigValue = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, overrides)

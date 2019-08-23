@@ -363,9 +363,9 @@ func NewOnUserMachine(prefix string, options ...Option) (*APIClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("could not read config: %v", err)
 	}
-	_, context, err := cfg.ActiveContext()
+	context, err := config.ReadPachContext()
 	if err != nil {
-		return nil, fmt.Errorf("could not get active context: %v", err)
+		return nil, fmt.Errorf("could not get the Pachyderm context: %v", err)
 	}
 
 	// create new pachctl client

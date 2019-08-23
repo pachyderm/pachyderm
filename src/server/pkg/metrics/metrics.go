@@ -95,7 +95,7 @@ func reportAndFlushUserAction(action string, value interface{}) func() {
 		client := newSegmentClient()
 		defer client.Close()
 		cfg, _ := config.ReadPachConfig()
-		if cfg == nil || cfg.UserID == "" || !cfg.V2.Metrics {
+		if cfg == nil || cfg.UserID == "" || !cfg.V3.Metrics {
 			return
 		}
 		reportUserMetricsToSegment(client, cfg.UserID, "user", action, value, "")

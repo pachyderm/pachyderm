@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -10,14 +9,9 @@ import (
 
 	"github.com/pachyderm/pachyderm/src/client/pkg/erronce"
 	uuid "github.com/satori/go.uuid"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
-const (
-	configEnvVar  = "PACH_CONFIG"
-	contextEnvVar = "PACH_CONTEXT"
-)
+const configEnvVar = "PACH_CONFIG"
 
 var (
 	defaultPachConfigDir  string = filepath.Join(os.Getenv("HOME"), ".pachyderm")
@@ -92,60 +86,16 @@ func ReadPachConfig() (*Config, error) {
 }
 
 func (c *Config) migrateV3() error {
+	oldActivePachContext := c.V2.Contexts[c.V2.ActiveContext]
+	if oldActivePachContext != nil {
+		if err := oldActivePachContext.Write(); err != nil {
+			return err
+		}
+	}
+
 	c.V3.Metrics = c.V2.Metrics
-
-	_, pachActiveContext, err := c.ActiveContext()
-	if err != nil {
-		return err
-	}
-
-	kubeConfig := ReadKubeConfig()
-	kubeConfigAccess := kubeConfig.ConfigAccess()
-	kubeStartingConfig, err := kubeConfigAccess.GetStartingConfig()
-	if err != nil {
-		return fmt.Errorf("could not fetch kubernetes' starting config: %v", err)
-	}
-
-	if len(kubeStartingConfig.CurrentContext) == 0 {
-		return errors.New("kubernetes' current context has not been set")
-	}
-
-	kubeContext, ok := kubeStartingConfig.Contexts[kubeStartingConfig.CurrentContext]
-	if !ok {
-		return errors.New("kubernetes' current config refers to one that does not exist")
-	}
-
-	kubeContext.Extensions["pachyderm:v1"] = &unstructured.Unstructured{
-		Object: map[string]interface{}{
-			"pachd_address":      pachActiveContext.PachdAddress,
-			"server_cas":         pachActiveContext.ServerCAs,
-			"session_token":      pachActiveContext.SessionToken,
-			"active_transaction": pachActiveContext.ActiveTransaction,
-		},
-	}
-
-	if err := clientcmd.ModifyConfig(kubeConfigAccess, *kubeStartingConfig, true); err != nil {
-		return fmt.Errorf("could not modify kubernetes config: %v", err)
-	}
-
 	c.V2 = nil
 	return nil
-}
-
-// ActiveContext gets the active context in the config
-func (c *Config) ActiveContext() (string, *Context, error) {
-	if env, ok := os.LookupEnv(contextEnvVar); ok {
-		context := c.V2.Contexts[env]
-		if context == nil {
-			return "", nil, fmt.Errorf("`%s` refers to a context that does not exist", contextEnvVar)
-		}
-		return env, context, nil
-	}
-	context := c.V2.Contexts[c.V2.ActiveContext]
-	if context == nil {
-		return "", nil, fmt.Errorf("the active context references one that does exist; set the active context first like so: pachctl config set active-context [value]")
-	}
-	return c.V2.ActiveContext, context, nil
 }
 
 // Write writes the configuration in 'c' to this machine's Pachyderm config

@@ -133,30 +133,6 @@ func kubectlCreate(dryRun bool, manifest BytesEncoder, opts *assets.AssetOpts) e
 	return nil
 }
 
-func contextCreate(contextPrefix string) error {
-	cfg, err := config.ReadPachConfig()
-	if err != nil {
-		return err
-	}
-
-	contextName := contextPrefix
-	for i := 0; i < 10000; i++ {
-		if i > 0 {
-			contextName = fmt.Sprintf("%s-%d", contextPrefix, i)
-		}
-		if _, ok := cfg.V2.Contexts[contextName]; !ok {
-			break
-		}
-	}
-
-	cfg.V2.Contexts[contextName] = &config.Context{
-		Source: config.ContextSource_NONE,
-	}
-	cfg.V2.ActiveContext = contextName
-
-	return cfg.Write()
-}
-
 // containsEmpty is a helper function used for validation (particularly for
 // validating that creds arguments aren't empty
 func containsEmpty(vals []string) bool {
@@ -211,18 +187,7 @@ func deployCmds() []*cobra.Command {
 			if err := assets.WriteLocalAssets(manifest, opts, hostPath); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
-				return err
-			}
-			if !dryRun {
-				if contextName == "" {
-					contextName = "local"
-				}
-				if err := contextCreate(contextName); err != nil {
-					return err
-				}
-			}
-			return nil
+			return kubectlCreate(dryRun, manifest, opts)
 		}),
 	}
 	deployLocal.Flags().StringVar(&hostPath, "host-path", "/var/pachyderm", "Location on the host machine where PFS metadata will be stored.")
@@ -262,18 +227,7 @@ func deployCmds() []*cobra.Command {
 			if err = assets.WriteGoogleAssets(manifest, opts, bucket, cred, volumeSize); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
-				return err
-			}
-			if !dryRun {
-				if contextName == "" {
-					contextName = "gcs"
-				}
-				if err := contextCreate(contextName); err != nil {
-					return err
-				}
-			}
-			return nil
+			return kubectlCreate(dryRun, manifest, opts)
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployGoogle, "deploy google"))
@@ -301,18 +255,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
-				return err
-			}
-			if !dryRun {
-				if contextName == "" {
-					contextName = "custom"
-				}
-				if err := contextCreate(contextName); err != nil {
-					return err
-				}
-			}
-			return nil
+			return kubectlCreate(dryRun, manifest, opts)
 		}),
 	}
 	deployCustom.Flags().BoolVarP(&secure, "secure", "s", false, "Enable secure access to a Minio server.")
@@ -415,18 +358,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err = assets.WriteAmazonAssets(manifest, opts, region, bucket, volumeSize, amazonCreds, cloudfrontDistribution); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
-				return err
-			}
-			if !dryRun {
-				if contextName == "" {
-					contextName = "aws"
-				}
-				if err := contextCreate(contextName); err != nil {
-					return err
-				}
-			}
-			return nil
+			return kubectlCreate(dryRun, manifest, opts)
 		}),
 	}
 	deployAmazon.Flags().StringVar(&cloudfrontDistribution, "cloudfront-distribution", "",
@@ -472,18 +404,7 @@ If <object store backend> is \"s3\", then the arguments are:
 			if err = assets.WriteMicrosoftAssets(manifest, opts, container, accountName, accountKey, volumeSize); err != nil {
 				return err
 			}
-			if err := kubectlCreate(dryRun, manifest, opts); err != nil {
-				return err
-			}
-			if !dryRun {
-				if contextName == "" {
-					contextName = "azure"
-				}
-				if err := contextCreate(contextName); err != nil {
-					return err
-				}
-			}
-			return nil
+			return kubectlCreate(dryRun, manifest, opts)
 		}),
 	}
 	commands = append(commands, cmdutil.CreateAlias(deployMicrosoft, "deploy microsoft"))
@@ -665,7 +586,7 @@ If <object store backend> is \"s3\", then the arguments are:
 				PachdShards:             uint64(pachdShards),
 				Version:                 version.PrettyPrintVersion(version.Version),
 				LogLevel:                logLevel,
-				Metrics:                 cfg == nil || cfg.V2.Metrics,
+				Metrics:                 cfg == nil || cfg.V3.Metrics,
 				PachdCPURequest:         pachdCPURequest,
 				PachdNonCacheMemRequest: pachdNonCacheMemRequest,
 				BlockCacheSize:          blockCacheSize,

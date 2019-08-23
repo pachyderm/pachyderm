@@ -13,13 +13,9 @@ import (
 // (if it exists) and return it.  If the config file is uninitialized or the
 // active transaction is unset, `nil` will be returned.
 func getActiveTransaction() (*transaction.Transaction, error) {
-	cfg, err := config.ReadPachConfig()
+	context, err := config.ReadPachContext()
 	if err != nil {
-		return nil, fmt.Errorf("error reading Pachyderm config: %v", err)
-	}
-	_, context, err := cfg.ActiveContext()
-	if err != nil {
-		return nil, fmt.Errorf("error getting the active context: %v", err)
+		return nil, fmt.Errorf("error reading Pachyderm context: %v", err)
 	}
 	if context.ActiveTransaction == "" {
 		return nil, nil
@@ -38,11 +34,7 @@ func requireActiveTransaction() (*transaction.Transaction, error) {
 }
 
 func setActiveTransaction(txn *transaction.Transaction) error {
-	cfg, err := config.ReadPachConfig()
-	if err != nil {
-		return fmt.Errorf("error reading Pachyderm config: %v", err)
-	}
-	_, context, err := cfg.ActiveContext()
+	context, err := config.ReadPachContext()
 	if err != nil {
 		return fmt.Errorf("error getting the active context: %v", err)
 	}
@@ -51,7 +43,7 @@ func setActiveTransaction(txn *transaction.Transaction) error {
 	} else {
 		context.ActiveTransaction = txn.ID
 	}
-	if err := cfg.Write(); err != nil {
+	if err := context.Write(); err != nil {
 		return fmt.Errorf("error writing Pachyderm config: %v", err)
 	}
 	return nil
