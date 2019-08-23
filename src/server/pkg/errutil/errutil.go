@@ -30,20 +30,3 @@ func IsNotFoundError(err error) bool {
 	}
 	return strings.Contains(err.Error(), "not found")
 }
-
-// IsInvalidNameError returns true if err is due to an invalid name
-func IsInvalidNameError(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "only alphanumeric characters, underscores, and dashes are allowed")
-}
-
-// IsWriteToOutputBranchError returns true if the err is due to an attempt to
-// write to an output repo/branch
-func IsWriteToOutputBranchError(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "cannot start a commit on an output branch")
-}
