@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing/extended"
 	"github.com/pachyderm/pachyderm/src/client/pps"
+	pfsServer "github.com/pachyderm/pachyderm/src/server/pfs"
 	"github.com/pachyderm/pachyderm/src/server/pkg/backoff"
 	col "github.com/pachyderm/pachyderm/src/server/pkg/collection"
 	"github.com/pachyderm/pachyderm/src/server/pkg/dlock"
@@ -383,7 +384,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 	}
 	// make sure there isn't an unfinished commit on the branch
 	commitInfo, err := pachClient.InspectCommit(in.Cron.Repo, "master")
-	if err != nil && !isNilBranchErr(err) {
+	if err != nil && !pfsServer.IsNoHeadError(err) {
 		return err
 	} else if commitInfo != nil && commitInfo.Finished == nil {
 		// and if there is, delete it
@@ -394,7 +395,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 
 	var latestTime time.Time
 	files, err := pachClient.ListFile(in.Cron.Repo, "master", "")
-	if err != nil && !isNilBranchErr(err) {
+	if err != nil && !pfsServer.IsNoHeadError(err) {
 		return err
 	} else if err != nil || len(files) == 0 {
 		// File not found, this happens the first time the pipeline is run
@@ -434,7 +435,7 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		if in.Cron.Overwrite {
 			// If we want to "overwrite" the file, we need to delete the file with the previous time
 			err := pachClient.DeleteFile(in.Cron.Repo, "master", latestTime.Format(time.RFC3339))
-			if err != nil && !isNotFoundErr(err) && !isNilBranchErr(err) {
+			if err != nil && !isNotFoundErr(err) && !pfsServer.IsNoHeadError(err) {
 				return fmt.Errorf("delete error %v", err)
 			}
 		}
@@ -453,8 +454,4 @@ func (a *apiServer) makeCronCommits(pachClient *client.APIClient, in *pps.Input)
 		// set latestTime to the next time
 		latestTime = next
 	}
-}
-
-func isNilBranchErr(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "has no head")
 }

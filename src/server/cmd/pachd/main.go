@@ -13,7 +13,6 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	units "github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/src/client"
 	adminclient "github.com/pachyderm/pachyderm/src/client/admin"
 	authclient "github.com/pachyderm/pachyderm/src/client/auth"
 	debugclient "github.com/pachyderm/pachyderm/src/client/debug"
@@ -52,6 +51,7 @@ import (
 	"github.com/pachyderm/pachyderm/src/server/pps/server/githook"
 	txnserver "github.com/pachyderm/pachyderm/src/server/transaction/server"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	flag "github.com/spf13/pflag"
@@ -330,14 +330,20 @@ func doFullMode(config interface{}) (retErr error) {
 		return fmt.Errorf("RunGitHookServer: %v", err)
 	})
 	eg.Go(func() error {
-		c, err := client.NewFromAddress(fmt.Sprintf("localhost:%d", env.Port))
+		server, err := s3.Server(env.S3GatewayPort, env.Port)
 		if err != nil {
-			return fmt.Errorf("s3gateway gRPC client init: %v", err)
-		}
-		defer c.Close()
-		server := s3.Server(c, env.S3GatewayPort)
-		if err := server.ListenAndServe(); err != http.ErrServerClosed {
 			return fmt.Errorf("s3gateway server: %v", err)
+		}
+		certPath, keyPath, err := tls.GetCertPaths()
+		if err != nil {
+			log.Warnf("s3gateway TLS disabled: %v", err)
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				return fmt.Errorf("s3gateway listen: %v", err)
+			}
+		} else {
+			if err := server.ListenAndServeTLS(certPath, keyPath); err != http.ErrServerClosed {
+				return fmt.Errorf("s3gateway listen: %v", err)
+			}
 		}
 		return nil
 	})
