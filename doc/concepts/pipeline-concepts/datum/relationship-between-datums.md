@@ -133,7 +133,7 @@ The following transformations happen during this re-merge:
 
 * `file 1` now has three chunks, the previous two from `datum 1` and `datum 3`
 which have not changed, but also the third new chunk from `datum 2'`.
-* `file 2` has a `file 2` from `datum 3`, while a chunk from `datum 2` has
+* `file 2` has a chunk from `datum 3`, while the chunk from `datum 2` has
 been deleted.
 * `file 3` still has two chunks, but the new `file 3` chunk from `datum 2'`
 replaces the previous one.
