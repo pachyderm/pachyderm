@@ -49,6 +49,4 @@ Read the sections below to learn more about these concepts:
    pipeline/index.rst
    job.md
    datum/index.rst
-   service.md
-   spout.md
 
