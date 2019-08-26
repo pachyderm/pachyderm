@@ -39,7 +39,7 @@ def main(_):
   print("copying {} to {}".format(input_uri, training_data_path))
   file_io.copy(input_uri, training_data_path, True)
   
-  (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(training_data_path)
+  (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path=training_data_path)
 
   train_labels = train_labels[:1000]
   test_labels = test_labels[:1000]
@@ -75,7 +75,7 @@ def main(_):
   # Copy file over to Pachyderm
   output_uri = os.path.join(output_url,args.modelfile)
   print("copying {} to {}".format(model_file, output_uri))
-  file_io.copy(model_file,output_uri)
+  file_io.copy(model_file, output_uri, True)
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Copy data from an S3 input bucket, operate on it, and copy the data to a different S3 bucket.')

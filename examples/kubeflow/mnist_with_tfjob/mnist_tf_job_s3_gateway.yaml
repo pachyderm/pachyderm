@@ -13,7 +13,8 @@ spec:
         spec:
           containers:
             - name: tensorflow
-              image: pachyderm/mnist_klflow_example:v1.3
+              #image: pachyderm/mnist_klflow_example:v1.3
+              image: nickharvey/pach_kflow_example:v1.6
               env:
                 # This endpoint assumes that the pachd service was deployed
                 # in the namespace pachyderm.
@@ -23,11 +24,17 @@ spec:
                 # hard code in the pachd CLUSTER-IP address you obtain from
                 # kubectl get services -n <namespace>
                 - name: S3_ENDPOINT
-                  value: "pachd.kubeflow:600"
+                  value: "pachd.pachyderm:600"
                 - name: S3_USE_HTTPS
                   value: "0"
                 - name: S3_VERIFY_SSL
                   value: "0"
+                - name: S3_REQUEST_TIMEOUT_MSEC
+                  value: "600000"
+                - name: S3_CONNECT_TIMEOUT_MSEC
+                  value: "600000"
+                - name: S3_REGION
+                  value: "us-east1-b"
               command:
                 - "python3"
                 - "/app/tfjob.py"
