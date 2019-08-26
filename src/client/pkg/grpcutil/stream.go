@@ -91,6 +91,9 @@ func (w *ChunkWriteCloser) Write(data []byte) (int, error) {
 
 // Close closes the writer.
 func (w *ChunkWriteCloser) Close() error {
+	if len(w.buf) == 0 {
+		return nil
+	}
 	return w.f(w.buf)
 }
 
