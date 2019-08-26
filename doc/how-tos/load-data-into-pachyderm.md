@@ -7,20 +7,15 @@ the [Data Concepts](../concepts/data-concepts/index.html) and
 The data that you commit to Pachyderm is stored in an object store of your
 choice, such as Amazon S3, MinIO, Google Cloud Storage, or other. Pachyderm
 records the cryptographic hash (`SHA`) of each portion of your data and stores
-it as a commit with a unique identifier (ID). This is called content-addressing.
-Pachyderm's version control is built on content-addressing technology.
-In an object store, data is stored as an unstructured blob that is not
-human-readable.
-However, Pachyderm enables you to interact with versioned data as you
-typically do in a standard disk file system.
+it as a commit with a unique identifier (ID). Although the data is
+stored as an unstructured blob, Pachyderm enables you to interact
+with versioned data as you typically do in a standard disk file system.
 
 Pachyderm stores versioned data in repositories which can contain one or
 multiple files, as well as files arranged in directories. Regardless of the
 repository structure, Pachyderm versions the state of each data repository
 as the data changes over time.
 
-Regardless of how you load your data, every time new data is loaded,
-Pachyderm creates a new commit in the corresponding Pachyderm repository.
 To put data into Pachyderm, a commit must be *started*, or *opened*.
 Data can then be put into Pachyderm as part of that open commit and is
 available once the commit is *finished* or *closed*.
@@ -31,12 +26,11 @@ Pachyderm provides the following options to load data:
 development, integration with CI/CD, and for users who prefer scripting.
 See [Use `put file`](use-put-file.html).
 
-* By creating a [pipeline](../../concepts/pipeline-concepts/pipeline/index.rst).
-Pipelines enable you to do much more than
-just putting individual files or folders into Pachyderm. In a pipeline,
-you can specify your data source, such as a Pachyderm input repository,
-in the `input` field and then configure your code to run automatically
-your code as required. The pipeline code can be triggered on-demand or
+* By creating a pipeline to pull data from an outside source.
+Because Pachyderm pipelines can be any arbitrary code that runs
+in a Docker container, you can call out to external APIs or data
+sources and pull in data from there. Your pipeline code can be
+triggered on-demand or
 continuously with the following special types of pipelines:
 
   * **Spout:** A spout enables you to continuously load
@@ -48,8 +42,15 @@ continuously with the following special types of pipelines:
   interval that you configure in your pipeline spec.
   See [Cron](../../concepts/pipeline-concepts/pipeline/cron.html).
 
+  **Note:** Pipelines enable you to do much more than just ingressing
+  data into Pachyderm. Pipelines can run all kinds of data transformations
+  on your input data sources, such as a Pachyderm repository, and be
+  configured to run your code automatically as new data is committed.
+  For more information, see
+  [Pipeline](../../concepts/pipeline-concepts/pipeline/index.rst).
+
 * By using a Pachyderm language client. This option is ideal
-for Go, Python, or Scala users who want to push data into Pachyderm from
+for Go or Python users who want to push data into Pachyderm from
 services or applications written in those languages. If you did not find your
 favorite language in the list of supported language clients,
 Pachyderm uses a protobuf API which supports many other languages.
@@ -59,7 +60,7 @@ If you are using the Pachyderm Enterprise version, you can use these
 additional options:
 
 * By using the S3 gateway. This option is great to use with the existing tools
-and libraries that interact with object stores.
+and libraries that interact with S3-compatible object stores.
 See [Using the S3 Gateway](../../enterprise/s3gateway.html).
 
 * By using the Pachyderm dashboard. The Pachyderm Enterprise dashboard
@@ -70,6 +71,14 @@ provides a convenient way to upload data right from the UI.
   Uploading data from your local device is not supported.
 
 ## Load Your Data by Using `pachctl`
+
+The `pachctl put file` command enables you to do everything from
+loading local files into Pachyderm to pulling data from an existing object
+store bucket and extracting data from a website. With
+`pachctl put file`, you can append new data to the existing data or
+overwrite the existing data. All these options can be configured by using
+the flags available with this command. Run `pachctl put file --help` to
+view the complete list of flags that you can specify.
 
 To load your data into Pachyderm by using `pachctl`, you first need to create
 one or more data repositories. Then, you can use the `pachctl put file`
@@ -82,7 +91,7 @@ finishes the commit. This is called an atomic commit.
 
 Alternatively, you can run `pachctl start commit` to start a new commit.
 Then, add your data in multiple iterations, each time appending to the
-same commit by running the `pachctl put file` command untill you
+same commit by running the `pachctl put file` command until you
 close the commit by running `pachctl finish commit`.
 
 To load your data into a repository, complete the following steps:
@@ -185,9 +194,13 @@ a lot of time and resources. To optimize performance and the
 use of resources, you might decide to load some of this data into
 Pachyderm, leaving the rest of it in its original source.
 
-One possible way of doing this is adding a `.txt` file with a
+One possible way of doing this is by adding a metadata file with a
 URL to the specific file or directory in your dataset to a Pachyderm
-repository and refer to that text file in your pipeline. Pachyderm
-will not keep versions of the source file, but
-it will keep track and provenance of the resulting output commits
-in its version-control system.
+repository and refer to that file in your pipeline.
+Your pipeline code would read the URL or path in the external data
+source and retrieve that data as needed for processing instead of
+needing to preload it all into a Pachyderm repo. This method works
+particularly well for mostly immutable data because in this case,
+Pachyderm will not keep versions of the source file, but it will keep
+track and provenance of the resulting output commits in its
+version-control system.

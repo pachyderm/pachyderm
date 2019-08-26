@@ -1,4 +1,4 @@
-.. _how-tos:
+.. _how-tos-intro:
 
 How-Tos
 =======
@@ -10,4 +10,5 @@ data operations in Pachyderm, including the following topics:
    :maxdepth: 1
 
    load-data-into-pachyderm.md
+   export-data-out-pachyderm.md
 
