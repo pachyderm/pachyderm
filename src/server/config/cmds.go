@@ -91,7 +91,11 @@ func Cmds() []*cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%s\n", cfg.V2.ActiveContext)
+			activeContext, _, err := cfg.ActiveContext()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s\n", activeContext)
 			return nil
 		}),
 	}
@@ -232,9 +236,14 @@ func Cmds() []*cobra.Command {
 			}
 			sort.Strings(keys)
 
+			activeContext, _, err := cfg.ActiveContext()
+			if err != nil {
+				return err
+			}
+
 			fmt.Println(listContextHeader)
 			for _, key := range keys {
-				if key == cfg.V2.ActiveContext {
+				if key == activeContext {
 					fmt.Printf("*\t%s\n", key)
 				} else {
 					fmt.Printf("\t%s\n", key)

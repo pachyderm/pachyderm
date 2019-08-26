@@ -9,8 +9,9 @@ need to perfom in Pachyderm.
 .. toctree::
    :maxdepth: 2
 
+   cluster-access.md
    autoscaling.md
-   Batching_Pachyderm_with_Transactions.md
+   batching_pachyderm_with_transactions.md
    data_management.md
    sharing_gpu_resources.md
    backup_restore.md

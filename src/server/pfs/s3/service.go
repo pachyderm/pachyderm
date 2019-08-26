@@ -5,29 +5,30 @@ import (
 	"net/http"
 
 	"github.com/gogo/protobuf/types"
-	"github.com/sirupsen/logrus"
-
-	"github.com/pachyderm/pachyderm/src/client"
+	"github.com/gorilla/mux"
 	"github.com/pachyderm/s2"
 )
 
-type rootController struct {
-	pc     *client.APIClient
-	logger *logrus.Entry
-}
-
-func (c rootController) List(r *http.Request, result *s2.ListAllMyBucketsResult) error {
-	result.Owner = defaultUser
-
-	repos, err := c.pc.ListRepo()
+func (c *controller) ListBuckets(r *http.Request) (*s2.ListBucketsResult, error) {
+	vars := mux.Vars(r)
+	pc, err := c.pachClient(vars["authAccessKey"])
 	if err != nil {
-		return s2.InternalError(r, err)
+		return nil, err
+	}
+	repos, err := pc.ListRepo()
+	if err != nil {
+		return nil, err
+	}
+
+	result := s2.ListBucketsResult{
+		Owner:   &defaultUser,
+		Buckets: []s2.Bucket{},
 	}
 
 	for _, repo := range repos {
 		t, err := types.TimestampFromProto(repo.Created)
 		if err != nil {
-			return s2.InternalError(r, err)
+			return nil, err
 		}
 
 		for _, branch := range repo.Branches {
@@ -38,5 +39,5 @@ func (c rootController) List(r *http.Request, result *s2.ListAllMyBucketsResult)
 		}
 	}
 
-	return nil
+	return &result, nil
 }

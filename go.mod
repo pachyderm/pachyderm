@@ -52,6 +52,7 @@ require (
 	github.com/google/gofuzz v1.0.0 // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gophercloud/gophercloud v0.2.0 // indirect
+	github.com/gorilla/mux v1.7.3
 	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0 // indirect
@@ -76,6 +77,7 @@ require (
 	github.com/json-iterator/go v1.1.6 // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a
 	github.com/julienschmidt/httprouter v1.2.0
+	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
 	github.com/minio/minio-go v6.0.14+incompatible
@@ -90,7 +92,7 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/pachyderm/glob v0.0.0-20190626005209-0fc448624fad // indirect
 	github.com/pachyderm/ohmyglob v0.0.0-20190713004043-630e5c15d4e4
-	github.com/pachyderm/s2 v0.0.0-20190708210605-9ba42cb3cead
+	github.com/pachyderm/s2 v0.0.0-20190816193705-b8b3b86077e2
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90 // indirect
@@ -103,12 +105,13 @@ require (
 	github.com/segmentio/analytics-go v0.0.0-20160426181448-2d840d861c32
 	github.com/segmentio/backo-go v0.0.0-20160424052352-204274ad699c // indirect
 	github.com/segmentio/kafka-go v0.2.4
-	github.com/sirupsen/logrus v1.3.0
+	github.com/sirupsen/logrus v1.4.2
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cobra v0.0.0-20160607124346-1238ba19d24b
 	github.com/spf13/pflag v1.0.3
+	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/uber-go/atomic v1.4.0 // indirect
 	github.com/uber/jaeger-client-go v2.16.0+incompatible
@@ -124,13 +127,13 @@ require (
 	go.uber.org/atomic v1.4.0 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.10.0 // indirect
-	golang.org/x/crypto v0.0.0-20190621222207-cc06ce4a13d4
-	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
+	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4
+	golang.org/x/net v0.0.0-20190813141303-74dc4d7220e7
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
-	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb // indirect
+	golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // indirect
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	golang.org/x/tools v0.0.0-20190627220010-94c5763a7c84 // indirect
+	golang.org/x/tools v0.0.0-20190819174341-15fda70baffd // indirect
 	google.golang.org/api v0.6.0
 	google.golang.org/grpc v1.21.1
 	gopkg.in/go-playground/webhooks.v5 v5.11.0
