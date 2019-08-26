@@ -6,11 +6,11 @@ This example uses the canonical mnist dataset, Kubeflow, TFJobs, and Pachyderm t
 Part of what makes [Pachyderm](https://pachyderm.com/) and [Kubeflow](https://www.kubeflow.org/) work so well together is that they're built on [Kubernetes](https://kubernetes.io/), which means they can run virtually anywhere. While both Pachyderm and Kubeflow have their own deployment instructions for various infrastructures, this instructional will be based on my personal favorite, GKE. Before continuing, make sure you have the following installed on your local machine. 
 
 #### Prerequisites:
-  - [Pachyderm cli](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html#install-pachctl) 
-  - [Kubeflow cli](https://www.kubeflow.org/docs/started/getting-started/#installing-command-line-tools)
-  - [Kubectl cli](https://kubernetes.io/docs/tasks/tools/install-kubectl/)  
-  - [gcloud cli](https://cloud.google.com/sdk/gcloud/) 
-  - [docker](https://docs.docker.com/install/)
+  - [Pachyderm CLI](http://docs.pachyderm.com/en/latest/getting_started/local_installation.html#install-pachctl) 
+  - [Kubeflow CLI](https://www.kubeflow.org/docs/started/getting-started/#installing-command-line-tools)
+  - [Kubectl CLI](https://kubernetes.io/docs/tasks/tools/install-kubectl/)  
+  - [gcloud CLI](https://cloud.google.com/sdk/gcloud/) 
+  - [Docker](https://docs.docker.com/install/)
 
 #### Deploy:
 To make it simple, we created a simple [bash script](github.com/pachyderm/pachyderm/examples/kubeflow/mnist_with_tfjob/gcp-kubeflow-pachyderm-setup.sh) specifically for this post, and you can use it to deploy Pachyderm and Kubeflow together on GKE in no time. However, If you prefer to do this all on your local machine, or any other infrastructure, please refer to the links below.
@@ -23,33 +23,31 @@ To make it simple, we created a simple [bash script](github.com/pachyderm/pachyd
 2. `pachctl version` returns *both* pachctl and pachd versions.
 3. `pachctl enterprise get-state` returns: `Pachyderm Enterprise token state: ACTIVE` (If it doesn't, [Register Pachyderm](http://docs.pachyderm.com/en/latest/enterprise/deployment.html#activate-via-the-dashboard)) 
 
-## Step 2 - Checking in our data 
-Just like every other data science project, we begin by getting the data. In a blank directory on your local machine run:  
+## Step 2 - Checking in your data 
+With everything configured and working, we're going to grab our data and then check it in to Pachyderm. To do so, you need to download a mnist.npz dataset to your local machine, create a Pachyderm repo, and then upload the dataset to the Pachyderm repo.
+
+1. Download the mnist.npz file to a black directory on your local machine:  
 
 `➜ curl -O https://storage.googleapis.com/tensorflow/tf-keras-datasets/mnist.npz`
 
-Next, let's setup a Pachyderm repo called `inputrepo`:   
-
-`➜ pachctl create repo inputrepo`
-
-And one called `outputrepo`
-
+2. Create our two Pachyderm repos called `inputrepo` and `outputrepo`:  
+`➜ pachctl create repo inputrepo`  
 `➜ pachctl create repo outputrepo`
 
-With our repos set, it's time to check our data in:
+3. Add `mnist.npz` to `inputrepo`:  
+`pachctl put file inputrepo@master:/data/mnist.npz -f mnist.npz`  
 
-`pachctl put file inputrepo@master:/data/mnist.npz -f mnist.npz`
+This command copies the minst dataset from your local machine to your Pachyderm repo inputrepo. This operation automatically generates a commit ID. Congratulations! Your data now has a HEAD commit, and Pachyderm has begun version-controlling the data!
 
-This will copy the minst dataset from your local machine to your Pachyderm repo `inputrepo` which will generate a commit ID. Congrats! Your data now has a `HEAD` commit and Pachyderm has begun version-controlling the data! You can verify that with:
-
-`pachctl list file inputrepo@master:/data/ --history all` _(the `--history` flag tells pachyderm to show the commit information)_
-
+4. Verify your configuration by running the following command:  
 ```
 ➜ pachctl list file inputrepo@master:/data/ --history all
 COMMIT                           NAME            TYPE COMMITTED    SIZE     
 a1a45ecc348a4e41bfddb2ce32df1475 /data/mnist.npz file 1 minute ago 10.96MiB
-```
-Finally, we create a master branch on the outputrepo, so it's visible via the S3 Gateway
+```  
+the `--history` flag tells pachyderm to show the commit information
+
+5. Lastly, we create a master branch on the outputrepo, so it's visible via the S3 Gateway
 
 `pachctl create branch outputrepo@master`
 
@@ -195,12 +193,12 @@ How cool is that? Our `my_model.h5` (commit: eb7e51147b4d42cfbcd555c84be778d2) h
 Now when anyone asks "What data was used to train that model?" you can tell them with just one command.
 
 ### And that's a wrap! 
-Great work! You started down the road to better data control and laid the groundwork for mastering  data lineage.  
+Great work! You started down the road to better data control and laid the groundwork for mastering data lineage.  
 
-Of course, that’s just the start and there's more work to be done. A [true data lineage](https://www.pachyderm.io/dsbor.html) solution gives users a complete understanding of the entire journey of data, model and code from top to bottom. Everything gets versioned and tracked as it changes, including the relationships between all three of those key pieces of every data science project.  
+Of course, that’s just the start, there's more work to be done. A [true data lineage](https://www.pachyderm.io/dsbor.html) solution gives users a complete understanding of the entire journey of data, model, and code from top to bottom. Everything gets versioned and tracked as it changes, including the relationships between all three of those key pieces of every data science project.  
 
-What we did here was take our first few steps by introducing version-control for the data alone. Don't worry though, Pachyderm and the Kubeflow community are on it and we're collaborating to create the best possible solution for every AI infrastructure team to get a handle on their pipelines from start to finish.  
+What we did here was take our first few steps by introducing version-control for the data alone. Don't worry though, Pachyderm and the Kubeflow community are on it, and we're collaborating to create the best possible solution for every AI infrastructure team to get a handle on their pipelines from start to finish.  
 
-And for those of you  wondering, "How would this work in a pipeline?" don't worry, we've got a seperate post on just that so stay tuned!  
+And for those of you wondering, "How would this work in a pipeline?" don't worry, we've got a separate post on just that so stay tuned!  
 
-If you're interested in exploring data lineage and more, please go to [Pachyderm.com](https://pachyderm.com) or check us out on [github](https://github.com/pachyderm/pachyderm) and be sure to join our [Slack](http://slack.pachyderm.io/) if you need help getting going fast.
+If you're interested in exploring data lineage and more, please go to [Pachyderm.com](https://pachyderm.com) or check us out on [GitHub](https://github.com/pachyderm/pachyderm) and be sure to join our [Slack](http://slack.pachyderm.io/) if you need help getting going fast.
