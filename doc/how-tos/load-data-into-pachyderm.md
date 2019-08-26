@@ -90,8 +90,7 @@ commit, adds the data to which you specified the path in your command, and
 finishes the commit. This is called an atomic commit.
 
 Alternatively, you can run `pachctl start commit` to start a new commit.
-Then, add your data in multiple iterations, each time appending to the
-same commit by running the `pachctl put file` command until you
+Then, add your data in multiple `put file` calls, and finally, when ready,
 close the commit by running `pachctl finish commit`.
 
 To load your data into a repository, complete the following steps:
