@@ -129,6 +129,17 @@ func basicTest(c obj.Client) error {
 	}); err != nil {
 		return err
 	}
+	// Test writing and reading a size zero object.
+	data = []byte{}
+	if err := writeObject(ctx, c, "zero", data); err != nil {
+		return err
+	}
+	if err := readTest(ctx, c, "zero", 0, 0, data); err != nil {
+		return err
+	}
+	if err := c.Delete(ctx, "zero"); err != nil {
+		return err
+	}
 	// Confirm that no objects exist after deletion.
 	return walk(ctx, c, 0, nil)
 }
