@@ -107,8 +107,17 @@ func (s *streamingBytesWriter) Write(p []byte) (int, error) {
 	if len(p) == 0 {
 		return 0, nil
 	}
-	if err := s.streamingBytesServer.Send(&types.BytesValue{Value: p}); err != nil {
-		return 0, err
+	for i := 0; i < len(p); i += MaxMsgSize {
+		var sp []byte
+		if i+MaxMsgSize < len(p) {
+			sp = p[i : i+MaxMsgSize]
+		} else {
+			sp = p[i:]
+		}
+
+		if err := s.streamingBytesServer.Send(&types.BytesValue{Value: sp}); err != nil {
+			return 0, err
+		}
 	}
 	return len(p), nil
 }

@@ -93,6 +93,18 @@ func (c APIClient) CreateRepo(repoName string) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
+// UpdateRepo upserts a repo with the given name.
+func (c APIClient) UpdateRepo(repoName string) error {
+	_, err := c.PfsAPIClient.CreateRepo(
+		c.Ctx(),
+		&pfs.CreateRepoRequest{
+			Repo:   NewRepo(repoName),
+			Update: true,
+		},
+	)
+	return grpcutil.ScrubGRPC(err)
+}
+
 // InspectRepo returns info about a specific Repo.
 func (c APIClient) InspectRepo(repoName string) (*pfs.RepoInfo, error) {
 	resp, err := c.PfsAPIClient.InspectRepo(

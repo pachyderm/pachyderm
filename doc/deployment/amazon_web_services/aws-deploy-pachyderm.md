@@ -34,6 +34,7 @@ To add stateful storage, complete the following steps:
    * `STORAGE_SIZE` — The size of the persistent volume in GB. For example, `10`.
    * `AWS_REGION` — The AWS region of your Kubernetes cluster. For example,
    `us-west-2` and not `us-west-2a`.
+  
 
 1. Create an S3 bucket:
 
@@ -76,6 +77,11 @@ the nodes must have a dedicated IAM role already assigned.
 Pachyderm.
 
 * The IAM role must have correct trust relationships.
+
+  You need to set a system variable `IAM_ROLE` to the name
+  of the IAM role that you will use to deploy the cluster.
+  This role is different from the Role ARN or the Instance
+  Profile ARN of the role. It iss the actual role name.
 
 To deploy Pachyderm with an IAM role, complete the following steps:
 
@@ -120,6 +126,7 @@ To deploy Pachyderm with an IAM role, complete the following steps:
 
       **Note:** For the EKS cluster, you might need to use the
       **Add inline policy** button and create a name for the new policy.
+      The JSON above is inserted between the square brackets for the `Statement` element.
 
 1. Set up trust relationships for the IAM role:
 
@@ -141,10 +148,13 @@ To deploy Pachyderm with an IAM role, complete the following steps:
       }
       ```
 
+1. Set the system variable `IAM_ROLE` to the IAM role name
+   for the Pachyderm deployment.
+
 1. Deploy Pachyderm:
 
    ```bash
-   $ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role <your-iam-role>
+   $ pachctl deploy amazon ${BUCKET_NAME} ${AWS_REGION} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --iam-role ${IAM_ROLE}
    ```
 
    The deployment takes some time. You can run `kubectl get pods` periodically
