@@ -1,3 +1,7 @@
+# mnist with TFJob and Pachyderm
+
+This example uses the canonical mnist dataset, Kubeflow, TFJobs, and Pachyderm to demonstrate an end-to-end machine learning workflow with data provenance.
+
 ## Step 1 - Install and deploy both Kubeflow and Pachyderm
 Part of what makes [Pachyderm](https://pachyderm.com/) and [Kubeflow](https://www.kubeflow.org/) work so well together is that they're built on [Kubernetes](https://kubernetes.io/), which means they can run virtually anywhere. While both Pachyderm and Kubeflow have their own deployment instructions for various infrastructures, this instructional will be based on my personal favorite, GKE. Before continuing, make sure you have the following installed on your local machine. 
 
@@ -38,13 +42,16 @@ With our repos set, it's time to check our data in:
 
 This will copy the minst dataset from your local machine to your Pachyderm repo `inputrepo` which will generate a commit ID. Congrats! Your data now has a `HEAD` commit and Pachyderm has begun version-controlling the data! You can verify that with:
 
-`pachctl list file outputrepo@master:/data/ --history all` _(the `--history` flag tells pachyderm to show the commit information)_
+`pachctl list file inputrepo@master:/data/ --history all` _(the `--history` flag tells pachyderm to show the commit information)_
 
 ```
 ➜ pachctl list file inputrepo@master:/data/ --history all
 COMMIT                           NAME            TYPE COMMITTED    SIZE     
 a1a45ecc348a4e41bfddb2ce32df1475 /data/mnist.npz file 1 minute ago 10.96MiB
 ```
+Finally, we create a master branch on the outputrepo, so it's visible via the S3 Gateway
+
+`pachctl create branch outputrepo@master`
 
 ## Step 3 - Deploying code to work with MNIST
 Now that our data is checked in, it's time to deploy some code. In the same directory run the following:
@@ -153,7 +160,12 @@ To deploy just run the following:
 
 #### A few moments later...  
 
-We can check on things by going to the  and click on TFJob Dasboard. You should see something like:
+We can check on things by going to the and click on TFJob Dasboard. 
+If you deployed Pachyderm and Kubeflow from our sample deployment script, 
+you can run
+`open $KF_URL` from macOS or `xdg_open $KF_URL` from Linux 
+to get to the Kubeflow dashboard.
+You should see something like:
 
 ![tfjob-dashboard](tfjob-dashboard.png)
 

@@ -1,4 +1,8 @@
 # NOTE: GKE Resources cost Money. Proceed with care.
+# This script is intended for guidance only and may not
+# execute correctly in all environments.  Try
+# setting all the environment variables here and
+# executing the commands one-by-one to debug issues.
 export CLUSTER_NAME="<insert a name here>"
 export GCP_ZONE="<your gcp zone>"
 export MACHINE_TYPE="n1-standard-8" 
@@ -18,8 +22,12 @@ export KUBEFLOW_PASSWORD='pachyderm'
 #export PATH=$PATH:<path to kfctl in your kubeflow installation>
 #export ZONE=${GCP_ZONE}  #where the deployment will be created
 
-export PROJECT=$(gcloud config get-value account)
+export PROJECT=$(gcloud config get-value project)
 export KFAPP=$CLUSTER_NAME
+
+# from macOS, this would allow you to run "open $KF_URL" from this
+# command prompt to see the Kubeflow dashboard.  In Linux, the
+# command might be "xdg-open $KF_URL".
 export KF_URL="https://${KFAPP}.endpoints.${PROJECT}.cloud.goog"
 
 gcloud auth login
@@ -57,9 +65,9 @@ gcloud container clusters get-credentials ${CLUSTER_NAME}
 # Create the bucket.
 gsutil mb gs://${BUCKET_NAME}
 
-kubectl create namespace pachyderm
+kubectl create namespace kubeflow
 
-pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --namespace pachyderm
+pachctl deploy google ${BUCKET_NAME} ${STORAGE_SIZE} --dynamic-etcd-nodes=1 --namespace kubeflow
 # Default uses Cloud IAP:
 #kfctl init ${KFAPP} --platform gcp --project ${PROJECT}
 # Alternatively, use this command if you want to use basic authentication:

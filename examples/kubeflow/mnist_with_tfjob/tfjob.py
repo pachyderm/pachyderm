@@ -21,29 +21,25 @@ input_bucket = os.getenv('INPUT_BUCKET', 'master.inputrepo')
 output_bucket  = os.getenv('OUTPUT_BUCKET', "master.outputrepo")
 # this is local directory we'll copy the files to
 data_dir  = os.getenv('DATA_DIR', "/data")
+# this is the training data file in the input repo
+training_data = os.getenv('TRAINING_DATA', "mninst.npz")
+# this is the name of model file in the output repo
+model_file = os.getenv('MODEL_FILE', "my_model.h5")
 
-# Getting the Pachyderm stuff stared
-#input_url = 's3://' + args.inputbucket + "/data/"
-#output_url = 's3://' + args.outputbucket + "/data/"
 def main(_):
-  input_url = 's3://' + args.inputbucket + "/data/"
-  output_url = 's3://' + args.outputbucket + "/data/"
+  input_url = 's3://' + args.inputbucket + "/"
+  output_url = 's3://' + args.outputbucket + "/"
   
   os.makedirs(args.datadir)
 
   # first, we copy files from pachyderm into a convenient
-  # local directory for processing.  The files have been
-  # placed into the inputpath directory in the s3path bucket.
-  print("walking {} for copying files".format(input_url))
-  for dirpath, dirs, files in file_io.walk(input_url, True):
-    for file in files:
-      uri = os.path.join(dirpath, file)
-      newpath = os.path.join(args.datadir, file)
-      print("copying {} to {}".format(uri, newpath))
-      file_io.copy(uri, newpath, True)
-
-  path = '/tmp/data/mnist.npz'
-  (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path)
+  # local directory for processing.  
+  input_uri = os.path.join(input_url, args.trainingdata)
+  training_data_path = os.path.join(args.datadir, args.trainingdata)
+  print("copying {} to {}".format(input_uri, training_data_path))
+  file_io.copy(input_uri, training_data_path, True)
+  
+  (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(training_data_path)
 
   train_labels = train_labels[:1000]
   test_labels = test_labels[:1000]
@@ -74,16 +70,12 @@ def main(_):
             validation_data=(test_images, test_labels))
 
   # Save entire model to a HDF5 file
-  os.mkdir('/tmp/data/models')
-  model.save('/tmp/data/models/my_model.h5')
-
-  print("walking {} for copying to {}".format(args.datadir, output_url))
-  for dirpath, dirs, files in os.walk(args.datadir, topdown=True):   
-    for file in files:
-      uri = os.path.join(dirpath, file)
-      newpath = output_url + file
-      print("copying {} to {}".format(uri, newpath))
-      file_io.copy(uri, newpath, True)
+  model_file =  os.path.join(args.datadir,args.modelfile)
+  model.save(model_file)
+  # Copy file over to Pachyderm
+  output_uri = os.path.join(output_url,args.modelfile)
+  print("copying {} to {}".format(model_file, output_uri))
+  file_io.copy(model_file,output_uri)
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='Copy data from an S3 input bucket, operate on it, and copy the data to a different S3 bucket.')
@@ -97,6 +89,12 @@ if __name__ == '__main__':
   parser.add_argument('-d', '--datadir', required=False,
                       help="The local directory where data will be copied to.  This overrides the environment variable DATA_DIR. Default is {}".format(data_dir),
                       default=data_dir)
+  parser.add_argument('-t', '--trainingdata', required=False,
+                      help="The training data used as input, in npz format.  This overrides the environment variable TRAINING_DATA. Default is {}".format(training_data),
+                      default=training_data)
+  parser.add_argument('-m', '--modelfile', required=False,
+                      help="The filename of the model file to be output.  This overrides the environment variable MODEL_FILE. Default is {}".format(model_file),
+                      default=model_file)
   
   args, unparsed = parser.parse_known_args()
   #tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
