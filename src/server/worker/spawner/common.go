@@ -20,19 +20,22 @@ func Run(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, logger lo
 	return err
 }
 
-func (s *spawner) runServiceUserCode(ctx context.Context, logger logs.TaggedLogger) error {
-	return backoff.RetryNotify(func() error {
-		// if we have a spout, then asynchronously receive spout data
-		if s.pipelineInfo.Spout != nil {
-			go s.receiveSpout(ctx, logger)
-		}
+func runUserCode(
+	ctx context.Context,
+	logger logs.TaggedLogger,
+) error {
+	return runUntil(ctx, "runUserCode", func() error {
 		return s.utils.runUserCode(ctx, logger, nil, &pps.ProcessStats{}, nil)
-	}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+	})
+}
+
+func runUntil(ctx context.Context, name string, cb func() error) error {
+	return backoff.RetryNotify(cb, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 		select {
 		case <-ctx.Done():
 			return err
 		default:
-			logger.Logf("error running user code: %+v, retrying in: %+v", err, d)
+			logger.Logf("error in %s: %+v, retrying in: %+v", name, err, d)
 			return nil
 		}
 	})

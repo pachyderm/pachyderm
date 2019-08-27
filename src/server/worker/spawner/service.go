@@ -1,6 +1,6 @@
 package spawner
 
-type serviceItem {
+type serviceItem struct {
 	serviceCtx context.Context
 	commitInfo *pfs.CommitInfo
 }
@@ -76,12 +76,20 @@ func RunService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, ut
 		data := df.Datum(0)
 		logger = logger.WithData(data)
 
-		utils.WithProvisionedNode(pachClient, data, logger, func() error {
+		return utils.WithProvisionedNode(pachClient, data, logger, func() error {
 			if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_RUNNING); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
-			if err := runServiceUserCode(serviceCtx, logger); err != nil {
-				logger.Logf("error from runService: %+v", err)
+
+			eg, serviceCtx := errgroup.Group{}.WithContext(serviceCtx)
+
+			eg.Go(runUserCode(serviceCtx, logger))
+			if pipelineInfo.Spout != nil {
+				eg.Go(receiveSpout(serviceCtx, pachClient, pipelineInfo, logger))
+			}
+
+			if err := eg.Wait(); err != nil {
+				logger.Logf("error running user code: %+v", err)
 			}
 
 			// Only want to update this stuff if we were canceled due to a new commit
