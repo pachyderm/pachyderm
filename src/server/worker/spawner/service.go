@@ -1,11 +1,57 @@
 package spawner
 
-func RunService(...) error {
-	// TODO: we need to cancel the serviceCtx when the next commit is ready
-	forEachCommit(pachClient, s.pipelineInfo, func(commitInfo *pfs.CommitInfo) error {
+type serviceJob {
+	commitInfo *pfs.CommitInfo
+	cancel func()
+}
+
+// Runs the given callback with the latest commit for the pipeline.  The given
+// context will be canceled if a newer commit is ready.
+func forLatestCommit(
+	pachClient *client.APIClient,
+	pipelineInfo *pps.PipelineInfo,
+	cb func(context.Context, *pfs.CommitInfo) error,
+) error {
+	ctx := pachClient.Context()
+
+	commitIter, err := pachClient.SubscribeCommit(pipelineInfo.Pipeline.Name, pipelineInfo.OutputBranch, "", pfs.CommitState_READY)
+	if err != nil {
+		return err
+	}
+
+	var serviceCtx context.Context
+	var serviceCancel func()
+
+	cancel := func() {
+		if serviceCancel != nil {
+			serviceCancel()
+		}
+	}
+
+	defer cancel()
+
+	for {
+		if commitInfo, err := commitIter.Next(); err != nil {
+			return err
+		} else if commitInfo.Finished == nil {
+			cancel()
+			serviceCtx, serviceCancel = context.WithCancel(ctx)
+			go func() {
+				cb(serviceCtx, serviceCancel)
+			}
+		}
+	}
+}
+
+func RunService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, utils common.Utils, logger logs.TemplateLogger) error {
+	ctx := pachClient.Context()
+
+	// The serviceCtx is only used for canceling user code (due to a new output
+	// commit being ready)
+	return forLatestCommit(pachClient, pipelineInfo, func(serviceCtx context.Context, commitInfo *pfs.CommitInfo) error {
 		// Create a job document matching the service's output commit
-		jobInput := ppsutil.JobInput(a.pipelineInfo, commitInfo)
-		job, err := pachClient.CreateJob(a.pipelineInfo.Pipeline.Name, commitInfo.Commit)
+		jobInput := ppsutil.JobInput(pipelineInfo, commitInfo)
+		job, err := pachClient.CreateJob(pipelineInfo.Pipeline.Name, commitInfo.Commit)
 		if err != nil {
 			return err
 		}
@@ -19,21 +65,16 @@ func RunService(...) error {
 			return fmt.Errorf("services must have a single datum")
 		}
 		data := df.Datum(0)
-    logger = logger.WithData(data)
+		logger = logger.WithData(data)
 
-		// TODO: reduce downtime between commits?
 		utils.WithProvisionedNode(pachClient, data, logger, func() error {
-			serviceCtx, serviceCancel = context.WithCancel(ctx)
-			defer serviceCancel()
-
-			// TODO: this used to be in a goroutine, probably to keep the service
-			// running until the next commit was ready to be served
 			if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_RUNNING); err != nil {
 				logger.Logf("error updating job state: %+v", err)
 			}
-			if err := a.runServiceUserCode(serviceCtx, logger); err != nil {
+			if err := runServiceUserCode(serviceCtx, logger); err != nil {
 				logger.Logf("error from runService: %+v", err)
 			}
+
 			select {
 			case <-serviceCtx.Done():
 				if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_SUCCESS); err != nil {
