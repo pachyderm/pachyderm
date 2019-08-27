@@ -629,7 +629,7 @@ func TestConfigDeadlock(t *testing.T) {
 
 	// Send a SAMLResponse to Pachyderm
 	alice, group := tu.UniqueString("alice"), tu.UniqueString("group")
-	aliceClient := getPachClientSafe(t, "") // empty string b/c want anon client
+	aliceClient := getPachClientConfigAgnostic(t, "") // empty string b/c want anon client
 	tu.AuthenticateWithSAMLResponse(t, aliceClient, testIDP.NewSAMLResponse(alice, group))
 	who, err := aliceClient.WhoAmI(aliceClient.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)

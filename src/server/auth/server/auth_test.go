@@ -173,10 +173,14 @@ func initSeedClient(tb testing.TB) {
 	seedClient.SetAuthToken("")
 }
 
-func getPachClientSafe(tb testing.TB, subject string) *client.APIClient {
+// getPachClientConfigAgnostic does not check that the auth config is in the default state.
+// i.e. it can be used to retrieve the pach client even after the auth config has been manipulated
+func getPachClientConfigAgnostic(tb testing.TB, subject string) *client.APIClient {
 	return getPachClientP(tb, subject, false)
 }
 
+// getPachClient explicitly checks that the auth config is set to the default,
+// and will fail otherwise.
 func getPachClient(tb testing.TB, subject string) *client.APIClient {
 	return getPachClientP(tb, subject, true)
 }
@@ -321,7 +325,7 @@ func deleteAll(tb testing.TB) {
 		useAdminClient = isAuthActive(tb, false)
 	}() // release tokenMapMut before getPachClient
 	if useAdminClient {
-		adminClient := getPachClientSafe(tb, admin)
+		adminClient := getPachClientConfigAgnostic(tb, admin)
 		require.NoError(tb, adminClient.DeleteAll(), "initial DeleteAll()")
 	} else {
 		require.NoError(tb, anonClient.DeleteAll())
