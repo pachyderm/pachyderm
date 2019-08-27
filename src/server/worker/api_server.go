@@ -435,123 +435,6 @@ func (a *APIServer) unlinkData(inputs []*common.Input) error {
 	return nil
 }
 
-func (a *APIServer) reportUserCodeStats(logger logs.TaggedLogger) {
-	if a.exportStats {
-		if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, "started"); err != nil {
-			logger.Logf("failed to get histogram w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
-		} else {
-			counter.Add(1)
-		}
-	}
-}
-
-func (a *APIServer) reportDeferredUserCodeStats(err error, start time.Time, stats *pps.ProcessStats, logger logs.TaggedLogger) {
-	duration := time.Since(start)
-	stats.ProcessTime = types.DurationProto(duration)
-	if a.exportStats {
-		state := "errored"
-		if err == nil {
-			state = "finished"
-		}
-		if counter, err := datumCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, state); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) state (%v) with error %v", a.pipelineInfo.ID, a.jobID, state, err)
-		} else {
-			counter.Add(1)
-		}
-		if hist, err := datumProcTime.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID, state); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) state (%v) with error %v", a.pipelineInfo.ID, a.jobID, state, err)
-		} else {
-			hist.Observe(duration.Seconds())
-		}
-		if counter, err := datumProcSecondsCount.GetMetricWithLabelValues(a.pipelineInfo.ID, a.jobID); err != nil {
-			logger.Logf("failed to get counter w labels: pipeline (%v) job (%v) with error %v", a.pipelineInfo.ID, a.jobID, err)
-		} else {
-			counter.Add(duration.Seconds())
-		}
-	}
-}
-
-// Run user code and return the combined output of stdout and stderr.
-func (a *APIServer) runUserCode(ctx context.Context, logger logs.TaggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
-	a.reportUserCodeStats(logger)
-	defer func(start time.Time) { a.reportDeferredUserCodeStats(retErr, start, stats, logger) }(time.Now())
-	logger.Logf("beginning to run user code")
-	defer func(start time.Time) {
-		if retErr != nil {
-			logger.Logf("errored running user code after %v: %v", time.Since(start), retErr)
-		} else {
-			logger.Logf("finished running user code after %v", time.Since(start))
-		}
-	}(time.Now())
-	if rawDatumTimeout != nil {
-		datumTimeout, err := types.DurationFromProto(rawDatumTimeout)
-		if err != nil {
-			return err
-		}
-		datumTimeoutCtx, cancel := context.WithTimeout(ctx, datumTimeout)
-		defer cancel()
-		ctx = datumTimeoutCtx
-	}
-
-	// Run user code
-	cmd := exec.CommandContext(ctx, a.pipelineInfo.Transform.Cmd[0], a.pipelineInfo.Transform.Cmd[1:]...)
-	if a.pipelineInfo.Transform.Stdin != nil {
-		cmd.Stdin = strings.NewReader(strings.Join(a.pipelineInfo.Transform.Stdin, "\n") + "\n")
-	}
-	cmd.Stdout = logger.WithUserCode()
-	cmd.Stderr = logger.WithUserCode()
-	cmd.Env = environ
-	if a.uid != nil && a.gid != nil {
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			Credential: &syscall.Credential{
-				Uid: *a.uid,
-				Gid: *a.gid,
-			},
-		}
-	}
-	cmd.Dir = a.pipelineInfo.Transform.WorkingDir
-	err := cmd.Start()
-	if err != nil {
-		return fmt.Errorf("error cmd.Start: %v", err)
-	}
-	// A context w a deadline will successfully cancel/kill
-	// the running process (minus zombies)
-	state, err := cmd.Process.Wait()
-	if err != nil {
-		return fmt.Errorf("error cmd.Wait: %v", err)
-	}
-	if isDone(ctx) {
-		if err = ctx.Err(); err != nil {
-			return err
-		}
-	}
-
-	// Because of this issue: https://github.com/golang/go/issues/18874
-	// We forked os/exec so that we can call just the part of cmd.Wait() that
-	// happens after blocking on the process. Unfortunately calling
-	// cmd.Process.Wait() then cmd.Wait() will produce an error. So instead we
-	// close the IO using this helper
-	err = cmd.WaitIO(state, err)
-	// We ignore broken pipe errors, these occur very occasionally if a user
-	// specifies Stdin but their process doesn't actually read everything from
-	// Stdin. This is a fairly common thing to do, bash by default ignores
-	// broken pipe errors.
-	if err != nil && !strings.Contains(err.Error(), "broken pipe") {
-		// (if err is an acceptable return code, don't return err)
-		if exiterr, ok := err.(*exec.ExitError); ok {
-			if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
-				for _, returnCode := range a.pipelineInfo.Transform.AcceptReturnCode {
-					if int(returnCode) == status.ExitStatus() {
-						return nil
-					}
-				}
-			}
-		}
-		return fmt.Errorf("error cmd.WaitIO: %v", err)
-	}
-	return nil
-}
-
 // Run user error code and return the combined output of stdout and stderr.
 func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger logs.TaggedLogger, environ []string, stats *pps.ProcessStats, rawDatumTimeout *types.Duration) (retErr error) {
 	logger.Logf("beginning to run user error handling code")
@@ -589,7 +472,7 @@ func (a *APIServer) runUserErrorHandlingCode(ctx context.Context, logger logs.Ta
 	if err != nil {
 		return fmt.Errorf("error cmd.Wait: %v", err)
 	}
-	if isDone(ctx) {
+	if common.isDone(ctx) {
 		if err = ctx.Err(); err != nil {
 			return err
 		}
@@ -1430,15 +1313,6 @@ func writeIndex(pachClient *client.APIClient, objClient obj.Client, tree *pfs.Ob
 	return err
 }
 
-func isDone(ctx context.Context) bool {
-	select {
-	case <-ctx.Done():
-		return true
-	default:
-		return false
-	}
-}
-
 // cancelCtxIfJobFails watches jobID's JobPtr, and if its state is changed to a
 // terminal state (KILLED, FAILED, or SUCCESS) cancel the jobCtx so we kill any
 // user processes
@@ -1447,7 +1321,7 @@ func (a *APIServer) cancelCtxIfJobFails(jobCtx context.Context, jobCancel func()
 
 	backoff.RetryNotify(func() error {
 		// Check if job was cancelled while backoff was sleeping
-		if isDone(jobCtx) {
+		if common.isDone(jobCtx) {
 			return nil
 		}
 
@@ -1783,7 +1657,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 			var dir string
 			var failures int64
 			if err := backoff.RetryNotify(func() error {
-				if isDone(ctx) {
+				if common.isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job--don't run datum
 				}
 				// Download input data
@@ -1868,7 +1742,7 @@ func (a *APIServer) processDatums(pachClient *client.APIClient, logger logs.Tagg
 				a.reportDownloadSizeStats(float64(downSize), logger)
 				return a.uploadOutput(pachClient, dir, tag, logger, data, subStats, outputTree, datumIdx)
 			}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
-				if isDone(ctx) {
+				if common.isDone(ctx) {
 					return ctx.Err() // timeout or cancelled job, err out and don't retry
 				}
 				failures++

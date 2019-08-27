@@ -69,7 +69,7 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 			return err
 		}
 		defer masterLock.Unlock(ctx)
-		logger.Logf("Launching %v master process", masterType)
+		return spawner.Run()
 		return spawner(pachClient)
 	}, b, func(err error, d time.Duration) error {
 		if auth.IsErrNotAuthorized(err) {
@@ -81,12 +81,4 @@ func (a *APIServer) master(masterType string, spawner func(*client.APIClient) er
 		logger.Logf("master: error running the %v master process: %v; retrying in %v", masterType, err, d)
 		return nil
 	})
-}
-
-func (a *APIServer) chunks(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, chunkPrefix, jobID), nil, &ChunkState{}, nil, nil)
-}
-
-func (a *APIServer) merges(jobID string) col.Collection {
-	return col.NewCollection(a.etcdClient, path.Join(a.etcdPrefix, mergePrefix, jobID), nil, &MergeState{}, nil, nil)
 }

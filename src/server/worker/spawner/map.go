@@ -1,6 +1,6 @@
 package spawner
 
-func (s *Spawner) RunMap(pachClient *client.APIClient) error {
+func (s *Spawner) runMap(pachClient *client.APIClient) error {
 	logger := logs.NewMasterLogger(a.pipelineInfo)
 	// Listen for new commits, and create jobs when they arrive
 	commitIter, err := pachClient.SubscribeCommit(a.pipelineInfo.Pipeline.Name, a.pipelineInfo.OutputBranch, "", pfs.CommitState_READY)

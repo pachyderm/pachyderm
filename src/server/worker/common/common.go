@@ -9,6 +9,15 @@ import (
 	"github.com/pachyderm/pachyderm/src/client/pps"
 )
 
+func isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
+}
+
 // DatumID computes the id for a datum, this value is used in ListDatum and
 // InspectDatum.
 func DatumID(data []*Input) string {

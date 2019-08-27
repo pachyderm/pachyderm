@@ -1,30 +1,35 @@
 package spawner
 
-func (s *Spawner) RunSpout(pachClient *client.APIClient) error {
+func (s *Spawner) runSpout(ctx context.Context) error {
 	ctx := pachClient.Ctx()
 
 	var dir string
 
-	logger := logs.NewMasterLogger(a.pipelineInfo).WithJob("spout")
-	puller := filesync.NewPuller()
+	logger := logs.NewMasterLogger(s.pipelineInfo).WithJob("spout")
 
-	if err := a.unlinkData(nil); err != nil {
-		return fmt.Errorf("unlinkData: %v", err)
-	}
-	// If this is our second time through the loop cleanup the old data.
-	// TODO: this won't get hit
-	if dir != "" {
-		if err := os.RemoveAll(dir); err != nil {
-			return fmt.Errorf("os.RemoveAll: %v", err)
+	s.utils.provisionNode(ctx, pachClient)
+
+	/*
+		puller := filesync.NewPuller()
+
+		if err := a.unlinkData(nil); err != nil {
+			return fmt.Errorf("unlinkData: %v", err)
 		}
-	}
-	dir, err := a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
-	if err != nil {
-		return err
-	}
-	if err := a.linkData(nil, dir); err != nil {
-		return fmt.Errorf("linkData: %v", err)
-	}
+		// If this is our second time through the loop cleanup the old data.
+		// TODO: this won't get hit
+		if dir != "" {
+			if err := os.RemoveAll(dir); err != nil {
+				return fmt.Errorf("os.RemoveAll: %v", err)
+			}
+		}
+		dir, err := a.downloadData(pachClient, logger, nil, puller, &pps.ProcessStats{}, nil)
+		if err != nil {
+			return err
+		}
+		if err := a.linkData(nil, dir); err != nil {
+			return fmt.Errorf("linkData: %v", err)
+		}
+	*/
 
 	err = a.runService(ctx, logger)
 	if err != nil {
