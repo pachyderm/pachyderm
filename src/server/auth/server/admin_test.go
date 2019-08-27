@@ -899,7 +899,7 @@ func TestListRepoAdminIsOwnerOfAllRepos(t *testing.T) {
 	// t.Parallel()
 	adminClient := getPachClient(t, admin)
 	alice, bob := tu.UniqueString("alice"), tu.UniqueString("bob")
-	aliceClient, bobClient := getPachClientSafe(t, alice), getPachClientSafe(t, bob)
+	aliceClient, bobClient := getPachClient(t, alice), getPachClient(t, bob)
 
 	// alice creates a repo
 	repoWriter := tu.UniqueString("TestListRepoAdminIsOwnerOfAllRepos")
