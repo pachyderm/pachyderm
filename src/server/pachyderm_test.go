@@ -9948,6 +9948,49 @@ func TestNoCmd(t *testing.T) {
 	})
 }
 
+func TestStandbyFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	c := getPachClient(t)
+	require.NoError(t, c.DeleteAll())
+
+	dataRepo1 := tu.UniqueString(t.Name() + "-data1")
+	require.NoError(t, c.CreateRepo(dataRepo1))
+
+	dataRepo2 := tu.UniqueString(t.Name() + "-data2")
+	require.NoError(t, c.CreateRepo(dataRepo2))
+
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline: client.NewPipeline(t.Name() + "-pipeline"),
+			Transform: &pps.Transform{
+				Cmd: []string{"false"},
+			},
+			Input:   client.NewCrossInput(client.NewPFSInput(dataRepo1, "/*"), client.NewPFSInput(dataRepo2, "/*")),
+			Standby: true,
+		},
+	)
+	require.NoError(t, err)
+
+	_, err = c.PutFile(dataRepo1, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	_, err = c.PutFile(dataRepo2, "master", "file", strings.NewReader("foo"))
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	jobInfos, err := c.WithCtx(ctx).FlushJobAll([]*pfs.Commit{client.NewCommit(dataRepo1, "master"), client.NewCommit(dataRepo2, "master")}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobInfos))
+	for _, ji := range jobInfos {
+		require.Equal(t, pps.JobState_JOB_FAILURE.String(), ji.State.String())
+	}
+}
+
 func getObjectCountForRepo(t testing.TB, c *client.APIClient, repo string) int {
 	pipelineInfos, err := pachClient.ListPipeline()
 	require.NoError(t, err)
