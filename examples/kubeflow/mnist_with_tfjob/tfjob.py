@@ -40,7 +40,6 @@ def main(_):
   file_io.copy(input_uri, training_data_path, True)
   
   (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path=training_data_path)
-
   train_labels = train_labels[:1000]
   test_labels = test_labels[:1000]
 
