@@ -1,7 +1,7 @@
 apiVersion: "kubeflow.org/v1beta2"
 kind: "TFJob"
 metadata:
-  name: "mnist-pach-s3-gateway-example2"
+  name: "mnist-pach-s3-gateway-example"
   namespace: kubeflow 
 spec:
   cleanPodPolicy: None 

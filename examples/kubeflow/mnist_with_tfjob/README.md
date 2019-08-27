@@ -65,47 +65,44 @@ input_bucket = os.getenv('INPUT_BUCKET', 'master.inputrepo')
 output_bucket  = os.getenv('OUTPUT_BUCKET', "master.outputrepo")
 # this is local directory we'll copy the files to
 data_dir  = os.getenv('DATA_DIR', "/data")
+# this is the training data file in the input repo
+training_data = os.getenv('TRAINING_DATA', "mninst.npz")
+# this is the name of model file in the output repo
+model_file = os.getenv('MODEL_FILE', "my_model.h5")
 
 def main(_):
-  # Declaring Pachyderm S3 Gateway input and output repos.
-  input_url = 's3://' + args.inputbucket + "/data/"
-  output_url = 's3://' + args.outputbucket + "/data/"
+  input_url = 's3://' + args.inputbucket + "/"
+  output_url = 's3://' + args.outputbucket + "/"
   
   os.makedirs(args.datadir)
 
   # first, we copy files from pachyderm into a convenient
-  # local directory for processing.  The files have been
-  # placed into the inputpath directory in the s3path bucket.
-  print("walking {} for copying files".format(input_url))
-  for dirpath, dirs, files in file_io.walk(input_url, True):
-    for file in files:
-      uri = os.path.join(dirpath, file)
-      newpath = os.path.join(args.datadir, file)
-      print("copying {} to {}".format(uri, newpath))
-      file_io.copy(uri, newpath, True)
-
-  path = '/tmp/data/mnist.npz'
-  (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path)
+  # local directory for processing.  
+  input_uri = os.path.join(input_url, args.trainingdata)
+  training_data_path = os.path.join(args.datadir, args.trainingdata)
+  print("copying {} to {}".format(input_uri, training_data_path))
+  file_io.copy(input_uri, training_data_path, True)
+  
+  (train_images, train_labels), (test_images, test_labels) = tf.keras.datasets.mnist.load_data(path=training_data_path)
 
   <<<< .... MNIST example below ..... >>>>
 ```
 The comments in the code provide a pretty good description of what's going on line by line. However a quick breakdown is this:  
 
-We're copying mnist.npz from our Pachyderm repo inputrepo@master via the [S3 Gateway](http://docs.pachyderm.com/en/latest/enterprise/s3gateway.html#using-the-s3-gateway) into a local directory in the container (`/tmp/data/`). Then we tell [TensorFlow](https://www.tensorflow.org/) to load that data and start training. 
+We're copying mnist.npz from our Pachyderm repo `inputrepo@master` via the [S3 Gateway](http://docs.pachyderm.com/en/latest/enterprise/s3gateway.html#using-the-s3-gateway) into a local directory in the container (`/tmp/data/`). Then we tell [TensorFlow](https://www.tensorflow.org/) to load that data and start training. 
 
 #### Mnist. Mnist. Mnist.  
 
-Once our code trains the model, it needs to save it somewhere. Just like we copied data into the container we can copy it back out again, all the while still maintaining some provenance. If you take a look at the `tfjob_mist.py` and scroll towards the bottom you'll see that we're just crawling the same `/tmp/data/` directory and copying it to the Pachyderm S3 Gateway output `url:s3://<pachyderminstance>/master.outputrepo:/data/`
-
+Once our code trains the model, it needs to save it somewhere. Just like we copied data into the container we can copy it back out again, all the while still maintaining some provenance. If you take a look at the `tfjob_mist.py` and scroll towards the bottom you'll see that the code is just copying the `my_model.h5` to the Pachyderm S3 Gateway `outputrepo` via `url:s3://<pachyderminstance>/master.outputrepo:/data/`
 
 ```
-print("walking {} for copying to {}".format(args.datadir, output_url))
-  for dirpath, dirs, files in os.walk(args.datadir, topdown=True):   
-    for file in files:
-      uri = os.path.join(dirpath, file)
-      newpath = output_url + file
-      print("copying {} to {}".format(uri, newpath))
-      file_io.copy(uri, newpath, True)
+# Save entire model to a HDF5 file
+  model_file =  os.path.join(args.datadir,args.modelfile)
+  model.save(model_file)
+  # Copy file over to Pachyderm
+  output_uri = os.path.join(output_url,args.modelfile)
+  print("copying {} to {}".format(model_file, output_uri))
+  file_io.copy(model_file, output_uri, True)
 ```
 
 Next, let's move onto how we deploy our code. Start by taking a look at the `tf_job_s3_gateway.yaml`:
@@ -114,7 +111,7 @@ Next, let's move onto how we deploy our code. Start by taking a look at the `tf_
 apiVersion: "kubeflow.org/v1beta2"
 kind: "TFJob"
 metadata:
-  name: "mnist-pach-s3-gateway-example"
+  name: "mnist-pach-s3-gateway-example2"
   namespace: kubeflow 
 spec:
   cleanPodPolicy: None 
@@ -126,7 +123,7 @@ spec:
         spec:
           containers:
             - name: tensorflow
-              image: nickharvey/pach_kflow_example:v1
+              image: pachyderm/mnist_klflow_example:v1.3
               env:
                 # This endpoint assumes that the pachd service was deployed
                 # in the namespace pachyderm.
@@ -141,29 +138,34 @@ spec:
                   value: "0"
                 - name: S3_VERIFY_SSL
                   value: "0"
+                - name: S3_REQUEST_TIMEOUT_MSEC
+                  value: "600000"
+                - name: S3_CONNECT_TIMEOUT_MSEC
+                  value: "600000"
+                - name: S3_REGION
+                  value: "us-east1-b"
               command:
                 - "python3"
-                - "tfjob.py"
+                - "/app/tfjob.py"
                 - "-i"
                 - "master.inputrepo"
                 - "-o"
                 - "master.outputrepo"
                 - "-d"
                 - "/tmp/data/"
+                - "-t"
+                - "mnist.npz"
+                - "-m"
+                - "my_model.h5"
 ```
-The 'mnist_tf_job_s3_gateway.yaml' is our spec file that Kubeflow and Kubernetes will use to deploy our code. You can find out everything you need to know about this spec file in the [Kubeflow TFjobs Docs](https://www.kubeflow.org/docs/components/training/tftraining/). Notice the Pachyderm repos, branches, and tmp location are being declared at the bottom.  
+The 'mnist_tf_job_s3_gateway.yaml' is our spec file that [Kubeflow](https://www.kubeflow.org/) and [Kubernetes](https://kubernetes.io/) will use to deploy our code. You can find out everything you need to know about this spec file in the [Kubeflow TFjobs Docs](https://www.kubeflow.org/docs/components/training/tftraining/). Notice the Pachyderm repos, branches, and data/model locations are being declared at the bottom.  
 
 To deploy just run the following:
 `kubectl create -f mnist_tf_job_s3_gateway.yaml`
 
 #### A few moments later...  
 
-We can check on things by going to the and click on TFJob Dasboard. 
-If you deployed Pachyderm and Kubeflow from our sample deployment script, 
-you can run
-`open $KF_URL` from macOS or `xdg_open $KF_URL` from Linux 
-to get to the Kubeflow dashboard.
-You should see something like:
+We can check on things by going to the and click on TFJob Dasboard. If you deployed Pachyderm and Kubeflow from our sample deployment script, you can run `open $KF_URL` from macOS or `xdg_open $KF_URL` from Linux to get to the Kubeflow dashboard. You should see something like:
 
 ![tfjob-dashboard](tfjob-dashboard.png)
 
