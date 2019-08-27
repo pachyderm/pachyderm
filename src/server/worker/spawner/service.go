@@ -1,8 +1,8 @@
 package spawner
 
-type serviceJob {
+type serviceItem {
+	serviceCtx context.Context
 	commitInfo *pfs.CommitInfo
-	cancel func()
 }
 
 // Runs the given callback with the latest commit for the pipeline.  The given
@@ -22,7 +22,10 @@ func forLatestCommit(
 	var serviceCtx context.Context
 	var serviceCancel func()
 
+	itemChan := make(chan serviceItem)
+
 	cancel := func() {
+		close(itemChan)
 		if serviceCancel != nil {
 			serviceCancel()
 		}
@@ -30,15 +33,21 @@ func forLatestCommit(
 
 	defer cancel()
 
+	// Run the callback in a single goroutine so we can ensure it runs in order
+	// and non-concurrently with itself.
+	go func() {
+		for item := range itemChan {
+			cb(item.ctx, item.commitInfo)
+		}
+	}
+
 	for {
 		if commitInfo, err := commitIter.Next(); err != nil {
 			return err
 		} else if commitInfo.Finished == nil {
 			cancel()
 			serviceCtx, serviceCancel = context.WithCancel(ctx)
-			go func() {
-				cb(serviceCtx, serviceCancel)
-			}
+			itemChan <- serviceItem{serviceCtx, commitInfo}
 		}
 	}
 }
@@ -75,6 +84,7 @@ func RunService(pachClient *client.APIClient, pipelineInfo *pps.PipelineInfo, ut
 				logger.Logf("error from runService: %+v", err)
 			}
 
+			// Only want to update this stuff if we were canceled due to a new commit
 			select {
 			case <-serviceCtx.Done():
 				if err := utils.UpdateJobState(ctx, job.ID, pps.JobState_JOB_SUCCESS); err != nil {
