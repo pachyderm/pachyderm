@@ -1,4 +1,5 @@
-# Go Capture Globbing Library
+# Oh my glob! Go capture globbing library
+<img align="right" width="220" height="220" src="https://i.imgur.com/kQoBuaZ.png">
 
 This library allows you to use capture groups in globs
 by using the extended globbing functions.
@@ -141,16 +142,3 @@ func main() {
 }
 
 ```
-
-## Performance
-
-This library is created for compile-once patterns. This means that the compilation could take time, but
-string matching is done faster, compared to the case when the template is compiled each time.
-
-Since it uses the Regexp2 library to do the matching and capturing, it performs about on par with regular expressions. 
-If you need something faster, and don't need capture groups, we recommend https://github.com/gobwas/glob.
-
-## Syntax
-
-Syntax is inspired by [standard wildcards](http://tldp.org/LDP/GNU-Linux-Tools-Summary/html/x11655.htm),
-except that `**` is a super-asterisk, which is not sensitive to separators.

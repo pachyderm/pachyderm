@@ -1,10 +1,7 @@
 package s2
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/base64"
-	"fmt"
+	"encoding/xml"
 	"io"
 	"net/http"
 	"time"
@@ -13,31 +10,67 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// GetObjectResult is a response from a GetObject call
 type GetObjectResult struct {
-	Name    string
-	ETag    string
+	// ETag is a hex encoding of the hash of the object contents, with or
+	// without surrounding quotes.
+	ETag string
+	// Version is the version of the object, or an empty string if versioning
+	// is not enabled or supported.
+	Version string
+	// DeleteMarker specifies whether there's a delete marker in place of the
+	// object.
+	DeleteMarker bool
+	// ModTime specifies when the object was modified.
 	ModTime time.Time
+	// Content is the contents of the object.
 	Content io.ReadSeeker
 }
 
+// PutObjectResult is a response from a PutObject call
+type PutObjectResult struct {
+	// ETag is a hex encoding of the hash of the object contents, with or
+	// without surrounding quotes.
+	ETag string
+	// Version is the version of the object, or an empty string if versioning
+	// is not enabled or supported.
+	Version string
+}
+
+// DeleteObjectResult is a response from a DeleteObject call
+type DeleteObjectResult struct {
+	// Version is the version of the object, or an empty string if versioning
+	// is not enabled or supported.
+	Version string
+	// DeleteMarker specifies whether there's a delete marker in place of the
+	// object.
+	DeleteMarker bool
+}
+
+// ObjectController is an interface that specifies object-level functionality.
 type ObjectController interface {
-	Get(r *http.Request, bucket, key string, result *GetObjectResult) error
-	Put(r *http.Request, bucket, key string, reader io.Reader) error
-	Del(r *http.Request, bucket, key string) error
+	// GetObject gets an object
+	GetObject(r *http.Request, bucket, key, version string) (*GetObjectResult, error)
+	// PutObject sets an object
+	PutObject(r *http.Request, bucket, key string, reader io.Reader) (*PutObjectResult, error)
+	// DeleteObject deletes an object
+	DeleteObject(r *http.Request, bucket, key, version string) (*DeleteObjectResult, error)
 }
 
-type UnimplementedObjectController struct{}
+// unimplementedObjectController defines a controller that returns
+// `NotImplementedError` for all functionality
+type unimplementedObjectController struct{}
 
-func (c UnimplementedObjectController) Get(r *http.Request, bucket, key string, result *GetObjectResult) error {
-	return NotImplementedError(r)
+func (c unimplementedObjectController) GetObject(r *http.Request, bucket, key, version string) (*GetObjectResult, error) {
+	return nil, NotImplementedError(r)
 }
 
-func (c UnimplementedObjectController) Put(r *http.Request, bucket, key string, reader io.Reader) error {
-	return NotImplementedError(r)
+func (c unimplementedObjectController) PutObject(r *http.Request, bucket, key string, reader io.Reader) (*PutObjectResult, error) {
+	return nil, NotImplementedError(r)
 }
 
-func (c UnimplementedObjectController) Del(r *http.Request, bucket, key string) error {
-	return NotImplementedError(r)
+func (c unimplementedObjectController) DeleteObject(r *http.Request, bucket, key, version string) (*DeleteObjectResult, error) {
+	return nil, NotImplementedError(r)
 }
 
 type objectHandler struct {
@@ -49,57 +82,52 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
+	versionId := r.FormValue("versionId")
 
-	result := &GetObjectResult{}
-
-	if err := h.controller.Get(r, bucket, key, result); err != nil {
-		writeError(h.logger, r, w, err)
+	result, err := h.controller.GetObject(r, bucket, key, versionId)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
 	if result.ETag != "" {
-		w.Header().Set("ETag", fmt.Sprintf("\"%s\"", result.ETag))
+		w.Header().Set("ETag", addETagQuotes(result.ETag))
+	}
+	if result.Version != "" {
+		w.Header().Set("x-amz-version-id", result.Version)
 	}
 
-	http.ServeContent(w, r, result.Name, result.ModTime, result.Content)
+	if result.DeleteMarker {
+		w.Header().Set("x-amz-delete-marker", "true")
+		WriteError(h.logger, w, r, NoSuchKeyError(r))
+		return
+	}
+
+	http.ServeContent(w, r, key, result.ModTime, result.Content)
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
+	if err := requireContentLength(r); err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
 
-	expectedHash, ok := r.Header["Content-Md5"]
-	var expectedHashBytes []uint8
-	var err error
-	if ok && len(expectedHash) == 1 {
-		expectedHashBytes, err = base64.StdEncoding.DecodeString(expectedHash[0])
-		if err != nil || len(expectedHashBytes) != 16 {
-			InvalidDigestError(r).Write(h.logger, w)
-			return
-		}
-	}
-
-	hasher := md5.New()
-	reader := io.TeeReader(r.Body, hasher)
-	if err := h.controller.Put(r, bucket, key, reader); err != nil {
-		writeError(h.logger, r, w, err)
+	result, err := h.controller.PutObject(r, bucket, key, r.Body)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
-	actualHashBytes := hasher.Sum(nil)
-	if expectedHashBytes != nil && !bytes.Equal(expectedHashBytes, actualHashBytes) {
-		BadDigestError(r).Write(h.logger, w)
-
-		// try to clean up the file
-		if err := h.controller.Del(r, bucket, key); err != nil {
-			h.logger.Errorf("could not clean up file after an error: %+v", err)
-		}
-
-		return
+	if result.ETag != "" {
+		w.Header().Set("ETag", addETagQuotes(result.ETag))
 	}
-
-	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", actualHashBytes))
+	if result.Version != "" {
+		w.Header().Set("x-amz-version-id", result.Version)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -107,11 +135,102 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
+	versionId := r.FormValue("versionId")
 
-	if err := h.controller.Del(r, bucket, key); err != nil {
-		writeError(h.logger, r, w, err)
+	result, err := h.controller.DeleteObject(r, bucket, key, versionId)
+	if err != nil {
+		WriteError(h.logger, w, r, err)
 		return
 	}
 
+	if result.Version != "" {
+		w.Header().Set("x-amz-version-id", result.Version)
+	}
+	if result.DeleteMarker {
+		w.Header().Set("x-amz-delete-marker", "true")
+	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *objectHandler) post(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+
+	payload := struct {
+		XMLName xml.Name `xml:"Delete"`
+		Quiet   bool     `xml:"Quiet"`
+		Objects []struct {
+			Key     string `xml:"Key"`
+			Version string `xml:"VersionId"`
+		} `xml:"Object"`
+	}{}
+	if err := readXMLBody(r, &payload); err != nil {
+		WriteError(h.logger, w, r, err)
+		return
+	}
+
+	marshallable := struct {
+		XMLName xml.Name `xml:"DeleteResult"`
+		Deleted []struct {
+			Key                 string `xml:"Key"`
+			Version             string `xml:"Version,omitempty"`
+			DeleteMarker        bool   `xml:"Code,omitempty"`
+			DeleteMarkerVersion string `xml:"DeleteMarkerVersionId,omitempty"`
+		} `xml:"Deleted"`
+		Errors []struct {
+			Key     string `xml:"Key"`
+			Code    string `xml:"Code"`
+			Message string `xml:"Message"`
+		} `xml:"Error"`
+	}{
+		Deleted: []struct {
+			Key                 string `xml:"Key"`
+			Version             string `xml:"Version,omitempty"`
+			DeleteMarker        bool   `xml:"Code,omitempty"`
+			DeleteMarkerVersion string `xml:"DeleteMarkerVersionId,omitempty"`
+		}{},
+		Errors: []struct {
+			Key     string `xml:"Key"`
+			Code    string `xml:"Code"`
+			Message string `xml:"Message"`
+		}{},
+	}
+
+	for _, object := range payload.Objects {
+		result, err := h.controller.DeleteObject(r, bucket, object.Key, object.Version)
+		if err != nil {
+			s3Err := NewFromGenericError(r, err)
+
+			marshallable.Errors = append(marshallable.Errors, struct {
+				Key     string `xml:"Key"`
+				Code    string `xml:"Code"`
+				Message string `xml:"Message"`
+			}{
+				Key:     object.Key,
+				Code:    s3Err.Code,
+				Message: s3Err.Message,
+			})
+		} else {
+			deleteMarkerVersion := ""
+			if result.DeleteMarker {
+				deleteMarkerVersion = result.Version
+			}
+
+			if !payload.Quiet {
+				marshallable.Deleted = append(marshallable.Deleted, struct {
+					Key                 string `xml:"Key"`
+					Version             string `xml:"Version,omitempty"`
+					DeleteMarker        bool   `xml:"Code,omitempty"`
+					DeleteMarkerVersion string `xml:"DeleteMarkerVersionId,omitempty"`
+				}{
+					Key:                 object.Key,
+					Version:             object.Version,
+					DeleteMarker:        result.DeleteMarker,
+					DeleteMarkerVersion: deleteMarkerVersion,
+				})
+			}
+		}
+	}
+
+	writeXML(h.logger, w, r, http.StatusOK, marshallable)
 }

@@ -31,6 +31,11 @@ email at support@pachyderm.io.
 
 .. toctree::
    :maxdepth: 2
+
+   concepts/index.rst
+
+.. toctree::
+   :maxdepth: 2
    :caption: Enterprise Edition
 
    enterprise/index.rst

@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	pachClient  *client.APIClient
+	pc          *client.APIClient
 	minioClient *minio.Client
 	clientOnce  sync.Once
 )
@@ -36,13 +36,13 @@ func clients(t testing.TB) (*client.APIClient, *minio.Client) {
 	clientOnce.Do(func() {
 		var err error
 
-		pachClient, err = client.NewForTest()
+		pc, err = client.NewForTest()
 		require.NoError(t, err)
 
-		minioClient, err = minio.NewV2("127.0.0.1:30600", "id", "secret", false)
+		minioClient, err = minio.NewV4("127.0.0.1:30600", "", "", false)
 		require.NoError(t, err)
 	})
-	return pachClient, minioClient
+	return pc, minioClient
 }
 
 func getObject(t *testing.T, c *minio.Client, repo, branch, file string) (string, error) {
@@ -307,6 +307,63 @@ func TestRemoveObject(t *testing.T) {
 	// make sure the object no longer exists
 	_, err = getObject(t, c, repo, "master", "file")
 	keyNotFoundError(t, err)
+}
+
+// Tests inserting and getting files over 64mb in size
+func TestLargeObjects(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	pc, c := clients(t)
+
+	// test repos: repo1 exists, repo2 does not
+	repo1 := tu.UniqueString("testlargeobject1")
+	repo2 := tu.UniqueString("testlargeobject2")
+	require.NoError(t, pc.CreateRepo(repo1))
+	require.NoError(t, pc.CreateBranch(repo1, "master", "", nil))
+
+	// create a temporary file to put ~65mb of contents into it
+	inputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-input-*")
+	require.NoError(t, err)
+	defer os.Remove(inputFile.Name())
+	n, err := inputFile.WriteString(strings.Repeat("no tv and no beer make homer something something.\n", 1363149))
+	require.NoError(t, err)
+	require.Equal(t, n, 68157450)
+	require.NoError(t, inputFile.Sync())
+
+	// first ensure that putting into a repo that doesn't exist triggers an
+	// error
+	_, err = c.FPutObject(fmt.Sprintf("master.%s", repo2), "file", inputFile.Name(), minio.PutObjectOptions{
+		ContentType: "text/plain",
+	})
+	bucketNotFoundError(t, err)
+
+	// now try putting into a legit repo
+	l, err := c.FPutObject(fmt.Sprintf("master.%s", repo1), "file", inputFile.Name(), minio.PutObjectOptions{
+		ContentType: "text/plain",
+	})
+	require.NoError(t, err)
+	require.Equal(t, int(l), 68157450)
+
+	// try getting an object that does not exist
+	err = c.FGetObject(fmt.Sprintf("master.%s", repo2), "file", "foo", minio.GetObjectOptions{})
+	bucketNotFoundError(t, err)
+
+	// get the file that does exist
+	outputFile, err := ioutil.TempFile("", "pachyderm-test-large-objects-output-*")
+	require.NoError(t, err)
+	defer os.Remove(outputFile.Name())
+	err = c.FGetObject(fmt.Sprintf("master.%s", repo1), "file", outputFile.Name(), minio.GetObjectOptions{})
+	require.True(t, err == nil || err == io.EOF, fmt.Sprintf("unexpected error: %s", err))
+
+	// compare the files and ensure they're the same
+	// NOTE: Because minio's `FGetObject` does a rename from a buffer file
+	// to the given filepath, `outputFile` will refer to an empty, overwritten
+	// file. We can still use `outputFile.Name()` though.
+	inputFileSize, inputFileHash := fileHash(t, inputFile.Name())
+	outputFileSize, outputFileHash := fileHash(t, inputFile.Name())
+	require.Equal(t, inputFileSize, outputFileSize)
+	require.Equal(t, inputFileHash, outputFileHash)
 }
 
 func TestGetObjectNoHead(t *testing.T) {
@@ -588,4 +645,16 @@ func TestListObjectsRecursive(t *testing.T) {
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
 	ch = c.ListObjects(fmt.Sprintf("master.%s", repo), "rootdir/subdir/2", true, make(chan struct{}))
 	checkListObjects(t, ch, startTime, endTime, expectedFiles, []string{})
+}
+
+func TestAuthV2(t *testing.T) {
+	// The other tests use auth V4, versus this which checks auth V2
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
 }
