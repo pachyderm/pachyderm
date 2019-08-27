@@ -5,6 +5,7 @@ option go_package = "github.com/pachyderm/pachyderm/src/client/pfs";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
 import "google/protobuf/wrappers.proto";
 
 import "gogoproto/gogo.proto";
@@ -54,6 +55,15 @@ message Tag {
   string name = 1;
 }
 
+message RetentionSpec {
+  // Duration indicates that commits should expire after the duration has
+  // elapsed.
+  google.protobuf.Duration duration = 1;
+  // Transitive indicates that commits should expire when any of their
+  // provenant commits does.
+  bool transitive = 2;
+}
+
 // RepoInfo is the main data structure representing a Repo in etcd
 message RepoInfo {
   reserved 4;
@@ -67,6 +77,9 @@ message RepoInfo {
   // not stored in etcd. To set a user's auth scope for a repo, use the
   // Pachyderm Auth API (in src/client/auth/auth.proto)
   RepoAuthInfo auth_info = 6;
+
+  // Retention spec specifies how long data in this repo should be retained.
+  RetentionSpec retention_spec = 8;
 }
 
 // RepoAuthInfo includes the caller's access scope for a repo, and is returned
@@ -142,6 +155,8 @@ message CommitInfo {
   Object tree = 7;
   repeated Object trees = 13;
   Object datums = 14;
+
+  google.protobuf.Timestamp expires = 18;
 }
 
 enum FileType {
@@ -185,6 +200,7 @@ message CreateRepoRequest {
   Repo repo = 1;
   string description = 3;
   bool update = 4;
+  RetentionSpec retention_spec = 5;
 }
 
 message InspectRepoRequest {
