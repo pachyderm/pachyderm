@@ -13,7 +13,7 @@ spec:
         spec:
           containers:
             - name: tensorflow
-              image: pachyderm/mnist_klflow_example:v1.3
+              image: pachyderm/mnist_klflow_example:1.9.3
               env:
                 # This endpoint assumes that the pachd service was deployed
                 # in the namespace pachyderm.
