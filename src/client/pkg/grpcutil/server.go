@@ -5,30 +5,15 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"os"
-	"path"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/pachyderm/pachyderm/src/client/pkg/tls"
 	"github.com/pachyderm/pachyderm/src/client/pkg/tracing"
 	log "github.com/sirupsen/logrus"
-)
-
-const (
-	// TLSVolumePath is the path at which the tls cert and private key (if any)
-	// will be mounted in the pachd pod
-	TLSVolumePath = "/pachd-tls-cert"
-
-	// TLSCertFile is the name of the mounted file containing a TLS certificate
-	// that identifies pachd
-	TLSCertFile = "tls.crt"
-
-	// TLSKeyFile is the name of the mounted file containing a private key
-	// corresponding to the public certificate in TLSCertFile
-	TLSKeyFile = "tls.key"
 )
 
 var (
@@ -83,17 +68,10 @@ func Serve(
 		}
 		if server.PublicPortTLSAllowed {
 			// Validate environment
-			certPath := path.Join(TLSVolumePath, TLSCertFile)
-			keyPath := path.Join(TLSVolumePath, TLSKeyFile)
-			_, certPathStatErr := os.Stat(certPath)
-			_, keyPathStatErr := os.Stat(keyPath)
-			if certPathStatErr != nil {
-				log.Warnf("TLS disabled: could not stat public cert at %s: %v", certPath, certPathStatErr)
-			}
-			if keyPathStatErr != nil {
-				log.Warnf("TLS disabled: could not stat private key at %s: %v", keyPath, keyPathStatErr)
-			}
-			if certPathStatErr == nil && keyPathStatErr == nil {
+			certPath, keyPath, err := tls.GetCertPaths()
+			if err != nil {
+				log.Warnf("TLS disabled: %v", err)
+			} else {
 				// Read TLS cert and key
 				transportCreds, err := credentials.NewServerTLSFromFile(certPath, keyPath)
 				if err != nil {

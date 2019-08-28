@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	minio "github.com/minio/minio-go"
 	"github.com/pachyderm/pachyderm/src/client"
 	"github.com/pachyderm/pachyderm/src/client/auth"
 	"github.com/pachyderm/pachyderm/src/client/enterprise"
@@ -72,6 +73,7 @@ func isAuthActive(tb testing.TB, checkConfig bool) bool {
 	default:
 		panic(fmt.Sprintf("could not determine if auth is activated: %v", err))
 	}
+	return active
 }
 
 // getPachClientInternal is a helper function called by getPachClient. It
@@ -2682,6 +2684,47 @@ func TestOneTimePasswordExpires(t *testing.T) {
 	require.YesError(t, err)
 	require.Nil(t, authResp)
 	deleteAll(t)
+}
+
+func TestS3GatewayAuthRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	// generate auth credentials
+	alice := tu.UniqueString("alice")
+	aliceClient, anonClient := getPachClient(t, alice), getPachClient(t, "")
+	codeResp, err := aliceClient.GetOneTimePassword(aliceClient.Ctx(), &auth.GetOneTimePasswordRequest{})
+	require.NoError(t, err)
+	authResp, err := anonClient.Authenticate(anonClient.Ctx(), &auth.AuthenticateRequest{
+		OneTimePassword: codeResp.Code,
+	})
+	require.NoError(t, err)
+	authToken := authResp.PachToken
+
+	// anon login via V2 - should fail
+	minioClientV2, err := minio.NewV2("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.YesError(t, err)
+
+	// anon login via V4 - should fail
+	minioClientV4, err := minio.NewV4("127.0.0.1:30600", "", "", false)
+	require.NoError(t, err)
+	_, err = minioClientV4.ListBuckets()
+	require.YesError(t, err)
+
+	// proper login via V2 - should succeed
+	minioClientV2, err = minio.NewV2("127.0.0.1:30600", authToken, authToken, false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
+
+	// proper login via V4 - should succeed
+	minioClientV2, err = minio.NewV4("127.0.0.1:30600", authToken, authToken, false)
+	require.NoError(t, err)
+	_, err = minioClientV2.ListBuckets()
+	require.NoError(t, err)
 }
 
 // TestDeleteFailedPipeline creates a pipeline with an invalid image and then
